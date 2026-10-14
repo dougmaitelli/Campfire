@@ -10,6 +10,7 @@ export interface WizardStep {
 }
 
 interface WizardProps {
+  allowAllSteps?: boolean;
   steps: readonly WizardStep[];
   busy: boolean;
   error: string | null;
@@ -19,6 +20,7 @@ interface WizardProps {
 }
 
 export function Wizard({
+  allowAllSteps = false,
   steps,
   busy,
   error,
@@ -27,7 +29,9 @@ export function Wizard({
   onCancel,
 }: WizardProps) {
   const [index, setIndex] = useState(0);
-  const [completedThrough, setCompletedThrough] = useState(-1);
+  const [completedThrough, setCompletedThrough] = useState(() =>
+    allowAllSteps ? steps.length - 1 : -1,
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -50,7 +54,12 @@ export function Wizard({
   }
 
   function goToStep(position: number) {
-    if (busy || position === index || position > completedThrough + 1) return;
+    if (
+      busy ||
+      position === index ||
+      (!allowAllSteps && position > completedThrough + 1)
+    )
+      return;
     if (position > index && !validateCurrentStep()) return;
     setValidationError(null);
     setIndex(position);
@@ -86,7 +95,9 @@ export function Wizard({
             <button
               type="button"
               className="wizard-step-link"
-              disabled={busy || position > completedThrough + 1}
+              disabled={
+                busy || (!allowAllSteps && position > completedThrough + 1)
+              }
               aria-current={index === position ? "step" : undefined}
               onClick={() => goToStep(position)}
             >

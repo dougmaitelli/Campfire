@@ -112,6 +112,7 @@ export function SparkDialog({
           </p>
         </div>
         <Wizard
+          allowAllSteps={spark !== null}
           busy={submitting}
           error={error}
           finishLabel={spark ? "Save changes" : "Add Spark"}
