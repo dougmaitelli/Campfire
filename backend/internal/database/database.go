@@ -9,11 +9,19 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3" // Register the SQLite driver.
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
-// Open opens a persistent SQLite database and applies the schema transactionally.
-func Open(ctx context.Context, path string) (*sql.DB, error) {
+// Database owns the ORM and its underlying connection pool.
+type Database struct {
+	orm *gorm.DB
+	sql *sql.DB
+}
+
+// Open opens SQLite and applies versioned ORM migrations transactionally.
+func Open(ctx context.Context, path string) (*Database, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("resolve database path: %w", err)
@@ -25,61 +33,66 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 
 	dsn := (&url.URL{Scheme: "file", Path: absolute}).String() + "?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL"
 
-	db, err := sql.Open("sqlite3", dsn)
+	orm, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
+		Logger:         logger.Default.LogMode(logger.Silent),
+		TranslateError: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	pool, err := orm.DB()
+	if err != nil {
+		return nil, fmt.Errorf("access database pool: %w", err)
+	}
 
-	if err := migrate(ctx, db); err != nil {
-		_ = db.Close()
+	pool.SetMaxOpenConns(1)
+	pool.SetMaxIdleConns(1)
+
+	db := &Database{orm: orm, sql: pool}
+	if err := migrate(orm.WithContext(ctx)); err != nil {
+		_ = pool.Close()
 		return nil, err
 	}
 
 	return db, nil
 }
 
-func migrate(ctx context.Context, db *sql.DB) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin migration: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
+// ORM returns the shared ORM for repositories.
+func (d *Database) ORM() *gorm.DB {
+	return d.orm
+}
 
-	if _, err := tx.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY)"); err != nil {
-		return fmt.Errorf("initialize migrations: %w", err)
-	}
+// Close releases the underlying connection pool.
+func (d *Database) Close() error {
+	return d.sql.Close()
+}
 
-	var version int
-	if err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&version); err != nil {
-		return fmt.Errorf("read schema version: %w", err)
-	}
-
-	if version > 1 {
-		return fmt.Errorf("database schema version %d is newer than supported version 1", version)
-	}
-
-	if version == 0 {
-		_, err = tx.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS sparks (
-			id TEXT PRIMARY KEY,
-			name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-			kind TEXT NOT NULL CHECK (kind IN ('local', 'remote')),
-			created_at TEXT NOT NULL
-		);
-		CREATE UNIQUE INDEX IF NOT EXISTS sparks_one_local ON sparks(kind) WHERE kind = 'local';
-		INSERT INTO schema_migrations(version) VALUES (1);
-	`)
-		if err != nil {
-			return fmt.Errorf("apply Spark schema: %w", err)
+func migrate(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.AutoMigrate(&schemaMigration{}); err != nil {
+			return fmt.Errorf("initialize migrations: %w", err)
 		}
-	}
 
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit migration: %w", err)
-	}
+		var version int
+		if err := tx.Model(&schemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&version).Error; err != nil {
+			return fmt.Errorf("read schema version: %w", err)
+		}
 
-	return nil
+		if version > 1 {
+			return fmt.Errorf("database schema version %d is newer than supported version 1", version)
+		}
+
+		if version == 0 {
+			if err := tx.AutoMigrate(&Spark{}); err != nil {
+				return fmt.Errorf("apply Spark schema: %w", err)
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 1}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		return nil
+	})
 }

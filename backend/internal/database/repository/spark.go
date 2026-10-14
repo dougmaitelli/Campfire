@@ -3,14 +3,14 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
+	"campfire/internal/database"
 	"campfire/internal/model"
 
-	"github.com/mattn/go-sqlite3"
+	"gorm.io/gorm"
 )
 
 // Repository errors distinguish missing records and uniqueness conflicts.
@@ -19,22 +19,22 @@ var (
 	ErrConflict = errors.New("a Spark with that name or a local Spark already exists")
 )
 
-// SparkRepository persists Spark records.
-type SparkRepository struct{ db *sql.DB }
+// SparkRepository persists Spark records using GORM.
+type SparkRepository struct{ db *gorm.DB }
 
 // NewSparkRepository creates a repository using the shared database pool.
-func NewSparkRepository(db *sql.DB) *SparkRepository {
+func NewSparkRepository(db *gorm.DB) *SparkRepository {
 	return &SparkRepository{db: db}
 }
 
 // Create inserts a Spark, enforcing unique names and a single local node.
 func (r *SparkRepository) Create(ctx context.Context, spark model.Spark) error {
-	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO sparks(id, name, kind, created_at) VALUES (?, ?, ?, ?)",
-		spark.ID, spark.Name, spark.Kind, spark.CreatedAt.Format(time.RFC3339Nano))
-	if err != nil {
-		var sqliteError sqlite3.Error
-		if errors.As(err, &sqliteError) && (sqliteError.ExtendedCode == sqlite3.ErrConstraintUnique || sqliteError.ExtendedCode == sqlite3.ErrConstraintPrimaryKey) {
+	record := database.Spark{
+		ID: spark.ID, Name: spark.Name, Kind: string(spark.Kind),
+		CreatedAt: spark.CreatedAt.Format(time.RFC3339Nano),
+	}
+	if err := r.db.WithContext(ctx).Create(&record).Error; err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return ErrConflict
 		}
 
@@ -46,16 +46,14 @@ func (r *SparkRepository) Create(ctx context.Context, spark model.Spark) error {
 
 // List returns Sparks in creation order.
 func (r *SparkRepository) List(ctx context.Context) ([]model.Spark, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, name, kind, created_at FROM sparks ORDER BY created_at, id")
-	if err != nil {
+	var records []database.Spark
+	if err := r.db.WithContext(ctx).Order("created_at").Order("id").Find(&records).Error; err != nil {
 		return nil, fmt.Errorf("list Sparks: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
 
-	sparks := make([]model.Spark, 0)
-
-	for rows.Next() {
-		spark, err := scanSpark(rows)
+	sparks := make([]model.Spark, 0, len(records))
+	for _, record := range records {
+		spark, err := toSpark(record)
 		if err != nil {
 			return nil, err
 		}
@@ -63,36 +61,30 @@ func (r *SparkRepository) List(ctx context.Context) ([]model.Spark, error) {
 		sparks = append(sparks, spark)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read Sparks: %w", err)
-	}
-
 	return sparks, nil
 }
 
 // Get looks up a Spark by its opaque identifier.
 func (r *SparkRepository) Get(ctx context.Context, id string) (model.Spark, error) {
-	return scanSpark(r.db.QueryRowContext(ctx, "SELECT id, name, kind, created_at FROM sparks WHERE id = ?", id))
-}
-
-func scanSpark(row interface{ Scan(...any) error }) (model.Spark, error) {
-	var spark model.Spark
-
-	var createdAt string
-	if err := row.Scan(&spark.ID, &spark.Name, &spark.Kind, &createdAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	var record database.Spark
+	if err := r.db.WithContext(ctx).Where("id = ?", id).Take(&record).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return model.Spark{}, ErrNotFound
 		}
 
 		return model.Spark{}, fmt.Errorf("read Spark: %w", err)
 	}
 
-	timestamp, err := time.Parse(time.RFC3339Nano, createdAt)
+	return toSpark(record)
+}
+
+func toSpark(record database.Spark) (model.Spark, error) {
+	timestamp, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
 	if err != nil {
 		return model.Spark{}, fmt.Errorf("read Spark timestamp: %w", err)
 	}
 
-	spark.CreatedAt = timestamp
-
-	return spark, nil
+	return model.Spark{
+		ID: record.ID, Name: record.Name, Kind: model.SparkKind(record.Kind), CreatedAt: timestamp,
+	}, nil
 }

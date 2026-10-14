@@ -17,7 +17,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := db.ExecContext(ctx, "INSERT INTO schema_migrations(version) VALUES (2)"); err != nil {
+	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (2)").Error; err != nil {
 		t.Fatal(err)
 	}
 

@@ -36,7 +36,7 @@ func openAPI(t *testing.T, path string) (http.Handler, func()) {
 	}
 	t.Cleanup(closeDB)
 
-	return api.New(service.NewSparkService(repository.NewSparkRepository(db))).Handler(), closeDB
+	return api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()))).Handler(), closeDB
 }
 
 func request(handler http.Handler, method, path, body string) *httptest.ResponseRecorder {
