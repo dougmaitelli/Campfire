@@ -1,0 +1,21 @@
+:root {
+  color-scheme: dark;
+  --bg: #141512;
+  --surface: #1e211b;
+  --border: #34392e;
+  --text: #eeeadd;
+  --muted: #b0b5a3;
+  --accent: #efa45b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
