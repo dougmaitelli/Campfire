@@ -13,10 +13,17 @@ import (
 
 // API translates HTTP requests into service calls.
 type API struct {
-	sparks  *service.SparkService
-	embers  *service.EmberService
-	servers *service.ServerService
-	agents  *spark.Hub
+	sparks     *service.SparkService
+	embers     *service.EmberService
+	servers    *service.ServerService
+	agents     *spark.Hub
+	deployment *service.DeploymentService
+}
+
+// WithDeployment enables explicit delivery of saved server configurations.
+func (a *API) WithDeployment(deployment *service.DeploymentService) *API {
+	a.deployment = deployment
+	return a
 }
 
 // WithAgentHub enables remote node enrollment and connection status.
@@ -41,6 +48,8 @@ func writeError(w http.ResponseWriter, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 
 	switch {
+	case errors.Is(err, service.ErrDeploymentUnavailable):
+		status, message = http.StatusServiceUnavailable, service.ErrDeploymentUnavailable.Error()
 	case errors.Is(err, service.ErrInvalidSpark), errors.Is(err, service.ErrInvalidDescription), errors.Is(err, service.ErrEmptySparkUpdate), errors.Is(err, service.ErrInvalidSettings), errors.Is(err, service.ErrInvalidEmber), errors.Is(err, service.ErrInvalidServer):
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, service.ErrSparkConflict):

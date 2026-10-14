@@ -2,8 +2,29 @@ package api
 
 import (
 	"campfire/internal/model"
+	"campfire/internal/service"
 	"net/http"
 )
+
+func (a *API) syncServerConfiguration(w http.ResponseWriter, r *http.Request) {
+	var input struct{}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	if a.deployment == nil {
+		writeError(w, service.ErrDeploymentUnavailable)
+		return
+	}
+
+	receipt, err := a.deployment.Sync(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, receipt)
+}
 
 func (a *API) createServer(w http.ResponseWriter, r *http.Request) {
 	var input model.ServerConfiguration

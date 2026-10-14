@@ -95,7 +95,14 @@ func Run(ctx context.Context, args []string) error {
 
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
-	handler := api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity), embers, servers).WithAgentHub(hub).Handler()
+	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
+
+	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(filepath.Dir(*dbPath), "servers")}}
+	if hub != nil {
+		deployment.Remote = hub
+	}
+
+	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).Handler()
 	admin := newHTTPServer(ctx, handler)
 
 	var active []*http.Server
@@ -164,7 +171,7 @@ func Run(ctx context.Context, args []string) error {
 func newHTTPServer(ctx context.Context, handler http.Handler) *http.Server {
 	return &http.Server{
 		Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
-		WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second,
+		WriteTimeout: 40 * time.Second, IdleTimeout: 60 * time.Second,
 		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 }

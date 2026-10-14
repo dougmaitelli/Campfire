@@ -15,7 +15,7 @@ import (
 )
 
 // ProtocolVersion is the supported panel-agent wire protocol.
-const ProtocolVersion = 1
+const ProtocolVersion = 2
 
 // EnrollmentStore is the persistence boundary for agent authentication.
 type EnrollmentStore interface {
@@ -39,11 +39,13 @@ type Enrollment struct {
 
 // Message carries versioned agent handshake and heartbeat data.
 type Message struct {
-	Type     string `json:"type"`
-	Protocol int    `json:"protocol"`
-	SparkID  string `json:"spark_id,omitempty"`
-	Hostname string `json:"hostname,omitempty"`
-	Version  string `json:"version,omitempty"`
+	Type     string           `json:"type"`
+	Protocol int              `json:"protocol"`
+	SparkID  string           `json:"spark_id,omitempty"`
+	Hostname string           `json:"hostname,omitempty"`
+	Version  string           `json:"version,omitempty"`
+	Command  *Command         `json:"command,omitempty"`
+	Response *CommandResponse `json:"response,omitempty"`
 }
 
 // AgentInfo describes a currently connected agent.
@@ -52,8 +54,12 @@ type AgentInfo struct {
 	Version  string
 }
 type peer struct {
-	conn *websocket.Conn
-	info AgentInfo
+	conn     *websocket.Conn
+	info     AgentInfo
+	mu       sync.Mutex
+	pending  map[string]chan CommandResponse
+	outbound chan Message
+	done     chan struct{}
 }
 
 // Hub owns live remote-agent connections; connection state is never persisted.
@@ -168,7 +174,7 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 
 	defer func() { _ = conn.Close() }()
 
-	conn.SetReadLimit(16384)
+	conn.SetReadLimit(2 << 20)
 
 	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		return
@@ -187,7 +193,8 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	current := &peer{conn: conn, info: AgentInfo{Hostname: hello.Hostname, Version: hello.Version}}
+	current := &peer{conn: conn, info: AgentInfo{Hostname: hello.Hostname, Version: hello.Version}, pending: make(map[string]chan CommandResponse), outbound: make(chan Message, 64), done: make(chan struct{})}
+	defer close(current.done)
 
 	h.mu.Lock()
 	if h.closed {
@@ -224,24 +231,32 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		defer ticker.Stop()
 
 		for {
+			var outgoing Message
 			select {
 			case <-ctx.Done():
 				return
+			case outgoing = <-current.outbound:
+				if !h.store.Authorized(ctx, id, hash) {
+					_ = conn.Close()
+					return
+				}
 			case <-ticker.C:
 				if !h.store.Authorized(ctx, id, hash) {
 					_ = conn.Close()
 					return
 				}
 
-				if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-					_ = conn.Close()
-					return
-				}
+				outgoing = Message{Type: "heartbeat", Protocol: ProtocolVersion}
+			}
 
-				if err := conn.WriteJSON(Message{Type: "heartbeat", Protocol: ProtocolVersion}); err != nil {
-					_ = conn.Close()
-					return
-				}
+			if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				_ = conn.Close()
+				return
+			}
+
+			if err := conn.WriteJSON(outgoing); err != nil {
+				_ = conn.Close()
+				return
 			}
 		}
 	}()
@@ -252,7 +267,26 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var message Message
-		if err := conn.ReadJSON(&message); err != nil || message.Type != "heartbeat" || message.Protocol != ProtocolVersion {
+		if err := conn.ReadJSON(&message); err != nil || message.Protocol != ProtocolVersion {
+			return
+		}
+
+		switch message.Type {
+		case "heartbeat":
+		case "response":
+			if message.Response == nil || message.Response.ID == "" || (message.Response.Error == nil) == (message.Response.Receipt == nil) {
+				return
+			}
+
+			current.mu.Lock()
+			if pending := current.pending[message.Response.ID]; pending != nil {
+				select {
+				case pending <- *message.Response:
+				default:
+				}
+			}
+			current.mu.Unlock()
+		default:
 			return
 		}
 	}

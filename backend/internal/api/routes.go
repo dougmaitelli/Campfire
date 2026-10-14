@@ -19,6 +19,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/servers/{id}", a.getServer)
 	mux.HandleFunc("PUT /api/v1/servers/{id}", a.updateServer)
 	mux.HandleFunc("DELETE /api/v1/servers/{id}", a.deleteServer)
+	mux.HandleFunc("POST /api/v1/servers/{id}/configuration", a.syncServerConfiguration)
 
 	return mux
 }

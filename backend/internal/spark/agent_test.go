@@ -166,6 +166,8 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 		t.Fatal("agent handshake metadata missing")
 	}
 
+	testWireCommands(t, hub, node.ID, agentDir)
+
 	hub.Disconnect(node.ID)
 	waitCondition(t, func() bool { return !hub.Connected(node.ID) })
 	waitCondition(t, func() bool { return hub.Connected(node.ID) })

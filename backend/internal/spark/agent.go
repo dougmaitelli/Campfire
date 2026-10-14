@@ -107,7 +107,7 @@ agentLoop:
 	for ctx.Err() == nil {
 		started := time.Now()
 
-		err := connectAgent(ctx, target.String(), identity.ID, tlsConfig, config.dialContext)
+		err := connectAgent(ctx, target.String(), identity.ID, tlsConfig, config.dialContext, &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers")})
 		if ctx.Err() != nil {
 			break
 		}
@@ -273,7 +273,7 @@ func enrollAgent(ctx context.Context, config AgentConfig) (agentIdentity, error)
 	return identity, nil
 }
 
-func connectAgent(ctx context.Context, address, id string, config *tls.Config, netDial func(context.Context, string, string) (net.Conn, error)) error {
+func connectAgent(ctx context.Context, address, id string, config *tls.Config, netDial func(context.Context, string, string) (net.Conn, error), configurations *ConfigurationStore) error {
 	dialer := websocket.Dialer{TLSClientConfig: config, HandshakeTimeout: 10 * time.Second, NetDialContext: netDial}
 
 	conn, response, err := dialer.DialContext(ctx, address, nil)
@@ -311,7 +311,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		return err
 	}
 
-	conn.SetReadLimit(16384)
+	conn.SetReadLimit(2 << 20)
 
 	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		return err
@@ -338,7 +338,21 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			return err
 		}
 
-		if message.Type != "heartbeat" || message.Protocol != ProtocolVersion {
+		if message.Protocol != ProtocolVersion {
+			return errors.New("unsupported panel message")
+		}
+
+		outgoing := Message{Type: "heartbeat", Protocol: ProtocolVersion}
+		switch message.Type {
+		case "heartbeat":
+		case "command":
+			if message.Command == nil {
+				return errors.New("missing command")
+			}
+
+			response := configurations.execute(ctx, id, *message.Command)
+			outgoing = Message{Type: "response", Protocol: ProtocolVersion, Response: &response}
+		default:
 			return errors.New("unsupported panel message")
 		}
 
@@ -346,7 +360,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			return err
 		}
 
-		if err := conn.WriteJSON(Message{Type: "heartbeat", Protocol: ProtocolVersion}); err != nil {
+		if err := conn.WriteJSON(outgoing); err != nil {
 			return err
 		}
 	}
