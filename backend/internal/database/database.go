@@ -79,8 +79,8 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 1 {
-			return fmt.Errorf("database schema version %d is newer than supported version 1", version)
+		if version > 3 {
+			return fmt.Errorf("database schema version %d is newer than supported version 3", version)
 		}
 
 		if version == 0 {
@@ -88,7 +88,31 @@ func migrate(db *gorm.DB) error {
 				return fmt.Errorf("apply Spark schema: %w", err)
 			}
 
-			if err := tx.Create(&schemaMigration{Version: 1}).Error; err != nil {
+			if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version == 1 {
+			for _, column := range []string{"Description", "Disabled"} {
+				if err := tx.Migrator().AddColumn(&Spark{}, column); err != nil {
+					return fmt.Errorf("add Spark %s: %w", column, err)
+				}
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 2}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version == 1 || version == 2 {
+			for _, column := range []string{"GameAddress", "CPULimit", "MemoryMB", "DiskMB", "PortAllocations"} {
+				if err := tx.Migrator().AddColumn(&Spark{}, column); err != nil {
+					return fmt.Errorf("add Spark %s: %w", column, err)
+				}
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
 				return fmt.Errorf("record migration: %w", err)
 			}
 		}

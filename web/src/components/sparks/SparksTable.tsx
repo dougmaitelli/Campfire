@@ -5,7 +5,13 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 });
 
-export function SparksTable({ sparks }: { sparks: Spark[] }) {
+export function SparksTable({
+  sparks,
+  onEdit,
+}: {
+  sparks: Spark[];
+  onEdit: (spark: Spark) => void;
+}) {
   return (
     <div className="table-container">
       <table className="sparks-table">
@@ -14,7 +20,13 @@ export function SparksTable({ sparks }: { sparks: Spark[] }) {
           <tr>
             <th scope="col">Name</th>
             <th scope="col">Type</th>
+            <th scope="col">Status</th>
+            <th scope="col">Limits</th>
+            <th scope="col">Game networking</th>
             <th scope="col">Added</th>
+            <th scope="col">
+              <span className="visually-hidden">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -22,6 +34,9 @@ export function SparksTable({ sparks }: { sparks: Spark[] }) {
             <tr key={spark.id}>
               <td>
                 <span className="spark-name">{spark.name}</span>
+                {spark.description && (
+                  <span className="spark-description">{spark.description}</span>
+                )}
                 <span className="spark-id">{spark.id}</span>
               </td>
               <td>
@@ -30,9 +45,52 @@ export function SparksTable({ sparks }: { sparks: Spark[] }) {
                 </span>
               </td>
               <td>
+                <span
+                  className={`type-badge spark-status ${spark.disabled ? "is-disabled" : spark.connected ? "is-connected" : ""}`}
+                >
+                  {spark.disabled
+                    ? "Disabled"
+                    : spark.connected
+                      ? "Connected"
+                      : "Disconnected"}
+                </span>
+              </td>
+              <td>
+                <span className="resource-summary">
+                  CPU:{" "}
+                  {spark.cpu_limit === 0
+                    ? "No limit"
+                    : `${spark.cpu_limit} cores`}
+                </span>
+                <span className="resource-summary">
+                  Memory: {formatMemory(spark.memory_mb)}
+                </span>
+                <span className="resource-summary">
+                  Disk: {formatMemory(spark.disk_mb)}
+                </span>
+              </td>
+              <td>
+                <span className="resource-summary">
+                  {spark.game_address || "No game address"}
+                </span>
+                <span className="resource-summary">
+                  {spark.port_allocations.length} port{" "}
+                  {spark.port_allocations.length === 1 ? "range" : "ranges"}
+                </span>
+              </td>
+              <td>
                 <time dateTime={spark.created_at}>
                   {dateFormat.format(new Date(spark.created_at))}
                 </time>
+              </td>
+              <td>
+                <button
+                  className="button"
+                  onClick={() => onEdit(spark)}
+                  aria-label={`Edit ${spark.name}`}
+                >
+                  Edit
+                </button>
               </td>
             </tr>
           ))}
@@ -40,4 +98,11 @@ export function SparksTable({ sparks }: { sparks: Spark[] }) {
       </table>
     </div>
   );
+}
+
+function formatMemory(mib: number) {
+  if (mib === 0) return "No limit";
+  return mib >= 1024
+    ? `${(mib / 1024).toLocaleString(undefined, { maximumFractionDigits: 2 })} GiB`
+    : `${mib} MiB`;
 }

@@ -11,19 +11,48 @@ import (
 )
 
 func (a *API) createSpark(w http.ResponseWriter, r *http.Request) {
+	var input service.CreateSparkInput
+	if !decodeSparkRequest(w, r, &input) {
+		return
+	}
+
+	spark, err := a.sparks.Create(r.Context(), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.Header().Set("Location", "/api/v1/sparks/"+spark.ID)
+	writeJSON(w, http.StatusCreated, spark)
+}
+
+func (a *API) updateSpark(w http.ResponseWriter, r *http.Request) {
+	var input service.UpdateSparkInput
+	if !decodeSparkRequest(w, r, &input) {
+		return
+	}
+
+	spark, err := a.sparks.Update(r.Context(), r.PathValue("id"), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, spark)
+}
+
+func decodeSparkRequest(w http.ResponseWriter, r *http.Request, input any) bool {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
-		return
+		return false
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
-	var input service.CreateSparkInput
-
-	err = decoder.Decode(&input)
+	err = decoder.Decode(input)
 	if err == nil {
 		var extra any
 		if trailing := decoder.Decode(&extra); !errors.Is(trailing, io.EOF) {
@@ -44,17 +73,10 @@ func (a *API) createSpark(w http.ResponseWriter, r *http.Request) {
 
 		writeJSON(w, status, map[string]string{"error": "invalid Spark request"})
 
-		return
+		return false
 	}
 
-	spark, err := a.sparks.Create(r.Context(), input)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	w.Header().Set("Location", "/api/v1/sparks/"+spark.ID)
-	writeJSON(w, http.StatusCreated, spark)
+	return true
 }
 
 func (a *API) listSparks(w http.ResponseWriter, r *http.Request) {

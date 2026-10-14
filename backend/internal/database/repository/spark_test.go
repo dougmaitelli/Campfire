@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -53,6 +54,10 @@ func TestExistingDatabaseCompatibility(t *testing.T) {
 
 	store := repository.NewSparkRepository(db.ORM())
 
+	if db.ORM().Migrator().HasColumn(&database.Spark{}, "connected") {
+		t.Fatal("connected must not be stored in the database")
+	}
+
 	spark, err := store.Get(ctx, "legacy")
 	if err != nil {
 		t.Fatal(err)
@@ -62,13 +67,19 @@ func TestExistingDatabaseCompatibility(t *testing.T) {
 		t.Fatalf("legacy record changed: %+v", spark)
 	}
 
+	if spark.Description != "" || spark.Disabled || spark.Connected {
+		t.Fatalf("incorrect defaults after migration: %+v", spark)
+	}
+
 	input := model.Spark{ID: "new", Name: "New Spark", Kind: model.SparkRemote, CreatedAt: time.Now().UTC()}
+
+	input.PortAllocations = []model.PortAllocation{}
 	if err := store.Create(ctx, input); err != nil {
 		t.Fatal(err)
 	}
 
 	got, err := store.Get(ctx, input.ID)
-	if err != nil || got != input {
+	if err != nil || !reflect.DeepEqual(got, input) {
 		t.Fatalf("new record round trip: %+v %v", got, err)
 	}
 

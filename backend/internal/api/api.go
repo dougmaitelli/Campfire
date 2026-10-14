@@ -32,7 +32,7 @@ func writeError(w http.ResponseWriter, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 
 	switch {
-	case errors.Is(err, service.ErrInvalidSpark):
+	case errors.Is(err, service.ErrInvalidSpark), errors.Is(err, service.ErrInvalidDescription), errors.Is(err, service.ErrEmptySparkUpdate), errors.Is(err, service.ErrInvalidSettings):
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, service.ErrSparkConflict):
 		status, message = http.StatusConflict, service.ErrSparkConflict.Error()

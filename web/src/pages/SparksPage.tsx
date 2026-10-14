@@ -1,13 +1,20 @@
 import { useState } from "react";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { SparksTable } from "../components/sparks/SparksTable";
-import { AddSparkDialog } from "../dialogs/AddSparkDialog";
+import { SparkDialog } from "../dialogs/SparkDialog";
+import type { Spark } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
 
 export function SparksPage() {
   const { sparks, loading, error, refresh, addSpark } = useSparks();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Spark | null>(null);
+
+  function openAdd() {
+    setEditing(null);
+    setAdding(true);
+  }
 
   return (
     <section className="page" aria-labelledby="page-title">
@@ -28,10 +35,7 @@ export function SparksPage() {
           >
             {loading ? "Refreshing…" : "Refresh"}
           </button>
-          <button
-            className="button button-primary"
-            onClick={() => setAdding(true)}
-          >
+          <button className="button button-primary" onClick={openAdd}>
             + Add Spark
           </button>
         </div>
@@ -43,7 +47,13 @@ export function SparksPage() {
       )}
       <div className="sparks-content" aria-busy={loading}>
         {sparks.length > 0 ? (
-          <SparksTable sparks={sparks} />
+          <SparksTable
+            sparks={sparks}
+            onEdit={(spark) => {
+              setEditing(spark);
+              setAdding(true);
+            }}
+          />
         ) : (
           <div className="empty-state">
             <span className="empty-icon">
@@ -59,10 +69,7 @@ export function SparksPage() {
             {!loading && !error && (
               <>
                 <p>Add your first node to get started.</p>
-                <button
-                  className="button button-primary"
-                  onClick={() => setAdding(true)}
-                >
+                <button className="button button-primary" onClick={openAdd}>
                   Add Spark
                 </button>
               </>
@@ -76,10 +83,11 @@ export function SparksPage() {
           : `${sparks.length} ${sparks.length === 1 ? "Spark" : "Sparks"}`}
       </p>
       {adding && (
-        <AddSparkDialog
+        <SparkDialog
+          spark={editing}
           hasLocalSpark={sparks.some((spark) => spark.kind === "local")}
           onClose={() => setAdding(false)}
-          onCreated={(spark) => {
+          onSaved={(spark) => {
             addSpark(spark);
             void refresh();
           }}

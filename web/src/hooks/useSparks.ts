@@ -43,10 +43,11 @@ export function useSparks() {
 
   const addSpark = useCallback((spark: Spark) => {
     activeRequest.current?.abort();
-    setSparks((current) => [
-      ...current.filter((item) => item.id !== spark.id),
-      spark,
-    ]);
+    setSparks((current) =>
+      current.some((item) => item.id === spark.id)
+        ? current.map((item) => (item.id === spark.id ? spark : item))
+        : [...current, spark],
+    );
     setLoading(false);
     setError(null);
   }, []);

@@ -1,10 +1,19 @@
 package database
 
+import "campfire/internal/model"
+
 // Spark is the persistence model; ORM tags stay outside the domain model.
 type Spark struct {
-	ID   string `gorm:"type:text;primaryKey"`
-	Name string `gorm:"type:text COLLATE NOCASE;not null;uniqueIndex:sparks_name"`
-	Kind string `gorm:"type:text;not null;check:sparks_kind,kind IN ('local','remote');uniqueIndex:sparks_one_local,where:kind = 'local'"`
+	ID              string                 `gorm:"type:text;primaryKey"`
+	Name            string                 `gorm:"type:text COLLATE NOCASE;not null;uniqueIndex:sparks_name"`
+	Kind            string                 `gorm:"type:text;not null;check:sparks_kind,kind IN ('local','remote');uniqueIndex:sparks_one_local,where:kind = 'local'"`
+	Description     string                 `gorm:"type:text;not null;default:''"`
+	Disabled        bool                   `gorm:"not null;default:false"`
+	GameAddress     string                 `gorm:"type:text;not null;default:''"`
+	CPULimit        float64                `gorm:"not null;default:0"`
+	MemoryMB        int64                  `gorm:"not null;default:0"`
+	DiskMB          int64                  `gorm:"not null;default:0"`
+	PortAllocations []model.PortAllocation `gorm:"serializer:json;type:text;not null;default:'[]'"`
 	// Retain RFC3339 text storage for compatibility with existing databases.
 	CreatedAt string `gorm:"type:text;not null;autoCreateTime:false"`
 }

@@ -3,6 +3,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -31,7 +32,10 @@ func NewSparkRepository(db *gorm.DB) *SparkRepository {
 func (r *SparkRepository) Create(ctx context.Context, spark model.Spark) error {
 	record := database.Spark{
 		ID: spark.ID, Name: spark.Name, Kind: string(spark.Kind),
-		CreatedAt: spark.CreatedAt.Format(time.RFC3339Nano),
+		Description: spark.Description, Disabled: spark.Disabled,
+		GameAddress: spark.GameAddress, CPULimit: spark.CPULimit, MemoryMB: spark.MemoryMB, DiskMB: spark.DiskMB,
+		PortAllocations: spark.PortAllocations,
+		CreatedAt:       spark.CreatedAt.Format(time.RFC3339Nano),
 	}
 	if err := r.db.WithContext(ctx).Create(&record).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -78,13 +82,68 @@ func (r *SparkRepository) Get(ctx context.Context, id string) (model.Spark, erro
 	return toSpark(record)
 }
 
+// Update changes only supplied operator fields, including explicit false values.
+func (r *SparkRepository) Update(ctx context.Context, id string, changes model.SparkChanges) (model.Spark, error) {
+	fields := make(map[string]any)
+	if changes.Description != nil {
+		fields["description"] = *changes.Description
+	}
+
+	if changes.Disabled != nil {
+		fields["disabled"] = *changes.Disabled
+	}
+
+	if changes.GameAddress != nil {
+		fields["game_address"] = *changes.GameAddress
+	}
+
+	if changes.CPULimit != nil {
+		fields["cpu_limit"] = *changes.CPULimit
+	}
+
+	if changes.MemoryMB != nil {
+		fields["memory_mb"] = *changes.MemoryMB
+	}
+
+	if changes.DiskMB != nil {
+		fields["disk_mb"] = *changes.DiskMB
+	}
+
+	if changes.PortAllocations != nil {
+		data, err := json.Marshal(*changes.PortAllocations)
+		if err != nil {
+			return model.Spark{}, fmt.Errorf("encode allocations: %w", err)
+		}
+
+		fields["port_allocations"] = string(data)
+	}
+
+	result := r.db.WithContext(ctx).Model(&database.Spark{}).Where("id = ?", id).Updates(fields)
+	if result.Error != nil {
+		return model.Spark{}, fmt.Errorf("update Spark: %w", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return model.Spark{}, ErrNotFound
+	}
+
+	return r.Get(ctx, id)
+}
+
 func toSpark(record database.Spark) (model.Spark, error) {
 	timestamp, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
 	if err != nil {
 		return model.Spark{}, fmt.Errorf("read Spark timestamp: %w", err)
 	}
 
+	allocations := record.PortAllocations
+	if allocations == nil {
+		allocations = make([]model.PortAllocation, 0)
+	}
+
 	return model.Spark{
-		ID: record.ID, Name: record.Name, Kind: model.SparkKind(record.Kind), CreatedAt: timestamp,
+		SparkSettings: model.SparkSettings{GameAddress: record.GameAddress, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, PortAllocations: allocations},
+		ID:            record.ID, Name: record.Name, Kind: model.SparkKind(record.Kind), CreatedAt: timestamp,
+		Description: record.Description, Disabled: record.Disabled,
 	}, nil
 }

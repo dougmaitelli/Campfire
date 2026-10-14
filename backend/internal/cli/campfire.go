@@ -47,7 +47,7 @@ func Run(ctx context.Context, args []string) error {
 	}
 	defer func() { _ = db.Close() }()
 
-	handler := api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()))).Handler()
+	handler := api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil)).Handler()
 	server := &http.Server{
 		Addr: *listen, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

@@ -1,0 +1,111 @@
+.wizard {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.wizard-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 22px 24px;
+  margin: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--border);
+}
+.wizard-step-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.wizard-step-link:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.wizard-step-link:hover:not(:disabled) {
+  color: var(--text);
+}
+.wizard-step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 27px;
+  height: 27px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+.wizard-progress [aria-current="step"] {
+  color: var(--accent);
+}
+.wizard-progress [aria-current="step"] .wizard-step-number {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+.wizard-progress
+  .is-complete
+  .wizard-step-link:not([aria-current="step"])
+  .wizard-step-number {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+.wizard-body {
+  flex: 1;
+  padding: 24px;
+}
+.wizard-heading {
+  margin: 0 0 24px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.wizard-heading:focus-visible {
+  outline: none;
+}
+.wizard-fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.wizard-cancel {
+  margin-right: auto;
+}
+.wizard-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+}
+@media (max-width: 480px) {
+  .wizard-progress {
+    gap: 8px;
+    padding: 18px 16px;
+  }
+  .wizard-step-link {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .wizard-footer {
+    padding: 16px;
+    gap: 8px;
+  }
+  .wizard-footer .button {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
