@@ -22,6 +22,7 @@ import (
 	"campfire/internal/database"
 	"campfire/internal/database/repository"
 	"campfire/internal/model"
+	"campfire/internal/runtime"
 	"campfire/internal/service"
 )
 
@@ -156,6 +157,15 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	agentDir := filepath.Join(dir, "agent")
 	agentConfig := AgentConfig{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, dialContext: listener.dial}
+	wire := &wireDocker{}
+	agentConfig.runtimeFactory = func(ctx context.Context, directory string) *runtime.Manager {
+		manager := runtime.New(ctx, directory)
+		manager.Docker = wire
+		manager.Ownership = func(string, string) error { return nil }
+		manager.FileOwner = func(*os.File, string) error { return nil }
+
+		return manager
+	}
 
 	finished := make(chan error, 1)
 	go func() { finished <- RunAgent(runCtx, agentConfig) }()
@@ -167,6 +177,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	testWireCommands(t, hub, node.ID, agentDir)
+	testWireRuntime(t, hub, node.ID)
 
 	hub.Disconnect(node.ID)
 	waitCondition(t, func() bool { return !hub.Connected(node.ID) })

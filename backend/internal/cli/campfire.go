@@ -20,6 +20,7 @@ import (
 	"campfire/internal/api"
 	"campfire/internal/database"
 	"campfire/internal/database/repository"
+	"campfire/internal/runtime"
 	"campfire/internal/service"
 	"campfire/internal/spark"
 )
@@ -97,7 +98,10 @@ func Run(ctx context.Context, args []string) error {
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
 
-	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(filepath.Dir(*dbPath), "servers")}}
+	manager := runtime.New(ctx, filepath.Join(filepath.Dir(*dbPath), "runtime"))
+	defer manager.Close()
+
+	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(filepath.Dir(*dbPath), "servers"), Runtime: manager}}
 	if hub != nil {
 		deployment.Remote = hub
 	}

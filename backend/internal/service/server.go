@@ -22,6 +22,7 @@ var (
 	ErrInvalidServer  = errors.New("invalid server configuration")
 	ErrServerNotFound = errors.New("server not found")
 	ErrServerConflict = errors.New("server name, resource capacity, or port reservation conflicts")
+	ErrServerActive   = errors.New("stop the server before changing its configuration")
 )
 
 // ServerStore persists server configurations and their reservations.
@@ -34,8 +35,19 @@ type ServerStore interface {
 
 // ServerService validates configurations against immutable Ember definitions.
 type ServerService struct {
-	store  ServerStore
-	embers *EmberService
+	store   ServerStore
+	embers  *EmberService
+	runtime interface {
+		BeforeUpdate(context.Context, string) (func(), error)
+	}
+}
+
+// WithRuntimeGuard prevents changing reservations while a runtime is active.
+func (s *ServerService) WithRuntimeGuard(guard interface {
+	BeforeUpdate(context.Context, string) (func(), error)
+}) *ServerService {
+	s.runtime = guard
+	return s
 }
 
 // NewServerService constructs the server application service.
@@ -54,6 +66,14 @@ func (s *ServerService) Update(ctx context.Context, id string, input model.Serve
 	server, err := s.Get(ctx, id)
 	if err != nil {
 		return model.Server{}, err
+	}
+
+	if s.runtime != nil {
+		release, err := s.runtime.BeforeUpdate(ctx, id)
+		if err != nil {
+			return model.Server{}, err
+		}
+		defer release()
 	}
 
 	if input.SparkID != server.SparkID || input.EmberID != server.EmberID {

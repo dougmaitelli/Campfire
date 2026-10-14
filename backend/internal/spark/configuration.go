@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sync"
@@ -20,6 +21,68 @@ var configurationID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 type ConfigurationStore struct {
 	Directory string
 	mu        sync.Mutex
+	Runtime   interface {
+		Execute(context.Context, model.Deployment, model.RuntimeRequest) (model.RuntimeStatus, error)
+		Files(context.Context, model.Deployment, model.FileRequest) (model.FileResult, error)
+	}
+}
+
+// Files resolves the saved game definition and invokes the shared file manager.
+func (s *ConfigurationStore) Files(ctx context.Context, id string, request model.FileRequest) (model.FileResult, error) {
+	if !configurationID.MatchString(id) || !configurationID.MatchString(request.ServerID) {
+		return model.FileResult{}, &model.FileError{Code: "invalid_file", Message: "Invalid server identity."}
+	}
+
+	data, err := os.ReadFile(filepath.Join(s.Directory, id, request.ServerID+".json"))
+	if err != nil {
+		return model.FileResult{}, &model.FileError{Code: "file_not_found", Message: "Install the server before managing its files."}
+	}
+
+	var deployment model.Deployment
+	if err := json.Unmarshal(data, &deployment); err != nil {
+		return model.FileResult{}, errors.New("invalid stored configuration")
+	}
+
+	if deployment.ServerID != request.ServerID || deployment.Configuration.SparkID != id {
+		return model.FileResult{}, errors.New("configuration placement mismatch")
+	}
+
+	if s.Runtime == nil {
+		return model.FileResult{}, errors.New("file runtime unavailable")
+	}
+
+	return s.Runtime.Files(ctx, deployment, request)
+}
+
+// Action loads the locally saved definition and invokes the shared runtime.
+func (s *ConfigurationStore) Action(ctx context.Context, id string, request model.RuntimeRequest) (model.RuntimeStatus, error) {
+	if !configurationID.MatchString(id) || !configurationID.MatchString(request.ServerID) {
+		return model.RuntimeStatus{}, errors.New("invalid server identity")
+	}
+
+	data, err := os.ReadFile(filepath.Join(s.Directory, id, request.ServerID+".json"))
+	if errors.Is(err, os.ErrNotExist) && request.Action == "status" {
+		return model.RuntimeStatus{ServerID: request.ServerID, State: "not_installed"}, nil
+	}
+
+	if err != nil {
+		return model.RuntimeStatus{}, errors.New("deliver server configuration first")
+	}
+
+	var deployment model.Deployment
+	if err := json.Unmarshal(data, &deployment); err != nil {
+		return model.RuntimeStatus{}, err
+	}
+
+	if deployment.ServerID != request.ServerID || deployment.Configuration.SparkID != id {
+		return model.RuntimeStatus{}, errors.New("configuration placement mismatch")
+	}
+
+	if s.Runtime == nil {
+		return model.RuntimeStatus{}, errors.New("docker runtime is not enabled")
+	}
+
+	return s.Runtime.Execute(ctx, deployment, request)
 }
 
 // Deploy validates placement and atomically persists a complete server definition.
@@ -97,6 +160,55 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command Com
 	result := CommandResponse{ID: command.ID}
 	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(31*time.Second)) {
 		result.Error = &CommandError{Code: "invalid_deadline", Message: "command deadline is invalid or expired"}
+		return result
+	}
+
+	if command.Name == ServerFiles {
+		if command.Files == nil {
+			result.Error = &CommandError{Code: "invalid_file", Message: "File request required."}
+			return result
+		}
+
+		ctx, cancel := context.WithDeadline(ctx, command.Deadline)
+		defer cancel()
+
+		files, err := s.Files(ctx, id, *command.Files)
+		if err != nil {
+			var failure *model.FileError
+			if errors.As(err, &failure) {
+				result.Error = &CommandError{Code: failure.Code, Message: failure.Message}
+			} else {
+				result.Error = &CommandError{Code: "file_io", Message: "File operation unavailable."}
+			}
+
+			return result
+		}
+
+		result.Files = &files
+
+		return result
+	}
+
+	if command.Name == ServerAction {
+		if command.Runtime == nil {
+			result.Error = &CommandError{Code: "invalid_operation", Message: "runtime request is required"}
+			return result
+		}
+
+		ctx, cancel := context.WithDeadline(ctx, command.Deadline)
+		defer cancel()
+
+		ctx, timeout := context.WithTimeout(ctx, 5*time.Second)
+		defer timeout()
+
+		status, err := s.Action(ctx, id, *command.Runtime)
+		if err != nil {
+			result.Error = &CommandError{Code: "runtime_rejected", Message: err.Error()}
+			return result
+		}
+
+		result.Status = &status
+
 		return result
 	}
 

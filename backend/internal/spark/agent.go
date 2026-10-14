@@ -23,16 +23,19 @@ import (
 	"strings"
 	"time"
 
+	"campfire/internal/runtime"
+
 	"github.com/gorilla/websocket"
 )
 
 // AgentConfig controls first enrollment and persistent agent state.
 type AgentConfig struct {
-	PanelURL    string
-	DataDir     string
-	CAFile      string
-	Token       string
-	dialContext func(context.Context, string, string) (net.Conn, error)
+	PanelURL       string
+	DataDir        string
+	CAFile         string
+	Token          string
+	dialContext    func(context.Context, string, string) (net.Conn, error)
+	runtimeFactory func(context.Context, string) *runtime.Manager
 }
 type agentIdentity struct {
 	ID          string
@@ -103,11 +106,20 @@ func RunAgent(ctx context.Context, config AgentConfig) error {
 	target.Path = "/spark/connect"
 	delay := time.Second
 
+	manager := runtime.New(ctx, filepath.Join(config.DataDir, "runtime"))
+	if config.runtimeFactory != nil {
+		manager.Close()
+		manager = config.runtimeFactory(ctx, filepath.Join(config.DataDir, "runtime"))
+	}
+	defer manager.Close()
+
+	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
+
 agentLoop:
 	for ctx.Err() == nil {
 		started := time.Now()
 
-		err := connectAgent(ctx, target.String(), identity.ID, tlsConfig, config.dialContext, &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers")})
+		err := connectAgent(ctx, target.String(), identity.ID, tlsConfig, config.dialContext, configurations)
 		if ctx.Err() != nil {
 			break
 		}

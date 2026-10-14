@@ -1,0 +1,62 @@
+.file-breadcrumbs,
+.file-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.file-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #343a30;
+}
+.file-name {
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.file-name:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.file-editor {
+  width: 100%;
+  min-height: 55vh;
+  font-family: monospace;
+  tab-size: 2;
+  resize: vertical;
+}
+.file-upload {
+  position: relative;
+  overflow: hidden;
+}
+.file-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.file-upload:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (max-width: 600px) {
+  .file-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .file-row .row-actions {
+    flex-wrap: wrap;
+  }
+}

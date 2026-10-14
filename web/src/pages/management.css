@@ -88,3 +88,21 @@
 .prerequisite-note a {
   color: var(--accent);
 }
+.runtime-error {
+  display: block;
+  max-width: 20rem;
+  color: var(--color-danger, #f3a294);
+  font-size: 0.8rem;
+}
+
+.server-console-output {
+  min-height: 20rem;
+  max-height: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 1rem;
+  background: #151914;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+}

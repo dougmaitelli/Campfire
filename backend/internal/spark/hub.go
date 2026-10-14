@@ -15,7 +15,7 @@ import (
 )
 
 // ProtocolVersion is the supported panel-agent wire protocol.
-const ProtocolVersion = 2
+const ProtocolVersion = 4
 
 // EnrollmentStore is the persistence boundary for agent authentication.
 type EnrollmentStore interface {
@@ -274,7 +274,7 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		switch message.Type {
 		case "heartbeat":
 		case "response":
-			if message.Response == nil || message.Response.ID == "" || (message.Response.Error == nil) == (message.Response.Receipt == nil) {
+			if message.Response == nil || message.Response.ID == "" || !validResponse(*message.Response) {
 				return
 			}
 

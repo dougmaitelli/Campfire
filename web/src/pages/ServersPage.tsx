@@ -5,10 +5,20 @@ import { listEmbers } from "../api/embers";
 import { useCollection } from "../hooks/useCollection";
 import { useSparks } from "../hooks/useSparks";
 import { ServerDialog } from "../dialogs/ServerDialog";
+import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
+import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
+import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
+import { useServerRuntime } from "../hooks/useServerRuntime";
+import { serverAction } from "../api/runtime";
+import type { ServerAction } from "../api/runtime";
 import "./management.css";
 
 export function ServersPage() {
   const servers = useCollection(listServers);
+  const runtime = useServerRuntime(servers.items.map((server) => server.id));
+  const [acting, setActing] = useState<string | null>(null);
+  const [consoleServer, setConsoleServer] = useState<Server | null>(null);
+  const [filesServer, setFilesServer] = useState<Server | null>(null);
   const embers = useCollection(listEmbers);
   const sparks = useSparks();
   const [editing, setEditing] = useState<Server | null>(null);
@@ -38,7 +48,7 @@ export function ServersPage() {
     if (
       deleting ||
       !window.confirm(
-        `Delete "${server.name}" and release its reserved resources and ports?`,
+        `Permanently delete "${server.name}", its container and game files, and release its resources and ports?`,
       )
     )
       return;
@@ -59,13 +69,34 @@ export function ServersPage() {
     setEditing(null);
     setOpen(true);
   }
+  async function act(server: Server, action: ServerAction) {
+    if (acting !== null) return;
+    if (
+      action === "kill" &&
+      !window.confirm(
+        `Force kill "${server.name}"? Unsaved game data may be lost.`,
+      )
+    )
+      return;
+    setActing(server.id);
+    setActionError(null);
+    try {
+      runtime.upsert(await serverAction(server.id, action));
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error ? cause.message : "Unable to run server action.",
+      );
+    } finally {
+      setActing(null);
+    }
+  }
   return (
     <section aria-labelledby="page-title">
       <header className="page-header management-header">
         <div>
           <h1 id="page-title">Servers</h1>
           <p className="page-description">
-            Game server configurations and their reserved capacity.
+            Game servers, live runtime state, and reserved capacity.
           </p>
         </div>
         <div className="page-actions">
@@ -172,7 +203,28 @@ export function ServersPage() {
                       <span className="row-id">{server.id}</span>
                     </td>
                     <td>
-                      <span className="type-badge">Not installed</span>
+                      <span className="type-badge">
+                        {(
+                          runtime.statuses[server.id]?.state ?? "unknown"
+                        ).replaceAll("_", " ")}
+                      </span>
+                      {runtime.statuses[server.id]?.state === "running" && (
+                        <span className="row-description">
+                          {runtime.statuses[server.id]?.ready
+                            ? "Ready"
+                            : "Waiting for readiness"}
+                        </span>
+                      )}
+                      {runtime.statuses[server.id]?.progress && (
+                        <span className="row-description">
+                          {runtime.statuses[server.id]?.progress}
+                        </span>
+                      )}
+                      {runtime.statuses[server.id]?.error && (
+                        <span className="runtime-error" role="status">
+                          {runtime.statuses[server.id]?.error}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <span>{server.spark_name}</span>
@@ -201,9 +253,31 @@ export function ServersPage() {
                     </td>
                     <td>
                       <div className="row-actions">
+                        <ServerLifecycleControls
+                          status={runtime.statuses[server.id]}
+                          disabled={
+                            acting !== null ||
+                            deleting !== null ||
+                            sparks.sparks.find(
+                              (spark) => spark.id === server.spark_id,
+                            )?.disabled === true
+                          }
+                          onAction={(action) => {
+                            void act(server, action);
+                          }}
+                          onConsole={() => setConsoleServer(server)}
+                          onFiles={() => setFilesServer(server)}
+                        />
                         <button
                           className="button"
-                          disabled={loading || deleting !== null}
+                          disabled={
+                            loading ||
+                            deleting !== null ||
+                            runtime.statuses[server.id]?.busy === true ||
+                            !["stopped", "not_installed", "deleted"].includes(
+                              runtime.statuses[server.id]?.state ?? "unknown",
+                            )
+                          }
                           onClick={() => {
                             setEditing(server);
                             setOpen(true);
@@ -214,7 +288,11 @@ export function ServersPage() {
                         </button>
                         <button
                           className="button"
-                          disabled={deleting !== null}
+                          disabled={
+                            deleting !== null ||
+                            acting !== null ||
+                            runtime.statuses[server.id]?.busy === true
+                          }
                           onClick={() => {
                             void remove(server);
                           }}
@@ -249,6 +327,27 @@ export function ServersPage() {
           }}
         />
       )}
+      {consoleServer && (
+        <ServerConsoleDialog
+          server={consoleServer}
+          onClose={() => setConsoleServer(null)}
+        />
+      )}
+      {filesServer && (
+        <ServerFilesDialog
+          server={filesServer}
+          canWrite={
+            ["stopped", "not_installed"].includes(
+              runtime.statuses[filesServer.id]?.state ?? "unknown",
+            ) && runtime.statuses[filesServer.id]?.busy !== true
+          }
+          onClose={() => setFilesServer(null)}
+        />
+      )}
+      <p className="list-summary">
+        Disk allocation is checked during installation and startup. Continuous
+        disk quotas are not enabled.
+      </p>
     </section>
   );
 }

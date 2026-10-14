@@ -64,6 +64,12 @@ func (a *API) listServers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if a.deployment != nil {
+		for i := range servers {
+			servers[i].Status = a.deployment.CachedState(servers[i].ID)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, servers)
 }
 
@@ -74,14 +80,97 @@ func (a *API) getServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if a.deployment != nil {
+		server.Status = a.deployment.CachedState(server.ID)
+	}
+
 	writeJSON(w, http.StatusOK, server)
 }
 
 func (a *API) deleteServer(w http.ResponseWriter, r *http.Request) {
+	if a.deployment != nil {
+		if err := a.deployment.Delete(r.Context(), r.PathValue("id")); err != nil {
+			writeError(w, err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+
+		return
+	}
+
 	if err := a.servers.Delete(r.Context(), r.PathValue("id")); err != nil {
 		writeError(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Action string `json:"action"`
+	}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	switch input.Action {
+	case "install", "start", "stop", "restart", "kill":
+	default:
+		writeError(w, service.ErrInvalidServer)
+		return
+	}
+
+	if a.deployment == nil {
+		writeError(w, service.ErrDeploymentUnavailable)
+		return
+	}
+
+	status, err := a.deployment.Action(r.Context(), r.PathValue("id"), input.Action)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, status)
+}
+
+func (a *API) serverConsole(w http.ResponseWriter, r *http.Request) {
+	if a.deployment == nil {
+		writeError(w, service.ErrDeploymentUnavailable)
+		return
+	}
+
+	var input struct {
+		Command string `json:"command"`
+	}
+	if r.Method == http.MethodPost && !decodeRequest(w, r, &input, 8192) {
+		return
+	}
+
+	status, err := a.deployment.Console(r.Context(), r.PathValue("id"), input.Command, r.Method == http.MethodGet)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (a *API) serverStatus(w http.ResponseWriter, r *http.Request) {
+	if a.deployment == nil {
+		writeError(w, service.ErrDeploymentUnavailable)
+		return
+	}
+
+	status, err := a.deployment.Action(r.Context(), r.PathValue("id"), "status")
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, status)
 }

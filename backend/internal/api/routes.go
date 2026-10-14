@@ -20,6 +20,12 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/v1/servers/{id}", a.updateServer)
 	mux.HandleFunc("DELETE /api/v1/servers/{id}", a.deleteServer)
 	mux.HandleFunc("POST /api/v1/servers/{id}/configuration", a.syncServerConfiguration)
+	mux.HandleFunc("POST /api/v1/servers/{id}/actions", a.serverAction)
+	mux.HandleFunc("GET /api/v1/servers/{id}/status", a.serverStatus)
+	mux.HandleFunc("GET /api/v1/servers/{id}/console", a.serverConsole)
+	mux.HandleFunc("POST /api/v1/servers/{id}/console", a.serverConsole)
+	mux.HandleFunc("GET /api/v1/servers/{id}/files", a.serverFiles)
+	mux.HandleFunc("POST /api/v1/servers/{id}/files", a.serverFiles)
 
 	return mux
 }

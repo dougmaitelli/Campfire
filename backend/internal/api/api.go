@@ -23,6 +23,10 @@ type API struct {
 // WithDeployment enables explicit delivery of saved server configurations.
 func (a *API) WithDeployment(deployment *service.DeploymentService) *API {
 	a.deployment = deployment
+	if deployment != nil {
+		a.servers.WithRuntimeGuard(deployment)
+	}
+
 	return a
 }
 
@@ -48,6 +52,8 @@ func writeError(w http.ResponseWriter, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 
 	switch {
+	case errors.Is(err, service.ErrServerActive):
+		status, message = http.StatusConflict, service.ErrServerActive.Error()
 	case errors.Is(err, service.ErrDeploymentUnavailable):
 		status, message = http.StatusServiceUnavailable, service.ErrDeploymentUnavailable.Error()
 	case errors.Is(err, service.ErrInvalidSpark), errors.Is(err, service.ErrInvalidDescription), errors.Is(err, service.ErrEmptySparkUpdate), errors.Is(err, service.ErrInvalidSettings), errors.Is(err, service.ErrInvalidEmber), errors.Is(err, service.ErrInvalidServer):

@@ -25,7 +25,7 @@ export interface Server extends ServerConfiguration {
   spark_name: string;
   ember_name: string;
   game_address: string;
-  status: "not_installed";
+  status: string;
   created_at: string;
 }
 
@@ -71,7 +71,7 @@ function isServer(value: unknown): value is Server {
       (entry: unknown) => typeof entry === "string",
     ) &&
     "status" in value &&
-    value.status === "not_installed" &&
+    typeof value.status === "string" &&
     "created_at" in value &&
     typeof value.created_at === "string" &&
     Number.isFinite(Date.parse(value.created_at))
