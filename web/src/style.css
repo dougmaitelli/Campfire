@@ -6,6 +6,14 @@
   --text: #eeeadd;
   --muted: #b0b5a3;
   --accent: #efa45b;
+  --surface-hover: #282c24;
+  --accent-subtle: #30291e;
+  --accent-border: #59432b;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 * {
