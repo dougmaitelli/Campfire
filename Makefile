@@ -6,7 +6,7 @@ export GOLANGCI_LINT_CACHE
 .PHONY: dependencies dependencies-backend dependencies-frontend \
 	build build-backend build-frontend test test-backend test-frontend \
 	format format-backend format-frontend format-check format-check-backend format-check-frontend \
-	lint lint-backend lint-frontend vet check tools dev preview \
+	lint lint-backend lint-frontend vet check tools dev dev-ui preview \
 	backend-build backend-test backend-vet ui-build ui-check ui-watch
 
 dependencies: dependencies-backend dependencies-frontend
@@ -52,6 +52,7 @@ format-check-frontend:
 	pnpm --dir web run format:check
 
 lint: lint-backend lint-frontend
+	node --check scripts/dev.mjs
 
 lint-backend: $(GOLANGCI_LINT)
 	cd backend && $(GOLANGCI_LINT) run --config ../.golangci.yml ./...
@@ -70,6 +71,9 @@ $(GOLANGCI_LINT):
 	GOBIN=$(CURDIR)/.bin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 dev:
+	node scripts/dev.mjs
+
+dev-ui:
 	pnpm --dir web run dev
 
 preview:
@@ -81,4 +85,4 @@ backend-test: test-backend
 backend-vet: vet
 ui-build: build-frontend
 ui-check: test-frontend
-ui-watch: dev
+ui-watch: dev-ui
