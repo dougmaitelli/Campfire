@@ -31,7 +31,7 @@ func Open(ctx context.Context, path string) (*Database, error) {
 		return nil, fmt.Errorf("create database directory: %w", err)
 	}
 
-	dsn := (&url.URL{Scheme: "file", Path: absolute}).String() + "?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL"
+	dsn := (&url.URL{Scheme: "file", Path: absolute}).String() + "?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL&_txlock=immediate"
 
 	orm, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger:         logger.Default.LogMode(logger.Silent),
@@ -79,8 +79,8 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 3 {
-			return fmt.Errorf("database schema version %d is newer than supported version 3", version)
+		if version > 4 {
+			return fmt.Errorf("database schema version %d is newer than supported version 4", version)
 		}
 
 		if version == 0 {
@@ -113,6 +113,16 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version < 4 {
+			if err := tx.Migrator().CreateTable(&Ember{}, &Server{}); err != nil {
+				return fmt.Errorf("apply server schema: %w", err)
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 4}).Error; err != nil {
 				return fmt.Errorf("record migration: %w", err)
 			}
 		}

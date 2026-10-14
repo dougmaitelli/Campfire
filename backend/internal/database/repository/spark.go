@@ -118,16 +118,40 @@ func (r *SparkRepository) Update(ctx context.Context, id string, changes model.S
 		fields["port_allocations"] = string(data)
 	}
 
-	result := r.db.WithContext(ctx).Model(&database.Spark{}).Where("id = ?", id).Updates(fields)
-	if result.Error != nil {
-		return model.Spark{}, fmt.Errorf("update Spark: %w", result.Error)
-	}
+	var updated model.Spark
 
-	if result.RowsAffected == 0 {
-		return model.Spark{}, ErrNotFound
-	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&database.Spark{}).Where("id = ?", id).Updates(fields)
+		if result.Error != nil {
+			return fmt.Errorf("update Spark: %w", result.Error)
+		}
 
-	return r.Get(ctx, id)
+		if result.RowsAffected == 0 {
+			return ErrNotFound
+		}
+
+		var spark database.Spark
+		if err := tx.Where("id = ?", id).Take(&spark).Error; err != nil {
+			return err
+		}
+
+		var servers []database.Server
+		if err := tx.Where("spark_id = ?", id).Find(&servers).Error; err != nil {
+			return err
+		}
+
+		if err := checkReservations(spark, servers); err != nil {
+			return ErrSparkReservations
+		}
+
+		var err error
+
+		updated, err = (&SparkRepository{db: tx}).Get(ctx, id)
+
+		return err
+	})
+
+	return updated, err
 }
 
 func toSpark(record database.Spark) (model.Spark, error) {

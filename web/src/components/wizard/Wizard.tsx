@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import "./wizard.css";
 
@@ -16,7 +16,7 @@ interface WizardProps {
   error: string | null;
   finishLabel: string;
   onFinish: () => Promise<void>;
-  onCancel: () => void;
+  children: (content: ReactNode, actions: ReactNode) => ReactNode;
 }
 
 export function Wizard({
@@ -26,7 +26,7 @@ export function Wizard({
   error,
   finishLabel,
   onFinish,
-  onCancel,
+  children,
 }: WizardProps) {
   const [index, setIndex] = useState(0);
   const [completedThrough, setCompletedThrough] = useState(() =>
@@ -35,6 +35,7 @@ export function Wizard({
   const [validationError, setValidationError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const formID = useId();
   const step = steps[index];
   const finalStep = index === steps.length - 1;
 
@@ -83,8 +84,14 @@ export function Wizard({
     }
   }
 
-  return (
-    <form ref={formRef} className="wizard" onSubmit={advance} aria-busy={busy}>
+  const content = (
+    <form
+      id={formID}
+      ref={formRef}
+      className="wizard"
+      onSubmit={advance}
+      aria-busy={busy}
+    >
       <ol className="wizard-progress" aria-label="Progress">
         {steps.map((item, position) => (
           <li
@@ -134,35 +141,37 @@ export function Wizard({
           {step.content}
         </fieldset>
       </div>
-      <footer className="wizard-footer">
-        <button
-          type="button"
-          className="button wizard-cancel"
-          disabled={busy}
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-        {index > 0 && (
-          <button
-            type="button"
-            className="button"
-            disabled={busy}
-            onClick={() => {
-              goToStep(index - 1);
-            }}
-          >
-            Back
-          </button>
-        )}
-        <button type="submit" className="button button-primary" disabled={busy}>
-          {busy
-            ? "Saving…"
-            : finalStep
-              ? finishLabel
-              : `Next: ${steps[index + 1]?.title ?? ""}`}
-        </button>
-      </footer>
     </form>
   );
+
+  const actions = (
+    <>
+      {index > 0 && (
+        <button
+          type="button"
+          className="button"
+          disabled={busy}
+          onClick={() => {
+            goToStep(index - 1);
+          }}
+        >
+          Back
+        </button>
+      )}
+      <button
+        type="submit"
+        form={formID}
+        className="button button-primary"
+        disabled={busy}
+      >
+        {busy
+          ? "Saving…"
+          : finalStep
+            ? finishLabel
+            : `Next: ${steps[index + 1]?.title ?? ""}`}
+      </button>
+    </>
+  );
+
+  return children(content, actions);
 }

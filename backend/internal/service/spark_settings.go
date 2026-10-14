@@ -45,6 +45,7 @@ func validateSettings(settings *model.SparkSettings) error {
 		}
 
 		ip = ip.Unmap()
+
 		allocation.BindIP = ip.String()
 		if allocation.Start < 1 || allocation.End > 65535 || allocation.End < allocation.Start ||
 			(allocation.Protocol != "tcp" && allocation.Protocol != "udp") {

@@ -21,6 +21,7 @@ var (
 	ErrSparkConflict      = errors.New("a Spark with that name or a local Spark already exists")
 	ErrInvalidDescription = errors.New("description must contain at most 1000 characters, without control characters except newlines and tabs")
 	ErrEmptySparkUpdate   = errors.New("provide at least one mutable Spark field")
+	ErrSparkReservations  = errors.New("spark changes would invalidate existing server reservations")
 	ErrInvalidSettings    = errors.New("invalid Spark capacity or networking settings")
 )
 
@@ -138,6 +139,10 @@ func (s *SparkService) Update(ctx context.Context, id string, input UpdateSparkI
 	}
 
 	spark, err := s.store.Update(ctx, id, input)
+	if errors.Is(err, repository.ErrSparkReservations) {
+		return model.Spark{}, ErrSparkReservations
+	}
+
 	if errors.Is(err, repository.ErrNotFound) {
 		return model.Spark{}, ErrSparkNotFound
 	}

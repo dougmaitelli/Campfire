@@ -77,19 +77,6 @@
   border: 0;
   min-width: 0;
 }
-.wizard-cancel {
-  margin-right: auto;
-}
-.wizard-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 20px 24px;
-  border-top: 1px solid var(--border);
-  position: sticky;
-  bottom: 0;
-  background: var(--surface);
-}
 @media (max-width: 480px) {
   .wizard-progress {
     gap: 8px;
@@ -99,13 +86,5 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
-  }
-  .wizard-footer {
-    padding: 16px;
-    gap: 8px;
-  }
-  .wizard-footer .button {
-    padding: 8px 10px;
-    font-size: 12px;
   }
 }

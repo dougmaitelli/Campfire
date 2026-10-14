@@ -47,7 +47,9 @@ func Run(ctx context.Context, args []string) error {
 	}
 	defer func() { _ = db.Close() }()
 
-	handler := api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil)).Handler()
+	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
+	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
+	handler := api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil), embers, servers).Handler()
 	server := &http.Server{
 		Addr: *listen, Handler: handler,
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,

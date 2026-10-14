@@ -102,92 +102,11 @@
   font-size: 12px;
   color: var(--muted);
 }
-.spark-drawer {
-  position: fixed;
-  inset: 0 0 0 auto;
-  width: min(460px, 100%);
-  height: 100dvh;
-  max-width: 100%;
-  max-height: 100dvh;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-}
-.spark-drawer::backdrop {
-  background: rgb(0 0 0 / 55%);
-}
-.spark-form {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-.drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 22px 24px;
-  border-bottom: 1px solid var(--border);
-}
-.drawer-header h2 {
-  margin: 0;
-  font-size: 21px;
-  font-weight: 600;
-}
-.drawer-body {
-  flex: 1;
-  padding: 24px;
-}
-.muted {
-  color: var(--muted);
-  font-size: 14px;
-  margin: 0 0 28px;
-}
-.spark-form fieldset {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-.spark-form label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.spark-form input,
-.spark-form select {
-  width: 100%;
-  min-height: 42px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-}
-.spark-form input {
-  margin-bottom: 24px;
-}
-.spark-form input::placeholder {
-  color: var(--muted);
-}
 .field-help {
   margin: 10px 0;
   font-size: 13px;
   line-height: 1.6;
   color: var(--muted);
-}
-.drawer-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 20px 24px;
-  border-top: 1px solid var(--border);
 }
 .visually-hidden {
   position: absolute;
@@ -228,7 +147,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
-.spark-form .allocation-range {
+.drawer-form .allocation-range {
   margin: 16px 0;
   padding: 16px;
   border: 1px solid var(--border);
@@ -249,13 +168,6 @@
 }
 .spark-settings #spark-address {
   margin-bottom: 0;
-}
-
-.spark-introduction {
-  padding: 18px 24px 0;
-}
-.spark-introduction .muted {
-  margin: 0;
 }
 .spark-review dl {
   margin: 0;
@@ -308,24 +220,13 @@
 .spark-status.is-connected {
   color: #b5ce9c;
 }
-.spark-form textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  resize: vertical;
-}
-.spark-form .checkbox-field {
+.drawer-form .checkbox-field {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-top: 22px;
 }
-.spark-form .checkbox-field input {
+.drawer-form .checkbox-field input {
   width: 16px;
   min-height: 16px;
   margin: 0;

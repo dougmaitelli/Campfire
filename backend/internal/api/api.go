@@ -11,11 +11,15 @@ import (
 )
 
 // API translates HTTP requests into service calls.
-type API struct{ sparks *service.SparkService }
+type API struct {
+	sparks  *service.SparkService
+	embers  *service.EmberService
+	servers *service.ServerService
+}
 
 // New constructs the HTTP API with its application service.
-func New(sparks *service.SparkService) *API {
-	return &API{sparks: sparks}
+func New(sparks *service.SparkService, embers *service.EmberService, servers *service.ServerService) *API {
+	return &API{sparks: sparks, embers: embers, servers: servers}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -32,12 +36,16 @@ func writeError(w http.ResponseWriter, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 
 	switch {
-	case errors.Is(err, service.ErrInvalidSpark), errors.Is(err, service.ErrInvalidDescription), errors.Is(err, service.ErrEmptySparkUpdate), errors.Is(err, service.ErrInvalidSettings):
+	case errors.Is(err, service.ErrInvalidSpark), errors.Is(err, service.ErrInvalidDescription), errors.Is(err, service.ErrEmptySparkUpdate), errors.Is(err, service.ErrInvalidSettings), errors.Is(err, service.ErrInvalidEmber), errors.Is(err, service.ErrInvalidServer):
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, service.ErrSparkConflict):
 		status, message = http.StatusConflict, service.ErrSparkConflict.Error()
 	case errors.Is(err, service.ErrSparkNotFound):
 		status, message = http.StatusNotFound, service.ErrSparkNotFound.Error()
+	case errors.Is(err, service.ErrEmberNotFound), errors.Is(err, service.ErrServerNotFound):
+		status, message = http.StatusNotFound, err.Error()
+	case errors.Is(err, service.ErrServerConflict), errors.Is(err, service.ErrSparkReservations):
+		status, message = http.StatusConflict, err.Error()
 	default:
 		slog.Error("API request failed", "error", err)
 	}

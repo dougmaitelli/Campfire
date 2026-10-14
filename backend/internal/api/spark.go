@@ -12,7 +12,7 @@ import (
 
 func (a *API) createSpark(w http.ResponseWriter, r *http.Request) {
 	var input service.CreateSparkInput
-	if !decodeSparkRequest(w, r, &input) {
+	if !decodeRequest(w, r, &input, 16<<10) {
 		return
 	}
 
@@ -28,7 +28,7 @@ func (a *API) createSpark(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateSpark(w http.ResponseWriter, r *http.Request) {
 	var input service.UpdateSparkInput
-	if !decodeSparkRequest(w, r, &input) {
+	if !decodeRequest(w, r, &input, 16<<10) {
 		return
 	}
 
@@ -41,14 +41,14 @@ func (a *API) updateSpark(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, spark)
 }
 
-func decodeSparkRequest(w http.ResponseWriter, r *http.Request, input any) bool {
+func decodeRequest(w http.ResponseWriter, r *http.Request, input any, maxBytes int64) bool {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
 		return false
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
+	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
@@ -71,7 +71,7 @@ func decodeSparkRequest(w http.ResponseWriter, r *http.Request, input any) bool 
 			status = http.StatusRequestEntityTooLarge
 		}
 
-		writeJSON(w, status, map[string]string{"error": "invalid Spark request"})
+		writeJSON(w, status, map[string]string{"error": "invalid JSON request"})
 
 		return false
 	}
