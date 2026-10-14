@@ -3,7 +3,7 @@ export const navigation = [
   { id: "sparks", label: "Sparks", icon: "sparks" },
   { id: "embers", label: "Embers", icon: "embers" },
   { id: "servers", label: "Servers", icon: "servers" },
-  { id: "jobs", label: "Jobs", icon: "jobs" },
+  { id: "schedules", label: "Schedules", icon: "schedules" },
 ] as const;
 
 export type NavigationItem = (typeof navigation)[number];
