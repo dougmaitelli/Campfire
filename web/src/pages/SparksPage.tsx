@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { SparksTable } from "../components/sparks/SparksTable";
 import { SparkDialog } from "../dialogs/SparkDialog";
+import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
 import type { Spark } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
@@ -10,6 +11,7 @@ export function SparksPage() {
   const { sparks, loading, error, refresh, addSpark } = useSparks();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Spark | null>(null);
+  const [enrolling, setEnrolling] = useState<Spark | null>(null);
 
   function openAdd() {
     setEditing(null);
@@ -48,6 +50,7 @@ export function SparksPage() {
       <div className="sparks-content" aria-busy={loading}>
         {sparks.length > 0 ? (
           <SparksTable
+            onEnroll={setEnrolling}
             sparks={sparks}
             onEdit={(spark) => {
               setEditing(spark);
@@ -91,6 +94,12 @@ export function SparksPage() {
             addSpark(spark);
             void refresh();
           }}
+        />
+      )}
+      {enrolling && (
+        <EnrollSparkDialog
+          spark={enrolling}
+          onClose={() => setEnrolling(null)}
         />
       )}
     </section>

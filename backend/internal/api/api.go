@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"campfire/internal/service"
+	"campfire/internal/spark"
 )
 
 // API translates HTTP requests into service calls.
@@ -15,7 +16,11 @@ type API struct {
 	sparks  *service.SparkService
 	embers  *service.EmberService
 	servers *service.ServerService
+	agents  *spark.Hub
 }
+
+// WithAgentHub enables remote node enrollment and connection status.
+func (a *API) WithAgentHub(hub *spark.Hub) *API { a.agents = hub; return a }
 
 // New constructs the HTTP API with its application service.
 func New(sparks *service.SparkService, embers *service.EmberService, servers *service.ServerService) *API {

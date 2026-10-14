@@ -134,3 +134,31 @@ export async function updateSpark(
     throw new Error("Unexpected response while updating the Spark.");
   return body;
 }
+
+export interface SparkEnrollment {
+  token: string;
+  expires_at: string;
+}
+
+export async function createSparkEnrollment(
+  id: string,
+): Promise<SparkEnrollment> {
+  const body = await readResponse(
+    await fetch(`/api/v1/sparks/${encodeURIComponent(id)}/enrollment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    }),
+  );
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("token" in body) ||
+    typeof body.token !== "string" ||
+    !("expires_at" in body) ||
+    typeof body.expires_at !== "string"
+  ) {
+    throw new Error("Unexpected enrollment response.");
+  }
+  return { token: body.token, expires_at: body.expires_at };
+}

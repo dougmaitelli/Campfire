@@ -79,8 +79,8 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 4 {
-			return fmt.Errorf("database schema version %d is newer than supported version 4", version)
+		if version > 5 {
+			return fmt.Errorf("database schema version %d is newer than supported version 5", version)
 		}
 
 		if version == 0 {
@@ -123,6 +123,16 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if err := tx.Create(&schemaMigration{Version: 4}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version < 5 {
+			if err := tx.Migrator().CreateTable(&SparkEnrollment{}, &SparkIdentity{}); err != nil {
+				return fmt.Errorf("apply Spark enrollment schema: %w", err)
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 5}).Error; err != nil {
 				return fmt.Errorf("record migration: %w", err)
 			}
 		}

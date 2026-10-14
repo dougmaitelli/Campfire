@@ -8,9 +8,11 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 export function SparksTable({
   sparks,
   onEdit,
+  onEnroll,
 }: {
   sparks: Spark[];
   onEdit: (spark: Spark) => void;
+  onEnroll: (spark: Spark) => void;
 }) {
   return (
     <div className="table-container">
@@ -84,13 +86,26 @@ export function SparksTable({
                 </time>
               </td>
               <td>
-                <button
-                  className="button"
-                  onClick={() => onEdit(spark)}
-                  aria-label={`Edit ${spark.name}`}
-                >
-                  Edit
-                </button>
+                <div className="row-actions">
+                  <button
+                    className="button"
+                    onClick={() => onEdit(spark)}
+                    aria-label={`Edit ${spark.name}`}
+                  >
+                    Edit
+                  </button>
+                  {spark.kind === "remote" && (
+                    <button
+                      type="button"
+                      className="button"
+                      disabled={spark.disabled}
+                      onClick={() => onEnroll(spark)}
+                      aria-label={`Enroll ${spark.name}`}
+                    >
+                      Enroll
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

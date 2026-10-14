@@ -41,6 +41,27 @@ func (a *API) updateSpark(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, spark)
 }
 
+func (a *API) createSparkEnrollment(w http.ResponseWriter, r *http.Request) {
+	if a.agents == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "the panel agent HTTPS listener is not configured"})
+		return
+	}
+
+	var input struct{}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	token, err := a.agents.CreateEnrollment(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "enrollment requires an enabled remote Spark"})
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusCreated, token)
+}
+
 func decodeRequest(w http.ResponseWriter, r *http.Request, input any, maxBytes int64) bool {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {

@@ -112,6 +112,17 @@
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
+
+.agent-command {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .import-sources [aria-pressed="true"] {
   border-color: var(--accent-border);
   background: var(--accent-subtle);

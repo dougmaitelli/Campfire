@@ -47,3 +47,18 @@ type Ember struct {
 	Definition model.Ember `gorm:"serializer:json;type:text;not null"`
 	CreatedAt  string      `gorm:"type:text;not null;autoCreateTime:false"`
 }
+
+// SparkEnrollment stores only a short-lived enrollment token hash.
+type SparkEnrollment struct {
+	Hash      string `gorm:"type:text;primaryKey"`
+	SparkID   string `gorm:"type:text;not null;uniqueIndex"`
+	Spark     Spark  `gorm:"foreignKey:SparkID;constraint:OnDelete:CASCADE"`
+	ExpiresAt int64  `gorm:"not null"`
+}
+
+// SparkIdentity records the currently authorized client certificate.
+type SparkIdentity struct {
+	SparkID         string `gorm:"type:text;primaryKey"`
+	Spark           Spark  `gorm:"foreignKey:SparkID;constraint:OnDelete:CASCADE"`
+	CertificateHash string `gorm:"type:text;not null"`
+}

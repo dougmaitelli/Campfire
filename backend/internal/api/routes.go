@@ -9,6 +9,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/sparks", a.listSparks)
 	mux.HandleFunc("GET /api/v1/sparks/{id}", a.getSpark)
 	mux.HandleFunc("PATCH /api/v1/sparks/{id}", a.updateSpark)
+	mux.HandleFunc("POST /api/v1/sparks/{id}/enrollment", a.createSparkEnrollment)
 	mux.HandleFunc("GET /api/v1/embers", a.listEmbers)
 	mux.HandleFunc("POST /api/v1/embers", a.importEmber)
 	mux.HandleFunc("POST /api/v1/embers/preview-url", a.previewEmberURL)

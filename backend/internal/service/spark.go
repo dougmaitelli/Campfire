@@ -147,6 +147,12 @@ func (s *SparkService) Update(ctx context.Context, id string, input UpdateSparkI
 		return model.Spark{}, ErrSparkNotFound
 	}
 
+	if err == nil && spark.Disabled {
+		if controller, ok := s.connectivity.(interface{ Disconnect(string) }); ok {
+			controller.Disconnect(spark.ID)
+		}
+	}
+
 	return s.withConnectivity(spark), err
 }
 
