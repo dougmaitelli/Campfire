@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { listServers } from "../api/servers";
 import {
+  activityCursor,
   deleteSchedule,
   listExecutions,
   listSchedules,
@@ -107,7 +108,7 @@ export function SchedulesPage() {
     try {
       const items = await listExecutions(
         AbortSignal.timeout(15000),
-        runs.at(-1)?.id,
+        activityCursor(runs.at(-1)),
         filter,
       );
       if (version === generation.current) {

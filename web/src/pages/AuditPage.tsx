@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listAudit, type AuditEvent } from "../api/activity";
+import { activityCursor, listAudit, type AuditEvent } from "../api/activity";
 import "./management.css";
 
 export function AuditPage() {
@@ -37,7 +37,7 @@ export function AuditPage() {
     try {
       const next = await listAudit(
         AbortSignal.timeout(15000),
-        items.at(-1)?.id,
+        activityCursor(items.at(-1)),
         filters.action,
         filters.target,
       );

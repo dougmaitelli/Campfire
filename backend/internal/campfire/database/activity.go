@@ -34,7 +34,7 @@ type ScheduleRun struct {
 	Message         string `gorm:"type:text;not null" json:"message"`
 	CreatedAt       int64  `gorm:"not null;autoCreateTime:false;index" json:"created_at"`
 	StartedAt       int64  `gorm:"not null" json:"started_at"`
-	FinishedAt      int64  `gorm:"not null" json:"finished_at"`
+	FinishedAt      int64  `gorm:"not null;index" json:"finished_at"`
 	PolledAt        int64  `gorm:"not null;index" json:"-"`
 }
 

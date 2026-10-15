@@ -194,7 +194,7 @@ func migrate(db *gorm.DB) error {
 		current := tx.Session(&gorm.Session{})
 
 		current.IgnoreRelationshipsWhenMigrating = true
-		if err := current.AutoMigrate(&SparkIdentity{}, &ServerTransfer{}, &BackupPolicy{}, &Backup{}, &AuditEvent{}); err != nil {
+		if err := current.AutoMigrate(&SparkIdentity{}, &ServerTransfer{}, &BackupPolicy{}, &Backup{}, &AuditEvent{}, &ScheduleRun{}); err != nil {
 			return fmt.Errorf("apply Spark renewal and transfer schema: %w", err)
 		}
 

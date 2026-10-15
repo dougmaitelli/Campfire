@@ -50,6 +50,8 @@ func Run(ctx context.Context, args []string) error {
 	tlsCert := flags.String("agent-tls-cert", environment("CAMPFIRE_AGENT_TLS_CERT", ""), "agent HTTPS certificate (CAMPFIRE_AGENT_TLS_CERT)")
 	tlsKey := flags.String("agent-tls-key", environment("CAMPFIRE_AGENT_TLS_KEY", ""), "agent HTTPS private key (CAMPFIRE_AGENT_TLS_KEY)")
 	version := flags.Bool("version", false, "print release version and exit")
+	auditRetention := flags.String("audit-retention-days", environment("CAMPFIRE_AUDIT_RETENTION_DAYS", "0"), "audit record age limit in days; 0 keeps forever (CAMPFIRE_AUDIT_RETENTION_DAYS)")
+	operationRetention := flags.String("operation-retention-days", environment("CAMPFIRE_OPERATION_RETENTION_DAYS", "0"), "completed operation history age limit in days; 0 keeps forever (CAMPFIRE_OPERATION_RETENTION_DAYS)")
 
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -65,6 +67,11 @@ func Run(ctx context.Context, args []string) error {
 
 	if *version {
 		return printVersion("Campfire")
+	}
+
+	retention, err := parseHistoryRetention(*auditRetention, *operationRetention)
+	if err != nil {
+		return err
 	}
 
 	origin, err := adminOrigin(*listen, *publicURL)
@@ -145,6 +152,7 @@ func Run(ctx context.Context, args []string) error {
 	defer transfers.Close()
 
 	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
+	activity.Retention = retention
 
 	deployment.Activity = activity
 	if err := activity.Start(ctx); err != nil {

@@ -31,6 +31,7 @@ func WithActor(ctx context.Context, principal Principal) context.Context {
 // ActivityService coordinates recurring work, retained execution history and audits.
 type ActivityService struct {
 	Store      *repository.ActivityRepository
+	Retention  HistoryRetention
 	deployment *DeploymentService
 	auth       *AuthService
 	cancel     context.CancelFunc
@@ -46,11 +47,19 @@ func NewActivityService(store *repository.ActivityRepository, deployment *Deploy
 
 // Start recovers interrupted records and starts bounded background processing.
 func (s *ActivityService) Start(ctx context.Context) error {
+	if err := s.Retention.Validate(); err != nil {
+		return err
+	}
+
 	if err := s.Store.Recover(ctx, time.Now()); err != nil {
 		return err
 	}
 
 	ctx, s.cancel = context.WithCancel(ctx)
+	if s.Retention.AuditDays > 0 || s.Retention.OperationDays > 0 {
+		s.wg.Add(1)
+		go s.maintainHistory(ctx)
+	}
 
 	s.wg.Add(1)
 	go func() {

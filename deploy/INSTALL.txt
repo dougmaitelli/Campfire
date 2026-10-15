@@ -435,7 +435,36 @@ Audit intent is persisted before a mutation; unavailable audit storage rejects
 the request. Incomplete audit records are marked interrupted after restart.
 History and audit survive account, schedule and server deletion; deleted-server
 history remains visible to admins. Reads are paginated in batches of 100, with
-exact action/target filters on Audit. Retention cleanup is not implemented yet.
+exact action/target filters on Audit.
+
+Configure independent panel-wide history retention limits, for example:
+
+  CAMPFIRE_AUDIT_RETENTION_DAYS=90
+  CAMPFIRE_OPERATION_RETENTION_DAYS=30
+
+Both default to 0, keeping records forever. Values must be whole days between
+0 and 36500. The flags --audit-retention-days and --operation-retention-days
+override the environment. For systemd, edit /etc/campfire/campfire.env and
+restart campfire. With the supplied Compose file, set the variables in .env and
+recreate the container with docker compose up -d. Policies apply to all users
+and servers, including history retained after a server or account is deleted.
+
+Audit ages use creation time. Operation history ages use completion time, so a
+long-running operation gets its full retention period after it finishes. Only
+terminal records are eligible: queued, dispatching and running operations and
+pending audit requests are preserved. Schedule definitions and future runs are
+unaffected. Expired records, including their retry data, are permanently removed.
+
+Cleanup starts in the background at startup after recovery and normally runs
+hourly. Each transaction removes at most 1000 records per collection; a backlog
+continues in one-second intervals without holding one large write transaction.
+Cleanup errors are logged and retried on the next hourly pass. History pages
+use timestamp-and-ID cursors so pruning an already-viewed row does not break
+pagination. The API before parameter accepts CREATED_AT:ID; a retained row ID
+also works. Filters and access restrictions apply to every page.
+
+SQLite reuses freed pages for future writes. Cleanup does not run VACUUM or
+promise to shrink the database file immediately.
 Schema 9 adds schedules, executions and audit records without revoking sessions.
 Schedules use the same negotiated Spark capabilities as manual operations.
 

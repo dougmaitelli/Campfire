@@ -49,6 +49,12 @@ export interface AuditEvent {
   status: number;
   created_at: number;
 }
+
+export function activityCursor(
+  item: { created_at: number; id: string } | undefined,
+): string {
+  return item ? `${item.created_at}:${item.id}` : "";
+}
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

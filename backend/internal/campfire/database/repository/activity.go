@@ -145,11 +145,12 @@ func (r *ActivityRepository) Runs(ctx context.Context, userID int64, admin bool,
 		query = query.Where("server_id = ?", serverID)
 	}
 
-	if before != "" {
-		query = query.Where("(created_at, id) < (SELECT created_at, id FROM schedule_runs WHERE id = ?)", before)
+	query, err := historyBefore(query, &database.ScheduleRun{}, before)
+	if err != nil {
+		return nil, err
 	}
 
-	err := query.Limit(100).Find(&items).Error
+	err = query.Limit(100).Find(&items).Error
 
 	return items, err
 }
@@ -231,8 +232,10 @@ func (r *ActivityRepository) Audit(ctx context.Context, before, action, target s
 	items := []database.AuditEvent{}
 
 	query := r.db.WithContext(ctx).Order("created_at DESC, id DESC")
-	if before != "" {
-		query = query.Where("(created_at, id) < (SELECT created_at, id FROM audit_events WHERE id = ?)", before)
+
+	query, err := historyBefore(query, &database.AuditEvent{}, before)
+	if err != nil {
+		return nil, err
 	}
 
 	if action != "" {
@@ -243,7 +246,7 @@ func (r *ActivityRepository) Audit(ctx context.Context, before, action, target s
 		query = query.Where("target = ?", target)
 	}
 
-	err := query.Limit(100).Find(&items).Error
+	err = query.Limit(100).Find(&items).Error
 
 	return items, err
 }
