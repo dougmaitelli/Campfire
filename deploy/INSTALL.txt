@@ -198,12 +198,12 @@ Building releases from source
 -----------------------------
 Native builds require Go 1.26+, a C compiler for SQLite, Node 24+ and the pinned
 pnpm version. Run make dependencies, then make check. make build compiles the
-frontend, stages only generated assets into backend/internal/webui/dist, and
+frontend, stages generated assets into backend/internal/campfire/webui/dist, and
 builds bin/campfire with the production tag. Direct go build uses development
 mode and serves APIs without bundled frontend assets; use make dev with Vite.
 make build-campfire builds only the panel and bundled UI. make build-spark builds
 only the agent and does not need Node or frontend assets. The panel dependency
-graph excludes the game runtime; the Spark entry point supplies it to the agent.
+graph excludes the game runtime; the Spark agent initializes its own runtime.
 
   make build VERSION=v0.1.0 COMMIT=COMMIT_SHA BUILD_DATE=RFC3339_TIMESTAMP
   ./bin/campfire --version

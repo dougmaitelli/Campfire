@@ -6,7 +6,7 @@ export GOLANGCI_LINT_CACHE
 VERSION ?= dev
 COMMIT ?= unknown
 BUILD_DATE ?= unknown
-BUILD_LDFLAGS := -X campfire/internal/buildinfo.Version=$(VERSION) -X campfire/internal/buildinfo.Commit=$(COMMIT) -X campfire/internal/buildinfo.Date=$(BUILD_DATE)
+BUILD_LDFLAGS := -X campfire/internal/shared/buildinfo.Version=$(VERSION) -X campfire/internal/shared/buildinfo.Commit=$(COMMIT) -X campfire/internal/shared/buildinfo.Date=$(BUILD_DATE)
 
 .PHONY: dependencies dependencies-backend dependencies-frontend \
 	build build-ui build-campfire build-spark test test-backend test-frontend \
@@ -26,7 +26,7 @@ build: build-campfire build-spark
 build-campfire: build-ui
 	node scripts/prepare-ui.mjs
 	go -C backend build -tags production -buildvcs=false -trimpath -ldflags '$(BUILD_LDFLAGS)' -o ../bin/campfire ./cmd/campfire
-	go -C backend test -tags production ./internal/webui
+	go -C backend test -tags production ./internal/campfire/webui
 
 build-spark:
 	go -C backend build -buildvcs=false -trimpath -ldflags '$(BUILD_LDFLAGS)' -o ../bin/spark ./cmd/spark

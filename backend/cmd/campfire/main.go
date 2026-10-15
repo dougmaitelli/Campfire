@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	"campfire/internal/cli"
+	"campfire/internal/campfire/cli"
 )
 
 func main() {

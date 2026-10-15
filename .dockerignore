@@ -6,7 +6,7 @@
 node_modules
 web/node_modules
 web/dist
-backend/internal/webui/dist
+backend/internal/campfire/webui/dist
 dist
 web/playwright-report
 web/test-results
@@ -15,11 +15,9 @@ docs
 data
 spark-data
 secrets
-.env
-.env.*
 **/.env
 **/.env.*
 config/config.yaml
-*.db
-*.db-shm
-*.db-wal
+**/*.db
+**/*.db-shm
+**/*.db-wal

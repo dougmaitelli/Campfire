@@ -13,15 +13,15 @@ WORKDIR /src/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
-COPY --from=frontend /src/web/dist ./internal/webui/dist
+COPY --from=frontend /src/web/dist ./internal/campfire/webui/dist
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 ENV CGO_ENABLED=1
-RUN release_flags="-s -w -linkmode external -extldflags '-static' -X campfire/internal/buildinfo.Version=${VERSION} -X campfire/internal/buildinfo.Commit=${COMMIT} -X campfire/internal/buildinfo.Date=${BUILD_DATE}" \
+RUN release_flags="-s -w -linkmode external -extldflags '-static' -X campfire/internal/shared/buildinfo.Version=${VERSION} -X campfire/internal/shared/buildinfo.Commit=${COMMIT} -X campfire/internal/shared/buildinfo.Date=${BUILD_DATE}" \
     && go build -tags production -buildvcs=false -trimpath -ldflags "$release_flags" -o /out/campfire ./cmd/campfire \
     && go build -buildvcs=false -trimpath -ldflags "$release_flags" -o /out/spark ./cmd/spark \
-    && go test -tags production ./internal/webui
+    && go test -tags production ./internal/campfire/webui
 
 # Export statically linked Linux binaries without a dependency on host glibc.
 FROM scratch AS binaries
