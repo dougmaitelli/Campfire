@@ -10,12 +10,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -46,7 +43,6 @@ type AuthService struct {
 	store         *repository.AuthRepository
 	mu            sync.Mutex
 	setupHash     [32]byte
-	setupPath     string
 	setupReady    bool
 	attempts      map[string]authAttempts
 	global        authAttempts
@@ -92,65 +88,29 @@ func validAuthToken(value string) bool {
 	return err == nil && len(decoded) == 32 && len(value) == 43
 }
 
-// PrepareSetup creates or loads a private bootstrap token only while no admin exists.
-func (s *AuthService) PrepareSetup(ctx context.Context, path string) error {
+// PrepareSetup returns a one-time console secret only while no account exists.
+// Restarting before setup completes replaces the secret; only its hash is kept.
+func (s *AuthService) PrepareSetup(ctx context.Context) (string, error) {
 	admin, err := s.store.Credential(ctx)
 	if err != nil {
-		return err
-	}
-
-	if admin != nil {
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return errors.New("could not remove consumed setup token file")
-		}
-
-		return nil
-	}
-
-	token := authToken()
-
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
-	if err == nil {
-		_, writeErr := io.WriteString(file, token+"\n")
-		syncErr := file.Sync()
-
-		closeErr := file.Close()
-		if writeErr != nil || syncErr != nil || closeErr != nil {
-			_ = os.Remove(path)
-			return errors.New("could not persist setup token")
-		}
-	} else if errors.Is(err, os.ErrExist) {
-		file, err = os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
-		if err != nil {
-			return errors.New("could not read private setup token")
-		}
-		defer func() { _ = file.Close() }()
-
-		info, err := file.Stat()
-		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-			return errors.New("setup token must be a private regular file (mode 0600)")
-		}
-
-		data, err := io.ReadAll(io.LimitReader(file, 128))
-		if err != nil {
-			return errors.New("could not read setup token")
-		}
-
-		token = strings.TrimSpace(string(data))
-		if !validAuthToken(token) {
-			return errors.New("setup token file is invalid")
-		}
-	} else {
-		return errors.New("could not create private setup token file")
+		return "", err
 	}
 
 	s.mu.Lock()
-	s.setupHash = sha256.Sum256([]byte(token))
-	s.setupPath = path
-	s.setupReady = true
-	s.mu.Unlock()
+	defer s.mu.Unlock()
 
-	return nil
+	s.setupHash = [32]byte{}
+	s.setupReady = false
+
+	if admin != nil {
+		return "", nil
+	}
+
+	token := authToken()
+	s.setupHash = sha256.Sum256([]byte(token))
+	s.setupReady = true
+
+	return token, nil
 }
 
 // NeedsSetup reads current state rather than relying on process-local setup caches.
@@ -263,11 +223,8 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 
 	s.mu.Lock()
 	s.setupReady = false
-	path := s.setupPath
+	s.setupHash = [32]byte{}
 	s.mu.Unlock()
-
-	// The database is authoritative: any leftover token cannot configure a second admin.
-	_ = os.Remove(path)
 
 	return session, raw, nil
 }

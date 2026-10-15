@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +15,89 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 )
+
+type startupLogWriter func([]byte) (int, error)
+
+func (write startupLogWriter) Write(data []byte) (int, error) { return write(data) }
+
+func TestStartupLogsSetupTokenOnlyBeforeFirstAccount(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "panel.db")
+	t.Setenv("CAMPFIRE_S3_BUCKET", "")
+
+	previous := slog.Default()
+
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	run := func() string {
+		t.Helper()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var output bytes.Buffer
+
+		writer := startupLogWriter(func(data []byte) (int, error) {
+			n, err := output.Write(data)
+			if bytes.Contains(data, []byte("Campfire listener started")) {
+				cancel()
+			}
+
+			return n, err
+		})
+		slog.SetDefault(slog.New(slog.NewJSONHandler(writer, nil)))
+
+		if err := Run(ctx, []string{"--database", path, "--listen", "127.0.0.1:0", "--public-url", "", "--agent-listen", "", "--oidc-issuer", "", "--oidc-client-id", "", "--oidc-client-secret", "", "--disable-local-login=false"}); err != nil {
+			t.Fatal(err)
+		}
+
+		return output.String()
+	}
+	output := run()
+
+	var token string
+
+	for line := range strings.SplitSeq(strings.TrimSpace(output), "\n") {
+		var event struct {
+			Token string `json:"setup_token"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+
+		if event.Token != "" {
+			if token != "" {
+				t.Fatal("setup token printed more than once")
+			}
+
+			token = event.Token
+		}
+	}
+
+	if len(token) != 43 {
+		t.Fatal("startup did not print a setup token")
+	}
+
+	if _, err := os.Stat(path + ".setup-token"); !os.IsNotExist(err) {
+		t.Fatal("startup persisted a setup secret", err)
+	}
+
+	db, err := database.Open(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
+	_, createErr := auth.Access().CreateUser(context.Background(), "admin", "a long administrator test password", database.AdminRole, false)
+
+	closeErr := db.Close()
+	if createErr != nil || closeErr != nil {
+		t.Fatal(createErr, closeErr)
+	}
+
+	if output := run(); strings.Contains(output, "setup_token") || strings.Contains(output, token) {
+		t.Fatal("configured startup printed a setup secret")
+	}
+}
 
 func TestAdminOriginRequiresExplicitHTTPSForPublicAccess(t *testing.T) {
 	for _, input := range []struct {

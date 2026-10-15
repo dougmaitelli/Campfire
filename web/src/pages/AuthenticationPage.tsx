@@ -115,8 +115,8 @@ export function AuthenticationPage() {
                       aria-describedby="setup-token-help"
                     />
                     <span id="setup-token-help" className="authentication-hint">
-                      Read the private .setup-token file beside the panel
-                      database on your Campfire host.
+                      Copy the one-time setup token from Campfire’s startup
+                      console output or container logs.
                     </span>
                   </label>
                 )}

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -56,11 +55,8 @@ func authFixture(t *testing.T, origin string) (*service.AuthService, http.Handle
 	t.Cleanup(func() { _ = db.Close() })
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
-	if err := auth.PrepareSetup(context.Background(), path+".setup-token"); err != nil {
-		t.Fatal(err)
-	}
 
-	data, err := os.ReadFile(path + ".setup-token")
+	token, err := auth.PrepareSetup(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +66,7 @@ func authFixture(t *testing.T, origin string) (*service.AuthService, http.Handle
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil)
 	handler := api.New(sparks, embers, servers).WithAuthentication(auth, origin).Handler()
 
-	return auth, handler, strings.TrimSpace(string(data))
+	return auth, handler, token
 }
 
 func setupBody(t *testing.T, token string) string {

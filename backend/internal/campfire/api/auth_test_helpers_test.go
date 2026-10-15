@@ -3,9 +3,6 @@ package api_test
 import (
 	"context"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"campfire/internal/campfire/api"
@@ -23,8 +20,8 @@ func authenticatedTestAPI(t *testing.T, db *database.Database, panel *api.API) h
 	ctx := context.Background()
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	path := filepath.Join(t.TempDir(), "setup-token")
-	if err := auth.PrepareSetup(ctx, path); err != nil {
+	setupToken, err := auth.PrepareSetup(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -38,12 +35,7 @@ func authenticatedTestAPI(t *testing.T, db *database.Database, panel *api.API) h
 	var token string
 
 	if setup {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		session, token, err = auth.Setup(ctx, strings.TrimSpace(string(data)), "admin", testAdminPassword)
+		session, token, err = auth.Setup(ctx, setupToken, "admin", testAdminPassword)
 		if err != nil {
 			t.Fatal(err)
 		}

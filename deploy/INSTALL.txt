@@ -219,13 +219,20 @@ separate state directories and can be updated or restarted independently.
 
 First-run administrator setup
 -----------------------------
-Open the panel through your configured origin. On first startup it creates
-/var/lib/campfire/panel.db.setup-token (0600). Read it locally:
+Open the panel through your configured origin. Until the first account is
+created, startup prints a one-time setup token to the console. For systemd:
 
-  sudo cat /var/lib/campfire/panel.db.setup-token
+  sudo journalctl -u campfire -b
+
+For Docker:
+
+  docker compose logs campfire
 
 Enter that token in the setup form and create a password of at least 15
-characters. The token is removed after successful setup. Browser sessions
+characters. The token becomes invalid after successful setup and is never
+printed again once an account exists. It is kept only in memory as a hash;
+restarting before setup completes generates a new token, so use the latest
+startup output. No setup-token file is written. Browser sessions
 expire after 12 hours absolutely or 30 minutes without API activity. Polling
 counts as activity. Setup creates the initial Admin account; additional accounts
 are created from Users or on first OIDC sign-in when configured. All management
@@ -447,7 +454,6 @@ be able to traverse the directory and read both files.
   docker compose pull
   docker compose up -d
   docker compose logs -f campfire
-  docker compose exec campfire cat /var/lib/campfire/panel.db.setup-token
 
 Compose publishes browser HTTP only on 127.0.0.1:8080 for a host HTTPS proxy.
 It publishes agent TLS on port 8443, mounts TLS files read-only, and persists

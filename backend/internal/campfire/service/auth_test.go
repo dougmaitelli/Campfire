@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,30 +26,33 @@ func TestAdministratorSecretsBootstrapAndThrottling(t *testing.T) {
 	store := repository.NewAuthRepository(db.ORM())
 	auth := NewAuthService(store)
 
-	path := filepath.Join(directory, "setup-token")
-	if err := auth.PrepareSetup(ctx, path); err != nil {
-		t.Fatal(err)
-	}
-
-	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0600 {
-		t.Fatal("bootstrap token was not private", err)
-	}
-
-	data, err := os.ReadFile(path)
+	previous, err := auth.PrepareSetup(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// A restart must preserve the same bootstrap token until successful setup.
+	if !validAuthToken(previous) {
+		t.Fatal("invalid setup token")
+	}
+
+	// Restarting generates a new console secret rather than recovering a file.
 	restarted := NewAuthService(store)
-	if err := restarted.PrepareSetup(ctx, path); err != nil {
+
+	token, err := restarted.PrepareSetup(ctx)
+	if err != nil {
 		t.Fatal(err)
+	}
+
+	if token == previous || !validAuthToken(token) {
+		t.Fatal("restart did not replace setup token")
 	}
 
 	password := "a private long passphrase with spaces"
 
-	token := strings.TrimSpace(string(data))
+	if _, _, err := restarted.Setup(ctx, previous, "admin", password); !errors.Is(err, ErrAuthentication) {
+		t.Fatal("old process token accepted", err)
+	}
+
 	if _, _, err := restarted.Setup(ctx, token, "admin", "short"); !errors.Is(err, ErrAuthInput) {
 		t.Fatal("short setup password accepted", err)
 	}
@@ -60,8 +62,12 @@ func TestAdministratorSecretsBootstrapAndThrottling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("consumed setup file retained")
+	if _, _, err := restarted.Setup(ctx, token, "other", password); !errors.Is(err, ErrAuthentication) {
+		t.Fatal("consumed token was reusable", err)
+	}
+
+	if secret, err := NewAuthService(store).PrepareSetup(ctx); err != nil || secret != "" {
+		t.Fatal("configured installation generated another setup token", err)
 	}
 
 	admin, err := store.Credential(ctx)
@@ -102,7 +108,7 @@ func TestAdministratorSecretsBootstrapAndThrottling(t *testing.T) {
 	}
 }
 
-func TestSetupRejectsPublicOrLinkedBootstrapFiles(t *testing.T) {
+func TestSetupRequiresAnExplicitlyPreparedSecret(t *testing.T) {
 	ctx := context.Background()
 
 	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "panel.db"))
@@ -112,22 +118,16 @@ func TestSetupRejectsPublicOrLinkedBootstrapFiles(t *testing.T) {
 
 	defer func() { _ = db.Close() }()
 
-	path := filepath.Join(t.TempDir(), "setup-token")
-	if err := os.WriteFile(path, []byte(authToken()), 0644); err != nil {
-		t.Fatal(err)
-	}
-
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
-	if err := auth.PrepareSetup(ctx, path); err == nil {
-		t.Fatal("public setup token accepted")
+	if _, _, err := auth.Setup(ctx, authToken(), "admin", "a private long passphrase"); !errors.Is(err, ErrAuthentication) {
+		t.Fatal("setup accepted before preparation", err)
 	}
 
-	link := filepath.Join(t.TempDir(), "link")
-	if err := os.Symlink(path, link); err != nil {
+	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := auth.PrepareSetup(ctx, link); err == nil {
-		t.Fatal("bootstrap symlink accepted")
+	if token, err := auth.PrepareSetup(ctx); err == nil || token != "" {
+		t.Fatal("setup secret generated when account state could not be checked", err)
 	}
 }

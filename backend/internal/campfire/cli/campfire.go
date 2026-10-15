@@ -95,15 +95,13 @@ func Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	setupPath := *dbPath + ".setup-token"
-	if err := auth.PrepareSetup(ctx, setupPath); err != nil {
+	setupToken, err := auth.PrepareSetup(ctx)
+	if err != nil {
 		return fmt.Errorf("prepare administrator setup: %w", err)
 	}
 
-	if required, err := auth.NeedsSetup(ctx); err != nil {
-		return err
-	} else if required {
-		slog.Info("Administrator setup required", "token_file", setupPath)
+	if setupToken != "" {
+		slog.Info("Administrator setup required; enter this one-time token in the setup form", "setup_token", setupToken)
 	}
 
 	var hub *agents.Hub
