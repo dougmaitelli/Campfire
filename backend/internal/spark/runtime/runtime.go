@@ -32,6 +32,8 @@ type Manager struct {
 	entries   map[string]*entry
 	wg        sync.WaitGroup
 	closed    bool
+	metricsMu sync.Mutex
+	metrics   map[string]*metricsEntry
 }
 
 type entry struct {
@@ -104,6 +106,11 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID {
 		return model.RuntimeStatus{}, errors.New("invalid server identity")
+	}
+
+	if q.Action == "metrics" {
+		usage, err := m.Measure(ctx, d)
+		return model.RuntimeStatus{ServerID: d.ServerID, State: usage.State, Metrics: &usage}, err
 	}
 
 	e, err := m.load(q.ServerID)

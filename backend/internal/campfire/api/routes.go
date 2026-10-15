@@ -48,6 +48,8 @@ func (a *API) Handler() http.Handler {
 	platform("DELETE /api/v1/roles/{roleID}", "roles.manage", a.deleteRole)
 	platform("GET /api/v1/provisioning", "servers.create", a.provisioning)
 	mux.HandleFunc("GET /api/v1/servers", a.listServers)
+	mux.HandleFunc("GET /api/v1/monitoring", a.monitoring)
+	server("GET /api/v1/servers/{id}/metrics", "server.view", a.serverMetrics)
 	platform("POST /api/v1/servers", "servers.create", a.createServer)
 	server("GET /api/v1/servers/{id}", "server.view", a.getServer)
 	server("PUT /api/v1/servers/{id}", "server.configure", a.updateServer)

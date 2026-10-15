@@ -359,3 +359,23 @@ SHA-256 checksums as artifacts. Generated output is ignored by Git.
 Publishing the multi-platform GHCR image requires explicitly selecting the
 publish_image input. It does not create Git tags or GitHub Releases. The
 packaging workflow runs the full CI validation before building release artifacts.
+
+Monitoring
+----------
+The Dashboard and server list show measured CPU, memory and game-data usage.
+CPU is expressed in cores (100% Docker CPU equals one core). Memory excludes
+reclaimable filesystem cache, matching Docker's memory usage calculation.
+Disk usage counts logical sizes of regular files in the server data directory;
+hard links count once, and symlinks, backups and Docker image layers are excluded.
+This is usage reporting, not disk quota enforcement.
+
+Spark caches container measurements for five seconds and disk measurements for
+30 seconds. The UI polls every five seconds and marks old readings stale.
+Unavailable readings stay unavailable rather than becoming zero. The first CPU
+sample may need another polling interval to establish a baseline. Measurements
+are live snapshots, without persistent metric history or alerting.
+
+Users see only servers they can view. Administrators also see Spark connection
+status and configured capacity; these capacity figures are not host OS usage.
+Upgrade Spark alongside Campfire to enable measurements. Docker statistics
+require Spark's local Unix Docker socket; remote Docker contexts are unsupported.

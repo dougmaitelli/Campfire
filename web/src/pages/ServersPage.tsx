@@ -14,6 +14,8 @@ import { useServerRuntime } from "../hooks/useServerRuntime";
 import { serverAction } from "../api/runtime";
 import type { ServerAction } from "../api/runtime";
 import "./management.css";
+import { useMonitoring } from "../hooks/useMonitoring";
+import { ResourceReadings } from "../components/servers/ResourceReadings";
 
 export function ServersPage() {
   const auth = useAuthentication();
@@ -21,6 +23,7 @@ export function ServersPage() {
     auth.session?.admin === true ||
     auth.session?.permissions?.includes("servers.create") === true;
   const servers = useCollection(listServers);
+  const monitoring = useMonitoring();
   const [options, setOptions] = useState<ServerOptions>({
     sparks: [],
     embers: [],
@@ -80,6 +83,7 @@ export function ServersPage() {
       server.name.toLowerCase().includes(search.toLowerCase()),
   );
   async function refresh() {
+    monitoring.refresh();
     setActionError(null);
     setOptionsError(null);
     setOptionsLoading(canProvision);
@@ -313,15 +317,17 @@ export function ServersPage() {
                       </span>
                     </td>
                     <td>
-                      <span className="resource-line">
-                        {server.cpu_limit} CPU cores
-                      </span>
-                      <span className="resource-line">
-                        {server.memory_mb.toLocaleString()} MiB memory
-                      </span>
-                      <span className="resource-line">
-                        {server.disk_mb.toLocaleString()} MiB disk
-                      </span>
+                      <ResourceReadings
+                        usage={
+                          monitoring.snapshot?.servers.find(
+                            (item) => item.id === server.id,
+                          )?.usage
+                        }
+                        cpuLimit={server.cpu_limit}
+                        memoryMB={server.memory_mb}
+                        diskMB={server.disk_mb}
+                        elapsed={monitoring.elapsed}
+                      />
                     </td>
                     <td>
                       {server.ports.map((port, index) => (

@@ -1,0 +1,44 @@
+.resource-readings {
+  display: grid;
+  gap: 10px;
+  min-width: 235px;
+}
+.usage-reading {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+.usage-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+.usage-allocation {
+  color: var(--muted);
+}
+.usage-age {
+  color: var(--accent);
+}
+.usage-stale {
+  opacity: 0.75;
+}
+.usage-reading meter {
+  width: 100%;
+  height: 5px;
+  border: 0;
+  background: var(--border);
+  border-radius: 4px;
+  appearance: none;
+}
+.usage-reading meter::-webkit-meter-bar {
+  background: var(--border);
+  border: 0;
+  border-radius: 4px;
+}
+.usage-reading meter::-webkit-meter-optimum-value {
+  background: var(--accent);
+  border-radius: 4px;
+}
+.usage-reading meter::-moz-meter-bar {
+  background: var(--accent);
+  border-radius: 4px;
+}

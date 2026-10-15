@@ -18,8 +18,9 @@ import (
 )
 
 type accessRuntime struct {
-	calls atomic.Int64
-	files func(model.FileRequest) (model.FileResult, error)
+	calls   atomic.Int64
+	files   func(model.FileRequest) (model.FileResult, error)
+	metrics func(model.RuntimeRequest) (model.RuntimeStatus, error)
 }
 
 func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Deployment) (model.ConfigurationReceipt, error) {
@@ -28,6 +29,11 @@ func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Dep
 }
 func (d *accessRuntime) Action(_ context.Context, _ string, action model.RuntimeRequest) (model.RuntimeStatus, error) {
 	d.calls.Add(1)
+
+	if action.Action == "metrics" && d.metrics != nil {
+		return d.metrics(action)
+	}
+
 	return model.RuntimeStatus{ServerID: action.ServerID, State: "not_installed"}, nil
 }
 func (d *accessRuntime) Files(_ context.Context, _ string, input model.FileRequest) (model.FileResult, error) {

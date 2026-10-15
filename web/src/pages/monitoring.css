@@ -1,0 +1,43 @@
+.monitoring-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.monitoring-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.monitoring-card > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.monitoring-card strong {
+  font-size: 25px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.monitoring-card small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.monitoring-heading {
+  margin-top: 28px;
+  font-size: 18px;
+}
+@media (max-width: 1100px) {
+  .monitoring-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .monitoring-cards {
+    grid-template-columns: 1fr;
+  }
+}

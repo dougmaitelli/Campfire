@@ -7,6 +7,7 @@ import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
 import { SchedulesPage } from "./pages/SchedulesPage";
 import { AuditPage } from "./pages/AuditPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { useCurrentPage } from "./routing/useCurrentPage";
 import { AuthenticationPage } from "./pages/AuthenticationPage";
 import {
@@ -44,6 +45,8 @@ function ManagementApp() {
     <DashboardLayout page={page}>
       {!allowed ? (
         <EmptyPage title="You do not have access to this page" />
+      ) : page.id === "dashboard" ? (
+        <DashboardPage />
       ) : page.id === "schedules" ? (
         <SchedulesPage />
       ) : page.id === "audit" ? (
@@ -56,10 +59,8 @@ function ManagementApp() {
         <SparksPage />
       ) : page.id === "servers" ? (
         <ServersPage />
-      ) : page.id === "embers" ? (
-        <EmbersPage />
       ) : (
-        <EmptyPage title={page.label} />
+        <EmbersPage />
       )}
     </DashboardLayout>
   );

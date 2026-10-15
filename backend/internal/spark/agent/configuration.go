@@ -67,6 +67,10 @@ func (s *ConfigurationStore) Action(ctx context.Context, id string, request mode
 		return model.RuntimeStatus{ServerID: request.ServerID, State: "not_installed"}, nil
 	}
 
+	if errors.Is(err, os.ErrNotExist) && request.Action == "metrics" {
+		return model.RuntimeStatus{ServerID: request.ServerID, State: "not_installed", Metrics: &model.ResourceUsage{ServerID: request.ServerID, State: "not_installed", ContainerError: "Deliver configuration before collecting usage.", DiskError: "Deliver configuration before collecting usage."}}, nil
+	}
+
 	if err != nil {
 		return model.RuntimeStatus{}, errors.New("deliver server configuration first")
 	}
