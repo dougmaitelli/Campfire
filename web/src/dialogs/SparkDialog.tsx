@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { createSpark, updateSpark } from "../api/sparks";
-import type { Spark, SparkKind } from "../api/sparks";
+import type { Spark } from "../api/sparks";
 import { SparkSettingsFields } from "../components/sparks/SparkSettingsFields";
 import type { SparkSettings } from "../api/sparks";
 import { Wizard } from "../components/wizard/Wizard";
@@ -9,20 +9,13 @@ import { Drawer } from "../components/layout/Drawer";
 
 interface SparkDialogProps {
   spark: Spark | null;
-  hasLocalSpark: boolean;
   onClose: () => void;
   onSaved: (spark: Spark) => void;
 }
 
-export function SparkDialog({
-  spark,
-  hasLocalSpark,
-  onClose,
-  onSaved,
-}: SparkDialogProps) {
+export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
   const submittingRef = useRef(false);
   const [name, setName] = useState(spark?.name ?? "");
-  const [kind, setKind] = useState<SparkKind>(spark?.kind ?? "remote");
   const [description, setDescription] = useState(spark?.description ?? "");
   const [disabled, setDisabled] = useState(spark?.disabled ?? false);
   const [settings, setSettings] = useState<SparkSettings>(() => ({
@@ -45,7 +38,6 @@ export function SparkDialog({
         ? await updateSpark(spark.id, { description, disabled, ...settings })
         : await createSpark({
             name: name.trim(),
-            kind,
             description,
             disabled,
             ...settings,
@@ -88,27 +80,9 @@ export function SparkDialog({
                 autoComplete="off"
                 readOnly={spark !== null}
               />
-              <label htmlFor="spark-kind">Type</label>
-              <select
-                id="spark-kind"
-                name="kind"
-                value={kind}
-                disabled={spark !== null}
-                onChange={(event) =>
-                  setKind(event.target.value === "local" ? "local" : "remote")
-                }
-                aria-describedby="spark-kind-help"
-              >
-                <option value="remote">Remote Spark</option>
-                <option value="local" disabled={hasLocalSpark}>
-                  Local Spark
-                </option>
-              </select>
-              <p id="spark-kind-help" className="field-help">
-                {kind === "local"
-                  ? "Runs on the same host as Campfire. No separate agent is needed."
-                  : "Runs on another host using the Spark agent."}
-                {hasLocalSpark && " A local Spark is already registered."}
+              <p className="field-help">
+                Run the Spark agent on this host or another machine, then enroll
+                it with Campfire.
               </p>
               <label htmlFor="spark-description">
                 Description <span className="field-help">(optional)</span>
@@ -150,7 +124,6 @@ export function SparkDialog({
           content: (
             <SparkReview
               name={name}
-              kind={kind}
               description={description}
               disabled={disabled}
               settings={settings}

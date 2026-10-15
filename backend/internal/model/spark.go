@@ -3,14 +3,11 @@ package model
 
 import "time"
 
-// SparkKind identifies whether a node runs inside Campfire or in a separate agent.
+// SparkKind identifies the standalone agent transport.
 type SparkKind string
 
-// Supported Spark deployment types.
-const (
-	SparkLocal  SparkKind = "local"
-	SparkRemote SparkKind = "remote"
-)
+// SparkRemote is used for all agents, including agents on the panel host.
+const SparkRemote SparkKind = "remote"
 
 // Spark is a registered game server node. Registration does not imply connectivity.
 type Spark struct {

@@ -11,7 +11,9 @@ export function useSparks() {
   const load = useCallback((controller: AbortController) => {
     return listSparks(controller.signal)
       .then((result) => {
-        if (!controller.signal.aborted) setSparks(result);
+        if (!controller.signal.aborted) {
+          setSparks(result);
+        }
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {

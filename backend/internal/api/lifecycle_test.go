@@ -80,7 +80,7 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 	manager.FileOwner = func(*os.File, string) error { return nil }
 	defer manager.Close()
 
-	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(directory, "servers"), Runtime: manager}}
+	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: &spark.ConfigurationStore{Directory: filepath.Join(directory, "servers"), Runtime: manager}}
 	handler := authenticatedTestAPI(t, db, api.New(sparks, embers, servers).WithDeployment(deployment))
 	_, _, input := serverFixture(t, handler)
 

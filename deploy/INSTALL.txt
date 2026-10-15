@@ -1,0 +1,218 @@
+Campfire installation and upgrades
+=================================
+
+Delivery modes
+--------------
+Campfire includes its compiled React UI. Production hosts do not need Node.js,
+pnpm or Vite. Spark remains a separate Linux binary for game hosts.
+
+Use the Docker image or campfire.service for the panel. All game hosting uses
+the separate Spark binary, on the panel host or another machine. Same-host
+Sparks enroll and connect using the same HTTPS agent protocol as other Sparks.
+There is no embedded runtime or local-mode environment setting. Campfire always
+runs without Docker access; Spark needs Docker and runs with execution privileges.
+
+Linux binary installation
+-------------------------
+Release archives contain campfire, spark, this guide, configuration examples,
+Compose configuration and systemd units. Select linux_amd64 for x86-64
+or linux_arm64 for ARM64. Docker-built release binaries link SQLite and musl
+statically. Native make build binaries use the local toolchain/libc instead.
+
+Verify the downloaded archive's companion SHA-256 file from the same directory:
+
+  sha256sum -c campfire_VERSION_linux_ARCH.tar.gz.sha256
+  tar -xzf campfire_VERSION_linux_ARCH.tar.gz
+  sudo install -m 0755 campfire /usr/local/bin/campfire
+  sudo install -m 0755 spark /usr/local/bin/spark
+
+Install only the binary needed on each host. Install the operating system's
+CA certificates. Every execution host also needs rootful Docker Engine and
+the Docker CLI. A host running only Campfire needs neither Docker nor Spark.
+
+For a Campfire systemd installation:
+
+  sudo useradd --system --home-dir /var/lib/campfire --shell /usr/sbin/nologin campfire
+  sudo install -d -m 0750 /etc/campfire
+  sudo install -m 0600 campfire.env.example /etc/campfire/campfire.env
+  sudo install -m 0644 deploy/systemd/campfire.service /etc/systemd/system/
+
+Edit /etc/campfire/campfire.env with your public URL and agent TLS settings,
+then run:
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now campfire.service
+  sudo journalctl -u campfire.service -f
+
+StateDirectory creates /var/lib/campfire with private permissions and the
+service user's ownership. The panel listens on 127.0.0.1:8080 by default.
+Do not run a development panel against this same database or port.
+
+To host games on the same machine, also install and enroll Spark using the
+instructions below. The Campfire unit needs no changes. Campfire and Spark use
+separate state directories and can be updated or restarted independently.
+
+First-run administrator setup
+-----------------------------
+Open the panel through your configured origin. On first startup it creates
+/var/lib/campfire/panel.db.setup-token (0600). Read it locally:
+
+  sudo cat /var/lib/campfire/panel.db.setup-token
+
+Enter that token in the setup form and create a password of at least 15
+characters. The token is removed after successful setup. Browser sessions
+expire after 12 hours absolutely or 30 minutes without API activity. Polling
+counts as activity. Setup and all server management APIs require the appropriate
+administrator credentials; writes also require CSRF protection.
+
+Forgotten password recovery uses a private regular file, not a command-line
+password. Create a mode-0600 file with your editor and run:
+
+  sudo /usr/local/bin/campfire reset-password \
+    --database /var/lib/campfire/panel.db --password-file /private/new-password
+
+This preserves the username and revokes every session. Remove the password
+file after recovery. Reset requires an administrator to have been configured.
+
+HTTPS and agent enrollment
+-------------------------
+Set CAMPFIRE_PUBLIC_URL=https://panel.example.com for browser access through
+an HTTPS reverse proxy. Proxy the entire origin to 127.0.0.1:8080; no separate
+frontend server is needed. Non-loopback listeners require an explicit HTTPS
+public URL.
+For local development only, loopback HTTP is supported without a public URL.
+
+Remote Sparks use a separate direct TLS listener. Configure:
+
+  CAMPFIRE_AGENT_LISTEN=0.0.0.0:8443
+  CAMPFIRE_AGENT_TLS_CERT=/etc/campfire/tls/panel.crt
+  CAMPFIRE_AGENT_TLS_KEY=/etc/campfire/tls/panel.key
+
+Use a server certificate matching the hostname agents connect to. Certificate
+files must be readable by the service user; protect the private key with
+restricted owner/group permissions. Open port 8443 to the Spark hosts. An
+ordinary TLS-terminating reverse proxy does not preserve the agent's mutual
+TLS authentication. Keep the direct listener or use TLS passthrough.
+
+On a game host install spark and Docker, then:
+
+  sudo install -d -m 0750 /etc/campfire
+  sudo install -m 0600 spark.env.example /etc/campfire/spark.env
+  sudo install -m 0644 deploy/systemd/spark.service /etc/systemd/system/
+
+Create a Spark in the panel and generate its short-lived enrollment
+token. Save it on the node in /etc/campfire/enrollment.token (mode 0600).
+Set SPARK_PANEL=https://panel.example.com:8443 and
+SPARK_TOKEN_FILE=/etc/campfire/enrollment.token in spark.env. For a private
+certificate authority, also set SPARK_CA_FILE to its certificate file.
+
+For a same-host Spark, use the panel's agent hostname or
+https://127.0.0.1:8443 if the certificate includes 127.0.0.1 in its IP subject
+alternative names. This is the agent connection address. The Spark's game
+address in the panel is separate: use an address players can reach, such as
+the host's LAN IP or public address, rather than loopback.
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now spark.service
+  sudo journalctl -u spark.service -f
+
+After successful enrollment, remove SPARK_TOKEN_FILE from spark.env and remove
+the one-time token file. Subsequent starts use /var/lib/spark/identity.json.
+The root-run service manages Docker and game ownership. Its state must live
+on the same execution host as the Docker daemon, at visible absolute paths.
+
+Docker / Compose installation
+-----------------------------
+The image runs as UID/GID 10001, contains no Docker CLI, and
+does not mount the host Docker socket. Game servers run on binary Sparks.
+Use the release archive's compose.yaml and .env.example, or equivalent settings.
+
+Copy .env.example to .env and set CAMPFIRE_IMAGE to the version published by
+GitHub CI and CAMPFIRE_PUBLIC_URL to your HTTPS browser origin. Put the certificate and
+private key for the agent listener in the directory named CAMPFIRE_TLS_DIR,
+as panel.crt and panel.key. The directory must already exist. For a Linux
+host, a private example layout is root:10001 ownership, directory mode 0750,
+certificate mode 0644 and private key mode 0640. The non-root container must
+be able to traverse the directory and read both files.
+
+  docker compose config --quiet
+  docker compose pull
+  docker compose up -d
+  docker compose logs -f campfire
+  docker compose exec campfire cat /var/lib/campfire/panel.db.setup-token
+
+Compose publishes browser HTTP only on 127.0.0.1:8080 for a host HTTPS proxy.
+It publishes agent TLS on port 8443, mounts TLS files read-only, and persists
+the database and private signing authority in the campfire-data named volume.
+Its root filesystem is read-only with a bounded temporary directory, dropped
+capabilities and no-new-privileges. Named volumes initialize with the image's
+10001 ownership. Pre-existing bind-mounted state needs that ownership explicitly.
+
+Image tags use ghcr.io/OWNER/REPOSITORY:VERSION. Compose deploys the CI-built
+image and does not build from local source. No image has been published just
+by adding these files. Authenticate to GHCR on deployment hosts if the
+published package is private.
+
+For password recovery, create the private file in the container's writable data
+volume (for example docker compose cp a local mode-0600 file and then set its
+ownership to 10001 using a root exec). Then:
+
+  docker compose exec campfire campfire reset-password \
+    --password-file /var/lib/campfire/new-password
+
+Remove both temporary password files after recovery. The image's default
+CAMPFIRE_DATABASE selects the correct persistent database for this command.
+
+Backup, upgrade and rollback
+----------------------------
+Keep the panel database together with spark-authority.json. Keep each Spark's
+identity.json, delivered definitions, runtime metadata, game data and backups.
+Game backups are not a substitute for panel database/identity backups.
+
+Before upgrading, stop the panel service/container and take a consistent copy
+of its entire state directory or named volume. Copying just a live SQLite file
+can omit WAL contents. Store state backups privately. Record the current
+binary/image version and the database schema version.
+
+For binary upgrades, stop the relevant service, preserve its old binary,
+verify and install the new one, then start the service and check the journal,
+health endpoint, login and node connections. Use a stopped Spark and preserve
+its state when upgrading its binary. Detached games continue across ordinary
+agent disconnects; wait for lifecycle/file/backup work to finish before stopping
+an agent. Breaking wire protocol changes require compatible panel and Spark
+versions. These changes keep wire protocol 5 and schema 6. Update either
+component independently while both support protocol 5; mismatched protocols
+are rejected during the agent handshake.
+
+For Docker upgrades, stop campfire, back up campfire-data, set CAMPFIRE_IMAGE to
+the new CI-published version, then docker compose pull and docker compose up -d
+and verify its health and nodes.
+Never use docker compose down -v for an upgrade: it removes persistent state.
+
+Database migrations run automatically at startup. A previous binary may reject
+an upgraded database. Roll back the binary/image AND restore the matching
+pre-upgrade panel state backup while the panel is stopped. Do not drop tables
+or delete private signing keys to bypass a schema/version error.
+
+Building releases from source
+-----------------------------
+Native builds require Go 1.26+, a C compiler for SQLite, Node 24+ and the pinned
+pnpm version. Run make dependencies, then make check. make build compiles the
+frontend, stages only generated assets into backend/internal/webui/dist, and
+builds bin/campfire with the production tag. Direct go build uses development
+mode and serves APIs without bundled frontend assets; use make dev with Vite.
+make build-campfire builds only the panel and bundled UI. make build-spark builds
+only the agent and does not need Node or frontend assets. The panel dependency
+graph excludes the game runtime; the Spark entry point supplies it to the agent.
+
+  make build VERSION=v0.1.0 COMMIT=COMMIT_SHA BUILD_DATE=RFC3339_TIMESTAMP
+  ./bin/campfire --version
+  ./bin/spark --version
+
+For portable static Linux releases, run the manual Package releases GitHub
+Actions workflow with the desired version. It builds images on native amd64 and
+arm64 runners, builds with musl, exports static binaries, and uploads archives and
+SHA-256 checksums as artifacts. Generated output is ignored by Git.
+Publishing the multi-platform GHCR image requires explicitly selecting the
+publish_image input. It does not create Git tags or GitHub Releases. The
+packaging workflow runs the full CI validation before building release artifacts.

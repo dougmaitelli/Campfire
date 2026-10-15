@@ -23,7 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"campfire/internal/runtime"
+	"campfire/internal/buildinfo"
+	"campfire/internal/model"
 
 	"github.com/gorilla/websocket"
 )
@@ -35,7 +36,14 @@ type AgentConfig struct {
 	CAFile         string
 	Token          string
 	dialContext    func(context.Context, string, string) (net.Conn, error)
-	runtimeFactory func(context.Context, string) *runtime.Manager
+	RuntimeFactory func(context.Context, string) AgentRuntime
+}
+
+// AgentRuntime is supplied by the Spark executable; the panel does not depend on Docker.
+type AgentRuntime interface {
+	Execute(context.Context, model.Deployment, model.RuntimeRequest) (model.RuntimeStatus, error)
+	Files(context.Context, model.Deployment, model.FileRequest) (model.FileResult, error)
+	Close()
 }
 type agentIdentity struct {
 	ID          string
@@ -49,6 +57,10 @@ type agentIdentity struct {
 func RunAgent(ctx context.Context, config AgentConfig) error {
 	if config.DataDir == "" {
 		return errors.New("spark data directory is required")
+	}
+
+	if config.RuntimeFactory == nil {
+		return errors.New("spark runtime factory is required")
 	}
 
 	path := filepath.Join(config.DataDir, "identity.json")
@@ -106,10 +118,9 @@ func RunAgent(ctx context.Context, config AgentConfig) error {
 	target.Path = "/spark/connect"
 	delay := time.Second
 
-	manager := runtime.New(ctx, filepath.Join(config.DataDir, "runtime"))
-	if config.runtimeFactory != nil {
-		manager.Close()
-		manager = config.runtimeFactory(ctx, filepath.Join(config.DataDir, "runtime"))
+	manager := config.RuntimeFactory(ctx, filepath.Join(config.DataDir, "runtime"))
+	if manager == nil {
+		return errors.New("spark runtime is unavailable")
 	}
 	defer manager.Close()
 
@@ -319,7 +330,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		return err
 	}
 
-	if err := conn.WriteJSON(Message{Type: "hello", Protocol: ProtocolVersion, SparkID: id, Hostname: hostname, Version: "dev"}); err != nil {
+	if err := conn.WriteJSON(Message{Type: "hello", Protocol: ProtocolVersion, SparkID: id, Hostname: hostname, Version: buildinfo.Version}); err != nil {
 		return err
 	}
 

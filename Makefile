@@ -3,11 +3,15 @@ GOLANGCI_LINT ?= $(CURDIR)/.bin/golangci-lint
 GOLANGCI_LINT_CACHE := $(CURDIR)/.cache/golangci-lint
 export GOLANGCI_LINT_CACHE
 
+VERSION ?= dev
+COMMIT ?= unknown
+BUILD_DATE ?= unknown
+BUILD_LDFLAGS := -X campfire/internal/buildinfo.Version=$(VERSION) -X campfire/internal/buildinfo.Commit=$(COMMIT) -X campfire/internal/buildinfo.Date=$(BUILD_DATE)
+
 .PHONY: dependencies dependencies-backend dependencies-frontend \
-	build build-backend build-frontend test test-backend test-frontend \
+	build build-ui build-campfire build-spark test test-backend test-frontend \
 	format format-backend format-frontend format-check format-check-backend format-check-frontend \
-	lint lint-backend lint-frontend vet check tools dev dev-ui preview \
-	backend-build backend-test backend-vet ui-build ui-check ui-watch
+	lint lint-backend lint-frontend vet check tools dev dev-ui preview
 
 dependencies: dependencies-backend dependencies-frontend
 
@@ -17,13 +21,17 @@ dependencies-backend:
 dependencies-frontend:
 	pnpm --dir web install --frozen-lockfile
 
-build: build-backend build-frontend
+build: build-campfire build-spark
 
-build-backend:
-	go -C backend build -buildvcs=false -trimpath -o ../bin/campfire ./cmd/campfire
-	go -C backend build -buildvcs=false -trimpath -o ../bin/spark ./cmd/spark
+build-campfire: build-ui
+	node scripts/prepare-ui.mjs
+	go -C backend build -tags production -buildvcs=false -trimpath -ldflags '$(BUILD_LDFLAGS)' -o ../bin/campfire ./cmd/campfire
+	go -C backend test -tags production ./internal/webui
 
-build-frontend:
+build-spark:
+	go -C backend build -buildvcs=false -trimpath -ldflags '$(BUILD_LDFLAGS)' -o ../bin/spark ./cmd/spark
+
+build-ui:
 	pnpm --dir web run build
 
 test: test-backend test-frontend
@@ -31,7 +39,7 @@ test: test-backend test-frontend
 test-backend:
 	go -C backend test -race ./...
 
-# There is no application behavior to test yet; check frontend types for now.
+# Check frontend types until browser behavior tests are available.
 test-frontend:
 	pnpm --dir web run typecheck
 
@@ -52,7 +60,6 @@ format-check-frontend:
 	pnpm --dir web run format:check
 
 lint: lint-backend lint-frontend
-	node --check scripts/dev.mjs
 
 lint-backend: $(GOLANGCI_LINT)
 	cd backend && $(GOLANGCI_LINT) run --config ../.golangci.yml ./...
@@ -78,11 +85,3 @@ dev-ui:
 
 preview:
 	pnpm --dir web run preview
-
-# Keep the original skeleton commands as aliases.
-backend-build: build-backend
-backend-test: test-backend
-backend-vet: vet
-ui-build: build-frontend
-ui-check: test-frontend
-ui-watch: dev-ui

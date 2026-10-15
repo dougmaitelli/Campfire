@@ -158,7 +158,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	agentDir := filepath.Join(dir, "agent")
 	agentConfig := AgentConfig{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, dialContext: listener.dial}
 	wire := &wireDocker{}
-	agentConfig.runtimeFactory = func(ctx context.Context, directory string) *runtime.Manager {
+	agentConfig.RuntimeFactory = func(ctx context.Context, directory string) AgentRuntime {
 		manager := runtime.New(ctx, directory)
 		manager.Docker = wire
 		manager.Ownership = func(string, string) error { return nil }
@@ -239,7 +239,9 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	runCtx, cancel = context.WithCancel(ctx)
 	t.Cleanup(cancel)
 
-	go func() { finished <- RunAgent(runCtx, AgentConfig{DataDir: agentDir, dialContext: listener.dial}) }()
+	go func() {
+		finished <- RunAgent(runCtx, AgentConfig{DataDir: agentDir, dialContext: listener.dial, RuntimeFactory: agentConfig.RuntimeFactory})
+	}()
 
 	waitCondition(t, func() bool { return hub.Connected(node.ID) })
 	cancel()
@@ -267,7 +269,17 @@ func TestAgentRejectsInsecureAndMissingConfiguration(t *testing.T) {
 		t.Fatal("missing data directory accepted")
 	}
 
-	if err := RunAgent(context.Background(), AgentConfig{PanelURL: "https://panel.test", DataDir: t.TempDir()}); err == nil {
+	if err := RunAgent(context.Background(), AgentConfig{DataDir: t.TempDir()}); err == nil || err.Error() != "spark runtime factory is required" {
+		t.Fatal("missing runtime factory accepted", err)
+	}
+
+	if err := RunAgent(context.Background(), AgentConfig{
+		PanelURL: "https://panel.test", DataDir: t.TempDir(),
+		RuntimeFactory: func(context.Context, string) AgentRuntime {
+			t.Fatal("runtime initialized before enrollment validation")
+			return nil
+		},
+	}); err == nil {
 		t.Fatal("enrollment without token accepted")
 	}
 }

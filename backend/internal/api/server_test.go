@@ -14,7 +14,7 @@ import (
 
 func serverFixture(t *testing.T, handler http.Handler) (model.Spark, model.Ember, model.ServerConfiguration) {
 	t.Helper()
-	return serverFixtureKind(t, handler, "local")
+	return serverFixtureKind(t, handler, "remote")
 }
 
 func serverFixtureKind(t *testing.T, handler http.Handler, kind string) (model.Spark, model.Ember, model.ServerConfiguration) {

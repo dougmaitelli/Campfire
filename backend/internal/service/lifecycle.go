@@ -9,7 +9,7 @@ import (
 	"campfire/internal/model"
 )
 
-// RuntimeDispatcher invokes the same runtime locally or over a Spark session.
+// RuntimeDispatcher invokes the runtime over a Spark session.
 type RuntimeDispatcher interface {
 	Action(context.Context, string, model.RuntimeRequest) (model.RuntimeStatus, error)
 }
@@ -75,9 +75,6 @@ func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, c
 	}
 
 	dispatch := s.Remote
-	if node.Kind == model.SparkLocal {
-		dispatch = s.Local
-	}
 
 	runtime, ok := dispatch.(RuntimeDispatcher)
 	if !ok {

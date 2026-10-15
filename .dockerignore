@@ -6,6 +6,8 @@
 node_modules
 web/node_modules
 web/dist
+backend/internal/webui/dist
+dist
 web/playwright-report
 web/test-results
 bin
@@ -15,6 +17,8 @@ spark-data
 secrets
 .env
 .env.*
+**/.env
+**/.env.*
 config/config.yaml
 *.db
 *.db-shm

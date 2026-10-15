@@ -17,7 +17,7 @@ import (
 // Repository errors distinguish missing records and uniqueness conflicts.
 var (
 	ErrNotFound = errors.New("spark not found")
-	ErrConflict = errors.New("a Spark with that name or a local Spark already exists")
+	ErrConflict = errors.New("a Spark with that name already exists")
 )
 
 // SparkRepository persists Spark records using GORM.
@@ -28,7 +28,7 @@ func NewSparkRepository(db *gorm.DB) *SparkRepository {
 	return &SparkRepository{db: db}
 }
 
-// Create inserts a Spark, enforcing unique names and a single local node.
+// Create inserts a Spark, enforcing unique names.
 func (r *SparkRepository) Create(ctx context.Context, spark model.Spark) error {
 	record := database.Spark{
 		ID: spark.ID, Name: spark.Name, Kind: string(spark.Kind),

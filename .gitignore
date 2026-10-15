@@ -6,6 +6,8 @@
 /node_modules/
 /web/node_modules/
 /web/dist/
+/backend/internal/webui/dist/
+/dist/
 /web/*.tsbuildinfo
 /web/playwright-report/
 /web/test-results/

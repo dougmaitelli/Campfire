@@ -19,9 +19,9 @@ import (
 	"campfire/internal/api"
 	"campfire/internal/database"
 	"campfire/internal/database/repository"
-	"campfire/internal/runtime"
 	"campfire/internal/service"
 	"campfire/internal/spark"
+	"campfire/internal/webui"
 )
 
 // Run starts the admin API and optional dedicated agent TLS listener.
@@ -31,13 +31,14 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	flags := flag.NewFlagSet("campfire", flag.ContinueOnError)
-	listen := flags.String("listen", "127.0.0.1:8080", "admin API listen address")
-	dbPath := flags.String("database", "data/panel.db", "SQLite database path")
-	publicURL := flags.String("public-url", "", "browser origin for HTTPS reverse proxy deployments, e.g. https://panel.example.com")
-	agentListen := flags.String("agent-listen", "", "enable the dedicated agent HTTPS listener, e.g. :8443")
-	tlsCert := flags.String("agent-tls-cert", "", "agent listener HTTPS certificate file")
+	listen := flags.String("listen", environment("CAMPFIRE_LISTEN", "127.0.0.1:8080"), "browser and API listen address (CAMPFIRE_LISTEN)")
+	dbPath := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite database path (CAMPFIRE_DATABASE)")
+	publicURL := flags.String("public-url", environment("CAMPFIRE_PUBLIC_URL", ""), "browser origin for HTTPS reverse proxies (CAMPFIRE_PUBLIC_URL)")
+	agentListen := flags.String("agent-listen", environment("CAMPFIRE_AGENT_LISTEN", ""), "dedicated agent HTTPS listener (CAMPFIRE_AGENT_LISTEN)")
+	tlsCert := flags.String("agent-tls-cert", environment("CAMPFIRE_AGENT_TLS_CERT", ""), "agent HTTPS certificate (CAMPFIRE_AGENT_TLS_CERT)")
+	tlsKey := flags.String("agent-tls-key", environment("CAMPFIRE_AGENT_TLS_KEY", ""), "agent HTTPS private key (CAMPFIRE_AGENT_TLS_KEY)")
+	version := flags.Bool("version", false, "print release version and exit")
 
-	tlsKey := flags.String("agent-tls-key", "", "agent listener HTTPS private key file")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -48,6 +49,10 @@ func Run(ctx context.Context, args []string) error {
 
 	if flags.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
+	}
+
+	if *version {
+		return printVersion("Campfire")
 	}
 
 	origin, err := adminOrigin(*listen, *publicURL)
@@ -113,16 +118,14 @@ func Run(ctx context.Context, args []string) error {
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
 
-	manager := runtime.New(ctx, filepath.Join(filepath.Dir(*dbPath), "runtime"))
-	defer manager.Close()
+	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers}
 
-	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(filepath.Dir(*dbPath), "servers"), Runtime: manager}}
 	if hub != nil {
 		deployment.Remote = hub
 	}
 
 	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).Handler()
-	admin := newHTTPServer(ctx, handler)
+	admin := newHTTPServer(ctx, webui.Handler(handler))
 
 	var active []*http.Server
 

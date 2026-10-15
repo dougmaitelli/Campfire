@@ -16,9 +16,9 @@ import (
 
 // Spark errors describe validation, lookup, and registration conflicts.
 var (
-	ErrInvalidSpark       = errors.New("name must contain 1–100 characters without control characters; kind must be local or remote")
+	ErrInvalidSpark       = errors.New("name must contain 1–100 characters without control characters; kind must be remote")
 	ErrSparkNotFound      = errors.New("spark not found")
-	ErrSparkConflict      = errors.New("a Spark with that name or a local Spark already exists")
+	ErrSparkConflict      = errors.New("a Spark with that name already exists")
 	ErrInvalidDescription = errors.New("description must contain at most 1000 characters, without control characters except newlines and tabs")
 	ErrEmptySparkUpdate   = errors.New("provide at least one mutable Spark field")
 	ErrSparkReservations  = errors.New("spark changes would invalidate existing server reservations")
@@ -63,10 +63,14 @@ func NewSparkService(store SparkStore, connectivity SparkConnectivity) *SparkSer
 
 // Create validates input and assigns the identifier and creation timestamp.
 func (s *SparkService) Create(ctx context.Context, input CreateSparkInput) (model.Spark, error) {
+	if input.Kind == "" {
+		input.Kind = model.SparkRemote
+	}
+
 	name := strings.TrimSpace(input.Name)
 	if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > 100 ||
 		strings.ContainsFunc(name, unicode.IsControl) ||
-		(input.Kind != model.SparkLocal && input.Kind != model.SparkRemote) {
+		input.Kind != model.SparkRemote {
 		return model.Spark{}, ErrInvalidSpark
 	}
 
@@ -158,6 +162,7 @@ func (s *SparkService) Update(ctx context.Context, id string, input UpdateSparkI
 
 func (s *SparkService) withConnectivity(spark model.Spark) model.Spark {
 	spark.Connected = !spark.Disabled && s.connectivity != nil && s.connectivity.Connected(spark.ID)
+
 	return spark
 }
 

@@ -1,8 +1,7 @@
-import type { SparkKind, SparkSettings } from "../../api/sparks";
+import type { SparkSettings } from "../../api/sparks";
 
 interface SparkReviewProps {
   name: string;
-  kind: SparkKind;
   description: string;
   disabled: boolean;
   settings: SparkSettings;
@@ -10,7 +9,6 @@ interface SparkReviewProps {
 
 export function SparkReview({
   name,
-  kind,
   description,
   disabled,
   settings,
@@ -21,10 +19,6 @@ export function SparkReview({
         <div>
           <dt>Name</dt>
           <dd>{name.trim()}</dd>
-        </div>
-        <div>
-          <dt>Type</dt>
-          <dd>{kind === "local" ? "Local Spark" : "Remote Spark"}</dd>
         </div>
         <div>
           <dt>Description</dt>

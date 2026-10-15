@@ -18,7 +18,7 @@ import (
 )
 
 func TestConfigurationDeliveryPlacementAndSnapshot(t *testing.T) {
-	for _, kind := range []string{"local", "remote"} {
+	for _, kind := range []string{"remote"} {
 		t.Run(kind, func(t *testing.T) {
 			dir := t.TempDir()
 
@@ -32,7 +32,7 @@ func TestConfigurationDeliveryPlacementAndSnapshot(t *testing.T) {
 			sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil)
 			embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 			servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
-			deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(dir, "local")}, Remote: &spark.ConfigurationStore{Directory: filepath.Join(dir, "remote")}}
+			deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: &spark.ConfigurationStore{Directory: filepath.Join(dir, "remote")}}
 			handler := authenticatedTestAPI(t, db, api.New(sparks, embers, servers).WithDeployment(deployment))
 			node, ember, input := serverFixtureKind(t, handler, kind)
 
@@ -95,7 +95,7 @@ func TestConfigurationDeliveryPlacementAndSnapshot(t *testing.T) {
 
 			request(handler, "PATCH", "/api/v1/sparks/"+node.ID, `{"disabled":false}`)
 
-			deployment.Local, deployment.Remote = nil, nil
+			deployment.Remote = nil
 
 			response = request(handler, "POST", endpoint, "{}")
 			if response.Code != http.StatusServiceUnavailable {

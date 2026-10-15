@@ -54,7 +54,7 @@ func (a *API) createSparkEnrollment(w http.ResponseWriter, r *http.Request) {
 
 	token, err := a.agents.CreateEnrollment(r.Context(), r.PathValue("id"))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "enrollment requires an enabled remote Spark"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "enrollment requires an enabled Spark"})
 		return
 	}
 

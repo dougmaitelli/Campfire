@@ -61,7 +61,7 @@ func adminOrigin(listen, publicURL string) (string, error) {
 
 func resetPassword(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("campfire reset-password", flag.ContinueOnError)
-	dbPath := flags.String("database", "data/panel.db", "SQLite database path")
+	dbPath := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite database path (CAMPFIRE_DATABASE)")
 	passwordFile := flags.String("password-file", "", "private regular file containing the new administrator password")
 
 	if err := flags.Parse(args); err != nil {

@@ -1,0 +1,33 @@
+services:
+  campfire:
+    image: ${CAMPFIRE_IMAGE:?Set CAMPFIRE_IMAGE to the version published by GitHub CI}
+    restart: unless-stopped
+    environment:
+      CAMPFIRE_DATABASE: /var/lib/campfire/panel.db
+      CAMPFIRE_LISTEN: 0.0.0.0:8080
+      CAMPFIRE_PUBLIC_URL: ${CAMPFIRE_PUBLIC_URL:?Set CAMPFIRE_PUBLIC_URL to your browser HTTPS origin}
+      CAMPFIRE_AGENT_LISTEN: 0.0.0.0:8443
+      CAMPFIRE_AGENT_TLS_CERT: /run/campfire-tls/panel.crt
+      CAMPFIRE_AGENT_TLS_KEY: /run/campfire-tls/panel.key
+    ports:
+      - "127.0.0.1:${CAMPFIRE_HTTP_PORT:-8080}:8080"
+      - "${CAMPFIRE_AGENT_BIND:-0.0.0.0}:${CAMPFIRE_AGENT_PORT:-8443}:8443"
+    volumes:
+      - campfire-data:/var/lib/campfire
+      - type: bind
+        source: ${CAMPFIRE_TLS_DIR:?Set CAMPFIRE_TLS_DIR to your agent certificate directory}
+        target: /run/campfire-tls
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 60s
+
+volumes:
+  campfire-data:

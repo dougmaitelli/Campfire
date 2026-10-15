@@ -22,7 +22,6 @@ type DeploymentService struct {
 	Servers  *ServerService
 	Sparks   *SparkService
 	Embers   *EmberService
-	Local    ConfigurationDispatcher
 	Remote   ConfigurationDispatcher
 	mu       sync.Mutex
 	locks    map[string]*deliveryLock
@@ -74,9 +73,6 @@ func (s *DeploymentService) sync(ctx context.Context, id string) (model.Configur
 	}
 
 	dispatch := s.Remote
-	if node.Kind == model.SparkLocal {
-		dispatch = s.Local
-	}
 
 	if dispatch == nil {
 		return model.ConfigurationReceipt{}, ErrDeploymentUnavailable

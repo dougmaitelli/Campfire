@@ -88,7 +88,6 @@ export function SparksPage() {
       {adding && (
         <SparkDialog
           spark={editing}
-          hasLocalSpark={sparks.some((spark) => spark.kind === "local")}
           onClose={() => setAdding(false)}
           onSaved={(spark) => {
             addSpark(spark);

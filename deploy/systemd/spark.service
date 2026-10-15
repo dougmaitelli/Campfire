@@ -1,0 +1,23 @@
+[Unit]
+Description=Campfire Spark game server agent
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+StateDirectory=spark
+StateDirectoryMode=0700
+WorkingDirectory=/var/lib/spark
+Environment=SPARK_DATA=/var/lib/spark
+EnvironmentFile=-/etc/campfire/spark.env
+ExecStart=/usr/local/bin/spark
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=60s
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

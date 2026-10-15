@@ -63,7 +63,7 @@ func TestSparkPersistence(t *testing.T) {
 		t.Fatalf("empty list: %d %s", response.Code, response.Body)
 	}
 
-	response := request(handler, "POST", "/api/v1/sparks", `{"name":"  First Spark  ","kind":"remote"}`)
+	response := request(handler, "POST", "/api/v1/sparks", `{"name":"  First Spark  "}`)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", response.Code, response.Body)
 	}
@@ -116,6 +116,7 @@ func TestSparkValidation(t *testing.T) {
 	for _, body := range []string{
 		`{}`, `null`, `{"name":" ","kind":"remote"}`,
 		`{"name":"node","kind":"invalid"}`,
+		`{"name":"node","kind":"local"}`,
 		`{"name":"node\nname","kind":"remote"}`,
 		`{"name":"node","kind":"remote","unknown":true}`,
 		`{"name":"node","kind":"remote"} {}`,
@@ -167,8 +168,6 @@ func TestSparkConflicts(t *testing.T) {
 	}{
 		{`{"name":"remote","kind":"remote"}`, http.StatusCreated},
 		{`{"name":"REMOTE","kind":"remote"}`, http.StatusConflict},
-		{`{"name":"local","kind":"local"}`, http.StatusCreated},
-		{`{"name":"another local","kind":"local"}`, http.StatusConflict},
 		{`{"name":"second remote","kind":"remote"}`, http.StatusCreated},
 	} {
 		response := request(handler, "POST", "/api/v1/sparks", test.body)
@@ -178,7 +177,7 @@ func TestSparkConflicts(t *testing.T) {
 	}
 }
 
-func TestConcurrentLocalSparkCreation(t *testing.T) {
+func TestConcurrentAgentSparkCreation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "panel.db")
 	first, _ := openAPI(t, path)
 	second, _ := openAPI(t, path)
@@ -192,7 +191,7 @@ func TestConcurrentLocalSparkCreation(t *testing.T) {
 		go func() {
 			defer wait.Done()
 
-			response := request(handler, "POST", "/api/v1/sparks", fmt.Sprintf(`{"name":"node-%d","kind":"local"}`, i))
+			response := request(handler, "POST", "/api/v1/sparks", fmt.Sprintf(`{"name":"node-%d"}`, i))
 			results <- response.Code
 		}()
 	}
@@ -205,8 +204,8 @@ func TestConcurrentLocalSparkCreation(t *testing.T) {
 		counts[status]++
 	}
 
-	if counts[http.StatusCreated] != 1 || counts[http.StatusConflict] != 1 {
-		t.Fatalf("concurrent local creation: %v", counts)
+	if counts[http.StatusCreated] != 2 {
+		t.Fatalf("concurrent agent creation: %v", counts)
 	}
 }
 

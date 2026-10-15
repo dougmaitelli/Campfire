@@ -21,7 +21,6 @@ export function SparksTable({
         <thead>
           <tr>
             <th scope="col">Name</th>
-            <th scope="col">Type</th>
             <th scope="col">Status</th>
             <th scope="col">Limits</th>
             <th scope="col">Game networking</th>
@@ -40,11 +39,6 @@ export function SparksTable({
                   <span className="spark-description">{spark.description}</span>
                 )}
                 <span className="spark-id">{spark.id}</span>
-              </td>
-              <td>
-                <span className="type-badge">
-                  {spark.kind === "local" ? "Local" : "Remote"}
-                </span>
               </td>
               <td>
                 <span
@@ -94,17 +88,15 @@ export function SparksTable({
                   >
                     Edit
                   </button>
-                  {spark.kind === "remote" && (
-                    <button
-                      type="button"
-                      className="button"
-                      disabled={spark.disabled}
-                      onClick={() => onEnroll(spark)}
-                      aria-label={`Enroll ${spark.name}`}
-                    >
-                      Enroll
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={spark.disabled}
+                    onClick={() => onEnroll(spark)}
+                    aria-label={`Enroll ${spark.name}`}
+                  >
+                    Enroll
+                  </button>
                 </div>
               </td>
             </tr>

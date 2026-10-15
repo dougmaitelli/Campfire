@@ -6,7 +6,7 @@ import "campfire/internal/model"
 type Spark struct {
 	ID              string                 `gorm:"type:text;primaryKey"`
 	Name            string                 `gorm:"type:text COLLATE NOCASE;not null;uniqueIndex:sparks_name"`
-	Kind            string                 `gorm:"type:text;not null;check:sparks_kind,kind IN ('local','remote');uniqueIndex:sparks_one_local,where:kind = 'local'"`
+	Kind            string                 `gorm:"type:text;not null;check:sparks_kind,kind = 'remote'"`
 	Description     string                 `gorm:"type:text;not null;default:''"`
 	Disabled        bool                   `gorm:"not null;default:false"`
 	GameAddress     string                 `gorm:"type:text;not null;default:''"`

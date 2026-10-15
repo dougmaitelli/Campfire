@@ -1,0 +1,96 @@
+name: Package releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (for example v0.1.0)
+        required: true
+        default: dev
+      publish_image:
+        description: Publish the multi-platform image to GHCR
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: docker/setup-buildx-action@v4
+      - name: Build image and static binaries
+        shell: bash
+        run: |
+          [[ "$RELEASE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || exit 1
+          build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          docker buildx build --target runtime --load --tag campfire:package \
+            --build-arg VERSION="$RELEASE_VERSION" --build-arg COMMIT="$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$build_date" .
+          docker buildx build --target binaries --output type=local,dest=dist/binaries \
+            --build-arg VERSION="$RELEASE_VERSION" --build-arg COMMIT="$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$build_date" .
+      - name: Archive binaries and installation examples
+        run: node scripts/package-release.mjs "$RELEASE_VERSION" "$RELEASE_ARCH" dist/binaries
+      - uses: actions/upload-artifact@v7
+        with:
+          name: campfire-linux-${{ matrix.arch }}
+          path: |
+            dist/releases/*.tar.gz
+            dist/releases/*.sha256
+          if-no-files-found: error
+      - name: Publish architecture image
+        if: inputs.publish_image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker tag campfire:package "$image:$RELEASE_VERSION-$RELEASE_ARCH"
+          docker push "$image:$RELEASE_VERSION-$RELEASE_ARCH"
+
+  publish-manifest:
+    if: inputs.publish_image
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - name: Publish multi-platform tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create --tag "$image:$RELEASE_VERSION" \
+            "$image:$RELEASE_VERSION-amd64" "$image:$RELEASE_VERSION-arm64"

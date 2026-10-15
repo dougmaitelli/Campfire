@@ -31,11 +31,10 @@ func TestExistingDatabaseCompatibility(t *testing.T) {
 		CREATE TABLE sparks (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-			kind TEXT NOT NULL CHECK (kind IN ('local', 'remote')),
+			kind TEXT NOT NULL CHECK (kind = 'remote'),
 			created_at TEXT NOT NULL
 		);
-		CREATE UNIQUE INDEX sparks_one_local ON sparks(kind) WHERE kind = 'local';
-		INSERT INTO sparks VALUES ('legacy', 'Existing Spark', 'local', '2026-10-13T12:00:00.123456789Z');
+		INSERT INTO sparks VALUES ('legacy', 'Existing Spark', 'remote', '2026-10-13T12:00:00.123456789Z');
 	`)
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +62,7 @@ func TestExistingDatabaseCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if spark.Name != "Existing Spark" || spark.Kind != model.SparkLocal || spark.CreatedAt.Format(time.RFC3339Nano) != "2026-10-13T12:00:00.123456789Z" {
+	if spark.Name != "Existing Spark" || spark.Kind != model.SparkRemote || spark.CreatedAt.Format(time.RFC3339Nano) != "2026-10-13T12:00:00.123456789Z" {
 		t.Fatalf("legacy record changed: %+v", spark)
 	}
 
@@ -90,10 +89,8 @@ func TestExistingDatabaseCompatibility(t *testing.T) {
 		t.Fatalf("legacy name uniqueness lost: %v", err)
 	}
 
-	input.Name = "Second local"
-
-	input.Kind = model.SparkLocal
-	if err := store.Create(ctx, input); !errors.Is(err, repository.ErrConflict) {
-		t.Fatalf("legacy local uniqueness lost: %v", err)
+	input.Name = "Second agent"
+	if err := store.Create(ctx, input); err != nil {
+		t.Fatalf("multiple agent registrations rejected: %v", err)
 	}
 }

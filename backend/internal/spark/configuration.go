@@ -17,7 +17,7 @@ import (
 
 var configurationID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
-// ConfigurationStore stores desired state for remote agents and in-process local nodes.
+// ConfigurationStore stores desired state on standalone Spark agents.
 type ConfigurationStore struct {
 	Directory string
 	mu        sync.Mutex

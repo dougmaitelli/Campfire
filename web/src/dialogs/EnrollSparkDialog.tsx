@@ -35,7 +35,7 @@ export function EnrollSparkDialog({
   return (
     <Drawer
       title={`Enroll ${spark.name}`}
-      description="Connect a remote Spark agent to this panel."
+      description="Connect a Spark agent to this panel."
       busy={busy}
       onClose={onClose}
       footerLeft={
@@ -73,7 +73,7 @@ export function EnrollSparkDialog({
         )}
         <p>
           Generate a one-time token, then use it when starting the Spark agent
-          on the remote host. New tokens replace previously unused tokens for
+          on this host or another machine. New tokens replace unused tokens for
           this Spark.
         </p>
         {enrollment && (
@@ -91,8 +91,8 @@ export function EnrollSparkDialog({
               the token before closing this drawer.
             </p>
             <p>
-              Put the token in a private file with permissions 0600 on the
-              remote host, then run:
+              Put the token in a private file with permissions 0600 on the Spark
+              host, then run:
             </p>
             <pre className="agent-command">
               {

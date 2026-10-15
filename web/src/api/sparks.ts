@@ -1,6 +1,6 @@
 import { apiFetch } from "./client";
 
-export type SparkKind = "local" | "remote";
+export type SparkKind = "remote";
 
 export interface PortAllocation {
   bind_ip: string;
@@ -29,7 +29,7 @@ export interface Spark extends SparkSettings {
 
 export interface CreateSparkInput extends SparkSettings {
   name: string;
-  kind: SparkKind;
+  kind?: SparkKind;
   description: string;
   disabled: boolean;
 }
@@ -61,7 +61,7 @@ function isSpark(value: unknown): value is Spark {
     "connected" in value &&
     typeof value.connected === "boolean" &&
     "kind" in value &&
-    (value.kind === "local" || value.kind === "remote") &&
+    value.kind === "remote" &&
     "created_at" in value &&
     typeof value.created_at === "string" &&
     Number.isFinite(Date.parse(value.created_at))

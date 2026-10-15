@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// FileDispatcher is shared by in-process storage and authenticated remote delivery.
+// FileDispatcher delivers file operations to an authenticated Spark agent.
 type FileDispatcher interface {
 	Files(context.Context, string, model.FileRequest) (model.FileResult, error)
 }
@@ -38,9 +38,6 @@ func (s *DeploymentService) Files(ctx context.Context, id string, request model.
 	}
 
 	dispatch := s.Remote
-	if node.Kind == model.SparkLocal {
-		dispatch = s.Local
-	}
 
 	files, ok := dispatch.(FileDispatcher)
 	if !ok {
