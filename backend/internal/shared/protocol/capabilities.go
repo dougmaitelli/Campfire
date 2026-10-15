@@ -4,13 +4,25 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"time"
 )
+
+// CommandTimeout permits bounded archive work without enlarging other RPC budgets.
+func CommandTimeout(command Command) time.Duration {
+	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation == "compress" || command.Files.Operation == "extract") {
+		return 30 * time.Minute
+	}
+
+	return 30 * time.Second
+}
 
 // Capability names version the behavior of individual features independently.
 const (
 	CapabilityConfigure    = "server.configure.v1"
 	CapabilityLifecycle    = "server.lifecycle.v1"
 	CapabilityFiles        = "server.files.v1"
+	CapabilityFileTransfer = "server.files.transfer.v1"
+	CapabilityFileArchive  = "server.files.archive.v1"
 	CapabilityBackups      = "server.backups.v1"
 	CapabilityBackupDelete = "server.backups.delete.v1"
 	CapabilityBackupRemote = "server.backups.remote.v1"
@@ -23,7 +35,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -109,6 +121,15 @@ func RequiredCapabilities(command Command) []string {
 	case ServerTransfer:
 		return []string{CapabilityTransfer, CapabilityDiskQuota}
 	case ServerFiles:
+		if command.Files != nil {
+			switch command.Files.Operation {
+			case "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel":
+				return []string{CapabilityFiles, CapabilityFileTransfer}
+			case "compress", "extract":
+				return []string{CapabilityFiles, CapabilityFileArchive}
+			}
+		}
+
 		if command.Files != nil && strings.HasPrefix(command.Files.Operation, "backup.") {
 			if command.Files.Operation == "backup.delete" {
 				return []string{CapabilityBackups, CapabilityBackupDelete}

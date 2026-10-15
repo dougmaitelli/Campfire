@@ -270,6 +270,40 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 		}
 
 		if action == "install" {
+			large := model.FileRequest{ServerID: deployment.ServerID, Operation: "upload.begin", Path: "large.bin", Revision: "absent", Size: 2 * model.FileLimit}
+
+			upload, err := hub.Files(ctx, id, large)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			large.Operation, large.UploadID, large.Data = "upload.chunk", upload.UploadID, make([]byte, model.FileLimit)
+			for _, offset := range []int64{0, model.FileLimit} {
+				large.Offset = offset
+				if _, err := hub.Files(ctx, id, large); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			large.Operation, large.Data = "upload.commit", nil
+			if _, err := hub.Files(ctx, id, large); err != nil {
+				t.Fatal(err)
+			}
+
+			info, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "stat", Path: "large.bin"})
+			if err != nil || info.Size != 2*model.FileLimit {
+				t.Fatal("remote large file stat", err, info.Size)
+			}
+
+			chunk, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "read.chunk", Path: "large.bin", Revision: info.Revision, Offset: model.FileLimit})
+			if err != nil || len(chunk.Data) != model.FileLimit {
+				t.Fatal("remote file chunk", err, len(chunk.Data))
+			}
+
+			if _, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "delete", Path: "large.bin"}); err != nil {
+				t.Fatal(err)
+			}
+
 			request := model.FileRequest{ServerID: deployment.ServerID, Operation: "write", Path: "world.bin", Data: []byte{0, 255, 1}, Revision: "absent"}
 
 			written, err := hub.Files(ctx, id, request)

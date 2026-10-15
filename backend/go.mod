@@ -10,6 +10,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/gorilla/websocket v1.5.3
+	github.com/pkg/sftp v1.13.11
+	golang.org/x/crypto v0.55.0
 	golang.org/x/oauth2 v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/sqlite v1.6.0
@@ -33,6 +35,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.50.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.49 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )

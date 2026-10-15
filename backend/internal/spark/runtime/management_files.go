@@ -22,6 +22,10 @@ import (
 func fileFailure(code, message string) error { return &model.FileError{Code: code, Message: message} }
 
 func filePath(value string, rootAllowed bool) bool {
+	if reservedFilePath(value) {
+		return false
+	}
+
 	if value == "." {
 		return rootAllowed
 	}
@@ -66,7 +70,7 @@ func readFile(root *os.Root, name string) ([]byte, os.FileInfo, error) {
 	}
 
 	if info.Size() > model.FileLimit {
-		return nil, nil, fileFailure("file_limit", "Transfers are limited to 1 MiB per file.")
+		return nil, nil, fileFailure("file_limit", "Text reads are limited to 1 MiB; use a chunked download for larger files.")
 	}
 
 	data, err := io.ReadAll(io.LimitReader(file, model.FileLimit+1))
@@ -75,7 +79,7 @@ func readFile(root *os.Root, name string) ([]byte, os.FileInfo, error) {
 	}
 
 	if len(data) > model.FileLimit {
-		return nil, nil, fileFailure("file_limit", "Transfers are limited to 1 MiB per file.")
+		return nil, nil, fileFailure("file_limit", "Text reads are limited to 1 MiB; use a chunked download for larger files.")
 	}
 
 	return data, info, nil
@@ -96,16 +100,16 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, err
 	}
 
-	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID || !filePath(q.Path, q.Operation == "list") {
+	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID || !filePath(q.Path, q.Operation == "list" || q.Operation == "stat" || q.Operation == "compress") {
 		return model.FileResult{}, fileFailure("invalid_file", "Invalid file request.")
 	}
 
 	if len(q.Data) > model.FileLimit {
-		return model.FileResult{}, fileFailure("file_limit", "Transfers are limited to 1 MiB per file.")
+		return model.FileResult{}, fileFailure("file_limit", "File data is limited to 1 MiB per command; use chunked uploads for larger files.")
 	}
 
 	switch q.Operation {
-	case "list", "read", "write", "mkdir", "rename", "delete":
+	case "list", "read", "write", "mkdir", "rename", "delete", "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel", "compress", "extract":
 	default:
 		return model.FileResult{}, fileFailure("invalid_file", "Unsupported file operation.")
 	}
@@ -122,7 +126,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, fileFailure("file_busy", "Wait for the current server operation to finish.")
 	}
 
-	mutate := q.Operation != "list" && q.Operation != "read"
+	mutate := q.Operation != "list" && q.Operation != "read" && q.Operation != "stat" && q.Operation != "read.chunk" && q.Operation != "upload.cancel"
 	if mutate {
 		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != "active" && transfer.State != "released") {
 			return model.FileResult{}, fileFailure("file_busy", "Server files are locked for a Spark transfer.")
@@ -150,10 +154,20 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 	defer func() { _ = root.Close() }()
 
-	if mutate && (q.Operation == "write" || q.Operation == "mkdir") {
+	if mutate && (q.Operation == "write" || q.Operation == "mkdir" || strings.HasPrefix(q.Operation, "upload.") || q.Operation == "compress" || q.Operation == "extract") {
 		if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
 			return model.FileResult{}, fileFailure("file_limit", err.Error())
 		}
+	}
+
+	m.pruneUploads(root, e)
+
+	if strings.HasPrefix(q.Operation, "upload.") {
+		return m.uploadFile(ctx, d, root, volume, e, q)
+	}
+
+	if q.Operation == "compress" || q.Operation == "extract" {
+		return m.archiveFiles(ctx, d, root, volume, q)
 	}
 
 	if err := containedPath(root, q.Path, q.Operation == "write" || q.Operation == "mkdir"); err != nil {
@@ -162,6 +176,8 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Path}
 	switch q.Operation {
+	case "stat", "read.chunk":
+		return chunkFile(root, q)
 	case "list":
 		directory, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 		if err != nil {
@@ -180,6 +196,10 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 		result.Entries = make([]model.FileEntry, 0, len(children))
 		for _, child := range children {
+			if reservedFilePath(child.Name()) {
+				continue
+			}
+
 			info, err := root.Lstat(path.Join(q.Path, child.Name()))
 			if err != nil {
 				return result, fileFailure("file_io", "Directory changed; refresh and try again.")
@@ -327,11 +347,24 @@ func assignFileOwner(file *os.File, user string) error {
 }
 
 func checkWriteCapacity(ctx context.Context, directory string, limitMB, oldSize, newSize int64) error {
+	used, err := fileUsage(ctx, directory)
+	if err != nil {
+		return err
+	}
+
+	if limitMB < 1 || used-oldSize+newSize > limitMB*1024*1024 {
+		return fileFailure("file_limit", "File would exceed the server disk allocation.")
+	}
+
+	return nil
+}
+
+func fileUsage(ctx context.Context, directory string) (int64, error) {
 	var used int64
 
 	root, err := os.OpenRoot(directory)
 	if err != nil {
-		return fileFailure("file_io", "Could not verify disk allocation.")
+		return 0, fileFailure("file_io", "Could not verify disk allocation.")
 	}
 
 	defer func() { _ = root.Close() }()
@@ -357,12 +390,8 @@ func checkWriteCapacity(ctx context.Context, directory string, limitMB, oldSize,
 		return nil
 	})
 	if err != nil {
-		return fileFailure("file_io", "Could not verify disk allocation.")
+		return 0, fileFailure("file_io", "Could not verify disk allocation.")
 	}
 
-	if limitMB < 1 || used-oldSize+newSize > limitMB*1024*1024 {
-		return fileFailure("file_limit", "File would exceed the server disk allocation.")
-	}
-
-	return nil
+	return used, nil
 }

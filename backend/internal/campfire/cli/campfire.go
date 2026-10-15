@@ -23,6 +23,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	filesftp "campfire/internal/campfire/sftp"
 	"campfire/internal/campfire/webui"
 )
 
@@ -41,6 +42,9 @@ func Run(ctx context.Context, args []string) error {
 
 	listen := flags.String("listen", environment("CAMPFIRE_LISTEN", "127.0.0.1:8080"), "browser and API listen address (CAMPFIRE_LISTEN)")
 	dbPath := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite database path (CAMPFIRE_DATABASE)")
+	sftpListen := flags.String("sftp-listen", environment("CAMPFIRE_SFTP_LISTEN", ""), "optional SFTP listen address (CAMPFIRE_SFTP_LISTEN)")
+	sftpKey := flags.String("sftp-host-key", environment("CAMPFIRE_SFTP_HOST_KEY", ""), "persistent SFTP SSH host key (CAMPFIRE_SFTP_HOST_KEY)")
+	maxUpload := flags.String("max-upload-mib", environment("CAMPFIRE_MAX_UPLOAD_MIB", "1024"), "maximum upload size in MiB (CAMPFIRE_MAX_UPLOAD_MIB)")
 	publicURL := flags.String("public-url", environment("CAMPFIRE_PUBLIC_URL", ""), "browser origin for HTTPS reverse proxies (CAMPFIRE_PUBLIC_URL)")
 	oidcIssuer := flags.String("oidc-issuer", environment("CAMPFIRE_OIDC_ISSUER", ""), "optional OIDC issuer URL (CAMPFIRE_OIDC_ISSUER)")
 	oidcClient := flags.String("oidc-client-id", environment("CAMPFIRE_OIDC_CLIENT_ID", ""), "OIDC client ID (CAMPFIRE_OIDC_CLIENT_ID)")
@@ -67,6 +71,11 @@ func Run(ctx context.Context, args []string) error {
 
 	if *version {
 		return printVersion("Campfire")
+	}
+
+	maxUploadBytes, err := parseMaxUpload(*maxUpload)
+	if err != nil {
+		return err
 	}
 
 	retention, err := parseHistoryRetention(*auditRetention, *operationRetention)
@@ -145,7 +154,7 @@ func Run(ctx context.Context, args []string) error {
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
 
-	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers}
+	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, MaxUploadBytes: maxUploadBytes}
 	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
 	deployment.Transfers = transfers
 
@@ -231,7 +240,32 @@ func Run(ctx context.Context, args []string) error {
 		active = append(active, newHTTPServer(ctx, hub.Handler()))
 	}
 
-	stopped := make(chan error, len(active))
+	stopped := make(chan error, len(active)+1)
+
+	if *sftpListen != "" {
+		keyPath := *sftpKey
+		if keyPath == "" {
+			keyPath = filepath.Join(filepath.Dir(*dbPath), "sftp_host_key")
+		}
+
+		key, err := filesftp.HostKey(keyPath)
+		if err != nil {
+			return fmt.Errorf("load SFTP host identity: %w", err)
+		}
+
+		listener, err := listenConfig.Listen(ctx, "tcp", *sftpListen)
+		if err != nil {
+			return fmt.Errorf("listen for SFTP: %w", err)
+		}
+
+		defer func() { _ = listener.Close() }()
+
+		gateway := &filesftp.Server{Auth: auth, Deployment: deployment, Audit: activity.Store, HostKey: key}
+		go func() { stopped <- gateway.Serve(ctx, listener) }()
+
+		slog.Info("Campfire SFTP listener started", "address", listener.Addr())
+	}
+
 	for i, server := range active {
 		go func() { stopped <- server.Serve(listeners[i]) }()
 

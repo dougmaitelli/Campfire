@@ -81,6 +81,68 @@ admin-only notifications.manage scopes. Server messages additionally require
 server.view; Spark messages additionally require sparks.manage. Scopes never
 grant permissions beyond the underlying user and their recipient assignments.
 
+Files, archives and SFTP
+------------------------
+The Files drawer supports uploads up to 1 GiB per file by default. Set
+CAMPFIRE_MAX_UPLOAD_MIB (or --max-upload-mib) on Campfire to change this maximum
+for browser and SFTP uploads. Values are integer MiB from 1 through 102400;
+for example 512 allows 512 MiB. Restart/recreate Campfire to apply the setting.
+The Files drawer displays the configured limit; the panel and Spark enforce it
+for declared-size uploads and unknown-size SFTP writes. Disk allocations still
+apply. Browser-streamed downloads support up to 100 GiB per file independently
+of the upload setting. Transfers use at most 1 MiB per
+Spark message. The text editor retains its 1 MiB limit. Uploads show progress
+and cancellation, create new files, and publish only after all byte ranges have
+arrived. Failed or cancelled uploads leave the destination unchanged. A lost
+final response can mean the upload succeeded; refresh before resubmitting.
+
+Downloads check the file's size and modification timestamp between chunks and
+stop if it changes. Stop the game for a consistent snapshot of actively written
+files. HTTP downloads and SFTP handles recheck current token/account validity
+and server permissions on each chunk. Browser downloads use the normal session;
+API clients can use bearer authentication on:
+
+  GET /api/v1/servers/{id}/files/download?path=world.dat
+
+Compression creates .tar.gz archives. Extraction accepts .zip, .tar.gz and .tgz
+and requires a new destination folder; it does not merge into or overwrite an
+existing directory. Select Compress or Extract beside an entry in Files. Archive
+operations require a stopped game and are limited to 30 minutes, 100 GiB of
+expanded content and 100,000 entries. ZIP directory metadata is capped at 128 MiB
+and validated before parsing; multipart and self-extracting ZIPs are unsupported.
+Paths, duplicate entries, symlinks, hard
+links and special files are rejected. Extracted files/directories receive the
+Ember's game ownership. Operations stage results inside the quota-controlled
+game filesystem and remove staging on failure. Leave room for both input and
+output. Interrupted uploads expire after an hour and staging is cleaned on the
+next file request; uploads do not resume after a Spark restart.
+
+SFTP is an optional gateway on Campfire, disabled by default:
+
+  CAMPFIRE_SFTP_LISTEN=0.0.0.0:2022
+  CAMPFIRE_SFTP_HOST_KEY=/var/lib/campfire/sftp_host_key
+
+The key path defaults to sftp_host_key beside panel.db. Campfire creates an
+Ed25519 host identity once; preserve it with panel state and verify its SSH
+fingerprint in your client. With Docker, also publish the configured TCP port
+(for example add "2022:2022" under Compose ports). Ordinary HTTP reverse proxies
+do not forward SFTP. No additional listener or inbound port is needed on Sparks.
+
+Connect your SFTP client to Campfire's SFTP address. Use the server ID shown in
+the Files drawer as the SSH username and a personal API token as the password.
+The token requires server.view and server.operate (or all permissions), and the
+user must currently have those permissions for that server. OIDC users use the
+same token flow; disabling local browser login does not disable API tokens.
+SFTP exposes only that server's game files: no shell, exec, forwarding, symlinks,
+ownership changes or chmod. Listing, download, mkdir, rename, empty-directory
+removal and atomic uploads are supported. Existing files can be replaced by
+an explicit truncating upload; append, resume and in-place editing are not
+supported. Replacement checks that the destination did not change during upload.
+Mutations require a stopped server and are audited with user and token IDs.
+Connections last at most 45 minutes, with at most 64 connections globally and
+eight open uploads per server. Campfire and Spark must both advertise the file
+transfer/archive capabilities; older Sparks return an explicit capability error.
+
 Personal API tokens
 -------------------
 Open API tokens from your account in the sidebar to create a named credential.

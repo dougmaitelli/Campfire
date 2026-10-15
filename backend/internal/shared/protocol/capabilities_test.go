@@ -68,6 +68,10 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 	}{
 		{Command{Name: ConfigureServer}, CapabilityConfigure},
 		{Command{Name: ServerFiles}, CapabilityFiles},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "upload.begin"}}, CapabilityFileTransfer},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "read.chunk"}}, CapabilityFileTransfer},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "extract"}}, CapabilityFileArchive},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "compress"}}, CapabilityFileArchive},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.read"}}, CapabilityBackups},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.delete"}}, CapabilityBackupDelete},
 		{Command{Name: ServerTransfer}, CapabilityTransfer},

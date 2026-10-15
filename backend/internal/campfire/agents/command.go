@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
@@ -86,9 +85,9 @@ func (h *Hub) Action(ctx context.Context, id string, request model.RuntimeReques
 	return *response.Status, nil
 }
 
-// Execute sends a command and waits for its matching response, bounded to 30 seconds.
+// Execute waits for a matching response within the command's bounded time budget.
 func (h *Hub) Execute(ctx context.Context, id string, command protocol.Command) (protocol.CommandResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, protocol.CommandTimeout(command))
 	defer cancel()
 
 	command.ID = rand.Text()

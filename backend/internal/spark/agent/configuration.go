@@ -169,7 +169,7 @@ func (s *ConfigurationStore) executeNegotiated(ctx context.Context, id string, c
 
 func (s *ConfigurationStore) execute(ctx context.Context, id string, command protocol.Command) protocol.CommandResponse {
 	result := protocol.CommandResponse{ID: command.ID}
-	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(31*time.Second)) {
+	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(protocol.CommandTimeout(command)+time.Second)) {
 		result.Error = &protocol.CommandError{Code: "invalid_deadline", Message: "command deadline is invalid or expired"}
 		return result
 	}

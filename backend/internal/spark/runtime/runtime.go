@@ -40,6 +40,7 @@ type Manager struct {
 
 type entry struct {
 	mu        sync.Mutex
+	uploads   map[string]*fileUpload
 	Installed bool                `json:"installed"`
 	Revision  string              `json:"revision"`
 	Status    model.RuntimeStatus `json:"status"`

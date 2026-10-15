@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "../api/servers";
-import { decodeBytes, encodeBytes, fileLimit, manageFiles } from "../api/files";
+import {
+  decodeBytes,
+  encodeBytes,
+  fileLimit,
+  fileTransferLimit,
+  manageFiles,
+  uploadLimit,
+} from "../api/files";
 import type { FileEntry } from "../api/files";
 import { Drawer } from "../components/layout/Drawer";
 import "../components/servers/files.css";
@@ -47,13 +54,17 @@ export function ServerFilesDialog({
   const [editor, setEditor] = useState<Editor | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [maxUploadBytes, setMaxUploadBytes] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(true);
   const alive = useRef(true);
+  const transfer = useRef<AbortController | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      transfer.current?.abort();
     };
   }, []);
   const load = useCallback(
@@ -72,7 +83,15 @@ export function ServerFilesDialog({
   );
   useEffect(() => {
     const controller = new AbortController();
-    void load(".", controller.signal)
+    void Promise.all([
+      load(".", controller.signal),
+      uploadLimit(
+        server.id,
+        AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+      ).then((limit) => {
+        if (!controller.signal.aborted) setMaxUploadBytes(limit);
+      }),
+    ])
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
           setError(
@@ -86,8 +105,8 @@ export function ServerFilesDialog({
         }
       });
     return () => controller.abort();
-  }, [load]);
-  async function perform(work: () => Promise<void>) {
+  }, [load, server.id]);
+  async function perform(work: () => void | Promise<void>) {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
@@ -118,6 +137,10 @@ export function ServerFilesDialog({
       await load(join(directory, entry.name));
       return;
     }
+    if (entry.size > fileLimit)
+      throw new Error(
+        "Text editing is limited to 1 MiB. Download this file to edit it locally.",
+      );
     const result = await manageFiles(server.id, {
       operation: "read",
       path: join(directory, entry.name),
@@ -139,21 +162,13 @@ export function ServerFilesDialog({
       revision: result.revision,
     });
   }
-  async function download(entry: FileEntry) {
-    const result = await manageFiles(server.id, {
-      operation: "read",
-      path: join(directory, entry.name),
-    });
-    const url = URL.createObjectURL(
-      new Blob([decodeBytes(result.data ?? "")], {
-        type: "application/octet-stream",
-      }),
-    );
+  function download(entry: FileEntry) {
+    if (entry.size > fileTransferLimit)
+      throw new Error("Downloads are limited to 100 GiB.");
     const anchor = document.createElement("a");
-    anchor.href = url;
+    anchor.href = `/api/v1/servers/${encodeURIComponent(server.id)}/files/download?${new URLSearchParams({ path: join(directory, entry.name) })}`;
     anchor.download = entry.name;
     anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function save() {
     if (!editor) return;
@@ -210,22 +225,100 @@ export function ServerFilesDialog({
     await load(directory);
   }
   async function upload(file: File) {
-    if (file.size > fileLimit)
-      throw new Error("Transfers are limited to 1 MiB per file.");
+    if (maxUploadBytes === null)
+      throw new Error(
+        "Upload limit is unavailable. Reopen Files to try again.",
+      );
+    if (file.size > maxUploadBytes)
+      throw new Error(
+        `Uploads are limited to ${(maxUploadBytes / 1024 ** 2).toLocaleString()} MiB per file.`,
+      );
     const name = entryName(file.name);
     if (name === null) return;
+    const controller = new AbortController();
+    transfer.current = controller;
+    const target = join(directory, name);
+    let uploadID: string | undefined;
+    let committed = false;
+    try {
+      const started = await manageFiles(
+        server.id,
+        {
+          operation: "upload.begin",
+          path: target,
+          revision: "absent",
+          size: file.size,
+        },
+        controller.signal,
+      );
+      uploadID = started.upload_id;
+      if (!uploadID) throw new Error("Upload session is missing.");
+      for (let offset = 0; offset < file.size; offset += fileLimit) {
+        if (alive.current)
+          setProgress(
+            `Uploading ${file.name}: ${Math.floor((offset / file.size) * 100)}%`,
+          );
+        const data = encodeBytes(
+          new Uint8Array(
+            await file.slice(offset, offset + fileLimit).arrayBuffer(),
+          ),
+        );
+        await manageFiles(
+          server.id,
+          {
+            operation: "upload.chunk",
+            path: target,
+            upload_id: uploadID,
+            offset,
+            data,
+          },
+          controller.signal,
+        );
+      }
+      await manageFiles(
+        server.id,
+        { operation: "upload.commit", path: target, upload_id: uploadID },
+        controller.signal,
+      );
+      committed = true;
+    } finally {
+      if (uploadID && !committed) {
+        try {
+          await manageFiles(server.id, {
+            operation: "upload.cancel",
+            path: target,
+            upload_id: uploadID,
+          });
+        } catch {
+          /* Expired staging files are cleaned on the Spark. */
+        }
+      }
+      transfer.current = null;
+      if (alive.current) setProgress(null);
+    }
+    await load(directory);
+  }
+  async function archive(entry: FileEntry, extract: boolean) {
+    const destination = entryName(
+      window.prompt(
+        extract ? "Extract into a new folder" : "New .tar.gz archive name",
+        extract
+          ? entry.name.replace(/\.(tar\.gz|tgz|zip)$/i, "")
+          : `${entry.name}.tar.gz`,
+      ),
+    );
+    if (!destination) return;
     await manageFiles(server.id, {
-      operation: "write",
-      path: join(directory, name),
-      data: encodeBytes(new Uint8Array(await file.arrayBuffer())),
-      revision: "absent",
+      operation: extract ? "extract" : "compress",
+      path: join(directory, entry.name),
+      destination: join(directory, destination),
     });
     await load(directory);
   }
   return (
     <Drawer
       title={`${server.name} files`}
-      description="Browse game files. Transfers are limited to 1 MiB per file."
+      description={`Browse game files. ${maxUploadBytes === null ? "Loading upload limit." : `Uploads support up to ${(maxUploadBytes / 1024 ** 2).toLocaleString()} MiB per file.`} Text editing supports 1 MiB.`}
       busy={busy}
       onClose={close}
       footerLeft={
@@ -272,6 +365,17 @@ export function ServerFilesDialog({
       }
     >
       <div className="drawer-content">
+        {progress && (
+          <p role="status">
+            {progress}{" "}
+            <button
+              className="button"
+              onClick={() => transfer.current?.abort()}
+            >
+              Cancel upload
+            </button>
+          </p>
+        )}
         {error && (
           <p className="error-message" role="alert">
             {error}
@@ -354,7 +458,9 @@ export function ServerFilesDialog({
                 Upload file
                 <input
                   type="file"
-                  disabled={busy || loading || !canWrite}
+                  disabled={
+                    busy || loading || !canWrite || maxUploadBytes === null
+                  }
                   aria-label="Upload file"
                   onChange={(event) => {
                     const file = event.target.files?.item(0);
@@ -364,6 +470,16 @@ export function ServerFilesDialog({
                 />
               </label>
             </div>
+            <details>
+              <summary>SFTP access</summary>
+              <p>
+                When your administrator enables SFTP, connect to Campfire’s SFTP
+                address using <code>{server.id}</code> as the username and a
+                personal API token as the password. The token needs server.view
+                and server.operate. Create tokens from API tokens in the
+                sidebar. Stop the server before uploading or modifying files.
+              </p>
+            </details>
             <div className="file-list">
               {loading ? (
                 <p className="list-summary" role="status">
@@ -395,7 +511,7 @@ export function ServerFilesDialog({
                       {entry.kind === "file" && (
                         <button
                           className="button"
-                          disabled={busy || entry.size > fileLimit}
+                          disabled={busy || entry.size > fileTransferLimit}
                           onClick={() => {
                             void perform(() => download(entry));
                           }}
@@ -404,6 +520,29 @@ export function ServerFilesDialog({
                           Download
                         </button>
                       )}
+                      {entry.kind !== "unsupported" && (
+                        <button
+                          className="button"
+                          disabled={busy || !canWrite}
+                          onClick={() => {
+                            void perform(() => archive(entry, false));
+                          }}
+                        >
+                          Compress
+                        </button>
+                      )}
+                      {entry.kind === "file" &&
+                        /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
+                          <button
+                            className="button"
+                            disabled={busy || !canWrite}
+                            onClick={() => {
+                              void perform(() => archive(entry, true));
+                            }}
+                          >
+                            Extract
+                          </button>
+                        )}
                       <button
                         className="button"
                         disabled={

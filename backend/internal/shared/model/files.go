@@ -5,6 +5,12 @@ import "time"
 // FileLimit bounds each transfer to fit the authenticated command protocol.
 const FileLimit = 1 << 20
 
+// FileTransferLimit bounds streamed files without increasing command message sizes.
+const FileTransferLimit int64 = 100 << 30
+
+// DefaultUploadLimit is the default per-file upload ceiling, independently of downloads.
+const DefaultUploadLimit int64 = 1 << 30
+
 // FileRequest describes contained game file access or immutable backup list/read access.
 type FileRequest struct {
 	ServerID    string `json:"server_id"`
@@ -14,6 +20,9 @@ type FileRequest struct {
 	Data        []byte `json:"data,omitempty"`
 	Revision    string `json:"revision,omitempty"`
 	Offset      int64  `json:"offset,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	UploadID    string `json:"upload_id,omitempty"`
+	UploadLimit int64  `json:"upload_limit,omitempty"`
 }
 
 // FileEntry describes a directory child without following symbolic links.
@@ -32,6 +41,7 @@ type FileResult struct {
 	Data     []byte      `json:"data,omitempty"`
 	Revision string      `json:"revision,omitempty"`
 	Size     int64       `json:"size,omitempty"`
+	UploadID string      `json:"upload_id,omitempty"`
 }
 
 // FileError is a transport-independent, safe error exposed to operators.

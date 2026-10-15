@@ -19,18 +19,19 @@ type ConfigurationDispatcher interface {
 
 // DeploymentService assembles saved configurations and dispatches them to their assigned node.
 type DeploymentService struct {
-	Servers     *ServerService
-	Sparks      *SparkService
-	Embers      *EmberService
-	Remote      ConfigurationDispatcher
-	Activity    *ActivityService
-	Transfers   *TransferService
-	Backups     *BackupService
-	mu          sync.Mutex
-	locks       map[string]*deliveryLock
-	statuses    map[string]model.RuntimeStatus
-	observed    map[string]time.Time
-	metricSlots chan struct{}
+	MaxUploadBytes int64
+	Servers        *ServerService
+	Sparks         *SparkService
+	Embers         *EmberService
+	Remote         ConfigurationDispatcher
+	Activity       *ActivityService
+	Transfers      *TransferService
+	Backups        *BackupService
+	mu             sync.Mutex
+	locks          map[string]*deliveryLock
+	statuses       map[string]model.RuntimeStatus
+	observed       map[string]time.Time
+	metricSlots    chan struct{}
 }
 
 type deliveryLock struct {
