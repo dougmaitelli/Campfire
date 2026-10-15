@@ -3,6 +3,8 @@ export const navigation = [
   { id: "sparks", label: "Sparks", icon: "sparks" },
   { id: "embers", label: "Embers", icon: "embers" },
   { id: "servers", label: "Servers", icon: "servers" },
+  { id: "users", label: "Users", icon: "users" },
+  { id: "roles", label: "Roles", icon: "roles" },
   { id: "schedules", label: "Schedules", icon: "schedules" },
 ] as const;
 

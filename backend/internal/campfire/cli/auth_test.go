@@ -52,7 +52,7 @@ func TestResetPasswordCommandRevokesSessions(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	store := repository.NewAuthRepository(db.ORM())
-	if err := store.Setup(ctx, database.AdminCredential{ID: 1, Username: "admin", PasswordHash: "old", Version: 1}, database.AdminSession{Hash: "old-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()}); err != nil {
+	if err := store.Setup(ctx, database.User{ID: 1, Username: "admin", PasswordHash: "old", Version: 1}, database.UserSession{Hash: "old-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()}); err != nil {
 		t.Fatal(err)
 	}
 

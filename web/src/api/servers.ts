@@ -22,6 +22,8 @@ export interface ServerConfiguration {
 
 export interface Server extends ServerConfiguration {
   id: string;
+  owner_user_id: number;
+  permissions: string[];
   spark_name: string;
   ember_name: string;
   game_address: string;
@@ -35,6 +37,12 @@ function isServer(value: unknown): value is Server {
     value !== null &&
     "id" in value &&
     typeof value.id === "string" &&
+    "owner_user_id" in value &&
+    typeof value.owner_user_id === "number" &&
+    Number.isSafeInteger(value.owner_user_id) &&
+    "permissions" in value &&
+    Array.isArray(value.permissions) &&
+    value.permissions.every((entry: unknown) => typeof entry === "string") &&
     "name" in value &&
     typeof value.name === "string" &&
     "description" in value &&

@@ -21,7 +21,7 @@ export interface Ember {
   required_ports?: { container: number; protocol: "tcp" | "udp" }[] | null;
 }
 
-function isEmber(value: unknown): value is Ember {
+export function isEmber(value: unknown): value is Ember {
   return (
     typeof value === "object" &&
     value !== null &&

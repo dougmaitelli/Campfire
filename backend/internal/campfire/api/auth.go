@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"errors"
 	"net"
@@ -15,11 +16,23 @@ import (
 const sessionCookie = "campfire_session"
 
 type authState struct {
-	Authenticated bool   `json:"authenticated"`
-	SetupRequired bool   `json:"setup_required"`
-	Username      string `json:"username,omitempty"`
-	CSRFToken     string `json:"csrf_token,omitempty"`
-	ExpiresAt     int64  `json:"expires_at,omitempty"`
+	Authenticated bool `json:"authenticated"`
+	SetupRequired bool `json:"setup_required"`
+	*service.Principal
+	CSRFToken string `json:"csrf_token,omitempty"`
+	ExpiresAt int64  `json:"expires_at,omitempty"`
+}
+
+type principalKey struct{}
+
+func currentUser(r *http.Request) service.Principal {
+	principal, _ := r.Context().Value(principalKey{}).(service.Principal)
+	return principal
+}
+
+func sessionState(session database.UserSession) authState {
+	principal := service.PrincipalFromSession(session)
+	return authState{Authenticated: true, Principal: &principal, CSRFToken: session.CSRF, ExpiresAt: session.ExpiresAt}
 }
 
 func browserToken(r *http.Request) string {
@@ -88,14 +101,14 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, service.PrincipalFromSession(session))))
 	})
 }
 
 func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, service.ErrAuthentication):
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in with valid administrator credentials"})
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in with valid account credentials"})
 	case errors.Is(err, service.ErrAdminExists):
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 	case errors.Is(err, service.ErrAuthInput):
@@ -109,9 +122,9 @@ func writeAuthError(w http.ResponseWriter, err error) {
 }
 
 func (a *API) authSession(w http.ResponseWriter, r *http.Request) {
-	session, username, err := a.auth.Session(r.Context(), browserToken(r))
+	session, _, err := a.auth.Session(r.Context(), browserToken(r))
 	if err == nil {
-		writeJSON(w, http.StatusOK, authState{Authenticated: true, Username: username, CSRFToken: session.CSRF, ExpiresAt: session.ExpiresAt})
+		writeJSON(w, http.StatusOK, sessionState(session))
 		return
 	}
 
@@ -149,7 +162,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 		return
 	}
 
-	var session database.AdminSession
+	var session database.UserSession
 
 	var token string
 	if setup {
@@ -163,8 +176,14 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 		return
 	}
 
+	session, _, err = a.auth.Session(r.Context(), token)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
 	a.setSessionCookie(w, r, token, session.ExpiresAt)
-	writeJSON(w, http.StatusOK, authState{Authenticated: true, Username: strings.ToLower(strings.TrimSpace(input.Username)), CSRFToken: session.CSRF, ExpiresAt: session.ExpiresAt})
+	writeJSON(w, http.StatusOK, sessionState(session))
 }
 
 func (a *API) authSetup(w http.ResponseWriter, r *http.Request) { a.authAttempt(w, r, true) }

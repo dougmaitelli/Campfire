@@ -73,6 +73,12 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			return fmt.Errorf("save server: %w", err)
 		}
 
+		if create && server.OwnerUserID > 0 {
+			if err := tx.Omit("Server", "User").Create(&database.ServerOwnership{ServerID: server.ID, UserID: server.OwnerUserID}).Error; err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 }
@@ -132,12 +138,24 @@ func (r *ServerRepository) List(ctx context.Context) ([]model.Server, error) {
 	}
 
 	servers := make([]model.Server, 0, len(records))
+
+	var owners []database.ServerOwnership
+	if err := r.db.WithContext(ctx).Find(&owners).Error; err != nil {
+		return nil, err
+	}
+
+	ownerIDs := map[string]int64{}
+	for _, owner := range owners {
+		ownerIDs[owner.ServerID] = owner.UserID
+	}
+
 	for _, record := range records {
 		server, err := toServer(record)
 		if err != nil {
 			return nil, err
 		}
 
+		server.OwnerUserID = ownerIDs[server.ID]
 		servers = append(servers, server)
 	}
 
@@ -155,7 +173,19 @@ func (r *ServerRepository) Get(ctx context.Context, id string) (model.Server, er
 		return model.Server{}, fmt.Errorf("read server: %w", err)
 	}
 
-	return toServer(record)
+	server, err := toServer(record)
+	if err != nil {
+		return server, err
+	}
+
+	var ownership database.ServerOwnership
+	if err := r.db.WithContext(ctx).Where("server_id = ?", id).Take(&ownership).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return server, err
+	}
+
+	server.OwnerUserID = ownership.UserID
+
+	return server, nil
 }
 
 // Delete removes a saved configuration and releases its reservations.

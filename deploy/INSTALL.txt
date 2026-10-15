@@ -62,8 +62,9 @@ Open the panel through your configured origin. On first startup it creates
 Enter that token in the setup form and create a password of at least 15
 characters. The token is removed after successful setup. Browser sessions
 expire after 12 hours absolutely or 30 minutes without API activity. Polling
-counts as activity. Setup and all server management APIs require the appropriate
-administrator credentials; writes also require CSRF protection.
+counts as activity. Setup creates the initial Admin account; additional accounts
+are created from Users after signing in. All management APIs require an account
+with the relevant platform or server permissions; writes also require CSRF protection.
 
 Forgotten password recovery uses a private regular file, not a command-line
 password. Create a mode-0600 file with your editor and run:
@@ -71,8 +72,45 @@ password. Create a mode-0600 file with your editor and run:
   sudo /usr/local/bin/campfire reset-password \
     --database /var/lib/campfire/panel.db --password-file /private/new-password
 
-This preserves the username and revokes every session. Remove the password
-file after recovery. Reset requires an administrator to have been configured.
+This preserves the username and revokes that administrator's sessions. Other
+accounts remain signed in. Add --username NAME to recover a particular admin;
+otherwise the first administrator is selected. Remove the password file after
+recovery. Reset requires an administrator to have been configured. Admins reset
+other users' passwords from Users.
+
+Users, roles and server access
+-----------------------------
+Admins manage all users, roles, Sparks, Embers and servers. Users and Roles
+are administrator-only pages. There is no public account registration.
+
+The built-in platform roles are Admin, Server creator and User. Server creators
+can create servers only on Sparks approved for their platform role. On the
+Sparks page, choose Provisioning to grant creation access. This grants no Spark
+management rights. New roles can grant server creation or selected server-scoped
+permissions; the built-in roles cannot be edited or deleted.
+
+Creating a server makes its creator the Owner. Owners can operate, configure,
+delete and share that server. Open its Access drawer and enter an existing
+username to assign an Operator. Several users can operate the same server.
+Operators have lifecycle, console, file and backup access but cannot change
+configuration, delete the server or share access. Owners can assign operators;
+only administrators can assign custom server roles or transfer ownership.
+
+To create a server for another user, create it as an admin and transfer ownership
+in Access. Transfer removes the previous owner's implicit access. Administrators
+retain access to every server regardless of ownership or membership.
+
+Server permissions are checked by the backend on every endpoint. Removing a
+member or changing role permissions affects subsequent requests immediately.
+Active backup downloads also recheck access between chunks. Disabling or changing
+an account revokes that account's sessions. At least one enabled Admin must remain.
+An account that owns servers must transfer them before it can be deleted. Roles
+assigned to accounts or server members cannot be deleted. Removing a Spark's
+provisioning grant does not remove users' ownership of existing servers.
+
+Schema 7 upgrades existing administrator credentials without changing the password
+and assigns existing servers to that account. Old sessions are revoked; sign in
+again after upgrading. The Spark wire protocol remains version 5.
 
 HTTPS and agent enrollment
 -------------------------
@@ -180,7 +218,7 @@ health endpoint, login and node connections. Use a stopped Spark and preserve
 its state when upgrading its binary. Detached games continue across ordinary
 agent disconnects; wait for lifecycle/file/backup work to finish before stopping
 an agent. Breaking wire protocol changes require compatible panel and Spark
-versions. These changes keep wire protocol 5 and schema 6. Update either
+versions. These changes keep wire protocol 5; the panel uses schema 7. Update either
 component independently while both support protocol 5; mismatched protocols
 are rejected during the agent handshake.
 

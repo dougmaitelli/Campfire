@@ -34,14 +34,14 @@ var (
 // SessionLifetime bounds a login even while its browser continues polling.
 const SessionLifetime = 12 * time.Hour
 
-var adminName = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{2,63}$`)
+var accountName = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{2,63}$`)
 
 type authAttempts struct {
 	start time.Time
 	count int
 }
 
-// AuthService owns single-admin setup, password verification and session secrets.
+// AuthService owns initial administrator setup, account authentication and sessions.
 type AuthService struct {
 	store      *repository.AuthRepository
 	mu         sync.Mutex
@@ -189,8 +189,8 @@ func (s *AuthService) AllowAttempt(key string) bool {
 	return true
 }
 
-func validAdminInput(username, password string) bool {
-	return adminName.MatchString(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= 15 && len(password) <= 1024
+func validAccountInput(username, password string) bool {
+	return accountName.MatchString(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= 15 && len(password) <= 1024
 }
 
 func passwordHash(password string) (string, error) {
@@ -221,16 +221,16 @@ func verifyPassword(encoded, password string) bool {
 	return err == nil && subtle.ConstantTimeCompare(key, expected) == 1 && valid
 }
 
-func newAdminSession(version int64, now time.Time) (database.AdminSession, string) {
+func newUserSession(userID, version int64, now time.Time) (database.UserSession, string) {
 	token := authToken()
-	return database.AdminSession{Hash: tokenHash(token), CSRF: authToken(), CredentialVersion: version, ExpiresAt: now.Add(SessionLifetime).Unix(), LastSeenAt: now.Unix()}, token
+	return database.UserSession{Hash: tokenHash(token), UserID: userID, CSRF: authToken(), CredentialVersion: version, ExpiresAt: now.Add(SessionLifetime).Unix(), LastSeenAt: now.Unix()}, token
 }
 
 // Setup consumes proof of local host access and atomically creates the administrator.
-func (s *AuthService) Setup(ctx context.Context, token, username, password string) (database.AdminSession, string, error) {
+func (s *AuthService) Setup(ctx context.Context, token, username, password string) (database.UserSession, string, error) {
 	username = strings.ToLower(strings.TrimSpace(username))
-	if !validAdminInput(username, password) {
-		return database.AdminSession{}, "", ErrAuthInput
+	if !validAccountInput(username, password) {
+		return database.UserSession{}, "", ErrAuthInput
 	}
 
 	digest := sha256.Sum256([]byte(token))
@@ -240,23 +240,23 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 	s.mu.Unlock()
 
 	if !allowed {
-		return database.AdminSession{}, "", ErrAuthentication
+		return database.UserSession{}, "", ErrAuthentication
 	}
 
 	release, err := s.passwordWork(ctx)
 	if err != nil {
-		return database.AdminSession{}, "", err
+		return database.UserSession{}, "", err
 	}
 	defer release()
 
 	encoded, err := passwordHash(password)
 	if err != nil {
-		return database.AdminSession{}, "", err
+		return database.UserSession{}, "", err
 	}
 
-	session, raw := newAdminSession(1, s.now())
-	if err := s.store.Setup(ctx, database.AdminCredential{ID: 1, Username: username, PasswordHash: encoded, Version: 1}, session); err != nil {
-		return database.AdminSession{}, "", err
+	session, raw := newUserSession(1, 1, s.now())
+	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, PasswordHash: encoded, Version: 1}, session); err != nil {
+		return database.UserSession{}, "", err
 	}
 
 	s.mu.Lock()
@@ -271,20 +271,20 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 }
 
 // Login verifies credentials and rotates any current browser session.
-func (s *AuthService) Login(ctx context.Context, username, password, previous string) (database.AdminSession, string, error) {
+func (s *AuthService) Login(ctx context.Context, username, password, previous string) (database.UserSession, string, error) {
 	if len(username) > 64 || len(password) > 1024 {
-		return database.AdminSession{}, "", ErrAuthentication
+		return database.UserSession{}, "", ErrAuthentication
 	}
 
 	release, err := s.passwordWork(ctx)
 	if err != nil {
-		return database.AdminSession{}, "", err
+		return database.UserSession{}, "", err
 	}
 	defer release()
 
-	admin, err := s.store.Credential(ctx)
+	admin, err := s.store.FindCredential(ctx, strings.ToLower(strings.TrimSpace(username)))
 	if err != nil {
-		return database.AdminSession{}, "", err
+		return database.UserSession{}, "", err
 	}
 
 	encoded := ""
@@ -293,22 +293,22 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 	}
 
 	matched := verifyPassword(encoded, password)
-	if !matched || admin == nil || strings.ToLower(strings.TrimSpace(username)) != admin.Username {
-		return database.AdminSession{}, "", ErrAuthentication
+	if !matched || admin == nil || admin.Disabled {
+		return database.UserSession{}, "", ErrAuthentication
 	}
 
-	session, raw := newAdminSession(admin.Version, s.now())
+	session, raw := newUserSession(admin.ID, admin.Version, s.now())
 	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now()); err != nil {
-		return database.AdminSession{}, "", err
+		return database.UserSession{}, "", err
 	}
 
 	return session, raw, nil
 }
 
 // Session validates an opaque browser credential against persisted expiry and revocation.
-func (s *AuthService) Session(ctx context.Context, token string) (database.AdminSession, string, error) {
+func (s *AuthService) Session(ctx context.Context, token string) (database.UserSession, string, error) {
 	if !validAuthToken(token) {
-		return database.AdminSession{}, "", ErrAuthentication
+		return database.UserSession{}, "", ErrAuthentication
 	}
 
 	return s.store.Session(ctx, tokenHash(token), s.now())
@@ -319,9 +319,16 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 	return s.store.Revoke(ctx, tokenHash(token))
 }
 
-// ResetPassword preserves the username and invalidates every active session.
+// ResetPassword recovers the first administrator and invalidates their sessions.
 func (s *AuthService) ResetPassword(ctx context.Context, password string) error {
-	if !validAdminInput("admin", password) {
+	return s.ResetPasswordFor(ctx, "", password)
+}
+
+// ResetPasswordFor resets a selected administrator, or the first administrator by default.
+func (s *AuthService) ResetPasswordFor(ctx context.Context, username, password string) error {
+	username = strings.ToLower(strings.TrimSpace(username))
+
+	if !validAccountInput("admin", password) {
 		return ErrAuthInput
 	}
 
@@ -330,5 +337,5 @@ func (s *AuthService) ResetPassword(ctx context.Context, password string) error 
 		return fmt.Errorf("hash replacement password: %w", err)
 	}
 
-	return s.store.ResetPassword(ctx, encoded)
+	return s.store.ResetPasswordFor(ctx, username, encoded)
 }

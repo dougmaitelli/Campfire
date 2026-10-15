@@ -79,8 +79,8 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 6 {
-			return fmt.Errorf("database schema version %d is newer than supported version 6", version)
+		if version > 7 {
+			return fmt.Errorf("database schema version %d is newer than supported version 7", version)
 		}
 
 		if version == 0 {
@@ -143,6 +143,16 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if err := tx.Create(&schemaMigration{Version: 6}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version < 7 {
+			if err := migrateAccess(tx); err != nil {
+				return fmt.Errorf("apply account authorization schema: %w", err)
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 7}).Error; err != nil {
 				return fmt.Errorf("record migration: %w", err)
 			}
 		}

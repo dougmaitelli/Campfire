@@ -69,7 +69,7 @@ func TestAdministratorSecretsBootstrapAndThrottling(t *testing.T) {
 		t.Fatal("password was not safely encoded", err)
 	}
 
-	var stored database.AdminSession
+	var stored database.UserSession
 	if err := db.ORM().Take(&stored).Error; err != nil || stored.Hash == raw || stored.Hash != tokenHash(raw) || session.CSRF != stored.CSRF {
 		t.Fatal("session secret persisted without hashing", err)
 	}

@@ -3,6 +3,8 @@ import { EmptyPage } from "./pages/EmptyPage";
 import { SparksPage } from "./pages/SparksPage";
 import { ServersPage } from "./pages/ServersPage";
 import { EmbersPage } from "./pages/EmbersPage";
+import { UsersPage } from "./pages/UsersPage";
+import { RolesPage } from "./pages/RolesPage";
 import { useCurrentPage } from "./routing/useCurrentPage";
 import { AuthenticationPage } from "./pages/AuthenticationPage";
 import {
@@ -29,10 +31,21 @@ function AuthenticatedApp() {
 
 function ManagementApp() {
   const page = useCurrentPage();
+  const auth = useAuthentication();
+  const allowed =
+    auth.session?.admin === true ||
+    page.id === "servers" ||
+    page.id === "dashboard";
 
   return (
     <DashboardLayout page={page}>
-      {page.id === "sparks" ? (
+      {!allowed ? (
+        <EmptyPage title="You do not have access to this page" />
+      ) : page.id === "users" ? (
+        <UsersPage />
+      ) : page.id === "roles" ? (
+        <RolesPage />
+      ) : page.id === "sparks" ? (
         <SparksPage />
       ) : page.id === "servers" ? (
         <ServersPage />

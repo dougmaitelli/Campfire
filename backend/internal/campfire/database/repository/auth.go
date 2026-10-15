@@ -22,10 +22,10 @@ type AuthRepository struct{ db *gorm.DB }
 // NewAuthRepository constructs persistent administrator storage.
 func NewAuthRepository(db *gorm.DB) *AuthRepository { return &AuthRepository{db: db} }
 
-// Credential returns the singleton administrator, or nil before setup.
-func (r *AuthRepository) Credential(ctx context.Context) (*database.AdminCredential, error) {
-	var admin database.AdminCredential
-	if err := r.db.WithContext(ctx).Take(&admin, 1).Error; err != nil {
+// Credential returns the first account, or nil before initial setup.
+func (r *AuthRepository) Credential(ctx context.Context) (*database.User, error) {
+	var admin database.User
+	if err := r.db.WithContext(ctx).Order("id").First(&admin).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -36,11 +36,28 @@ func (r *AuthRepository) Credential(ctx context.Context) (*database.AdminCredent
 	return &admin, nil
 }
 
+// FindCredential looks up one normalized username without exposing lookup failures.
+func (r *AuthRepository) FindCredential(ctx context.Context, username string) (*database.User, error) {
+	var user database.User
+	if err := r.db.WithContext(ctx).Where("username = ?", username).Take(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// Access constructs account and permission storage on the same database.
+func (r *AuthRepository) Access() *AccessRepository { return NewAccessRepository(r.db) }
+
 // Setup atomically creates exactly one administrator and their initial session.
-func (r *AuthRepository) Setup(ctx context.Context, admin database.AdminCredential, session database.AdminSession) error {
+func (r *AuthRepository) Setup(ctx context.Context, admin database.User, session database.UserSession) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var count int64
-		if err := tx.Model(&database.AdminCredential{}).Count(&count).Error; err != nil {
+		if err := tx.Model(&database.User{}).Count(&count).Error; err != nil {
 			return err
 		}
 
@@ -48,48 +65,55 @@ func (r *AuthRepository) Setup(ctx context.Context, admin database.AdminCredenti
 			return ErrAdminExists
 		}
 
-		if err := tx.Create(&admin).Error; err != nil {
+		admin.RoleID = database.AdminRole
+		if err := tx.Omit("Role").Create(&admin).Error; err != nil {
 			return err
 		}
 
-		return tx.Create(&session).Error
+		session.UserID = admin.ID
+
+		return tx.Omit("User").Create(&session).Error
 	})
 }
 
 // CreateSession checks the credential version again to reject logins racing a reset.
-func (r *AuthRepository) CreateSession(ctx context.Context, session database.AdminSession, previous string, now time.Time) error {
+func (r *AuthRepository) CreateSession(ctx context.Context, session database.UserSession, previous string, now time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var admin database.AdminCredential
-		if err := tx.Take(&admin, 1).Error; err != nil {
+		var admin database.User
+		if err := tx.Take(&admin, session.UserID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrAuthentication
+			}
+
 			return err
 		}
 
-		if admin.Version != session.CredentialVersion {
+		if admin.Disabled || admin.Version != session.CredentialVersion {
 			return ErrAuthentication
 		}
 
-		if err := tx.Where("hash = ? OR expires_at <= ? OR last_seen_at <= ?", previous, now.Unix(), now.Add(-30*time.Minute).Unix()).Delete(&database.AdminSession{}).Error; err != nil {
+		if err := tx.Where("hash = ? OR expires_at <= ? OR last_seen_at <= ?", previous, now.Unix(), now.Add(-30*time.Minute).Unix()).Delete(&database.UserSession{}).Error; err != nil {
 			return err
 		}
 
 		var oldest []string
-		if err := tx.Model(&database.AdminSession{}).Order("last_seen_at DESC, hash").Offset(19).Pluck("hash", &oldest).Error; err != nil {
+		if err := tx.Model(&database.UserSession{}).Where("user_id = ?", session.UserID).Order("last_seen_at DESC, hash").Offset(19).Pluck("hash", &oldest).Error; err != nil {
 			return err
 		}
 
 		if len(oldest) != 0 {
-			if err := tx.Where("hash IN ?", oldest).Delete(&database.AdminSession{}).Error; err != nil {
+			if err := tx.Where("hash IN ?", oldest).Delete(&database.UserSession{}).Error; err != nil {
 				return err
 			}
 		}
 
-		return tx.Create(&session).Error
+		return tx.Omit("User").Create(&session).Error
 	})
 }
 
 // Session verifies expiry and credential generation before refreshing activity.
-func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time) (database.AdminSession, string, error) {
-	var session database.AdminSession
+func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time) (database.UserSession, string, error) {
+	var session database.UserSession
 
 	var username string
 
@@ -102,19 +126,20 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 			return err
 		}
 
-		var admin database.AdminCredential
-		if err := tx.Take(&admin, 1).Error; err != nil {
+		var admin database.User
+		if err := tx.Preload("Role.Permissions").Take(&admin, session.UserID).Error; err != nil {
 			return err
 		}
 
-		if admin.Version != session.CredentialVersion {
+		if admin.Disabled || admin.Version != session.CredentialVersion {
 			return ErrAuthentication
 		}
 
 		username = admin.Username
+		session.User = admin
 
 		if now.Unix()-session.LastSeenAt >= 60 {
-			return tx.Model(&session).Update("last_seen_at", now.Unix()).Error
+			return tx.Model(&session).Omit("User").Update("last_seen_at", now.Unix()).Error
 		}
 
 		return nil
@@ -125,13 +150,29 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 
 // Revoke removes a session immediately; unknown identities are harmless.
 func (r *AuthRepository) Revoke(ctx context.Context, hash string) error {
-	return r.db.WithContext(ctx).Where("hash = ?", hash).Delete(&database.AdminSession{}).Error
+	return r.db.WithContext(ctx).Where("hash = ?", hash).Delete(&database.UserSession{}).Error
 }
 
-// ResetPassword changes the password and revokes every session in one transaction.
+// ResetPassword recovers the first administrator and revokes that account's sessions.
 func (r *AuthRepository) ResetPassword(ctx context.Context, encoded string) error {
+	return r.ResetPasswordFor(ctx, "", encoded)
+}
+
+// ResetPasswordFor recovers one administrator without revoking other accounts' sessions.
+func (r *AuthRepository) ResetPasswordFor(ctx context.Context, username, encoded string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&database.AdminCredential{}).Where("id = 1").Updates(map[string]any{"password_hash": encoded, "version": gorm.Expr("version + 1")})
+		var admin database.User
+
+		query := tx.Where("role_id = ?", database.AdminRole)
+		if username != "" {
+			query = query.Where("username = ?", username)
+		}
+
+		if err := query.Order("id").First(&admin).Error; err != nil {
+			return ErrAuthentication
+		}
+
+		result := tx.Model(&database.User{}).Where("id = ?", admin.ID).Updates(map[string]any{"password_hash": encoded, "disabled": false, "version": gorm.Expr("version + 1")})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -140,6 +181,6 @@ func (r *AuthRepository) ResetPassword(ctx context.Context, encoded string) erro
 			return ErrAuthentication
 		}
 
-		return tx.Where("1 = 1").Delete(&database.AdminSession{}).Error
+		return tx.Where("user_id = ?", admin.ID).Delete(&database.UserSession{}).Error
 	})
 }

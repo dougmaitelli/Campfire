@@ -63,6 +63,7 @@ func resetPassword(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("campfire reset-password", flag.ContinueOnError)
 	dbPath := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite database path (CAMPFIRE_DATABASE)")
 	passwordFile := flags.String("password-file", "", "private regular file containing the new administrator password")
+	username := flags.String("username", "", "administrator to recover (defaults to the first administrator)")
 
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -101,11 +102,11 @@ func resetPassword(ctx context.Context, args []string) error {
 
 	defer func() { _ = db.Close() }()
 
-	if err := service.NewAuthService(repository.NewAuthRepository(db.ORM())).ResetPassword(ctx, password); err != nil {
+	if err := service.NewAuthService(repository.NewAuthRepository(db.ORM())).ResetPasswordFor(ctx, *username, password); err != nil {
 		return fmt.Errorf("reset administrator password: %w", err)
 	}
 
-	slog.Info("Administrator password reset; all sessions revoked")
+	slog.Info("Administrator password reset; account sessions revoked")
 
 	return nil
 }

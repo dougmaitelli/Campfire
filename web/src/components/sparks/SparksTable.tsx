@@ -9,10 +9,12 @@ export function SparksTable({
   sparks,
   onEdit,
   onEnroll,
+  onProvisioning,
 }: {
   sparks: Spark[];
   onEdit: (spark: Spark) => void;
   onEnroll: (spark: Spark) => void;
+  onProvisioning: (spark: Spark) => void;
 }) {
   return (
     <div className="table-container">
@@ -81,6 +83,13 @@ export function SparksTable({
               </td>
               <td>
                 <div className="row-actions">
+                  <button
+                    className="button"
+                    onClick={() => onProvisioning(spark)}
+                    aria-label={`Provisioning access for ${spark.name}`}
+                  >
+                    Provisioning
+                  </button>
                   <button
                     className="button"
                     onClick={() => onEdit(spark)}

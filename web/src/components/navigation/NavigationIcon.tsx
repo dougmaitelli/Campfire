@@ -1,6 +1,9 @@
 import type { NavigationIcon as IconName } from "../../routing/navigation";
 
 const paths: Record<IconName | "campfire", string> = {
+  users:
+    "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z",
+  roles: "M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7z M8 12l3 3 5-6",
   dashboard: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   sparks: "M13 2 4 14h7l-1 8 10-13h-7z",
   embers:

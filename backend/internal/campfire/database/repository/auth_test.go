@@ -46,7 +46,7 @@ func TestAdministratorSetupRaceAcrossConnections(t *testing.T) {
 		go func() {
 			defer wait.Done()
 
-			results <- store.Setup(context.Background(), database.AdminCredential{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, database.AdminSession{Hash: "initial", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()})
+			results <- store.Setup(context.Background(), database.User{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "initial", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()})
 		}()
 	}
 
@@ -74,9 +74,9 @@ func TestSessionPersistenceExpiryAndPasswordResetGeneration(t *testing.T) {
 	db, store, path := authStore(t)
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
-	session := database.AdminSession{Hash: "hashed-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: now.Add(12 * time.Hour).Unix(), LastSeenAt: now.Unix()}
+	session := database.UserSession{UserID: 1, Hash: "hashed-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: now.Add(12 * time.Hour).Unix(), LastSeenAt: now.Unix()}
 
-	if err := store.Setup(ctx, database.AdminCredential{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, session); err != nil {
+	if err := store.Setup(ctx, database.User{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, session); err != nil {
 		t.Fatal(err)
 	}
 
@@ -99,7 +99,7 @@ func TestSessionPersistenceExpiryAndPasswordResetGeneration(t *testing.T) {
 		t.Fatal("idle session remained valid", err)
 	}
 
-	if err := reopened.ORM().Model(&database.AdminSession{}).Where("hash = ?", session.Hash).Update("last_seen_at", now.Add(12*time.Hour-time.Minute).Unix()).Error; err != nil {
+	if err := reopened.ORM().Model(&database.UserSession{}).Where("hash = ?", session.Hash).Update("last_seen_at", now.Add(12*time.Hour-time.Minute).Unix()).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -122,5 +122,64 @@ func TestSessionPersistenceExpiryAndPasswordResetGeneration(t *testing.T) {
 	admin, err := store.Credential(ctx)
 	if err != nil || admin == nil || admin.Version != 2 || admin.PasswordHash != "replacement" {
 		t.Fatal("reset did not preserve and increment credential generation", err)
+	}
+}
+
+func TestConcurrentAdminDemotionKeepsOneEnabledAdministrator(t *testing.T) {
+	db, store, path := authStore(t)
+
+	ctx := context.Background()
+	if err := store.Setup(ctx, database.User{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "first", CSRF: "csrf", CredentialVersion: 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	other := database.User{Username: "second-admin", PasswordHash: "encoded", Version: 1, RoleID: database.AdminRole}
+	if err := store.Access().CreateUser(ctx, &other); err != nil {
+		t.Fatal(err)
+	}
+
+	second, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = second.Close() }()
+
+	results := make(chan error, 2)
+
+	var workers sync.WaitGroup
+	for index, access := range []*repository.AccessRepository{store.Access(), repository.NewAccessRepository(second.ORM())} {
+		workers.Add(1)
+
+		id := int64(1)
+		if index == 1 {
+			id = other.ID
+		}
+
+		go func() { defer workers.Done(); results <- access.UpdateUser(ctx, id, database.UserRole, false, "") }()
+	}
+
+	workers.Wait()
+	close(results)
+
+	var succeeded, prevented int
+
+	for err := range results {
+		if err == nil {
+			succeeded++
+		} else if errors.Is(err, repository.ErrLastAdmin) {
+			prevented++
+		} else {
+			t.Fatal(err)
+		}
+	}
+
+	if succeeded != 1 || prevented != 1 {
+		t.Fatal("concurrent demotion did not protect the last administrator", succeeded, prevented)
+	}
+
+	var admins int64
+	if err := db.ORM().Model(&database.User{}).Where("role_id = ? AND disabled = false", database.AdminRole).Count(&admins).Error; err != nil || admins != 1 {
+		t.Fatal("invalid active administrator count", admins, err)
 	}
 }

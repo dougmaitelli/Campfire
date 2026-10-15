@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useCollection<T extends { id: string }>(
+export function useCollection<T extends { id: string | number }>(
   list: (signal: AbortSignal) => Promise<T[]>,
 ) {
   const [items, setItems] = useState<T[]>([]);

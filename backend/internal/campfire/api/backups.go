@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"slices"
 	"time"
 
 	"campfire/internal/campfire/service"
@@ -59,7 +60,19 @@ func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
 	size := result.Size
+
 	for {
+		// A long download must not outlive account or server-access revocation.
+		session, _, err := a.auth.Session(ctx, browserToken(r))
+		if err != nil {
+			return
+		}
+
+		permissions, err := a.access.ServerPermissions(ctx, service.PrincipalFromSession(session), r.PathValue("id"))
+		if err != nil || !slices.Contains(permissions, "server.operate") {
+			return
+		}
+
 		if result.Size != size || len(result.Data) == 0 || int64(len(result.Data)) > size-request.Offset {
 			// An incomplete Content-Length makes interrupted downloads fail explicitly.
 			return

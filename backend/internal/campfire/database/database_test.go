@@ -18,7 +18,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (7)").Error; err != nil {
+	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (8)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -56,11 +56,11 @@ func TestAuthenticationMigrationPreservesPopulatedVersionFive(t *testing.T) {
 	}
 
 	// Recreate the pre-auth schema by removing only the new tables and migration.
-	if err := db.ORM().Migrator().DropTable(&database.AdminSession{}, &database.AdminCredential{}); err != nil {
+	if err := db.ORM().Migrator().DropTable(&database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version = 6").Error; err != nil {
+	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version >= 6").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +88,82 @@ func TestAuthenticationMigrationPreservesPopulatedVersionFive(t *testing.T) {
 		t.Fatal("authentication migration changed node identity", err)
 	}
 
-	if !reopened.ORM().Migrator().HasTable(&database.AdminCredential{}) || !reopened.ORM().Migrator().HasTable(&database.AdminSession{}) {
+	if !reopened.ORM().Migrator().HasTable(&database.User{}) || !reopened.ORM().Migrator().HasTable(&database.UserSession{}) {
 		t.Fatal("authentication tables were not created")
+	}
+}
+
+func TestMultiUserMigrationPreservesAdministratorAndClaimsServers(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "panel.db")
+
+	db, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = db.Close() }()
+
+	for _, record := range []any{
+		&database.Spark{ID: "node", Name: "Node", Kind: "remote", CreatedAt: "2026-10-14T00:00:00Z"},
+		&database.Ember{ID: "ember", Name: "Game", Definition: model.Ember{Schema: 1, Name: "Game"}, CreatedAt: "2026-10-14T00:00:00Z"},
+		&database.Server{ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", Image: "alpine:3.22", Variables: map[string]string{}, Ports: []model.ServerPort{}, CreatedAt: "2026-10-14T00:00:00Z"},
+	} {
+		if err := db.ORM().Create(record).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := db.ORM().Migrator().DropTable(&database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Migrator().CreateTable(&database.AdminCredential{}, &database.AdminSession{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Create(&database.AdminCredential{ID: 1, Username: "original", PasswordHash: "unchanged-password-hash", Version: 9}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Create(&database.AdminSession{Hash: "old-singleton-session", CSRF: "old-csrf", CredentialVersion: 9, ExpiresAt: 9999999999}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version = 7").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	var user database.User
+	if err := reopened.ORM().Take(&user, 1).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if user.Username != "original" || user.PasswordHash != "unchanged-password-hash" || user.Version != 9 || user.RoleID != database.AdminRole {
+		t.Fatal("administrator identity changed", user.Username)
+	}
+
+	var ownership database.ServerOwnership
+	if err := reopened.ORM().Take(&ownership, "server_id = ?", "game").Error; err != nil || ownership.UserID != user.ID {
+		t.Fatal("existing server did not retain administrator ownership", err)
+	}
+
+	var sessions int64
+	if err := reopened.ORM().Model(&database.UserSession{}).Count(&sessions).Error; err != nil || sessions != 0 {
+		t.Fatal("unbound sessions migrated", err)
+	}
+
+	if reopened.ORM().Migrator().HasTable(&database.AdminCredential{}) || reopened.ORM().Migrator().HasTable(&database.AdminSession{}) {
+		t.Fatal("obsolete singleton authentication tables remain")
 	}
 }

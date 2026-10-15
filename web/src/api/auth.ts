@@ -4,6 +4,11 @@ export interface AuthState {
   authenticated: boolean;
   setup_required: boolean;
   username?: string;
+  user_id?: number;
+  role_id?: number;
+  role?: string;
+  admin?: boolean;
+  permissions?: string[];
   csrf_token?: string;
   expires_at?: number;
 }
@@ -25,6 +30,22 @@ function isAuthState(value: unknown): value is AuthState {
     (!value.authenticated ||
       ("username" in value &&
         typeof value.username === "string" &&
+        "user_id" in value &&
+        typeof value.user_id === "number" &&
+        Number.isSafeInteger(value.user_id) &&
+        value.user_id > 0 &&
+        "role_id" in value &&
+        typeof value.role_id === "number" &&
+        Number.isSafeInteger(value.role_id) &&
+        "role" in value &&
+        typeof value.role === "string" &&
+        "admin" in value &&
+        typeof value.admin === "boolean" &&
+        "permissions" in value &&
+        Array.isArray(value.permissions) &&
+        value.permissions.every(
+          (entry: unknown) => typeof entry === "string",
+        ) &&
         "csrf_token" in value &&
         typeof value.csrf_token === "string" &&
         "expires_at" in value &&

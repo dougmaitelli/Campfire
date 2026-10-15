@@ -29,20 +29,28 @@ export function Sidebar({ page }: { page: NavigationItem }) {
         <span>Campfire</span>
       </a>
       <nav className="navigation" aria-label="Main navigation">
-        {navigation.map((item) => (
-          <a
-            key={item.id}
-            href={`#${item.id}`}
-            className="navigation-link"
-            aria-current={page.id === item.id ? "page" : undefined}
-          >
-            <NavigationIcon name={item.icon} />
-            <span>{item.label}</span>
-          </a>
-        ))}
+        {navigation
+          .filter(
+            (item) =>
+              auth.session?.admin === true ||
+              item.id === "servers" ||
+              item.id === "dashboard",
+          )
+          .map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="navigation-link"
+              aria-current={page.id === item.id ? "page" : undefined}
+            >
+              <NavigationIcon name={item.icon} />
+              <span>{item.label}</span>
+            </a>
+          ))}
       </nav>
       <div className="sidebar-footer sidebar-account">
         <span>{auth.session?.username}</span>
+        <span>{auth.session?.role}</span>
         {error && <span role="alert">{error}</span>}
         <button
           className="button"

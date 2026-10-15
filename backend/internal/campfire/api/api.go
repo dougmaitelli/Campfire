@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"campfire/internal/campfire/agents"
+	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 )
 
@@ -19,12 +20,17 @@ type API struct {
 	agents     *agents.Hub
 	deployment *service.DeploymentService
 	auth       *service.AuthService
+	access     *service.AccessService
 	origin     string
 }
 
 // WithAuthentication enables the mandatory administrator boundary for all panel routes.
 func (a *API) WithAuthentication(auth *service.AuthService, origin string) *API {
 	a.auth = auth
+	if auth != nil {
+		a.access = auth.Access()
+	}
+
 	a.origin = origin
 
 	return a
@@ -62,6 +68,14 @@ func writeError(w http.ResponseWriter, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 
 	switch {
+	case errors.Is(err, repository.ErrAccessDenied):
+		status, message = http.StatusForbidden, err.Error()
+	case errors.Is(err, repository.ErrAccessInput), errors.Is(err, service.ErrAuthInput):
+		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, repository.ErrAccessConflict), errors.Is(err, repository.ErrLastAdmin):
+		status, message = http.StatusConflict, err.Error()
+	case errors.Is(err, repository.ErrAccessNotFound):
+		status, message = http.StatusNotFound, err.Error()
 	case errors.Is(err, service.ErrServerActive):
 		status, message = http.StatusConflict, service.ErrServerActive.Error()
 	case errors.Is(err, service.ErrDeploymentUnavailable):

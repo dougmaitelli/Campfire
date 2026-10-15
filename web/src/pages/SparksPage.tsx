@@ -3,6 +3,7 @@ import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { SparksTable } from "../components/sparks/SparksTable";
 import { SparkDialog } from "../dialogs/SparkDialog";
 import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
+import { SparkRolesDialog } from "../dialogs/SparkRolesDialog";
 import type { Spark } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
@@ -12,6 +13,7 @@ export function SparksPage() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Spark | null>(null);
   const [enrolling, setEnrolling] = useState<Spark | null>(null);
+  const [provisioning, setProvisioning] = useState<Spark | null>(null);
 
   function openAdd() {
     setEditing(null);
@@ -51,6 +53,7 @@ export function SparksPage() {
         {sparks.length > 0 ? (
           <SparksTable
             onEnroll={setEnrolling}
+            onProvisioning={setProvisioning}
             sparks={sparks}
             onEdit={(spark) => {
               setEditing(spark);
@@ -93,6 +96,12 @@ export function SparksPage() {
             addSpark(spark);
             void refresh();
           }}
+        />
+      )}
+      {provisioning && (
+        <SparkRolesDialog
+          spark={provisioning}
+          onClose={() => setProvisioning(null)}
         />
       )}
       {enrolling && (

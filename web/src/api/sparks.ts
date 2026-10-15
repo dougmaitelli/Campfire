@@ -34,7 +34,7 @@ export interface CreateSparkInput extends SparkSettings {
   disabled: boolean;
 }
 
-function isSpark(value: unknown): value is Spark {
+export function isSpark(value: unknown): value is Spark {
   return (
     typeof value === "object" &&
     value !== null &&

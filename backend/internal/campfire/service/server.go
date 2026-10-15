@@ -57,7 +57,14 @@ func NewServerService(store ServerStore, embers *EmberService) *ServerService {
 
 // Create validates configuration and reserves resources on the selected Spark.
 func (s *ServerService) Create(ctx context.Context, input model.ServerConfiguration) (model.Server, error) {
+	return s.CreateOwned(ctx, input, 0)
+}
+
+// CreateOwned assigns ownership in the same transaction as capacity reservation.
+func (s *ServerService) CreateOwned(ctx context.Context, input model.ServerConfiguration, ownerID int64) (model.Server, error) {
 	server := model.Server{ID: rand.Text(), ServerConfiguration: input, CreatedAt: time.Now().UTC()}
+	server.OwnerUserID = ownerID
+
 	return s.save(ctx, server, true)
 }
 

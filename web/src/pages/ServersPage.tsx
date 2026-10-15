@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { deleteServer, listServers } from "../api/servers";
 import type { Server } from "../api/servers";
-import { listEmbers } from "../api/embers";
+import { serverOptions, type ServerOptions } from "../api/access";
+import { useAuthentication } from "../hooks/useAuthentication";
+import { ServerAccessDialog } from "../dialogs/ServerAccessDialog";
 import { useCollection } from "../hooks/useCollection";
-import { useSparks } from "../hooks/useSparks";
 import { ServerDialog } from "../dialogs/ServerDialog";
 import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
@@ -15,26 +16,62 @@ import type { ServerAction } from "../api/runtime";
 import "./management.css";
 
 export function ServersPage() {
+  const auth = useAuthentication();
+  const canProvision =
+    auth.session?.admin === true ||
+    auth.session?.permissions?.includes("servers.create") === true;
   const servers = useCollection(listServers);
+  const [options, setOptions] = useState<ServerOptions>({
+    sparks: [],
+    embers: [],
+  });
+  const [draftOptions, setDraftOptions] = useState<ServerOptions>({
+    sparks: [],
+    embers: [],
+  });
+  const [optionsLoading, setOptionsLoading] = useState(canProvision);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
+  const [optionsRevision, setOptionsRevision] = useState(0);
+  const [accessServer, setAccessServer] = useState<Server | null>(null);
+  const editorPending = useRef(false);
+  useEffect(() => {
+    if (!canProvision) return;
+    const controller = new AbortController();
+    void serverOptions(controller.signal)
+      .then((value) => {
+        if (!controller.signal.aborted) setOptions(value);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setOptionsError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load creation options.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setOptionsLoading(false);
+      });
+    return () => controller.abort();
+  }, [canProvision, optionsRevision]);
   const runtime = useServerRuntime(servers.items.map((server) => server.id));
   const [acting, setActing] = useState<string | null>(null);
   const [consoleServer, setConsoleServer] = useState<Server | null>(null);
   const [filesServer, setFilesServer] = useState<Server | null>(null);
   const [backupsServer, setBackupsServer] = useState<Server | null>(null);
-  const embers = useCollection(listEmbers);
-  const sparks = useSparks();
   const [editing, setEditing] = useState<Server | null>(null);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sparkFilter, setSparkFilter] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const loading = servers.loading || embers.loading || sparks.loading;
-  const error = actionError ?? servers.error ?? embers.error ?? sparks.error;
+  const loading = servers.loading || (canProvision && optionsLoading);
+  const error = actionError ?? servers.error ?? optionsError;
   const canCreate =
+    canProvision &&
     !loading &&
-    embers.items.length > 0 &&
-    sparks.sparks.some(
+    options.embers.length > 0 &&
+    options.sparks.some(
       (spark) => !spark.disabled && spark.port_allocations.length > 0,
     );
   const visible = servers.items.filter(
@@ -44,7 +81,10 @@ export function ServersPage() {
   );
   async function refresh() {
     setActionError(null);
-    await Promise.all([servers.refresh(), embers.refresh(), sparks.refresh()]);
+    setOptionsError(null);
+    setOptionsLoading(canProvision);
+    await servers.refresh();
+    setOptionsRevision((value) => value + 1);
   }
   async function remove(server: Server) {
     if (
@@ -68,8 +108,29 @@ export function ServersPage() {
     }
   }
   function create() {
+    setDraftOptions(options);
     setEditing(null);
     setOpen(true);
+  }
+  async function edit(server: Server) {
+    if (editorPending.current) return;
+    editorPending.current = true;
+    setActionError(null);
+    try {
+      setDraftOptions(
+        await serverOptions(AbortSignal.timeout(15000), server.id),
+      );
+      setEditing(server);
+      setOpen(true);
+    } catch (cause) {
+      setActionError(
+        cause instanceof Error
+          ? cause.message
+          : "Unable to load server editor.",
+      );
+    } finally {
+      editorPending.current = false;
+    }
   }
   async function act(server: Server, action: ServerAction) {
     if (acting !== null) return;
@@ -111,13 +172,15 @@ export function ServersPage() {
           >
             {loading ? "Refreshing…" : "Refresh"}
           </button>
-          <button
-            className="button button-primary"
-            disabled={!canCreate}
-            onClick={create}
-          >
-            + Create server
-          </button>
+          {canProvision && (
+            <button
+              className="button button-primary"
+              disabled={!canCreate}
+              onClick={create}
+            >
+              + Create server
+            </button>
+          )}
         </div>
       </header>
       {error && (
@@ -125,11 +188,19 @@ export function ServersPage() {
           {error}
         </p>
       )}
-      {!loading && !canCreate && (
+      {!loading && canProvision && !canCreate && (
         <p className="prerequisite-note">
-          To create servers, <a href="#embers">import an Ember</a> and{" "}
-          <a href="#sparks">configure an enabled Spark with port allocations</a>
-          .
+          {auth.session?.admin ? (
+            <>
+              To create servers, <a href="#embers">import an Ember</a> and{" "}
+              <a href="#sparks">
+                configure an enabled Spark with port allocations
+              </a>
+              .
+            </>
+          ) : (
+            "Ask an administrator to approve a Spark for your platform role before creating a server."
+          )}
         </p>
       )}
       {servers.items.length > 0 && (
@@ -147,9 +218,16 @@ export function ServersPage() {
             onChange={(event) => setSparkFilter(event.target.value)}
           >
             <option value="">All Sparks</option>
-            {sparks.sparks.map((spark) => (
-              <option key={spark.id} value={spark.id}>
-                {spark.name}
+            {[
+              ...new Map(
+                servers.items.map((server) => [
+                  server.spark_id,
+                  server.spark_name,
+                ]),
+              ).entries(),
+            ].map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
               </option>
             ))}
           </select>
@@ -255,54 +333,68 @@ export function ServersPage() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <ServerLifecycleControls
-                          status={runtime.statuses[server.id]}
-                          disabled={
-                            acting !== null ||
-                            deleting !== null ||
-                            sparks.sparks.find(
-                              (spark) => spark.id === server.spark_id,
-                            )?.disabled === true
-                          }
-                          onAction={(action) => {
-                            void act(server, action);
-                          }}
-                          onConsole={() => setConsoleServer(server)}
-                          onFiles={() => setFilesServer(server)}
-                          onBackups={() => setBackupsServer(server)}
-                        />
-                        <button
-                          className="button"
-                          disabled={
-                            loading ||
-                            deleting !== null ||
-                            runtime.statuses[server.id]?.busy === true ||
-                            !["stopped", "not_installed", "deleted"].includes(
-                              runtime.statuses[server.id]?.state ?? "unknown",
-                            )
-                          }
-                          onClick={() => {
-                            setEditing(server);
-                            setOpen(true);
-                          }}
-                          aria-label={`Edit ${server.name}`}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="button"
-                          disabled={
-                            deleting !== null ||
-                            acting !== null ||
-                            runtime.statuses[server.id]?.busy === true
-                          }
-                          onClick={() => {
-                            void remove(server);
-                          }}
-                          aria-label={`Delete ${server.name}`}
-                        >
-                          {deleting === server.id ? "Deleting…" : "Delete"}
-                        </button>
+                        {server.permissions.includes("server.operate") && (
+                          <ServerLifecycleControls
+                            status={runtime.statuses[server.id]}
+                            disabled={
+                              acting !== null ||
+                              deleting !== null ||
+                              options.sparks.find(
+                                (spark) => spark.id === server.spark_id,
+                              )?.disabled === true
+                            }
+                            onAction={(action) => {
+                              void act(server, action);
+                            }}
+                            onConsole={() => setConsoleServer(server)}
+                            onFiles={() => setFilesServer(server)}
+                            onBackups={() => setBackupsServer(server)}
+                          />
+                        )}
+                        {server.permissions.includes("server.configure") && (
+                          <button
+                            className="button"
+                            disabled={
+                              loading ||
+                              deleting !== null ||
+                              runtime.statuses[server.id]?.busy === true ||
+                              !["stopped", "not_installed", "deleted"].includes(
+                                runtime.statuses[server.id]?.state ?? "unknown",
+                              )
+                            }
+                            onClick={() => {
+                              void edit(server);
+                            }}
+                            aria-label={`Edit ${server.name}`}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {server.permissions.includes("server.delete") && (
+                          <button
+                            className="button"
+                            disabled={
+                              deleting !== null ||
+                              acting !== null ||
+                              runtime.statuses[server.id]?.busy === true
+                            }
+                            onClick={() => {
+                              void remove(server);
+                            }}
+                            aria-label={`Delete ${server.name}`}
+                          >
+                            {deleting === server.id ? "Deleting…" : "Delete"}
+                          </button>
+                        )}
+                        {server.permissions.includes("server.share") && (
+                          <button
+                            className="button"
+                            onClick={() => setAccessServer(server)}
+                            aria-label={`Access to ${server.name}`}
+                          >
+                            Access
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -320,13 +412,22 @@ export function ServersPage() {
       {open && (
         <ServerDialog
           server={editing}
-          sparks={sparks.sparks}
-          embers={embers.items}
+          sparks={draftOptions.sparks}
+          embers={draftOptions.embers}
           servers={servers.items}
           onClose={() => setOpen(false)}
           onSaved={(server) => {
             servers.upsert(server);
             void refresh();
+          }}
+        />
+      )}
+      {accessServer && (
+        <ServerAccessDialog
+          server={accessServer}
+          onClose={() => setAccessServer(null)}
+          onChanged={() => {
+            void servers.refresh();
           }}
         />
       )}

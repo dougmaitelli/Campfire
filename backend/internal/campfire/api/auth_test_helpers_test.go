@@ -33,7 +33,7 @@ func authenticatedTestAPI(t *testing.T, db *database.Database, panel *api.API) h
 		t.Fatal(err)
 	}
 
-	var session database.AdminSession
+	var session database.UserSession
 
 	var token string
 

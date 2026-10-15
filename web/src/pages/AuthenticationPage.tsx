@@ -78,7 +78,7 @@ export function AuthenticationPage() {
             <p className="authentication-description">
               {setup
                 ? "Create the administrator account to manage your game servers."
-                : "Manage your Sparks, Embers and game servers."}
+                : "Sign in to access your game servers."}
             </p>
             {error && (
               <p className="error-message" role="alert">
