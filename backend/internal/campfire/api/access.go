@@ -334,5 +334,14 @@ func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, editorOptions{[]model.Spark{spark}, []model.Ember{ember}})
+	embers := []model.Ember{ember}
+	if currentUser(r).Allows("servers.manage_all") {
+		embers, err = a.embers.List(r.Context())
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, editorOptions{[]model.Spark{spark}, embers})
 }

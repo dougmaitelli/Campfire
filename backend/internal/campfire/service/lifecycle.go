@@ -57,6 +57,17 @@ func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, c
 		}
 	}
 
+	if action == "update" || action == "reinstall" {
+		status, err := s.dispatchAction(ctx, id, "status", "", "")
+		if err != nil {
+			return model.RuntimeStatus{}, err
+		}
+
+		if status.Busy || (status.State != "stopped" && status.State != "not_installed" && status.State != "deleted") {
+			return model.RuntimeStatus{}, ErrServerActive
+		}
+	}
+
 	if s.Activity == nil || action == "logs" || action == "status" || action == "command" {
 		status, err := s.dispatchAction(ctx, id, action, content, "")
 		if err == nil && s.Activity != nil && action == "status" {
@@ -153,7 +164,7 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 
 func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, content, operationID string) (model.RuntimeStatus, error) {
 	switch action {
-	case "install", "start", "stop", "restart", "kill", "delete", "status", "logs", "command", "backup", "restore":
+	case "install", "update", "reinstall", "start", "stop", "restart", "kill", "delete", "status", "logs", "command", "backup", "restore":
 	default:
 		return model.RuntimeStatus{}, ErrInvalidServer
 	}

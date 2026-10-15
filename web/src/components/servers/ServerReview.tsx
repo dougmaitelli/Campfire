@@ -4,10 +4,12 @@ export function ServerReview({
   value,
   sparkName,
   emberName,
+  notice = "Saving reserves these resources and ports. The server will remain Not installed.",
 }: {
   value: ServerConfiguration;
   sparkName: string;
   emberName: string;
+  notice?: string | undefined;
 }) {
   return (
     <>
@@ -62,10 +64,7 @@ export function ServerReview({
           </div>
         ))}
       </dl>
-      <p className="field-help">
-        Saving reserves these resources and ports. The server will remain Not
-        installed.
-      </p>
+      <p className="field-help">{notice}</p>
     </>
   );
 }

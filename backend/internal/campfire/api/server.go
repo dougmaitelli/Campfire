@@ -104,6 +104,31 @@ func (a *API) updateServer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, server)
 }
 
+func (a *API) applyServerEmber(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		model.ServerConfiguration
+		ExpectedEmberID string `json:"expected_ember_id"`
+	}
+	if !decodeRequest(w, r, &input, 1<<20) {
+		return
+	}
+
+	server, err := a.servers.ApplyEmber(r.Context(), r.PathValue("id"), input.ExpectedEmberID, input.ServerConfiguration)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	server.Permissions, err = a.access.ServerPermissions(r.Context(), currentUser(r), server.ID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	auditDetail(r, "server.ember.apply", "server:"+server.ID+" ember:"+input.ExpectedEmberID+" -> "+server.EmberID)
+	writeJSON(w, http.StatusOK, server)
+}
+
 func (a *API) listServers(w http.ResponseWriter, r *http.Request) {
 	servers, err := a.servers.List(r.Context())
 	if err != nil {
@@ -183,10 +208,23 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch input.Action {
-	case "install", "start", "stop", "restart", "kill", "backup", "restore":
+	case "install", "update", "reinstall", "start", "stop", "restart", "kill", "backup", "restore":
 	default:
 		writeError(w, service.ErrInvalidServer)
 		return
+	}
+
+	if input.Action == "update" || input.Action == "reinstall" {
+		permissions, err := a.access.ServerPermissions(r.Context(), currentUser(r), r.PathValue("id"))
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+
+		if !slices.Contains(permissions, "server.configure") {
+			writeError(w, repository.ErrAccessDenied)
+			return
+		}
 	}
 
 	if a.deployment == nil {

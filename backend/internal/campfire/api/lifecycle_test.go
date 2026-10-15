@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -106,7 +107,7 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 
 	var backupName string
 
-	for _, action := range []string{"install", "start", "stop", "backup", "restore", "restart", "kill"} {
+	for _, action := range []string{"install", "start", "stop", "update", "reinstall", "backup", "restore", "restart", "kill"} {
 		response = request(handler, "POST", endpoint+"/actions", `{"action":"`+action+`","backup":"`+backupName+`"}`)
 		if response.Code != http.StatusAccepted {
 			t.Fatalf("%s: %d %s", action, response.Code, response.Body)
@@ -141,6 +142,20 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 		}
 
 		if action == "start" {
+			for _, installerAction := range []string{"update", "reinstall"} {
+				expectAccess(t, handler, "POST", endpoint+"/actions", fmt.Sprintf(`{"action":%q}`, installerAction), http.StatusConflict)
+			}
+
+			application, err := json.Marshal(struct {
+				model.ServerConfiguration
+				ExpectedEmberID string `json:"expected_ember_id"`
+			}{input, input.EmberID})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectAccess(t, handler, "POST", endpoint+"/ember", string(application), http.StatusConflict)
+
 			response = request(handler, "POST", endpoint+"/files", `{"operation":"delete","path":"test.txt"}`)
 			if response.Code != http.StatusConflict {
 				t.Fatalf("running file mutation: %d %s", response.Code, response.Body)

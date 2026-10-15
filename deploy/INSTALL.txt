@@ -12,6 +12,39 @@ Sparks enroll and connect using the same HTTPS agent protocol as other Sparks.
 There is no embedded runtime or local-mode environment setting. Campfire always
 runs without Docker access; Spark needs Docker and runs with execution privileges.
 
+Server Ember revisions, updates and reinstalls
+---------------------------------------------
+Import a new Ember before applying it. Imports remain immutable, and importing
+alone never changes existing servers. A platform administrator with
+servers.manage_all can stop a server, choose Ember revision from Servers, and
+review a different imported definition. Names do not identify a compatible
+revision family; select the intended definition explicitly.
+
+The revision editor keeps shared editable variable values and existing port
+mappings. New or locked variables use the selected definition's defaults;
+removed variables are dropped. Review images, startup, runtime UID, working
+directory, variables and required ports. Invalid values, missing port mappings
+and reservation conflicts reject the whole change. A stale Ember pin requires
+reopening the editor. Ownership, members, schedules and server identity stay
+attached, and other servers remain pinned to their existing imports.
+
+Applying a revision changes saved configuration only. It does not run the
+installer, change game files, or start the server. The next configuration
+delivery uses that revision. Select Update game files or Reinstall (keep files)
+from More when an installer run is required. These actions require server
+configure and operate permissions, a stopped server, and no active transfer.
+Update explicitly pulls the runtime and installer images before rerunning the
+installer; Reinstall uses local images where available (Docker fetches missing
+images). Both reapply configuration and file ownership and leave games stopped.
+
+Campfire never deletes the game directory or backups during update/reinstall.
+The Ember installer itself may overwrite files, so take a backup before changing
+revisions or running installers. There is no automatic game-data rollback.
+Progress and results appear in server status and retained execution history.
+A failed or interrupted installer keeps its files and prevents starting an
+incomplete installation. Review Console output, then explicitly retry Install,
+Update or Reinstall. Operations are never silently replayed after a Spark restart.
+
 Spark certificates and transfers
 -------------------------------
 Spark renews its enrolled client certificate automatically when fewer than 30

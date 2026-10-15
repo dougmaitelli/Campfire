@@ -230,7 +230,7 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 		t.Fatal(err)
 	}
 
-	for _, action := range []string{"install", "start", "stop", "backup", "restore", "restart", "kill", "delete"} {
+	for _, action := range []string{"install", "start", "stop", "update", "reinstall", "backup", "restore", "restart", "kill", "delete"} {
 		if action == "restore" {
 			file, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "read", Path: "world.bin"})
 			if err != nil {

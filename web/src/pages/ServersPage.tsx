@@ -20,6 +20,10 @@ import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
   const auth = useAuthentication();
+  const canApplyRevision =
+    auth.session?.admin === true ||
+    auth.session?.permissions?.includes("servers.manage_all") === true;
+  const [applyRevision, setApplyRevision] = useState(false);
   const canTransfer =
     auth.session?.admin === true ||
     (auth.session?.permissions?.includes("sparks.manage") === true &&
@@ -118,11 +122,12 @@ export function ServersPage() {
     }
   }
   function create() {
+    setApplyRevision(false);
     setDraftOptions(options);
     setEditing(null);
     setOpen(true);
   }
-  async function edit(server: Server) {
+  async function edit(server: Server, revision = false) {
     if (editorPending.current) return;
     editorPending.current = true;
     setActionError(null);
@@ -131,6 +136,7 @@ export function ServersPage() {
         await serverOptions(AbortSignal.timeout(15000), server.id),
       );
       setEditing(server);
+      setApplyRevision(revision);
       setOpen(true);
     } catch (cause) {
       setActionError(
@@ -144,6 +150,13 @@ export function ServersPage() {
   }
   async function act(server: Server, action: ServerAction) {
     if (acting !== null) return;
+    if (
+      (action === "update" || action === "reinstall") &&
+      !window.confirm(
+        `${action === "update" ? "Update" : "Reinstall"} "${server.name}" using its pinned Ember? ${action === "update" ? "Current images will be pulled. " : ""}The existing game directory and backups are kept, but the installer may overwrite files. Take a backup first. The server stays stopped.`,
+      )
+    )
+      return;
     if (
       action === "kill" &&
       !window.confirm(
@@ -347,6 +360,9 @@ export function ServersPage() {
                       <div className="row-actions">
                         {server.permissions.includes("server.operate") && (
                           <ServerLifecycleControls
+                            canConfigure={server.permissions.includes(
+                              "server.configure",
+                            )}
                             status={runtime.statuses[server.id]}
                             disabled={
                               acting !== null ||
@@ -407,6 +423,25 @@ export function ServersPage() {
                             Access
                           </button>
                         )}
+                        {canApplyRevision && (
+                          <button
+                            className="button"
+                            disabled={
+                              acting !== null ||
+                              deleting !== null ||
+                              runtime.statuses[server.id]?.busy === true ||
+                              !["stopped", "not_installed", "deleted"].includes(
+                                runtime.statuses[server.id]?.state ?? "unknown",
+                              )
+                            }
+                            onClick={() => {
+                              void edit(server, true);
+                            }}
+                            aria-label={`Apply Ember revision to ${server.name}`}
+                          >
+                            Ember revision
+                          </button>
+                        )}
                         {canTransfer && (
                           <button
                             className="button"
@@ -432,6 +467,7 @@ export function ServersPage() {
       </p>
       {open && (
         <ServerDialog
+          applyRevision={applyRevision}
           server={editing}
           sparks={draftOptions.sparks}
           embers={draftOptions.embers}

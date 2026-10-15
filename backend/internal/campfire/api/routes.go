@@ -61,6 +61,7 @@ func (a *API) Handler() http.Handler {
 	server("POST /api/v1/servers/{id}/members", "server.share", a.shareServer)
 	server("DELETE /api/v1/servers/{id}/members/{userID}", "server.share", a.unshareServer)
 	platform("PUT /api/v1/servers/{id}/owner", "servers.manage_all", a.transferServer)
+	platform("POST /api/v1/servers/{id}/ember", "servers.manage_all", a.applyServerEmber)
 	platform("GET /api/v1/servers/{id}/transfers", "sparks.manage", a.platformPermission("servers.manage_all", a.listTransfers))
 	platform("POST /api/v1/servers/{id}/transfers", "sparks.manage", a.platformPermission("servers.manage_all", a.beginTransfer))
 	platform("POST /api/v1/transfers/{transferID}/retry", "sparks.manage", a.platformPermission("servers.manage_all", a.retryTransfer))

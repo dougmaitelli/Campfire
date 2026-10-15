@@ -323,8 +323,14 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := f.service.Deployment.Action(ctx, f.server.ID, "start"); !errors.Is(err, repository.ErrTransferActive) {
-		t.Fatal("transfer did not fence power actions", err)
+	for _, action := range []string{"start", "update", "reinstall"} {
+		if _, err := f.service.Deployment.Action(ctx, f.server.ID, action); !errors.Is(err, repository.ErrTransferActive) {
+			t.Fatal("transfer did not fence server actions", action, err)
+		}
+	}
+
+	if _, err := f.service.Deployment.Servers.ApplyEmber(ctx, f.server.ID, f.server.EmberID, f.server.ServerConfiguration); !errors.Is(err, repository.ErrTransferActive) {
+		t.Fatal("transfer did not fence Ember changes", err)
 	}
 
 	if _, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, f.server.ServerConfiguration); !errors.Is(err, repository.ErrTransferActive) {

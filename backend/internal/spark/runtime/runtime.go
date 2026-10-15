@@ -217,7 +217,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	switch q.Action {
-	case "install", "start", "stop", "restart", "kill", "delete", "backup", "restore":
+	case "install", "update", "reinstall", "start", "stop", "restart", "kill", "delete", "backup", "restore":
 	default:
 		return model.RuntimeStatus{}, errors.New("unsupported runtime operation")
 	}
@@ -234,7 +234,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("another server operation is in progress")
 	}
 
-	if q.Action == "backup" || q.Action == "restore" {
+	if q.Action == "backup" || q.Action == "restore" || q.Action == "install" || q.Action == "update" || q.Action == "reinstall" {
 		if q.Action == "restore" && !backupName(q.Content) {
 			return model.RuntimeStatus{}, errors.New("select a valid backup")
 		}
@@ -244,7 +244,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		}
 	}
 
-	if q.Action != "install" && q.Action != "delete" && !e.Installed {
+	if q.Action != "install" && q.Action != "update" && q.Action != "reinstall" && q.Action != "delete" && !e.Installed {
 		return model.RuntimeStatus{}, errors.New("install the server first")
 	}
 
@@ -252,7 +252,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("server is already installed")
 	}
 
-	phase := map[string]string{"install": "installing", "start": "starting", "stop": "stopping", "restart": "restarting", "kill": "stopping", "delete": "deleting"}[q.Action]
+	phase := map[string]string{"install": "installing", "update": "updating", "reinstall": "reinstalling", "start": "starting", "stop": "stopping", "restart": "restarting", "kill": "stopping", "delete": "deleting"}[q.Action]
 	if q.Action == "backup" || q.Action == "restore" {
 		phase = "stopped"
 	}
@@ -390,6 +390,8 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action string
 	switch action {
 	case "install":
 		return m.install(ctx, d, e)
+	case "update", "reinstall":
+		return m.reinstall(ctx, d, e, action == "update")
 	case "start":
 		return m.start(ctx, d, e)
 	case "restart":

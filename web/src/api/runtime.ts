@@ -1,7 +1,15 @@
 import { apiFetch, readJSON } from "./client";
 
 export type ServerAction =
-  "install" | "start" | "stop" | "restart" | "kill" | "backup" | "restore";
+  | "install"
+  | "update"
+  | "reinstall"
+  | "start"
+  | "stop"
+  | "restart"
+  | "kill"
+  | "backup"
+  | "restore";
 
 export interface RuntimeStatus {
   server_id: string;

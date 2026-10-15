@@ -134,3 +134,20 @@ export async function deleteServer(id: string): Promise<void> {
   });
   if (!response.ok) await readJSON(response);
 }
+
+export async function applyServerEmber(
+  id: string,
+  expectedEmberID: string,
+  input: ServerConfiguration,
+): Promise<Server> {
+  const body = await readJSON(
+    await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/ember`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...input, expected_ember_id: expectedEmberID }),
+      signal: AbortSignal.timeout(35000),
+    }),
+  );
+  if (!isServer(body)) throw new Error("Unexpected server response.");
+  return body;
+}

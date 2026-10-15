@@ -62,7 +62,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 		if create {
 			err = tx.Omit("Spark", "Ember").Create(&record).Error
 		} else {
-			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "Image", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
+			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "EmberID", "Image", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
 
 			err = result.Error
 			if err == nil && result.RowsAffected == 0 {

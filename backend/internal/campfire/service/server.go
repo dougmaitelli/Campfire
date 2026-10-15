@@ -69,11 +69,6 @@ func (s *ServerService) CreateOwned(ctx context.Context, input model.ServerConfi
 
 // Update changes a configuration while preserving placement and game identity.
 func (s *ServerService) Update(ctx context.Context, id string, input model.ServerConfiguration) (model.Server, error) {
-	server, err := s.Get(ctx, id)
-	if err != nil {
-		return model.Server{}, err
-	}
-
 	if s.runtime != nil {
 		release, err := s.runtime.BeforeUpdate(ctx, id)
 		if err != nil {
@@ -82,8 +77,44 @@ func (s *ServerService) Update(ctx context.Context, id string, input model.Serve
 		defer release()
 	}
 
+	server, err := s.Get(ctx, id)
+	if err != nil {
+		return model.Server{}, err
+	}
+
 	if input.SparkID != server.SparkID || input.EmberID != server.EmberID {
 		return model.Server{}, fmt.Errorf("%w: Spark and Ember cannot be changed", ErrInvalidServer)
+	}
+
+	server.ServerConfiguration = input
+
+	return s.save(ctx, server, false)
+}
+
+// ApplyEmber explicitly replaces a stopped server's pinned definition. The
+// installer is never run implicitly and existing imports remain immutable.
+func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, input model.ServerConfiguration) (model.Server, error) {
+	if s.runtime == nil {
+		return model.Server{}, ErrDeploymentUnavailable
+	}
+
+	release, err := s.runtime.BeforeUpdate(ctx, id)
+	if err != nil {
+		return model.Server{}, err
+	}
+	defer release()
+
+	server, err := s.Get(ctx, id)
+	if err != nil {
+		return model.Server{}, err
+	}
+
+	if server.EmberID != expected {
+		return model.Server{}, fmt.Errorf("%w: the pinned Ember changed; reopen the revision editor", ErrServerConflict)
+	}
+
+	if input.SparkID != server.SparkID || input.EmberID == server.EmberID {
+		return model.Server{}, fmt.Errorf("%w: select a different Ember and preserve the Spark", ErrInvalidServer)
 	}
 
 	server.ServerConfiguration = input

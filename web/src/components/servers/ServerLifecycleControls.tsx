@@ -3,6 +3,7 @@ import type { RuntimeStatus, ServerAction } from "../../api/runtime";
 export function ServerLifecycleControls({
   status,
   disabled,
+  canConfigure,
   onAction,
   onConsole,
   onFiles,
@@ -10,6 +11,7 @@ export function ServerLifecycleControls({
 }: {
   status: RuntimeStatus | undefined;
   disabled: boolean;
+  canConfigure: boolean;
   onAction: (action: ServerAction) => void;
   onConsole: () => void;
   onFiles: () => void;
@@ -47,7 +49,13 @@ export function ServerLifecycleControls({
         disabled={blocked}
         onChange={(event) => {
           const action = event.target.value;
-          if (action === "restart" || action === "kill") onAction(action);
+          if (
+            action === "restart" ||
+            action === "kill" ||
+            action === "update" ||
+            action === "reinstall"
+          )
+            onAction(action);
         }}
       >
         <option value="">More…</option>
@@ -57,6 +65,16 @@ export function ServerLifecycleControls({
         <option value="kill" disabled={!running}>
           Kill
         </option>
+        {canConfigure && (
+          <>
+            <option value="update" disabled={running}>
+              Update game files
+            </option>
+            <option value="reinstall" disabled={running}>
+              Reinstall (keep files)
+            </option>
+          </>
+        )}
       </select>
       <button
         className="button"

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { saveServer } from "../api/servers";
+import { applyServerEmber, saveServer } from "../api/servers";
 import type { Server, ServerConfiguration } from "../api/servers";
 import type { Spark } from "../api/sparks";
 import type { Ember } from "../api/embers";
@@ -10,6 +10,7 @@ import { ServerReview } from "../components/servers/ServerReview";
 import { defaultPorts, defaultVariables } from "../utils/serverDefaults";
 
 interface ServerDialogProps {
+  applyRevision?: boolean;
   server: Server | null;
   sparks: Spark[];
   embers: Ember[];
@@ -19,6 +20,7 @@ interface ServerDialogProps {
 }
 
 export function ServerDialog({
+  applyRevision = false,
   server,
   sparks,
   embers,
@@ -69,7 +71,11 @@ export function ServerDialog({
         disk_mb: value.disk_mb,
         ports: value.ports,
       };
-      onSaved(await saveServer(input, server?.id));
+      onSaved(
+        applyRevision && server
+          ? await applyServerEmber(server.id, server.ember_id, input)
+          : await saveServer(input, server?.id),
+      );
       onClose();
     } catch (cause) {
       setError(
@@ -85,16 +91,24 @@ export function ServerDialog({
       allowAllSteps={server !== null}
       busy={busy}
       error={error}
-      finishLabel={server ? "Save changes" : "Create server"}
+      finishLabel={
+        applyRevision
+          ? "Apply Ember revision"
+          : server
+            ? "Save changes"
+            : "Create server"
+      }
       onFinish={finish}
       steps={[
         {
           id: "basics",
           title: "Basics",
           validate: () =>
-            !value.name.trim() || !spark || !ember || !value.image
-              ? "Choose a name, Spark, Ember, and image."
-              : null,
+            applyRevision && value.ember_id === server?.ember_id
+              ? "Select a different imported Ember revision."
+              : !value.name.trim() || !spark || !ember || !value.image
+                ? "Choose a name, Spark, Ember, and image."
+                : null,
           content: (
             <>
               <label htmlFor="server-name">Server name</label>
@@ -149,10 +163,18 @@ export function ServerDialog({
                   ))}
               </select>
               <label htmlFor="server-ember">Ember</label>
+              {applyRevision && (
+                <p className="field-help">
+                  Current revision: {server?.ember_name} · {server?.ember_id}.
+                  Select an imported revision explicitly; names do not imply
+                  compatibility. Review variables, images, required ports,
+                  startup, and ownership before applying.
+                </p>
+              )}
               <select
                 id="server-ember"
                 required
-                disabled={server !== null}
+                disabled={server !== null && !applyRevision}
                 value={value.ember_id}
                 onChange={(event) => {
                   const selected = embers.find(
@@ -161,9 +183,26 @@ export function ServerDialog({
                   setValue({
                     ...value,
                     ember_id: event.target.value,
-                    image: Object.values(selected?.images ?? {})[0] ?? "",
-                    variables: defaultVariables(selected),
-                    ports: defaultPorts(spark, selected, servers),
+                    image:
+                      applyRevision &&
+                      selected &&
+                      Object.values(selected.images).includes(value.image)
+                        ? value.image
+                        : (Object.values(selected?.images ?? {})[0] ?? ""),
+                    variables: applyRevision
+                      ? Object.fromEntries(
+                          (selected?.variables ?? []).map((variable) => [
+                            variable.name,
+                            variable.editable
+                              ? (server?.variables[variable.name] ??
+                                variable.default)
+                              : variable.default,
+                          ]),
+                        )
+                      : defaultVariables(selected),
+                    ports: applyRevision
+                      ? value.ports
+                      : defaultPorts(spark, selected, servers),
                   });
                 }}
               >
@@ -243,18 +282,60 @@ export function ServerDialog({
           id: "review",
           title: "Review",
           content: (
-            <ServerReview
-              value={value}
-              sparkName={spark?.name ?? ""}
-              emberName={ember?.name ?? ""}
-            />
+            <>
+              {applyRevision && (
+                <>
+                  <p>
+                    Revision: {server?.ember_id} → {value.ember_id}
+                  </p>
+                  <p>
+                    Startup: <code>{ember?.startup}</code>
+                    <br />
+                    Working directory: {ember?.work_dir}
+                    <br />
+                    Runtime user: {ember?.user}
+                  </p>
+                  <p>
+                    Removed settings:{" "}
+                    {Object.keys(server?.variables ?? {})
+                      .filter(
+                        (name) =>
+                          !(ember?.variables ?? []).some(
+                            (variable) => variable.name === name,
+                          ),
+                      )
+                      .join(", ") || "None"}
+                    . Shared editable settings are retained; new and locked
+                    settings use the selected revision’s defaults.
+                  </p>
+                </>
+              )}
+              <ServerReview
+                value={value}
+                sparkName={spark?.name ?? ""}
+                emberName={ember?.name ?? ""}
+                notice={
+                  applyRevision
+                    ? "Applying changes the pinned Ember and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Update or Reinstall separately if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
+                    : server
+                      ? "Saving updates the configuration and reservations. The server stays stopped."
+                      : undefined
+                }
+              />
+            </>
           ),
         },
       ]}
     >
       {(content, actions) => (
         <Drawer
-          title={server ? "Edit server" : "Create server"}
+          title={
+            applyRevision
+              ? "Apply Ember revision"
+              : server
+                ? "Edit server"
+                : "Create server"
+          }
           description="Choose where it runs and what it hosts."
           busy={busy}
           onClose={onClose}
