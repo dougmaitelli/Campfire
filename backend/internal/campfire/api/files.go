@@ -60,7 +60,7 @@ func writeFileError(w http.ResponseWriter, err error) {
 		status = http.StatusBadRequest
 	case "file_not_found":
 		status = http.StatusNotFound
-	case "file_conflict", "file_busy":
+	case "file_conflict", "file_busy", "unsupported_capability":
 		status = http.StatusConflict
 	case "file_limit":
 		status = http.StatusRequestEntityTooLarge

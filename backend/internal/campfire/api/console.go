@@ -25,6 +25,13 @@ func (a *API) streamConsole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if checker, ok := a.deployment.Remote.(interface{ CheckConsole(string) error }); ok {
+		if err := checker.CheckConsole(server.SparkID); err != nil {
+			writeError(w, errors.Join(service.ErrDeploymentUnavailable, err))
+			return
+		}
+	}
+
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 

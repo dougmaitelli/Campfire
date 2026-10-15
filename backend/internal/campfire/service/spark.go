@@ -180,6 +180,13 @@ func (s *SparkService) Update(ctx context.Context, id string, input UpdateSparkI
 
 func (s *SparkService) withConnectivity(spark model.Spark) model.Spark {
 	spark.Connected = !spark.Disabled && s.connectivity != nil && s.connectivity.Connected(spark.ID)
+	if spark.Connected {
+		if features, ok := s.connectivity.(interface {
+			SparkFeatures(string) (int, string, []string)
+		}); ok {
+			spark.Protocol, spark.AgentVersion, spark.Capabilities = features.SparkFeatures(spark.ID)
+		}
+	}
 
 	return spark
 }

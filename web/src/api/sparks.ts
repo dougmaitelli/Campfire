@@ -23,6 +23,9 @@ export interface Spark extends SparkSettings {
   description: string;
   disabled: boolean;
   connected: boolean;
+  agent_version?: string;
+  protocol?: number;
+  capabilities?: string[];
   kind: SparkKind;
   created_at: string;
 }
@@ -60,6 +63,16 @@ export function isSpark(value: unknown): value is Spark {
     typeof value.disabled === "boolean" &&
     "connected" in value &&
     typeof value.connected === "boolean" &&
+    (!("agent_version" in value) || typeof value.agent_version === "string") &&
+    (!("protocol" in value) ||
+      (typeof value.protocol === "number" &&
+        Number.isSafeInteger(value.protocol) &&
+        value.protocol > 0)) &&
+    (!("capabilities" in value) ||
+      (Array.isArray(value.capabilities) &&
+        value.capabilities.every(
+          (entry: unknown) => typeof entry === "string",
+        ))) &&
     "kind" in value &&
     value.kind === "remote" &&
     "created_at" in value &&

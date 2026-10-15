@@ -26,6 +26,34 @@ func deploymentFixture(id, server string) model.Deployment {
 	}
 }
 
+func TestUnnegotiatedCommandsDoNotMutateSpark(t *testing.T) {
+	directory := t.TempDir()
+	store := &ConfigurationStore{Directory: directory}
+	deployment := deploymentFixture("node", "game")
+	command := protocol.Command{ID: "capability-check", Name: protocol.ConfigureServer, Deadline: time.Now().Add(time.Second), Deployment: &deployment}
+
+	denied := store.executeNegotiated(context.Background(), "node", command, nil)
+	if denied.Error == nil || denied.Error.Code != "unsupported_capability" {
+		t.Fatal("unnegotiated command accepted", denied.Error)
+	}
+
+	if _, err := os.Stat(filepath.Join(directory, "node")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("denied command changed storage", err)
+	}
+
+	accepted := store.executeNegotiated(context.Background(), "node", command, []string{protocol.CapabilityConfigure})
+	if accepted.Error != nil || accepted.Receipt == nil {
+		t.Fatal("supported configuration rejected", accepted.Error)
+	}
+
+	command.Name, command.Deployment, command.Runtime = protocol.ServerAction, nil, &model.RuntimeRequest{ServerID: "game", Action: "reinstall"}
+
+	denied = store.executeNegotiated(context.Background(), "node", command, []string{protocol.CapabilityLifecycle, protocol.CapabilityDiskQuota})
+	if denied.Error == nil || denied.Error.Code != "unsupported_capability" {
+		t.Fatal("installer reran without upgrade support", denied.Error)
+	}
+}
+
 func testWireCommands(t *testing.T, hub *agents.Hub, id, directory string) {
 	t.Helper()
 

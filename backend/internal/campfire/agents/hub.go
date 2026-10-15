@@ -10,10 +10,12 @@ import (
 	"encoding/pem"
 	"log/slog"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
 	"campfire/internal/shared/agentidentity"
+	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 
 	"github.com/gorilla/websocket"
@@ -35,8 +37,10 @@ type EnrollmentToken struct {
 
 // AgentInfo describes a currently connected agent.
 type AgentInfo struct {
-	Hostname string
-	Version  string
+	Hostname     string
+	Version      string
+	Protocol     int
+	Capabilities []string
 }
 type peer struct {
 	conn     *websocket.Conn
@@ -185,7 +189,13 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var hello protocol.Message
-	if err := conn.ReadJSON(&hello); err != nil || hello.Type != "hello" || hello.Protocol != protocol.ProtocolVersion || hello.SparkID != id || len(hello.Hostname) > 253 || len(hello.Version) > 128 {
+	if err := conn.ReadJSON(&hello); err != nil || hello.Type != "hello" || hello.SparkID != id || len(hello.Hostname) > 253 || len(hello.Version) > 128 {
+		return
+	}
+
+	version, capabilities, err := protocol.Negotiate(hello)
+	if err != nil {
+		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "incompatible wire protocol or invalid capabilities"), time.Now().Add(time.Second))
 		return
 	}
 
@@ -193,11 +203,11 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := conn.WriteJSON(protocol.Message{Type: "welcome", Protocol: protocol.ProtocolVersion}); err != nil {
+	if err := conn.WriteJSON(protocol.Message{Type: "welcome", Protocol: version, Capabilities: capabilities}); err != nil {
 		return
 	}
 
-	current := &peer{conn: conn, info: AgentInfo{Hostname: hello.Hostname, Version: hello.Version}, pending: make(map[string]chan protocol.CommandResponse), outbound: make(chan protocol.Message, 64), done: make(chan struct{})}
+	current := &peer{conn: conn, info: AgentInfo{Hostname: hello.Hostname, Version: hello.Version, Protocol: version, Capabilities: capabilities}, pending: make(map[string]chan protocol.CommandResponse), outbound: make(chan protocol.Message, 64), done: make(chan struct{})}
 	defer close(current.done)
 
 	h.mu.Lock()
@@ -250,7 +260,7 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				outgoing = protocol.Message{Type: "heartbeat", Protocol: protocol.ProtocolVersion}
+				outgoing = protocol.Message{Type: "heartbeat", Protocol: version}
 			}
 
 			if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
@@ -271,14 +281,14 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var message protocol.Message
-		if err := conn.ReadJSON(&message); err != nil || message.Protocol != protocol.ProtocolVersion {
+		if err := conn.ReadJSON(&message); err != nil || message.Protocol != version {
 			return
 		}
 
 		switch message.Type {
 		case "heartbeat":
 		case "console":
-			if !current.consoleFrame(message.Console) {
+			if protocol.Require(capabilities, protocol.CapabilityConsole) != nil || !current.consoleFrame(message.Console) {
 				return
 			}
 		case "response":
@@ -314,10 +324,52 @@ func (h *Hub) Info(id string) AgentInfo {
 	defer h.mu.RUnlock()
 
 	if current := h.peers[id]; current != nil {
-		return current.info
+		info := current.info
+		info.Capabilities = slices.Clone(info.Capabilities)
+
+		return info
 	}
 
 	return AgentInfo{}
+}
+
+// SparkFeatures returns a snapshot of the current session's negotiated features.
+func (h *Hub) SparkFeatures(id string) (int, string, []string) {
+	info := h.Info(id)
+	return info.Protocol, info.Version, info.Capabilities
+}
+
+// CheckCapabilities checks live support before workflows reserve or mutate state.
+func (h *Hub) CheckCapabilities(id string, required ...string) error {
+	h.mu.RLock()
+	current := h.peers[id]
+	h.mu.RUnlock()
+
+	if current == nil {
+		return ErrDisconnected
+	}
+
+	return protocol.Require(current.info.Capabilities, required...)
+}
+
+// CheckRuntime validates lifecycle features before configuration delivery.
+func (h *Hub) CheckRuntime(id string, request model.RuntimeRequest) error {
+	required := protocol.RequiredCapabilities(protocol.Command{Name: protocol.ServerAction, Runtime: &request})
+	if request.Action != "status" && request.Action != "logs" && request.Action != "command" && request.Action != "metrics" {
+		required = append(required, protocol.CapabilityConfigure)
+	}
+
+	return h.CheckCapabilities(id, required...)
+}
+
+// CheckTransfer verifies that a node can take part in a complete server move.
+func (h *Hub) CheckTransfer(id string) error {
+	return h.CheckCapabilities(id, protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityTransfer, protocol.CapabilityDiskQuota)
+}
+
+// CheckConsole verifies streaming support before opening an HTTP event response.
+func (h *Hub) CheckConsole(id string) error {
+	return h.CheckCapabilities(id, protocol.CapabilityConsole)
 }
 
 // Disconnect closes a node's current session immediately.

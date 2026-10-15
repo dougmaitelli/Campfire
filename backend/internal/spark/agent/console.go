@@ -120,7 +120,7 @@ func (s *consoleStreams) open(ctx context.Context, node string, frame protocol.C
 
 		frame.Event = model.ConsoleEvent{End: true, Error: "Spark console stream limit reached."}
 
-		return send(protocol.Message{Type: "console", Protocol: protocol.ProtocolVersion, Console: &frame})
+		return send(protocol.Message{Type: "console", Console: &frame})
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -150,7 +150,7 @@ func (s *consoleStreams) open(ctx context.Context, node string, frame protocol.C
 			packet := frame
 			packet.Event = event
 
-			return send(protocol.Message{Type: "console", Protocol: protocol.ProtocolVersion, Console: &packet})
+			return send(protocol.Message{Type: "console", Console: &packet})
 		}
 
 		err := store.streamConsole(ctx, node, frame.ServerID, emit)

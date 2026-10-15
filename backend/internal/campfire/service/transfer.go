@@ -118,6 +118,14 @@ func (s *TransferService) Begin(ctx context.Context, serverID, targetID string, 
 		return database.ServerTransfer{}, fmt.Errorf("%w: choose a different destination Spark", ErrInvalidServer)
 	}
 
+	if checker, ok := s.Deployment.Remote.(interface{ CheckTransfer(string) error }); ok {
+		for _, id := range []string{server.SparkID, targetID} {
+			if err := checker.CheckTransfer(id); err != nil {
+				return database.ServerTransfer{}, errors.Join(ErrDeploymentUnavailable, err)
+			}
+		}
+	}
+
 	if len(ports) != len(server.Ports) {
 		return database.ServerTransfer{}, fmt.Errorf("%w: preserve the game's container port mappings", ErrInvalidServer)
 	}

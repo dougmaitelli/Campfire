@@ -356,7 +356,11 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 	// Console producers and command replies share one serialized writer.
 	var writeMu sync.Mutex
 
+	wireVersion := protocol.ProtocolVersion
+
 	send := func(message protocol.Message) error {
+		message.Protocol = wireVersion
+
 		writeMu.Lock()
 		defer writeMu.Unlock()
 
@@ -388,7 +392,8 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		return err
 	}
 
-	if err := conn.WriteJSON(protocol.Message{Type: "hello", Protocol: protocol.ProtocolVersion, SparkID: id, Hostname: hostname, Version: buildinfo.Version}); err != nil {
+	offered := protocol.SupportedCapabilities()
+	if err := conn.WriteJSON(protocol.Message{Type: "hello", Protocol: protocol.ProtocolVersion, MinimumProtocol: protocol.MinimumProtocolVersion, Capabilities: offered, SparkID: id, Hostname: hostname, Version: buildinfo.Version}); err != nil {
 		return err
 	}
 
@@ -403,11 +408,13 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		return err
 	}
 
-	if welcome.Type != "welcome" || welcome.Protocol != protocol.ProtocolVersion {
-		return errors.New("unsupported Spark protocol")
+	if err := protocol.ValidateWelcome(welcome, offered); err != nil {
+		return err
 	}
 
-	slog.Info("Spark connected", "spark", id)
+	wireVersion = welcome.Protocol
+
+	slog.Info("Spark connected", "spark", id, "protocol", wireVersion, "capabilities", welcome.Capabilities)
 
 	for {
 		if err := conn.SetReadDeadline(time.Now().Add(45 * time.Second)); err != nil {
@@ -419,14 +426,18 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			return err
 		}
 
-		if message.Protocol != protocol.ProtocolVersion {
+		if message.Protocol != wireVersion {
 			return errors.New("unsupported panel message")
 		}
 
-		outgoing := protocol.Message{Type: "heartbeat", Protocol: protocol.ProtocolVersion}
+		outgoing := protocol.Message{Type: "heartbeat"}
 		switch message.Type {
 		case "heartbeat":
 		case "console.open":
+			if err := protocol.Require(welcome.Capabilities, protocol.CapabilityConsole); err != nil {
+				return err
+			}
+
 			if message.Console == nil {
 				return errors.New("missing console stream")
 			}
@@ -437,6 +448,10 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 
 			continue
 		case "console.close":
+			if err := protocol.Require(welcome.Capabilities, protocol.CapabilityConsole); err != nil {
+				return err
+			}
+
 			if message.Console == nil {
 				return errors.New("missing console stream")
 			}
@@ -445,6 +460,10 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 
 			continue
 		case "console.ack":
+			if err := protocol.Require(welcome.Capabilities, protocol.CapabilityConsole); err != nil {
+				return err
+			}
+
 			if message.Console == nil {
 				return errors.New("missing console acknowledgement")
 			}
@@ -457,8 +476,8 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 				return errors.New("missing command")
 			}
 
-			response := configurations.execute(ctx, id, *message.Command)
-			outgoing = protocol.Message{Type: "response", Protocol: protocol.ProtocolVersion, Response: &response}
+			response := configurations.executeNegotiated(ctx, id, *message.Command, welcome.Capabilities)
+			outgoing = protocol.Message{Type: "response", Response: &response}
 		default:
 			return errors.New("unsupported panel message")
 		}

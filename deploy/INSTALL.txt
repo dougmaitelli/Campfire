@@ -46,7 +46,9 @@ Keep browser/identity-provider access available for token management.
 
 Backups, off-host storage and retention
 --------------------------------------
-Deploy Campfire and Spark together: the backup extensions use agent protocol 7.
+Backups require the negotiated server.backups.v1 capability. Local deletion
+additionally requires server.backups.delete.v1; S3 restoration requires
+server.backups.remote.v1. See Spark feature negotiation below.
 Archives are first completed on the Spark, whether created manually or by a
 recurring backup schedule. A Campfire background worker discovers them, uploads
 eligible copies, and retries failures after restarts. Server operation history
@@ -139,6 +141,53 @@ Progress and results appear in server status and retained execution history.
 A failed or interrupted installer keeps its files and prevents starting an
 incomplete installation. Review Console output, then explicitly retry Install,
 Update or Reinstall. Operations are never silently replayed after a Spark restart.
+
+Spark feature negotiation
+-------------------------
+On each authenticated connection Spark advertises its supported wire-version
+range and versioned capabilities. Campfire selects the highest wire version in
+the shared range and the intersection of supported features. Every later
+message uses that selected version. Builds currently support wire format 7;
+a future build can advertise a newer maximum while retaining format 7 support.
+Disjoint ranges are rejected. The Spark release version is informational and
+does not determine compatibility.
+
+Optional features evolve through capability names instead of forcing a wire
+version change. New incompatible behavior for a feature needs a new capability
+version; adding a compatible feature does not. Unknown advertised names are
+ignored. Missing advertisements grant no features, and negotiated support is
+replaced on every reconnect. Update pre-negotiation Sparks to enable operations.
+
+In Sparks, expand Features to inspect the connected agent version, selected
+wire protocol and available features. Offline or disabled Sparks have no live
+capability information. This state belongs to the current authenticated session
+and is not saved as a claim about future connections.
+
+Capability                         Behavior
+server.configure.v1                Saved configuration delivery
+server.lifecycle.v1                Status, logs, console input and power actions
+server.files.v1                    Contained game-file management
+server.backups.v1                  Local backup creation, reading and restoration
+server.backups.delete.v1           Local backup deletion
+server.backups.remote.v1           Restoration from a signed off-host backup URL
+server.metrics.v1                  Measured CPU, memory and disk reporting
+server.console.stream.v1           Continuous console streaming
+server.disk-quota.v1               Continuous game-filesystem quota enforcement
+server.transfer.v1                 Fenced server archive transfer steps
+server.upgrade.v1                  Explicit update and reinstall workflows
+
+Operations can require several features: install/start/restart require quota
+support; updates/reinstalls additionally require upgrade support; remote restores
+require lifecycle, local backup, quota and remote backup support. Transfers check
+both Sparks before creating a reservation. Every actual dispatch and Spark-side
+execution checks negotiated support again. Unsupported operations return a clear
+capability error (HTTP 409) while supported operations remain available on the
+same connection. No unsupported operation is automatically substituted or retried.
+
+Capabilities identify implemented behavior, not current Docker/filesystem health.
+Quota preparation and verification still have to succeed on the host before a
+game runs. Certificate enrollment and renewal use their existing HTTPS endpoints
+independently of WebSocket feature negotiation.
 
 Spark certificates and transfers
 -------------------------------
@@ -283,7 +332,8 @@ provisioning grant does not remove users' ownership of existing servers.
 
 Schema 7 upgrades existing administrator credentials without changing the password
 and assigns existing servers to that account. Old sessions are revoked; sign in
-again after upgrading. The current Spark wire protocol is version 6.
+again after upgrading. Current builds negotiate wire format 7 and individual
+feature capabilities as described above.
 
 Optional OpenID Connect login
 ----------------------------
@@ -387,7 +437,7 @@ History and audit survive account, schedule and server deletion; deleted-server
 history remains visible to admins. Reads are paginated in batches of 100, with
 exact action/target filters on Audit. Retention cleanup is not implemented yet.
 Schema 9 adds schedules, executions and audit records without revoking sessions.
-The current Spark wire protocol is 6.
+Schedules use the same negotiated Spark capabilities as manual operations.
 
 HTTPS and agent enrollment
 -------------------------
@@ -494,9 +544,10 @@ health endpoint, login and node connections. Use a stopped Spark and preserve
 its state when upgrading its binary. Detached games continue across ordinary
 agent disconnects; wait for lifecycle/file/backup work to finish before stopping
 an agent. Breaking wire protocol changes require compatible panel and Spark
-versions. The panel uses schema 9 and wire protocol 6. Update either
-component independently while both support protocol 6; mismatched protocols
-are rejected during the agent handshake.
+versions. The panel uses schema 9 and currently supports wire format 7. Update
+either component independently while their wire-version ranges overlap and
+their shared capabilities cover the features you use. A missing optional
+capability blocks that feature; a disjoint wire range blocks the connection.
 
 For Docker upgrades, stop campfire, back up campfire-data, set CAMPFIRE_IMAGE to
 the new CI-published version, then docker compose pull and docker compose up -d
@@ -607,9 +658,9 @@ silently losing output. Closing
 the console cancels its Docker reader. Active streams recheck session, server
 permission and Spark eligibility at least every five seconds.
 
-Console streaming introduces wire protocol 6. Upgrade Campfire and all Sparks
-together; protocol 5 agents cannot connect to a protocol 6 panel. No database
-migration or re-enrollment is required for this protocol change. HTTP proxies
+Console streaming requires server.console.stream.v1. Unsupported Sparks can
+stay connected for other negotiated operations. No database migration or
+re-enrollment is required for capability negotiation. HTTP proxies
 must forward streaming responses without buffering; the endpoint sends regular
 heartbeats and X-Accel-Buffering: no.
 
@@ -622,5 +673,5 @@ new immutable Ember; it does not run the supplied installer or pull any images.
 
 See deploy/EGG-COMPATIBILITY.txt for the format and feature support matrix,
 fixture coverage, API request examples and runtime limitations. Native definitions
-and converted Eggs both use Ember schema 1. Database schema 9 and wire protocol 6
-are unchanged.
+and converted Eggs both use Ember schema 1. Egg conversion does not change
+database schema 9 or negotiated Spark feature requirements.

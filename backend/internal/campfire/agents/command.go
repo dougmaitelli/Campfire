@@ -93,12 +93,6 @@ func (h *Hub) Execute(ctx context.Context, id string, command protocol.Command) 
 
 	command.ID = rand.Text()
 	command.Deadline, _ = ctx.Deadline()
-	message := protocol.Message{Type: "command", Protocol: protocol.ProtocolVersion, Command: &command}
-
-	encoded, err := json.Marshal(message)
-	if err != nil || len(encoded) > 2<<20 {
-		return protocol.CommandResponse{}, errors.New("command exceeds protocol limits")
-	}
 
 	h.mu.RLock()
 	current := h.peers[id]
@@ -106,6 +100,17 @@ func (h *Hub) Execute(ctx context.Context, id string, command protocol.Command) 
 
 	if current == nil {
 		return protocol.CommandResponse{}, ErrDisconnected
+	}
+
+	if err := protocol.Require(current.info.Capabilities, protocol.RequiredCapabilities(command)...); err != nil {
+		return protocol.CommandResponse{}, err
+	}
+
+	message := protocol.Message{Type: "command", Protocol: current.info.Protocol, Command: &command}
+
+	encoded, err := json.Marshal(message)
+	if err != nil || len(encoded) > 2<<20 {
+		return protocol.CommandResponse{}, errors.New("command exceeds protocol limits")
 	}
 
 	response := make(chan protocol.CommandResponse, 1)

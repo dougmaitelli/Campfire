@@ -10,6 +10,7 @@ import (
 	"campfire/internal/campfire/agents"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/protocol"
 )
 
 // API translates HTTP requests into service calls.
@@ -75,7 +76,11 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 func writeError(w http.ResponseWriter, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 
+	var commandError *protocol.CommandError
+
 	switch {
+	case errors.As(err, &commandError) && commandError.Code == "unsupported_capability":
+		status, message = http.StatusConflict, commandError.Message
 	case errors.Is(err, repository.ErrAccessDenied):
 		status, message = http.StatusForbidden, err.Error()
 	case errors.Is(err, repository.ErrTransferActive), errors.Is(err, repository.ErrTransferState):

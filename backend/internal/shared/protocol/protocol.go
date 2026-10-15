@@ -7,8 +7,12 @@ import (
 	"campfire/internal/shared/model"
 )
 
-// ProtocolVersion is the supported panel-agent wire protocol.
+// ProtocolVersion is the newest supported panel-agent wire format, independent
+// of optional features advertised by each peer.
 const ProtocolVersion = 7
+
+// MinimumProtocolVersion bounds wire compatibility, not feature availability.
+const MinimumProtocolVersion = 7
 
 // CommandName identifies an explicitly supported agent operation.
 type CommandName string
@@ -63,14 +67,16 @@ type Enrollment struct {
 
 // Message carries versioned agent handshake and heartbeat data.
 type Message struct {
-	Type     string           `json:"type"`
-	Protocol int              `json:"protocol"`
-	SparkID  string           `json:"spark_id,omitempty"`
-	Hostname string           `json:"hostname,omitempty"`
-	Version  string           `json:"version,omitempty"`
-	Command  *Command         `json:"command,omitempty"`
-	Response *CommandResponse `json:"response,omitempty"`
-	Console  *ConsoleFrame    `json:"console,omitempty"`
+	MinimumProtocol int              `json:"minimum_protocol,omitempty"`
+	Capabilities    []string         `json:"capabilities,omitempty"`
+	Type            string           `json:"type"`
+	Protocol        int              `json:"protocol"`
+	SparkID         string           `json:"spark_id,omitempty"`
+	Hostname        string           `json:"hostname,omitempty"`
+	Version         string           `json:"version,omitempty"`
+	Command         *Command         `json:"command,omitempty"`
+	Response        *CommandResponse `json:"response,omitempty"`
+	Console         *ConsoleFrame    `json:"console,omitempty"`
 }
 
 // ConsoleFrame identifies one bounded console stream message on its originating session.

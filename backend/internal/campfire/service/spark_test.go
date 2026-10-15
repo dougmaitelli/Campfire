@@ -15,6 +15,10 @@ type connectivity map[string]bool
 
 func (c connectivity) Connected(id string) bool { return c[id] }
 
+func (c connectivity) SparkFeatures(string) (int, string, []string) {
+	return 7, "test", []string{"server.lifecycle.v1"}
+}
+
 func TestCalculatedConnectivity(t *testing.T) {
 	ctx := context.Background()
 
@@ -41,12 +45,12 @@ func TestCalculatedConnectivity(t *testing.T) {
 	connections[spark.ID] = true
 
 	spark, err = sparks.Get(ctx, spark.ID)
-	if err != nil || !spark.Connected {
+	if err != nil || !spark.Connected || spark.Protocol != 7 || len(spark.Capabilities) != 1 || spark.AgentVersion != "test" {
 		t.Fatalf("live connection missing: %+v %v", spark, err)
 	}
 
 	stored, err := store.Get(ctx, spark.ID)
-	if err != nil || stored.Connected {
+	if err != nil || stored.Connected || stored.Protocol != 0 || len(stored.Capabilities) != 0 {
 		t.Fatalf("connection state persisted: %+v %v", stored, err)
 	}
 
@@ -72,7 +76,7 @@ func TestCalculatedConnectivity(t *testing.T) {
 	connections[spark.ID] = false
 
 	spark, err = sparks.Get(ctx, spark.ID)
-	if err != nil || spark.Connected {
+	if err != nil || spark.Connected || spark.Protocol != 0 || len(spark.Capabilities) != 0 {
 		t.Fatalf("disconnection not reflected: %+v %v", spark, err)
 	}
 }

@@ -169,12 +169,6 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		return model.RuntimeStatus{}, ErrInvalidServer
 	}
 
-	if action != "status" && action != "logs" && action != "command" {
-		if _, err := s.sync(ctx, id); err != nil {
-			return model.RuntimeStatus{}, err
-		}
-	}
-
 	server, err := s.Servers.Get(ctx, id)
 	if err != nil {
 		return model.RuntimeStatus{}, err
@@ -200,6 +194,20 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 	if action == "restore" && s.Backups != nil {
 		request.BackupSource, err = s.Backups.Source(ctx, id, content)
 		if err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
+	if checker, ok := dispatch.(interface {
+		CheckRuntime(string, model.RuntimeRequest) error
+	}); ok {
+		if err := checker.CheckRuntime(node.ID, request); err != nil {
+			return model.RuntimeStatus{}, errors.Join(ErrDeploymentUnavailable, err)
+		}
+	}
+
+	if action != "status" && action != "logs" && action != "command" {
+		if _, err := s.sync(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}
 	}
@@ -261,6 +269,19 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 	if s.Transfers != nil {
 		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
 			return err
+		}
+	}
+
+	if checker, ok := s.Remote.(interface {
+		CheckRuntime(string, model.RuntimeRequest) error
+	}); ok {
+		server, err := s.Servers.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		if err := checker.CheckRuntime(server.SparkID, model.RuntimeRequest{ServerID: id, Action: "delete"}); err != nil {
+			return errors.Join(ErrDeploymentUnavailable, err)
 		}
 	}
 

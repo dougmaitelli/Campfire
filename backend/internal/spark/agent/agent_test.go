@@ -26,6 +26,7 @@ import (
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/protocol"
 	"campfire/internal/spark/runtime"
 )
 
@@ -185,6 +186,11 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 		t.Fatal("agent handshake metadata missing")
 	}
 
+	info := hub.Info(node.ID)
+	if info.Protocol != protocol.ProtocolVersion || len(info.Capabilities) != len(protocol.SupportedCapabilities()) {
+		t.Fatal("wire handshake did not negotiate capabilities", info)
+	}
+
 	testWireCommands(t, hub, node.ID, agentDir)
 	testWireRuntime(t, hub, node.ID)
 	testWireTransfers(t, hub, node.ID)
@@ -267,6 +273,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	waitCondition(t, func() bool { return !hub.Connected(node.ID) })
+	testWireCapabilities(t, hub, node.ID, leaf, listener.dial)
 	testWireRenewal(ctx, t, identityPath, node.ID, store, nodeService, listener.dial)
 }
 

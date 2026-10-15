@@ -156,6 +156,17 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 	return model.ConfigurationReceipt{ServerID: deployment.ServerID, Revision: agentidentity.Fingerprint(data)}, nil
 }
 
+func (s *ConfigurationStore) executeNegotiated(ctx context.Context, id string, command protocol.Command, capabilities []string) protocol.CommandResponse {
+	if err := protocol.Require(capabilities, protocol.RequiredCapabilities(command)...); err != nil {
+		var failure *protocol.CommandError
+		if errors.As(err, &failure) {
+			return protocol.CommandResponse{ID: command.ID, Error: failure}
+		}
+	}
+
+	return s.execute(ctx, id, command)
+}
+
 func (s *ConfigurationStore) execute(ctx context.Context, id string, command protocol.Command) protocol.CommandResponse {
 	result := protocol.CommandResponse{ID: command.ID}
 	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(31*time.Second)) {
