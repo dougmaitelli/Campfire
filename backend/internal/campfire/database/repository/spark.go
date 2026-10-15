@@ -16,8 +16,9 @@ import (
 
 // Repository errors distinguish missing records and uniqueness conflicts.
 var (
-	ErrNotFound = errors.New("spark not found")
-	ErrConflict = errors.New("a Spark with that name already exists")
+	ErrNotFound   = errors.New("spark not found")
+	ErrConflict   = errors.New("a Spark with that name already exists")
+	ErrSparkInUse = errors.New("move or delete this Spark's servers and finish its transfers before removing it")
 )
 
 // SparkRepository persists Spark records using GORM.
@@ -26,6 +27,40 @@ type SparkRepository struct{ db *gorm.DB }
 // NewSparkRepository creates a repository using the shared database pool.
 func NewSparkRepository(db *gorm.DB) *SparkRepository {
 	return &SparkRepository{db: db}
+}
+
+// Delete revokes the Spark identity only after all placements and active
+// transfer reservations have been removed in the same write transaction.
+func (r *SparkRepository) Delete(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&database.Server{}).Where("spark_id = ?", id).Count(&count).Error; err != nil {
+			return err
+		}
+
+		if count != 0 {
+			return ErrSparkInUse
+		}
+
+		if err := tx.Model(&database.ServerTransfer{}).Where("active = ? AND (source_spark_id = ? OR target_spark_id = ?)", true, id, id).Count(&count).Error; err != nil {
+			return err
+		}
+
+		if count != 0 {
+			return ErrSparkInUse
+		}
+
+		result := tx.Where("id = ?", id).Delete(&database.Spark{})
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected != 1 {
+			return ErrNotFound
+		}
+
+		return nil
+	})
 }
 
 // Create inserts a Spark, enforcing unique names.
@@ -135,16 +170,14 @@ func (r *SparkRepository) Update(ctx context.Context, id string, changes model.S
 			return err
 		}
 
-		var servers []database.Server
-		if err := tx.Where("spark_id = ?", id).Find(&servers).Error; err != nil {
+		servers, err := reservedServers(tx, id, "")
+		if err != nil {
 			return err
 		}
 
 		if err := checkReservations(spark, servers); err != nil {
 			return ErrSparkReservations
 		}
-
-		var err error
 
 		updated, err = (&SparkRepository{db: tx}).Get(ctx, id)
 

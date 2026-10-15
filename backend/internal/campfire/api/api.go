@@ -78,6 +78,10 @@ func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, repository.ErrAccessDenied):
 		status, message = http.StatusForbidden, err.Error()
+	case errors.Is(err, repository.ErrTransferActive), errors.Is(err, repository.ErrTransferState):
+		status, message = http.StatusConflict, err.Error()
+	case errors.Is(err, repository.ErrSparkInUse):
+		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, repository.ErrAccessInput), errors.Is(err, service.ErrAuthInput):
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, repository.ErrAccessConflict), errors.Is(err, repository.ErrLastAdmin):
@@ -90,6 +94,8 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusServiceUnavailable, service.ErrDeploymentUnavailable.Error()
 	case errors.Is(err, service.ErrInvalidSpark), errors.Is(err, service.ErrInvalidDescription), errors.Is(err, service.ErrEmptySparkUpdate), errors.Is(err, service.ErrInvalidSettings), errors.Is(err, service.ErrInvalidEmber), errors.Is(err, service.ErrInvalidServer):
 		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, repository.ErrServerPlacement), errors.Is(err, repository.ErrServerConflict):
+		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, service.ErrSparkConflict):
 		status, message = http.StatusConflict, service.ErrSparkConflict.Error()
 	case errors.Is(err, service.ErrSparkNotFound):

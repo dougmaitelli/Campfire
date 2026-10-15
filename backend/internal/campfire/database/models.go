@@ -151,7 +151,10 @@ type SparkEnrollment struct {
 
 // SparkIdentity records the currently authorized client certificate.
 type SparkIdentity struct {
-	SparkID         string `gorm:"type:text;primaryKey"`
-	Spark           Spark  `gorm:"foreignKey:SparkID;constraint:OnDelete:CASCADE"`
-	CertificateHash string `gorm:"type:text;not null"`
+	SparkID                 string `gorm:"type:text;primaryKey"`
+	Spark                   Spark  `gorm:"foreignKey:SparkID;constraint:OnDelete:CASCADE"`
+	CertificateHash         string `gorm:"type:text;not null"`
+	PreviousCertificateHash string `gorm:"type:text;not null;default:''"`
+	PreviousExpiresAt       int64  `gorm:"not null;default:0"`
+	Certificate             []byte `gorm:"type:blob"`
 }

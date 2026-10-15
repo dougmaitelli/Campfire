@@ -30,6 +30,12 @@ func NewServerRepository(db *gorm.DB) *ServerRepository { return &ServerReposito
 // Save creates or updates a server under an immediate SQLite write transaction.
 func (r *ServerRepository) Save(ctx context.Context, server model.Server, create bool) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if !create {
+			if err := activeTransfer(tx, server.ID); err != nil {
+				return err
+			}
+		}
+
 		var spark database.Spark
 		if err := tx.Where("id = ?", server.SparkID).Take(&spark).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -43,8 +49,8 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			return ErrServerPlacement
 		}
 
-		existing := make([]database.Server, 0, 1)
-		if err := tx.Where("spark_id = ? AND id <> ?", server.SparkID, server.ID).Find(&existing).Error; err != nil {
+		existing, err := reservedServers(tx, server.SparkID, server.ID)
+		if err != nil {
 			return fmt.Errorf("read reservations: %w", err)
 		}
 
@@ -53,7 +59,6 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			return err
 		}
 
-		var err error
 		if create {
 			err = tx.Omit("Spark", "Ember").Create(&record).Error
 		} else {
@@ -190,16 +195,22 @@ func (r *ServerRepository) Get(ctx context.Context, id string) (model.Server, er
 
 // Delete removes a saved configuration and releases its reservations.
 func (r *ServerRepository) Delete(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&database.Server{})
-	if result.Error != nil {
-		return fmt.Errorf("delete server: %w", result.Error)
-	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := activeTransfer(tx, id); err != nil {
+			return err
+		}
 
-	if result.RowsAffected == 0 {
-		return ErrServerNotFound
-	}
+		result := tx.Where("id = ?", id).Delete(&database.Server{})
+		if result.Error != nil {
+			return fmt.Errorf("delete server: %w", result.Error)
+		}
 
-	return nil
+		if result.RowsAffected == 0 {
+			return ErrServerNotFound
+		}
+
+		return nil
+	})
 }
 
 func toServer(record database.Server) (model.Server, error) {

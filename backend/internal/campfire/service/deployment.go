@@ -24,6 +24,7 @@ type DeploymentService struct {
 	Embers      *EmberService
 	Remote      ConfigurationDispatcher
 	Activity    *ActivityService
+	Transfers   *TransferService
 	mu          sync.Mutex
 	locks       map[string]*deliveryLock
 	statuses    map[string]model.RuntimeStatus
@@ -51,6 +52,12 @@ func (s *DeploymentService) Sync(ctx context.Context, id string) (model.Configur
 }
 
 func (s *DeploymentService) sync(ctx context.Context, id string) (model.ConfigurationReceipt, error) {
+	if s.Transfers != nil {
+		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
+			return model.ConfigurationReceipt{}, err
+		}
+	}
+
 	if err := ctx.Err(); err != nil {
 		return model.ConfigurationReceipt{}, err
 	}

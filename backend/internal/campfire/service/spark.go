@@ -31,6 +31,24 @@ type SparkStore interface {
 	List(context.Context) ([]model.Spark, error)
 	Get(context.Context, string) (model.Spark, error)
 	Update(context.Context, string, model.SparkChanges) (model.Spark, error)
+	Delete(context.Context, string) error
+}
+
+// Delete removes an empty Spark and immediately closes its authenticated session.
+func (s *SparkService) Delete(ctx context.Context, id string) error {
+	if err := s.store.Delete(ctx, id); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return ErrSparkNotFound
+		}
+
+		return err
+	}
+
+	if controller, ok := s.connectivity.(interface{ Disconnect(string) }); ok {
+		controller.Disconnect(id)
+	}
+
+	return nil
 }
 
 // SparkConnectivity supplies live runtime connection state.

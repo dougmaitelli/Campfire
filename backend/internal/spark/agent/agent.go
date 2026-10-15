@@ -41,6 +41,7 @@ type Config struct {
 	Token          string
 	dialContext    func(context.Context, string, string) (net.Conn, error)
 	runtimeFactory func(context.Context, string) *runtime.Manager
+	serverCA       []byte
 }
 
 type agentIdentity struct {
@@ -76,7 +77,29 @@ func Run(ctx context.Context, config Config) error {
 		}
 
 		if config.Token != "" {
-			return errors.New("an identity already exists; use a new data directory to re-enroll")
+			recovery := config
+			recovery.PanelURL = identity.PanelURL
+			recovery.serverCA = identity.ServerCA
+
+			updated, err := enrollAgent(ctx, recovery)
+			if err != nil {
+				return fmt.Errorf("re-enroll Spark: %w", err)
+			}
+
+			if updated.ID != identity.ID {
+				return errors.New("re-enrollment token must belong to this Spark; existing data and identity were preserved")
+			}
+
+			data, err := json.Marshal(updated)
+			if err != nil {
+				return err
+			}
+
+			if err := agentidentity.WritePrivate(path, data); err != nil {
+				return err
+			}
+
+			identity = updated
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		identity, err = enrollAgent(ctx, config)
@@ -103,8 +126,7 @@ func Run(ctx context.Context, config Config) error {
 		return err
 	}
 
-	tlsConfig, err := identityTLS(identity)
-	if err != nil {
+	if _, err := identityTLS(identity); err != nil {
 		return err
 	}
 
@@ -129,9 +151,14 @@ agentLoop:
 	for ctx.Err() == nil {
 		started := time.Now()
 
-		err := connectAgent(ctx, target.String(), identity.ID, tlsConfig, config.dialContext, configurations)
+		renewed, err := connectRenewing(ctx, target.String(), &identity, path, config.dialContext, configurations)
 		if ctx.Err() != nil {
 			break
+		}
+
+		if renewed {
+			delay = time.Second
+			continue
 		}
 
 		slog.Warn("Spark disconnected; retrying", "error", err, "delay", delay)
@@ -203,7 +230,11 @@ func identityTLS(identity agentIdentity) (*tls.Config, error) {
 	}
 
 	if time.Now().After(leaf.NotAfter) {
-		return nil, errors.New("spark certificate expired; generate a new enrollment token and enroll into a new data directory")
+		return nil, errors.New("spark certificate expired; generate a new enrollment token for this Spark and run with --token-file using the same data directory")
+	}
+
+	if time.Now().Before(leaf.NotBefore) {
+		return nil, errors.New("spark certificate is not yet valid; check host clocks")
 	}
 
 	config.Certificates = []tls.Certificate{certificate}
@@ -221,7 +252,7 @@ func enrollAgent(ctx context.Context, config Config) (agentIdentity, error) {
 		return agentIdentity{}, errors.New("first enrollment requires CAMPFIRE_ENROLLMENT_TOKEN or --token-file")
 	}
 
-	var ca []byte
+	ca := config.serverCA
 	if config.CAFile != "" {
 		ca, err = os.ReadFile(config.CAFile)
 		if err != nil {

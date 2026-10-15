@@ -135,10 +135,15 @@ func Run(ctx context.Context, args []string) error {
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
 
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers}
+	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
+	deployment.Transfers = transfers
 
 	if hub != nil {
 		deployment.Remote = hub
 	}
+
+	transfers.Start(ctx)
+	defer transfers.Close()
 
 	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
 

@@ -16,9 +16,15 @@ import type { ServerAction } from "../api/runtime";
 import "./management.css";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
   const auth = useAuthentication();
+  const canTransfer =
+    auth.session?.admin === true ||
+    (auth.session?.permissions?.includes("sparks.manage") === true &&
+      auth.session.permissions.includes("servers.manage_all"));
+  const [transferServer, setTransferServer] = useState<Server | null>(null);
   const canProvision =
     auth.session?.admin === true ||
     auth.session?.permissions?.includes("servers.create") === true;
@@ -401,6 +407,15 @@ export function ServersPage() {
                             Access
                           </button>
                         )}
+                        {canTransfer && (
+                          <button
+                            className="button"
+                            onClick={() => setTransferServer(server)}
+                            aria-label={`Transfer ${server.name}`}
+                          >
+                            Transfer
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -458,6 +473,16 @@ export function ServersPage() {
         <ServerBackupsDialog
           server={backupsServer}
           onClose={() => setBackupsServer(null)}
+        />
+      )}
+      {transferServer && (
+        <ServerTransferDialog
+          server={
+            servers.items.find((item) => item.id === transferServer.id) ??
+            transferServer
+          }
+          onClose={() => setTransferServer(null)}
+          onChanged={servers.refresh}
         />
       )}
       <p className="list-summary">

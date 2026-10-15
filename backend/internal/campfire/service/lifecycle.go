@@ -51,6 +51,12 @@ func (s *DeploymentService) runAction(ctx context.Context, id, action, content s
 }
 
 func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, content string) (model.RuntimeStatus, error) {
+	if s.Transfers != nil && action != "status" && action != "logs" {
+		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
 	if s.Activity == nil || action == "logs" || action == "status" || action == "command" {
 		status, err := s.dispatchAction(ctx, id, action, content, "")
 		if err == nil && s.Activity != nil && action == "status" {

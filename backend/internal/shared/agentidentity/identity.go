@@ -66,5 +66,16 @@ func WritePrivate(path string, data []byte) error {
 		return err
 	}
 
-	return os.Rename(file.Name(), path)
+	if err := os.Rename(file.Name(), path); err != nil {
+		return err
+	}
+
+	directory, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = directory.Close() }()
+
+	return directory.Sync()
 }

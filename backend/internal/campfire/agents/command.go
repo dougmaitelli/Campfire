@@ -16,6 +16,10 @@ var ErrDisconnected = errors.New("spark disconnected")
 
 func validResponse(response protocol.CommandResponse) bool {
 	count := 0
+	if response.Transfer != nil {
+		count++
+	}
+
 	if response.Files != nil {
 		count++
 	}
@@ -33,6 +37,20 @@ func validResponse(response protocol.CommandResponse) bool {
 	}
 
 	return count == 1
+}
+
+// Transfer dispatches one bounded transfer step to its authenticated Spark.
+func (h *Hub) Transfer(ctx context.Context, id string, request model.TransferRequest) (model.TransferResult, error) {
+	response, err := h.Execute(ctx, id, protocol.Command{Name: protocol.ServerTransfer, Transfer: &request})
+	if err != nil {
+		return model.TransferResult{}, err
+	}
+
+	if response.Transfer == nil || response.Transfer.ID != request.ID || response.Transfer.ServerID != request.ServerID || len(response.Transfer.Data) > model.FileLimit || response.Transfer.Size < 0 || response.Transfer.Size > 100<<30 || response.Transfer.Offset < 0 || response.Transfer.Offset > response.Transfer.Size || len(response.Transfer.Error) > 1024 {
+		return model.TransferResult{}, errors.New("invalid transfer response")
+	}
+
+	return *response.Transfer, nil
 }
 
 // Files dispatches file management over the existing authenticated agent session.

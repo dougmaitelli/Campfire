@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ type EnrollmentStore interface {
 	CreateToken(context.Context, string, string, time.Time) error
 	Redeem(context.Context, string, func(string) (string, error)) (string, error)
 	Authorized(context.Context, string, string) bool
+	Renew(context.Context, string, string, time.Time, func() ([]byte, string, error)) ([]byte, error)
 }
 
 // EnrollmentToken is returned once to the administrator.
@@ -73,15 +75,33 @@ func (h *Hub) CreateEnrollment(ctx context.Context, id string) (EnrollmentToken,
 // TLSConfig verifies agent certificates when supplied; enrollment itself uses a token.
 func (h *Hub) TLSConfig() *tls.Config {
 	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(h.authority.PEM)
+	pool.AppendCertsFromPEM(h.authority.PEM())
+	config := &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.VerifyClientCertIfGiven, ClientCAs: pool}
+	config.GetConfigForClient = func(*tls.ClientHelloInfo) (*tls.Config, error) {
+		if err := h.authority.Refresh(); err != nil {
+			if !h.authority.valid() {
+				return nil, err
+			}
 
-	return &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.VerifyClientCertIfGiven, ClientCAs: pool}
+			slog.Warn("Could not renew Spark authority; retaining its valid certificate", "error", err)
+		}
+
+		current := config.Clone()
+		current.GetConfigForClient = nil
+		current.ClientCAs = x509.NewCertPool()
+		current.ClientCAs.AppendCertsFromPEM(h.authority.PEM())
+
+		return current, nil
+	}
+
+	return config
 }
 
 // Handler exposes bootstrap enrollment and authenticated agent connections.
 func (h *Hub) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /spark/enroll", h.enroll)
+	mux.HandleFunc("POST /spark/renew", h.renew)
 	mux.HandleFunc("GET /spark/connect", h.connect)
 
 	return mux
@@ -130,7 +150,7 @@ func (h *Hub) enroll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 
-	if err := json.NewEncoder(w).Encode(protocol.Enrollment{ID: id, Certificate: certificate, CA: h.authority.PEM}); err != nil {
+	if err := json.NewEncoder(w).Encode(protocol.Enrollment{ID: id, Certificate: certificate, CA: h.authority.PEM()}); err != nil {
 		return
 	}
 }

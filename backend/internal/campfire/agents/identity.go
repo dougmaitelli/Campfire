@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"campfire/internal/shared/agentidentity"
@@ -19,9 +20,11 @@ import (
 
 // Authority issues client identities for registered Sparks.
 type Authority struct {
+	mu          sync.RWMutex
+	path        string
 	certificate *x509.Certificate
 	key         *ecdsa.PrivateKey
-	PEM         []byte
+	pem         []byte
 }
 type authorityFile struct {
 	Certificate []byte
@@ -105,11 +108,86 @@ func LoadAuthority(path string) (*Authority, error) {
 	}
 
 	public, ok := certificate.PublicKey.(*ecdsa.PublicKey)
-	if !ok || !public.Equal(&key.PublicKey) || !certificate.IsCA || time.Now().After(certificate.NotAfter) {
-		return nil, errors.New("invalid or expired Spark authority")
+	if !ok || !public.Equal(&key.PublicKey) || !certificate.IsCA || certificate.CheckSignatureFrom(certificate) != nil || time.Now().Before(certificate.NotBefore) {
+		return nil, errors.New("invalid Spark authority")
 	}
 
-	return &Authority{certificate: certificate, key: key, PEM: stored.Certificate}, nil
+	authority := &Authority{path: path, certificate: certificate, key: key, pem: stored.Certificate}
+	if err := authority.Refresh(); err != nil {
+		return nil, err
+	}
+
+	return authority, nil
+}
+
+// PEM returns the current public signing certificate without exposing shared memory.
+func (a *Authority) PEM() []byte {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	return append([]byte(nil), a.pem...)
+}
+
+func (a *Authority) valid() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	now := time.Now()
+
+	return !now.Before(a.certificate.NotBefore) && now.Before(a.certificate.NotAfter)
+}
+
+// Refresh renews the private CA certificate before expiry while retaining its
+// signing key and subject, so enrolled client identities continue to verify.
+func (a *Authority) Refresh() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.refresh()
+}
+
+func (a *Authority) refresh() error {
+	if time.Until(a.certificate.NotAfter) > 365*24*time.Hour {
+		return nil
+	}
+
+	number, err := certificateSerial()
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	template := &x509.Certificate{SerialNumber: number, Subject: a.certificate.Subject, RawSubject: a.certificate.RawSubject, SubjectKeyId: a.certificate.SubjectKeyId, NotBefore: now.Add(-time.Minute), NotAfter: now.AddDate(10, 0, 0), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
+
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &a.key.PublicKey, a.key)
+	if err != nil {
+		return err
+	}
+
+	key, err := agentidentity.MarshalKey(a.key)
+	if err != nil {
+		return err
+	}
+
+	certificate := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+
+	data, err := json.Marshal(authorityFile{Certificate: certificate, Key: key})
+	if err != nil {
+		return err
+	}
+
+	if err := agentidentity.WritePrivate(a.path, data); err != nil {
+		return err
+	}
+
+	parsed, err := x509.ParseCertificate(der)
+	if err != nil {
+		return err
+	}
+
+	a.certificate, a.pem = parsed, certificate
+
+	return nil
 }
 
 // Sign signs a validated CSR for a specific Spark; caller-supplied identities are ignored.
@@ -131,6 +209,13 @@ func (a *Authority) Sign(id string, csr []byte) ([]byte, error) {
 	public, ok := request.PublicKey.(*ecdsa.PublicKey)
 	if !ok || public.Curve != elliptic.P256() {
 		return nil, errors.New("spark identity must use ECDSA P-256")
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if err := a.refresh(); err != nil {
+		return nil, err
 	}
 
 	number, err := certificateSerial()

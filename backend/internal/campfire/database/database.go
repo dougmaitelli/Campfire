@@ -183,6 +183,15 @@ func migrate(db *gorm.DB) error {
 			}
 		}
 
+		// Keep the current development schema in sync without introducing a new
+		// release migration for features added before the first release.
+		current := tx.Session(&gorm.Session{})
+
+		current.IgnoreRelationshipsWhenMigrating = true
+		if err := current.AutoMigrate(&SparkIdentity{}, &ServerTransfer{}); err != nil {
+			return fmt.Errorf("apply Spark renewal and transfer schema: %w", err)
+		}
+
 		return nil
 	})
 }

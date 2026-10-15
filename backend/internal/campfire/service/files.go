@@ -23,6 +23,12 @@ func (s *DeploymentService) Files(ctx context.Context, id string, request model.
 	}
 	defer release()
 
+	if s.Transfers != nil && request.Operation != "list" && request.Operation != "read" && request.Operation != "backup.list" && request.Operation != "backup.read" {
+		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
+			return model.FileResult{}, err
+		}
+	}
+
 	server, err := s.Servers.Get(ctx, id)
 	if err != nil {
 		return model.FileResult{}, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"net/netip"
 	"os"
@@ -159,6 +160,25 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 	result := protocol.CommandResponse{ID: command.ID}
 	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(31*time.Second)) {
 		result.Error = &protocol.CommandError{Code: "invalid_deadline", Message: "command deadline is invalid or expired"}
+		return result
+	}
+
+	if command.Name == protocol.ServerTransfer {
+		ctx, cancel := context.WithDeadline(ctx, command.Deadline)
+		defer cancel()
+
+		if command.Transfer == nil {
+			result.Error = &protocol.CommandError{Code: "invalid_transfer", Message: "Transfer request required."}
+			return result
+		}
+
+		transfer, err := s.Transfer(ctx, id, *command.Transfer)
+		if err != nil {
+			result.Error = &protocol.CommandError{Code: "transfer_failed", Message: fmt.Sprintf("%.1024s", err.Error())}
+		} else {
+			result.Transfer = &transfer
+		}
+
 		return result
 	}
 

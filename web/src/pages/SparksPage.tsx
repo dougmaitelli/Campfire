@@ -5,6 +5,7 @@ import { SparkDialog } from "../dialogs/SparkDialog";
 import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
 import { SparkRolesDialog } from "../dialogs/SparkRolesDialog";
 import type { Spark } from "../api/sparks";
+import { deleteSpark } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
 
@@ -14,6 +15,29 @@ export function SparksPage() {
   const [editing, setEditing] = useState<Spark | null>(null);
   const [enrolling, setEnrolling] = useState<Spark | null>(null);
   const [provisioning, setProvisioning] = useState<Spark | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  async function remove(spark: Spark) {
+    if (
+      deleting !== null ||
+      !window.confirm(
+        `Remove "${spark.name}" and revoke its credentials? Move or delete all its servers and finish transfers first.`,
+      )
+    )
+      return;
+    setDeleting(spark.id);
+    setDeleteError(null);
+    try {
+      await deleteSpark(spark.id);
+      await refresh();
+    } catch (cause) {
+      setDeleteError(
+        cause instanceof Error ? cause.message : "Unable to remove Spark.",
+      );
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   function openAdd() {
     setEditing(null);
@@ -44,14 +68,18 @@ export function SparksPage() {
           </button>
         </div>
       </header>
-      {error && (
+      {(error ?? deleteError) && (
         <p className="error-message" role="alert">
-          {error} Check that the Campfire backend is running, then refresh.
+          {error ?? deleteError}
         </p>
       )}
       <div className="sparks-content" aria-busy={loading}>
         {sparks.length > 0 ? (
           <SparksTable
+            deleting={deleting}
+            onDelete={(spark) => {
+              void remove(spark);
+            }}
             onEnroll={setEnrolling}
             onProvisioning={setProvisioning}
             sparks={sparks}

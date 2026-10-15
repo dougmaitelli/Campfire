@@ -137,6 +137,13 @@ export async function updateSpark(
   return body;
 }
 
+export async function deleteSpark(id: string): Promise<void> {
+  const response = await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) await readResponse(response);
+}
+
 export interface SparkEnrollment {
   token: string;
   expires_at: string;

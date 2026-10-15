@@ -63,7 +63,7 @@ func (r *EnrollmentRepository) Redeem(ctx context.Context, hash string, sign fun
 			return err
 		}
 
-		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "spark_id"}}, DoUpdates: clause.AssignmentColumns([]string{"certificate_hash"})}).Create(&database.SparkIdentity{SparkID: token.SparkID, CertificateHash: certificateHash}).Error; err != nil {
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "spark_id"}}, DoUpdates: clause.AssignmentColumns([]string{"certificate_hash", "previous_certificate_hash", "previous_expires_at", "certificate"})}).Create(&database.SparkIdentity{SparkID: token.SparkID, CertificateHash: certificateHash}).Error; err != nil {
 			return err
 		}
 
@@ -83,7 +83,44 @@ func (r *EnrollmentRepository) Redeem(ctx context.Context, hash string, sign fun
 func (r *EnrollmentRepository) Authorized(ctx context.Context, id, hash string) bool {
 	var count int64
 
-	err := r.db.WithContext(ctx).Model(&database.SparkIdentity{}).Joins("JOIN sparks ON sparks.id = spark_id").Where("spark_id = ? AND certificate_hash = ? AND sparks.disabled = ? AND sparks.kind = ?", id, hash, false, "remote").Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&database.SparkIdentity{}).Joins("JOIN sparks ON sparks.id = spark_id").Where("spark_id = ? AND sparks.disabled = ? AND sparks.kind = ? AND (certificate_hash = ? OR (previous_certificate_hash = ? AND previous_expires_at > ?))", id, false, "remote", hash, hash, time.Now().Unix()).Count(&count).Error
 
 	return err == nil && count == 1
+}
+
+// Renew atomically replaces an authorized certificate, retaining a bounded
+// overlap. Retrying with the old certificate returns the same replacement.
+func (r *EnrollmentRepository) Renew(ctx context.Context, id, hash string, expires time.Time, sign func() ([]byte, string, error)) ([]byte, error) {
+	var certificate []byte
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var identity database.SparkIdentity
+		if err := tx.Preload("Spark").Where("spark_id = ?", id).Take(&identity).Error; err != nil {
+			return ErrEnrollment
+		}
+
+		if identity.Spark.Disabled || identity.Spark.Kind != "remote" {
+			return ErrEnrollment
+		}
+
+		if identity.PreviousCertificateHash == hash && identity.PreviousExpiresAt > time.Now().Unix() && len(identity.Certificate) > 0 {
+			certificate = identity.Certificate
+			return nil
+		}
+
+		if identity.CertificateHash != hash || !expires.After(time.Now()) {
+			return ErrEnrollment
+		}
+
+		signed, fingerprint, err := sign()
+		if err != nil {
+			return err
+		}
+
+		certificate = signed
+
+		return tx.Model(&identity).Updates(map[string]any{"certificate_hash": fingerprint, "certificate": signed, "previous_certificate_hash": hash, "previous_expires_at": min(expires.Unix(), time.Now().Add(7*24*time.Hour).Unix())}).Error
+	})
+
+	return certificate, err
 }

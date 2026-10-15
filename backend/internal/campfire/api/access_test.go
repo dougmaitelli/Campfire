@@ -123,6 +123,23 @@ func expectAccess(t *testing.T, handler http.Handler, method, path, body string,
 	}
 }
 
+func TestSparkTransferRequiresPlatformPermissions(t *testing.T) {
+	fixture := newAccessFixture(t)
+
+	_, regular := fixture.user("regular", 3)
+	for _, route := range []struct{ method, path string }{
+		{"GET", "/api/v1/servers/example/transfers"},
+		{"POST", "/api/v1/servers/example/transfers"},
+		{"POST", "/api/v1/transfers/example/retry"},
+		{"POST", "/api/v1/transfers/example/cancel"},
+		{"DELETE", "/api/v1/sparks/example"},
+	} {
+		expectAccess(t, regular, route.method, route.path, "{}", http.StatusForbidden)
+	}
+
+	expectAccess(t, fixture.admin, "GET", "/api/v1/servers/example/transfers", "", http.StatusServiceUnavailable)
+}
+
 func TestServerAuthorizationOwnershipAndRevocation(t *testing.T) {
 	f := newAccessFixture(t)
 	op, operator := f.user("operator", database.UserRole)

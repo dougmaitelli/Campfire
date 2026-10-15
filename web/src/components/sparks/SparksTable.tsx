@@ -10,11 +10,15 @@ export function SparksTable({
   onEdit,
   onEnroll,
   onProvisioning,
+  onDelete,
+  deleting,
 }: {
   sparks: Spark[];
   onEdit: (spark: Spark) => void;
   onEnroll: (spark: Spark) => void;
   onProvisioning: (spark: Spark) => void;
+  onDelete: (spark: Spark) => void;
+  deleting: string | null;
 }) {
   return (
     <div className="table-container">
@@ -105,6 +109,14 @@ export function SparksTable({
                     aria-label={`Enroll ${spark.name}`}
                   >
                     Enroll
+                  </button>
+                  <button
+                    className="button"
+                    disabled={deleting !== null}
+                    onClick={() => onDelete(spark)}
+                    aria-label={`Remove ${spark.name}`}
+                  >
+                    {deleting === spark.id ? "Removing…" : "Remove"}
                   </button>
                 </div>
               </td>

@@ -22,14 +22,18 @@ const ServerAction CommandName = "server.action"
 // ServerFiles invokes contained game data file management.
 const ServerFiles CommandName = "server.files"
 
+// ServerTransfer moves one fenced archive through the authenticated session.
+const ServerTransfer CommandName = "server.transfer"
+
 // Command is a correlated, bounded-lifetime request.
 type Command struct {
-	ID         string                `json:"id"`
-	Name       CommandName           `json:"name"`
-	Deadline   time.Time             `json:"deadline"`
-	Deployment *model.Deployment     `json:"deployment,omitempty"`
-	Runtime    *model.RuntimeRequest `json:"runtime,omitempty"`
-	Files      *model.FileRequest    `json:"files,omitempty"`
+	ID         string                 `json:"id"`
+	Name       CommandName            `json:"name"`
+	Deadline   time.Time              `json:"deadline"`
+	Deployment *model.Deployment      `json:"deployment,omitempty"`
+	Runtime    *model.RuntimeRequest  `json:"runtime,omitempty"`
+	Files      *model.FileRequest     `json:"files,omitempty"`
+	Transfer   *model.TransferRequest `json:"transfer,omitempty"`
 }
 
 // CommandError describes a failed operation independently of transport failure.
@@ -42,11 +46,12 @@ func (e *CommandError) Error() string { return e.Code + ": " + e.Message }
 
 // CommandResponse completes exactly one request on the originating session.
 type CommandResponse struct {
-	ID      string                      `json:"id"`
-	Receipt *model.ConfigurationReceipt `json:"receipt,omitempty"`
-	Error   *CommandError               `json:"error,omitempty"`
-	Status  *model.RuntimeStatus        `json:"status,omitempty"`
-	Files   *model.FileResult           `json:"files,omitempty"`
+	ID       string                      `json:"id"`
+	Receipt  *model.ConfigurationReceipt `json:"receipt,omitempty"`
+	Error    *CommandError               `json:"error,omitempty"`
+	Status   *model.RuntimeStatus        `json:"status,omitempty"`
+	Files    *model.FileResult           `json:"files,omitempty"`
+	Transfer *model.TransferResult       `json:"transfer,omitempty"`
 }
 
 // Enrollment returns a signed identity after consuming a bootstrap token.

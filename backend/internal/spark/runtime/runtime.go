@@ -22,19 +22,20 @@ var startupVariables = regexp.MustCompile(`\{\{([A-Z][A-Z0-9_]*)\}\}`)
 
 // Manager shares lifecycle behavior between the panel and remote Spark processes.
 type Manager struct {
-	Directory string
-	Docker    Executor
-	Ownership func(string, string) error
-	FileOwner func(*os.File, string) error
-	Quota     DiskQuota
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	entries   map[string]*entry
-	wg        sync.WaitGroup
-	closed    bool
-	metricsMu sync.Mutex
-	metrics   map[string]*metricsEntry
+	Directory     string
+	Docker        Executor
+	Ownership     func(string, string) error
+	FileOwner     func(*os.File, string) error
+	Quota         DiskQuota
+	ctx           context.Context
+	cancel        context.CancelFunc
+	mu            sync.Mutex
+	entries       map[string]*entry
+	wg            sync.WaitGroup
+	closed        bool
+	metricsMu     sync.Mutex
+	metrics       map[string]*metricsEntry
+	transferTasks map[string]context.CancelFunc
 }
 
 type entry struct {
@@ -122,6 +123,23 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	if transfer, err := m.localTransfer(q.ServerID); err != nil {
+		return model.RuntimeStatus{}, err
+	} else if transfer != nil && transfer.State != "active" && transfer.State != "released" {
+		if q.Action != "status" && q.Action != "logs" {
+			return model.RuntimeStatus{}, errors.New("server is locked for a Spark transfer")
+		}
+
+		if q.Action == "status" {
+			status, err := m.observe(ctx, d, e)
+			status.Busy = transfer.State != "retired" && transfer.State != "discarded"
+			status.Progress, status.Operation, status.OperationID = "Spark transfer: "+transfer.State, "transfer", transfer.ID
+			status.Error = transfer.Error
+
+			return status, err
+		}
+	}
 
 	if q.Action == "status" {
 		if e.Status.Busy {

@@ -42,6 +42,16 @@ func (a *API) updateSpark(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, spark)
 }
 
+func (a *API) deleteSpark(w http.ResponseWriter, r *http.Request) {
+	if err := a.sparks.Delete(r.Context(), r.PathValue("id")); err != nil {
+		writeError(w, err)
+		return
+	}
+
+	auditDetail(r, "spark.delete", "spark:"+r.PathValue("id"))
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *API) createSparkEnrollment(w http.ResponseWriter, r *http.Request) {
 	if a.agents == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "the panel agent HTTPS listener is not configured"})

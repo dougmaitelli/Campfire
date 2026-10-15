@@ -106,7 +106,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	reloaded, err := agents.LoadAuthority(filepath.Join(dir, "authority.json"))
-	if err != nil || string(reloaded.PEM) != string(authority.PEM) {
+	if err != nil || string(reloaded.PEM()) != string(authority.PEM()) {
 		t.Fatalf("authority persistence failed: %v", err)
 	}
 
@@ -187,6 +187,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	testWireCommands(t, hub, node.ID, agentDir)
 	testWireRuntime(t, hub, node.ID)
+	testWireTransfers(t, hub, node.ID)
 	testWireConsole(t, hub, node.ID, wire)
 
 	hub.Disconnect(node.ID)
@@ -266,6 +267,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	waitCondition(t, func() bool { return !hub.Connected(node.ID) })
+	testWireRenewal(ctx, t, identityPath, node.ID, store, nodeService, listener.dial)
 }
 
 func TestAgentRejectsInsecureAndMissingConfiguration(t *testing.T) {
