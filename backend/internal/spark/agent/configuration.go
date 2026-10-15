@@ -127,15 +127,8 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 
 	for _, variable := range deployment.Ember.Variables {
 		value := c.Variables[variable.Name]
-		if variable.Required && value == "" {
-			return model.ConfigurationReceipt{}, errors.New("missing required variable")
-		}
-
-		if variable.Pattern != "" {
-			pattern, err := regexp.Compile(variable.Pattern)
-			if err != nil || !pattern.MatchString(value) {
-				return model.ConfigurationReceipt{}, errors.New("invalid server variable")
-			}
+		if variable.ValidateValue(value) != nil {
+			return model.ConfigurationReceipt{}, errors.New("invalid server variable")
 		}
 	}
 

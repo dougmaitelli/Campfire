@@ -12,8 +12,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config eslint.config.mjs web/src web/vite.config.ts scripts eslint.config.mjs web/eslint.config.mjs --max-warnings 0",
-    "format": "node node_modules/prettier/bin/prettier.cjs --write src ../scripts ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html",
-    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src ../scripts ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write src ../scripts ../backend/internal/campfire/service/testdata/eggs ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html",
+    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src ../scripts ../backend/internal/campfire/service/testdata/eggs ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build"
   },
   "dependencies": {

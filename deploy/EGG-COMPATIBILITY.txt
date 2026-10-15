@@ -1,0 +1,159 @@
+Egg import compatibility
+========================
+
+Campfire converts supported Egg exports into immutable native Embers. Importing
+does not install a game, execute a script, fetch an update_url, or contact image
+registries. Successful conversion is not a certification that a game or image
+will run. Review the original script, selected image, port mappings, conversion
+warnings and converted Ember before installing on a Spark.
+
+Use Embers > Import Ember to upload a file, paste a definition, or load a public
+HTTPS URL. Preview compatibility first. Blocking diagnostics must be resolved;
+warnings require explicit acknowledgement. Import repeats conversion and
+validation against the original definition rather than trusting the preview.
+Each import receives a new Campfire ID; foreign UUIDs never update prior imports.
+
+Format support matrix
+---------------------
+Input                              Status        Compatibility fixture
+Native Ember schema 1              Supported     native.json; imported Eggs saved
+                                                and read back as native JSON
+Pterodactyl PTDL_v1                 Supported*    ptdl-v1.json
+Pterodactyl PTDL_v2                 Supported*    ptdl-v2.json
+Pelican PLCN_v1                    Supported*    plcn-v1.json
+Pelican PLCN_v2                    Supported*    plcn-v2.json
+Pelican PLCN_v3 JSON               Supported*    plcn-v3.json
+Pelican PLCN_v3 YAML               Supported*    plcn-v3.yaml
+Unknown/missing export version     Blocked       parser rejection tests
+
+* Supported subject to the feature matrix below, not complete Wings emulation.
+All formats accept one JSON object or YAML document of at most 1 MiB. YAML
+aliases, merges, custom tags, duplicate keys, multiple documents and non-finite
+numbers are rejected. Nested config JSON strings and direct config objects are
+accepted. Supported legacy formats can also be encoded as YAML.
+
+Feature support matrix
+----------------------
+Feature                       Behavior
+Image choices                 PTDL_v1 image/images; other versions docker_images.
+                              No image is pulled while previewing/importing.
+Startup command               Preserved with supported placeholders translated.
+PLCN_v3 startup variants       A single command is automatic. Multiple commands
+                              require explicit selection; alternatives are not
+                              retained and a warning is shown.
+Runtime conventions           /home/container, UID:GID 1000:1000. Existing image
+                              ENTRYPOINT stays active. Campfire supplies STARTUP
+                              and sh -c arguments. Image hooks and shell behavior
+                              need review; this is not a Wings runtime clone.
+Installer                     Image, literal script and sh/bash/ash entrypoint
+                              preserved. Shell variables are provided in the
+                              environment. Panel {{...}} script templates are
+                              blocked. Scripts run with Campfire's existing
+                              installer capabilities, not privileged host access.
+Variables                     Environment name, scalar default, required and
+                              user_editable retained. YAML boolean defaults
+                              become strings true/false. Non-editable variables
+                              are pinned to defaults even for administrators.
+Hidden variables              Blocked when user_viewable is false or missing;
+                              conversion must not expose hidden values.
+Validation rules              required, nullable, string, integer, numeric,
+                              boolean, min, max, between, size, in and one regex.
+                              Rules may be pipe-delimited strings or arrays.
+                              Bounds apply to character counts for strings and
+                              numeric values for integer/numeric variables.
+                              Boolean environment values are 0 or 1. Nullable
+                              optional empty values skip further validation.
+                              Decimal comparisons retain precision; source bounds
+                              that cannot round-trip in the native numeric format
+                              block import. Decimal exponents are capped at
+                              +/-10000; integer values must fit signed 64 bits.
+                              Choice lists are simple comma-separated values;
+                              quoted/escaped CSV choices are blocked.
+Regex validation              RE2-compatible expressions with /, ~, # or %
+                              delimiters and optional i/m/s modifiers. Regex
+                              alternatives containing pipes are preserved.
+                              Lookarounds, backreferences, unsupported modifiers
+                              (including u), and unknown rules block import.
+                              Unicode/case-folding differences require review.
+Built-in placeholders         SERVER_PORT, SERVER_IP and SERVER_MEMORY; env.NAME,
+                              server.build.env.NAME, server.build.environment.NAME
+                              and server.environment.NAME for declared variables.
+Allocation placeholders       server.build.default.port/ip and
+                              server.allocations.default.port/ip are translated.
+Memory placeholders           server.build.memory and server.build.memory_limit
+                              become SERVER_MEMORY (allocated MiB).
+Port and address semantics    SERVER_PORT is the first container port, not the
+                              host mapping. SERVER_IP is 0.0.0.0 in the container.
+                              Exports cannot infer TCP/UDP mappings. These
+                              differences always produce a review warning.
+Other placeholders            Blocked, including config.docker.interface and
+                              node/location metadata. Variables are not invented.
+Properties config             Simple key=value replacements in existing files.
+                              No full Java properties escape/continuation parser.
+JSON config                   Existing JSON object; top-level non-null scalar
+                              replacements only. String values stay strings,
+                              including "001"; numbers and booleans retain types.
+                              Quotes/newlines in substituted strings stay valid.
+Missing config files          Installer must create them; Campfire does not
+                              reproduce Wings' missing-file creation behavior.
+Advanced config               YAML/INI/XML/file parsers, nested JSON paths,
+                              arrays, wildcards and conditional/object replacement
+                              values block import. Null replacements are blocked.
+Readiness                     One literal substring, including a one-item array.
+                              Regex detection, multiple alternatives, prompts
+                              and ANSI-stripping detection block import.
+Stop command                  Literal stdin command or ^C/^SIGINT/^SIGTERM.
+                              Variable stop commands and other signals blocked.
+Logs                          Container stdout/stderr. Custom log tailing blocked.
+File denylist                 Non-empty denylist blocked; no silent access change.
+Inherited definitions         Unresolved config_from/copy_script_from blocked;
+                              export a self-contained definition instead.
+External mounts/privilege     Mounts, privileged installers and forced outgoing
+                              addresses block import.
+Panel feature integrations    eula, java_version, steam_disk_space and pid_limit
+                              produce warnings. No EULA is accepted automatically,
+                              no Java image is selected automatically, and
+                              Campfire retains its own resource/process limits.
+                              Other feature flags block import.
+Presentation metadata         Source version, author, update URL and compatibility
+                              warnings retained in origin metadata. Icons, tags,
+                              widget types, display names and descriptions of
+                              individual variables are not panel UI integrations.
+Unknown fields                Blocked instead of silently dropping new behavior.
+
+API and upgrades
+----------------
+POST /api/v1/embers/preview accepts a raw definition object, or a JSON envelope:
+  {"definition":"<JSON or YAML text>","startup_command":"Default"}
+It returns format, definition, ember (or null), warnings, errors, startup_commands.
+Preview responses with blocking diagnostics still return HTTP 200 for review.
+POST /api/v1/embers/preview-url accepts {"url":"https://.../egg.yaml"} and optional
+startup_command. It uses the same conversion and existing public-HTTPS fetch
+restrictions, including redirects and resolved address checks.
+POST /api/v1/embers accepts the same definition envelope plus
+acknowledge_warnings:true. Invalid/unacknowledged imports return HTTP 400 and
+create no Ember. Raw native definition POSTs continue to work. All three routes
+require an authenticated administrator and the existing CSRF checks.
+
+Native definitions and converted Eggs use Ember schema 1. Variable constraints
+and typed JSON config semantics are part of that schema and are enforced by
+Spark as well as Campfire. The database schema and Spark transport protocol
+remain unchanged (schema 9 / protocol 6).
+
+Fixture scope and references
+----------------------------
+Fixtures live in backend/internal/campfire/service/testdata/eggs. They are small,
+synthetic examples exercising export shapes and known runtime limitations, not
+redistributed upstream game installers. unsupported.json covers blocked runtime
+and security features. Automated tests also cover rule bounds, aliases, malformed
+documents, URL parity, warning acknowledgement, immutable import revisions,
+administrator access, server creation and Spark-side validation. Runtime tests
+verify actual JSON rewriting and built-in environment values. These tests do
+not download or launch Minecraft, Steam games, or external images.
+
+Upstream format references inspected when implementing these importers:
+https://github.com/pterodactyl/panel/blob/1.0-develop/app/Services/Eggs/Sharing/EggExporterService.php
+https://github.com/pelican-dev/panel/blob/main/app/Services/Eggs/Sharing/EggExporterService.php
+https://github.com/pelican-dev/panel/blob/main/app/Services/Eggs/Sharing/EggImporterService.php
+https://docs.pterodactyl.io/v1/guides/egg-creation/egg-config-parser
+https://github.com/pterodactyl/wings/blob/develop/parser/parser.go

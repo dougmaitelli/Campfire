@@ -36,6 +36,7 @@ func (a *API) Handler() http.Handler {
 	platform("PUT /api/v1/sparks/{id}/roles", "sparks.manage", a.setSparkRoles)
 	platform("GET /api/v1/embers", "embers.manage", a.listEmbers)
 	platform("POST /api/v1/embers", "embers.manage", a.importEmber)
+	platform("POST /api/v1/embers/preview", "embers.manage", a.previewEmber)
 	platform("POST /api/v1/embers/preview-url", "embers.manage", a.previewEmberURL)
 	platform("GET /api/v1/embers/{id}", "embers.manage", a.getEmber)
 	platform("GET /api/v1/users", "users.manage", a.listUsers)

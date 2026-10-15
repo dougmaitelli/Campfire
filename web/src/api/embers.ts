@@ -19,6 +19,12 @@ export interface Ember {
   user: string;
   variables: EmberVariable[] | null;
   required_ports?: { container: number; protocol: "tcp" | "udp" }[] | null;
+  origin?: {
+    format: string;
+    author: string;
+    update_url: string;
+    warnings: string[];
+  };
 }
 
 export function isEmber(value: unknown): value is Ember {
@@ -90,26 +96,101 @@ export async function listEmbers(signal: AbortSignal): Promise<Ember[]> {
   return body;
 }
 
-export async function importEmber(definition: unknown): Promise<Ember> {
+export async function importEmber(
+  definition: string,
+  startupCommand: string,
+  acknowledgeWarnings: boolean,
+): Promise<Ember> {
   const body = await readJSON(
     await apiFetch("/api/v1/embers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(definition),
+      body: JSON.stringify({
+        definition,
+        startup_command: startupCommand,
+        acknowledge_warnings: acknowledgeWarnings,
+      }),
     }),
   );
   if (!isEmber(body)) throw new Error("Unexpected Ember import response.");
   return body;
 }
 
-export async function previewEmberURL(url: string): Promise<Ember> {
-  const body = await readJSON(
+export interface ImportIssue {
+  field: string;
+  message: string;
+}
+export interface EmberPreview {
+  format: string;
+  definition: string;
+  ember: Ember | null;
+  warnings: ImportIssue[];
+  errors: ImportIssue[];
+  startup_commands: string[];
+}
+
+function isIssue(value: unknown): value is ImportIssue {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "field" in value &&
+    typeof value.field === "string" &&
+    "message" in value &&
+    typeof value.message === "string"
+  );
+}
+
+async function readPreview(response: Response): Promise<EmberPreview> {
+  const body = await readJSON(response);
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("format" in body) ||
+    typeof body.format !== "string" ||
+    !("definition" in body) ||
+    typeof body.definition !== "string" ||
+    !("ember" in body) ||
+    (body.ember !== null && !isEmber(body.ember)) ||
+    !("warnings" in body) ||
+    !Array.isArray(body.warnings) ||
+    !body.warnings.every(isIssue) ||
+    !("errors" in body) ||
+    !Array.isArray(body.errors) ||
+    !body.errors.every(isIssue) ||
+    !("startup_commands" in body) ||
+    !Array.isArray(body.startup_commands) ||
+    !body.startup_commands.every((value: unknown) => typeof value === "string")
+  )
+    throw new Error("Unexpected compatibility preview response.");
+  return {
+    format: body.format,
+    definition: body.definition,
+    ember: body.ember,
+    warnings: body.warnings,
+    errors: body.errors,
+    startup_commands: body.startup_commands,
+  };
+}
+
+export async function previewEmberDefinition(
+  definition: string,
+  startupCommand: string,
+): Promise<EmberPreview> {
+  return readPreview(
+    await apiFetch("/api/v1/embers/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ definition, startup_command: startupCommand }),
+    }),
+  );
+}
+
+export async function previewEmberURL(url: string): Promise<EmberPreview> {
+  return readPreview(
     await apiFetch("/api/v1/embers/preview-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
     }),
   );
-  if (!isEmber(body)) throw new Error("Unexpected definition URL response.");
-  return body;
 }

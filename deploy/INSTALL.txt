@@ -404,3 +404,15 @@ together; protocol 5 agents cannot connect to a protocol 6 panel. No database
 migration or re-enrollment is required for this protocol change. HTTP proxies
 must forward streaming responses without buffering; the endpoint sends regular
 heartbeats and X-Accel-Buffering: no.
+
+Egg compatibility
+-----------------
+Embers can be imported from native definitions or Pterodactyl/Pelican Egg exports
+in JSON or YAML. The import drawer previews conversion, lists unsupported fields
+and requires acknowledgement of compatibility warnings. An import saves only a
+new immutable Ember; it does not run the supplied installer or pull any images.
+
+See deploy/EGG-COMPATIBILITY.txt for the format and feature support matrix,
+fixture coverage, API request examples and runtime limitations. Native definitions
+and converted Eggs both use Ember schema 1. Database schema 9 and wire protocol 6
+are unchanged.

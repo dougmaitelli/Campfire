@@ -32,19 +32,19 @@ func TestDefinitionURLPreview(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			client := &http.Client{Transport: definitionTransport(func(r *http.Request) (*http.Response, error) {
-				if r.Header.Get("Accept") != "application/json" || r.URL.Scheme != "https" {
+				if !strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Scheme != "https" {
 					t.Fatal("missing JSON or HTTPS request")
 				}
 
 				return &http.Response{StatusCode: test.status, Body: io.NopCloser(strings.NewReader(test.body)), Header: make(http.Header), Request: r}, nil
 			})}
 
-			ember, err := fetchEmberURL(context.Background(), "https://example.com/game.json", client)
+			ember, err := fetchEmberURL(context.Background(), "https://example.com/game.json", client, ImportOptions{})
 			if test.valid {
-				if err != nil || ember.Name != "Game" || ember.ID != "" {
+				if err != nil || ember.Ember == nil || ember.Ember.Name != "Game" || ember.Ember.ID != "" {
 					t.Fatalf("preview failed: %+v %v", ember, err)
 				}
-			} else if !errors.Is(err, ErrInvalidEmber) {
+			} else if !errors.Is(err, ErrInvalidEmber) && len(ember.Errors) == 0 {
 				t.Fatalf("expected invalid definition, got %v", err)
 			}
 		})
@@ -84,7 +84,7 @@ func TestDefinitionFetchCancellation(t *testing.T) {
 	cancel()
 
 	client := &http.Client{Transport: definitionTransport(func(r *http.Request) (*http.Response, error) { return nil, r.Context().Err() })}
-	if _, err := fetchEmberURL(ctx, "https://example.com/game.json", client); !errors.Is(err, ErrInvalidEmber) {
+	if _, err := fetchEmberURL(ctx, "https://example.com/game.json", client, ImportOptions{}); !errors.Is(err, ErrInvalidEmber) {
 		t.Fatalf("canceled fetch: %v", err)
 	}
 }

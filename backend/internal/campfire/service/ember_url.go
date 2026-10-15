@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -13,14 +11,12 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"campfire/internal/shared/model"
 )
 
 const maxEmberBytes = 1 << 20
 
 // FetchEmberURL retrieves and validates a public HTTPS definition without saving it.
-func FetchEmberURL(ctx context.Context, address string) (model.Ember, error) {
+func FetchEmberURL(ctx context.Context, address string, options ImportOptions) (EmberPreview, error) {
 	transport := &http.Transport{
 		DialContext:           dialPublic,
 		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
@@ -40,66 +36,47 @@ func FetchEmberURL(ctx context.Context, address string) (model.Ember, error) {
 		},
 	}
 
-	return fetchEmberURL(ctx, address, client)
+	return fetchEmberURL(ctx, address, client, options)
 }
 
-func fetchEmberURL(ctx context.Context, address string, client *http.Client) (model.Ember, error) {
+func fetchEmberURL(ctx context.Context, address string, client *http.Client, options ImportOptions) (EmberPreview, error) {
 	target, err := url.Parse(strings.TrimSpace(address))
 	if err != nil {
-		return model.Ember{}, fmt.Errorf("%w: invalid definition URL", ErrInvalidEmber)
+		return EmberPreview{}, fmt.Errorf("%w: invalid definition URL", ErrInvalidEmber)
 	}
 
 	if err := validateEmberURL(target); err != nil {
-		return model.Ember{}, err
+		return EmberPreview{}, err
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
-		return model.Ember{}, fmt.Errorf("%w: invalid definition URL", ErrInvalidEmber)
+		return EmberPreview{}, fmt.Errorf("%w: invalid definition URL", ErrInvalidEmber)
 	}
 
-	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Accept", "application/json, application/yaml, text/yaml, text/plain")
 
 	response, err := client.Do(request)
 	if err != nil {
-		return model.Ember{}, fmt.Errorf("%w: unable to fetch definition URL", ErrInvalidEmber)
+		return EmberPreview{}, fmt.Errorf("%w: unable to fetch definition URL", ErrInvalidEmber)
 	}
 
 	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
-		return model.Ember{}, fmt.Errorf("%w: definition URL returned HTTP %d", ErrInvalidEmber, response.StatusCode)
+		return EmberPreview{}, fmt.Errorf("%w: definition URL returned HTTP %d", ErrInvalidEmber, response.StatusCode)
 	}
 
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxEmberBytes+1))
 	if err != nil {
-		return model.Ember{}, fmt.Errorf("%w: unable to read definition", ErrInvalidEmber)
+		return EmberPreview{}, fmt.Errorf("%w: unable to read definition", ErrInvalidEmber)
 	}
 
 	if len(data) > maxEmberBytes {
-		return model.Ember{}, fmt.Errorf("%w: definitions must be at most 1 MiB", ErrInvalidEmber)
+		return EmberPreview{}, fmt.Errorf("%w: definitions must be at most 1 MiB", ErrInvalidEmber)
 	}
 
-	decoder := json.NewDecoder(strings.NewReader(string(data)))
-	decoder.DisallowUnknownFields()
-
-	var ember model.Ember
-	if err := decoder.Decode(&ember); err != nil {
-		return model.Ember{}, fmt.Errorf("%w: URL must return native Ember JSON", ErrInvalidEmber)
-	}
-
-	var extra any
-	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		return model.Ember{}, fmt.Errorf("%w: URL must return one JSON definition", ErrInvalidEmber)
-	}
-
-	if err := validateEmber(&ember); err != nil {
-		return model.Ember{}, err
-	}
-
-	ember.ID = ""
-
-	return ember, nil
+	return PreviewEmber(data, options), nil
 }
 
 func validateEmberURL(target *url.URL) error {

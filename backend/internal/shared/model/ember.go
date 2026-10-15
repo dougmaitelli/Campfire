@@ -13,11 +13,12 @@ var placeholder = regexp.MustCompile(`\{\{([A-Z][A-Z0-9_]*)\}\}`)
 
 // Variable defines a game configuration value.
 type Variable struct {
-	Name     string `json:"name"`
-	Default  string `json:"default"`
-	Required bool   `json:"required"`
-	Pattern  string `json:"pattern,omitempty"`
-	Editable bool   `json:"editable"`
+	Name       string              `json:"name"`
+	Default    string              `json:"default"`
+	Required   bool                `json:"required"`
+	Pattern    string              `json:"pattern,omitempty"`
+	Editable   bool                `json:"editable"`
+	Validation *VariableValidation `json:"validation,omitempty"`
 }
 
 // Installer describes how to install game server files.
@@ -29,9 +30,10 @@ type Installer struct {
 
 // ConfigFile describes configuration file replacements.
 type ConfigFile struct {
-	Path   string            `json:"path"`
-	Parser string            `json:"parser"`
-	Values map[string]string `json:"values"`
+	Path    string            `json:"path"`
+	Parser  string            `json:"parser"`
+	Values  map[string]string `json:"values"`
+	Strings []string          `json:"strings,omitempty"`
 }
 
 // RequiredPort identifies a container port required by a game.
@@ -56,6 +58,15 @@ type Ember struct {
 	Ready         string            `json:"ready,omitempty"`
 	Configs       []ConfigFile      `json:"configs,omitempty"`
 	RequiredPorts []RequiredPort    `json:"required_ports,omitempty"`
+	Origin        *EmberOrigin      `json:"origin,omitempty"`
+}
+
+// EmberOrigin retains attribution and conversion warnings for imported Eggs.
+type EmberOrigin struct {
+	Format    string   `json:"format"`
+	Author    string   `json:"author"`
+	UpdateURL string   `json:"update_url"`
+	Warnings  []string `json:"warnings"`
 }
 
 // Validate checks a native Ember definition.
@@ -84,11 +95,17 @@ func (e Ember) Validate() error {
 
 	seen := map[string]bool{}
 	for _, v := range e.Variables {
-		if !envName.MatchString(v.Name) || seen[v.Name] || v.Name == "STARTUP" || v.Name == "SERVER_PORT" || v.Name == "SERVER_IP" {
+		if !envName.MatchString(v.Name) || seen[v.Name] || v.Name == "STARTUP" || v.Name == "SERVER_PORT" || v.Name == "SERVER_IP" || v.Name == "SERVER_MEMORY" {
 			return fmt.Errorf("invalid or reserved variable %q", v.Name)
 		}
 
 		seen[v.Name] = true
+		if v.Validation != nil {
+			if err := v.Validation.Validate(); err != nil {
+				return fmt.Errorf("variable %s: %w", v.Name, err)
+			}
+		}
+
 		if len(v.Pattern) > 512 {
 			return errors.New("variable pattern too long")
 		}
@@ -105,8 +122,8 @@ func (e Ember) Validate() error {
 			return err
 		}
 
-		if e.Installer.Entrypoint != "bash" && e.Installer.Entrypoint != "sh" && e.Installer.Entrypoint != "/bin/bash" && e.Installer.Entrypoint != "/bin/sh" {
-			return errors.New("installer entrypoint must be sh or bash")
+		if e.Installer.Entrypoint != "bash" && e.Installer.Entrypoint != "sh" && e.Installer.Entrypoint != "ash" && e.Installer.Entrypoint != "/bin/bash" && e.Installer.Entrypoint != "/bin/sh" && e.Installer.Entrypoint != "/bin/ash" {
+			return errors.New("installer entrypoint must be sh, bash, or ash")
 		}
 	}
 
@@ -121,6 +138,16 @@ func (e Ember) Validate() error {
 	}
 
 	for _, c := range e.Configs {
+		if len(c.Strings) > 0 && c.Parser != "json" {
+			return errors.New("string replacement types require the JSON parser")
+		}
+
+		for _, key := range c.Strings {
+			if _, ok := c.Values[key]; !ok {
+				return errors.New("unknown JSON string replacement key")
+			}
+		}
+
 		if c.Parser != "properties" && c.Parser != "json" {
 			return fmt.Errorf("unsupported config parser %q", c.Parser)
 		}
@@ -140,7 +167,8 @@ func (e Ember) Validate() error {
 		}
 	}
 
-	known := map[string]string{"SERVER_PORT": "", "SERVER_IP": ""}
+	known := map[string]string{"SERVER_PORT": "", "SERVER_IP": "", "SERVER_MEMORY": ""}
+
 	for _, v := range e.Variables {
 		known[v.Name] = ""
 	}

@@ -78,6 +78,11 @@ export function EmbersPage() {
                   <tr key={ember.id}>
                     <td>
                       <strong>{ember.name}</strong>
+                      {ember.origin && (
+                        <span className="row-description">
+                          Imported from {ember.origin.format}
+                        </span>
+                      )}
                       {ember.description && (
                         <span className="row-description">
                           {ember.description}

@@ -115,3 +115,19 @@ func TestConfigurationIdempotencyAndValidation(t *testing.T) {
 		t.Fatal("expired command accepted")
 	}
 }
+
+func TestEggRulesEnforcedOnSpark(t *testing.T) {
+	store := &ConfigurationStore{Directory: t.TempDir()}
+	d := deploymentFixture("node", "egg-rules")
+	d.Ember.Variables = []model.Variable{{Name: "PLAYERS", Default: "20", Required: true, Editable: true, Validation: &model.VariableValidation{Type: "integer", Min: new(float64(1)), Max: new(float64(128))}}}
+
+	d.Configuration.Variables = map[string]string{"PLAYERS": "129"}
+	if _, err := store.Deploy(context.Background(), "node", d); err == nil {
+		t.Fatal("Spark ignored imported maximum")
+	}
+
+	d.Configuration.Variables["PLAYERS"] = "20"
+	if _, err := store.Deploy(context.Background(), "node", d); err != nil {
+		t.Fatal("valid imported constraints rejected", err)
+	}
+}

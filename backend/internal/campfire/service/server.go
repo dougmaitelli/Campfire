@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"net/netip"
-	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -163,15 +162,8 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 			value = variable.Default
 		}
 
-		if len(value) > 8192 || strings.ContainsRune(value, 0) || (variable.Required && value == "") || (!variable.Editable && value != variable.Default) {
+		if variable.ValidateValue(value) != nil || (!variable.Editable && value != variable.Default) {
 			return model.Server{}, fmt.Errorf("%w: invalid variable %s", ErrInvalidServer, variable.Name)
-		}
-
-		if variable.Pattern != "" {
-			pattern, err := regexp.Compile(variable.Pattern)
-			if err != nil || !pattern.MatchString(value) {
-				return model.Server{}, fmt.Errorf("%w: variable %s does not match its pattern", ErrInvalidServer, variable.Name)
-			}
 		}
 
 		server.Variables[variable.Name] = value

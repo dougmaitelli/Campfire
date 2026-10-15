@@ -1,0 +1,44 @@
+{
+  "meta": { "version": "PLCN_v3" },
+  "name": "Pelican v3 JSON fixture",
+  "author": "fixtures@example.invalid",
+  "uuid": "5e7b8f1c-804b-4c8a-93a3-a402ae91678f",
+  "description": "Multiple startup commands and typed top-level JSON.",
+  "image": null,
+  "tags": ["fixture"],
+  "features": [],
+  "docker_images": { "Alpine": "alpine:3.22" },
+  "file_denylist": [],
+  "startup_commands": {
+    "Default": "./server --port {{SERVER_PORT}} --label {{LABEL}}",
+    "Debug": "./server --debug"
+  },
+  "config": {
+    "files": {
+      "settings.json": {
+        "parser": "json",
+        "find": {
+          "label": "{{server.environment.LABEL}}",
+          "literal": "001",
+          "enabled": true,
+          "count": 7
+        }
+      }
+    },
+    "startup": { "done": "Ready" },
+    "logs": {},
+    "stop": "^C"
+  },
+  "variables": [
+    {
+      "name": "Label",
+      "description": "",
+      "env_variable": "LABEL",
+      "default_value": "01",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": ["required", "string", "between:1,80"],
+      "sort": 1
+    }
+  ]
+}

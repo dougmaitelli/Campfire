@@ -1,0 +1,28 @@
+{
+  "meta": { "version": "PTDL_v2" },
+  "name": "Unsupported behavior fixture",
+  "docker_images": { "Alpine": "alpine:3.22" },
+  "startup": "./server --node {{config.docker.interface}}",
+  "file_denylist": ["secret.key"],
+  "config": {
+    "files": {
+      "settings.yml": {
+        "parser": "yaml",
+        "find": { "nested.port": "{{server.build.default.port}}" }
+      }
+    },
+    "startup": { "done": ["Ready", "Started"] },
+    "logs": { "custom": true, "location": "logs/game.log" },
+    "stop": "^C"
+  },
+  "variables": [
+    {
+      "name": "Secret",
+      "env_variable": "SECRET",
+      "default_value": "secret",
+      "user_viewable": false,
+      "user_editable": false,
+      "rules": "required|string|regex:/^(?=secret).+$/"
+    }
+  ]
+}

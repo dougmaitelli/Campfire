@@ -1,0 +1,50 @@
+{
+  "_comment": "Synthetic Minecraft-style compatibility fixture; installer does not download a game.",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": "https://example.invalid/egg.json"
+  },
+  "exported_at": "2026-10-14T18:30:00-07:00",
+  "name": "Pterodactyl Java fixture",
+  "author": "fixtures@example.invalid",
+  "description": "Memory, port, environment substitutions and validation.",
+  "features": ["eula", "java_version", "pid_limit"],
+  "docker_images": { "Java 21": "ghcr.io/pterodactyl/yolks:java_21" },
+  "file_denylist": [],
+  "startup": "java -Xmx{{SERVER_MEMORY}}M -jar {{SERVER_JARFILE}}",
+  "config": {
+    "files": "{\"server.properties\":{\"parser\":\"properties\",\"find\":{\"server-ip\":\"0.0.0.0\",\"server-port\":\"{{server.build.default.port}}\",\"max-players\":\"{{env.MAX_PLAYERS}}\"}}}",
+    "startup": "{\"done\":\"Done (\",\"userInteraction\":[]}",
+    "logs": "{}",
+    "stop": "stop"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/ash\nprintf 'server-port=0\\nmax-players=1\\n' > /mnt/server/server.properties\n",
+      "container": "alpine:3.22",
+      "entrypoint": "ash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Jar",
+      "description": "Jar name",
+      "env_variable": "SERVER_JARFILE",
+      "default_value": "server.jar",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|regex:/^[a-zA-Z0-9_.-]+\\.jar$/",
+      "field_type": "text"
+    },
+    {
+      "name": "Players",
+      "description": "Maximum players",
+      "env_variable": "MAX_PLAYERS",
+      "default_value": "20",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:1|max:128",
+      "field_type": "text"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -217,7 +218,7 @@ func configure(directory string, d model.Deployment) error {
 
 			for key, value := range values {
 				var parsed any
-				if json.Unmarshal([]byte(value), &parsed) != nil {
+				if slices.Contains(config.Strings, key) || json.Unmarshal([]byte(value), &parsed) != nil {
 					parsed = value
 				}
 

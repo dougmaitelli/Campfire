@@ -24,7 +24,7 @@ type EmberStore interface {
 	Get(context.Context, string) (model.Ember, error)
 }
 
-// EmberService validates native imports.
+// EmberService stores immutable native definitions, including converted Egg imports.
 type EmberService struct{ store EmberStore }
 
 // NewEmberService creates the game definition service.

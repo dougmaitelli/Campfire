@@ -223,7 +223,7 @@ func TestPlatformRoleBoundariesAndLiveServerRoleChanges(t *testing.T) {
 		{"GET", "/sparks"}, {"POST", "/sparks"}, {"GET", "/sparks/node"}, {"PATCH", "/sparks/node"}, {"POST", "/sparks/node/enrollment"}, {"GET", "/sparks/node/roles"}, {"PUT", "/sparks/node/roles"},
 		{"GET", "/users"}, {"POST", "/users"}, {"PUT", "/users/1"}, {"DELETE", "/users/1"},
 		{"GET", "/roles"}, {"POST", "/roles"}, {"PUT", "/roles/1"}, {"DELETE", "/roles/1"},
-		{"GET", "/embers"}, {"POST", "/embers"}, {"GET", "/provisioning"}, {"POST", "/servers"},
+		{"GET", "/embers"}, {"POST", "/embers"}, {"POST", "/embers/preview"}, {"POST", "/embers/preview-url"}, {"GET", "/provisioning"}, {"POST", "/servers"},
 	} {
 		expectAccess(t, handler, check.method, "/api/v1"+check.path, "{}", http.StatusForbidden)
 	}
