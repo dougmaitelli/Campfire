@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -94,8 +95,11 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 	}
 
 	endpoint := "/api/v1/servers/" + server.ID
-	for _, action := range []string{"install", "start", "stop", "restart", "kill"} {
-		response = request(handler, "POST", endpoint+"/actions", `{"action":"`+action+`"}`)
+
+	var backupName string
+
+	for _, action := range []string{"install", "start", "stop", "backup", "restore", "restart", "kill"} {
+		response = request(handler, "POST", endpoint+"/actions", `{"action":"`+action+`","backup":"`+backupName+`"}`)
 		if response.Code != http.StatusAccepted {
 			t.Fatalf("%s: %d %s", action, response.Code, response.Body)
 		}
@@ -149,6 +153,48 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 			response = request(handler, "PUT", endpoint, configJSON(t, input))
 			if response.Code != http.StatusOK {
 				t.Fatalf("stopped server edit failed: %d %s", response.Code, response.Body)
+			}
+		}
+
+		if action == "backup" {
+			response = request(handler, "GET", endpoint+"/backups", "")
+
+			var backups model.FileResult
+			if err := json.Unmarshal(response.Body.Bytes(), &backups); err != nil || response.Code != http.StatusOK || len(backups.Entries) != 1 {
+				t.Fatalf("backup listing: %d %s %v", response.Code, response.Body, err)
+			}
+
+			backupName = backups.Entries[0].Name
+
+			response = request(handler, "GET", endpoint+"/backups/"+backupName, "")
+			if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/gzip" || response.Body.Len() == 0 {
+				t.Fatalf("backup download: %d %s", response.Code, response.Body)
+			}
+
+			large := bytes.Repeat([]byte("archive"), model.FileLimit/7+100)
+			if err := os.WriteFile(filepath.Join(directory, "runtime", server.ID, "backups", "large.tar.gz"), large, 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			response = request(handler, "GET", endpoint+"/backups/large.tar.gz", "")
+			if response.Code != http.StatusOK || !bytes.Equal(response.Body.Bytes(), large) {
+				t.Fatalf("multi-chunk backup download: %d, %d bytes", response.Code, response.Body.Len())
+			}
+
+			response = request(handler, "GET", endpoint+"/backups/missing.tar.gz", "")
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("missing backup download: %d", response.Code)
+			}
+
+			if err := os.WriteFile(filepath.Join(directory, "runtime", server.ID, "data", "test.txt"), []byte("changed"), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		if action == "restore" {
+			data, err := os.ReadFile(filepath.Join(directory, "runtime", server.ID, "data", "test.txt"))
+			if err != nil || string(data) != "hello" {
+				t.Fatal("API restore failed", err)
 			}
 		}
 

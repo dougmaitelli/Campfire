@@ -19,6 +19,11 @@ func (s *DeploymentService) Action(ctx context.Context, id, action string) (mode
 	return s.runAction(ctx, id, action, "")
 }
 
+// Restore restores a named archive on the server's saved execution node.
+func (s *DeploymentService) Restore(ctx context.Context, id, name string) (model.RuntimeStatus, error) {
+	return s.runAction(ctx, id, "restore", name)
+}
+
 // Console reads bounded logs or sends one line of game console input.
 func (s *DeploymentService) Console(ctx context.Context, id, content string, read bool) (model.RuntimeStatus, error) {
 	action := "command"
@@ -44,7 +49,7 @@ func (s *DeploymentService) runAction(ctx context.Context, id, action, content s
 
 func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, content string) (model.RuntimeStatus, error) {
 	switch action {
-	case "install", "start", "stop", "restart", "kill", "delete", "status", "logs", "command":
+	case "install", "start", "stop", "restart", "kill", "delete", "status", "logs", "command", "backup", "restore":
 	default:
 		return model.RuntimeStatus{}, ErrInvalidServer
 	}

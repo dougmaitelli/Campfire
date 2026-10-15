@@ -1,6 +1,7 @@
 import { readJSON } from "./client";
 
-export type ServerAction = "install" | "start" | "stop" | "restart" | "kill";
+export type ServerAction =
+  "install" | "start" | "stop" | "restart" | "kill" | "backup" | "restore";
 
 export interface RuntimeStatus {
   server_id: string;
@@ -57,11 +58,13 @@ export function serverStatus(
 export function serverAction(
   id: string,
   action: ServerAction,
+  backup?: string,
 ): Promise<RuntimeStatus> {
   return fetch(`/api/v1/servers/${encodeURIComponent(id)}/actions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({ action, backup }),
+    signal: AbortSignal.timeout(35000),
   }).then((response) => readStatus(response, id));
 }
 

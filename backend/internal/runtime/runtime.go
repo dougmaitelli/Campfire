@@ -189,7 +189,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	switch q.Action {
-	case "install", "start", "stop", "restart", "kill", "delete":
+	case "install", "start", "stop", "restart", "kill", "delete", "backup", "restore":
 	default:
 		return model.RuntimeStatus{}, errors.New("unsupported runtime operation")
 	}
@@ -206,6 +206,16 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("another server operation is in progress")
 	}
 
+	if q.Action == "backup" || q.Action == "restore" {
+		if q.Action == "restore" && !backupName(q.Content) {
+			return model.RuntimeStatus{}, errors.New("select a valid backup")
+		}
+
+		if err := m.backupStopped(ctx, d.ServerID); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
 	if q.Action != "install" && q.Action != "delete" && !e.Installed {
 		return model.RuntimeStatus{}, errors.New("install the server first")
 	}
@@ -215,6 +225,9 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	phase := map[string]string{"install": "installing", "start": "starting", "stop": "stopping", "restart": "restarting", "kill": "stopping", "delete": "deleting"}[q.Action]
+	if q.Action == "backup" || q.Action == "restore" {
+		phase = "stopped"
+	}
 
 	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, Progress: "Queued", Busy: true}
 	if err := m.persist(q.ServerID, e); err != nil {
@@ -251,7 +264,17 @@ func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
 	ctx, cancel := context.WithTimeout(m.ctx, 45*time.Minute)
 	defer cancel()
 
-	err := m.perform(ctx, d, q.Action, e)
+	var err error
+
+	switch q.Action {
+	case "backup":
+		err = m.createBackup(ctx, d, q.OperationID, e)
+	case "restore":
+		err = m.restoreBackup(ctx, d, q.Content, e)
+	default:
+		err = m.perform(ctx, d, q.Action, e)
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -367,8 +390,10 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action string
 			}
 		}
 
-		if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), "data")); err != nil {
-			return err
+		for _, name := range []string{"data", "backups", "restore-previous"} {
+			if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), name)); err != nil {
+				return err
+			}
 		}
 
 		e.mu.Lock()
@@ -483,6 +508,10 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 }
 
 func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error {
+	if _, err := os.Lstat(filepath.Join(m.root(d.ServerID), "restore-previous")); !errors.Is(err, os.ErrNotExist) {
+		return errors.New("previous restore data requires operator recovery before starting")
+	}
+
 	state, err := m.inspect(ctx, d.ServerID)
 	if err != nil {
 		return err

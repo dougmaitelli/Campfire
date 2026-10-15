@@ -6,12 +6,14 @@ export function ServerLifecycleControls({
   onAction,
   onConsole,
   onFiles,
+  onBackups,
 }: {
   status: RuntimeStatus | undefined;
   disabled: boolean;
   onAction: (action: ServerAction) => void;
   onConsole: () => void;
   onFiles: () => void;
+  onBackups: () => void;
 }) {
   const blocked =
     disabled ||
@@ -23,6 +25,9 @@ export function ServerLifecycleControls({
     status?.state === "not_installed" || status?.state === "deleted";
   return (
     <>
+      <button className="button" disabled={disabled} onClick={onBackups}>
+        Backups
+      </button>
       <button className="button" disabled={disabled} onClick={onFiles}>
         Files
       </button>

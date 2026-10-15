@@ -26,6 +26,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/servers/{id}/console", a.serverConsole)
 	mux.HandleFunc("GET /api/v1/servers/{id}/files", a.serverFiles)
 	mux.HandleFunc("POST /api/v1/servers/{id}/files", a.serverFiles)
+	mux.HandleFunc("GET /api/v1/servers/{id}/backups", a.serverBackups)
+	mux.HandleFunc("GET /api/v1/servers/{id}/backups/{name}", a.downloadBackup)
 
 	return mux
 }

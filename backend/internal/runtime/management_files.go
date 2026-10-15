@@ -88,6 +88,10 @@ func fileRevision(data []byte) string {
 
 // Files executes contained file operations serialized against server lifecycle work.
 func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileRequest) (model.FileResult, error) {
+	if strings.HasPrefix(q.Operation, "backup.") {
+		return m.backupFiles(ctx, d, q)
+	}
+
 	if err := ctx.Err(); err != nil {
 		return model.FileResult{}, err
 	}

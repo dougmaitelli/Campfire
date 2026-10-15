@@ -7,6 +7,7 @@ import { useSparks } from "../hooks/useSparks";
 import { ServerDialog } from "../dialogs/ServerDialog";
 import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
+import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import { serverAction } from "../api/runtime";
@@ -19,6 +20,7 @@ export function ServersPage() {
   const [acting, setActing] = useState<string | null>(null);
   const [consoleServer, setConsoleServer] = useState<Server | null>(null);
   const [filesServer, setFilesServer] = useState<Server | null>(null);
+  const [backupsServer, setBackupsServer] = useState<Server | null>(null);
   const embers = useCollection(listEmbers);
   const sparks = useSparks();
   const [editing, setEditing] = useState<Server | null>(null);
@@ -48,7 +50,7 @@ export function ServersPage() {
     if (
       deleting ||
       !window.confirm(
-        `Permanently delete "${server.name}", its container and game files, and release its resources and ports?`,
+        `Permanently delete "${server.name}", its container, game files and backups, and release its resources and ports?`,
       )
     )
       return;
@@ -267,6 +269,7 @@ export function ServersPage() {
                           }}
                           onConsole={() => setConsoleServer(server)}
                           onFiles={() => setFilesServer(server)}
+                          onBackups={() => setBackupsServer(server)}
                         />
                         <button
                           className="button"
@@ -342,6 +345,12 @@ export function ServersPage() {
             ) && runtime.statuses[filesServer.id]?.busy !== true
           }
           onClose={() => setFilesServer(null)}
+        />
+      )}
+      {backupsServer && (
+        <ServerBackupsDialog
+          server={backupsServer}
+          onClose={() => setBackupsServer(null)}
         />
       )}
       <p className="list-summary">

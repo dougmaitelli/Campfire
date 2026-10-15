@@ -15,7 +15,7 @@ import (
 )
 
 // ProtocolVersion is the supported panel-agent wire protocol.
-const ProtocolVersion = 4
+const ProtocolVersion = 5
 
 // EnrollmentStore is the persistence boundary for agent authentication.
 type EnrollmentStore interface {

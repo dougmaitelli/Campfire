@@ -5,7 +5,7 @@ import "time"
 // FileLimit bounds each transfer to fit the authenticated command protocol.
 const FileLimit = 1 << 20
 
-// FileRequest describes one operation within a server's game data directory.
+// FileRequest describes contained game file access or immutable backup list/read access.
 type FileRequest struct {
 	ServerID    string `json:"server_id"`
 	Operation   string `json:"operation"`
@@ -13,6 +13,7 @@ type FileRequest struct {
 	Destination string `json:"destination,omitempty"`
 	Data        []byte `json:"data,omitempty"`
 	Revision    string `json:"revision,omitempty"`
+	Offset      int64  `json:"offset,omitempty"`
 }
 
 // FileEntry describes a directory child without following symbolic links.
@@ -30,6 +31,7 @@ type FileResult struct {
 	Entries  []FileEntry `json:"entries,omitempty"`
 	Data     []byte      `json:"data,omitempty"`
 	Revision string      `json:"revision,omitempty"`
+	Size     int64       `json:"size,omitempty"`
 }
 
 // FileError is a transport-independent, safe error exposed to operators.

@@ -24,30 +24,33 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 
 	result, err := a.deployment.Files(r.Context(), r.PathValue("id"), input)
 	if err != nil {
-		var failure *model.FileError
-		if !errors.As(err, &failure) {
-			writeError(w, err)
-			return
-		}
-
-		status := http.StatusBadGateway
-
-		switch failure.Code {
-		case "invalid_file":
-			status = http.StatusBadRequest
-		case "file_not_found":
-			status = http.StatusNotFound
-		case "file_conflict", "file_busy":
-			status = http.StatusConflict
-		case "file_limit":
-			status = http.StatusRequestEntityTooLarge
-		}
-
-		writeJSON(w, status, map[string]string{"error": failure.Message})
-
+		writeFileError(w, err)
 		return
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, result)
+}
+
+func writeFileError(w http.ResponseWriter, err error) {
+	var failure *model.FileError
+	if !errors.As(err, &failure) {
+		writeError(w, err)
+		return
+	}
+
+	status := http.StatusBadGateway
+
+	switch failure.Code {
+	case "invalid_file":
+		status = http.StatusBadRequest
+	case "file_not_found":
+		status = http.StatusNotFound
+	case "file_conflict", "file_busy":
+		status = http.StatusConflict
+	case "file_limit":
+		status = http.StatusRequestEntityTooLarge
+	}
+
+	writeJSON(w, status, map[string]string{"error": failure.Message})
 }

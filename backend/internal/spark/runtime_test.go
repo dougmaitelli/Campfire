@@ -53,8 +53,20 @@ func testWireRuntime(t *testing.T, hub *Hub, id string) {
 		t.Fatal(err)
 	}
 
-	for _, action := range []string{"install", "start", "stop", "restart", "kill", "delete"} {
-		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: action, OperationID: action + "-operation"})
+	for _, action := range []string{"install", "start", "stop", "backup", "restore", "restart", "kill", "delete"} {
+		if action == "restore" {
+			file, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "read", Path: "world.bin"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "write", Path: "world.bin", Data: []byte("changed"), Revision: file.Revision})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: action, OperationID: action + "-operation", Content: "backup-operation.tar.gz"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -104,6 +116,25 @@ func testWireRuntime(t *testing.T, hub *Hub, id string) {
 			var failure *model.FileError
 			if !errors.As(err, &failure) || failure.Code != "file_busy" {
 				t.Fatalf("remote running file guard: %v", err)
+			}
+		}
+
+		if action == "backup" {
+			listed, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.list"})
+			if err != nil || len(listed.Entries) != 1 {
+				t.Fatalf("remote backup listing: %+v %v", listed, err)
+			}
+
+			data, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.read", Path: "backup-operation.tar.gz"})
+			if err != nil || len(data.Data) == 0 || data.Size != int64(len(data.Data)) {
+				t.Fatal("remote backup download failed", err)
+			}
+		}
+
+		if action == "restore" {
+			file, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "read", Path: "world.bin"})
+			if err != nil || string(file.Data) != string([]byte{0, 255, 1}) {
+				t.Fatal("remote restore failed", err)
 			}
 		}
 

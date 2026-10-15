@@ -42,8 +42,14 @@ func TestLiveDockerLifecycle(t *testing.T) {
 		_, _ = docker.Run(cleanup, nil, "rm", "--force", container(d.ServerID)+"-install")
 	})
 
-	for index, action := range []string{"install", "start", "stop", "start", "restart", "kill", "delete"} {
-		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: action + rand.Text()})
+	backupID := "backup-" + rand.Text()
+	for index, action := range []string{"install", "start", "stop", "backup", "restore", "start", "restart", "kill", "delete"} {
+		operationID := action + rand.Text()
+		if action == "backup" {
+			operationID = backupID
+		}
+
+		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: operationID, Content: backupID + ".tar.gz"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -68,6 +74,24 @@ func TestLiveDockerLifecycle(t *testing.T) {
 		if index == 1 {
 			if _, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: "command", Content: "hello"}); err != nil {
 				t.Fatal(err)
+			}
+		}
+
+		if action == "backup" {
+			file, err := m.Files(ctx, d, model.FileRequest{ServerID: d.ServerID, Operation: "read", Path: "installed.txt"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := m.Files(ctx, d, model.FileRequest{ServerID: d.ServerID, Operation: "write", Path: "installed.txt", Data: []byte("changed"), Revision: file.Revision}); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		if action == "restore" {
+			file, err := m.Files(ctx, d, model.FileRequest{ServerID: d.ServerID, Operation: "read", Path: "installed.txt"})
+			if err != nil || string(file.Data) != "installed\n" {
+				t.Fatal("restoration did not recover original installed data", err)
 			}
 		}
 
