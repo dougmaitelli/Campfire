@@ -18,6 +18,16 @@ type API struct {
 	servers    *service.ServerService
 	agents     *spark.Hub
 	deployment *service.DeploymentService
+	auth       *service.AuthService
+	origin     string
+}
+
+// WithAuthentication enables the mandatory administrator boundary for all panel routes.
+func (a *API) WithAuthentication(auth *service.AuthService, origin string) *API {
+	a.auth = auth
+	a.origin = origin
+
+	return a
 }
 
 // WithDeployment enables explicit delivery of saved server configurations.

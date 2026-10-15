@@ -79,8 +79,8 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 5 {
-			return fmt.Errorf("database schema version %d is newer than supported version 5", version)
+		if version > 6 {
+			return fmt.Errorf("database schema version %d is newer than supported version 6", version)
 		}
 
 		if version == 0 {
@@ -133,6 +133,16 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if err := tx.Create(&schemaMigration{Version: 5}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version < 6 {
+			if err := tx.Migrator().CreateTable(&AdminCredential{}, &AdminSession{}); err != nil {
+				return fmt.Errorf("apply administrator schema: %w", err)
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 6}).Error; err != nil {
 				return fmt.Errorf("record migration: %w", err)
 			}
 		}

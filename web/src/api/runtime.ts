@@ -1,4 +1,4 @@
-import { readJSON } from "./client";
+import { apiFetch, readJSON } from "./client";
 
 export type ServerAction =
   "install" | "start" | "stop" | "restart" | "kill" | "backup" | "restore";
@@ -50,7 +50,7 @@ export function serverStatus(
   id: string,
   signal: AbortSignal,
 ): Promise<RuntimeStatus> {
-  return fetch(`/api/v1/servers/${encodeURIComponent(id)}/status`, {
+  return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/status`, {
     signal,
   }).then((response) => readStatus(response, id));
 }
@@ -60,7 +60,7 @@ export function serverAction(
   action: ServerAction,
   backup?: string,
 ): Promise<RuntimeStatus> {
-  return fetch(`/api/v1/servers/${encodeURIComponent(id)}/actions`, {
+  return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/actions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, backup }),
@@ -72,7 +72,7 @@ export function serverConsole(
   id: string,
   signal: AbortSignal,
 ): Promise<RuntimeStatus> {
-  return fetch(`/api/v1/servers/${encodeURIComponent(id)}/console`, {
+  return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/console`, {
     signal,
   }).then((response) => readStatus(response, id));
 }
@@ -81,7 +81,7 @@ export function sendConsole(
   id: string,
   command: string,
 ): Promise<RuntimeStatus> {
-  return fetch(`/api/v1/servers/${encodeURIComponent(id)}/console`, {
+  return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/console`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ command }),

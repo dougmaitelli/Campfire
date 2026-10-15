@@ -1,4 +1,4 @@
-import { readJSON } from "./client";
+import { apiFetch, readJSON } from "./client";
 
 export const fileLimit = 1024 * 1024;
 
@@ -61,7 +61,7 @@ export async function manageFiles(
   signal?: AbortSignal,
 ): Promise<FileResult> {
   const body = await readJSON(
-    await fetch(`/api/v1/servers/${encodeURIComponent(id)}/files`, {
+    await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/files`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),

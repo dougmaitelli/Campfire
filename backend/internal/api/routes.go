@@ -5,6 +5,10 @@ import "net/http"
 // Handler builds the versioned application routes.
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/auth/session", a.authSession)
+	mux.HandleFunc("POST /api/v1/auth/setup", a.authSetup)
+	mux.HandleFunc("POST /api/v1/auth/login", a.authLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", a.authLogout)
 	mux.HandleFunc("POST /api/v1/sparks", a.createSpark)
 	mux.HandleFunc("GET /api/v1/sparks", a.listSparks)
 	mux.HandleFunc("GET /api/v1/sparks/{id}", a.getSpark)
@@ -29,5 +33,5 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/servers/{id}/backups", a.serverBackups)
 	mux.HandleFunc("GET /api/v1/servers/{id}/backups/{name}", a.downloadBackup)
 
-	return mux
+	return a.authenticate(mux)
 }

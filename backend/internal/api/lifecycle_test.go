@@ -81,7 +81,7 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 	defer manager.Close()
 
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(directory, "servers"), Runtime: manager}}
-	handler := api.New(sparks, embers, servers).WithDeployment(deployment).Handler()
+	handler := authenticatedTestAPI(t, db, api.New(sparks, embers, servers).WithDeployment(deployment))
 	_, _, input := serverFixture(t, handler)
 
 	response := request(handler, "POST", "/api/v1/servers", configJSON(t, input))

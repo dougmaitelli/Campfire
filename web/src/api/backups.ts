@@ -1,4 +1,4 @@
-import { readJSON } from "./client";
+import { apiFetch, readJSON } from "./client";
 import type { FileEntry } from "./files";
 
 export async function listBackups(
@@ -6,7 +6,7 @@ export async function listBackups(
   signal: AbortSignal,
 ): Promise<FileEntry[]> {
   const body: unknown = await readJSON(
-    await fetch(`/api/v1/servers/${encodeURIComponent(id)}/backups`, {
+    await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/backups`, {
       signal,
     }),
   );

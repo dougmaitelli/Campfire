@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -27,9 +26,14 @@ import (
 
 // Run starts the admin API and optional dedicated agent TLS listener.
 func Run(ctx context.Context, args []string) error {
+	if len(args) > 0 && args[0] == "reset-password" {
+		return resetPassword(ctx, args[1:])
+	}
+
 	flags := flag.NewFlagSet("campfire", flag.ContinueOnError)
 	listen := flags.String("listen", "127.0.0.1:8080", "admin API listen address")
 	dbPath := flags.String("database", "data/panel.db", "SQLite database path")
+	publicURL := flags.String("public-url", "", "browser origin for HTTPS reverse proxy deployments, e.g. https://panel.example.com")
 	agentListen := flags.String("agent-listen", "", "enable the dedicated agent HTTPS listener, e.g. :8443")
 	tlsCert := flags.String("agent-tls-cert", "", "agent listener HTTPS certificate file")
 
@@ -46,14 +50,12 @@ func Run(ctx context.Context, args []string) error {
 		return errors.New("unexpected positional arguments")
 	}
 
+	origin, err := adminOrigin(*listen, *publicURL)
+	if err != nil {
+		return err
+	}
+
 	if *agentListen != "" {
-		host, _, err := net.SplitHostPort(*listen)
-
-		ip, parseErr := netip.ParseAddr(host)
-		if err != nil || (host != "localhost" && (parseErr != nil || !ip.IsLoopback())) {
-			return errors.New("remote enrollment requires a loopback admin listener until panel authentication is implemented")
-		}
-
 		if *tlsCert == "" || *tlsKey == "" {
 			return errors.New("--agent-listen requires --agent-tls-cert and --agent-tls-key")
 		}
@@ -68,6 +70,19 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	defer func() { _ = db.Close() }()
+
+	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
+
+	setupPath := *dbPath + ".setup-token"
+	if err := auth.PrepareSetup(ctx, setupPath); err != nil {
+		return fmt.Errorf("prepare administrator setup: %w", err)
+	}
+
+	if required, err := auth.NeedsSetup(ctx); err != nil {
+		return err
+	} else if required {
+		slog.Info("Administrator setup required", "token_file", setupPath)
+	}
 
 	var hub *spark.Hub
 
@@ -106,7 +121,7 @@ func Run(ctx context.Context, args []string) error {
 		deployment.Remote = hub
 	}
 
-	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).Handler()
+	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).Handler()
 	admin := newHTTPServer(ctx, handler)
 
 	var active []*http.Server

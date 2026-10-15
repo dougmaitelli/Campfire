@@ -40,7 +40,7 @@ func openAPI(t *testing.T, path string) (http.Handler, func()) {
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 
-	return api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil), embers, servers).Handler(), closeDB
+	return authenticatedTestAPI(t, db, api.New(service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil), embers, servers)), closeDB
 }
 
 func request(handler http.Handler, method, path, body string) *httptest.ResponseRecorder {

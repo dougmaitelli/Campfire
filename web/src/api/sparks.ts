@@ -1,3 +1,5 @@
+import { apiFetch } from "./client";
+
 export type SparkKind = "local" | "remote";
 
 export interface PortAllocation {
@@ -99,7 +101,7 @@ async function readResponse(response: Response): Promise<unknown> {
 }
 
 export async function listSparks(signal: AbortSignal): Promise<Spark[]> {
-  const response = await fetch("/api/v1/sparks", { signal });
+  const response = await apiFetch("/api/v1/sparks", { signal });
   const body = await readResponse(response);
   if (!Array.isArray(body) || !body.every(isSpark)) {
     throw new Error("Unexpected response while loading Sparks.");
@@ -108,7 +110,7 @@ export async function listSparks(signal: AbortSignal): Promise<Spark[]> {
 }
 
 export async function createSpark(input: CreateSparkInput): Promise<Spark> {
-  const response = await fetch("/api/v1/sparks", {
+  const response = await apiFetch("/api/v1/sparks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -124,7 +126,7 @@ export async function updateSpark(
   id: string,
   input: Partial<Omit<CreateSparkInput, "name" | "kind">>,
 ): Promise<Spark> {
-  const response = await fetch(`/api/v1/sparks/${encodeURIComponent(id)}`, {
+  const response = await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -144,7 +146,7 @@ export async function createSparkEnrollment(
   id: string,
 ): Promise<SparkEnrollment> {
   const body = await readResponse(
-    await fetch(`/api/v1/sparks/${encodeURIComponent(id)}/enrollment`, {
+    await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}/enrollment`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "{}",

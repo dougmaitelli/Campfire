@@ -1,4 +1,4 @@
-import { readJSON } from "./client";
+import { apiFetch, readJSON } from "./client";
 
 export interface ServerPort {
   bind_ip: string;
@@ -96,7 +96,7 @@ function isServerPort(value: unknown): value is ServerPort {
 }
 
 export async function listServers(signal: AbortSignal): Promise<Server[]> {
-  const body = await readJSON(await fetch("/api/v1/servers", { signal }));
+  const body = await readJSON(await apiFetch("/api/v1/servers", { signal }));
   if (!Array.isArray(body) || !body.every(isServer))
     throw new Error("Unexpected server list response.");
   return body;
@@ -107,7 +107,7 @@ export async function saveServer(
   id?: string,
 ): Promise<Server> {
   const body = await readJSON(
-    await fetch(
+    await apiFetch(
       id ? `/api/v1/servers/${encodeURIComponent(id)}` : "/api/v1/servers",
       {
         method: id ? "PUT" : "POST",
@@ -121,7 +121,7 @@ export async function saveServer(
 }
 
 export async function deleteServer(id: string): Promise<void> {
-  const response = await fetch(`/api/v1/servers/${encodeURIComponent(id)}`, {
+  const response = await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
   if (!response.ok) await readJSON(response);

@@ -1,0 +1,58 @@
+.authentication-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+.authentication-card {
+  width: min(100%, 440px);
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.authentication-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 2rem;
+  font-size: 1.4rem;
+  font-weight: 650;
+}
+.authentication-brand svg {
+  width: 28px;
+  height: 28px;
+  color: var(--accent);
+}
+.authentication-card h1 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem;
+}
+.authentication-form,
+.authentication-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.authentication-form {
+  gap: 1.25rem;
+}
+.authentication-form input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.authentication-description,
+.authentication-hint {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.authentication-hint {
+  font-size: 0.8rem;
+  font-weight: 400;
+}

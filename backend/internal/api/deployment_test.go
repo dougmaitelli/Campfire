@@ -33,7 +33,7 @@ func TestConfigurationDeliveryPlacementAndSnapshot(t *testing.T) {
 			embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 			servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 			deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Local: &spark.ConfigurationStore{Directory: filepath.Join(dir, "local")}, Remote: &spark.ConfigurationStore{Directory: filepath.Join(dir, "remote")}}
-			handler := api.New(sparks, embers, servers).WithDeployment(deployment).Handler()
+			handler := authenticatedTestAPI(t, db, api.New(sparks, embers, servers).WithDeployment(deployment))
 			node, ember, input := serverFixtureKind(t, handler, kind)
 
 			response := request(handler, "POST", "/api/v1/servers", configJSON(t, input))

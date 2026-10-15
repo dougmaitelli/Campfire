@@ -1,4 +1,4 @@
-import { readJSON } from "./client";
+import { apiFetch, readJSON } from "./client";
 
 export interface EmberVariable {
   name: string;
@@ -84,7 +84,7 @@ function isRequiredPort(value: unknown): boolean {
 }
 
 export async function listEmbers(signal: AbortSignal): Promise<Ember[]> {
-  const body = await readJSON(await fetch("/api/v1/embers", { signal }));
+  const body = await readJSON(await apiFetch("/api/v1/embers", { signal }));
   if (!Array.isArray(body) || !body.every(isEmber))
     throw new Error("Unexpected Ember list response.");
   return body;
@@ -92,7 +92,7 @@ export async function listEmbers(signal: AbortSignal): Promise<Ember[]> {
 
 export async function importEmber(definition: unknown): Promise<Ember> {
   const body = await readJSON(
-    await fetch("/api/v1/embers", {
+    await apiFetch("/api/v1/embers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(definition),
@@ -104,7 +104,7 @@ export async function importEmber(definition: unknown): Promise<Ember> {
 
 export async function previewEmberURL(url: string): Promise<Ember> {
   const body = await readJSON(
-    await fetch("/api/v1/embers/preview-url", {
+    await apiFetch("/api/v1/embers/preview-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
