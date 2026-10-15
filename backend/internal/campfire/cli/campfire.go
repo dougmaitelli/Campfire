@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -31,9 +32,19 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	flags := flag.NewFlagSet("campfire", flag.ContinueOnError)
+
+	disableLocalDefault, err := strconv.ParseBool(environment("CAMPFIRE_DISABLE_LOCAL_LOGIN", "false"))
+	if err != nil {
+		return errors.New("CAMPFIRE_DISABLE_LOCAL_LOGIN must be a boolean")
+	}
+
 	listen := flags.String("listen", environment("CAMPFIRE_LISTEN", "127.0.0.1:8080"), "browser and API listen address (CAMPFIRE_LISTEN)")
 	dbPath := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite database path (CAMPFIRE_DATABASE)")
 	publicURL := flags.String("public-url", environment("CAMPFIRE_PUBLIC_URL", ""), "browser origin for HTTPS reverse proxies (CAMPFIRE_PUBLIC_URL)")
+	oidcIssuer := flags.String("oidc-issuer", environment("CAMPFIRE_OIDC_ISSUER", ""), "optional OIDC issuer URL (CAMPFIRE_OIDC_ISSUER)")
+	oidcClient := flags.String("oidc-client-id", environment("CAMPFIRE_OIDC_CLIENT_ID", ""), "OIDC client ID (CAMPFIRE_OIDC_CLIENT_ID)")
+	oidcSecret := flags.String("oidc-client-secret", environment("CAMPFIRE_OIDC_CLIENT_SECRET", ""), "OIDC client secret (CAMPFIRE_OIDC_CLIENT_SECRET)")
+	disableLocal := flags.Bool("disable-local-login", disableLocalDefault, "require OIDC instead of passwords (CAMPFIRE_DISABLE_LOCAL_LOGIN)")
 	agentListen := flags.String("agent-listen", environment("CAMPFIRE_AGENT_LISTEN", ""), "dedicated agent HTTPS listener (CAMPFIRE_AGENT_LISTEN)")
 	tlsCert := flags.String("agent-tls-cert", environment("CAMPFIRE_AGENT_TLS_CERT", ""), "agent HTTPS certificate (CAMPFIRE_AGENT_TLS_CERT)")
 	tlsKey := flags.String("agent-tls-key", environment("CAMPFIRE_AGENT_TLS_KEY", ""), "agent HTTPS private key (CAMPFIRE_AGENT_TLS_KEY)")
@@ -77,6 +88,11 @@ func Run(ctx context.Context, args []string) error {
 	defer func() { _ = db.Close() }()
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
+
+	provider, err := service.NewOIDCService(ctx, auth, service.OIDCConfig{Issuer: *oidcIssuer, ClientID: *oidcClient, ClientSecret: *oidcSecret, PublicURL: *publicURL, DisableLocal: *disableLocal})
+	if err != nil {
+		return err
+	}
 
 	setupPath := *dbPath + ".setup-token"
 	if err := auth.PrepareSetup(ctx, setupPath); err != nil {
@@ -124,7 +140,7 @@ func Run(ctx context.Context, args []string) error {
 		deployment.Remote = hub
 	}
 
-	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).Handler()
+	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).Handler()
 	admin := newHTTPServer(ctx, webui.Handler(handler))
 
 	var active []*http.Server

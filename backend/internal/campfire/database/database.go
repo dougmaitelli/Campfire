@@ -79,8 +79,8 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 7 {
-			return fmt.Errorf("database schema version %d is newer than supported version 7", version)
+		if version > 8 {
+			return fmt.Errorf("database schema version %d is newer than supported version 8", version)
 		}
 
 		if version == 0 {
@@ -153,6 +153,22 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if err := tx.Create(&schemaMigration{Version: 7}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version < 8 {
+			if err := tx.Migrator().CreateTable(&OIDCIdentity{}); err != nil {
+				return fmt.Errorf("apply OIDC identity schema: %w", err)
+			}
+
+			if !tx.Migrator().HasColumn(&UserSession{}, "Provider") {
+				if err := tx.Migrator().AddColumn(&UserSession{}, "Provider"); err != nil {
+					return fmt.Errorf("apply session provider schema: %w", err)
+				}
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 8}).Error; err != nil {
 				return fmt.Errorf("record migration: %w", err)
 			}
 		}

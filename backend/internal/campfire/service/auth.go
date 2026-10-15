@@ -43,15 +43,17 @@ type authAttempts struct {
 
 // AuthService owns initial administrator setup, account authentication and sessions.
 type AuthService struct {
-	store      *repository.AuthRepository
-	mu         sync.Mutex
-	setupHash  [32]byte
-	setupPath  string
-	setupReady bool
-	attempts   map[string]authAttempts
-	global     authAttempts
-	now        func() time.Time
-	hashSlots  chan struct{}
+	store         *repository.AuthRepository
+	mu            sync.Mutex
+	setupHash     [32]byte
+	setupPath     string
+	setupReady    bool
+	attempts      map[string]authAttempts
+	global        authAttempts
+	now           func() time.Time
+	hashSlots     chan struct{}
+	loginProvider string
+	disableLocal  bool
 }
 
 // NewAuthService constructs authentication without enabling unprotected setup.
@@ -272,6 +274,10 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 
 // Login verifies credentials and rotates any current browser session.
 func (s *AuthService) Login(ctx context.Context, username, password, previous string) (database.UserSession, string, error) {
+	if s.disableLocal {
+		return database.UserSession{}, "", ErrAuthentication
+	}
+
 	if len(username) > 64 || len(password) > 1024 {
 		return database.UserSession{}, "", ErrAuthentication
 	}
@@ -311,8 +317,16 @@ func (s *AuthService) Session(ctx context.Context, token string) (database.UserS
 		return database.UserSession{}, "", ErrAuthentication
 	}
 
-	return s.store.Session(ctx, tokenHash(token), s.now())
+	session, username, err := s.store.Session(ctx, tokenHash(token), s.now())
+	if err == nil && (session.Provider == "" && s.disableLocal || session.Provider != "" && session.Provider != s.loginProvider) {
+		return database.UserSession{}, "", ErrAuthentication
+	}
+
+	return session, username, err
 }
+
+// LocalLoginEnabled reports the configured password-login policy.
+func (s *AuthService) LocalLoginEnabled() bool { return !s.disableLocal }
 
 // Logout revokes the current browser's session.
 func (s *AuthService) Logout(ctx context.Context, token string) error {

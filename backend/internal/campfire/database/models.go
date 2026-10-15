@@ -69,6 +69,7 @@ type User struct {
 // UserSession binds a hashed session to an account and credential generation.
 type UserSession struct {
 	Hash              string `gorm:"type:text;primaryKey"`
+	Provider          string `gorm:"type:text;not null;default:''"`
 	UserID            int64  `gorm:"not null;index"`
 	User              User   `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 	CSRF              string `gorm:"type:text;not null"`
@@ -76,6 +77,17 @@ type UserSession struct {
 	ExpiresAt         int64  `gorm:"not null;index"`
 	LastSeenAt        int64  `gorm:"not null"`
 }
+
+// OIDCIdentity binds a provider subject to an account without matching mutable claims.
+type OIDCIdentity struct {
+	Issuer  string `gorm:"type:text;primaryKey"`
+	Subject string `gorm:"type:text;primaryKey"`
+	UserID  int64  `gorm:"not null;index"`
+	User    User   `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
+}
+
+// TableName keeps the protocol acronym intact in SQL identifiers.
+func (OIDCIdentity) TableName() string { return "oidc_identities" }
 
 // ServerOwnership identifies the single owner; account removal requires transfer first.
 type ServerOwnership struct {

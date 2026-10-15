@@ -33,7 +33,11 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
   const accept = useCallback((next: AuthState) => {
     generation.current += 1;
     setCSRFToken(next.csrf_token ?? "");
-    setSession(next);
+    setSession((previous) => ({
+      ...next,
+      local_login: next.local_login ?? previous?.local_login ?? true,
+      oidc_enabled: next.oidc_enabled ?? previous?.oidc_enabled ?? false,
+    }));
     setError(null);
   }, []);
   const load = useCallback(
@@ -61,8 +65,10 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
   );
   useEffect(() => {
     const controller = new AbortController();
-    const expired = () =>
+    const expired = () => {
       accept({ authenticated: false, setup_required: false });
+      void load(AbortSignal.timeout(15000));
+    };
     window.addEventListener("campfire:unauthenticated", expired);
     void load(AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]));
     return () => {
@@ -76,6 +82,7 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     await logout();
     accept({ authenticated: false, setup_required: false });
+    await load(AbortSignal.timeout(15000));
   }
   async function reload() {
     setError(null);

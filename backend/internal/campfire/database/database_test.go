@@ -18,7 +18,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (8)").Error; err != nil {
+	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (9)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -31,6 +31,56 @@ func TestRejectNewerSchema(t *testing.T) {
 		_ = reopened.Close()
 
 		t.Fatal("opened unsupported future schema")
+	}
+}
+
+func TestOIDCMigrationPreservesAccountsAndLocalSessions(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "panel.db")
+
+	db, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Omit("Role").Create(&database.User{ID: 1, Username: "admin", PasswordHash: "preserved", Version: 3, RoleID: database.AdminRole}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Omit("User").Create(&database.UserSession{Hash: "session", UserID: 1, CSRF: "csrf", CredentialVersion: 3, ExpiresAt: 9999999999, LastSeenAt: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Migrator().DropTable(&database.OIDCIdentity{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Migrator().DropColumn(&database.UserSession{}, "Provider"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version = 8").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = reopened.Close() }()
+
+	var session database.UserSession
+	if err := reopened.ORM().Preload("User").Take(&session, "hash = ?", "session").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if session.Provider != "" || session.User.PasswordHash != "preserved" || session.User.Version != 3 || session.CSRF != "csrf" || !reopened.ORM().Migrator().HasTable(&database.OIDCIdentity{}) {
+		t.Fatal("OIDC migration changed existing authentication")
 	}
 }
 
@@ -56,7 +106,7 @@ func TestAuthenticationMigrationPreservesPopulatedVersionFive(t *testing.T) {
 	}
 
 	// Recreate the pre-auth schema by removing only the new tables and migration.
-	if err := db.ORM().Migrator().DropTable(&database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
+	if err := db.ORM().Migrator().DropTable(&database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -114,7 +164,7 @@ func TestMultiUserMigrationPreservesAdministratorAndClaimsServers(t *testing.T) 
 		}
 	}
 
-	if err := db.ORM().Migrator().DropTable(&database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
+	if err := db.ORM().Migrator().DropTable(&database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -130,7 +180,7 @@ func TestMultiUserMigrationPreservesAdministratorAndClaimsServers(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version = 7").Error; err != nil {
+	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version >= 7").Error; err != nil {
 		t.Fatal(err)
 	}
 

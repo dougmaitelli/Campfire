@@ -3,6 +3,8 @@ import { apiFetch, readJSON } from "./client";
 export interface AuthState {
   authenticated: boolean;
   setup_required: boolean;
+  local_login?: boolean;
+  oidc_enabled?: boolean;
   username?: string;
   user_id?: number;
   role_id?: number;
@@ -27,6 +29,10 @@ function isAuthState(value: unknown): value is AuthState {
     typeof value.authenticated === "boolean" &&
     "setup_required" in value &&
     typeof value.setup_required === "boolean" &&
+    "local_login" in value &&
+    typeof value.local_login === "boolean" &&
+    "oidc_enabled" in value &&
+    typeof value.oidc_enabled === "boolean" &&
     (!value.authenticated ||
       ("username" in value &&
         typeof value.username === "string" &&
@@ -90,4 +96,18 @@ export async function logout(): Promise<void> {
   const response = await apiFetch("/api/v1/auth/logout", { method: "POST" });
   if (response.status !== 204 && response.status !== 401)
     await readJSON(response);
+}
+
+export async function linkOIDC(): Promise<void> {
+  const body = await readJSON(
+    await apiFetch("/api/v1/auth/oidc/link", { method: "POST" }),
+  );
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("url" in body) ||
+    typeof body.url !== "string"
+  )
+    throw new Error("Unexpected OpenID Connect response.");
+  window.location.assign(body.url);
 }

@@ -19,8 +19,10 @@ type authState struct {
 	Authenticated bool `json:"authenticated"`
 	SetupRequired bool `json:"setup_required"`
 	*service.Principal
-	CSRFToken string `json:"csrf_token,omitempty"`
-	ExpiresAt int64  `json:"expires_at,omitempty"`
+	CSRFToken   string `json:"csrf_token,omitempty"`
+	ExpiresAt   int64  `json:"expires_at,omitempty"`
+	LocalLogin  bool   `json:"local_login"`
+	OIDCEnabled bool   `json:"oidc_enabled"`
 }
 
 type principalKey struct{}
@@ -84,7 +86,7 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 			}
 		}
 
-		public := (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.URL.Path == "/api/v1/auth/session" || r.Method == http.MethodPost && (r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/auth/setup")
+		public := (r.Method == http.MethodGet || r.Method == http.MethodHead) && (r.URL.Path == "/api/v1/auth/session" || r.URL.Path == "/api/v1/auth/oidc/start" || r.URL.Path == "/api/v1/auth/oidc/callback") || r.Method == http.MethodPost && (r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/auth/setup")
 		if public {
 			next.ServeHTTP(w, r)
 			return
@@ -124,7 +126,7 @@ func writeAuthError(w http.ResponseWriter, err error) {
 func (a *API) authSession(w http.ResponseWriter, r *http.Request) {
 	session, _, err := a.auth.Session(r.Context(), browserToken(r))
 	if err == nil {
-		writeJSON(w, http.StatusOK, sessionState(session))
+		writeJSON(w, http.StatusOK, a.loginState(session))
 		return
 	}
 
@@ -139,10 +141,23 @@ func (a *API) authSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, authState{SetupRequired: setup})
+	writeJSON(w, http.StatusOK, authState{SetupRequired: setup, LocalLogin: a.auth.LocalLoginEnabled(), OIDCEnabled: a.oidc != nil})
+}
+
+func (a *API) loginState(session database.UserSession) authState {
+	state := sessionState(session)
+	state.LocalLogin = a.auth.LocalLoginEnabled()
+	state.OIDCEnabled = a.oidc != nil
+
+	return state
 }
 
 func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
+	if !a.auth.LocalLoginEnabled() {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "local login is disabled; sign in with OpenID Connect"})
+		return
+	}
+
 	address, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		address = r.RemoteAddr
@@ -183,7 +198,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 	}
 
 	a.setSessionCookie(w, r, token, session.ExpiresAt)
-	writeJSON(w, http.StatusOK, sessionState(session))
+	writeJSON(w, http.StatusOK, a.loginState(session))
 }
 
 func (a *API) authSetup(w http.ResponseWriter, r *http.Request) { a.authAttempt(w, r, true) }

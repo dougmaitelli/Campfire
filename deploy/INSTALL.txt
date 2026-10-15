@@ -63,8 +63,9 @@ Enter that token in the setup form and create a password of at least 15
 characters. The token is removed after successful setup. Browser sessions
 expire after 12 hours absolutely or 30 minutes without API activity. Polling
 counts as activity. Setup creates the initial Admin account; additional accounts
-are created from Users after signing in. All management APIs require an account
-with the relevant platform or server permissions; writes also require CSRF protection.
+are created from Users or on first OIDC sign-in when configured. All management
+APIs require an account with the relevant platform or server permissions; writes
+also require CSRF protection.
 
 Forgotten password recovery uses a private regular file, not a command-line
 password. Create a mode-0600 file with your editor and run:
@@ -81,7 +82,7 @@ other users' passwords from Users.
 Users, roles and server access
 -----------------------------
 Admins manage all users, roles, Sparks, Embers and servers. Users and Roles
-are administrator-only pages. There is no public account registration.
+are administrator-only pages. There is no public password account registration.
 
 The built-in platform roles are Admin, Server creator and User. Server creators
 can create servers only on Sparks approved for their platform role. On the
@@ -111,6 +112,59 @@ provisioning grant does not remove users' ownership of existing servers.
 Schema 7 upgrades existing administrator credentials without changing the password
 and assigns existing servers to that account. Old sessions are revoked; sign in
 again after upgrading. The Spark wire protocol remains version 5.
+
+Optional OpenID Connect login
+----------------------------
+Local username/password login remains enabled by default. To add OIDC, register
+a web application with your identity provider and set these Campfire variables:
+
+  CAMPFIRE_PUBLIC_URL=https://panel.example.com
+  CAMPFIRE_OIDC_ISSUER=https://identity.example.com
+  CAMPFIRE_OIDC_CLIENT_ID=campfire
+  CAMPFIRE_OIDC_CLIENT_SECRET=your-provider-secret
+
+Register this exact redirect URI at the provider:
+
+  https://panel.example.com/api/v1/auth/oidc/callback
+
+The provider must support the authorization code flow, PKCE S256 and the openid
+and profile scopes. A client secret is optional for providers using public
+clients. Protect the environment file containing it. HTTPS is required, with
+loopback HTTP allowed for local development using an explicit public URL.
+Compose forwards these settings from .env; systemd reads campfire.env. Matching
+CLI flags are --oidc-issuer, --oidc-client-id and --oidc-client-secret.
+
+Restart Campfire. The sign-in page now offers OpenID Connect alongside passwords.
+Complete initial administrator setup locally before signing in with OIDC. New
+provider identities create ordinary User accounts without server access. Their
+usernames use the provider's preferred username plus a unique suffix; admins can
+find them in Users and assign roles or servers. Email, names and provider groups
+never select existing accounts or grant roles. Identity is the issuer + subject.
+
+To use OIDC with an existing account, sign in to that account and choose Link
+OpenID Connect in the sidebar. Complete provider authentication. The linked
+identity signs into that same account and retains its roles and server access.
+An identity already linked to another account cannot be reassigned this way.
+
+To require OIDC for all logins:
+1. Sign in as an administrator and link that account to the provider.
+2. Sign out and verify that OpenID Connect signs in to the administrator account.
+3. Set CAMPFIRE_DISABLE_LOCAL_LOGIN=true (or --disable-local-login) and restart.
+
+Campfire refuses this setting unless an enabled administrator is linked to the
+configured issuer. Password login and setup endpoints are then disabled; existing
+password sessions are revoked. At least one OIDC-linked administrator
+must remain enabled. Local accounts and passwords remain stored. To recover from
+provider failure, set CAMPFIRE_DISABLE_LOCAL_LOGIN=false, restart, and use local
+login or reset-password. Remove all OIDC settings to return to local-only login.
+
+Provider tokens are verified and discarded; Campfire uses its own revocable
+sessions afterward. Provider logout does not terminate Campfire sessions, and
+Campfire sign-out does not sign out of the provider. Disable the Campfire user
+to revoke access immediately. Provider outage prevents new OIDC sign-ins; it
+does not invalidate existing Campfire sessions. Pending login/link flows expire
+after five minutes and are cleared on restart. Schema 8 adds identity bindings
+and session provider tracking without changing users, roles or server ownership.
 
 HTTPS and agent enrollment
 -------------------------
@@ -218,7 +272,7 @@ health endpoint, login and node connections. Use a stopped Spark and preserve
 its state when upgrading its binary. Detached games continue across ordinary
 agent disconnects; wait for lifecycle/file/backup work to finish before stopping
 an agent. Breaking wire protocol changes require compatible panel and Spark
-versions. These changes keep wire protocol 5; the panel uses schema 7. Update either
+versions. These changes keep wire protocol 5; the panel uses schema 8. Update either
 component independently while both support protocol 5; mismatched protocols
 are rejected during the agent handshake.
 

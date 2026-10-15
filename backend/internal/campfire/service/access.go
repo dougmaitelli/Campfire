@@ -59,7 +59,12 @@ type AccessService struct {
 
 // Access returns authorization and account management for this authentication store.
 func (s *AuthService) Access() *AccessService {
-	return &AccessService{store: s.store.Access(), auth: s}
+	store := s.store.Access()
+	if s.disableLocal {
+		store.WithRequiredOIDC(s.loginProvider)
+	}
+
+	return &AccessService{store: store, auth: s}
 }
 
 // ServerPermissions calculates effective access from ownership or a current membership.

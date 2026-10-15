@@ -22,7 +22,11 @@ type API struct {
 	auth       *service.AuthService
 	access     *service.AccessService
 	origin     string
+	oidc       *service.OIDCService
 }
+
+// WithOIDC enables the optional provider login routes.
+func (a *API) WithOIDC(provider *service.OIDCService) *API { a.oidc = provider; return a }
 
 // WithAuthentication enables the mandatory administrator boundary for all panel routes.
 func (a *API) WithAuthentication(auth *service.AuthService, origin string) *API {

@@ -19,10 +19,19 @@ var (
 )
 
 // AccessRepository persists account roles, ownership, memberships and provisioning grants.
-type AccessRepository struct{ db *gorm.DB }
+type AccessRepository struct {
+	db     *gorm.DB
+	issuer string
+}
 
 // NewAccessRepository constructs access storage on the panel database.
 func NewAccessRepository(db *gorm.DB) *AccessRepository { return &AccessRepository{db: db} }
+
+// WithRequiredOIDC preserves an administrator who can use the active login provider.
+func (r *AccessRepository) WithRequiredOIDC(issuer string) *AccessRepository {
+	r.issuer = issuer
+	return r
+}
 
 func accessError(err error) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -146,17 +155,23 @@ func (r *AccessRepository) CreateUser(ctx context.Context, user *database.User) 
 	}))
 }
 
-func keepAdmin(tx *gorm.DB, user database.User, roleID int64, disabled bool) error {
+func (r *AccessRepository) keepAdmin(tx *gorm.DB, user database.User, roleID int64, disabled bool) error {
 	if user.RoleID != database.AdminRole || user.Disabled || roleID == database.AdminRole && !disabled {
 		return nil
 	}
 
 	var count int64
-	if err := tx.Model(&database.User{}).Where("role_id = ? AND disabled = false", database.AdminRole).Count(&count).Error; err != nil {
+
+	query := tx.Model(&database.User{}).Where("role_id = ? AND disabled = false AND id != ?", database.AdminRole, user.ID)
+	if r.issuer != "" {
+		query = query.Where("id IN (?)", tx.Model(&database.OIDCIdentity{}).Select("user_id").Where("issuer = ?", r.issuer))
+	}
+
+	if err := query.Count(&count).Error; err != nil {
 		return err
 	}
 
-	if count <= 1 {
+	if count == 0 {
 		return ErrLastAdmin
 	}
 
@@ -176,7 +191,7 @@ func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int6
 			return ErrAccessInput
 		}
 
-		if err := keepAdmin(tx, user, roleID, disabled); err != nil {
+		if err := r.keepAdmin(tx, user, roleID, disabled); err != nil {
 			return err
 		}
 
@@ -205,7 +220,7 @@ func (r *AccessRepository) DeleteUser(ctx context.Context, id int64) error {
 			return err
 		}
 
-		if err := keepAdmin(tx, user, 0, true); err != nil {
+		if err := r.keepAdmin(tx, user, 0, true); err != nil {
 			return err
 		}
 
