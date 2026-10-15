@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ func auditDetail(r *http.Request, action, target string) {
 func auditActor(r *http.Request, principal service.Principal) {
 	if event, ok := r.Context().Value(auditKey{}).(*database.AuditEvent); ok {
 		event.UserID, event.Username = principal.UserID, principal.Username
+		event.APITokenID = principal.APITokenID
 	}
 }
 
@@ -64,7 +66,7 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 		target := "api"
 
 		if len(parts) >= 3 {
-			for _, kind := range []string{"servers", "sparks", "embers", "users", "roles", "schedules", "auth", "executions"} {
+			for _, kind := range []string{"servers", "sparks", "embers", "users", "roles", "schedules", "auth", "executions", "tokens"} {
 				if parts[2] == kind {
 					target = strings.TrimSuffix(kind, "s")
 				}
@@ -142,6 +144,18 @@ func (a *API) listSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if p.APITokenID != 0 && !slices.Contains(p.TokenScopes, "*") {
+		visible := make([]database.Schedule, 0, len(items))
+		for _, item := range items {
+			permissions, err := a.access.ServerPermissions(r.Context(), p, item.ServerID)
+			if err == nil && slices.Contains(permissions, "server.view") {
+				visible = append(visible, item)
+			}
+		}
+
+		items = visible
+	}
+
 	writeJSON(w, http.StatusOK, items)
 }
 
@@ -205,6 +219,18 @@ func (a *API) listExecutions(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, err)
 		return
+	}
+
+	if p.APITokenID != 0 && !slices.Contains(p.TokenScopes, "*") {
+		visible := make([]database.ScheduleRun, 0, len(items))
+		for _, item := range items {
+			permissions, err := a.access.ServerPermissions(r.Context(), p, item.ServerID)
+			if err == nil && slices.Contains(permissions, "server.view") {
+				visible = append(visible, item)
+			}
+		}
+
+		items = visible
 	}
 
 	writeJSON(w, http.StatusOK, items)

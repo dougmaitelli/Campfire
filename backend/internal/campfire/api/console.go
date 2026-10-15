@@ -72,12 +72,12 @@ func (a *API) streamConsole(w http.ResponseWriter, r *http.Request) {
 		checkCtx, stop := context.WithTimeout(ctx, 3*time.Second)
 		defer stop()
 
-		session, _, err := a.auth.Session(checkCtx, browserToken(r))
+		principal, err := a.requestPrincipal(r.WithContext(checkCtx))
 		if err != nil {
 			return false
 		}
 
-		permissions, err := a.access.ServerPermissions(checkCtx, service.PrincipalFromSession(session), server.ID)
+		permissions, err := a.access.ServerPermissions(checkCtx, principal, server.ID)
 		if err != nil || !slices.Contains(permissions, "server.operate") {
 			return false
 		}

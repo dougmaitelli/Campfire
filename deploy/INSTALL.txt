@@ -12,6 +12,38 @@ Sparks enroll and connect using the same HTTPS agent protocol as other Sparks.
 There is no embedded runtime or local-mode environment setting. Campfire always
 runs without Docker access; Spark needs Docker and runs with execution privileges.
 
+Personal API tokens
+-------------------
+Open API tokens from your account in the sidebar to create a named credential.
+Choose an expiry of 1 to 365 days and either all your permissions or a restricted
+set of scopes. Each user can have up to 50 active tokens. Copy the secret when
+created: Campfire shows it once and stores only its SHA-256 hash.
+
+Send the token in the Authorization header, for example:
+
+  curl -H "Authorization: Bearer $CAMPFIRE_API_TOKEN" \
+    https://campfire.example.com/api/v1/servers
+
+Bearer requests do not require a CSRF token. Browser session requests still do.
+Tokens cannot access browser authentication or token management endpoints; use
+your browser session to create, list and revoke your own tokens. Secrets are
+never accepted in URLs. An invalid Authorization header fails authentication
+even if a valid session cookie is also present.
+
+A token inherits its user's current role, ownership and server memberships;
+scopes only restrict that access. Spark administration remains admin-only.
+Server operation scopes also require server.view. Revoke a token from the same
+dialog to block further requests. Expiry, disabling/deleting the account and
+password or account role changes invalidate existing tokens. Membership and
+role permission changes take effect on subsequent authorization checks.
+Console streams and backup downloads recheck access while running. Revocation
+does not cancel operations or recurring schedules already accepted by Campfire.
+Audit records identify token-authenticated changes by user and token ID.
+
+API tokens work for local and OIDC accounts, including when local password
+login is disabled. Disabling local login only disables browser password login.
+Keep browser/identity-provider access available for token management.
+
 Backups, off-host storage and retention
 --------------------------------------
 Deploy Campfire and Spark together: the backup extensions use agent protocol 7.

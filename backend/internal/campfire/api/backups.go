@@ -93,12 +93,12 @@ func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		// A long download must not outlive account or server-access revocation.
-		session, _, err := a.auth.Session(ctx, browserToken(r))
+		principal, err := a.requestPrincipal(r.WithContext(ctx))
 		if err != nil {
 			return
 		}
 
-		permissions, err := a.access.ServerPermissions(ctx, service.PrincipalFromSession(session), r.PathValue("id"))
+		permissions, err := a.access.ServerPermissions(ctx, principal, r.PathValue("id"))
 		if err != nil || !slices.Contains(permissions, "server.operate") {
 			return
 		}

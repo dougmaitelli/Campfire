@@ -223,7 +223,7 @@ func (r *ActivityRepository) BeginAudit(ctx context.Context, event *database.Aud
 // FinishAudit records only allowlisted action, target, actor and outcome metadata.
 func (r *ActivityRepository) FinishAudit(ctx context.Context, event database.AuditEvent) error {
 	return r.db.WithContext(ctx).Model(&database.AuditEvent{}).Where("id = ?", event.ID).
-		Select("UserID", "Username", "Action", "Target", "Outcome", "Status").Updates(event).Error
+		Select("UserID", "Username", "APITokenID", "Action", "Target", "Outcome", "Status").Updates(event).Error
 }
 
 // Audit lists administrator-only metadata with bounded pagination and optional filters.

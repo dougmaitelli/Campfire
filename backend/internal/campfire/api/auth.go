@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 )
 
@@ -44,6 +45,26 @@ func browserToken(r *http.Request) string {
 	}
 
 	return cookie.Value
+}
+
+// requestPrincipal is also used by long-running responses to recheck revocation.
+func (a *API) requestPrincipal(r *http.Request) (service.Principal, error) {
+	if values, exists := r.Header["Authorization"]; exists {
+		if len(values) != 1 {
+			return service.Principal{}, service.ErrAuthentication
+		}
+
+		parts := strings.Fields(values[0])
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			return service.Principal{}, service.ErrAuthentication
+		}
+
+		return a.auth.AuthenticateAPIToken(r.Context(), parts[1])
+	}
+
+	session, _, err := a.auth.Session(r.Context(), browserToken(r))
+
+	return service.PrincipalFromSession(session), err
 }
 
 func (a *API) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires int64) {
@@ -84,6 +105,26 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 				writeJSON(w, http.StatusForbidden, map[string]string{"error": "cross-origin requests are not allowed"})
 				return
 			}
+		}
+
+		if _, exists := r.Header["Authorization"]; exists {
+			principal, err := a.requestPrincipal(r)
+			if err != nil {
+				writeAuthError(w, err)
+				return
+			}
+
+			auditActor(r, principal)
+
+			if strings.HasPrefix(r.URL.Path, "/api/v1/auth/") || r.URL.Path == "/api/v1/tokens" || strings.HasPrefix(r.URL.Path, "/api/v1/tokens/") {
+				writeError(w, repository.ErrAccessDenied)
+				return
+			}
+
+			ctx := service.WithActor(r.Context(), principal)
+			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, principalKey{}, principal)))
+
+			return
 		}
 
 		public := (r.Method == http.MethodGet || r.Method == http.MethodHead) && (r.URL.Path == "/api/v1/auth/session" || r.URL.Path == "/api/v1/auth/oidc/start" || r.URL.Path == "/api/v1/auth/oidc/callback") || r.Method == http.MethodPost && (r.URL.Path == "/api/v1/auth/login" || r.URL.Path == "/api/v1/auth/setup")

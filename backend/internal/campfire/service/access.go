@@ -11,14 +11,17 @@ import (
 	"campfire/internal/campfire/database/repository"
 )
 
-// Principal is derived from a persisted session, never from client-supplied roles.
+// Principal is derived from persisted credentials, never from client-supplied roles.
 type Principal struct {
-	UserID      int64    `json:"user_id"`
-	Username    string   `json:"username"`
-	RoleID      int64    `json:"role_id"`
-	Role        string   `json:"role"`
-	Admin       bool     `json:"admin"`
-	Permissions []string `json:"permissions"`
+	APITokenID        int64    `json:"api_token_id,omitempty"`
+	TokenScopes       []string `json:"-"`
+	CredentialVersion int64    `json:"-"`
+	UserID            int64    `json:"user_id"`
+	Username          string   `json:"username"`
+	RoleID            int64    `json:"role_id"`
+	Role              string   `json:"role"`
+	Admin             bool     `json:"admin"`
+	Permissions       []string `json:"permissions"`
 }
 
 // RoleView exposes action names without ORM association details.
@@ -32,12 +35,24 @@ type RoleView struct {
 
 // PrincipalFromSession uses the account and permission set freshly loaded during authentication.
 func PrincipalFromSession(session database.UserSession) Principal {
-	return Principal{UserID: session.UserID, Username: session.User.Username, RoleID: session.User.RoleID, Role: session.User.Role.Name, Admin: session.User.RoleID == database.AdminRole, Permissions: roleActions(session.User.Role)}
+	return Principal{UserID: session.UserID, Username: session.User.Username, RoleID: session.User.RoleID, Role: session.User.Role.Name, Admin: session.User.RoleID == database.AdminRole, Permissions: roleActions(session.User.Role), CredentialVersion: session.User.Version}
 }
 
-// Allows checks a platform action; only the built-in administrator bypasses scoped checks.
+// Allows checks a platform action against the user's permissions and token scopes.
 func (p Principal) Allows(action string) bool {
-	return p.Admin || slices.Contains(p.Permissions, action)
+	return p.tokenAllows(action) && (p.Admin || slices.Contains(p.Permissions, action))
+}
+
+func (p Principal) tokenAllows(action string) bool {
+	return p.APITokenID == 0 || slices.Contains(p.TokenScopes, "*") || slices.Contains(p.TokenScopes, action)
+}
+
+func (p Principal) restrictServer(actions []string) []string {
+	if p.APITokenID == 0 {
+		return actions
+	}
+
+	return slices.DeleteFunc(slices.Clone(actions), func(action string) bool { return !p.tokenAllows(action) })
 }
 
 func roleActions(role database.Role) []string {
@@ -76,12 +91,12 @@ func (s *AccessService) ServerPermissions(ctx context.Context, principal Princip
 
 	if principal.Admin || owner != nil && owner.ID == principal.UserID {
 		role, err := s.store.Role(ctx, database.OwnerRole)
-		return roleActions(role), err
+		return principal.restrictServer(roleActions(role)), err
 	}
 
 	role, err := s.store.MemberRole(ctx, id, principal.UserID)
 
-	return roleActions(role), err
+	return principal.restrictServer(roleActions(role)), err
 }
 
 // Roles returns the built-in and custom role catalog.

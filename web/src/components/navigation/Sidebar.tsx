@@ -4,10 +4,12 @@ import { NavigationIcon } from "./NavigationIcon";
 import { useState } from "react";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { linkOIDC } from "../../api/auth";
+import { APITokensDialog } from "../../dialogs/APITokensDialog";
 
 export function Sidebar({ page }: { page: NavigationItem }) {
   const auth = useAuthentication();
   const [busy, setBusy] = useState(false);
+  const [tokensOpen, setTokensOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const oidcError = new URLSearchParams(window.location.search).has(
     "oidc_error",
@@ -56,6 +58,13 @@ export function Sidebar({ page }: { page: NavigationItem }) {
       <div className="sidebar-footer sidebar-account">
         <span>{auth.session?.username}</span>
         <span>{auth.session?.role}</span>
+        <button
+          className="button"
+          disabled={busy}
+          onClick={() => setTokensOpen(true)}
+        >
+          API tokens
+        </button>
         {error && <span role="alert">{error}</span>}
         {oidcError && (
           <span role="alert">
@@ -92,6 +101,7 @@ export function Sidebar({ page }: { page: NavigationItem }) {
           {busy ? "Signing out…" : "Sign out"}
         </button>
       </div>
+      {tokensOpen && <APITokensDialog onClose={() => setTokensOpen(false)} />}
     </aside>
   );
 }

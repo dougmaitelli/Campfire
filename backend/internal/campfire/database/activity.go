@@ -40,12 +40,13 @@ type ScheduleRun struct {
 
 // AuditEvent stores allowlisted metadata, never request or response bodies.
 type AuditEvent struct {
-	ID        string `gorm:"type:text;primaryKey" json:"id"`
-	UserID    int64  `gorm:"not null;index" json:"user_id"`
-	Username  string `gorm:"type:text;not null" json:"username"`
-	Action    string `gorm:"type:text;not null;index" json:"action"`
-	Target    string `gorm:"type:text;not null;index" json:"target"`
-	Outcome   string `gorm:"type:text;not null" json:"outcome"`
-	Status    int    `gorm:"not null" json:"status"`
-	CreatedAt int64  `gorm:"not null;autoCreateTime:false;index" json:"created_at"`
+	APITokenID int64  `gorm:"not null;default:0" json:"api_token_id,omitempty"`
+	ID         string `gorm:"type:text;primaryKey" json:"id"`
+	UserID     int64  `gorm:"not null;index" json:"user_id"`
+	Username   string `gorm:"type:text;not null" json:"username"`
+	Action     string `gorm:"type:text;not null;index" json:"action"`
+	Target     string `gorm:"type:text;not null;index" json:"target"`
+	Outcome    string `gorm:"type:text;not null" json:"outcome"`
+	Status     int    `gorm:"not null" json:"status"`
+	CreatedAt  int64  `gorm:"not null;autoCreateTime:false;index" json:"created_at"`
 }

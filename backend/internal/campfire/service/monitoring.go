@@ -125,7 +125,7 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal,
 		snapshot.Servers = append(snapshot.Servers, MonitoredServer{ID: server.ID, Name: server.Name, SparkID: server.SparkID, SparkName: server.SparkName, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Usage: unknownUsage(server.ID)})
 	}
 
-	if principal.Admin {
+	if principal.Admin && principal.Allows("sparks.manage") {
 		snapshot.Sparks, err = s.Sparks.List(ctx)
 		if err != nil {
 			return MonitoringSnapshot{}, err

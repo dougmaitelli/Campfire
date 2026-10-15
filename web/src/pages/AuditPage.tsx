@@ -117,7 +117,12 @@ export function AuditPage() {
               {items.map((item) => (
                 <tr key={item.id}>
                   <td>{new Date(item.created_at * 1000).toLocaleString()}</td>
-                  <td>{item.username || "Unauthenticated"}</td>
+                  <td>
+                    {item.username || "Unauthenticated"}
+                    {item.api_token_id
+                      ? ` (API token #${item.api_token_id})`
+                      : ""}
+                  </td>
                   <td>{item.action}</td>
                   <td>{item.target}</td>
                   <td>{item.outcome}</td>

@@ -185,10 +185,16 @@ func migrate(db *gorm.DB) error {
 
 		// Keep the current development schema in sync without introducing a new
 		// release migration for features added before the first release.
+		if !tx.Migrator().HasTable(&APIToken{}) {
+			if err := tx.Migrator().CreateTable(&APIToken{}); err != nil {
+				return fmt.Errorf("create API tokens: %w", err)
+			}
+		}
+
 		current := tx.Session(&gorm.Session{})
 
 		current.IgnoreRelationshipsWhenMigrating = true
-		if err := current.AutoMigrate(&SparkIdentity{}, &ServerTransfer{}, &BackupPolicy{}, &Backup{}); err != nil {
+		if err := current.AutoMigrate(&SparkIdentity{}, &ServerTransfer{}, &BackupPolicy{}, &Backup{}, &AuditEvent{}); err != nil {
 			return fmt.Errorf("apply Spark renewal and transfer schema: %w", err)
 		}
 

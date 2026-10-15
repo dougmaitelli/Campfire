@@ -16,6 +16,11 @@ import (
 )
 
 func TestConsoleStreamingAndLiveRevocation(t *testing.T) {
+	t.Run("session", func(t *testing.T) { testConsoleStreamingAndLiveRevocation(t, false) })
+	t.Run("api-token", func(t *testing.T) { testConsoleStreamingAndLiveRevocation(t, true) })
+}
+
+func testConsoleStreamingAndLiveRevocation(t *testing.T, tokenAuth bool) {
 	f := newAccessFixture(t)
 	user, member := f.user("console-user", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
@@ -32,6 +37,19 @@ func TestConsoleStreamingAndLiveRevocation(t *testing.T) {
 
 	endpoint := "/api/v1/servers/" + server.ID
 	expectAccess(t, f.admin, "POST", endpoint+"/members", `{"username":"console-user","role_id":5}`, http.StatusOK)
+
+	revoke := func() {
+		expectAccess(t, f.admin, "DELETE", endpoint+"/members/"+fmt.Sprint(user.ID), "", http.StatusNoContent)
+	}
+
+	if tokenAuth {
+		token, secret := createTestAPIToken(t, member, `["server.view","server.operate"]`)
+		browser := member
+		member = bearerAPI(f.panel, secret)
+		revoke = func() {
+			expectAccess(t, browser, "DELETE", fmt.Sprintf("/api/v1/tokens/%d", token.ID), "", http.StatusNoContent)
+		}
+	}
 
 	cancelled := make(chan struct{})
 	f.runtime.console = func(ctx context.Context, id string, emit func(model.ConsoleEvent) error) error {
@@ -90,7 +108,7 @@ func TestConsoleStreamingAndLiveRevocation(t *testing.T) {
 		if strings.Contains(line, `live output\nnext line`) {
 			output = true
 
-			expectAccess(t, f.admin, "DELETE", endpoint+"/members/"+fmt.Sprint(user.ID), "", http.StatusNoContent)
+			revoke()
 		}
 
 		if line == "event: denied" {

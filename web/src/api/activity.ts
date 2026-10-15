@@ -40,6 +40,7 @@ export interface Execution {
 }
 export interface AuditEvent {
   id: string;
+  api_token_id?: number;
   user_id: number;
   username: string;
   action: string;
@@ -94,6 +95,9 @@ function isExecution(value: unknown): value is Execution {
 function isAudit(value: unknown): value is AuditEvent {
   return (
     object(value) &&
+    (value.api_token_id === undefined ||
+      (typeof value.api_token_id === "number" &&
+        Number.isSafeInteger(value.api_token_id))) &&
     strings(value, ["id", "username", "action", "target", "outcome"]) &&
     numbers(value, ["user_id", "status", "created_at"])
   );

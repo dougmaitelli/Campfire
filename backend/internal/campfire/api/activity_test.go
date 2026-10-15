@@ -181,6 +181,16 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","password":"`+password+`","role_id":3}`, http.StatusCreated)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-console-input"}`, http.StatusOK)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/files", `{"operation":"write","path":"secret.txt","data":"cHJpdmF0ZS1maWxl","revision":"absent"}`, http.StatusOK)
+	token, tokenSecret := createTestAPIToken(t, ownerHandler, `["server.view","server.operate"]`)
+	expectAccess(t, bearerAPI(panel.Handler(), tokenSecret), "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-token-command"}`, http.StatusOK)
+
+	_, restricted := createTestAPIToken(t, admin, `["audit.view"]`)
+	for _, path := range []string{"/api/v1/schedules", "/api/v1/schedules/executions"} {
+		filtered := request(bearerAPI(panel.Handler(), restricted), "GET", path, "")
+		if filtered.Code != http.StatusOK || filtered.Body.String() != "[]\n" {
+			t.Fatal("scoped token leaked activity", filtered.Code, filtered.Body)
+		}
+	}
 
 	response = request(panel.Handler(), "POST", "/api/v1/auth/login", `{"username":"owner","password":"private-invalid-password"}`)
 	if response.Code != http.StatusUnauthorized {
@@ -192,7 +202,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal(response.Code, response.Body)
 	}
 
-	for _, secret := range []string{command, password, "private-console-input", "cHJpdmF0ZS1maWxl", "private-invalid-password", "pbkdf2"} {
+	for _, secret := range []string{command, password, tokenSecret, "private-token-command", "private-console-input", "cHJpdmF0ZS1maWxl", "private-invalid-password", "pbkdf2"} {
 		if strings.Contains(response.Body.String(), secret) {
 			t.Fatal("audit retained secret", secret)
 		}
@@ -203,9 +213,13 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var completed, denied, login bool
+	var completed, denied, login, tokenActor bool
 
 	for _, event := range events {
+		if event.Target == "server:"+server.ID && event.Outcome == "succeeded" && event.UserID == owner.ID && event.APITokenID == token.ID {
+			tokenActor = true
+		}
+
 		if event.Action == "server.command" && event.Outcome == "succeeded" && event.UserID == owner.ID {
 			completed = true
 		}
@@ -219,8 +233,8 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		}
 	}
 
-	if !completed || !denied || !login {
-		t.Fatal("audit missing completed, denied, or login event", completed, denied, login)
+	if !completed || !denied || !login || !tokenActor {
+		t.Fatal("audit missing completed, denied, login or token actor event", completed, denied, login, tokenActor)
 	}
 
 	expectAccess(t, ownerHandler, "PUT", "/api/v1/servers/"+server.ID, configJSON(t, input), http.StatusOK)
