@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"campfire/internal/shared/agentidentity"
@@ -295,6 +296,9 @@ func enrollAgent(ctx context.Context, config Config) (agentIdentity, error) {
 }
 
 func connectAgent(ctx context.Context, address, id string, config *tls.Config, netDial func(context.Context, string, string) (net.Conn, error), configurations *ConfigurationStore) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	dialer := websocket.Dialer{TLSClientConfig: config, HandshakeTimeout: 10 * time.Second, NetDialContext: netDial}
 
 	conn, response, err := dialer.DialContext(ctx, address, nil)
@@ -318,7 +322,32 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		case <-done:
 		}
 	}()
-	// The read loop owns writes, so application messages have a single writer.
+	// Console producers and command replies share one serialized writer.
+	var writeMu sync.Mutex
+
+	send := func(message protocol.Message) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+
+		if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return err
+		}
+
+		if err := conn.WriteJSON(message); err != nil {
+			cancel()
+
+			_ = conn.Close()
+
+			return err
+		}
+
+		return nil
+	}
+
+	streams := &consoleStreams{}
+	defer streams.close()
+	defer cancel()
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "unknown"
@@ -366,6 +395,32 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		outgoing := protocol.Message{Type: "heartbeat", Protocol: protocol.ProtocolVersion}
 		switch message.Type {
 		case "heartbeat":
+		case "console.open":
+			if message.Console == nil {
+				return errors.New("missing console stream")
+			}
+
+			if err := streams.open(ctx, id, *message.Console, configurations, send); err != nil {
+				return err
+			}
+
+			continue
+		case "console.close":
+			if message.Console == nil {
+				return errors.New("missing console stream")
+			}
+
+			streams.stop(message.Console.ID)
+
+			continue
+		case "console.ack":
+			if message.Console == nil {
+				return errors.New("missing console acknowledgement")
+			}
+
+			streams.acknowledge(message.Console.ID)
+
+			continue
 		case "command":
 			if message.Command == nil {
 				return errors.New("missing command")
@@ -377,11 +432,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			return errors.New("unsupported panel message")
 		}
 
-		if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			return err
-		}
-
-		if err := conn.WriteJSON(outgoing); err != nil {
+		if err := send(outgoing); err != nil {
 			return err
 		}
 	}

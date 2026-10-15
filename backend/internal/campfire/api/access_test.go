@@ -21,6 +21,17 @@ type accessRuntime struct {
 	calls   atomic.Int64
 	files   func(model.FileRequest) (model.FileResult, error)
 	metrics func(model.RuntimeRequest) (model.RuntimeStatus, error)
+	console func(context.Context, string, func(model.ConsoleEvent) error) error
+}
+
+func (d *accessRuntime) Console(ctx context.Context, _ string, id string, emit func(model.ConsoleEvent) error) error {
+	d.calls.Add(1)
+
+	if d.console != nil {
+		return d.console(ctx, id, emit)
+	}
+
+	return nil
 }
 
 func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Deployment) (model.ConfigurationReceipt, error) {
@@ -150,6 +161,7 @@ func TestServerAuthorizationOwnershipAndRevocation(t *testing.T) {
 		{"GET", "", ""}, {"PUT", "", configJSON(t, input)}, {"DELETE", "", ""},
 		{"POST", "/configuration", "{}"}, {"POST", "/actions", `{"action":"start"}`}, {"GET", "/status", ""},
 		{"GET", "/console", ""}, {"POST", "/console", `{"command":"secret"}`},
+		{"GET", "/console/stream", ""},
 		{"GET", "/files", ""}, {"POST", "/files", `{"operation":"delete","path":"world"}`},
 		{"GET", "/backups", ""}, {"GET", "/backups/backup.tar.gz", ""},
 		{"GET", "/editor", ""}, {"GET", "/access", ""}, {"POST", "/members", `{"username":"admin"}`},

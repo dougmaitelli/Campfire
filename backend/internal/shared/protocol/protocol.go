@@ -8,7 +8,7 @@ import (
 )
 
 // ProtocolVersion is the supported panel-agent wire protocol.
-const ProtocolVersion = 5
+const ProtocolVersion = 6
 
 // CommandName identifies an explicitly supported agent operation.
 type CommandName string
@@ -65,4 +65,12 @@ type Message struct {
 	Version  string           `json:"version,omitempty"`
 	Command  *Command         `json:"command,omitempty"`
 	Response *CommandResponse `json:"response,omitempty"`
+	Console  *ConsoleFrame    `json:"console,omitempty"`
+}
+
+// ConsoleFrame identifies one bounded console stream message on its originating session.
+type ConsoleFrame struct {
+	ID       string             `json:"id"`
+	ServerID string             `json:"server_id"`
+	Event    model.ConsoleEvent `json:"event"`
 }

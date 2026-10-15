@@ -160,7 +160,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	agentDir := filepath.Join(dir, "agent")
 	agentConfig := Config{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, dialContext: listener.dial}
-	wire := &wireDocker{}
+	wire := &wireDocker{console: make(chan string)}
 	agentConfig.runtimeFactory = func(ctx context.Context, directory string) *runtime.Manager {
 		manager := runtime.New(ctx, directory)
 		manager.Docker = wire
@@ -181,6 +181,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	testWireCommands(t, hub, node.ID, agentDir)
 	testWireRuntime(t, hub, node.ID)
+	testWireConsole(t, hub, node.ID, wire)
 
 	hub.Disconnect(node.ID)
 	waitCondition(t, func() bool { return !hub.Connected(node.ID) })

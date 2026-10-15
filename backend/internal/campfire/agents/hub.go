@@ -41,6 +41,7 @@ type peer struct {
 	info     AgentInfo
 	mu       sync.Mutex
 	pending  map[string]chan protocol.CommandResponse
+	consoles map[string]*consoleSubscription
 	outbound chan protocol.Message
 	done     chan struct{}
 }
@@ -256,6 +257,10 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 
 		switch message.Type {
 		case "heartbeat":
+		case "console":
+			if !current.consoleFrame(message.Console) {
+				return
+			}
 		case "response":
 			if message.Response == nil || message.Response.ID == "" || !validResponse(*message.Response) {
 				return

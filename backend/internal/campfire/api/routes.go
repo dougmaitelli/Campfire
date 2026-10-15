@@ -63,6 +63,7 @@ func (a *API) Handler() http.Handler {
 	server("POST /api/v1/servers/{id}/actions", "server.operate", a.serverAction)
 	server("GET /api/v1/servers/{id}/status", "server.view", a.serverStatus)
 	server("GET /api/v1/servers/{id}/console", "server.operate", a.serverConsole)
+	server("GET /api/v1/servers/{id}/console/stream", "server.operate", a.streamConsole)
 	server("POST /api/v1/servers/{id}/console", "server.operate", a.serverConsole)
 	server("GET /api/v1/servers/{id}/files", "server.operate", a.serverFiles)
 	server("POST /api/v1/servers/{id}/files", "server.operate", a.serverFiles)

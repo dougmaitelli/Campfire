@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Server } from "../api/servers";
-import { sendConsole, serverConsole } from "../api/runtime";
+import { sendConsole } from "../api/runtime";
 import { Drawer } from "../components/layout/Drawer";
 
 export function ServerConsoleDialog({
@@ -14,36 +14,53 @@ export function ServerConsoleDialog({
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
+  const output = useRef<HTMLPreElement>(null);
+  const following = useRef(true);
   const [error, setError] = useState<string | null>(null);
+  const [connection, setConnection] = useState("Connecting…");
   useEffect(() => {
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function poll() {
+    if (following.current && output.current)
+      output.current.scrollTop = output.current.scrollHeight;
+  }, [logs]);
+  useEffect(() => {
+    const stream = new EventSource(
+      `/api/v1/servers/${encodeURIComponent(server.id)}/console/stream`,
+    );
+    stream.addEventListener("ready", () => {
+      setLogs("");
+      setConnection("Connected");
+    });
+    stream.addEventListener("output", (event: MessageEvent<string>) => {
       try {
-        const status = await serverConsole(
-          server.id,
-          AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]),
-        );
-        if (!controller.signal.aborted) {
-          setLogs(status.logs ?? "");
-          setError(null);
-        }
-      } catch (cause) {
-        if (!controller.signal.aborted)
-          setError(
-            cause instanceof Error ? cause.message : "Unable to read console.",
-          );
+        const value: unknown = JSON.parse(event.data);
+        if (
+          typeof value !== "object" ||
+          value === null ||
+          !("content" in value) ||
+          typeof value.content !== "string"
+        )
+          return;
+        const content = value.content;
+        setLogs((previous) => (previous + content).slice(-262144));
+      } catch {
+        setConnection("Invalid console output. Close and reopen to retry.");
+        stream.close();
       }
-      if (!controller.signal.aborted)
-        timer = setTimeout(() => {
-          void poll();
-        }, 2000);
-    }
-    void poll();
-    return () => {
-      controller.abort();
-      if (timer !== undefined) clearTimeout(timer);
-    };
+    });
+    stream.addEventListener("ended", () =>
+      setConnection("Console ended; reconnecting…"),
+    );
+    stream.addEventListener("denied", () => {
+      setConnection("Console access ended.");
+      stream.close();
+    });
+    stream.onerror = () =>
+      setConnection(
+        stream.readyState === EventSource.CLOSED
+          ? "Console unavailable. Close and reopen to retry."
+          : "Connection lost; reconnecting…",
+      );
+    return () => stream.close();
   }, [server.id]);
   async function send() {
     if (pending.current || !command.trim()) return;
@@ -65,7 +82,7 @@ export function ServerConsoleDialog({
   return (
     <Drawer
       title={`${server.name} console`}
-      description="Live console output refreshes every two seconds. Shows the latest 200 lines."
+      description="Continuous console output. Reconnects with recent history; keeps the latest 256K characters in this view."
       busy={busy}
       onClose={onClose}
       footerLeft={
@@ -86,12 +103,25 @@ export function ServerConsoleDialog({
       }
     >
       <div className="drawer-content">
+        <p className="field-help" role="status">
+          {connection}
+        </p>
         {error && (
           <p className="error-message" role="alert">
             {error}
           </p>
         )}
         <pre
+          ref={output}
+          onScroll={() => {
+            const element = output.current;
+            if (element)
+              following.current =
+                element.scrollHeight -
+                  element.scrollTop -
+                  element.clientHeight <
+                32;
+          }}
           className="server-console-output"
           tabIndex={0}
           aria-label="Console output"

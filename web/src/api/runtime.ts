@@ -68,15 +68,6 @@ export function serverAction(
   }).then((response) => readStatus(response, id));
 }
 
-export function serverConsole(
-  id: string,
-  signal: AbortSignal,
-): Promise<RuntimeStatus> {
-  return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/console`, {
-    signal,
-  }).then((response) => readStatus(response, id));
-}
-
 export function sendConsole(
   id: string,
   command: string,
