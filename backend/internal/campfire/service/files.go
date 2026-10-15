@@ -23,6 +23,10 @@ func (s *DeploymentService) Files(ctx context.Context, id string, request model.
 	}
 	defer release()
 
+	return s.filesUnlocked(ctx, id, request)
+}
+
+func (s *DeploymentService) filesUnlocked(ctx context.Context, id string, request model.FileRequest) (model.FileResult, error) {
 	if s.Transfers != nil && request.Operation != "list" && request.Operation != "read" && request.Operation != "backup.list" && request.Operation != "backup.read" {
 		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
 			return model.FileResult{}, err

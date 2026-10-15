@@ -75,6 +75,8 @@ func (a *API) Handler() http.Handler {
 	server("GET /api/v1/servers/{id}/files", "server.operate", a.serverFiles)
 	server("POST /api/v1/servers/{id}/files", "server.operate", a.serverFiles)
 	server("GET /api/v1/servers/{id}/backups", "server.operate", a.serverBackups)
+	server("PUT /api/v1/servers/{id}/backup-policy", "server.configure", a.saveBackupPolicy)
+	server("DELETE /api/v1/servers/{id}/backups/{name}", "server.configure", a.deleteBackup)
 	server("GET /api/v1/servers/{id}/backups/{name}", "server.operate", a.downloadBackup)
 
 	return a.auditRequests(a.authenticate(mux))

@@ -20,7 +20,7 @@ const backupBytes int64 = 100 << 30
 const backupEntries = 100000
 
 func backupName(name string) bool {
-	return strings.HasSuffix(name, ".tar.gz") && safeID.MatchString(strings.TrimSuffix(name, ".tar.gz"))
+	return model.BackupName(name)
 }
 
 func (m *Manager) backupStopped(ctx context.Context, id string) error {
@@ -39,7 +39,7 @@ func (m *Manager) backupStopped(ctx context.Context, id string) error {
 // backupFiles lists immutable archives and reads bounded chunks over the file protocol.
 func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Path}
-	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID || (q.Operation != "backup.list" && q.Operation != "backup.read") || q.Offset < 0 {
+	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID || (q.Operation != "backup.list" && q.Operation != "backup.read" && q.Operation != "backup.delete") || q.Offset < 0 {
 		return result, fileFailure("invalid_file", "Invalid backup request.")
 	}
 
@@ -57,6 +57,12 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 
 	if e.Status.Busy {
 		return result, fileFailure("file_busy", "Wait for the current server operation to finish.")
+	}
+
+	if q.Operation == "backup.delete" {
+		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != "active" && transfer.State != "released") {
+			return result, fileFailure("file_busy", "Finish the Spark transfer before deleting backups.")
+		}
 	}
 
 	root, err := os.OpenRoot(filepath.Join(m.root(q.ServerID), "backups"))
@@ -104,6 +110,27 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 
 	if !backupName(q.Path) {
 		return result, fileFailure("invalid_file", "Invalid backup name.")
+	}
+
+	if q.Operation == "backup.delete" {
+		info, err := root.Lstat(q.Path)
+		if errors.Is(err, os.ErrNotExist) {
+			return result, nil
+		}
+
+		if err != nil || !info.Mode().IsRegular() {
+			return result, fileFailure("invalid_file", "Select a regular backup archive.")
+		}
+
+		if err := root.Remove(q.Path); err != nil {
+			return result, fileFailure("file_io", "Could not delete backup.")
+		}
+
+		if err := syncBackupDirectory(filepath.Join(m.root(q.ServerID), "backups")); err != nil {
+			return result, fileFailure("file_io", "Could not synchronize backup deletion.")
+		}
+
+		return result, nil
 	}
 
 	file, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)

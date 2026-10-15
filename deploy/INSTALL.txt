@@ -12,6 +12,69 @@ Sparks enroll and connect using the same HTTPS agent protocol as other Sparks.
 There is no embedded runtime or local-mode environment setting. Campfire always
 runs without Docker access; Spark needs Docker and runs with execution privileges.
 
+Backups, off-host storage and retention
+--------------------------------------
+Deploy Campfire and Spark together: the backup extensions use agent protocol 7.
+Archives are first completed on the Spark, whether created manually or by a
+recurring backup schedule. A Campfire background worker discovers them, uploads
+eligible copies, and retries failures after restarts. Server operation history
+records creation/restoration; the Backups dialog shows local/S3 availability,
+synchronization errors and pending deletion. Uploads do not stage files on panel
+disk. They use SHA-256 validation and checksummed S3 multipart uploads, keeping
+the local archive when synchronization fails.
+
+Configure S3 only on Campfire (see config/campfire.env.example):
+
+  CAMPFIRE_S3_BUCKET=campfire-backups
+  CAMPFIRE_S3_REGION=us-east-1
+  CAMPFIRE_S3_PREFIX=campfire
+
+The AWS SDK credential chain supports AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+an optional AWS_SESSION_TOKEN, shared AWS configuration, and instance roles.
+Credentials are not stored in server configuration or sent to Sparks. For
+S3-compatible services, set CAMPFIRE_S3_ENDPOINT and, when required,
+CAMPFIRE_S3_PATH_STYLE=true. Both Campfire and Sparks must be able to reach and
+trust the storage endpoint; Sparks download off-host restores directly using a
+short-lived URL for one object. Redirects are rejected. No new public Spark port
+is required, and URLs are not retained in status, audit or operation history.
+
+Grant the service account bucket ListBucket access restricted to the configured
+prefix, and object GetObject, PutObject, DeleteObject and AbortMultipartUpload.
+Versioned buckets additionally need GetObjectVersion and DeleteObjectVersion.
+Campfire records object version IDs and removes the owned version on deletion.
+Configure bucket lifecycle cleanup for incomplete multipart uploads left by a
+host crash. Do not apply an external lifecycle policy that expires managed
+objects sooner than Campfire's retention policy.
+
+Enable background S3 sync per server in Backups > Storage and retention.
+Configure local and S3 retention independently by newest-copy count and maximum
+age in days. Zero disables that limit; automatic deletion is off by default.
+For example, set Local copies to keep = 3 and S3 copies to keep = 1. Sync uploads
+the eligible newest archive, retains older local copies up to the local limit,
+and prunes older S3 copies only after the newer upload succeeds. A local archive
+awaiting a required upload is protected. Retention settings apply to both
+manual and scheduled backups. Existing local storage still has its 1000-archive
+ceiling; configure local retention when using long-running backup schedules.
+
+Backups can be downloaded through Campfire even while their Spark is offline
+when an S3 copy is available. Restoring requires a connected, stopped server.
+Spark verifies downloaded size and SHA-256 before publishing the archive, then
+uses the existing contained restore validation; failure preserves game data.
+The restore cache is subject to local retention. Back up Campfire's database as
+well: its catalog records object keys, versions, checksums and server ownership.
+Keep the configured bucket, endpoint and prefix stable while managed backups
+exist. Campfire rejects mismatched storage settings instead of accessing another
+bucket. Retention changes cannot recover deleted copies or cancel deletion
+already in progress.
+
+Users with server configure permission can change policies and delete local or
+S3 copies separately. Operators retain creation, download and restore access.
+Deleting one copy keeps the other; explicitly deleting an S3 copy suppresses
+background reupload of that archive. Deletion intent is durable and retries when
+storage is available. Cleanup waits for active server operations and transfers.
+Deleting a server also removes its managed S3 versions before deleting local
+game data, backups and database reservations; unavailable S3 blocks completion.
+
 Server Ember revisions, updates and reinstalls
 ---------------------------------------------
 Import a new Ember before applying it. Imports remain immutable, and importing

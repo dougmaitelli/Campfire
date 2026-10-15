@@ -181,7 +181,7 @@ func (a *API) getServer(w http.ResponseWriter, r *http.Request) {
 func (a *API) deleteServer(w http.ResponseWriter, r *http.Request) {
 	if a.deployment != nil {
 		if err := a.deployment.Delete(r.Context(), r.PathValue("id")); err != nil {
-			writeError(w, err)
+			writeFileError(w, err)
 			return
 		}
 
@@ -244,7 +244,7 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeError(w, err)
+		writeFileError(w, err)
 		return
 	}
 

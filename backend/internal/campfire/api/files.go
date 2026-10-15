@@ -5,6 +5,7 @@ import (
 	"campfire/internal/shared/model"
 	"errors"
 	"net/http"
+	"slices"
 )
 
 func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
@@ -23,6 +24,11 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		if !slices.Contains([]string{"list", "read", "write", "mkdir", "rename", "delete"}, input.Operation) {
+			writeFileError(w, &model.FileError{Code: "invalid_file", Message: "Invalid game file operation."})
+			return
+		}
+
 		for _, operation := range []string{"list", "read", "write", "mkdir", "rename", "delete"} {
 			if input.Operation == operation {
 				auditDetail(r, "server.files."+operation, "server:"+r.PathValue("id"))

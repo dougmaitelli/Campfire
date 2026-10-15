@@ -2,8 +2,12 @@ package agent
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -312,6 +316,38 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 			file, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "read", Path: "world.bin"})
 			if err != nil || string(file.Data) != string([]byte{0, 255, 1}) {
 				t.Fatal("remote restore failed", err)
+			}
+
+			archive, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.read", Path: "backup-operation.tar.gz"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			objectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(archive.Data) }))
+			defer objectServer.Close()
+
+			if _, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.delete", Path: "backup-operation.tar.gz"}); err != nil {
+				t.Fatal(err)
+			}
+
+			hash := sha256.Sum256(archive.Data)
+
+			remoteStatus, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: "restore", OperationID: "offhost-restore", Content: "backup-operation.tar.gz", BackupSource: &model.BackupSource{URL: objectServer.URL, Size: archive.Size, Digest: hex.EncodeToString(hash[:])}})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for remoteStatus.Busy {
+				time.Sleep(5 * time.Millisecond)
+
+				remoteStatus, err = hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: "status"})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if remoteStatus.Error != "" {
+				t.Fatal("off-host restore over mTLS failed", remoteStatus.Error)
 			}
 		}
 

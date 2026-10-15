@@ -298,7 +298,13 @@ func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
 	case "backup":
 		err = m.createBackup(ctx, d, q.OperationID, e)
 	case "restore":
-		err = m.restoreBackup(ctx, d, q.Content, e)
+		if q.BackupSource != nil {
+			err = m.downloadBackup(ctx, d, q.Content, q.BackupSource, e)
+		}
+
+		if err == nil {
+			err = m.restoreBackup(ctx, d, q.Content, e)
+		}
 	default:
 		err = m.perform(ctx, d, q.Action, e)
 	}

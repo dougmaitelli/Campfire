@@ -2,10 +2,11 @@ package model
 
 // RuntimeRequest identifies a server lifecycle operation; status is read-only.
 type RuntimeRequest struct {
-	ServerID    string `json:"server_id"`
-	Action      string `json:"action"`
-	OperationID string `json:"operation_id,omitempty"`
-	Content     string `json:"content,omitempty"`
+	ServerID     string        `json:"server_id"`
+	Action       string        `json:"action"`
+	OperationID  string        `json:"operation_id,omitempty"`
+	Content      string        `json:"content,omitempty"`
+	BackupSource *BackupSource `json:"backup_source,omitempty"`
 }
 
 // RuntimeStatus reports observed state and the latest asynchronous operation.

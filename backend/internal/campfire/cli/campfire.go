@@ -19,6 +19,7 @@ import (
 
 	"campfire/internal/campfire/agents"
 	"campfire/internal/campfire/api"
+	"campfire/internal/campfire/backupstorage"
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
@@ -152,6 +153,27 @@ func Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("start schedules: %w", err)
 	}
 	defer activity.Close()
+
+	pathStyle, err := strconv.ParseBool(environment("CAMPFIRE_S3_PATH_STYLE", "false"))
+	if err != nil {
+		return errors.New("CAMPFIRE_S3_PATH_STYLE must be a boolean")
+	}
+
+	objectStore, err := backupstorage.New(ctx, backupstorage.Config{Bucket: environment("CAMPFIRE_S3_BUCKET", ""), Region: environment("CAMPFIRE_S3_REGION", "us-east-1"), Endpoint: environment("CAMPFIRE_S3_ENDPOINT", ""), Prefix: environment("CAMPFIRE_S3_PREFIX", ""), PathStyle: pathStyle})
+	if err != nil {
+		return fmt.Errorf("configure backup storage: %w", err)
+	}
+
+	var remoteBackups service.BackupStorage
+	if objectStore != nil {
+		remoteBackups = objectStore
+	}
+
+	backups := service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, remoteBackups)
+	deployment.Backups = backups
+
+	backups.Start(ctx)
+	defer backups.Close()
 
 	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).Handler()
 	admin := newHTTPServer(ctx, webui.Handler(handler))

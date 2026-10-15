@@ -8,7 +8,7 @@ import (
 )
 
 // ProtocolVersion is the supported panel-agent wire protocol.
-const ProtocolVersion = 6
+const ProtocolVersion = 7
 
 // CommandName identifies an explicitly supported agent operation.
 type CommandName string

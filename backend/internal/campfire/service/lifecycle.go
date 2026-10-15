@@ -197,6 +197,13 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 	}
 
 	request := model.RuntimeRequest{ServerID: id, Action: action, Content: content}
+	if action == "restore" && s.Backups != nil {
+		request.BackupSource, err = s.Backups.Source(ctx, id, content)
+		if err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
 	if action != "status" && action != "logs" && action != "command" {
 		request.OperationID = operationID
 		if request.OperationID == "" {
@@ -251,6 +258,20 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 	}
 	defer release()
 
+	if s.Transfers != nil {
+		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	if s.Backups != nil {
+		releaseBackups, err := s.Backups.BeforeServerDelete(ctx, id)
+		if err != nil {
+			return err
+		}
+		defer releaseBackups()
+	}
+
 	status, err := s.runActionUnlocked(ctx, id, "delete", "")
 	if err != nil {
 		return err
@@ -274,6 +295,12 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 
 	if status.Error != "" || status.State != "deleted" {
 		return ErrDeploymentUnavailable
+	}
+
+	if s.Backups != nil {
+		if err := s.Backups.ForgetServer(ctx, id); err != nil {
+			return err
+		}
 	}
 
 	if err := s.Servers.Delete(ctx, id); err != nil {

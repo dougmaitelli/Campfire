@@ -79,7 +79,9 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	dispatch := &accessRuntime{}
-	panel := api.New(sparks, embers, servers).WithDeployment(&service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: dispatch})
+	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: dispatch}
+	deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
+	panel := api.New(sparks, embers, servers).WithDeployment(deployment)
 	admin := authenticatedTestAPI(t, db, panel)
 
 	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch}

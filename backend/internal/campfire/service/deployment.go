@@ -25,6 +25,7 @@ type DeploymentService struct {
 	Remote      ConfigurationDispatcher
 	Activity    *ActivityService
 	Transfers   *TransferService
+	Backups     *BackupService
 	mu          sync.Mutex
 	locks       map[string]*deliveryLock
 	statuses    map[string]model.RuntimeStatus
