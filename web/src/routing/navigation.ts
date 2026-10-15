@@ -6,6 +6,7 @@ export const navigation = [
   { id: "users", label: "Users", icon: "users" },
   { id: "roles", label: "Roles", icon: "roles" },
   { id: "schedules", label: "Schedules", icon: "schedules" },
+  { id: "notifications", label: "Notifications", icon: "notifications" },
   { id: "audit", label: "Audit", icon: "audit" },
 ] as const;
 

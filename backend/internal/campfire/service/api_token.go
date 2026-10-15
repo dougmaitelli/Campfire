@@ -13,7 +13,7 @@ import (
 )
 
 // APITokenScopes is the existing permission vocabulary plus all current access.
-var APITokenScopes = []string{"*", "servers.create", "servers.manage_all", "sparks.manage", "embers.manage", "users.manage", "roles.manage", "audit.view", "server.view", "server.operate", "server.configure", "server.delete", "server.share"}
+var APITokenScopes = []string{"*", "servers.create", "servers.manage_all", "sparks.manage", "embers.manage", "users.manage", "roles.manage", "audit.view", "server.view", "server.operate", "server.configure", "server.delete", "server.share", "notifications.read", "notifications.write", "notifications.manage"}
 
 // CreateAPIToken returns a secret exactly once. Scopes restrict live user access
 // and cannot independently grant any platform permission or server membership.

@@ -15,16 +15,23 @@ import (
 
 // API translates HTTP requests into service calls.
 type API struct {
-	sparks     *service.SparkService
-	embers     *service.EmberService
-	servers    *service.ServerService
-	agents     *agents.Hub
-	deployment *service.DeploymentService
-	auth       *service.AuthService
-	access     *service.AccessService
-	origin     string
-	oidc       *service.OIDCService
-	activity   *service.ActivityService
+	sparks        *service.SparkService
+	embers        *service.EmberService
+	servers       *service.ServerService
+	agents        *agents.Hub
+	deployment    *service.DeploymentService
+	auth          *service.AuthService
+	access        *service.AccessService
+	origin        string
+	oidc          *service.OIDCService
+	activity      *service.ActivityService
+	notifications *service.NotificationService
+}
+
+// WithNotifications enables personal inboxes and monitoring notification controls.
+func (a *API) WithNotifications(notifications *service.NotificationService) *API {
+	a.notifications = notifications
+	return a
 }
 
 // WithActivity enables schedules, retained executions and the audit boundary.
@@ -92,6 +99,8 @@ func writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, repository.ErrAccessConflict), errors.Is(err, repository.ErrLastAdmin):
 		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, repository.ErrAccessNotFound):
+		status, message = http.StatusNotFound, err.Error()
+	case errors.Is(err, repository.ErrNotificationNotFound):
 		status, message = http.StatusNotFound, err.Error()
 	case errors.Is(err, service.ErrServerActive):
 		status, message = http.StatusConflict, service.ErrServerActive.Error()

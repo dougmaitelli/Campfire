@@ -192,6 +192,13 @@ func migrate(db *gorm.DB) error {
 		}
 
 		current := tx.Session(&gorm.Session{})
+		for _, model := range []any{&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{}} {
+			if !tx.Migrator().HasTable(model) {
+				if err := tx.Migrator().CreateTable(model); err != nil {
+					return fmt.Errorf("create notification schema: %w", err)
+				}
+			}
+		}
 
 		current.IgnoreRelationshipsWhenMigrating = true
 		if err := current.AutoMigrate(&SparkIdentity{}, &ServerTransfer{}, &BackupPolicy{}, &Backup{}, &AuditEvent{}, &ScheduleRun{}); err != nil {

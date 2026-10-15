@@ -74,6 +74,11 @@ func Run(ctx context.Context, args []string) error {
 		return err
 	}
 
+	alerts, apprise, err := notificationConfig()
+	if err != nil {
+		return err
+	}
+
 	origin, err := adminOrigin(*listen, *publicURL)
 	if err != nil {
 		return err
@@ -181,7 +186,15 @@ func Run(ctx context.Context, args []string) error {
 	backups.Start(ctx)
 	defer backups.Close()
 
-	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).Handler()
+	notifications := service.NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, auth)
+
+	notifications.Config, notifications.Apprise = alerts, apprise
+	if err := notifications.Start(ctx); err != nil {
+		return fmt.Errorf("start notifications: %w", err)
+	}
+	defer notifications.Close()
+
+	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
 	admin := newHTTPServer(ctx, webui.Handler(handler))
 
 	var active []*http.Server

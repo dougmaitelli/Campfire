@@ -12,6 +12,75 @@ Sparks enroll and connect using the same HTTPS agent protocol as other Sparks.
 There is no embedded runtime or local-mode environment setting. Campfire always
 runs without Docker access; Spark needs Docker and runs with execution privileges.
 
+Notifications and monitoring alerts
+-----------------------------------
+The Notifications page stores messages with independent read/unread state for
+each recipient. The sidebar refreshes its unread badge every 15 seconds. Reading
+or marking all read affects only your account. An inbox receives server alerts
+only for administrators, the owner and members with server.view at emission;
+list, unread counts and read changes recheck current access. Revoked users lose
+access to those messages. Spark alerts are administrator-only. New memberships
+do not grant old recipients' messages, and disabling external delivery does not
+disable the inbox. Notifications are distinct from audit and operation history;
+their messages and read receipts persist independently of those retention limits.
+
+Monitoring runs on Campfire, even without any browser connected. Defaults:
+
+  CAMPFIRE_ALERT_CPU_PERCENT=90
+  CAMPFIRE_ALERT_MEMORY_PERCENT=90
+  CAMPFIRE_ALERT_DISK_PERCENT=90
+  CAMPFIRE_ALERT_DURATION_SECONDS=120
+  CAMPFIRE_ALERT_INTERVAL_SECONDS=30
+  CAMPFIRE_ALERT_HEALTH_ENABLED=true
+
+Percentages are relative to each server's allocation: 180% CPU usage on a
+two-core allocation is 90%. A percentage of 0 disables that resource alert;
+otherwise choose 0–100. The interval is 5–3600 seconds and the sustained duration
+0–86400 seconds. Health conditions include enabled Sparks disconnecting,
+unavailable server monitoring, failed/dead runtime states and quota verification
+failures while a game is running. Intentionally stopped, deleted or uninstalled
+games do not trigger downtime alerts. This does not probe game ports or infer
+an unexpected stop from an otherwise healthy stopped container.
+
+Both alert and recovery conditions must persist for the configured duration.
+Resource recovery uses a five-percentage-point dead band. Missing/stale samples
+do not become healthy samples, and gaps reset pending timers. Disabled Sparks
+are excluded. Each state transition creates one message; active state is saved
+so polls and restarts do not repeat an active alert. Optional Spark metrics
+capabilities and existing Docker/filesystem checks continue to apply.
+
+Optional Apprise delivery follows DockDash's JSON notification contract:
+
+  CAMPFIRE_APPRISE_URL=http://apprise:8000/notify/campfire
+  CAMPFIRE_APPRISE_TAGS=admins,homelab
+  CAMPFIRE_APPRISE_URLS=discord://webhook_id/webhook_token
+
+Set the complete notify endpoint. Tags and inline target URLs are optional
+comma-separated lists, sent as tag and urls arrays along with title, body and
+type. Existing Apprise configurations can route the message without inline URLs.
+The endpoint is operator-controlled and may be on a private network. Protect
+credential-bearing settings as deployment secrets; they are never returned to
+the browser or included in delivery errors. Requests time out after five seconds
+and redirects are rejected. No Apprise binary or embedded service is required.
+
+Apprise is a global operator destination and receives monitoring messages for
+all servers; it is not a per-user routing configuration. The inbox is committed
+before external delivery. A background outbox attempts queued messages, with up
+to five attempts and exponential delays starting at 30 seconds. External failures
+leave messages and read state intact. Admins can inspect queued/failed counts,
+send a test and retry exhausted deliveries from Notifications. Test messages are
+stored only in the requesting admin's inbox and also queued when configured.
+Delivery can duplicate if the remote service accepted a request before a lost
+acknowledgment or panel crash. No game-server action is retried by this worker.
+
+Disabling Apprise pauses its existing queue. Enabling it resumes that queue;
+messages created while disabled are not backfilled. Set environment values in
+the systemd environment file or Compose .env and restart/recreate Campfire.
+Notification API tokens can use notifications.read, notifications.write and the
+admin-only notifications.manage scopes. Server messages additionally require
+server.view; Spark messages additionally require sparks.manage. Scopes never
+grant permissions beyond the underlying user and their recipient assignments.
+
 Personal API tokens
 -------------------
 Open API tokens from your account in the sidebar to create a named credential.
@@ -661,7 +730,8 @@ Spark caches container measurements for five seconds and disk measurements for
 30 seconds. The UI polls every five seconds and marks old readings stale.
 Unavailable readings stay unavailable rather than becoming zero. The first CPU
 sample may need another polling interval to establish a baseline. Measurements
-are live snapshots, without persistent metric history or alerting.
+are live snapshots, without persistent metric history. Background monitoring
+evaluates these snapshots for health and resource alerts (see Notifications).
 
 Users see only servers they can view. Administrators also see Spark connection
 status and configured capacity; these capacity figures are not host OS usage.
