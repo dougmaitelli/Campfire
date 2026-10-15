@@ -18,7 +18,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (9)").Error; err != nil {
+	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (10)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -31,6 +31,64 @@ func TestRejectNewerSchema(t *testing.T) {
 		_ = reopened.Close()
 
 		t.Fatal("opened unsupported future schema")
+	}
+}
+
+func TestSchedulesMigrationPreservesOIDCAndSessions(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "panel.db")
+
+	db, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, record := range []any{
+		&database.User{ID: 1, Username: "admin", PasswordHash: "preserved", Version: 4, RoleID: database.AdminRole},
+		&database.OIDCIdentity{Issuer: "https://identity.example.com", Subject: "original", UserID: 1},
+		&database.UserSession{Hash: "persisted", Provider: "https://identity.example.com", UserID: 1, CSRF: "csrf", CredentialVersion: 4, ExpiresAt: 9999999999, LastSeenAt: 1},
+	} {
+		if err := db.ORM().Omit("Role", "User").Create(record).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version = 9").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	var session database.UserSession
+	if err := reopened.ORM().Preload("User").Take(&session, "hash = ?", "persisted").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if session.Provider != "https://identity.example.com" || session.User.PasswordHash != "preserved" || session.CredentialVersion != 4 {
+		t.Fatal("migration changed authentication")
+	}
+
+	var identity database.OIDCIdentity
+	if err := reopened.ORM().Take(&identity, "subject = ?", "original").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	for _, table := range []any{&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}} {
+		if !reopened.ORM().Migrator().HasTable(table) {
+			t.Fatal("activity table missing")
+		}
 	}
 }
 
@@ -51,7 +109,7 @@ func TestOIDCMigrationPreservesAccountsAndLocalSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Migrator().DropTable(&database.OIDCIdentity{}); err != nil {
+	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}, &database.OIDCIdentity{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -59,7 +117,7 @@ func TestOIDCMigrationPreservesAccountsAndLocalSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version = 8").Error; err != nil {
+	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version >= 8").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -106,7 +164,7 @@ func TestAuthenticationMigrationPreservesPopulatedVersionFive(t *testing.T) {
 	}
 
 	// Recreate the pre-auth schema by removing only the new tables and migration.
-	if err := db.ORM().Migrator().DropTable(&database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
+	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}, &database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -164,7 +222,7 @@ func TestMultiUserMigrationPreservesAdministratorAndClaimsServers(t *testing.T) 
 		}
 	}
 
-	if err := db.ORM().Migrator().DropTable(&database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
+	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}, &database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
 		t.Fatal(err)
 	}
 

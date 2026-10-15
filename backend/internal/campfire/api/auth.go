@@ -99,11 +99,16 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 		}
 
 		if unsafe && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(session.CSRF)) != 1 {
+			auditActor(r, service.PrincipalFromSession(session))
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "invalid CSRF token; reload and try again"})
+
 			return
 		}
 
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, service.PrincipalFromSession(session))))
+		principal := service.PrincipalFromSession(session)
+		auditActor(r, principal)
+		ctx := service.WithActor(r.Context(), principal)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, principalKey{}, principal)))
 	})
 }
 
@@ -198,6 +203,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 	}
 
 	a.setSessionCookie(w, r, token, session.ExpiresAt)
+	auditActor(r, service.PrincipalFromSession(session))
 	writeJSON(w, http.StatusOK, a.loginState(session))
 }
 

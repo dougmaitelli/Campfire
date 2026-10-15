@@ -79,8 +79,8 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 8 {
-			return fmt.Errorf("database schema version %d is newer than supported version 8", version)
+		if version > 9 {
+			return fmt.Errorf("database schema version %d is newer than supported version 9", version)
 		}
 
 		if version == 0 {
@@ -169,6 +169,16 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if err := tx.Create(&schemaMigration{Version: 8}).Error; err != nil {
+				return fmt.Errorf("record migration: %w", err)
+			}
+		}
+
+		if version < 9 {
+			if err := tx.Migrator().CreateTable(&Schedule{}, &ScheduleRun{}, &AuditEvent{}); err != nil {
+				return fmt.Errorf("apply schedules and audit schema: %w", err)
+			}
+
+			if err := tx.Create(&schemaMigration{Version: 9}).Error; err != nil {
 				return fmt.Errorf("record migration: %w", err)
 			}
 		}

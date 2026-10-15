@@ -23,6 +23,7 @@ type DeploymentService struct {
 	Sparks   *SparkService
 	Embers   *EmberService
 	Remote   ConfigurationDispatcher
+	Activity *ActivityService
 	mu       sync.Mutex
 	locks    map[string]*deliveryLock
 	statuses map[string]model.RuntimeStatus

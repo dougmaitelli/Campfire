@@ -140,7 +140,15 @@ func Run(ctx context.Context, args []string) error {
 		deployment.Remote = hub
 	}
 
-	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).Handler()
+	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
+
+	deployment.Activity = activity
+	if err := activity.Start(ctx); err != nil {
+		return fmt.Errorf("start schedules: %w", err)
+	}
+	defer activity.Close()
+
+	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).Handler()
 	admin := newHTTPServer(ctx, webui.Handler(handler))
 
 	var active []*http.Server

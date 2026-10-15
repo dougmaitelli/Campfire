@@ -6,6 +6,9 @@ import (
 	"errors"
 	"time"
 
+	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/database/repository"
+
 	"campfire/internal/shared/model"
 )
 
@@ -48,6 +51,101 @@ func (s *DeploymentService) runAction(ctx context.Context, id, action, content s
 }
 
 func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, content string) (model.RuntimeStatus, error) {
+	if s.Activity == nil || action == "logs" || action == "status" || action == "command" {
+		status, err := s.dispatchAction(ctx, id, action, content, "")
+		if err == nil && s.Activity != nil && action == "status" {
+			err = s.recordObservation(ctx, id, status)
+		}
+
+		return status, err
+	}
+
+	if status, err := s.dispatchAction(ctx, id, "status", "", ""); err == nil {
+		if err := s.recordObservation(ctx, id, status); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
+	run, err := s.Activity.BeginManual(ctx, id, action, content)
+	if err != nil {
+		return model.RuntimeStatus{}, err
+	}
+
+	status, err := s.dispatchAction(ctx, id, action, content, run.ID)
+
+	recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer cancel()
+
+	if err != nil {
+		if recordErr := s.Activity.finish(recordCtx, run, "interrupted", "Dispatch failed; verify server state before retrying."); recordErr != nil {
+			return model.RuntimeStatus{}, errors.Join(err, recordErr)
+		}
+
+		return model.RuntimeStatus{}, err
+	}
+
+	if status.Busy {
+		if err := s.Activity.Store.UpdateRun(recordCtx, run.ID, "running", "", time.Now()); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
+	if err := s.Activity.observe(recordCtx, run, status); err != nil {
+		return model.RuntimeStatus{}, err
+	}
+
+	return status, nil
+}
+
+func (s *DeploymentService) recordObservation(ctx context.Context, id string, status model.RuntimeStatus) error {
+	if status.OperationID == "" {
+		return nil
+	}
+
+	run, err := s.Activity.Store.Run(ctx, status.OperationID)
+	if errors.Is(err, repository.ErrAccessNotFound) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if run.ServerID == id && run.State == "running" {
+		return s.Activity.observe(ctx, run, status)
+	}
+
+	return nil
+}
+
+func (s *DeploymentService) executeTracked(ctx context.Context, run database.ScheduleRun) (model.RuntimeStatus, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	release, err := s.lockServer(ctx, run.ServerID)
+	if err != nil {
+		return model.RuntimeStatus{}, err
+	}
+	defer release()
+
+	if _, err := s.Activity.checkQueued(ctx, run); err != nil {
+		return model.RuntimeStatus{}, err
+	}
+
+	if status, err := s.dispatchAction(ctx, run.ServerID, "status", "", ""); err == nil {
+		if err := s.recordObservation(ctx, run.ServerID, status); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+
+		if status.Busy {
+			return model.RuntimeStatus{}, ErrServerActive
+		}
+	}
+
+	return s.dispatchAction(ctx, run.ServerID, run.Action, run.Content, run.ID)
+}
+
+func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, content, operationID string) (model.RuntimeStatus, error) {
 	switch action {
 	case "install", "start", "stop", "restart", "kill", "delete", "status", "logs", "command", "backup", "restore":
 	default:
@@ -83,7 +181,10 @@ func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, c
 
 	request := model.RuntimeRequest{ServerID: id, Action: action, Content: content}
 	if action != "status" && action != "logs" && action != "command" {
-		request.OperationID = rand.Text()
+		request.OperationID = operationID
+		if request.OperationID == "" {
+			request.OperationID = rand.Text()
+		}
 	}
 
 	status, err := runtime.Action(ctx, node.ID, request)

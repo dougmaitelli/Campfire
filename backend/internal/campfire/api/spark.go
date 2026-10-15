@@ -23,6 +23,7 @@ func (a *API) createSpark(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", "/api/v1/sparks/"+spark.ID)
+	auditDetail(r, "spark.create", "spark:"+spark.ID)
 	writeJSON(w, http.StatusCreated, spark)
 }
 

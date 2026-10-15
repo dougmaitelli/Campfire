@@ -48,5 +48,11 @@ export function useCollection<T extends { id: string | number }>(
     setLoading(false);
     setError(null);
   }, []);
-  return { items, loading, error, refresh, upsert };
+  const replace = useCallback((next: T[]) => {
+    active.current?.abort();
+    setItems(next);
+    setLoading(false);
+    setError(null);
+  }, []);
+  return { items, loading, error, refresh, upsert, replace };
 }

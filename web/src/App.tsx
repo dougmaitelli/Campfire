@@ -5,6 +5,8 @@ import { ServersPage } from "./pages/ServersPage";
 import { EmbersPage } from "./pages/EmbersPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
+import { SchedulesPage } from "./pages/SchedulesPage";
+import { AuditPage } from "./pages/AuditPage";
 import { useCurrentPage } from "./routing/useCurrentPage";
 import { AuthenticationPage } from "./pages/AuthenticationPage";
 import {
@@ -35,12 +37,17 @@ function ManagementApp() {
   const allowed =
     auth.session?.admin === true ||
     page.id === "servers" ||
-    page.id === "dashboard";
+    page.id === "dashboard" ||
+    page.id === "schedules";
 
   return (
     <DashboardLayout page={page}>
       {!allowed ? (
         <EmptyPage title="You do not have access to this page" />
+      ) : page.id === "schedules" ? (
+        <SchedulesPage />
+      ) : page.id === "audit" ? (
+        <AuditPage />
       ) : page.id === "users" ? (
         <UsersPage />
       ) : page.id === "roles" ? (

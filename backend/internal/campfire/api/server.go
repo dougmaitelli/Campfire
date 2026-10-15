@@ -79,6 +79,7 @@ func (a *API) createServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auditDetail(r, "server.create", "server:"+server.ID)
 	writeJSON(w, http.StatusCreated, server)
 }
 
@@ -194,6 +195,8 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var status model.RuntimeStatus
+
+	auditDetail(r, "server."+input.Action, "server:"+r.PathValue("id"))
 
 	var err error
 	if input.Action == "restore" {

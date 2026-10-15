@@ -23,7 +23,11 @@ type API struct {
 	access     *service.AccessService
 	origin     string
 	oidc       *service.OIDCService
+	activity   *service.ActivityService
 }
+
+// WithActivity enables schedules, retained executions and the audit boundary.
+func (a *API) WithActivity(activity *service.ActivityService) *API { a.activity = activity; return a }
 
 // WithOIDC enables the optional provider login routes.
 func (a *API) WithOIDC(provider *service.OIDCService) *API { a.oidc = provider; return a }

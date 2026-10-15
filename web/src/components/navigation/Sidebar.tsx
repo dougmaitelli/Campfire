@@ -38,7 +38,8 @@ export function Sidebar({ page }: { page: NavigationItem }) {
             (item) =>
               auth.session?.admin === true ||
               item.id === "servers" ||
-              item.id === "dashboard",
+              item.id === "dashboard" ||
+              item.id === "schedules",
           )
           .map((item) => (
             <a

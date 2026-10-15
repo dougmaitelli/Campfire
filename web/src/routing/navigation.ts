@@ -6,6 +6,7 @@ export const navigation = [
   { id: "users", label: "Users", icon: "users" },
   { id: "roles", label: "Roles", icon: "roles" },
   { id: "schedules", label: "Schedules", icon: "schedules" },
+  { id: "audit", label: "Audit", icon: "audit" },
 ] as const;
 
 export type NavigationItem = (typeof navigation)[number];

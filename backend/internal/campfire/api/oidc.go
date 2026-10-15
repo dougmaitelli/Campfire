@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/service"
 )
 
@@ -76,7 +77,12 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	a.oidcFlowCookie(w, r, "")
 
 	if err != nil {
+		if event, ok := r.Context().Value(auditKey{}).(*database.AuditEvent); ok {
+			event.Outcome = "failed"
+		}
+
 		http.Redirect(w, r, "/?oidc_error=1", http.StatusSeeOther)
+
 		return
 	}
 
@@ -87,10 +93,16 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 	session, token, err := a.oidc.Complete(ctx, cookie.Value, r.URL.Query().Get("state"), r.URL.Query().Get("code"))
 	if err != nil {
+		if event, ok := r.Context().Value(auditKey{}).(*database.AuditEvent); ok {
+			event.Outcome = "failed"
+		}
+
 		http.Redirect(w, r, "/?oidc_error=1", http.StatusSeeOther)
+
 		return
 	}
 
 	a.setSessionCookie(w, r, token, session.ExpiresAt)
+	auditActor(r, service.PrincipalFromSession(session))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

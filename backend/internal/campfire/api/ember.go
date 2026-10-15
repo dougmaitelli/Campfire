@@ -36,6 +36,7 @@ func (a *API) importEmber(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", "/api/v1/embers/"+ember.ID)
+	auditDetail(r, "ember.import", "ember:"+ember.ID)
 	writeJSON(w, http.StatusCreated, ember)
 }
 

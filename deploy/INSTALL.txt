@@ -166,6 +166,57 @@ does not invalidate existing Campfire sessions. Pending login/link flows expire
 after five minutes and are cleared on restart. Schema 8 adds identity bindings
 and session provider tracking without changing users, roles or server ownership.
 
+Schedules and audit
+-------------------
+The Schedules page contains recurring tasks and retained execution history.
+Owners and admins can configure schedules; custom server roles need both
+server.configure and server.operate. Operators can view history and retry
+supported failed operations on their assigned servers. Only admins can read Audit.
+
+Create a schedule with a server, action, repeat interval in minutes and first-run
+time. The UI uses your local time for entry/display; the database stores UTC
+timestamps. Intervals are fixed durations: 60 minutes is hourly and 1440 minutes
+is daily, independent of daylight saving changes. Available recurring actions
+are start, stop, restart, kill, backup and console command. Backups require a
+stopped server; scheduling a backup does not automatically stop a running game.
+Run now also works for paused schedules. Edit to pause or resume a schedule.
+Commands are stored privately for execution and are never returned in listings.
+Leave the command blank when editing to preserve its existing value.
+
+Schedules run as the user who last saved them. Permissions and disabled account
+state are checked again immediately before execution. Losing the required server
+access disables that schedule and records a failure. Saving a schedule explicitly
+assumes its execution identity. Changing or deleting a schedule cancels queued
+runs from the old definition; already dispatched work is not cancelled.
+
+The worker runs in the single active Campfire process, using SQLite persistence.
+Missed intervals coalesce into one run after downtime, rather than replaying a
+backlog. A recurrence never overlaps its own outstanding execution. A busy server
+causes a scheduled attempt to be skipped with a failed result. Undispatched work
+waits for disconnected Sparks to reconnect. A lost connection after dispatch
+produces a recorded interruption if the result cannot be confirmed; uncertain
+mutations are never replayed automatically. Multiple panel processes against one
+database remain unsupported.
+
+Manual lifecycle operations and recurring work retain actor, server, action,
+operation ID, state and timestamps. Node operation IDs match execution IDs.
+Panel restarts mark in-flight operations interrupted; they are never silently
+replayed. Check server state before using Retry, since uncertain work may already
+have executed. Each retry creates a separate linked execution. Install, start,
+stop, restart, kill and backup support retries. Reissue restore or console input
+explicitly; command payloads are removed from terminal execution records.
+
+Audit records administrative mutations, authentication attempts, denied mutations,
+and final operation outcomes. Passwords, setup/enrollment tokens, OIDC codes,
+console text, file contents and request/response bodies are not recorded.
+Audit intent is persisted before a mutation; unavailable audit storage rejects
+the request. Incomplete audit records are marked interrupted after restart.
+History and audit survive account, schedule and server deletion; deleted-server
+history remains visible to admins. Reads are paginated in batches of 100, with
+exact action/target filters on Audit. Retention cleanup is not implemented yet.
+Schema 9 adds schedules, executions and audit records without revoking sessions
+or changing Spark wire protocol 5.
+
 HTTPS and agent enrollment
 -------------------------
 Set CAMPFIRE_PUBLIC_URL=https://panel.example.com for browser access through
@@ -272,7 +323,7 @@ health endpoint, login and node connections. Use a stopped Spark and preserve
 its state when upgrading its binary. Detached games continue across ordinary
 agent disconnects; wait for lifecycle/file/backup work to finish before stopping
 an agent. Breaking wire protocol changes require compatible panel and Spark
-versions. These changes keep wire protocol 5; the panel uses schema 8. Update either
+versions. These changes keep wire protocol 5; the panel uses schema 9. Update either
 component independently while both support protocol 5; mismatched protocols
 are rejected during the agent handshake.
 

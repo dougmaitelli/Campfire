@@ -19,6 +19,14 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/oidc/start", a.oidcStart)
 	mux.HandleFunc("GET /api/v1/auth/oidc/callback", a.oidcCallback)
 	mux.HandleFunc("POST /api/v1/auth/oidc/link", a.oidcLink)
+	mux.HandleFunc("GET /api/v1/schedules", a.activityEnabled(a.listSchedules))
+	mux.HandleFunc("POST /api/v1/schedules", a.activityEnabled(a.saveSchedule))
+	mux.HandleFunc("PUT /api/v1/schedules/{scheduleID}", a.activityEnabled(a.saveSchedule))
+	mux.HandleFunc("DELETE /api/v1/schedules/{scheduleID}", a.activityEnabled(a.deleteSchedule))
+	mux.HandleFunc("POST /api/v1/schedules/{scheduleID}/run", a.activityEnabled(a.runSchedule))
+	mux.HandleFunc("GET /api/v1/schedules/executions", a.activityEnabled(a.listExecutions))
+	mux.HandleFunc("POST /api/v1/schedules/executions/{runID}/retry", a.activityEnabled(a.retryExecution))
+	platform("GET /api/v1/audit", "audit.view", a.activityEnabled(a.listAudit))
 	platform("POST /api/v1/sparks", "sparks.manage", a.createSpark)
 	platform("GET /api/v1/sparks", "sparks.manage", a.listSparks)
 	platform("GET /api/v1/sparks/{id}", "sparks.manage", a.getSpark)
@@ -59,5 +67,5 @@ func (a *API) Handler() http.Handler {
 	server("GET /api/v1/servers/{id}/backups", "server.operate", a.serverBackups)
 	server("GET /api/v1/servers/{id}/backups/{name}", "server.operate", a.downloadBackup)
 
-	return a.authenticate(mux)
+	return a.auditRequests(a.authenticate(mux))
 }

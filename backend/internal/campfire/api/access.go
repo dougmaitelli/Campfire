@@ -49,6 +49,7 @@ func (a *API) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auditDetail(r, "user.create", "user:"+strconv.FormatInt(user.ID, 10))
 	writeJSON(w, http.StatusCreated, user)
 }
 
@@ -73,6 +74,7 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auditDetail(r, "user.update", "user:"+strconv.FormatInt(user.ID, 10))
 	writeJSON(w, http.StatusOK, user)
 }
 
@@ -121,6 +123,7 @@ func (a *API) saveRole(w http.ResponseWriter, r *http.Request, id int64) {
 		status = http.StatusCreated
 	}
 
+	auditDetail(r, "role.save", "role:"+strconv.FormatInt(role.ID, 10))
 	writeJSON(w, status, role)
 }
 

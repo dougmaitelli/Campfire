@@ -22,6 +22,14 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method == http.MethodPost {
+		for _, operation := range []string{"list", "read", "write", "mkdir", "rename", "delete"} {
+			if input.Operation == operation {
+				auditDetail(r, "server.files."+operation, "server:"+r.PathValue("id"))
+			}
+		}
+	}
+
 	result, err := a.deployment.Files(r.Context(), r.PathValue("id"), input)
 	if err != nil {
 		writeFileError(w, err)
