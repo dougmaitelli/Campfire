@@ -104,7 +104,7 @@ func TestMetricsSamplingCachesAndPreservesUnknowns(t *testing.T) {
 	ctx := context.Background()
 	d := runtimeFixture()
 
-	m := New(ctx, t.TempDir())
+	m := newTestManager(ctx, t.TempDir())
 	defer m.Close()
 
 	docker := &metricsDocker{fakeDocker: &fakeDocker{states: map[string]string{container(d.ServerID): "running"}}, samples: []ContainerSample{sample(t, "first", 100, 1000), sample(t, "first", 200, 2000), sample(t, "replacement", 5, 3000)}}
@@ -225,7 +225,7 @@ func TestMetricsDiskContainmentAndLastSuccessfulReading(t *testing.T) {
 		t.Fatal("scan ignored cancellation", err)
 	}
 
-	m := New(ctx, t.TempDir())
+	m := newTestManager(ctx, t.TempDir())
 	defer m.Close()
 
 	d := runtimeFixture()
@@ -251,7 +251,7 @@ func TestMetricsDiskContainmentAndLastSuccessfulReading(t *testing.T) {
 }
 
 func TestMetricsDoNotWaitForLifecycleLock(t *testing.T) {
-	m := New(context.Background(), t.TempDir())
+	m := newTestManager(context.Background(), t.TempDir())
 	defer m.Close()
 
 	d := runtimeFixture()

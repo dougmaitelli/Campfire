@@ -26,6 +26,7 @@ type Manager struct {
 	Docker    Executor
 	Ownership func(string, string) error
 	FileOwner func(*os.File, string) error
+	Quota     DiskQuota
 	ctx       context.Context
 	cancel    context.CancelFunc
 	mu        sync.Mutex
@@ -46,7 +47,7 @@ type entry struct {
 // New constructs a manager whose background operations follow the process lifetime.
 func New(ctx context.Context, directory string) *Manager {
 	ctx, cancel := context.WithCancel(ctx)
-	return &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
+	return &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: &projectQuotas{registry: filepath.Join(directory, ".quota-projects"), kernel: linuxProjectKernel{}}, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
 }
 
 // Close prevents new operations and waits for in-flight work after process cancellation.
@@ -85,6 +86,7 @@ func (m *Manager) load(id string) (*entry, error) {
 	}
 
 	m.entries[id] = e
+	e.Status.DiskQuotaEnforced = false
 
 	return e, nil
 }
@@ -132,6 +134,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		}
 
 		e.Status.State, e.Status.Ready = status.State, status.Ready
+		e.Status.DiskQuotaEnforced = status.DiskQuotaEnforced
 
 		return e.Status, nil
 	}
@@ -296,6 +299,7 @@ func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
 	status, observeErr := m.observe(ctx, d, e)
 	if observeErr == nil {
 		e.Status.State, e.Status.Ready = status.State, status.Ready
+		e.Status.DiskQuotaEnforced = status.DiskQuotaEnforced
 	} else {
 		e.Status.State = "unknown"
 		if e.Status.Error == "" {
@@ -334,6 +338,10 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	status := model.RuntimeStatus{ServerID: d.ServerID, State: state}
+	if volume, err := m.volume(d.ServerID); err == nil {
+		status.DiskQuotaEnforced = m.Quota.Verify(volume, d.Configuration.DiskMB) == nil
+	}
+
 	if state == "missing" {
 		status.State = "not_installed"
 		if e.Installed {
@@ -462,6 +470,15 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 	if err := os.MkdirAll(volume, 0700); err != nil {
 		return err
 	}
+
+	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+		return err
+	}
+
+	seccomp, err := m.seccompPath()
+	if err != nil {
+		return err
+	}
 	// A failed installer keeps its files. Explicit retry reruns its script in that directory.
 	if installer := d.Ember.Installer; installer != nil {
 		output, cleanupErr := m.Docker.Run(ctx, nil, "rm", "--force", container(d.ServerID)+"-install")
@@ -473,6 +490,7 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		args := make([]string, 0, 40+2*len(d.Configuration.Variables))
 		args = append(args, "run", "--name", container(d.ServerID)+"-install", "--label", "campfire.server="+d.ServerID, "--memory", strconv.FormatInt(d.Configuration.MemoryMB, 10)+"m", "--cpus", strconv.FormatFloat(d.Configuration.CPULimit, 'f', -1, 64), "--pids-limit", "128", "--security-opt", "no-new-privileges", "--cap-drop", "ALL", "--cap-add", "CHOWN", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER", "--mount", "type=bind,source="+volume+",target=/mnt/server", "--workdir", "/mnt/server", "--entrypoint", installer.Entrypoint, "-i")
 		args = append(args, environmentArgs(environment(d))...)
+		args = append(args, "--security-opt", "seccomp="+seccomp)
 		args = append(args, installer.Image, "-s")
 		output, runErr := m.Docker.Run(ctx, strings.NewReader(installer.Script), args...)
 		err = runErr
@@ -509,6 +527,10 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		return err
 	}
 
+	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+		return err
+	}
+
 	e.mu.Lock()
 	e.Installed = true
 	e.mu.Unlock()
@@ -527,7 +549,12 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	}
 
 	if state == "running" {
-		return nil
+		volume, err := m.volume(d.ServerID)
+		if err != nil {
+			return err
+		}
+
+		return m.Quota.Verify(volume, d.Configuration.DiskMB)
 	}
 
 	if state != "missing" {
@@ -538,6 +565,10 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 
 	volume, err := m.volume(d.ServerID)
 	if err != nil {
+		return err
+	}
+
+	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -554,11 +585,22 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	}
 
 	env := environment(d)
+	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+		return err
+	}
+
+	seccomp, err := m.seccompPath()
+	if err != nil {
+		return err
+	}
+
 	startup := startupVariables.ReplaceAllStringFunc(d.Ember.Startup, func(value string) string { return "${" + value[2:len(value)-2] + "}" })
 	env["STARTUP"] = startup
 	args := []string{"create", "--name", container(d.ServerID), "--label", "campfire.server=" + d.ServerID, "--interactive", "--init", "--user", d.Ember.User, "--memory", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--memory-swap", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--cpus", strconv.FormatFloat(d.Configuration.CPULimit, 'f', -1, 64), "--pids-limit", "512", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--restart", "unless-stopped", "--log-driver", "local", "--log-opt", "max-size=10m", "--log-opt", "max-file=3", "--mount", "type=bind,source=" + volume + ",target=" + d.Ember.WorkDir, "--workdir", d.Ember.WorkDir}
 
 	args = append(args, environmentArgs(env)...)
+
+	args = append(args, "--security-opt", "seccomp="+seccomp)
 	for _, port := range d.Configuration.Ports {
 		args = append(args, "--publish", fmt.Sprintf("%s:%d:%d/%s", formatIP(port.BindIP), port.HostPort, port.ContainerPort, port.Protocol))
 	}

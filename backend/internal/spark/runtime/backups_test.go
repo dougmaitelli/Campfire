@@ -318,7 +318,7 @@ func TestInterruptedRestoreBlocksStartAfterRestart(t *testing.T) {
 
 	m.Close()
 
-	restarted := New(context.Background(), m.Directory)
+	restarted := newTestManager(context.Background(), m.Directory)
 	restarted.Docker = m.Docker
 	restarted.Ownership = m.Ownership
 	t.Cleanup(restarted.Close)

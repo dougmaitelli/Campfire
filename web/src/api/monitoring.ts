@@ -13,6 +13,8 @@ export interface ResourceUsage {
   disk_age_seconds: number;
   container_error: string;
   disk_error: string;
+  disk_quota_enforced: boolean;
+  disk_quota_error: string;
 }
 export interface MonitoredServer {
   id: string;
@@ -58,7 +60,9 @@ export function isResourceUsage(value: unknown): value is ResourceUsage {
       "disk_age_seconds",
     ].every((key) => integer(value[key])) &&
     typeof value.container_error === "string" &&
-    typeof value.disk_error === "string"
+    typeof value.disk_error === "string" &&
+    typeof value.disk_quota_enforced === "boolean" &&
+    typeof value.disk_quota_error === "string"
   );
 }
 function isMonitoredServer(value: unknown): value is MonitoredServer {

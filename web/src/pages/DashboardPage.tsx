@@ -298,8 +298,9 @@ export function DashboardPage() {
       <p className="list-summary">
         Usage refreshes about every five seconds. CPU and memory readings older
         than 15 seconds are stale; game-data scans refresh every 30 seconds.
-        Game-data size excludes backups and container images. Disk quotas are
-        not enforced continuously.
+        Game-data size excludes backups and container images. Filesystem quotas
+        limit allocated game-data blocks; reported logical file sizes can
+        differ.
       </p>
     </section>
   );

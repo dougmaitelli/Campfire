@@ -399,6 +399,11 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 		return errors.New("could not prepare restoration")
 	}
 	defer func() { _ = os.RemoveAll(stage) }()
+	// A separate project gives the staged replacement its own full allocation;
+	// the project follows the directory when it is renamed into place.
+	if err := m.Quota.Prepare(stage, d.Configuration.DiskMB); err != nil {
+		return err
+	}
 
 	limit := min(backupBytes, d.Configuration.DiskMB<<20)
 	if err := extractBackup(ctx, file, stage, limit); err != nil {
@@ -407,6 +412,10 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 
 	if err := m.Ownership(stage, d.Ember.User); err != nil {
 		return errors.New("could not assign restored game ownership; original game data was preserved")
+	}
+
+	if err := m.Quota.Prepare(stage, d.Configuration.DiskMB); err != nil {
+		return err
 	}
 
 	if err := filepath.WalkDir(stage, func(name string, item fs.DirEntry, walkErr error) error {

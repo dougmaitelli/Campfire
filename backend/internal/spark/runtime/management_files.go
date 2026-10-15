@@ -146,6 +146,12 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 	defer func() { _ = root.Close() }()
 
+	if mutate && (q.Operation == "write" || q.Operation == "mkdir") {
+		if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+			return model.FileResult{}, fileFailure("file_limit", err.Error())
+		}
+	}
+
 	if err := containedPath(root, q.Path, q.Operation == "write" || q.Operation == "mkdir"); err != nil {
 		return model.FileResult{}, err
 	}

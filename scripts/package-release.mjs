@@ -40,6 +40,10 @@ try {
     join(stage, "spark.env.example"),
   );
   await cp(join(root, "deploy", "INSTALL.txt"), join(stage, "INSTALL.txt"));
+  await cp(
+    join(root, "backend/internal/spark/runtime/seccomp/LICENSE"),
+    join(stage, "SPARK-SECCOMP-LICENSE.txt"),
+  );
   await cp(join(root, "compose.yaml"), join(stage, "compose.yaml"));
   await cp(join(root, ".env.example"), join(stage, ".env.example"));
 

@@ -104,6 +104,18 @@ export function ResourceReadings({
               : "Waiting for a game-data size sample."
         }
       />
+      <span
+        className="usage-age"
+        title={
+          usage !== undefined && usage.disk_quota_error.length > 0
+            ? usage.disk_quota_error
+            : "The filesystem enforces the game-data allocation continuously."
+        }
+      >
+        {usage?.disk_quota_enforced && containerFresh(usage, elapsed)
+          ? "Game-data quota enforced"
+          : "Game-data quota unverified"}
+      </span>
     </div>
   );
 }

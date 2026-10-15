@@ -35,6 +35,11 @@ type pipeListener struct {
 	once     sync.Once
 }
 
+type wireQuota struct{}
+
+func (wireQuota) Prepare(string, int64) error { return nil }
+func (wireQuota) Verify(string, int64) error  { return nil }
+
 func (l *pipeListener) Accept() (net.Conn, error) {
 	select {
 	case conn := <-l.incoming:
@@ -163,6 +168,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	wire := &wireDocker{console: make(chan string)}
 	agentConfig.runtimeFactory = func(ctx context.Context, directory string) *runtime.Manager {
 		manager := runtime.New(ctx, directory)
+		manager.Quota = wireQuota{}
 		manager.Docker = wire
 		manager.Ownership = func(string, string) error { return nil }
 		manager.FileOwner = func(*os.File, string) error { return nil }

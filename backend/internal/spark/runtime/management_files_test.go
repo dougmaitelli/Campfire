@@ -14,7 +14,7 @@ func fileTestManager(t *testing.T) (*Manager, model.Deployment) {
 	t.Helper()
 
 	d := runtimeFixture()
-	m := New(context.Background(), t.TempDir())
+	m := newTestManager(context.Background(), t.TempDir())
 	m.Docker = &fakeDocker{states: make(map[string]string)}
 	m.FileOwner = func(*os.File, string) error { return nil }
 	t.Cleanup(m.Close)

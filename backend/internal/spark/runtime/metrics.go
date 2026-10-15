@@ -137,6 +137,8 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 	if !state.mu.TryLock() {
 		usage := entry.snapshot()
 		usage.ContainerError = "Runtime status is busy; usage may be stale."
+		usage.DiskQuotaEnforced = false
+		usage.DiskQuotaError = "Runtime status is busy; quota verification is unavailable."
 
 		return usage, nil
 	}
@@ -235,6 +237,18 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 			entry.usage.DiskBytes = &bytes
 			entry.diskSampled = time.Now()
 			entry.usage.DiskSampledAt = entry.diskSampled.Unix()
+		}
+	}
+
+	entry.usage.DiskQuotaEnforced = false
+	entry.usage.DiskQuotaError = "Game-data quota has not been verified."
+
+	if volume, err := m.volume(d.ServerID); err == nil {
+		if err := m.Quota.Verify(volume, d.Configuration.DiskMB); err != nil {
+			entry.usage.DiskQuotaError = "The configured game-data quota could not be verified. Check host project quotas and apply the allocation by starting the server."
+		} else {
+			entry.usage.DiskQuotaEnforced = true
+			entry.usage.DiskQuotaError = ""
 		}
 	}
 

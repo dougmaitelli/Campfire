@@ -45,7 +45,7 @@ func validUsage(usage model.ResourceUsage) bool {
 		return false
 	}
 
-	if len(usage.State) > 64 || len(usage.ContainerError) > 256 || len(usage.DiskError) > 256 {
+	if len(usage.State) > 64 || len(usage.ContainerError) > 256 || len(usage.DiskError) > 256 || len(usage.DiskQuotaError) > 256 {
 		return false
 	}
 

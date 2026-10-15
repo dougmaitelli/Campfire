@@ -23,6 +23,18 @@ type fakeDocker struct {
 	input         string
 }
 
+type fakeQuota struct{ err error }
+
+func (q fakeQuota) Prepare(string, int64) error { return q.err }
+func (q fakeQuota) Verify(string, int64) error  { return q.err }
+
+func newTestManager(ctx context.Context, directory string) *Manager {
+	m := New(ctx, directory)
+	m.Quota = fakeQuota{}
+
+	return m
+}
+
 func (f *fakeDocker) Run(ctx context.Context, _ io.Reader, args ...string) (string, error) {
 	if args[0] == "run" && f.block != nil {
 		select {
@@ -120,7 +132,7 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	d := runtimeFixture()
 	dir := t.TempDir()
 	docker := &fakeDocker{states: make(map[string]string)}
-	m := New(context.Background(), dir)
+	m := newTestManager(context.Background(), dir)
 	m.Docker = docker
 	m.Ownership = func(string, string) error { return nil }
 	t.Cleanup(m.Close)
@@ -172,7 +184,7 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	}
 
 	m.Close()
-	m = New(context.Background(), dir)
+	m = newTestManager(context.Background(), dir)
 	m.Docker = docker
 	m.Ownership = func(string, string) error { return nil }
 	t.Cleanup(m.Close)
@@ -203,7 +215,7 @@ func TestFailedInstallBusyAndCancellation(t *testing.T) {
 	d := runtimeFixture()
 	block := make(chan struct{})
 	docker := &fakeDocker{states: make(map[string]string), block: block, failInstaller: true}
-	m := New(context.Background(), t.TempDir())
+	m := newTestManager(context.Background(), t.TempDir())
 	m.Docker = docker
 	m.Ownership = func(string, string) error { return nil }
 
@@ -236,7 +248,7 @@ func TestFailedInstallBusyAndCancellation(t *testing.T) {
 
 	blocked := make(chan struct{})
 	docker = &fakeDocker{states: make(map[string]string), block: blocked}
-	m = New(context.Background(), t.TempDir())
+	m = newTestManager(context.Background(), t.TempDir())
 
 	m.Docker = docker
 	if _, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: "install", OperationID: "cancel"}); err != nil {

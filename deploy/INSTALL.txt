@@ -367,7 +367,44 @@ CPU is expressed in cores (100% Docker CPU equals one core). Memory excludes
 reclaimable filesystem cache, matching Docker's memory usage calculation.
 Disk usage counts logical sizes of regular files in the server data directory;
 hard links count once, and symlinks, backups and Docker image layers are excluded.
-This is usage reporting, not disk quota enforcement.
+These logical sizes can differ from the filesystem blocks charged to a quota.
+
+Spark enforces each server's game-data allocation with Linux project quotas.
+Execution hosts require Linux 5.14 or newer, root privileges, and XFS or ext4
+with project quota accounting AND enforcement enabled on the filesystem holding
+SPARK_DATA/runtime. XFS needs the prjquota (or pquota) mount option; ext4 also
+needs its project and quota filesystem features and project quotas enabled.
+Prepare the filesystem using its distribution's filesystem administration tools
+before starting Spark. Spark does not format filesystems or change mount options.
+Install, start and file writes fail if a matching quota cannot be established;
+there is no fallback to periodic size checks. Status and monitoring report
+whether the current allocation was verified as enforced.
+
+Use one Spark data directory per execution filesystem. Reserve project IDs
+1073741824 through 2147483647 for Campfire on that filesystem. Spark records
+ownership in runtime/.quota-projects; retain this directory with the runtime
+data. IDs and quota records are deliberately not recycled after deletion,
+because deleted files may still have open descriptors and charged blocks.
+Unmanaged nonempty game-data directories are rejected instead of silently
+adopted. Moving runtime data to another filesystem requires fresh quota setup.
+
+The hard limit covers game-data filesystem blocks, including directory space,
+preallocation and open deleted files. Writes can fail before logical file sizes
+reach the allocation. Freeing data or increasing the allocation permits writes
+again. Disk allocation changes are applied before the next install, start or
+file write; shrinking below charged usage is rejected. File deletion remains
+available when a quota is full or requires repair. Temporary files for atomic
+saves need quota headroom. Quotas remain active without a Spark connection.
+
+Restores stage a separately quota-limited directory before replacing the original;
+both copies temporarily consume host space. Backups, images, container writable
+layers and bounded Docker logs are outside the game-data allocation and still
+require host free-space management. Docker's --storage-opt size limits its
+writable layer and does not constrain our bind-mounted game directories.
+Installer and game containers use Docker's default seccomp policy with additional
+restrictions on filesystem attribute writes that could change quota assignments.
+Docker must support seccomp. The upstream profile and its license are included
+under backend/internal/spark/runtime/seccomp.
 
 Spark caches container measurements for five seconds and disk measurements for
 30 seconds. The UI polls every five seconds and marks old readings stale.

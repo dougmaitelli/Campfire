@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +33,19 @@ func TestLiveDockerLifecycle(t *testing.T) {
 	d.Ember.Startup = "echo Ready; while read line; do echo \"$line\"; done"
 	d.Ember.Stop = "^SIGTERM"
 
-	m := New(ctx, t.TempDir())
+	quotaRoot := os.Getenv("CAMPFIRE_QUOTA_TEST_DIR")
+	if quotaRoot == "" {
+		t.Fatal("set CAMPFIRE_QUOTA_TEST_DIR to a project-quota-enabled filesystem directory")
+	}
+
+	directory, err := os.MkdirTemp(quotaRoot, "campfire-live-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+
+	m := New(ctx, directory)
 	defer m.Close()
 
 	t.Cleanup(func() {
@@ -96,5 +110,112 @@ func TestLiveDockerLifecycle(t *testing.T) {
 		}
 
 		t.Logf("%s: %s", action, status.State)
+	}
+}
+
+// TestLiveDockerDiskQuota proves that the non-root game process receives EDQUOT
+// without a polling loop, and that the quota survives a Spark manager restart.
+func TestLiveDockerDiskQuota(t *testing.T) {
+	if os.Getenv("CAMPFIRE_DOCKER_TEST") != "1" {
+		t.Skip("set CAMPFIRE_DOCKER_TEST=1 and CAMPFIRE_QUOTA_TEST_DIR to run against Docker")
+	}
+
+	quotaRoot := os.Getenv("CAMPFIRE_QUOTA_TEST_DIR")
+	if quotaRoot == "" {
+		t.Fatal("CAMPFIRE_QUOTA_TEST_DIR must be on a project-quota-enabled filesystem")
+	}
+
+	directory, err := os.MkdirTemp(quotaRoot, "campfire-quota-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	m := New(ctx, directory)
+	t.Cleanup(m.Close)
+
+	d := runtimeFixture()
+	d.ServerID = "quota-" + rand.Text()
+	d.Configuration.DiskMB = 8
+	d.Configuration.Ports[0].HostPort = 0
+	d.Ember.Ready = ""
+	d.Ember.Stop = "^SIGTERM"
+	d.Ember.Installer.Script = "echo installed > installed.txt"
+	d.Ember.Startup = "mkdir -p nested; dd if=/dev/zero of=nested/full bs=1048576 count=32; echo QuotaAttemptComplete; while read line; do echo \"$line\"; done"
+
+	t.Cleanup(func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 15*time.Second)
+		defer stop()
+
+		_, _ = m.Docker.Run(cleanup, nil, "rm", "--force", container(d.ServerID))
+		_, _ = m.Docker.Run(cleanup, nil, "rm", "--force", container(d.ServerID)+"-install")
+	})
+
+	for _, action := range []string{"install", "start"} {
+		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: action + rand.Text()})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for status.Busy {
+			select {
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			case <-time.After(100 * time.Millisecond):
+			}
+
+			status, err = m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: "status"})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		if status.Error != "" || !status.DiskQuotaEnforced {
+			t.Fatalf("%s: %+v", action, status)
+		}
+	}
+
+	for {
+		logs, err := m.Docker.Run(ctx, nil, "logs", container(d.ServerID))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if strings.Contains(logs, "QuotaAttemptComplete") {
+			if !strings.Contains(logs, "Disk quota exceeded") {
+				t.Fatalf("game write did not hit EDQUOT: %s", logs)
+			}
+
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	info, err := os.Stat(filepath.Join(directory, d.ServerID, "data", "nested", "full"))
+	if err != nil || info.Size() > 8<<20 {
+		t.Fatalf("game exceeded allocation: %v", err)
+	}
+
+	m.Close()
+
+	restarted := New(ctx, directory)
+	t.Cleanup(restarted.Close)
+
+	volume, err := restarted.volume(d.ServerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := restarted.Quota.Verify(volume, d.Configuration.DiskMB); err != nil {
+		t.Fatal(err)
 	}
 }

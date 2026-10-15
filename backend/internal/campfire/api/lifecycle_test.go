@@ -28,6 +28,11 @@ type lifecycleDocker struct {
 	fail  bool
 }
 
+type lifecycleQuota struct{}
+
+func (lifecycleQuota) Prepare(string, int64) error { return nil }
+func (lifecycleQuota) Verify(string, int64) error  { return nil }
+
 func (d *lifecycleDocker) Run(_ context.Context, _ io.Reader, args ...string) (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -74,6 +79,7 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 	docker := &lifecycleDocker{}
 	manager := runtime.New(context.Background(), filepath.Join(directory, "runtime"))
 	manager.Docker = docker
+	manager.Quota = lifecycleQuota{}
 
 	manager.Ownership = func(string, string) error { return nil }
 

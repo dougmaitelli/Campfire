@@ -461,8 +461,9 @@ export function ServersPage() {
         />
       )}
       <p className="list-summary">
-        Disk allocation is checked during installation and startup. Continuous
-        disk quotas are not enabled.
+        Game-data allocations use continuous filesystem quotas. Spark requires a
+        host filesystem with project quotas enabled before installing or
+        starting servers.
       </p>
     </section>
   );
