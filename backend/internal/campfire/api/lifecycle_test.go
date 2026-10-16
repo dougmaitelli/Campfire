@@ -156,8 +156,8 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 
 			expectAccess(t, handler, "POST", endpoint+"/ember", string(application), http.StatusConflict)
 
-			response = request(handler, "POST", endpoint+"/files", `{"operation":"delete","path":"test.txt"}`)
-			if response.Code != http.StatusConflict {
+			response = request(handler, "POST", endpoint+"/files", `{"operation":"write","path":"running.txt","data":"aGVsbG8=","revision":"absent"}`)
+			if response.Code != http.StatusOK {
 				t.Fatalf("running file mutation: %d %s", response.Code, response.Body)
 			}
 

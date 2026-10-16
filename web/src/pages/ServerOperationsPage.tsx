@@ -213,7 +213,7 @@ export function ServerOperationsPage({
                   embedded
                   server={server}
                   canWrite={
-                    ["stopped", "not_installed"].includes(
+                    ["running", "stopped", "not_installed"].includes(
                       status?.state ?? "unknown",
                     ) && status?.busy !== true
                   }

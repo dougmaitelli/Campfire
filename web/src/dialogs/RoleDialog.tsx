@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { saveRole, type Role } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
+import { CheckboxField } from "../components/forms/CheckboxField";
 
 const serverPermissions = [
   ["server.view", "View the server and runtime status"],
@@ -65,31 +66,31 @@ export function RoleDialog({
       busy={busy || deleting}
       onClose={onClose}
       footerLeft={
-        <div className="row-actions">
+        <button
+          className="button"
+          disabled={busy || deleting}
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+      }
+      footerRight={
+        <>
           <DrawerDeleteButton
             onDelete={onDelete}
             disabled={busy}
             deleting={deleting}
           />
           <button
-            className="button"
-            disabled={busy || deleting}
-            onClick={onClose}
+            className="button button-primary"
+            disabled={busy || deleting || !name.trim()}
+            onClick={() => {
+              void submit();
+            }}
           >
-            Cancel
+            {busy ? "Saving…" : "Save role"}
           </button>
-        </div>
-      }
-      footerRight={
-        <button
-          className="button button-primary"
-          disabled={busy || deleting || !name.trim()}
-          onClick={() => {
-            void submit();
-          }}
-        >
-          {busy ? "Saving…" : "Save role"}
-        </button>
+        </>
       }
     >
       <div className="drawer-content">
@@ -127,21 +128,20 @@ export function RoleDialog({
         </select>
         <h3>Permissions</h3>
         {choices.map(([permission, label]) => (
-          <label className="checkbox-field" key={permission}>
-            <input
-              type="checkbox"
-              checked={permissions.includes(permission)}
-              disabled={permission === "server.view"}
-              onChange={(event) =>
-                setPermissions(
-                  event.target.checked
-                    ? [...permissions, permission]
-                    : permissions.filter((entry) => entry !== permission),
-                )
-              }
-            />
+          <CheckboxField
+            key={permission}
+            checked={permissions.includes(permission)}
+            disabled={busy || deleting || permission === "server.view"}
+            onChange={(event) =>
+              setPermissions(
+                event.target.checked
+                  ? [...permissions, permission]
+                  : permissions.filter((entry) => entry !== permission),
+              )
+            }
+          >
             {label}
-          </label>
+          </CheckboxField>
         ))}
         <p className="field-help">
           Server permissions never grant access to unassigned servers. Spark,

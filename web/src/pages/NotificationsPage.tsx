@@ -6,6 +6,7 @@ import {
   type Notification,
 } from "../api/notifications";
 import { useNotifications } from "../hooks/useNotifications";
+import { StatusPill } from "../components/status/StatusPill";
 import "./management.css";
 
 export function NotificationsPage() {
@@ -152,7 +153,9 @@ export function NotificationsPage() {
           >
             <div className="notification-content">
               <h2>
-                {!item.read_at && <span className="type-badge">Unread</span>}{" "}
+                {!item.read_at && (
+                  <StatusPill tone="warning">Unread</StatusPill>
+                )}{" "}
                 {item.title}
               </h2>
               <p>{item.body}</p>

@@ -33,6 +33,13 @@ type Backup struct {
 	Error      string    `json:"error,omitempty"`
 }
 
+// CatalogBackup identifies an archive and its owning server in the admin catalog.
+type CatalogBackup struct {
+	Backup
+	ServerID   string `json:"server_id"`
+	ServerName string `json:"server_name"`
+}
+
 // BackupName restricts archives to immutable operation identifiers.
 func BackupName(name string) bool {
 	if !strings.HasSuffix(name, ".tar.gz") {

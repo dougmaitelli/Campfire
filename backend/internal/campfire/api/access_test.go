@@ -125,6 +125,70 @@ func expectAccess(t *testing.T, handler http.Handler, method, path, body string,
 	}
 }
 
+func TestUserEmailProfile(t *testing.T) {
+	f := newAccessFixture(t)
+	user, regular := f.user("email-user", database.UserRole)
+	path := fmt.Sprintf("/api/v1/users/%d", user.ID)
+
+	for _, email := range []string{"  Jane@example.com  ", ""} {
+		body := fmt.Sprintf(`{"email":%q,"role_id":%d}`, email, database.UserRole)
+
+		response := request(f.admin, "PUT", path, body)
+		if response.Code != http.StatusOK {
+			t.Fatal(response.Code, response.Body)
+		}
+
+		var saved database.User
+		if err := json.Unmarshal(response.Body.Bytes(), &saved); err != nil {
+			t.Fatal(err)
+		}
+
+		if saved.Email != strings.TrimSpace(email) {
+			t.Fatal("email not saved", saved.Email)
+		}
+
+		if response := request(regular, "GET", "/api/v1/auth/session", ""); response.Code != http.StatusOK {
+			t.Fatal("email edit revoked the session", response.Code)
+		}
+	}
+
+	for _, email := range []string{"invalid", "Jane <jane@example.com>", "jane\n@example.com", strings.Repeat("a", 250) + "@example.com"} {
+		body := fmt.Sprintf(`{"email":%q,"role_id":%d}`, email, database.UserRole)
+		expectAccess(t, f.admin, "PUT", path, body, http.StatusBadRequest)
+	}
+
+	body := fmt.Sprintf(`{"username":"email-created","email":"new@example.com","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
+
+	response := request(f.admin, "POST", "/api/v1/users", body)
+	if response.Code != http.StatusCreated {
+		t.Fatal(response.Code, response.Body)
+	}
+
+	var created database.User
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	if created.Email != "new@example.com" {
+		t.Fatal("create discarded email", created.Email)
+	}
+
+	body = fmt.Sprintf(`{"name":"New Name","role_id":%d}`, database.UserRole)
+
+	response = request(f.admin, "PUT", fmt.Sprintf("/api/v1/users/%d", created.ID), body)
+	if response.Code != http.StatusOK {
+		t.Fatal(response.Code, response.Body)
+	}
+
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	if created.Email != "new@example.com" {
+		t.Fatal("omitted email was cleared", created.Email)
+	}
+}
+
 func TestUserDisplayNames(t *testing.T) {
 	f := newAccessFixture(t)
 	user, regular := f.user("named-user", database.UserRole)

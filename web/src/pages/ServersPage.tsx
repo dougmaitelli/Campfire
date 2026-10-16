@@ -231,6 +231,7 @@ export function ServersPage() {
       )}
       <div className="management-content" aria-busy={loading}>
         <Table
+          className="servers-table"
           empty={visible.length === 0}
           loading={servers.loading}
           error={servers.error}
@@ -309,6 +310,7 @@ export function ServersPage() {
                 </td>
                 <td>
                   <ResourceReadings
+                    layout="compact"
                     usage={
                       monitoring.snapshot?.servers.find(
                         (item) => item.id === server.id,

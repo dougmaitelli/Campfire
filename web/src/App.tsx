@@ -8,6 +8,7 @@ import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
 import { SchedulesPage } from "./pages/SchedulesPage";
 import { AuditPage } from "./pages/AuditPage";
+import { BackupsPage } from "./pages/BackupsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { NotificationsProvider } from "./hooks/useNotifications";
@@ -65,6 +66,8 @@ function ManagementApp() {
           <NotificationsPage />
         ) : page.id === "audit" ? (
           <AuditPage />
+        ) : page.id === "backups" ? (
+          <BackupsPage />
         ) : page.id === "users" ? (
           <UsersPage />
         ) : page.id === "roles" ? (

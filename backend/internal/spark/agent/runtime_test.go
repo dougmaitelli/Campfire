@@ -338,11 +338,9 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 				t.Fatal("remote extended readiness did not match")
 			}
 
-			_, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "delete", Path: "world.bin"})
-
-			var failure *model.FileError
-			if !errors.As(err, &failure) || failure.Code != "file_busy" {
-				t.Fatalf("remote running file guard: %v", err)
+			_, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "write", Path: "running.txt", Data: []byte("live"), Revision: "absent"})
+			if err != nil {
+				t.Fatalf("remote running file mutation: %v", err)
 			}
 		}
 

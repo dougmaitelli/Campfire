@@ -199,24 +199,46 @@ func (s *BackupService) List(ctx context.Context, id string) ([]model.Backup, er
 
 	items := make([]model.Backup, 0, len(rows))
 	for _, row := range rows {
-		state := "available"
-		if !row.Local && !row.Remote {
-			state = "unavailable"
-		}
+		items = append(items, backupView(row, working))
+	}
 
-		if row.Error != "" {
-			state = "error"
-		}
+	return items, nil
+}
 
-		if working && !row.Remote && row.Local {
-			state = "syncing"
-		}
+func backupView(row database.Backup, working bool) model.Backup {
+	state := "available"
+	if !row.Local && !row.Remote {
+		state = "unavailable"
+	}
 
-		if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
-			state = "deleting"
-		}
+	if row.Error != "" {
+		state = "error"
+	}
 
-		items = append(items, model.Backup{Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error})
+	if working && !row.Remote && row.Local {
+		state = "syncing"
+	}
+
+	if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
+		state = "deleting"
+	}
+
+	return model.Backup{Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
+}
+
+// Catalog lists known backups across servers, including disconnected placements.
+func (s *BackupService) Catalog(ctx context.Context) ([]model.CatalogBackup, error) {
+	rows, err := s.Store.ListAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	items := make([]model.CatalogBackup, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, model.CatalogBackup{Backup: backupView(row.Backup, s.active[row.ServerID]), ServerID: row.ServerID, ServerName: row.ServerName})
 	}
 
 	return items, nil

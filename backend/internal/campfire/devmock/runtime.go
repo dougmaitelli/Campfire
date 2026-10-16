@@ -26,21 +26,43 @@ type Runtime struct {
 }
 
 type runtimeRecord struct {
-	ServerID    string `gorm:"primaryKey"`
-	SparkID     string
-	Deployment  model.Deployment `gorm:"serializer:json"`
-	State       string
-	OperationID string
-	Operation   string
-	Logs        string
-	Files       map[string]string `gorm:"serializer:json"`
+	ServerID           string `gorm:"primaryKey"`
+	SparkID            string
+	Deployment         model.Deployment `gorm:"serializer:json"`
+	State              string
+	OperationID        string
+	Operation          string
+	Logs               string
+	Files              map[string]string `gorm:"serializer:json"`
+	FileFixtureVersion int               `gorm:"not null;default:0"`
 }
 
 func newRecord(spark string, deployment model.Deployment) runtimeRecord {
-	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: "not_installed", Logs: "[Mock Spark] Configuration received. No Docker containers are used.\n", Files: map[string]string{
-		"server.properties": "motd=Campfire mock server\nserver-port=25565\nmax-players=20\n",
-		"eula.txt":          "# Simulated fixture; no Minecraft software is running.\neula=false\n",
-	}}
+	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: "not_installed", Logs: "[Mock Spark] Configuration received. No Docker containers are used.\n", FileFixtureVersion: 1, Files: mockFiles()}
+}
+
+func mockFiles() map[string]string {
+	return map[string]string{
+		"server.properties":            "motd=Campfire mock server\nserver-port=25565\nmax-players=20\n",
+		"eula.txt":                     "# Simulated fixture; no Minecraft software is running.\neula=false\n",
+		"whitelist.json":               "[]\n",
+		"ops.json":                     "[]\n",
+		"config/":                      "",
+		"config/fabric/":               "",
+		"config/fabric/settings.json":  "{\n  \"debug\": false,\n  \"maxViewDistance\": 12\n}\n",
+		"config/permissions.json":      "{\n  \"defaultRole\": \"player\"\n}\n",
+		"logs/":                        "",
+		"logs/latest.log":              "[12:00:00] [Server thread/INFO]: Starting mock Minecraft server\n[12:00:01] [Server thread/INFO]: Done! For help, type help\n",
+		"mods/":                        "",
+		"mods/README.txt":              "Place Fabric mod JARs here. This mock server does not execute them.\n",
+		"world/":                       "",
+		"world/datapacks/":             "",
+		"world/datapacks/README.txt":   "Place world datapacks here.\n",
+		"world/playerdata/":            "",
+		"world/stats/":                 "",
+		"world/stats/mock-player.json": "{\n  \"stats\": {\"minecraft:custom\": {\"minecraft:play_time\": 72000}},\n  \"DataVersion\": 4189\n}\n",
+		"crash-reports/":               "",
+	}
 }
 
 // Connected makes the dedicated offline fixture unavailable; newly created Sparks are simulated online.
@@ -52,7 +74,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 		return 0, "", nil
 	}
 
-	return protocol.ProtocolVersion, "mock-dev", []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade, protocol.CapabilityDiskQuota}
+	return protocol.ProtocolVersion, "mock-dev", []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilityBackupDelete}
 }
 
 func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, error) {
@@ -116,6 +138,10 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		record.State = "running"
 	case "stop", "kill":
 		record.State = "stopped"
+	case "backup", "restore":
+		if err := r.backupAction(ctx, &record, request); err != nil {
+			return model.RuntimeStatus{}, err
+		}
 	case "delete":
 		record.State = "deleted"
 	case "command":

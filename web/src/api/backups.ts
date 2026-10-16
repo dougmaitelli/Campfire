@@ -18,6 +18,53 @@ export interface BackupPolicy {
   remote_max_age_days: number;
 }
 
+export interface CatalogBackup extends Backup {
+  id: string;
+  server_id: string;
+  server_name: string;
+}
+
+export async function listAllBackups(
+  signal: AbortSignal,
+): Promise<CatalogBackup[]> {
+  const body = await readJSON(await apiFetch("/api/v1/backups", { signal }));
+  if (!Array.isArray(body))
+    throw new Error("Unexpected backup catalog response.");
+  return body.map((value: unknown) => {
+    if (
+      !isBackup(value) ||
+      !object(value) ||
+      typeof value.server_id !== "string" ||
+      typeof value.server_name !== "string"
+    )
+      throw new Error("Unexpected backup catalog entry.");
+    return {
+      ...value,
+      server_id: value.server_id,
+      server_name: value.server_name,
+      id: `${value.server_id}/${value.name}`,
+    };
+  });
+}
+
+export async function getBackupPolicy(
+  id: string,
+  signal: AbortSignal,
+): Promise<{ policy: BackupPolicy; s3_available: boolean }> {
+  const body = await readJSON(
+    await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/backup-policy`, {
+      signal,
+    }),
+  );
+  if (
+    !object(body) ||
+    !isPolicy(body.policy) ||
+    typeof body.s3_available !== "boolean"
+  )
+    throw new Error("Unexpected backup policy response.");
+  return { policy: body.policy, s3_available: body.s3_available };
+}
+
 export interface BackupListing {
   entries: Backup[];
   policy: BackupPolicy;

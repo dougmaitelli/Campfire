@@ -3,7 +3,7 @@ import { deleteRole, listRoles, type Role } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { RoleDialog } from "../dialogs/RoleDialog";
 import "./management.css";
-import { Table } from "../components/table/Table";
+import { Table, TableRow } from "../components/table/Table";
 
 const permissionLabels: Record<string, string> = {
   "users.manage": "Manage users",
@@ -25,6 +25,12 @@ export function RolesPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  function edit(role: Role) {
+    if (role.builtin || busy) return;
+    setError(null);
+    setEditing(role);
+    setOpen(true);
+  }
   async function remove(role: Role) {
     if (
       busy ||
@@ -97,14 +103,28 @@ export function RolesPage() {
               <th>Role</th>
               <th>Scope</th>
               <th>Permissions</th>
-              <th className="table-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
             {roles.items.map((role) => (
-              <tr key={role.id}>
+              <TableRow
+                key={role.id}
+                onOpen={!role.builtin && !busy ? () => edit(role) : undefined}
+              >
                 <td>
-                  <strong>{role.name}</strong>
+                  {role.builtin ? (
+                    <strong>{role.name}</strong>
+                  ) : (
+                    <button
+                      type="button"
+                      className="table-row-trigger"
+                      disabled={busy}
+                      aria-label={`Edit role ${role.name}`}
+                      onClick={() => edit(role)}
+                    >
+                      {role.name}
+                    </button>
+                  )}
                   {role.builtin && (
                     <span className="row-description">Built-in</span>
                   )}
@@ -120,23 +140,7 @@ export function RolesPage() {
                         .join(", ")
                     : "Access through server ownership or membership"}
                 </td>
-                <td className="table-actions">
-                  {!role.builtin && (
-                    <div className="row-actions">
-                      <button
-                        className="button"
-                        disabled={busy}
-                        onClick={() => {
-                          setEditing(role);
-                          setOpen(true);
-                        }}
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
+              </TableRow>
             ))}
           </tbody>
         </Table>

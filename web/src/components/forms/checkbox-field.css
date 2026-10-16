@@ -1,0 +1,58 @@
+.checkbox-field,
+.drawer-form .checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.checkbox-field input[type="checkbox"] {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  flex: 0 0 18px;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--bg);
+  cursor: inherit;
+}
+.checkbox-field input[type="checkbox"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: currentColor;
+  clip-path: polygon(14% 44%, 0 65%, 43% 100%, 100% 16%, 80% 0, 40% 64%);
+  opacity: 0;
+}
+.checkbox-field input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.checkbox-field input[type="checkbox"]:checked::before {
+  opacity: 1;
+}
+.checkbox-field input[type="checkbox"]:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.checkbox-field:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
+@media (forced-colors: active) {
+  .checkbox-field input[type="checkbox"] {
+    appearance: auto;
+  }
+  .checkbox-field input[type="checkbox"]::before {
+    display: none;
+  }
+}

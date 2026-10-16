@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { listEmbers } from "../api/embers";
+import { listEmbers, type Ember } from "../api/embers";
 import { useCollection } from "../hooks/useCollection";
 import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
 import "./management.css";
-import { Table } from "../components/table/Table";
+import { Table, TableRow } from "../components/table/Table";
 
 export function EmbersPage() {
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
   const [importing, setImporting] = useState(false);
+  const [editing, setEditing] = useState<Ember | null>(null);
   return (
     <section aria-labelledby="page-title">
       <header className="page-header management-header">
@@ -70,9 +71,16 @@ export function EmbersPage() {
           </thead>
           <tbody>
             {items.map((ember) => (
-              <tr key={ember.id}>
+              <TableRow key={ember.id} onOpen={() => setEditing(ember)}>
                 <td>
-                  <strong>{ember.name}</strong>
+                  <button
+                    type="button"
+                    className="table-row-trigger"
+                    aria-label={`Edit Ember ${ember.name}`}
+                    onClick={() => setEditing(ember)}
+                  >
+                    {ember.name}
+                  </button>
                   {ember.origin && (
                     <span className="row-description">
                       Imported from {ember.origin.format}
@@ -92,7 +100,7 @@ export function EmbersPage() {
                         .join(", ")
                     : "None"}
                 </td>
-              </tr>
+              </TableRow>
             ))}
           </tbody>
         </Table>
@@ -102,9 +110,13 @@ export function EmbersPage() {
           ? "Loading…"
           : `${items.length} ${items.length === 1 ? "Ember" : "Embers"}`}
       </p>
-      {importing && (
+      {(importing || editing) && (
         <ImportEmberDialog
-          onClose={() => setImporting(false)}
+          ember={editing}
+          onClose={() => {
+            setImporting(false);
+            setEditing(null);
+          }}
           onImported={(ember) => {
             upsert(ember);
             void refresh();

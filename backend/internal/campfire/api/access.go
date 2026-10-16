@@ -32,6 +32,7 @@ func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 
 type userInput struct {
 	Name     string `json:"name"`
+	Email    string `json:"email"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 	RoleID   int64  `json:"role_id"`
@@ -44,7 +45,7 @@ func (a *API) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.access.CreateUser(r.Context(), input.Username, input.Password, input.RoleID, input.Disabled, input.Name)
+	user, err := a.access.CreateUser(r.Context(), input.Username, input.Password, input.RoleID, input.Disabled, input.Name, input.Email)
 	if err != nil {
 		writeAuthError(w, err)
 		return
@@ -62,6 +63,7 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 
 	var input struct {
 		Name     *string `json:"name"`
+		Email    *string `json:"email"`
 		RoleID   int64   `json:"role_id"`
 		Disabled bool    `json:"disabled"`
 		Password string  `json:"password"`
@@ -70,7 +72,7 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.access.UpdateUser(r.Context(), id, input.RoleID, input.Disabled, input.Password, input.Name)
+	user, err := a.access.UpdateUser(r.Context(), id, input.RoleID, input.Disabled, input.Password, input.Name, input.Email)
 	if err != nil {
 		writeAuthError(w, err)
 		return

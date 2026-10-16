@@ -4,6 +4,7 @@ import { deleteSchedule, saveSchedule, type Schedule } from "../api/activity";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CronField } from "../components/schedules/CronField";
+import { CheckboxField } from "../components/forms/CheckboxField";
 
 export function ScheduleDialog({
   schedule,
@@ -104,7 +105,12 @@ export function ScheduleDialog({
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <div className="row-actions">
+        <button className="button" disabled={busy} onClick={onClose}>
+          Cancel
+        </button>
+      }
+      footerRight={
+        <>
           <DrawerDeleteButton
             onDelete={
               schedule
@@ -116,29 +122,24 @@ export function ScheduleDialog({
             disabled={busy}
             deleting={deleting}
           />
-          <button className="button" disabled={busy} onClick={onClose}>
-            Cancel
+          <button
+            className="button button-primary"
+            disabled={
+              busy ||
+              !name.trim() ||
+              !serverID ||
+              validated !== cronKey ||
+              (action === "command" &&
+                !command.trim() &&
+                schedule?.action !== "command")
+            }
+            onClick={() => {
+              void submit();
+            }}
+          >
+            {busy && !deleting ? "Saving…" : "Save schedule"}
           </button>
-        </div>
-      }
-      footerRight={
-        <button
-          className="button button-primary"
-          disabled={
-            busy ||
-            !name.trim() ||
-            !serverID ||
-            validated !== cronKey ||
-            (action === "command" &&
-              !command.trim() &&
-              schedule?.action !== "command")
-          }
-          onClick={() => {
-            void submit();
-          }}
-        >
-          {busy && !deleting ? "Saving…" : "Save schedule"}
-        </button>
+        </>
       }
     >
       <div className="drawer-content">
@@ -208,28 +209,25 @@ export function ScheduleDialog({
           onValidated={setValidated}
           disabled={busy}
         />
-        <label className="checkbox-field">
-          <input
-            type="checkbox"
-            checked={onlyWhenRunning}
-            disabled={busy}
-            onChange={(event) => setOnlyWhenRunning(event.target.checked)}
-          />
+        <CheckboxField
+          checked={onlyWhenRunning}
+          disabled={busy}
+          onChange={(event) => setOnlyWhenRunning(event.target.checked)}
+        >
           Only run when the server is running
-        </label>
+        </CheckboxField>
         <p className="field-help">
           Skip this run if the server is stopped. Otherwise, attempt the
           scheduled action regardless of server state; each action still has its
           normal requirements.
         </p>
-        <label className="checkbox-field">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-          />
+        <CheckboxField
+          checked={enabled}
+          disabled={busy}
+          onChange={(e) => setEnabled(e.target.checked)}
+        >
           Enabled
-        </label>
+        </CheckboxField>
         <p className="field-help">
           Missed runs produce one execution after downtime. Backups require a
           stopped server. Editing makes you the execution owner.

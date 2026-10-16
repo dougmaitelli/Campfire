@@ -7,17 +7,24 @@ import {
 } from "../api/embers";
 import type { Ember, EmberPreview } from "../api/embers";
 import { Drawer } from "../components/layout/Drawer";
+import { CheckboxField } from "../components/forms/CheckboxField";
 
 export function ImportEmberDialog({
+  ember,
   onClose,
   onImported,
 }: {
+  ember?: Ember | null;
   onClose: () => void;
   onImported: (ember: Ember) => void;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() =>
+    ember ? JSON.stringify(ember, null, 2) : "",
+  );
   const formID = useId();
-  const [source, setSource] = useState<"file" | "url" | "paste">("file");
+  const [source, setSource] = useState<"file" | "url" | "paste">(
+    ember ? "paste" : "file",
+  );
   const [url, setURL] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingSource, setLoadingSource] = useState(false);
@@ -134,8 +141,12 @@ export function ImportEmberDialog({
   }
   return (
     <Drawer
-      title="Import Ember"
-      description="Import a native Ember or Pterodactyl/Pelican Egg from JSON or YAML. Review compatibility before saving an immutable revision."
+      title={ember ? "Edit Ember" : "Import Ember"}
+      description={
+        ember
+          ? "Edit the definition and review it before saving a new revision. Existing servers keep their pinned revision until you apply the new one."
+          : "Import a native Ember or Pterodactyl/Pelican Egg from JSON or YAML. Review compatibility before saving an immutable revision."
+      }
       busy={busy}
       onClose={onClose}
       footerLeft={
@@ -160,7 +171,15 @@ export function ImportEmberDialog({
             (warnings.length > 0 && !reviewed)
           }
         >
-          {busy ? (loadingSource ? "Loading…" : "Importing…") : "Import Ember"}
+          {busy
+            ? loadingSource
+              ? "Loading…"
+              : ember
+                ? "Saving…"
+                : "Importing…"
+            : ember
+              ? "Save revision"
+              : "Import Ember"}
         </button>
       }
     >
@@ -177,30 +196,32 @@ export function ImportEmberDialog({
             </p>
           )}
           <fieldset disabled={busy}>
-            <div
-              className="import-sources"
-              role="group"
-              aria-label="Definition source"
-            >
-              {(["file", "url", "paste"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className="button"
-                  aria-pressed={source === option}
-                  onClick={() => {
-                    setSource(option);
-                    setError(null);
-                  }}
-                >
-                  {option === "file"
-                    ? "Upload file"
-                    : option === "url"
-                      ? "From URL"
-                      : "Paste definition"}
-                </button>
-              ))}
-            </div>
+            {!ember && (
+              <div
+                className="import-sources"
+                role="group"
+                aria-label="Definition source"
+              >
+                {(["file", "url", "paste"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className="button"
+                    aria-pressed={source === option}
+                    onClick={() => {
+                      setSource(option);
+                      setError(null);
+                    }}
+                  >
+                    {option === "file"
+                      ? "Upload file"
+                      : option === "url"
+                        ? "From URL"
+                        : "Paste definition"}
+                  </button>
+                ))}
+              </div>
+            )}
             {source === "file" && (
               <>
                 <label htmlFor="ember-file">JSON or YAML file</label>
@@ -324,14 +345,12 @@ export function ImportEmberDialog({
                         <li key={`${issue.field}-${index}`}>{issue.message}</li>
                       ))}
                     </ul>
-                    <label className="checkbox-field">
-                      <input
-                        type="checkbox"
-                        checked={reviewed}
-                        onChange={(event) => setReviewed(event.target.checked)}
-                      />
+                    <CheckboxField
+                      checked={reviewed}
+                      onChange={(event) => setReviewed(event.target.checked)}
+                    >
                       I understand these setup requirements.
-                    </label>
+                    </CheckboxField>
                   </>
                 )}
                 {notes.length > 0 && (

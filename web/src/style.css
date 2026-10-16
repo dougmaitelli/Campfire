@@ -92,6 +92,10 @@ input[type="radio"] {
   padding: 0;
   flex-shrink: 0;
 }
+.button-icon svg {
+  width: 18px;
+  height: 18px;
+}
 .error-message {
   padding: 12px 14px;
   border: 1px solid #704938;

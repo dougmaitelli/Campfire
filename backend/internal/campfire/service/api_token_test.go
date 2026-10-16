@@ -25,7 +25,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	user, err := auth.Access().CreateUser(ctx, "token-user", "a private long test password", database.UserRole, false, "")
+	user, err := auth.Access().CreateUser(ctx, "token-user", "a private long test password", database.UserRole, false, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestAPITokenScopeValidationAndLimit(t *testing.T) {
 
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	user, err := auth.Access().CreateUser(ctx, "token-user", "a private long test password", database.UserRole, false, "")
+	user, err := auth.Access().CreateUser(ctx, "token-user", "a private long test password", database.UserRole, false, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

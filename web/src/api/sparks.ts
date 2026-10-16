@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, readJSON } from "./client";
 
 export type SparkKind = "remote";
 
@@ -99,18 +99,7 @@ function isAllocation(value: unknown): value is PortAllocation {
 }
 
 async function readResponse(response: Response): Promise<unknown> {
-  const body: unknown = await response.json();
-  if (!response.ok) {
-    const message =
-      typeof body === "object" &&
-      body !== null &&
-      "error" in body &&
-      typeof body.error === "string"
-        ? body.error
-        : "Unable to complete the request.";
-    throw new Error(message);
-  }
-  return body;
+  return readJSON(response);
 }
 
 export async function listSparks(signal: AbortSignal): Promise<Spark[]> {

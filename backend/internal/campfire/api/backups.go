@@ -15,6 +15,38 @@ import (
 	"campfire/internal/shared/model"
 )
 
+func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
+	if a.deployment == nil || a.deployment.Backups == nil {
+		writeError(w, service.ErrDeploymentUnavailable)
+		return
+	}
+
+	items, err := a.deployment.Backups.Catalog(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (a *API) getBackupPolicy(w http.ResponseWriter, r *http.Request) {
+	if a.deployment == nil || a.deployment.Backups == nil {
+		writeError(w, service.ErrDeploymentUnavailable)
+		return
+	}
+
+	policy, err := a.deployment.Backups.Store.Policy(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"policy": policy, "s3_available": a.deployment.Backups.Remote != nil})
+}
+
 func (a *API) serverBackups(w http.ResponseWriter, r *http.Request) {
 	if a.deployment == nil {
 		writeError(w, service.ErrDeploymentUnavailable)

@@ -10,6 +10,9 @@ import {
 } from "../api/files";
 import type { FileEntry } from "../api/files";
 import { Drawer } from "../components/layout/Drawer";
+import { InputDialog } from "../components/layout/InputDialog";
+import { ConfirmDialog } from "../components/layout/ConfirmDialog";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import "../components/servers/files.css";
 
 interface Editor {
@@ -58,9 +61,17 @@ export function ServerFilesDialog({
   const [loading, setLoading] = useState(true);
   const [maxUploadBytes, setMaxUploadBytes] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState<"file" | "folder" | null>(null);
+  const [fileAction, setFileAction] = useState<{
+    kind: "rename" | "compress" | "extract";
+    entry: FileEntry;
+  } | null>(null);
+  const [deleting, setDeleting] = useState<FileEntry | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const pending = useRef(true);
   const alive = useRef(true);
   const transfer = useRef<AbortController | null>(null);
+  const uploadInput = useRef<HTMLInputElement | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   useEffect(() => {
     alive.current = true;
@@ -183,10 +194,8 @@ export function ServerFilesDialog({
     if (!result.revision) throw new Error("File revision is missing.");
     setEditor({ ...editor, initial: editor.text, revision: result.revision });
   }
-  async function create(folder: boolean) {
-    const name = entryName(
-      window.prompt(folder ? "New folder name" : "New file name"),
-    );
+  async function create(folder: boolean, value: string) {
+    const name = entryName(value);
     if (name === null) return;
     if (folder) {
       await manageFiles(server.id, {
@@ -203,8 +212,8 @@ export function ServerFilesDialog({
       });
     }
   }
-  async function rename(entry: FileEntry) {
-    const name = entryName(window.prompt("New name", entry.name));
+  async function rename(entry: FileEntry, value: string) {
+    const name = entryName(value);
     if (name === null || name === entry.name) return;
     await manageFiles(server.id, {
       operation: "rename",
@@ -214,17 +223,25 @@ export function ServerFilesDialog({
     await load(directory);
   }
   async function remove(entry: FileEntry) {
-    if (
-      !window.confirm(
-        `Permanently delete "${entry.name}"? Folders must be empty.`,
-      )
-    )
-      return;
-    await manageFiles(server.id, {
-      operation: "delete",
-      path: join(directory, entry.name),
-    });
-    await load(directory);
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setDeleteError(null);
+    try {
+      await manageFiles(server.id, {
+        operation: "delete",
+        path: join(directory, entry.name),
+      });
+      await load(directory);
+      setDeleting(null);
+    } catch (cause) {
+      setDeleteError(
+        cause instanceof Error ? cause.message : "Unable to delete this entry.",
+      );
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
   }
   async function upload(file: File) {
     if (maxUploadBytes === null)
@@ -300,15 +317,8 @@ export function ServerFilesDialog({
     }
     await load(directory);
   }
-  async function archive(entry: FileEntry, extract: boolean) {
-    const destination = entryName(
-      window.prompt(
-        extract ? "Extract into a new folder" : "New .tar.gz archive name",
-        extract
-          ? entry.name.replace(/\.(tar\.gz|tgz|zip)$/i, "")
-          : `${entry.name}.tar.gz`,
-      ),
-    );
+  async function archive(entry: FileEntry, extract: boolean, value: string) {
+    const destination = entryName(value);
     if (!destination) return;
     await manageFiles(server.id, {
       operation: extract ? "extract" : "compress",
@@ -357,20 +367,77 @@ export function ServerFilesDialog({
           >
             {busy ? "Saving…" : "Save file"}
           </button>
-        ) : (
-          <button
-            className="button"
-            disabled={busy || loading}
-            onClick={() => {
-              void perform(() => load(directory));
-            }}
-          >
-            Refresh
-          </button>
-        )
+        ) : null
       }
     >
       <div className="drawer-content">
+        {fileAction && (
+          <InputDialog
+            title={
+              fileAction.kind === "rename"
+                ? "Rename"
+                : fileAction.kind === "compress"
+                  ? "Compress"
+                  : "Extract archive"
+            }
+            label={
+              fileAction.kind === "rename"
+                ? "New name"
+                : fileAction.kind === "compress"
+                  ? "Archive name"
+                  : "New folder name"
+            }
+            description={`${fileAction.entry.name} in ${directory === "." ? "the root folder" : directory}.`}
+            submitLabel={
+              fileAction.kind === "rename"
+                ? "Rename"
+                : fileAction.kind === "compress"
+                  ? "Compress"
+                  : "Extract"
+            }
+            initialValue={
+              fileAction.kind === "rename"
+                ? fileAction.entry.name
+                : fileAction.kind === "compress"
+                  ? `${fileAction.entry.name}.tar.gz`
+                  : fileAction.entry.name.replace(/\.(tar\.gz|tgz|zip)$/i, "")
+            }
+            onClose={() => setFileAction(null)}
+            onSubmit={(name) =>
+              fileAction.kind === "rename"
+                ? rename(fileAction.entry, name)
+                : archive(fileAction.entry, fileAction.kind === "extract", name)
+            }
+          />
+        )}
+        {deleting && (
+          <ConfirmDialog
+            title={
+              deleting.kind === "directory" ? "Delete folder?" : "Delete file?"
+            }
+            description={`Permanently delete "${deleting.name}"? This cannot be undone.${deleting.kind === "directory" ? " The folder must be empty." : ""}`}
+            confirmLabel="Delete"
+            danger
+            busy={busy}
+            error={deleteError}
+            onClose={() => setDeleting(null)}
+            onConfirm={() => {
+              void remove(deleting);
+            }}
+          />
+        )}
+        {creating && (
+          <InputDialog
+            title={creating === "folder" ? "New folder" : "New file"}
+            label="Name"
+            description={`Create in ${directory === "." ? "the root folder" : directory}.`}
+            submitLabel={
+              creating === "folder" ? "Create folder" : "Create file"
+            }
+            onClose={() => setCreating(null)}
+            onSubmit={(name) => create(creating === "folder", name)}
+          />
+        )}
         {progress && (
           <p role="status">
             {progress}{" "}
@@ -389,8 +456,8 @@ export function ServerFilesDialog({
         )}
         {!canWrite && (
           <p className="prerequisite-note">
-            Stop the server to modify its files. Browsing and downloads remain
-            available.
+            File modifications are currently unavailable. Wait for the current
+            operation to finish and ensure the Spark is connected.
           </p>
         )}
         {editor ? (
@@ -415,38 +482,34 @@ export function ServerFilesDialog({
           </>
         ) : (
           <>
-            <nav className="file-breadcrumbs" aria-label="File directory">
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => {
-                  void perform(() => load("."));
-                }}
-              >
-                Game files
-              </button>
-              {directory !== "." &&
-                directory.split("/").map((part, index, parts) => (
-                  <button
-                    className="button"
-                    disabled={busy}
-                    key={parts.slice(0, index + 1).join("/")}
-                    onClick={() => {
-                      void perform(() =>
-                        load(parts.slice(0, index + 1).join("/")),
-                      );
-                    }}
-                  >
-                    {part}
-                  </button>
-                ))}
-            </nav>
+            <details className="file-sftp">
+              <summary>SFTP access</summary>
+              <div className="file-sftp-content">
+                <p>
+                  Connect with an SFTP client using the address and port
+                  provided by your administrator. SFTP must be enabled first.
+                </p>
+                <dl>
+                  <dt>Username</dt>
+                  <dd>
+                    <code>{server.id}</code>
+                  </dd>
+                  <dt>Password</dt>
+                  <dd>Your personal API token</dd>
+                </dl>
+                <p>
+                  Create a token from <strong>API keys</strong> in your account
+                  menu, with <code>server.view</code> and{" "}
+                  <code>server.operate</code> permissions.
+                </p>
+              </div>
+            </details>
             <div className="file-toolbar">
               <button
                 className="button"
                 disabled={busy || loading || !canWrite}
                 onClick={() => {
-                  void perform(() => create(false));
+                  setCreating("file");
                 }}
               >
                 New file
@@ -455,38 +518,101 @@ export function ServerFilesDialog({
                 className="button"
                 disabled={busy || loading || !canWrite}
                 onClick={() => {
-                  void perform(() => create(true));
+                  setCreating("folder");
                 }}
               >
                 New folder
               </button>
-              <label className="button file-upload">
+              <button
+                className="button"
+                type="button"
+                disabled={
+                  busy || loading || !canWrite || maxUploadBytes === null
+                }
+                onClick={() => uploadInput.current?.click()}
+              >
                 Upload file
-                <input
-                  type="file"
-                  disabled={
-                    busy || loading || !canWrite || maxUploadBytes === null
-                  }
-                  aria-label="Upload file"
-                  onChange={(event) => {
-                    const file = event.target.files?.item(0);
-                    event.target.value = "";
-                    if (file) void perform(() => upload(file));
-                  }}
-                />
-              </label>
+              </button>
+              <button
+                className="button file-refresh"
+                disabled={busy || loading}
+                onClick={() => {
+                  void perform(() => load(directory));
+                }}
+              >
+                Refresh
+              </button>
+              <input
+                ref={uploadInput}
+                hidden
+                type="file"
+                disabled={
+                  busy || loading || !canWrite || maxUploadBytes === null
+                }
+                aria-label="Upload file"
+                onChange={(event) => {
+                  const file = event.target.files?.item(0);
+                  event.target.value = "";
+                  if (file) void perform(() => upload(file));
+                }}
+              />
             </div>
-            <details>
-              <summary>SFTP access</summary>
-              <p>
-                When your administrator enables SFTP, connect to Campfire’s SFTP
-                address using <code>{server.id}</code> as the username and a
-                personal API token as the password. The token needs server.view
-                and server.operate. Create tokens from API tokens in the
-                sidebar. Stop the server before uploading or modifying files.
-              </p>
-            </details>
+            <nav className="file-breadcrumbs" aria-label="File directory">
+              <button
+                className="file-breadcrumb"
+                disabled={busy}
+                aria-current={directory === "." ? "location" : undefined}
+                onClick={() => {
+                  void perform(() => load("."));
+                }}
+              >
+                Root
+              </button>
+              {directory !== "." &&
+                directory.split("/").map((part, index, parts) => (
+                  <span
+                    className="file-breadcrumb-segment"
+                    key={parts.slice(0, index + 1).join("/")}
+                  >
+                    <span aria-hidden="true">/</span>
+                    <button
+                      className="file-breadcrumb"
+                      disabled={busy}
+                      aria-current={
+                        index === parts.length - 1 ? "location" : undefined
+                      }
+                      onClick={() => {
+                        void perform(() =>
+                          load(parts.slice(0, index + 1).join("/")),
+                        );
+                      }}
+                    >
+                      {part}
+                    </button>
+                  </span>
+                ))}
+            </nav>
             <div className="file-list">
+              {directory !== "." && (
+                <div className="file-row">
+                  <button
+                    type="button"
+                    className="file-name"
+                    aria-label="Go to parent folder"
+                    disabled={busy || loading}
+                    onClick={() => {
+                      const parent = directory
+                        .split("/")
+                        .slice(0, -1)
+                        .join("/");
+                      void perform(() => load(parent || "."));
+                    }}
+                  >
+                    <span className="file-entry-name">../</span>
+                    <span className="file-entry-meta">Parent folder</span>
+                  </button>
+                </div>
+              )}
               {loading ? (
                 <p className="list-summary" role="status">
                   Loading files…
@@ -503,8 +629,8 @@ export function ServerFilesDialog({
                         void perform(() => open(entry));
                       }}
                     >
-                      {entry.name}
-                      <span className="row-description">
+                      <span className="file-entry-name">{entry.name}</span>
+                      <span className="file-entry-meta">
                         {entry.kind === "directory"
                           ? "Folder"
                           : entry.kind === "unsupported"
@@ -516,62 +642,70 @@ export function ServerFilesDialog({
                     <div className="row-actions">
                       {entry.kind === "file" && (
                         <button
-                          className="button"
+                          className="button button-icon"
+                          title="Download"
                           disabled={busy || entry.size > fileTransferLimit}
                           onClick={() => {
                             void perform(() => download(entry));
                           }}
                           aria-label={`Download ${entry.name}`}
                         >
-                          Download
+                          <NavigationIcon name="download" />
                         </button>
                       )}
                       {entry.kind !== "unsupported" && (
                         <button
-                          className="button"
+                          className="button button-icon"
+                          title="Compress"
+                          aria-label={`Compress ${entry.name}`}
                           disabled={busy || !canWrite}
                           onClick={() => {
-                            void perform(() => archive(entry, false));
+                            setFileAction({ kind: "compress", entry });
                           }}
                         >
-                          Compress
+                          <NavigationIcon name="compress" />
                         </button>
                       )}
                       {entry.kind === "file" &&
                         /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
                           <button
-                            className="button"
+                            className="button button-icon"
+                            title="Extract"
+                            aria-label={`Extract ${entry.name}`}
                             disabled={busy || !canWrite}
                             onClick={() => {
-                              void perform(() => archive(entry, true));
+                              setFileAction({ kind: "extract", entry });
                             }}
                           >
-                            Extract
+                            <NavigationIcon name="extract" />
                           </button>
                         )}
                       <button
-                        className="button"
+                        className="button button-icon"
+                        title="Rename"
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
                         }
                         onClick={() => {
-                          void perform(() => rename(entry));
+                          setFileAction({ kind: "rename", entry });
                         }}
                         aria-label={`Rename ${entry.name}`}
                       >
-                        Rename
+                        <NavigationIcon name="rename" />
                       </button>
                       <button
-                        className="button button-danger"
+                        className="button button-icon button-danger"
+                        title="Delete"
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
                         }
                         onClick={() => {
-                          void perform(() => remove(entry));
+                          setDeleteError(null);
+                          setDeleting(entry);
                         }}
                         aria-label={`Delete ${entry.name}`}
                       >
-                        Delete
+                        <NavigationIcon name="delete" />
                       </button>
                     </div>
                   </div>

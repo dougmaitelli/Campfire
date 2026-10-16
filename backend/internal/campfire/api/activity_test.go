@@ -92,12 +92,12 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	owner, err := auth.Access().CreateUser(ctx, "owner", testAdminPassword, database.UserRole, false, "")
+	owner, err := auth.Access().CreateUser(ctx, "owner", testAdminPassword, database.UserRole, false, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	operator, err := auth.Access().CreateUser(ctx, "operator", testAdminPassword, database.UserRole, false, "")
+	operator, err := auth.Access().CreateUser(ctx, "operator", testAdminPassword, database.UserRole, false, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import {
 } from "../api/access";
 import type { Spark } from "../api/sparks";
 import { Drawer } from "../components/layout/Drawer";
+import { CheckboxField } from "../components/forms/CheckboxField";
 
 export function SparkRolesDialog({
   spark,
@@ -106,20 +107,20 @@ export function SparkRolesDialog({
           <p role="status">Loading roles…</p>
         ) : (
           roles.map((role) => (
-            <label className="checkbox-field" key={role.id}>
-              <input
-                type="checkbox"
-                checked={selected.includes(role.id)}
-                onChange={(event) =>
-                  setSelected(
-                    event.target.checked
-                      ? [...selected, role.id]
-                      : selected.filter((id) => id !== role.id),
-                  )
-                }
-              />
+            <CheckboxField
+              key={role.id}
+              checked={selected.includes(role.id)}
+              disabled={busy}
+              onChange={(event) =>
+                setSelected(
+                  event.target.checked
+                    ? [...selected, role.id]
+                    : selected.filter((id) => id !== role.id),
+                )
+              }
+            >
               {role.name}
-            </label>
+            </CheckboxField>
           ))
         )}
         <p className="field-help">

@@ -1,3 +1,5 @@
+import { formatErrorMessage } from "../utils/errors";
+
 let csrfToken = "";
 
 export function setCSRFToken(token: string) {
@@ -37,7 +39,7 @@ export async function readJSON(response: Response): Promise<unknown> {
       typeof body.error === "string"
         ? body.error
         : "Unable to complete the request.";
-    throw new Error(message);
+    throw new Error(formatErrorMessage(message));
   }
   return body;
 }

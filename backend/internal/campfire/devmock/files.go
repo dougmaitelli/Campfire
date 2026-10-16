@@ -43,6 +43,10 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		return model.FileResult{}, err
 	}
 
+	if strings.HasPrefix(request.Operation, "backup.") {
+		return r.backupFiles(ctx, record, request)
+	}
+
 	name, err := cleanPath(request.Path)
 	if err != nil {
 		return model.FileResult{}, err

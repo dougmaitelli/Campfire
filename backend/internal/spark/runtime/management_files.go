@@ -131,15 +131,6 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != "active" && transfer.State != "released") {
 			return model.FileResult{}, fileFailure("file_busy", "Server files are locked for a Spark transfer.")
 		}
-
-		state, err := m.inspect(ctx, q.ServerID)
-		if err != nil {
-			return model.FileResult{}, fileFailure("file_io", "Could not verify server state.")
-		}
-
-		if state != "missing" && state != "exited" && state != "created" {
-			return model.FileResult{}, fileFailure("file_busy", "Stop the server before modifying files.")
-		}
 	}
 
 	volume, err := m.volume(q.ServerID)

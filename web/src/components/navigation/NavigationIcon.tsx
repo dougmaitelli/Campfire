@@ -8,10 +8,21 @@ type NavigationIconName =
   | "key"
   | "link"
   | "loading"
+  | "download"
+  | "compress"
+  | "extract"
+  | "rename"
+  | "delete"
   | "warning"
   | "table";
 
 const paths: Record<NavigationIconName, string> = {
+  backups: "M3 3h18v5H3z M5 8v13h14V8 M9 12h6",
+  download: "M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5",
+  compress: "M3 4h18v5H3z M5 9v12h14V9 M9 13h6 M12 13v5 m-2-2 2 2 2-2",
+  extract: "M3 4h18v5H3z M5 9v12h14V9 M12 18v-6 m-3 3 3-3 3 3",
+  rename: "m16 3 5 5-12 12-6 1 1-6L16 3Z M13 6l5 5",
+  delete: "M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7",
   loading: "M20 12a8 8 0 1 1-8-8",
   warning: "M12 3 2 21h20L12 3Z M12 9v5 M12 17h.01",
   table: "M3 5h18v14H3z M3 10h18 M9 10v9",

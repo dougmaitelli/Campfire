@@ -58,6 +58,20 @@ func (r *BackupRepository) List(ctx context.Context, id string) ([]database.Back
 	return items, err
 }
 
+// CatalogBackupRow joins a catalog record to its server name.
+type CatalogBackupRow struct {
+	database.Backup
+	ServerName string
+}
+
+// ListAll returns the durable catalog without requiring online Sparks.
+func (r *BackupRepository) ListAll(ctx context.Context) ([]CatalogBackupRow, error) {
+	items := make([]CatalogBackupRow, 0)
+	err := r.db.WithContext(ctx).Table("backups").Select("backups.*, servers.name AS server_name").Joins("JOIN servers ON servers.id = backups.server_id").Order("backups.created_at DESC, backups.server_id, backups.name DESC").Scan(&items).Error
+
+	return items, err
+}
+
 // Get resolves a single immutable backup identity.
 func (r *BackupRepository) Get(ctx context.Context, id, name string) (database.Backup, error) {
 	var item database.Backup

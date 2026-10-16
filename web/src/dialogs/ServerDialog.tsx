@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { applyServerEmber, saveServer } from "../api/servers";
 import type { Server, ServerConfiguration } from "../api/servers";
 import type { Spark } from "../api/sparks";
@@ -8,6 +8,13 @@ import { Wizard } from "../components/wizard/Wizard";
 import { ServerResourcesFields } from "../components/servers/ServerResourcesFields";
 import { ServerReview } from "../components/servers/ServerReview";
 import { defaultPorts, defaultVariables } from "../utils/serverDefaults";
+import {
+  getBackupPolicy,
+  saveBackupPolicy,
+  type BackupPolicy,
+} from "../api/backups";
+import { BackupPolicyFields } from "../components/servers/BackupPolicyFields";
+import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 
 interface ServerDialogProps {
   applyRevision?: boolean;
@@ -49,6 +56,31 @@ export function ServerDialog({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backupPolicy, setBackupPolicy] = useState<BackupPolicy | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const [s3Available, setS3Available] = useState(false);
+  const [policyDirty, setPolicyDirty] = useState(false);
+  const [confirmPolicy, setConfirmPolicy] = useState(false);
+  useEffect(() => {
+    if (!server || applyRevision) return;
+    const controller = new AbortController();
+    void getBackupPolicy(server.id, controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setBackupPolicy(result.policy);
+          setS3Available(result.s3_available);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setPolicyError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load backup policy.",
+          );
+      });
+    return () => controller.abort();
+  }, [server, applyRevision]);
   const submitting = useRef(false);
   const spark = sparks.find((item) => item.id === value.spark_id);
   const ember = embers.find((item) => item.id === value.ember_id);
@@ -71,11 +103,14 @@ export function ServerDialog({
         disk_mb: value.disk_mb,
         ports: value.ports,
       };
-      onSaved(
+      const saved =
         applyRevision && server
           ? await applyServerEmber(server.id, server.ember_id, input)
-          : await saveServer(input, server?.id),
-      );
+          : await saveServer(input, server?.id);
+      if (server && policyDirty && backupPolicy) {
+        await saveBackupPolicy(server.id, backupPolicy);
+      }
+      onSaved(saved);
       onClose();
     } catch (cause) {
       setError(
@@ -98,7 +133,10 @@ export function ServerDialog({
             ? "Save changes"
             : "Create server"
       }
-      onFinish={finish}
+      onFinish={async () => {
+        if (policyDirty) setConfirmPolicy(true);
+        else await finish();
+      }}
       steps={[
         {
           id: "basics",
@@ -278,6 +316,30 @@ export function ServerDialog({
             />
           ),
         },
+        ...(server && !applyRevision
+          ? [
+              {
+                id: "backups",
+                title: "Backups",
+                content: policyError ? (
+                  <p className="error-message" role="alert">
+                    {policyError}
+                  </p>
+                ) : backupPolicy ? (
+                  <BackupPolicyFields
+                    value={backupPolicy}
+                    s3Available={s3Available}
+                    onChange={(next) => {
+                      setBackupPolicy(next);
+                      setPolicyDirty(true);
+                    }}
+                  />
+                ) : (
+                  <p role="status">Loading backup policy…</p>
+                ),
+              },
+            ]
+          : []),
         {
           id: "review",
           title: "Review",
@@ -352,6 +414,19 @@ export function ServerDialog({
           footerRight={actions}
         >
           {content}
+          {confirmPolicy && (
+            <ConfirmDialog
+              title="Save server and backup settings?"
+              description="Retention runs in the background and permanently deletes expired copies independently from local and S3 storage. Zero disables a limit."
+              confirmLabel="Save changes"
+              busy={busy}
+              error={error}
+              onClose={() => setConfirmPolicy(false)}
+              onConfirm={() => {
+                void finish();
+              }}
+            />
+          )}
         </Drawer>
       )}
     </Wizard>

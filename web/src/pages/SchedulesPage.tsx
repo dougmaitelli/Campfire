@@ -185,7 +185,6 @@ export function SchedulesPage() {
         </label>
       </div>
       <div className="management-content">
-        <h2>Recurring schedules</h2>
         <Table
           empty={
             !schedules.items.some(
@@ -282,12 +281,12 @@ export function SchedulesPage() {
           </tbody>
         </Table>
       </div>
+      <h2>Execution history</h2>
+      <p className="field-help">
+        Includes manual server operations. Interrupted work may already have
+        executed; inspect the server before retrying.
+      </p>
       <div className="management-content">
-        <h2>Execution history</h2>
-        <p className="field-help">
-          Includes manual server operations. Interrupted work may already have
-          executed; inspect the server before retrying.
-        </p>
         <Table
           empty={runs.length === 0}
           loading={loading}

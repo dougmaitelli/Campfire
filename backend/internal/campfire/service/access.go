@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net/mail"
 	"slices"
 	"strings"
 	"unicode"
@@ -159,9 +160,11 @@ func (s *AccessService) Users(ctx context.Context) ([]database.User, error) {
 }
 
 // CreateUser validates and hashes a new account password.
-func (s *AccessService) CreateUser(ctx context.Context, username, password string, roleID int64, disabled bool, name string) (database.User, error) {
+func (s *AccessService) CreateUser(ctx context.Context, username, password string, roleID int64, disabled bool, name, email string) (database.User, error) {
 	name = strings.TrimSpace(name)
-	if !validDisplayName(name) {
+
+	email = strings.TrimSpace(email)
+	if !validDisplayName(name) || !validEmail(email) {
 		return database.User{}, repository.ErrAccessInput
 	}
 
@@ -181,7 +184,7 @@ func (s *AccessService) CreateUser(ctx context.Context, username, password strin
 		return database.User{}, err
 	}
 
-	user := database.User{Username: username, Name: name, PasswordHash: encoded, Version: 1, RoleID: roleID, Disabled: disabled}
+	user := database.User{Username: username, Name: name, Email: email, PasswordHash: encoded, Version: 1, RoleID: roleID, Disabled: disabled}
 	if err := s.store.CreateUser(ctx, &user); err != nil {
 		return database.User{}, err
 	}
@@ -190,7 +193,7 @@ func (s *AccessService) CreateUser(ctx context.Context, username, password strin
 }
 
 // UpdateUser changes account privileges and revokes that user's sessions.
-func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabled bool, password string, name *string) (database.User, error) {
+func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabled bool, password string, name, email *string) (database.User, error) {
 	if name != nil {
 		trimmed := strings.TrimSpace(*name)
 		if !validDisplayName(trimmed) {
@@ -198,6 +201,15 @@ func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabl
 		}
 
 		name = &trimmed
+	}
+
+	if email != nil {
+		trimmed := strings.TrimSpace(*email)
+		if !validEmail(trimmed) {
+			return database.User{}, repository.ErrAccessInput
+		}
+
+		email = &trimmed
 	}
 
 	encoded := ""
@@ -219,7 +231,7 @@ func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabl
 		}
 	}
 
-	if err := s.store.UpdateUser(ctx, id, roleID, disabled, encoded, name); err != nil {
+	if err := s.store.UpdateUser(ctx, id, roleID, disabled, encoded, name, email); err != nil {
 		return database.User{}, err
 	}
 
@@ -228,6 +240,20 @@ func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabl
 
 func validDisplayName(name string) bool {
 	return utf8.ValidString(name) && utf8.RuneCountInString(name) <= 100 && !strings.ContainsFunc(name, unicode.IsControl)
+}
+
+func validEmail(email string) bool {
+	if email == "" {
+		return true
+	}
+
+	if len(email) > 254 || !utf8.ValidString(email) || strings.ContainsFunc(email, unicode.IsControl) {
+		return false
+	}
+
+	address, err := mail.ParseAddress(email)
+
+	return err == nil && address.Address == email && address.Name == ""
 }
 
 // DeleteUser cannot remove accounts that still own servers or the last active administrator.

@@ -8,6 +8,7 @@ import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { ServerReview } from "../components/servers/ServerReview";
 import { SparkReview } from "../components/sparks/SparkReview";
 import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
+import { SparkFeatures } from "../components/sparks/SparkFeatures";
 
 export interface ResourceDetailTarget {
   kind: "server" | "spark";
@@ -83,33 +84,33 @@ export function ResourceDetailsDialog({
       busy={deleting}
       onClose={onClose}
       footerLeft={
-        <div className="row-actions">
+        <button
+          type="button"
+          className="button"
+          disabled={deleting}
+          onClick={onClose}
+        >
+          Close
+        </button>
+      }
+      footerRight={
+        <>
           <DrawerDeleteButton
             onDelete={onDelete}
             disabled={!details || deleteDisabled}
             deleting={deleting}
           />
-          <button
-            type="button"
-            className="button"
-            disabled={deleting}
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-      }
-      footerRight={
-        onEdit ? (
-          <button
-            type="button"
-            className="button button-primary"
-            disabled={!details || editDisabled || deleting}
-            onClick={onEdit}
-          >
-            {target.kind === "server" ? "Edit server" : "Edit Spark"}
-          </button>
-        ) : null
+          {onEdit ? (
+            <button
+              type="button"
+              className="button button-primary"
+              disabled={!details || editDisabled || deleting}
+              onClick={onEdit}
+            >
+              {target.kind === "server" ? "Edit server" : "Edit Spark"}
+            </button>
+          ) : null}
+        </>
       }
     >
       <div className="drawer-content">
@@ -146,6 +147,7 @@ export function ResourceDetailsDialog({
               settings={details.value}
               notice=""
             />
+            <SparkFeatures spark={details.value} />
           </>
         )}
       </div>

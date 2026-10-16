@@ -147,6 +147,86 @@ func TestLifecycleMetricsAndOffline(t *testing.T) {
 	}
 }
 
+func TestLegacyFileFixtureMigration(t *testing.T) {
+	for _, nullable := range []bool{false, true} {
+		t.Run(map[bool]string{false: "missing column", true: "null column"}[nullable], func(t *testing.T) {
+			runtime, db, auth, servers := fixture(t)
+			server := onlineServer(t, runtime, servers)
+
+			if err := db.ORM().Exec("ALTER TABLE runtime_records DROP COLUMN file_fixture_version").Error; err != nil {
+				t.Fatal(err)
+			}
+
+			if nullable {
+				if err := db.ORM().Exec("ALTER TABLE runtime_records ADD COLUMN file_fixture_version INTEGER").Error; err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			reloaded, err := New(t.Context(), db.ORM(), auth)
+			if err != nil {
+				t.Fatal("legacy mock startup failed", err)
+			}
+
+			result, err := reloaded.Files(t.Context(), server.SparkID, model.FileRequest{ServerID: server.ID, Operation: "list", Path: "config/fabric"})
+			if err != nil || len(result.Entries) == 0 {
+				t.Fatal("legacy mock did not receive nested files", result, err)
+			}
+		})
+	}
+}
+
+func TestFileTreeUpgradePreservesEdits(t *testing.T) {
+	runtime, db, auth, servers := fixture(t)
+	server := onlineServer(t, runtime, servers)
+
+	var record runtimeRecord
+	if err := db.ORM().Where("server_id = ?", server.ID).Take(&record).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	record.Files = map[string]string{"server.properties": "motd=Custom\n", "custom.txt": "keep me"}
+	record.FileFixtureVersion = 0
+
+	if err := db.ORM().Save(&record).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded, err := New(t.Context(), db.ORM(), auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, directory := range []string{".", "config", "config/fabric", "world", "world/datapacks", "world/playerdata", "mods", "logs"} {
+		result, err := reloaded.Files(t.Context(), server.SparkID, model.FileRequest{ServerID: server.ID, Operation: "list", Path: directory})
+		if err != nil || result.Entries == nil {
+			t.Fatalf("listing %s: %+v %v", directory, result, err)
+		}
+	}
+
+	for name, contents := range map[string]string{"server.properties": "motd=Custom\n", "custom.txt": "keep me"} {
+		result, err := reloaded.Files(t.Context(), server.SparkID, model.FileRequest{ServerID: server.ID, Operation: "read", Path: name})
+		if err != nil || string(result.Data) != contents {
+			t.Fatalf("upgrade changed %s: %+v %v", name, result, err)
+		}
+	}
+
+	request := model.FileRequest{ServerID: server.ID, Operation: "delete", Path: "mods/README.txt"}
+	if _, err := reloaded.Files(t.Context(), server.SparkID, request); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded, err = New(t.Context(), db.ORM(), auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request.Operation = "read"
+	if _, err := reloaded.Files(t.Context(), server.SparkID, request); err == nil {
+		t.Fatal("restart restored a deleted fixture file")
+	}
+}
+
 func TestFileEditsAndRevisionsPersist(t *testing.T) {
 	runtime, db, auth, servers := fixture(t)
 	server := onlineServer(t, runtime, servers)

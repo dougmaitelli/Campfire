@@ -65,16 +65,16 @@ export function ResourceReadings({
   memoryMB: number;
   diskMB: number;
   elapsed: number;
-  layout?: "stack" | "grid";
+  layout?: "stack" | "grid" | "compact";
 }) {
   const cpu = usage?.cpu_percent;
   return (
     <div
-      className={`resource-readings${layout === "grid" ? " resource-readings-grid" : ""}`}
+      className={`resource-readings${layout !== "stack" ? ` resource-readings-${layout}` : ""}`}
     >
       <ResourceReading
         label="CPU"
-        compact={layout === "grid"}
+        compact={layout !== "stack"}
         value={cpu === undefined || cpu === null ? null : cpu / 100}
         allocation={cpuLimit}
         fresh={containerFresh(usage, elapsed)}
@@ -88,7 +88,7 @@ export function ResourceReadings({
       />
       <ResourceReading
         label="Memory"
-        compact={layout === "grid"}
+        compact={layout !== "stack"}
         value={usage?.memory_bytes ?? null}
         allocation={memoryMB * 1048576}
         fresh={containerFresh(usage, elapsed)}
@@ -100,7 +100,7 @@ export function ResourceReadings({
       />
       <ResourceReading
         label="Game data"
-        compact={layout === "grid"}
+        compact={layout !== "stack"}
         value={usage?.disk_bytes ?? null}
         allocation={diskMB * 1048576}
         fresh={diskFresh(usage, elapsed)}

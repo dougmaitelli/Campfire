@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { deleteUser, listRoles, listUsers, type User } from "../api/access";
+import { listRoles, listUsers, type User } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { UserDialog } from "../dialogs/UserDialog";
-import { UserDetailsDialog } from "../dialogs/UserDetailsDialog";
 import { StatusPill } from "../components/status/StatusPill";
 import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
@@ -15,37 +14,15 @@ export function UsersPage() {
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
   const filtered = users.items.filter((user) =>
-    [user.name, user.username].some((value) =>
+    [user.name, user.username, user.email].some((value) =>
       value.toLowerCase().includes(query),
     ),
   );
   const [editing, setEditing] = useState<User | null>(null);
-  const [details, setDetails] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function remove(user: User) {
-    if (
-      busy ||
-      !window.confirm(
-        `Delete "${user.username}"? Transfer their owned servers first. Their server memberships and sessions will be removed.`,
-      )
-    )
-      return;
-    setBusy(true);
-    setError(null);
-    try {
-      await deleteUser(user.id);
-      setDetails(null);
-      await users.refresh();
-      if (user.id === auth.session?.user_id) await auth.reload();
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Unable to delete user.",
-      );
-    } finally {
-      setBusy(false);
-    }
+  function edit(user: User) {
+    setEditing(user);
+    setOpen(true);
   }
   return (
     <section aria-labelledby="page-title">
@@ -78,10 +55,9 @@ export function UsersPage() {
           </button>
         </div>
       </header>
-      {(error ??
-        (users.items.length ? (users.error ?? roles.error) : null)) && (
+      {users.items.length > 0 && (users.error ?? roles.error) && (
         <p className="error-message" role="alert">
-          {error ?? users.error ?? roles.error}
+          {users.error ?? roles.error}
         </p>
       )}
       <div className="list-toolbar">
@@ -89,7 +65,7 @@ export function UsersPage() {
           Search
           <input
             type="search"
-            placeholder="Search users by name or username…"
+            placeholder="Search users by name, username, or email…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -116,13 +92,13 @@ export function UsersPage() {
           </thead>
           <tbody>
             {filtered.map((user) => (
-              <TableRow key={user.id} onOpen={() => setDetails(user)}>
+              <TableRow key={user.id} onOpen={() => edit(user)}>
                 <td>
                   <button
                     type="button"
                     className="table-row-trigger"
-                    onClick={() => setDetails(user)}
-                    aria-label={`View details for ${user.name || user.username}`}
+                    onClick={() => edit(user)}
+                    aria-label={`Edit user ${user.name || user.username}`}
                   >
                     {user.name || user.username}
                     {user.id === auth.session?.user_id && " (you)"}
@@ -155,21 +131,9 @@ export function UsersPage() {
             users.upsert(user);
             if (user.id === auth.session?.user_id) void auth.reload();
           }}
-        />
-      )}
-      {details && (
-        <UserDetailsDialog
-          user={details}
-          onDelete={() => {
-            void remove(details);
-          }}
-          busy={busy}
-          error={error}
-          onClose={() => setDetails(null)}
-          onEdit={() => {
-            setDetails(null);
-            setEditing(details);
-            setOpen(true);
+          onDeleted={() => {
+            void users.refresh();
+            if (editing?.id === auth.session?.user_id) void auth.reload();
           }}
         />
       )}

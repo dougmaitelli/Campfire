@@ -6,6 +6,7 @@ import {
   type APIToken,
 } from "../api/tokens";
 import { Drawer } from "../components/layout/Drawer";
+import { CheckboxField } from "../components/forms/CheckboxField";
 
 export function APITokensDialog({ onClose }: { onClose: () => void }) {
   const [tokens, setTokens] = useState<APIToken[]>([]);
@@ -154,30 +155,27 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             disabled={busy}
             onChange={(event) => setDays(Number(event.target.value))}
           />
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={scopes.includes("*")}
-              disabled={busy}
-              onChange={(event) =>
-                setScopes(event.target.checked ? ["*"] : ["server.view"])
-              }
-            />
+          <CheckboxField
+            checked={scopes.includes("*")}
+            disabled={busy}
+            onChange={(event) =>
+              setScopes(event.target.checked ? ["*"] : ["server.view"])
+            }
+          >
             All my current permissions
-          </label>
+          </CheckboxField>
           {!scopes.includes("*") &&
             choices
               .filter((scope) => scope !== "*")
               .map((scope) => (
-                <label key={scope} className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={scopes.includes(scope)}
-                    disabled={busy}
-                    onChange={(event) => toggle(scope, event.target.checked)}
-                  />
+                <CheckboxField
+                  key={scope}
+                  checked={scopes.includes(scope)}
+                  disabled={busy}
+                  onChange={(event) => toggle(scope, event.target.checked)}
+                >
                   {scope}
-                </label>
+                </CheckboxField>
               ))}
           <p className="field-help">
             Server access follows your ownership and assignments. Account

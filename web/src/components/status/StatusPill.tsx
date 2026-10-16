@@ -10,6 +10,8 @@ const tones: Record<string, StatusTone> = {
   online: "positive",
   succeeded: "positive",
   completed: "positive",
+  available: "positive",
+  syncing: "pending",
   success: "positive",
   failed: "negative",
   error: "negative",

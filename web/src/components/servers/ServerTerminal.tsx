@@ -25,6 +25,29 @@ export function ServerTerminal({
   const history = useRef<string[]>([]);
   const historyIndex = useRef(0);
   const draft = useRef("");
+  function downloadLogs() {
+    const buffer = terminal.current?.buffer.active;
+    if (!buffer) return;
+    let content = "";
+    for (let index = 0; index < buffer.length; index++) {
+      const line = buffer.getLine(index);
+      if (!line) continue;
+      if (index > 0 && !line.isWrapped) content += "\n";
+      content += line.translateToString(true);
+    }
+    const url = URL.createObjectURL(
+      new Blob([content.trimEnd() + "\n"], {
+        type: "text/plain;charset=utf-8",
+      }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `console-${serverID}-${new Date().toISOString().replace(/[:.]/g, "-")}.log`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   async function send() {
     if (pending.current || !command.trim()) return;
     pending.current = true;
@@ -160,6 +183,14 @@ export function ServerTerminal({
           </StatusPill>
         </span>
         <div className="row-actions">
+          <button
+            type="button"
+            className="button"
+            title="Download retained console output (up to 5,000 lines of scrollback)."
+            onClick={downloadLogs}
+          >
+            Download logs
+          </button>
           <button
             type="button"
             className="button"

@@ -42,6 +42,7 @@ type User struct {
 	ID           int64  `gorm:"primaryKey;autoIncrement" json:"id"`
 	Username     string `gorm:"type:text;not null;uniqueIndex:users_username,expression:lower(username)" json:"username"`
 	Name         string `gorm:"type:text;not null;default:''" json:"name"`
+	Email        string `gorm:"type:text;not null;default:''" json:"email"`
 	Picture      string `gorm:"type:text;not null;default:''" json:"picture"`
 	PasswordHash string `gorm:"type:text;not null" json:"-"`
 	Version      int64  `gorm:"not null" json:"-"`

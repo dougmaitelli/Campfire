@@ -6,6 +6,7 @@ import type { SparkSettings } from "../api/sparks";
 import { Wizard } from "../components/wizard/Wizard";
 import { SparkReview } from "../components/sparks/SparkReview";
 import { Drawer } from "../components/layout/Drawer";
+import { CheckboxField } from "../components/forms/CheckboxField";
 
 interface SparkDialogProps {
   spark: Spark | null;
@@ -96,15 +97,13 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 rows={4}
                 placeholder="Notes about this node"
               />
-              <label className="checkbox-field" htmlFor="spark-disabled">
-                <input
-                  type="checkbox"
-                  id="spark-disabled"
-                  checked={disabled}
-                  onChange={(event) => setDisabled(event.target.checked)}
-                />
+              <CheckboxField
+                id="spark-disabled"
+                checked={disabled}
+                onChange={(event) => setDisabled(event.target.checked)}
+              >
                 Disabled
-              </label>
+              </CheckboxField>
               <p className="field-help">
                 Keep this Spark unavailable for hosting game servers.
               </p>

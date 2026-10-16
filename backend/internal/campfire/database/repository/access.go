@@ -179,7 +179,7 @@ func (r *AccessRepository) keepAdmin(tx *gorm.DB, user database.User, roleID int
 }
 
 // UpdateUser revokes that account's sessions when its credentials or role change.
-func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int64, disabled bool, password string, name *string) error {
+func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int64, disabled bool, password string, name, email *string) error {
 	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var user database.User
 		if err := tx.Take(&user, id).Error; err != nil {
@@ -195,18 +195,24 @@ func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int6
 			return err
 		}
 
-		if user.RoleID == roleID && user.Disabled == disabled && password == "" {
-			if name != nil {
-				return tx.Model(&user).Update("name", *name).Error
-			}
-
-			return nil
-		}
-
-		updates := map[string]any{"role_id": roleID, "disabled": disabled, "version": gorm.Expr("version + 1")}
+		updates := map[string]any{}
 		if name != nil {
 			updates["name"] = *name
 		}
+
+		if email != nil {
+			updates["email"] = *email
+		}
+
+		if user.RoleID == roleID && user.Disabled == disabled && password == "" {
+			if len(updates) == 0 {
+				return nil
+			}
+
+			return tx.Model(&user).Updates(updates).Error
+		}
+
+		updates["role_id"], updates["disabled"], updates["version"] = roleID, disabled, gorm.Expr("version + 1")
 
 		if password != "" {
 			updates["password_hash"] = password

@@ -137,12 +137,16 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 3 {
-			return fmt.Errorf("database schema version %d is newer than supported version 3", version)
+		if version > 4 {
+			return fmt.Errorf("database schema version %d is newer than supported version 4", version)
+		}
+
+		if version == 4 {
+			return nil
 		}
 
 		if version == 3 && tx.Migrator().HasColumn(&Schedule{}, "OnlyWhenRunning") && tx.Migrator().HasColumn(&ScheduleRun{}, "OnlyWhenRunning") && !tx.Migrator().HasColumn(&Schedule{}, "interval_minutes") {
-			return nil
+			return migrateUserEmail(tx)
 		}
 
 		if version == 1 {
@@ -195,10 +199,14 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if version == 3 {
-				return nil
+				return migrateUserEmail(tx)
 			}
 
-			return tx.Create(&schemaMigration{Version: 3}).Error
+			if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
+				return err
+			}
+
+			return migrateUserEmail(tx)
 		}
 
 		if err := tx.AutoMigrate(
@@ -215,10 +223,20 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("seed built-in roles: %w", err)
 		}
 
-		if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
+		if err := tx.Create(&schemaMigration{Version: 4}).Error; err != nil {
 			return fmt.Errorf("record initial migration: %w", err)
 		}
 
 		return nil
 	})
+}
+
+func migrateUserEmail(tx *gorm.DB) error {
+	if !tx.Migrator().HasColumn(&User{}, "Email") {
+		if err := tx.Migrator().AddColumn(&User{}, "Email"); err != nil {
+			return fmt.Errorf("add user email: %w", err)
+		}
+	}
+
+	return tx.Create(&schemaMigration{Version: 4}).Error
 }
