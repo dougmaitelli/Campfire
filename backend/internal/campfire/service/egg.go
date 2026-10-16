@@ -317,6 +317,7 @@ func convertEggProcess(startup, logs json.RawMessage, ember *model.Ember, report
 					report.fail("config.startup.userInteraction", "Console prompt markers must be strings.")
 				}
 			}
+
 			report.note("config.startup.userInteraction", "Console prompt highlighting is not imported. Messages remain visible in the server console; respond there or edit the server files as needed.")
 		}
 
