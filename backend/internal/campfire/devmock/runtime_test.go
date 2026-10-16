@@ -119,6 +119,10 @@ func TestLifecycleMetricsAndOffline(t *testing.T) {
 			t.Fatal("missing fresh resource readings", status)
 		}
 
+		if !status.DiskQuotaEnforced || action == "metrics" && !status.Metrics.DiskQuotaEnforced {
+			t.Fatal("installed mock server did not report quota enforcement", status)
+		}
+
 		if action == "logs" && !strings.Contains(status.Logs, "say hello") {
 			t.Fatal("console input did not produce output", status.Logs)
 		}
@@ -178,6 +182,29 @@ func TestFileEditsAndRevisionsPersist(t *testing.T) {
 	if _, err := runtime.Files(t.Context(), server.SparkID, request); err == nil {
 		t.Fatal("invalid path accepted")
 	}
+
+	configuration := server.ServerConfiguration
+	configuration.DiskMB = 1
+
+	if _, err := runtime.Deploy(t.Context(), server.SparkID, model.Deployment{ServerID: server.ID, Configuration: configuration}); err != nil {
+		t.Fatal(err)
+	}
+
+	request = model.FileRequest{ServerID: server.ID, Operation: "write", Path: "server.properties", Data: make([]byte, model.FileLimit), Revision: result.Revision}
+
+	_, err = runtime.Files(t.Context(), server.SparkID, request)
+
+	var failure *model.FileError
+	if !errors.As(err, &failure) || failure.Code != "file_limit" {
+		t.Fatal("mock quota did not reject oversized file writes", err)
+	}
+
+	request.Operation, request.Revision = "read", ""
+
+	unchanged, err := runtime.Files(t.Context(), server.SparkID, request)
+	if err != nil || string(unchanged.Data) != string(result.Data) {
+		t.Fatal("rejected quota write changed saved data", unchanged, err)
+	}
 }
 
 func TestConsoleDisconnectAndNewDeployments(t *testing.T) {
@@ -210,7 +237,7 @@ func TestConsoleDisconnectAndNewDeployments(t *testing.T) {
 	}
 
 	status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: deployment.ServerID, Action: "status"})
-	if err != nil || status.State != "not_installed" {
+	if err != nil || status.State != "not_installed" || status.DiskQuotaEnforced {
 		t.Fatal("deploy implicitly installed a mock server", status, err)
 	}
 }

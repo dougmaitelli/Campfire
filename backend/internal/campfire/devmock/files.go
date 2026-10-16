@@ -123,6 +123,10 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		record.Files[name] = string(request.Data)
+		if quotaEnforced(record) && diskUsage(record) > record.Deployment.Configuration.DiskMB*(1<<20) {
+			return result, fileError("file_limit", "Mock server's game-data allocation would be exceeded.")
+		}
+
 		result.Revision = revision(string(request.Data))
 	case "mkdir":
 		if exists || directory || len(record.Files) >= 256 {

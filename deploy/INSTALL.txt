@@ -778,7 +778,10 @@ On first launch it seeds three Sparks (two online and one offline), four game
 servers, a Minecraft Ember, a recurring restart schedule and inbox messages.
 Lifecycle actions complete immediately, metrics vary over time, console input
 appears in the output stream, and the text file editor supports small files
-with revision checks. State survives backend rebuilds and restarts. To start
+with revision checks.
+Mock installed servers report verified disk quotas; simulated game-data usage
+includes editable files, and writes exceeding the allocation are rejected.
+State survives backend rebuilds and restarts. To start
 over, stop the runner and remove only the repository's data/mock directory.
 
 Backups, server transfers, archive operations, binary uploads, real installers

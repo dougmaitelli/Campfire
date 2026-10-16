@@ -52,7 +52,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 		return 0, "", nil
 	}
 
-	return protocol.ProtocolVersion, "mock-dev", []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade}
+	return protocol.ProtocolVersion, "mock-dev", []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade, protocol.CapabilityDiskQuota}
 }
 
 func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, error) {
@@ -141,7 +141,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		}
 	}
 
-	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == "running", OperationID: record.OperationID, Operation: record.Operation}
+	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == "running", OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
 	if request.Action == "logs" {
 		status.Logs = record.Logs
 	}
@@ -157,14 +157,28 @@ func metrics(record runtimeRecord) *model.ResourceUsage {
 	now := time.Now().Unix()
 	cpu := 0.0
 	memory := int64(0)
-	disk := int64(512 << 20)
+	disk := diskUsage(record)
 
 	if record.State == "running" {
 		cpu = 35 + 15*math.Sin(float64(now%360)/12)
 		memory = record.Deployment.Configuration.MemoryMB * (1 << 20) / 3
 	}
 
-	return &model.ResourceUsage{ServerID: record.ServerID, State: record.State, CPUPercent: &cpu, MemoryBytes: &memory, DiskBytes: &disk, SampledAt: now, DiskSampledAt: now}
+	return &model.ResourceUsage{ServerID: record.ServerID, State: record.State, CPUPercent: &cpu, MemoryBytes: &memory, DiskBytes: &disk, SampledAt: now, DiskSampledAt: now, DiskQuotaEnforced: quotaEnforced(record)}
+}
+
+func quotaEnforced(record runtimeRecord) bool {
+	return record.Deployment.Configuration.DiskMB > 0 && record.State != "not_installed" && record.State != "deleted"
+}
+
+func diskUsage(record runtimeRecord) int64 {
+	// Simulate installed game data plus editable files, without consuming host disk.
+	size := record.Deployment.Configuration.DiskMB * (1 << 20) / 40
+	for _, data := range record.Files {
+		size += int64(len(data))
+	}
+
+	return size
 }
 
 // Console streams saved output and subsequent command responses until the client disconnects.
