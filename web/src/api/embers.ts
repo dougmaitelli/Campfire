@@ -96,6 +96,13 @@ export async function listEmbers(signal: AbortSignal): Promise<Ember[]> {
   return body;
 }
 
+export async function deleteEmber(id: string): Promise<void> {
+  const response = await apiFetch(`/api/v1/embers/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) await readJSON(response);
+}
+
 export async function importEmber(
   definition: string,
   startupCommand: string,

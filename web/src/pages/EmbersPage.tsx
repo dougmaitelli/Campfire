@@ -66,7 +66,6 @@ export function EmbersPage() {
             <tr>
               <th scope="col">Game definition</th>
               <th scope="col">Images</th>
-              <th scope="col">Variables</th>
               <th scope="col">Required ports</th>
             </tr>
           </thead>
@@ -93,7 +92,6 @@ export function EmbersPage() {
                   <span className="row-id">{ember.id}</span>
                 </td>
                 <td>{Object.keys(ember.images).join(", ")}</td>
-                <td>{ember.variables?.length ?? 0}</td>
                 <td>
                   {ember.required_ports?.length ? (
                     <div className="pill-group">
@@ -129,6 +127,9 @@ export function EmbersPage() {
           }}
           onImported={(ember) => {
             upsert(ember);
+            void refresh();
+          }}
+          onDeleted={() => {
             void refresh();
           }}
         />

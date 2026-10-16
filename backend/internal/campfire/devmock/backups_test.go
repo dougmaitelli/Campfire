@@ -30,6 +30,18 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 		t.Fatal("expected seeded backups", listed)
 	}
 
+	seeded := files("backup.list", ".").Entries
+	if seeded[0].Size < 64*1024 || seeded[1].Size < 64*1024 || seeded[0].Size == seeded[1].Size {
+		t.Fatal("seeded backup sizes should be nonzero and distinct", seeded)
+	}
+
+	for _, entry := range seeded {
+		download := files("backup.read", entry.Name)
+		if download.Size != entry.Size || int64(len(download.Data)) != entry.Size {
+			t.Fatal("fixture download size differs from listing", entry, download.Size)
+		}
+	}
+
 	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "backup", OperationID: "snapshot"}); err == nil {
 		t.Fatal("running server backup accepted")
 	}

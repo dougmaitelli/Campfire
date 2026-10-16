@@ -92,7 +92,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusForbidden, err.Error()
 	case errors.Is(err, repository.ErrTransferActive), errors.Is(err, repository.ErrTransferState):
 		status, message = http.StatusConflict, err.Error()
-	case errors.Is(err, repository.ErrSparkInUse):
+	case errors.Is(err, repository.ErrSparkInUse), errors.Is(err, repository.ErrEmberInUse):
 		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, repository.ErrAccessInput), errors.Is(err, service.ErrAuthInput):
 		status, message = http.StatusBadRequest, err.Error()

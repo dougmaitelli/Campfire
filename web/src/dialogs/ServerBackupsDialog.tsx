@@ -5,6 +5,7 @@ import type { Server } from "../api/servers";
 import { Drawer } from "../components/layout/Drawer";
 import { Table } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
+import { bytes } from "../api/monitoring";
 import "../components/servers/files.css";
 
 export function ServerBackupsDialog({
@@ -222,7 +223,7 @@ export function ServerBackupsDialog({
                   )}
                 </td>
                 <td>{new Date(entry.modified_at).toLocaleString()}</td>
-                <td>{(entry.size / (1024 * 1024)).toFixed(2)} MiB</td>
+                <td>{bytes(entry.size)}</td>
                 <td>
                   {[entry.local ? "Local" : null, entry.remote ? "S3" : null]
                     .filter(Boolean)

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { listAllBackups } from "../api/backups";
+import { bytes } from "../api/monitoring";
 import { useCollection } from "../hooks/useCollection";
 import { Table, TableRow } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
@@ -92,12 +93,7 @@ export function BackupsPage() {
                   </td>
                   <td>{item.server_name}</td>
                   <td>{new Date(item.modified_at).toLocaleString()}</td>
-                  <td>
-                    {(item.size / 1024 ** 2).toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    MiB
-                  </td>
+                  <td>{bytes(item.size)}</td>
                   <td>
                     {[item.local ? "Local" : null, item.remote ? "S3" : null]
                       .filter(Boolean)

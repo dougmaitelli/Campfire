@@ -22,6 +22,7 @@ type EmberStore interface {
 	Create(context.Context, model.Ember) error
 	List(context.Context) ([]model.Ember, error)
 	Get(context.Context, string) (model.Ember, error)
+	Delete(context.Context, string) error
 }
 
 // EmberService stores immutable native definitions, including converted Egg imports.
@@ -29,6 +30,16 @@ type EmberService struct{ store EmberStore }
 
 // NewEmberService creates the game definition service.
 func NewEmberService(store EmberStore) *EmberService { return &EmberService{store: store} }
+
+// Delete removes an unused imported revision.
+func (s *EmberService) Delete(ctx context.Context, id string) error {
+	err := s.store.Delete(ctx, id)
+	if errors.Is(err, repository.ErrEmberNotFound) {
+		return ErrEmberNotFound
+	}
+
+	return err
+}
 
 // Import validates a definition and assigns an immutable revision identity.
 func (s *EmberService) Import(ctx context.Context, ember model.Ember) (model.Ember, error) {

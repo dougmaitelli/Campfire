@@ -52,6 +52,7 @@ func (a *API) Handler() http.Handler {
 	platform("POST /api/v1/embers/preview", "embers.manage", a.previewEmber)
 	platform("POST /api/v1/embers/preview-url", "embers.manage", a.previewEmberURL)
 	platform("GET /api/v1/embers/{id}", "embers.manage", a.getEmber)
+	platform("DELETE /api/v1/embers/{id}", "embers.manage", a.deleteEmber)
 	platform("GET /api/v1/users", "users.manage", a.listUsers)
 	platform("POST /api/v1/users", "users.manage", a.createUser)
 	platform("PUT /api/v1/users/{userID}", "users.manage", a.updateUser)

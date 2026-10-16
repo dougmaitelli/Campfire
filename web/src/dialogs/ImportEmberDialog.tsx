@@ -2,21 +2,26 @@ import { useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   importEmber,
+  deleteEmber,
   previewEmberURL,
   previewEmberDefinition,
 } from "../api/embers";
 import type { Ember, EmberPreview } from "../api/embers";
 import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import { ConfirmDialog } from "../components/layout/ConfirmDialog";
+import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 
 export function ImportEmberDialog({
   ember,
   onClose,
   onImported,
+  onDeleted,
 }: {
   ember?: Ember | null;
   onClose: () => void;
   onImported: (ember: Ember) => void;
+  onDeleted?: () => void;
 }) {
   const [text, setText] = useState(() =>
     ember ? JSON.stringify(ember, null, 2) : "",
@@ -32,6 +37,7 @@ export function ImportEmberDialog({
   const [preview, setPreview] = useState<EmberPreview | null>(null);
   const [startupCommand, setStartupCommand] = useState("");
   const [reviewed, setReviewed] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const warnings =
     preview?.warnings.filter((issue) => !issue.informational) ?? [];
   const notes = preview?.warnings.filter((issue) => issue.informational) ?? [];
@@ -139,6 +145,24 @@ export function ImportEmberDialog({
       setBusy(false);
     }
   }
+  async function remove() {
+    if (!ember || submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteEmber(ember.id);
+      onDeleted?.();
+      onClose();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to delete Ember.",
+      );
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
+  }
   return (
     <Drawer
       title={ember ? "Edit Ember" : "Import Ember"}
@@ -160,27 +184,39 @@ export function ImportEmberDialog({
         </button>
       }
       footerRight={
-        <button
-          type="submit"
-          form={formID}
-          className="button button-primary"
-          disabled={
-            busy ||
-            !preview?.ember ||
-            preview.errors.length > 0 ||
-            (warnings.length > 0 && !reviewed)
-          }
-        >
-          {busy
-            ? loadingSource
-              ? "Loading…"
+        <>
+          {ember && (
+            <DrawerDeleteButton
+              disabled={busy}
+              deleting={busy && confirmDelete}
+              onDelete={() => {
+                setError(null);
+                setConfirmDelete(true);
+              }}
+            />
+          )}
+          <button
+            type="submit"
+            form={formID}
+            className="button button-primary"
+            disabled={
+              busy ||
+              !preview?.ember ||
+              preview.errors.length > 0 ||
+              (warnings.length > 0 && !reviewed)
+            }
+          >
+            {busy
+              ? loadingSource
+                ? "Loading…"
+                : ember
+                  ? "Saving…"
+                  : "Importing…"
               : ember
-                ? "Saving…"
-                : "Importing…"
-            : ember
-              ? "Save revision"
-              : "Import Ember"}
-        </button>
+                ? "Save revision"
+                : "Import Ember"}
+          </button>
+        </>
       }
     >
       <form
@@ -386,6 +422,20 @@ export function ImportEmberDialog({
           </fieldset>
         </div>
       </form>
+      {ember && confirmDelete && (
+        <ConfirmDialog
+          title="Delete Ember?"
+          description={`Permanently delete "${ember.name}"? This revision cannot be deleted while servers reference it.`}
+          confirmLabel="Delete"
+          danger
+          busy={busy}
+          error={error}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            void remove();
+          }}
+        />
+      )}
     </Drawer>
   );
 }

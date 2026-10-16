@@ -104,3 +104,13 @@ func (a *API) getEmber(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, ember)
 }
+
+func (a *API) deleteEmber(w http.ResponseWriter, r *http.Request) {
+	if err := a.embers.Delete(r.Context(), r.PathValue("id")); err != nil {
+		writeError(w, err)
+		return
+	}
+
+	auditDetail(r, "ember.delete", "ember:"+r.PathValue("id"))
+	w.WriteHeader(http.StatusNoContent)
+}

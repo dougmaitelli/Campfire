@@ -7,8 +7,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"maps"
+	"math/rand/v2"
 	"sort"
 	"strings"
 	"time"
@@ -109,6 +112,53 @@ func seedBackupFixtures(ctx context.Context, db *gorm.DB) error {
 		}
 
 		return tx.Create(&seedMarker{ID: 2}).Error
+	})
+}
+
+func upgradeBackupSizes(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var marker seedMarker
+
+		if err := tx.Take(&marker, "id = ?", 3).Error; err == nil {
+			return nil
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		var backups []backupRecord
+
+		if err := tx.Where("name IN ?", []string{"mock-nightly.tar.gz", "mock-before-update.tar.gz"}).Find(&backups).Error; err != nil {
+			return err
+		}
+
+		for _, backup := range backups {
+			seed := sha256.Sum256([]byte(backup.ServerID + backup.Name))
+			size := 128*1024 + int(seed[0])*1024
+
+			if backup.Name == "mock-before-update.tar.gz" {
+				size += 512 * 1024
+			}
+
+			data := make([]byte, size)
+			_, _ = rand.NewChaCha8(seed).Read(data)
+			backup.Files["world/"] = ""
+			backup.Files["world/mock-snapshot-data.txt"] = base64.StdEncoding.EncodeToString(data)
+
+			if err := tx.Save(&backup).Error; err != nil {
+				return err
+			}
+
+			archive, err := backupArchive(backup)
+			if err != nil {
+				return err
+			}
+
+			if err := tx.Model(&database.Backup{}).Where("server_id = ? AND name = ?", backup.ServerID, backup.Name).Update("size", len(archive)).Error; err != nil {
+				return err
+			}
+		}
+
+		return tx.Create(&seedMarker{ID: 3}).Error
 	})
 }
 
