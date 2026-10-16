@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { apiFetch, readJSON } from "../api/client";
 import { isServer, type Server } from "../api/servers";
 import { isSpark, type Spark } from "../api/sparks";
@@ -26,6 +27,7 @@ export function ResourceDetailsDialog({
   deleteDisabled = false,
   deleting = false,
   actionError,
+  actions,
 }: {
   target: ResourceDetailTarget;
   onClose: () => void;
@@ -35,6 +37,7 @@ export function ResourceDetailsDialog({
   deleteDisabled?: boolean;
   deleting?: boolean;
   actionError?: string | null;
+  actions?: ReactNode;
 }) {
   const [details, setDetails] = useState<Details | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +113,7 @@ export function ResourceDetailsDialog({
       }
     >
       <div className="drawer-content">
+        {actions && <div className="row-actions">{actions}</div>}
         {actionError && (
           <p className="error-message" role="alert">
             {actionError}

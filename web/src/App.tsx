@@ -2,6 +2,7 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { EmptyPage } from "./pages/EmptyPage";
 import { SparksPage } from "./pages/SparksPage";
 import { ServersPage } from "./pages/ServersPage";
+import { ServerOperationsPage } from "./pages/ServerOperationsPage";
 import { EmbersPage } from "./pages/EmbersPage";
 import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
@@ -10,7 +11,7 @@ import { AuditPage } from "./pages/AuditPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { NotificationsProvider } from "./hooks/useNotifications";
-import { useCurrentPage } from "./routing/useCurrentPage";
+import { useCurrentPage, useCurrentRoute } from "./routing/useCurrentPage";
 import { AuthenticationPage } from "./pages/AuthenticationPage";
 import {
   AuthenticationProvider,
@@ -36,6 +37,13 @@ function AuthenticatedApp() {
 
 function ManagementApp() {
   const page = useCurrentPage();
+  const route = useCurrentRoute().split("/");
+  let serverID = "";
+  try {
+    serverID = decodeURIComponent(route[1] ?? "");
+  } catch {
+    /* Invalid routes return to the server list. */
+  }
   const auth = useAuthentication();
   const allowed =
     auth.session?.admin === true ||
@@ -64,7 +72,15 @@ function ManagementApp() {
         ) : page.id === "sparks" ? (
           <SparksPage />
         ) : page.id === "servers" ? (
-          <ServersPage />
+          serverID ? (
+            <ServerOperationsPage
+              key={serverID}
+              serverID={serverID}
+              tab={route[2] ?? "console"}
+            />
+          ) : (
+            <ServersPage />
+          )
         ) : (
           <EmbersPage />
         )}

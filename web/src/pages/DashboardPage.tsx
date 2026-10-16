@@ -84,11 +84,12 @@ export function DashboardPage() {
           </button>
         </div>
       </header>
-      {monitor.error && (
-        <p className="error-message" role="alert">
-          {monitor.error} Previous readings may be stale.
-        </p>
-      )}
+      {monitor.error &&
+        (servers.length > 0 || !!monitor.snapshot?.sparks?.length) && (
+          <p className="error-message" role="alert">
+            {monitor.error} Previous readings may be stale.
+          </p>
+        )}
       {monitor.snapshot?.incomplete && (
         <p className="field-help" role="status">
           Some servers are not reporting resource usage.
@@ -130,7 +131,15 @@ export function DashboardPage() {
         />
       </div>
       <div className="management-content">
-        <Table className="dashboard-server-table">
+        <Table
+          className="dashboard-server-table"
+          empty={servers.length === 0}
+          loading={monitor.loading}
+          error={monitor.error}
+          resource="servers"
+          emptyDescription="Create or ask to be assigned a server to see its usage."
+          onRetry={monitor.refresh}
+        >
           <caption className="visually-hidden">
             Measured server resources
           </caption>
@@ -145,26 +154,18 @@ export function DashboardPage() {
             {servers.map((server) => (
               <TableRow
                 key={server.id}
-                onOpen={() =>
-                  setDetails({
-                    kind: "server",
-                    id: server.id,
-                    name: server.name,
-                  })
-                }
+                onOpen={() => {
+                  window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
+                }}
               >
                 <td>
                   <button
                     type="button"
                     className="table-row-trigger"
-                    onClick={() =>
-                      setDetails({
-                        kind: "server",
-                        id: server.id,
-                        name: server.name,
-                      })
-                    }
-                    aria-label={`View details for ${server.name}`}
+                    onClick={() => {
+                      window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
+                    }}
+                    aria-label={`Open ${server.name}`}
                   >
                     {server.name}
                   </button>
@@ -188,15 +189,6 @@ export function DashboardPage() {
                 </td>
               </TableRow>
             ))}
-            {!servers.length && (
-              <tr>
-                <td colSpan={3}>
-                  {monitor.loading
-                    ? "Collecting usage…"
-                    : "No accessible servers. Create or ask to be assigned a server to see its usage."}
-                </td>
-              </tr>
-            )}
           </tbody>
         </Table>
       </div>
@@ -204,7 +196,14 @@ export function DashboardPage() {
         <>
           <h2 className="monitoring-heading">Sparks</h2>
           <div className="management-content">
-            <Table className="dashboard-server-table">
+            <Table
+              className="dashboard-server-table"
+              empty={!monitor.snapshot?.sparks?.length}
+              loading={monitor.loading}
+              error={monitor.error}
+              resource="Sparks"
+              onRetry={monitor.refresh}
+            >
               <caption className="visually-hidden">
                 Spark connections and configured capacity
               </caption>
@@ -296,15 +295,6 @@ export function DashboardPage() {
                     </TableRow>
                   );
                 })}
-                {!monitor.snapshot?.sparks?.length && (
-                  <tr>
-                    <td colSpan={3}>
-                      {monitor.loading
-                        ? "Loading Sparks…"
-                        : "No Sparks registered."}
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </Table>
           </div>

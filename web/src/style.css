@@ -16,6 +16,11 @@
   outline-offset: 4px;
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
 :where(
   input:not(
     [type="checkbox"],
@@ -43,6 +48,7 @@
 }
 
 .button {
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -67,6 +73,14 @@
 }
 .button-primary:hover:not(:disabled) {
   background: #f4b577;
+}
+.button-danger {
+  border-color: #f87171;
+  background: rgb(248 113 113 / 10%);
+  color: #f87171;
+}
+.button-danger:hover:not(:disabled) {
+  background: rgb(248 113 113 / 20%);
 }
 .button:disabled {
   opacity: 0.55;

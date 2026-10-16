@@ -44,10 +44,12 @@ export function ServerFilesDialog({
   server,
   canWrite,
   onClose,
+  embedded = false,
 }: {
   server: Server;
   canWrite: boolean;
   onClose: () => void;
+  embedded?: boolean;
 }) {
   const [directory, setDirectory] = useState(".");
   const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -317,28 +319,32 @@ export function ServerFilesDialog({
   }
   return (
     <Drawer
+      embedded={embedded}
+      unsavedChanges={editor !== null && editor.text !== editor.initial}
       title={`${server.name} files`}
       description={`Browse game files. ${maxUploadBytes === null ? "Loading upload limit." : `Uploads support up to ${(maxUploadBytes / 1024 ** 2).toLocaleString()} MiB per file.`} Text editing supports 1 MiB.`}
       busy={busy}
       onClose={close}
       footerLeft={
-        <button
-          className="button"
-          disabled={busy}
-          onClick={() => {
-            if (editor) {
-              if (
-                editor.text !== editor.initial &&
-                !window.confirm("Discard unsaved file changes?")
-              )
-                return;
-              setEditor(null);
-              void perform(() => load(directory));
-            } else close();
-          }}
-        >
-          {editor ? "Back to files" : "Close"}
-        </button>
+        embedded && !editor ? null : (
+          <button
+            className="button"
+            disabled={busy}
+            onClick={() => {
+              if (editor) {
+                if (
+                  editor.text !== editor.initial &&
+                  !window.confirm("Discard unsaved file changes?")
+                )
+                  return;
+                setEditor(null);
+                void perform(() => load(directory));
+              } else close();
+            }}
+          >
+            {editor ? "Back to files" : "Close"}
+          </button>
+        )
       }
       footerRight={
         editor ? (
@@ -556,7 +562,7 @@ export function ServerFilesDialog({
                         Rename
                       </button>
                       <button
-                        className="button"
+                        className="button button-danger"
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
                         }

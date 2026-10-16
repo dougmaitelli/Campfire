@@ -76,13 +76,21 @@ export function RolesPage() {
           </button>
         </div>
       </header>
-      {(error ?? roles.error) && (
+      {(error ?? (roles.items.length ? roles.error : null)) && (
         <p className="error-message" role="alert">
           {error ?? roles.error}
         </p>
       )}
       <div className="management-content">
-        <Table>
+        <Table
+          empty={roles.items.length === 0}
+          loading={roles.loading}
+          error={roles.error}
+          resource="roles"
+          onRetry={() => {
+            void roles.refresh();
+          }}
+        >
           <caption className="visually-hidden">Access roles</caption>
           <thead>
             <tr>
@@ -133,7 +141,6 @@ export function RolesPage() {
           </tbody>
         </Table>
       </div>
-      {roles.loading && <p role="status">Loading roles…</p>}
       {open && (
         <RoleDialog
           role={editing}

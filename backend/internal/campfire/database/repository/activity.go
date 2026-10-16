@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/recurrence"
 
 	"gorm.io/gorm"
 )
@@ -55,7 +56,7 @@ func (r *ActivityRepository) SaveSchedule(ctx context.Context, item *database.Sc
 	}
 
 	result := r.db.WithContext(ctx).Model(&database.Schedule{}).Where("id = ? AND server_id = ? AND version = ?", item.ID, item.ServerID, item.Version-1).
-		Select("Name", "Action", "Command", "IntervalMinutes", "NextRunAt", "Enabled", "UserID", "Username", "Version").Updates(item)
+		Select("Name", "Action", "Command", "CronExpression", "TimeZone", "OnlyWhenRunning", "NextRunAt", "Enabled", "UserID", "Username", "Version").Updates(item)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -87,10 +88,12 @@ func (r *ActivityRepository) EnqueueDue(ctx context.Context, now time.Time) erro
 		}
 
 		for _, item := range items {
-			interval := item.IntervalMinutes * 60
+			times, err := recurrence.Next(item.CronExpression, item.TimeZone, now, 1)
+			if err != nil {
+				return err
+			}
 
-			next := item.NextRunAt + ((now.Unix()-item.NextRunAt)/interval+1)*interval
-			if err := tx.Model(&item).Update("next_run_at", next).Error; err != nil {
+			if err := tx.Model(&item).Update("next_run_at", times[0]).Error; err != nil {
 				return err
 			}
 
@@ -108,7 +111,7 @@ func (r *ActivityRepository) EnqueueDue(ctx context.Context, now time.Time) erro
 				return err
 			}
 
-			run := database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, ScheduleVersion: item.Version, Recurring: true, ServerID: item.ServerID, ServerName: server.Name, UserID: item.UserID, Username: item.Username, Action: item.Action, Content: item.Command, State: "queued", CreatedAt: now.Unix()}
+			run := database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, ScheduleVersion: item.Version, OnlyWhenRunning: item.OnlyWhenRunning, Recurring: true, ServerID: item.ServerID, ServerName: server.Name, UserID: item.UserID, Username: item.Username, Action: item.Action, Content: item.Command, State: "queued", CreatedAt: now.Unix()}
 			if err := tx.Create(&run).Error; err != nil {
 				return err
 			}

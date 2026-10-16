@@ -11,6 +11,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/recurrence"
 	"campfire/internal/campfire/service"
 )
 
@@ -159,15 +160,34 @@ func (a *API) listSchedules(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, items)
 }
 
+func (a *API) previewSchedule(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Cron     string `json:"cron_expression"`
+		TimeZone string `json:"time_zone"`
+	}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	next, err := recurrence.Next(input.Cron, input.TimeZone, time.Now(), 3)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"next_runs": next})
+}
+
 func (a *API) saveSchedule(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		ServerID string `json:"server_id"`
-		Name     string `json:"name"`
-		Action   string `json:"action"`
-		Command  string `json:"command"`
-		Interval int64  `json:"interval_minutes"`
-		Next     int64  `json:"next_run_at"`
-		Enabled  bool   `json:"enabled"`
+		ServerID        string `json:"server_id"`
+		Name            string `json:"name"`
+		Action          string `json:"action"`
+		Command         string `json:"command"`
+		Enabled         bool   `json:"enabled"`
+		OnlyWhenRunning bool   `json:"only_when_running"`
+		Cron            string `json:"cron_expression"`
+		TimeZone        string `json:"time_zone"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return
@@ -175,7 +195,7 @@ func (a *API) saveSchedule(w http.ResponseWriter, r *http.Request) {
 
 	id := r.PathValue("scheduleID")
 
-	item, err := a.activity.Save(r.Context(), currentUser(r), database.Schedule{ID: id, ServerID: input.ServerID, Name: input.Name, Action: input.Action, Command: input.Command, IntervalMinutes: input.Interval, NextRunAt: input.Next, Enabled: input.Enabled}, id == "")
+	item, err := a.activity.Save(r.Context(), currentUser(r), database.Schedule{ID: id, ServerID: input.ServerID, Name: input.Name, Action: input.Action, Command: input.Command, CronExpression: input.Cron, TimeZone: input.TimeZone, OnlyWhenRunning: input.OnlyWhenRunning, Enabled: input.Enabled}, id == "")
 	if err != nil {
 		writeError(w, err)
 		return

@@ -35,25 +35,9 @@ export function ServerState({
   const state =
     runtimeState === "running" && !ready ? "starting" : runtimeState;
   const label = labels[state] ?? "Unavailable";
-  const tone =
-    state === "running"
-      ? "positive"
-      : state === "failed" || state === "error" || state === "dead"
-        ? "negative"
-        : [
-              "starting",
-              "stopping",
-              "restarting",
-              "installing",
-              "reinstalling",
-              "updating",
-              "restoring",
-              "backing_up",
-              "importing",
-              "exporting",
-              "deleting",
-            ].includes(state)
-          ? "pending"
-          : "neutral";
-  return <StatusPill tone={tone}>{label}</StatusPill>;
+  return (
+    <StatusPill status={labels[state] ? state : "unavailable"}>
+      {label}
+    </StatusPill>
+  );
 }

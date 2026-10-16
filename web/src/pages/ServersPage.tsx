@@ -6,13 +6,7 @@ import { useAuthentication } from "../hooks/useAuthentication";
 import { ServerAccessDialog } from "../dialogs/ServerAccessDialog";
 import { useCollection } from "../hooks/useCollection";
 import { ServerDialog } from "../dialogs/ServerDialog";
-import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
-import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
-import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
-import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
 import { useServerRuntime } from "../hooks/useServerRuntime";
-import { serverAction } from "../api/runtime";
-import type { ServerAction } from "../api/runtime";
 import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
 import { ResourceDetailsDialog } from "../dialogs/ResourceDetailsDialog";
@@ -72,10 +66,6 @@ export function ServersPage() {
     return () => controller.abort();
   }, [canProvision, optionsRevision]);
   const runtime = useServerRuntime(servers.items.map((server) => server.id));
-  const [acting, setActing] = useState<string | null>(null);
-  const [consoleServer, setConsoleServer] = useState<Server | null>(null);
-  const [filesServer, setFilesServer] = useState<Server | null>(null);
-  const [backupsServer, setBackupsServer] = useState<Server | null>(null);
   const [editing, setEditing] = useState<Server | null>(null);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -153,41 +143,13 @@ export function ServersPage() {
       editorPending.current = false;
     }
   }
-  async function act(server: Server, action: ServerAction) {
-    if (acting !== null) return;
-    if (
-      (action === "update" || action === "reinstall") &&
-      !window.confirm(
-        `${action === "update" ? "Update" : "Reinstall"} "${server.name}" using its pinned Ember? ${action === "update" ? "Current images will be pulled. " : ""}The existing game directory and backups are kept, but the installer may overwrite files. Take a backup first. The server stays stopped.`,
-      )
-    )
-      return;
-    if (
-      action === "kill" &&
-      !window.confirm(
-        `Force kill "${server.name}"? Unsaved game data may be lost.`,
-      )
-    )
-      return;
-    setActing(server.id);
-    setActionError(null);
-    try {
-      runtime.upsert(await serverAction(server.id, action));
-    } catch (cause) {
-      setActionError(
-        cause instanceof Error ? cause.message : "Unable to run server action.",
-      );
-    } finally {
-      setActing(null);
-    }
-  }
   return (
     <section aria-labelledby="page-title">
       <header className="page-header management-header">
         <div>
           <h1 id="page-title">Servers</h1>
           <p className="page-description">
-            Game servers, live runtime state, and reserved capacity.
+            Server configuration, access, and allocated resources.
           </p>
         </div>
         <div className="page-actions">
@@ -211,7 +173,7 @@ export function ServersPage() {
           )}
         </div>
       </header>
-      {error && (
+      {error && servers.items.length > 0 && (
         <p className="error-message" role="alert">
           {error}
         </p>
@@ -268,169 +230,118 @@ export function ServersPage() {
         </div>
       )}
       <div className="management-content" aria-busy={loading}>
-        {visible.length === 0 ? (
-          <div className="empty-state">
-            <h2>
-              {loading
-                ? "Loading servers…"
-                : error && servers.items.length === 0
-                  ? "Unable to load servers"
-                  : servers.items.length
-                    ? "No matching servers"
-                    : "No servers yet"}
-            </h2>
-            {canCreate && servers.items.length === 0 && (
-              <>
-                <p>Create your first server from an Ember.</p>
-                <button className="button button-primary" onClick={create}>
-                  Create server
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
-          <Table>
-            <caption className="visually-hidden">Game servers</caption>
-            <thead>
-              <tr>
-                <th scope="col">Server</th>
-                <th scope="col">State</th>
-                <th scope="col">Spark / Ember</th>
-                <th scope="col">Resources</th>
-                <th scope="col">Ports</th>
-                <th scope="col" className="table-actions">
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((server) => (
-                <TableRow key={server.id} onOpen={() => setDetails(server)}>
-                  <td>
-                    <button
-                      type="button"
-                      className="table-row-trigger"
-                      onClick={() => setDetails(server)}
-                      aria-label={`View details for ${server.name}`}
-                    >
-                      {server.name}
-                    </button>
-                    {server.description && (
+        <Table
+          empty={visible.length === 0}
+          loading={servers.loading}
+          error={servers.error}
+          resource="servers"
+          emptyMessage={
+            servers.items.length ? "No matching servers" : "No servers yet"
+          }
+          emptyDescription={
+            servers.items.length
+              ? "Try a different search or Spark filter."
+              : "Create your first server from an Ember."
+          }
+          emptyAction={
+            canCreate && servers.items.length === 0 ? (
+              <button className="button button-primary" onClick={create}>
+                Create server
+              </button>
+            ) : null
+          }
+          onRetry={() => {
+            void refresh();
+          }}
+        >
+          <caption className="visually-hidden">Game servers</caption>
+          <thead>
+            <tr>
+              <th scope="col">Server</th>
+              <th scope="col">State</th>
+              <th scope="col">Spark / Ember</th>
+              <th scope="col">Resources</th>
+              <th scope="col">Ports</th>
+              <th scope="col" className="table-actions">
+                <span className="visually-hidden">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((server) => (
+              <TableRow key={server.id} onOpen={() => setDetails(server)}>
+                <td>
+                  <button
+                    type="button"
+                    className="table-row-trigger"
+                    onClick={() => setDetails(server)}
+                    aria-label={`View details for ${server.name}`}
+                  >
+                    {server.name}
+                  </button>
+                  {server.description && (
+                    <span className="row-description">
+                      {server.description}
+                    </span>
+                  )}
+                  <span className="row-id">{server.id}</span>
+                </td>
+                <td>
+                  <ServerState
+                    state={runtime.statuses[server.id]?.state ?? "unknown"}
+                    ready={runtime.statuses[server.id]?.ready ?? true}
+                  />
+                  {runtime.statuses[server.id]?.busy &&
+                    runtime.statuses[server.id]?.progress && (
                       <span className="row-description">
-                        {server.description}
+                        {runtime.statuses[server.id]?.progress}
                       </span>
                     )}
-                    <span className="row-id">{server.id}</span>
-                  </td>
-                  <td>
-                    <ServerState
-                      state={runtime.statuses[server.id]?.state ?? "unknown"}
-                      ready={runtime.statuses[server.id]?.ready ?? true}
-                    />
-                    {runtime.statuses[server.id]?.busy &&
-                      runtime.statuses[server.id]?.progress && (
-                        <span className="row-description">
-                          {runtime.statuses[server.id]?.progress}
-                        </span>
-                      )}
-                    {runtime.statuses[server.id]?.error && (
-                      <span className="runtime-error" role="status">
-                        {runtime.statuses[server.id]?.error}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <span>{server.spark_name}</span>
-                    <span className="row-description">{server.ember_name}</span>
-                  </td>
-                  <td>
-                    <ResourceReadings
-                      usage={
-                        monitoring.snapshot?.servers.find(
-                          (item) => item.id === server.id,
-                        )?.usage
-                      }
-                      cpuLimit={server.cpu_limit}
-                      memoryMB={server.memory_mb}
-                      diskMB={server.disk_mb}
-                      elapsed={monitoring.elapsed}
-                    />
-                  </td>
-                  <td>
-                    {server.ports.map((port, index) => (
-                      <span className="resource-line" key={index}>
-                        {server.game_address || port.bind_ip}:{port.host_port} /{" "}
-                        {port.protocol}
-                      </span>
-                    ))}
-                  </td>
-                  <td className="table-actions">
-                    <div className="row-actions">
-                      {server.permissions.includes("server.operate") && (
-                        <ServerLifecycleControls
-                          canConfigure={server.permissions.includes(
-                            "server.configure",
-                          )}
-                          status={runtime.statuses[server.id]}
-                          disabled={
-                            acting !== null ||
-                            deleting !== null ||
-                            options.sparks.find(
-                              (spark) => spark.id === server.spark_id,
-                            )?.disabled === true
-                          }
-                          onAction={(action) => {
-                            void act(server, action);
-                          }}
-                          onConsole={() => setConsoleServer(server)}
-                          onFiles={() => setFilesServer(server)}
-                          onBackups={() => setBackupsServer(server)}
-                        />
-                      )}
-                      {server.permissions.includes("server.share") && (
-                        <button
-                          className="button"
-                          onClick={() => setAccessServer(server)}
-                          aria-label={`Access to ${server.name}`}
-                        >
-                          Access
-                        </button>
-                      )}
-                      {canApplyRevision && (
-                        <button
-                          className="button"
-                          disabled={
-                            acting !== null ||
-                            deleting !== null ||
-                            runtime.statuses[server.id]?.busy === true ||
-                            !["stopped", "not_installed", "deleted"].includes(
-                              runtime.statuses[server.id]?.state ?? "unknown",
-                            )
-                          }
-                          onClick={() => {
-                            void edit(server, true);
-                          }}
-                          aria-label={`Apply Ember revision to ${server.name}`}
-                        >
-                          Ember revision
-                        </button>
-                      )}
-                      {canTransfer && (
-                        <button
-                          className="button"
-                          onClick={() => setTransferServer(server)}
-                          aria-label={`Transfer ${server.name}`}
-                        >
-                          Transfer
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </TableRow>
-              ))}
-            </tbody>
-          </Table>
-        )}
+                  {runtime.statuses[server.id]?.error && (
+                    <span className="runtime-error" role="status">
+                      {runtime.statuses[server.id]?.error}
+                    </span>
+                  )}
+                </td>
+                <td>
+                  <span>{server.spark_name}</span>
+                  <span className="row-description">{server.ember_name}</span>
+                </td>
+                <td>
+                  <ResourceReadings
+                    usage={
+                      monitoring.snapshot?.servers.find(
+                        (item) => item.id === server.id,
+                      )?.usage
+                    }
+                    cpuLimit={server.cpu_limit}
+                    memoryMB={server.memory_mb}
+                    diskMB={server.disk_mb}
+                    elapsed={monitoring.elapsed}
+                  />
+                </td>
+                <td>
+                  {server.ports.map((port, index) => (
+                    <span className="resource-line" key={index}>
+                      {server.game_address || port.bind_ip}:{port.host_port} /{" "}
+                      {port.protocol}
+                    </span>
+                  ))}
+                </td>
+                <td className="table-actions">
+                  <div className="row-actions">
+                    <a
+                      className="button"
+                      href={`#servers/${encodeURIComponent(server.id)}/console`}
+                    >
+                      Open server
+                    </a>
+                  </div>
+                </td>
+              </TableRow>
+            ))}
+          </tbody>
+        </Table>
       </div>
       <p className="list-summary" role="status">
         {loading
@@ -460,29 +371,6 @@ export function ServersPage() {
           }}
         />
       )}
-      {consoleServer && (
-        <ServerConsoleDialog
-          server={consoleServer}
-          onClose={() => setConsoleServer(null)}
-        />
-      )}
-      {filesServer && (
-        <ServerFilesDialog
-          server={filesServer}
-          canWrite={
-            ["stopped", "not_installed"].includes(
-              runtime.statuses[filesServer.id]?.state ?? "unknown",
-            ) && runtime.statuses[filesServer.id]?.busy !== true
-          }
-          onClose={() => setFilesServer(null)}
-        />
-      )}
-      {backupsServer && (
-        <ServerBackupsDialog
-          server={backupsServer}
-          onClose={() => setBackupsServer(null)}
-        />
-      )}
       {transferServer && (
         <ServerTransferDialog
           server={
@@ -493,11 +381,6 @@ export function ServersPage() {
           onChanged={servers.refresh}
         />
       )}
-      <p className="list-summary">
-        Game-data allocations use continuous filesystem quotas. Spark requires a
-        host filesystem with project quotas enabled before installing or
-        starting servers.
-      </p>
       {details && (
         <ResourceDetailsDialog
           key={details.id}
@@ -510,12 +393,62 @@ export function ServersPage() {
               : undefined
           }
           deleteDisabled={
-            deleting !== null ||
-            acting !== null ||
-            runtime.statuses[details.id]?.busy === true
+            deleting !== null || runtime.statuses[details.id]?.busy === true
           }
           deleting={deleting === details.id}
           actionError={actionError}
+          actions={
+            <>
+              <a
+                className="button"
+                href={`#servers/${encodeURIComponent(details.id)}/console`}
+              >
+                Open server
+              </a>
+              {details.permissions.includes("server.share") && (
+                <button
+                  className="button"
+                  disabled={deleting !== null}
+                  onClick={() => {
+                    setDetails(null);
+                    setAccessServer(details);
+                  }}
+                >
+                  Access
+                </button>
+              )}
+              {canApplyRevision && (
+                <button
+                  className="button"
+                  disabled={
+                    deleting !== null ||
+                    runtime.statuses[details.id]?.busy === true ||
+                    !["stopped", "not_installed", "deleted"].includes(
+                      runtime.statuses[details.id]?.state ?? "unknown",
+                    )
+                  }
+                  onClick={() => {
+                    setDetails(null);
+                    void edit(details, true);
+                  }}
+                >
+                  Ember revision
+                </button>
+              )}
+              {canTransfer && (
+                <button
+                  className="button"
+                  disabled={deleting !== null}
+                  onClick={() => {
+                    setDetails(null);
+                    setTransferServer(details);
+                  }}
+                >
+                  Transfer
+                </button>
+              )}
+            </>
+          }
           onClose={() => setDetails(null)}
           onEdit={
             details.permissions.includes("server.configure")

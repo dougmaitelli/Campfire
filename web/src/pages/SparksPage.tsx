@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { SparksTable } from "../components/sparks/SparksTable";
 import { SparkDialog } from "../dialogs/SparkDialog";
 import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
@@ -8,6 +7,7 @@ import type { Spark } from "../api/sparks";
 import { deleteSpark } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
+import "./management.css";
 import { ResourceDetailsDialog } from "../dialogs/ResourceDetailsDialog";
 
 export function SparksPage() {
@@ -71,41 +71,24 @@ export function SparksPage() {
           </button>
         </div>
       </header>
-      {(error ?? deleteError) && (
+      {(deleteError ?? (sparks.length ? error : null)) && (
         <p className="error-message" role="alert">
           {error ?? deleteError}
         </p>
       )}
-      <div className="sparks-content" aria-busy={loading}>
-        {sparks.length > 0 ? (
-          <SparksTable
-            onDetails={setDetails}
-            onEnroll={setEnrolling}
-            onProvisioning={setProvisioning}
-            sparks={sparks}
-          />
-        ) : (
-          <div className="empty-state">
-            <span className="empty-icon">
-              <NavigationIcon name="sparks" />
-            </span>
-            <h2>
-              {loading
-                ? "Loading Sparks…"
-                : error
-                  ? "Unable to load Sparks"
-                  : "No Sparks yet"}
-            </h2>
-            {!loading && !error && (
-              <>
-                <p>Add your first node to get started.</p>
-                <button className="button button-primary" onClick={openAdd}>
-                  Add Spark
-                </button>
-              </>
-            )}
-          </div>
-        )}
+      <div className="management-content" aria-busy={loading}>
+        <SparksTable
+          loading={loading}
+          error={error}
+          onRetry={() => {
+            void refresh();
+          }}
+          onAdd={openAdd}
+          onDetails={setDetails}
+          onEnroll={setEnrolling}
+          onProvisioning={setProvisioning}
+          sparks={sparks}
+        />
       </div>
       <p className="list-summary" role="status">
         {loading

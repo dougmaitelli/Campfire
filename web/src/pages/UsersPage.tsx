@@ -78,7 +78,8 @@ export function UsersPage() {
           </button>
         </div>
       </header>
-      {(error ?? users.error ?? roles.error) && (
+      {(error ??
+        (users.items.length ? (users.error ?? roles.error) : null)) && (
         <p className="error-message" role="alert">
           {error ?? users.error ?? roles.error}
         </p>
@@ -95,7 +96,16 @@ export function UsersPage() {
         </label>
       </div>
       <div className="management-content">
-        <Table>
+        <Table
+          empty={filtered.length === 0}
+          loading={users.loading}
+          error={users.error}
+          resource="users"
+          emptyMessage={query ? "No matching users" : "No users yet"}
+          onRetry={() => {
+            void users.refresh();
+          }}
+        >
           <caption className="visually-hidden">Panel users</caption>
           <thead>
             <tr>
@@ -123,23 +133,15 @@ export function UsersPage() {
                 </td>
                 <td>{user.role.name}</td>
                 <td>
-                  <StatusPill tone={user.disabled ? "neutral" : "positive"}>
+                  <StatusPill status={user.disabled ? "disabled" : "enabled"}>
                     {user.disabled ? "Disabled" : "Enabled"}
                   </StatusPill>
                 </td>
               </TableRow>
             ))}
-            {!users.loading && !users.error && filtered.length === 0 && (
-              <tr>
-                <td colSpan={3}>
-                  {query ? "No users match your search." : "No users yet."}
-                </td>
-              </tr>
-            )}
           </tbody>
         </Table>
       </div>
-      {users.loading && <p role="status">Loading users…</p>}
       <p className="field-help">
         At least one enabled administrator must remain. Accounts that own
         servers must transfer ownership before deletion.

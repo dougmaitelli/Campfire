@@ -1,0 +1,56 @@
+.drawer-form .cron-expression {
+  margin-bottom: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 17px;
+  letter-spacing: 2px;
+}
+.cron-fields {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 16px;
+  text-align: center;
+}
+.cron-fields dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.cron-fields dd {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  font-family: monospace;
+  font-size: 14px;
+}
+.cron-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cron-presets .button {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.cron-presets .button[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+.cron-preview {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.cron-preview p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.cron-preview ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}

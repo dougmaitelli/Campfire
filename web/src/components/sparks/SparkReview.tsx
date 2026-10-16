@@ -1,4 +1,5 @@
 import type { SparkSettings } from "../../api/sparks";
+import { StatusPill } from "../status/StatusPill";
 
 interface SparkReviewProps {
   name: string;
@@ -28,7 +29,9 @@ export function SparkReview({
         </div>
         <div>
           <dt>Availability</dt>
-          <dd>{disabled ? "Disabled" : "Enabled"}</dd>
+          <dd>
+            <StatusPill status={disabled ? "disabled" : "enabled"} />
+          </dd>
         </div>
         <div>
           <dt>CPU limit</dt>

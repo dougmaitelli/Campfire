@@ -1,4 +1,4 @@
-.account-menu {
+.sidebar-footer.account-menu {
   position: relative;
   padding: 16px 0 0;
   border-top: 1px solid var(--border);
@@ -16,7 +16,7 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
-  padding: 8px;
+  padding: 8px 4px;
   border: 0;
   border-radius: 8px;
   background: transparent;

@@ -11,7 +11,7 @@ export function DrawerDeleteButton({
   return (
     <button
       type="button"
-      className="button"
+      className="button button-danger"
       disabled={disabled || deleting}
       onClick={onDelete}
     >

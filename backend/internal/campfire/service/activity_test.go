@@ -91,12 +91,92 @@ func activityFixture(t *testing.T) (*ActivityService, *database.Database, *activ
 func savedSchedule(t *testing.T, s *ActivityService, p Principal, action string) database.Schedule {
 	t.Helper()
 
-	item, err := s.Save(context.Background(), p, database.Schedule{ServerID: "game", Name: "Nightly", Action: action, Command: "private-console-command", IntervalMinutes: 1440, NextRunAt: time.Now().Add(-72 * time.Hour).Unix(), Enabled: true}, true)
+	item, err := s.Save(context.Background(), p, database.Schedule{ServerID: "game", Name: "Nightly", Action: action, Command: "private-console-command", CronExpression: "0 3 * * *", TimeZone: "UTC", Enabled: true}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	item.NextRunAt = time.Now().Add(-72 * time.Hour).Unix()
+
+	item.Version++
+	if err := s.Store.SaveSchedule(t.Context(), &item, false); err != nil {
+		t.Fatal(err)
+	}
+
 	return item
+}
+
+func TestCronSaveValidatesAndComputesNextRun(t *testing.T) {
+	s, _, _, owner := activityFixture(t)
+	for _, expression := range []string{"", "bad", "60 * * * *", "0 0 31 2 *"} {
+		if _, err := s.Save(t.Context(), owner, database.Schedule{ServerID: "game", Name: "Invalid", Action: "restart", CronExpression: expression, TimeZone: "UTC"}, true); !errors.Is(err, repository.ErrAccessInput) {
+			t.Fatalf("accepted %q: %v", expression, err)
+		}
+	}
+
+	item, err := s.Save(t.Context(), owner, database.Schedule{ServerID: "game", Name: "Morning", Action: "restart", CronExpression: " 0  3 * * * ", TimeZone: "Asia/Tokyo", NextRunAt: 1, OnlyWhenRunning: true}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if item.CronExpression != "0 3 * * *" || item.NextRunAt <= time.Now().Unix() || !item.OnlyWhenRunning {
+		t.Fatal("cron was not normalized and calculated", item)
+	}
+
+	next := time.Unix(item.NextRunAt, 0).UTC()
+	if next.Hour() != 18 || next.Minute() != 0 {
+		t.Fatal("ignored time zone", next)
+	}
+}
+
+func TestScheduleRunningCondition(t *testing.T) {
+	for _, test := range []struct {
+		name, state, want string
+		only              bool
+		calls             int
+	}{
+		{"stopped skips", "stopped", "skipped", true, 0},
+		{"running dispatches", "running", "succeeded", true, 1},
+		{"unchecked dispatches while stopped", "stopped", "succeeded", false, 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s, db, runtime, owner := activityFixture(t)
+			item := savedSchedule(t, s, owner, "command")
+			item.OnlyWhenRunning = test.only
+
+			item.Version++
+			if err := s.Store.SaveSchedule(t.Context(), &item, false); err != nil {
+				t.Fatal(err)
+			}
+
+			runtime.status.State = test.state
+
+			run, err := s.RunNow(t.Context(), owner, item.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if run.OnlyWhenRunning != test.only {
+				t.Fatal("running condition was not captured in execution")
+			}
+
+			if err := s.process(t.Context(), run); err != nil {
+				t.Fatal(err)
+			}
+
+			final, err := s.Store.Run(t.Context(), run.ID)
+			if err != nil || final.State != test.want || runtime.calls != test.calls {
+				t.Fatal("wrong conditional execution", final, runtime.calls, err)
+			}
+
+			if test.want == "skipped" {
+				var audit database.AuditEvent
+				if err := db.ORM().Where("target = ?", "server:game").Take(&audit).Error; err != nil || audit.Outcome != "skipped" {
+					t.Fatal("skip was not audited", audit, err)
+				}
+			}
+		})
+	}
 }
 
 func TestRecurringSchedulesCoalesceAndRecheckPermissions(t *testing.T) {
@@ -167,7 +247,7 @@ func TestRecurringSchedulesCoalesceAndRecheckPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.Store.EnqueueDue(ctx, now); err != nil {
+	if err := s.Store.EnqueueDue(ctx, time.Unix(item.NextRunAt, 0)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -283,7 +363,7 @@ func TestSchedulesAuthorizationCancellationAndSecretRedaction(t *testing.T) {
 		t.Fatal("operator could trigger configured commands", err)
 	}
 
-	if _, err := s.Save(ctx, owner, database.Schedule{ServerID: "game", Name: "Bad", Action: "delete", IntervalMinutes: 1, NextRunAt: time.Now().Unix()}, true); err == nil {
+	if _, err := s.Save(ctx, owner, database.Schedule{ServerID: "game", Name: "Bad", Action: "delete", CronExpression: "* * * * *", TimeZone: "UTC"}, true); err == nil {
 		t.Fatal("destructive recurring action accepted")
 	}
 

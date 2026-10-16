@@ -1,10 +1,11 @@
 .dashboard-layout {
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: 256px minmax(0, 1fr);
   min-height: 100dvh;
 }
 
 .sidebar {
+  min-width: 0;
   position: sticky;
   top: 0;
   display: flex;

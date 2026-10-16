@@ -9,6 +9,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/recurrence"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 
@@ -116,7 +117,12 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 		}
 
 		if index == 0 {
-			schedule := database.Schedule{ID: "mock-restart", ServerID: server.ID, Name: "Daily restart · Mock", Action: "restart", IntervalMinutes: 1440, NextRunAt: time.Now().Add(24 * time.Hour).Unix(), Enabled: true, UserID: 1, Username: Username, Version: 1}
+			next, err := recurrence.Next("0 3 * * *", "UTC", time.Now(), 1)
+			if err != nil {
+				return err
+			}
+
+			schedule := database.Schedule{ID: "mock-restart", ServerID: server.ID, Name: "Daily restart · Mock", Action: "restart", CronExpression: "0 3 * * *", TimeZone: "UTC", OnlyWhenRunning: true, NextRunAt: next[0], Enabled: true, UserID: 1, Username: Username, Version: 1}
 			if err := tx.Omit("Server").Create(&schedule).Error; err != nil {
 				return err
 			}

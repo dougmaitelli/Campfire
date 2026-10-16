@@ -14,6 +14,6 @@ export type NavigationItem = (typeof navigation)[number];
 export type NavigationIcon = NavigationItem["icon"];
 
 export function getCurrentPage(): NavigationItem {
-  const id = window.location.hash.slice(1);
+  const id = window.location.hash.slice(1).split("/")[0];
   return navigation.find((item) => item.id === id) ?? navigation[0];
 }

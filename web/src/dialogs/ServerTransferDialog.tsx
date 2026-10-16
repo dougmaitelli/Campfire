@@ -197,181 +197,185 @@ export function ServerTransferDialog({
         </button>
       }
     >
-      {(error ?? loadError) && (
-        <p className="error-message" role="alert">
-          {error ?? loadError}
-        </p>
-      )}
-      <p>
-        Current Spark: <strong>{server.spark_name}</strong>. Ownership, access,
-        and schedules stay with the server.
-      </p>
-      {status !== undefined &&
-        !["stopped", "not_installed"].includes(status.state) && (
-          <p className="field-help">
-            Stop the server before beginning a transfer.
+      <div className="drawer-content">
+        {(error ?? loadError) && (
+          <p className="error-message" role="alert">
+            {error ?? loadError}
           </p>
         )}
-      <label htmlFor="transfer-target">Destination Spark</label>
-      <select
-        id="transfer-target"
-        value={targetID}
-        disabled={busy || active}
-        onChange={(event) => selectTarget(event.target.value)}
-      >
-        <option value="">Select a Spark</option>
-        {choices.map((spark) => (
-          <option key={spark.id} value={spark.id}>
-            {spark.name}
-            {spark.connected ? "" : " (disconnected)"}
-          </option>
-        ))}
-      </select>
-      {target && (
-        <>
-          <p className="field-help">
-            Game address after transfer:{" "}
-            {target.game_address || "Not configured"}. Existing game clients may
-            need the new address and host ports.
-          </p>
-          {ports.map((port, index) => (
-            <fieldset
-              key={`${port.container_port}-${port.protocol}-${index}`}
-              disabled={busy || active}
-            >
-              <legend>
-                Container port {port.container_port}/{port.protocol}
-              </legend>
-              <label htmlFor={`transfer-ip-${index}`}>
-                Destination interface
-              </label>
-              <select
-                id={`transfer-ip-${index}`}
-                value={port.bind_ip}
-                onChange={(event) =>
-                  setPorts((current) =>
-                    current.map((entry, i) =>
-                      i === index
-                        ? { ...entry, bind_ip: event.target.value }
-                        : entry,
-                    ),
-                  )
-                }
-              >
-                <option value="">Select an interface</option>
-                {[
-                  ...new Set(
-                    target.port_allocations
-                      .filter(
-                        (allocation) => allocation.protocol === port.protocol,
-                      )
-                      .map((allocation) => allocation.bind_ip),
-                  ),
-                ].map((ip) => (
-                  <option key={ip} value={ip}>
-                    {ip}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor={`transfer-port-${index}`}>
-                Destination host port
-              </label>
-              <input
-                id={`transfer-port-${index}`}
-                type="number"
-                min="1"
-                max="65535"
-                required
-                value={port.host_port}
-                onChange={(event) =>
-                  setPorts((current) =>
-                    current.map((entry, i) =>
-                      i === index
-                        ? { ...entry, host_port: Number(event.target.value) }
-                        : entry,
-                    ),
-                  )
-                }
-              />
-              <p className="field-help">
-                Allowed ranges:{" "}
-                {target.port_allocations
-                  .filter(
-                    (allocation) =>
-                      allocation.protocol === port.protocol &&
-                      allocation.bind_ip === port.bind_ip,
-                  )
-                  .map((allocation) => `${allocation.start}–${allocation.end}`)
-                  .join(", ") || "None"}
-              </p>
-            </fieldset>
-          ))}
-        </>
-      )}
-      <h3>Transfer history</h3>
-      {loading && <p role="status">Loading…</p>}
-      {!loading && items.length === 0 && <p>No transfers yet.</p>}
-      {items.map((item) => (
-        <section key={item.id} aria-label={`Transfer ${item.id}`}>
-          <p>
-            <strong>{phases[item.phase] ?? item.phase}</strong>:{" "}
-            {sparks.find((spark) => spark.id === item.source_spark_id)?.name ??
-              item.source_spark_id}{" "}
-            →{" "}
-            {sparks.find((spark) => spark.id === item.target_spark_id)?.name ??
-              item.target_spark_id}
-          </p>
-          {item.total_bytes > 0 && (
-            <>
-              <progress
-                aria-label="Archive bytes copied"
-                max={item.total_bytes}
-                value={item.transferred_bytes}
-              />
-              <p>
-                {bytes(item.transferred_bytes)} / {bytes(item.total_bytes)}
-              </p>
-            </>
-          )}
-          {item.error && (
-            <p className="error-message" role="alert">
-              {item.error}
+        <p>
+          Current Spark: <strong>{server.spark_name}</strong>. Ownership,
+          access, and schedules stay with the server.
+        </p>
+        {status !== undefined &&
+          !["stopped", "not_installed"].includes(status.state) && (
+            <p className="field-help">
+              Stop the server before beginning a transfer.
             </p>
           )}
-          {item.active && (
-            <div className="row-actions">
-              {item.phase === "failed" && (
-                <button
-                  className="button"
-                  disabled={busy}
-                  onClick={() => {
-                    void submit("retry", item);
-                  }}
+        <label htmlFor="transfer-target">Destination Spark</label>
+        <select
+          id="transfer-target"
+          value={targetID}
+          disabled={busy || active}
+          onChange={(event) => selectTarget(event.target.value)}
+        >
+          <option value="">Select a Spark</option>
+          {choices.map((spark) => (
+            <option key={spark.id} value={spark.id}>
+              {spark.name}
+              {spark.connected ? "" : " (disconnected)"}
+            </option>
+          ))}
+        </select>
+        {target && (
+          <>
+            <p className="field-help">
+              Game address after transfer:{" "}
+              {target.game_address || "Not configured"}. Existing game clients
+              may need the new address and host ports.
+            </p>
+            {ports.map((port, index) => (
+              <fieldset
+                key={`${port.container_port}-${port.protocol}-${index}`}
+                disabled={busy || active}
+              >
+                <legend>
+                  Container port {port.container_port}/{port.protocol}
+                </legend>
+                <label htmlFor={`transfer-ip-${index}`}>
+                  Destination interface
+                </label>
+                <select
+                  id={`transfer-ip-${index}`}
+                  value={port.bind_ip}
+                  onChange={(event) =>
+                    setPorts((current) =>
+                      current.map((entry, i) =>
+                        i === index
+                          ? { ...entry, bind_ip: event.target.value }
+                          : entry,
+                      ),
+                    )
+                  }
                 >
-                  Retry transfer
-                </button>
-              )}
-              {item.can_cancel && (
-                <button
-                  className="button"
-                  disabled={busy}
-                  onClick={() => {
-                    void submit("cancel", item);
-                  }}
-                >
-                  Cancel transfer
-                </button>
-              )}
-              {!item.can_cancel && item.phase !== "cancelling" && (
+                  <option value="">Select an interface</option>
+                  {[
+                    ...new Set(
+                      target.port_allocations
+                        .filter(
+                          (allocation) => allocation.protocol === port.protocol,
+                        )
+                        .map((allocation) => allocation.bind_ip),
+                    ),
+                  ].map((ip) => (
+                    <option key={ip} value={ip}>
+                      {ip}
+                    </option>
+                  ))}
+                </select>
+                <label htmlFor={`transfer-port-${index}`}>
+                  Destination host port
+                </label>
+                <input
+                  id={`transfer-port-${index}`}
+                  type="number"
+                  min="1"
+                  max="65535"
+                  required
+                  value={port.host_port}
+                  onChange={(event) =>
+                    setPorts((current) =>
+                      current.map((entry, i) =>
+                        i === index
+                          ? { ...entry, host_port: Number(event.target.value) }
+                          : entry,
+                      ),
+                    )
+                  }
+                />
                 <p className="field-help">
-                  Placement is being committed or has changed. Retry any failed
-                  finalization to finish the transfer.
+                  Allowed ranges:{" "}
+                  {target.port_allocations
+                    .filter(
+                      (allocation) =>
+                        allocation.protocol === port.protocol &&
+                        allocation.bind_ip === port.bind_ip,
+                    )
+                    .map(
+                      (allocation) => `${allocation.start}–${allocation.end}`,
+                    )
+                    .join(", ") || "None"}
                 </p>
-              )}
-            </div>
-          )}
-        </section>
-      ))}
+              </fieldset>
+            ))}
+          </>
+        )}
+        <h3>Transfer history</h3>
+        {loading && <p role="status">Loading…</p>}
+        {!loading && items.length === 0 && <p>No transfers yet.</p>}
+        {items.map((item) => (
+          <section key={item.id} aria-label={`Transfer ${item.id}`}>
+            <p>
+              <strong>{phases[item.phase] ?? item.phase}</strong>:{" "}
+              {sparks.find((spark) => spark.id === item.source_spark_id)
+                ?.name ?? item.source_spark_id}{" "}
+              →{" "}
+              {sparks.find((spark) => spark.id === item.target_spark_id)
+                ?.name ?? item.target_spark_id}
+            </p>
+            {item.total_bytes > 0 && (
+              <>
+                <progress
+                  aria-label="Archive bytes copied"
+                  max={item.total_bytes}
+                  value={item.transferred_bytes}
+                />
+                <p>
+                  {bytes(item.transferred_bytes)} / {bytes(item.total_bytes)}
+                </p>
+              </>
+            )}
+            {item.error && (
+              <p className="error-message" role="alert">
+                {item.error}
+              </p>
+            )}
+            {item.active && (
+              <div className="row-actions">
+                {item.phase === "failed" && (
+                  <button
+                    className="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void submit("retry", item);
+                    }}
+                  >
+                    Retry transfer
+                  </button>
+                )}
+                {item.can_cancel && (
+                  <button
+                    className="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void submit("cancel", item);
+                    }}
+                  >
+                    Cancel transfer
+                  </button>
+                )}
+                {!item.can_cancel && item.phase !== "cancelling" && (
+                  <p className="field-help">
+                    Placement is being committed or has changed. Retry any
+                    failed finalization to finish the transfer.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        ))}
+      </div>
     </Drawer>
   );
 }

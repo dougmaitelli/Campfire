@@ -120,7 +120,7 @@ func TestPlacementSchedulesAndStorageAcrossConnections(t *testing.T) {
 	id := servers[0].ID
 	activity := repository.NewActivityRepository(db.ORM())
 
-	schedule := database.Schedule{ID: "nightly", ServerID: id, Name: "Restart", Action: "restart", IntervalMinutes: 60, Enabled: true, NextRunAt: time.Now().Add(-time.Minute).Unix(), Version: 1}
+	schedule := database.Schedule{ID: "nightly", ServerID: id, Name: "Restart", Action: "restart", CronExpression: "0 * * * *", TimeZone: "UTC", Enabled: true, NextRunAt: time.Now().Add(-time.Minute).Unix(), Version: 1}
 	if err := activity.SaveSchedule(ctx, &schedule, true); err != nil {
 		t.Fatal(err)
 	}

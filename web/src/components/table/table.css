@@ -1,6 +1,56 @@
 .table-container {
   overflow-x: auto;
 }
+.table-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 220px;
+  padding: 32px 20px;
+  text-align: center;
+}
+.table-state-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface-hover);
+  color: var(--muted);
+}
+.table-state[role="alert"] .table-state-icon {
+  color: #fca5a5;
+}
+.table-state-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.table-state h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.table-state p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .table-state-loading svg {
+    animation: table-loading 1s linear infinite;
+  }
+}
+@keyframes table-loading {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .data-table {
   width: 100%;
@@ -10,6 +60,7 @@
 }
 
 .data-table th {
+  white-space: nowrap;
   padding: 14px 20px;
   color: var(--muted);
   font-size: 14px;
@@ -38,6 +89,11 @@
   width: 1%;
   text-align: right;
   white-space: nowrap;
+}
+
+.data-table:has(tbody:empty) .table-actions,
+.data-table:has(tbody > tr:only-child > td[colspan]) .table-actions {
+  width: auto;
 }
 
 .table-actions .row-actions {

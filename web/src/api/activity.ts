@@ -5,7 +5,9 @@ export interface Schedule {
   server_id: string;
   name: string;
   action: string;
-  interval_minutes: number;
+  cron_expression: string;
+  time_zone: string;
+  only_when_running: boolean;
   next_run_at: number;
   enabled: boolean;
   user_id: number;
@@ -18,8 +20,9 @@ export interface ScheduleInput {
   name: string;
   action: string;
   command: string;
-  interval_minutes: number;
-  next_run_at: number;
+  cron_expression: string;
+  time_zone: string;
+  only_when_running: boolean;
   enabled: boolean;
 }
 export interface Execution {
@@ -69,15 +72,18 @@ function numbers(value: Record<string, unknown>, keys: string[]) {
 function isSchedule(value: unknown): value is Schedule {
   return (
     object(value) &&
-    strings(value, ["id", "server_id", "name", "action", "username"]) &&
-    numbers(value, [
-      "interval_minutes",
-      "next_run_at",
-      "user_id",
-      "created_at",
-      "version",
+    strings(value, [
+      "id",
+      "server_id",
+      "name",
+      "action",
+      "username",
+      "cron_expression",
+      "time_zone",
     ]) &&
-    typeof value.enabled === "boolean"
+    numbers(value, ["next_run_at", "user_id", "created_at", "version"]) &&
+    typeof value.enabled === "boolean" &&
+    typeof value.only_when_running === "boolean"
   );
 }
 function isExecution(value: unknown): value is Execution {
@@ -151,6 +157,35 @@ async function send(url: string, method: string, input?: unknown) {
   if (response.status === 204) return null;
   return readJSON(response);
 }
+export async function previewSchedule(
+  expression: string,
+  timeZone: string,
+  signal: AbortSignal,
+): Promise<number[]> {
+  const body = await readJSON(
+    await apiFetch("/api/v1/schedules/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cron_expression: expression,
+        time_zone: timeZone,
+      }),
+      signal,
+    }),
+  );
+  if (
+    !object(body) ||
+    !Array.isArray(body.next_runs) ||
+    body.next_runs.length !== 3 ||
+    !body.next_runs.every(
+      (value: unknown) =>
+        typeof value === "number" && Number.isSafeInteger(value) && value > 0,
+    )
+  )
+    throw new Error("Unexpected schedule preview response.");
+  return body.next_runs as number[];
+}
+
 export async function saveSchedule(
   input: ScheduleInput,
   id?: string,

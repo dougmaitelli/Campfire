@@ -155,7 +155,7 @@ export function SparkSettingsFields({
           </select>
           <button
             type="button"
-            className="button"
+            className="button button-danger"
             aria-label={`Remove range ${index + 1}`}
             onClick={() =>
               onChange({

@@ -137,7 +137,7 @@ export function ServerAccessDialog({
                   {member.username} · {member.role}
                 </span>
                 <button
-                  className="button"
+                  className="button button-danger"
                   disabled={busy}
                   onClick={() => {
                     void change(() => removeMember(server.id, member.user_id));

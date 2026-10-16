@@ -154,7 +154,7 @@ export function ServerResourcesFields({
             </div>
             <button
               type="button"
-              className="button"
+              className="button button-danger"
               onClick={() =>
                 onChange({
                   ...value,

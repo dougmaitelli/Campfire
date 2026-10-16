@@ -74,7 +74,7 @@ export function UserDetailsDialog({
           <div>
             <dt>Status</dt>
             <dd>
-              <StatusPill tone={user.disabled ? "neutral" : "positive"}>
+              <StatusPill status={user.disabled ? "disabled" : "enabled"}>
                 {user.disabled ? "Disabled" : "Enabled"}
               </StatusPill>
             </dd>

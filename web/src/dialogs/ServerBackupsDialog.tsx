@@ -14,9 +14,11 @@ import "../components/servers/files.css";
 export function ServerBackupsDialog({
   server,
   onClose,
+  embedded = false,
 }: {
   server: Server;
   onClose: () => void;
+  embedded?: boolean;
 }) {
   const [entries, setEntries] = useState<Backup[]>([]);
   const [policy, setPolicy] = useState<BackupPolicy | null>(null);
@@ -179,14 +181,17 @@ export function ServerBackupsDialog({
   }
   return (
     <Drawer
+      embedded={embedded}
       title={`${server.name} backups`}
       description="Stop the server to create or restore a backup. Completed archives sync to S3 in the background when enabled."
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
-          Close
-        </button>
+        embedded ? null : (
+          <button className="button" disabled={busy} onClick={onClose}>
+            Close
+          </button>
+        )
       }
       footerRight={
         <button
@@ -338,7 +343,7 @@ export function ServerBackupsDialog({
               </button>
               {canConfigure && entry.local && (
                 <button
-                  className="button"
+                  className="button button-danger"
                   disabled={
                     busy || status?.busy === true || entry.state === "deleting"
                   }
@@ -351,7 +356,7 @@ export function ServerBackupsDialog({
               )}
               {canConfigure && entry.remote && (
                 <button
-                  className="button"
+                  className="button button-danger"
                   disabled={
                     busy || status?.busy === true || entry.state === "deleting"
                   }

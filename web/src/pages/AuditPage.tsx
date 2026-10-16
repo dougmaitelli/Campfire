@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { activityCursor, listAudit, type AuditEvent } from "../api/activity";
 import "./management.css";
 import { Table } from "../components/table/Table";
+import { StatusPill } from "../components/status/StatusPill";
 
 export function AuditPage() {
   const [items, setItems] = useState<AuditEvent[]>([]);
@@ -12,6 +13,7 @@ export function AuditPage() {
   const [busy, setBusy] = useState(false);
   const [older, setOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const controller = new AbortController();
     void listAudit(controller.signal, "", filters.action, filters.target)
@@ -29,6 +31,9 @@ export function AuditPage() {
               ? cause.message
               : "Unable to load audit records.",
           );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [filters, version]);
@@ -64,11 +69,17 @@ export function AuditPage() {
             operations.
           </p>
         </div>
-        <button className="button" onClick={() => setVersion((v) => v + 1)}>
+        <button
+          className="button"
+          onClick={() => {
+            setLoading(true);
+            setVersion((v) => v + 1);
+          }}
+        >
           Refresh
         </button>
       </header>
-      {error && (
+      {error && items.length > 0 && (
         <p className="error-message" role="alert">
           {error}
         </p>
@@ -77,6 +88,7 @@ export function AuditPage() {
         className="list-toolbar"
         onSubmit={(e) => {
           e.preventDefault();
+          setLoading(true);
           setFilters({ action: action.trim(), target: target.trim() });
         }}
       >
@@ -101,7 +113,17 @@ export function AuditPage() {
         <button className="button">Filter</button>
       </form>
       <div className="management-content">
-        <Table>
+        <Table
+          empty={items.length === 0}
+          loading={loading}
+          error={error}
+          resource="audit records"
+          emptyMessage="No audit records"
+          onRetry={() => {
+            setLoading(true);
+            setVersion((value) => value + 1);
+          }}
+        >
           <caption className="visually-hidden">Audit records</caption>
           <thead>
             <tr>
@@ -110,7 +132,6 @@ export function AuditPage() {
               <th>Action</th>
               <th>Target</th>
               <th>Outcome</th>
-              <th>HTTP status</th>
             </tr>
           </thead>
           <tbody>
@@ -125,15 +146,11 @@ export function AuditPage() {
                 </td>
                 <td>{item.action}</td>
                 <td>{item.target}</td>
-                <td>{item.outcome}</td>
-                <td>{item.status || "—"}</td>
+                <td>
+                  <StatusPill status={item.outcome} />
+                </td>
               </tr>
             ))}
-            {!items.length && (
-              <tr>
-                <td colSpan={6}>No audit records.</td>
-              </tr>
-            )}
           </tbody>
         </Table>
         {older && (

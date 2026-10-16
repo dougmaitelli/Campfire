@@ -45,7 +45,11 @@ export function useMonitoring() {
       if (timer !== undefined) clearTimeout(timer);
     };
   }, [revision]);
-  const refresh = useCallback(() => setRevision((value) => value + 1), []);
+  const refresh = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setRevision((value) => value + 1);
+  }, []);
   return {
     snapshot,
     error,

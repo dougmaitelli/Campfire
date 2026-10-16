@@ -8,7 +8,9 @@ type Schedule struct {
 	Name            string `gorm:"type:text;not null" json:"name"`
 	Action          string `gorm:"type:text;not null" json:"action"`
 	Command         string `gorm:"type:text;not null" json:"-"`
-	IntervalMinutes int64  `gorm:"not null" json:"interval_minutes"`
+	CronExpression  string `gorm:"type:text;not null;default:'0 3 * * *'" json:"cron_expression"`
+	TimeZone        string `gorm:"type:text;not null;default:'UTC'" json:"time_zone"`
+	OnlyWhenRunning bool   `gorm:"not null;default:false" json:"only_when_running"`
 	NextRunAt       int64  `gorm:"not null;index" json:"next_run_at"`
 	Enabled         bool   `gorm:"not null" json:"enabled"`
 	UserID          int64  `gorm:"not null" json:"user_id"`
@@ -19,6 +21,7 @@ type Schedule struct {
 
 // ScheduleRun records manual and recurring operations without foreign-key cascades.
 type ScheduleRun struct {
+	OnlyWhenRunning bool   `gorm:"not null;default:false" json:"-"`
 	ID              string `gorm:"type:text;primaryKey" json:"id"`
 	ScheduleID      string `gorm:"type:text;not null;index" json:"schedule_id"`
 	ScheduleVersion int64  `gorm:"not null" json:"-"`

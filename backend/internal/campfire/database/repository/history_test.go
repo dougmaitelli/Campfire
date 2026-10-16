@@ -29,7 +29,7 @@ func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 	cutoff := time.Now().UTC().Truncate(time.Second).Add(-30 * 24 * time.Hour)
 
 	old := cutoff.Add(-time.Hour).Unix()
-	for _, state := range []string{"succeeded", "failed", "interrupted", "cancelled", "queued", "dispatching", "running", "unknown"} {
+	for _, state := range []string{"succeeded", "failed", "interrupted", "cancelled", "skipped", "queued", "dispatching", "running", "unknown"} {
 		if err := store.CreateRun(ctx, &database.ScheduleRun{ID: state, State: state, CreatedAt: old, FinishedAt: old}); err != nil {
 			t.Fatal(err)
 		}
@@ -45,7 +45,7 @@ func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 		}
 	}
 
-	for _, outcome := range []string{"succeeded", "failed", "accepted", "interrupted", "cancelled", "pending", "unknown"} {
+	for _, outcome := range []string{"succeeded", "failed", "accepted", "interrupted", "cancelled", "skipped", "pending", "unknown"} {
 		if err := store.BeginAudit(ctx, &database.AuditEvent{ID: outcome, Outcome: outcome, CreatedAt: old}); err != nil {
 			t.Fatal(err)
 		}
@@ -60,7 +60,7 @@ func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 	}
 
 	var count int64
-	if err := db.ORM().Model(&database.ScheduleRun{}).Count(&count).Error; err != nil || count != 11 {
+	if err := db.ORM().Model(&database.ScheduleRun{}).Count(&count).Error; err != nil || count != 12 {
 		t.Fatal("disabled retention changed records", count, err)
 	}
 
@@ -68,7 +68,7 @@ func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Model(&database.AuditEvent{}).Count(&count).Error; err != nil || count != 8 {
+	if err := db.ORM().Model(&database.AuditEvent{}).Count(&count).Error; err != nil || count != 9 {
 		t.Fatal("operation policy changed audit history", count, err)
 	}
 
@@ -78,7 +78,7 @@ func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 	}
 
 	for _, run := range runs {
-		if run.ID == "succeeded" || run.ID == "failed" || run.ID == "interrupted" || run.ID == "cancelled" {
+		if run.ID == "succeeded" || run.ID == "failed" || run.ID == "interrupted" || run.ID == "cancelled" || run.ID == "skipped" {
 			t.Fatal("expired result retained", run.ID)
 		}
 	}

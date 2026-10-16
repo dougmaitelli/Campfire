@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"campfire/internal/campfire/database"
 )
@@ -18,7 +19,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (3)").Error; err != nil {
+	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (4)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,7 +34,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal("opened unsupported future schema")
 	}
 
-	if !strings.Contains(err.Error(), "newer than supported version 2") {
+	if !strings.Contains(err.Error(), "newer than supported version 3") {
 		t.Fatal("wrong schema version error", err)
 	}
 }
@@ -53,6 +54,16 @@ func TestUserProfileMigrationPreservesAccounts(t *testing.T) {
 	}
 
 	// Recreate the deployed v1 shape before opening it with the new binary.
+	for _, field := range []string{"CronExpression", "TimeZone", "OnlyWhenRunning"} {
+		if err := db.ORM().Migrator().DropColumn(&database.Schedule{}, field); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := db.ORM().Migrator().DropColumn(&database.ScheduleRun{}, "OnlyWhenRunning"); err != nil {
+		t.Fatal(err)
+	}
+
 	for _, field := range []string{"Name", "Picture"} {
 		if err := db.ORM().Migrator().DropColumn(&database.User{}, field); err != nil {
 			t.Fatal(err)
@@ -84,6 +95,68 @@ func TestUserProfileMigrationPreservesAccounts(t *testing.T) {
 
 	if err := reopened.ORM().Model(&loaded).Updates(map[string]any{"name": "Existing Admin", "picture": "https://example.com/avatar.png"}).Error; err != nil {
 		t.Fatal("new profile columns are not writable", err)
+	}
+}
+
+func TestCronMigrationPreservesDevelopmentSchedules(t *testing.T) {
+	ctx := t.Context()
+	path := filepath.Join(t.TempDir(), "panel.db")
+
+	db, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, item := range []any{
+		&database.Spark{ID: "node", Name: "Node", Kind: "remote"},
+		&database.Ember{ID: "ember", Name: "Game"},
+		&database.Server{ID: "game", Name: "Game", SparkID: "node", EmberID: "ember"},
+		&database.Schedule{ID: "existing", ServerID: "game", Name: "Restart", Action: "restart", CronExpression: "0 3 * * *", TimeZone: "UTC", Enabled: true, UserID: 1, Username: "admin", Version: 2, NextRunAt: 1},
+	} {
+		if err := db.ORM().Omit("Server", "Spark", "Ember").Create(item).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, field := range []string{"CronExpression", "TimeZone", "OnlyWhenRunning"} {
+		if err := db.ORM().Migrator().DropColumn(&database.Schedule{}, field); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := db.ORM().Migrator().DropColumn(&database.ScheduleRun{}, "OnlyWhenRunning"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Exec("ALTER TABLE schedules ADD COLUMN interval_minutes INTEGER NOT NULL DEFAULT 1440").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Exec("UPDATE schema_migrations SET version = 2").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err = database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+
+	var item database.Schedule
+	if err := db.ORM().Take(&item, "id = ?", "existing").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if item.Name != "Restart" || item.Action != "restart" || !item.Enabled || item.Version != 2 || item.CronExpression != "0 3 * * *" || item.TimeZone != "UTC" || item.OnlyWhenRunning || item.NextRunAt <= time.Now().Unix() {
+		t.Fatal("migration damaged schedule", item)
+	}
+
+	if db.ORM().Migrator().HasColumn(&database.Schedule{}, "interval_minutes") {
+		t.Fatal("interval column was retained")
 	}
 }
 
@@ -144,7 +217,7 @@ func TestInitialSchemaAndReopen(t *testing.T) {
 	defer func() { _ = reopened.Close() }()
 
 	var versions []int
-	if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 2 {
+	if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 3 {
 		t.Fatal("expected exactly one baseline migration", versions, err)
 	}
 

@@ -35,75 +35,67 @@ export function EmbersPage() {
           </button>
         </div>
       </header>
-      {error && (
+      {error && items.length > 0 && (
         <p className="error-message" role="alert">
           {error}
         </p>
       )}
       <div className="management-content" aria-busy={loading}>
-        {items.length === 0 ? (
-          <div className="empty-state">
-            <h2>
-              {loading
-                ? "Loading Embers…"
-                : error
-                  ? "Unable to load Embers"
-                  : "No Embers yet"}
-            </h2>
-            {!loading && !error && (
-              <>
-                <p>Import a game definition before creating servers.</p>
-                <button
-                  className="button button-primary"
-                  onClick={() => setImporting(true)}
-                >
-                  Import Ember
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
-          <Table>
-            <caption className="visually-hidden">Imported Embers</caption>
-            <thead>
-              <tr>
-                <th scope="col">Game definition</th>
-                <th scope="col">Images</th>
-                <th scope="col">Variables</th>
-                <th scope="col">Required ports</th>
+        <Table
+          empty={items.length === 0}
+          loading={loading}
+          error={error}
+          resource="Embers"
+          emptyDescription="Import a game definition before creating servers."
+          emptyAction={
+            <button
+              className="button button-primary"
+              onClick={() => setImporting(true)}
+            >
+              Import Ember
+            </button>
+          }
+          onRetry={() => {
+            void refresh();
+          }}
+        >
+          <caption className="visually-hidden">Imported Embers</caption>
+          <thead>
+            <tr>
+              <th scope="col">Game definition</th>
+              <th scope="col">Images</th>
+              <th scope="col">Variables</th>
+              <th scope="col">Required ports</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((ember) => (
+              <tr key={ember.id}>
+                <td>
+                  <strong>{ember.name}</strong>
+                  {ember.origin && (
+                    <span className="row-description">
+                      Imported from {ember.origin.format}
+                    </span>
+                  )}
+                  {ember.description && (
+                    <span className="row-description">{ember.description}</span>
+                  )}
+                  <span className="row-id">{ember.id}</span>
+                </td>
+                <td>{Object.keys(ember.images).join(", ")}</td>
+                <td>{ember.variables?.length ?? 0}</td>
+                <td>
+                  {ember.required_ports?.length
+                    ? ember.required_ports
+                        .map((port) => `${port.container}/${port.protocol}`)
+                        .join(", ")
+                    : "None"}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((ember) => (
-                <tr key={ember.id}>
-                  <td>
-                    <strong>{ember.name}</strong>
-                    {ember.origin && (
-                      <span className="row-description">
-                        Imported from {ember.origin.format}
-                      </span>
-                    )}
-                    {ember.description && (
-                      <span className="row-description">
-                        {ember.description}
-                      </span>
-                    )}
-                    <span className="row-id">{ember.id}</span>
-                  </td>
-                  <td>{Object.keys(ember.images).join(", ")}</td>
-                  <td>{ember.variables?.length ?? 0}</td>
-                  <td>
-                    {ember.required_ports?.length
-                      ? ember.required_ports
-                          .map((port) => `${port.container}/${port.protocol}`)
-                          .join(", ")
-                      : "None"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
+            ))}
+          </tbody>
+        </Table>
       </div>
       <p className="list-summary" role="status">
         {loading

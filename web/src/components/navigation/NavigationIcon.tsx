@@ -1,12 +1,23 @@
 import type { NavigationIcon as IconName } from "../../routing/navigation";
 
 type NavigationIconName =
-  IconName | "campfire" | "logout" | "chevron" | "key" | "link";
+  | IconName
+  | "campfire"
+  | "logout"
+  | "chevron"
+  | "key"
+  | "link"
+  | "loading"
+  | "warning"
+  | "table";
 
 const paths: Record<NavigationIconName, string> = {
+  loading: "M20 12a8 8 0 1 1-8-8",
+  warning: "M12 3 2 21h20L12 3Z M12 9v5 M12 17h.01",
+  table: "M3 5h18v14H3z M3 10h18 M9 10v9",
   logout: "M10 17l5-5-5-5 M15 12H3 M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4",
   chevron: "m9 14 3-3 3 3",
-  key: "M15 7a4 4 0 1 1-2 7L5 22H2v-3l8-8a4 4 0 0 1 5-4Z M17 10h.01",
+  key: "M10 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z M10 12h11 M17 12v4 M21 12v4",
   link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
   notifications: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
   audit: "M5 3h14v18H5z M8 7h8 M8 11h8 M8 15h5",

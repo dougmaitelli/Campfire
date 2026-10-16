@@ -14,6 +14,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
 )
 
@@ -22,6 +23,7 @@ type actorKey struct{}
 var errScheduleChanged = errors.New("schedule changed before execution")
 var errSparkOffline = errors.New("spark is offline before dispatch")
 var errSparkDisabled = errors.New("spark is disabled before dispatch")
+var errServerNotRunning = errors.New("schedule requires a running server")
 
 // WithActor binds authenticated identity to service mutations and their execution records.
 func WithActor(ctx context.Context, principal Principal) context.Context {
@@ -185,9 +187,23 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 	}
 
 	item.Name = strings.TrimSpace(item.Name)
-	if item.Name == "" || utf8.RuneCountInString(item.Name) > 100 || strings.ContainsFunc(item.Name, unicode.IsControl) || item.IntervalMinutes < 1 || item.IntervalMinutes > 525600 || item.NextRunAt <= 0 || item.NextRunAt > time.Now().AddDate(5, 0, 0).Unix() {
+	if item.Name == "" || utf8.RuneCountInString(item.Name) > 100 || strings.ContainsFunc(item.Name, unicode.IsControl) {
 		return database.Schedule{}, repository.ErrAccessInput
 	}
+
+	item.CronExpression = strings.Join(strings.Fields(item.CronExpression), " ")
+
+	item.TimeZone = strings.TrimSpace(item.TimeZone)
+	if item.TimeZone == "" {
+		item.TimeZone = "UTC"
+	}
+
+	next, err := recurrence.Next(item.CronExpression, item.TimeZone, time.Now(), 1)
+	if err != nil {
+		return database.Schedule{}, repository.ErrAccessInput
+	}
+
+	item.NextRunAt = next[0]
 
 	if !slices.Contains([]string{"start", "stop", "restart", "kill", "backup", "command"}, item.Action) {
 		return database.Schedule{}, repository.ErrAccessInput
@@ -246,6 +262,7 @@ func (s *ActivityService) Queue(ctx context.Context, principal Principal, server
 		}
 
 		run.ScheduleVersion = item.Version
+		run.OnlyWhenRunning = item.OnlyWhenRunning
 	}
 
 	return run, s.Store.CreateRun(ctx, &run)
@@ -330,6 +347,10 @@ func (s *ActivityService) checkQueued(ctx context.Context, run database.Schedule
 }
 
 func (s *ActivityService) rejectQueued(ctx context.Context, run database.ScheduleRun, err error) error {
+	if errors.Is(err, errServerNotRunning) {
+		return s.finish(ctx, run, "skipped", "Server is not running; this schedule only runs while the server is running.")
+	}
+
 	if errors.Is(err, errSparkOffline) {
 		return s.Store.UpdateRun(ctx, run.ID, "queued", "Waiting for Spark to reconnect.", time.Now())
 	}
@@ -376,7 +397,7 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 		}
 
 		if err != nil {
-			if errors.Is(err, errScheduleChanged) || errors.Is(err, errSparkOffline) || errors.Is(err, errSparkDisabled) || errors.Is(err, repository.ErrAccessDenied) || errors.Is(err, repository.ErrAccessNotFound) || errors.Is(err, ErrServerNotFound) {
+			if errors.Is(err, errServerNotRunning) || errors.Is(err, errScheduleChanged) || errors.Is(err, errSparkOffline) || errors.Is(err, errSparkDisabled) || errors.Is(err, repository.ErrAccessDenied) || errors.Is(err, repository.ErrAccessNotFound) || errors.Is(err, ErrServerNotFound) {
 				return s.rejectQueued(ctx, run, err)
 			}
 

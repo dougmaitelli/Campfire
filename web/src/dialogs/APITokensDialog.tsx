@@ -227,7 +227,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 : token.scopes.join(", ")}
             </p>
             <button
-              className="button"
+              className="button button-danger"
               disabled={busy}
               onClick={() => {
                 if (

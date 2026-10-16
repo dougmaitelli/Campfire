@@ -5,17 +5,11 @@ export function ServerLifecycleControls({
   disabled,
   canConfigure,
   onAction,
-  onConsole,
-  onFiles,
-  onBackups,
 }: {
   status: RuntimeStatus | undefined;
   disabled: boolean;
   canConfigure: boolean;
   onAction: (action: ServerAction) => void;
-  onConsole: () => void;
-  onFiles: () => void;
-  onBackups: () => void;
 }) {
   const blocked =
     disabled ||
@@ -27,12 +21,6 @@ export function ServerLifecycleControls({
     status?.state === "not_installed" || status?.state === "deleted";
   return (
     <>
-      <button className="button" disabled={disabled} onClick={onBackups}>
-        Backups
-      </button>
-      <button className="button" disabled={disabled} onClick={onFiles}>
-        Files
-      </button>
       <button
         className="button button-primary"
         disabled={blocked}
@@ -42,47 +30,38 @@ export function ServerLifecycleControls({
       >
         {install ? "Install" : running ? "Stop" : "Start"}
       </button>
-      <select
-        aria-label="More server actions"
-        className="button"
-        value=""
-        disabled={blocked}
-        onChange={(event) => {
-          const action = event.target.value;
-          if (
-            action === "restart" ||
-            action === "kill" ||
-            action === "update" ||
-            action === "reinstall"
-          )
-            onAction(action);
-        }}
-      >
-        <option value="">More…</option>
-        <option value="restart" disabled={install}>
-          Restart
-        </option>
-        <option value="kill" disabled={!running}>
-          Kill
-        </option>
-        {canConfigure && (
-          <>
-            <option value="update" disabled={running}>
-              Update game files
-            </option>
-            <option value="reinstall" disabled={running}>
-              Reinstall (keep files)
-            </option>
-          </>
-        )}
-      </select>
       <button
         className="button"
-        disabled={disabled || (install && !status.error)}
-        onClick={onConsole}
+        disabled={blocked || !running}
+        onClick={() => onAction("restart")}
       >
-        Console
+        Restart
       </button>
+      <button
+        className="button button-danger"
+        disabled={blocked || !running}
+        onClick={() => onAction("kill")}
+      >
+        Kill
+      </button>
+      {canConfigure && (
+        <>
+          <button
+            className="button"
+            disabled={blocked || running}
+            onClick={() => onAction("update")}
+          >
+            Update game files
+          </button>
+          <button
+            className="button"
+            disabled={blocked || running}
+            onClick={() => onAction("reinstall")}
+          >
+            Reinstall (keep files)
+          </button>
+        </>
+      )}
     </>
   );
 }

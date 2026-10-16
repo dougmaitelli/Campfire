@@ -11,7 +11,6 @@ import "./management.css";
 export function NotificationsPage() {
   const inbox = useNotifications();
   const [items, setItems] = useState<Notification[]>([]);
-  const [unreadOnly, setUnreadOnly] = useState(false);
   const [older, setOlder] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -29,8 +28,6 @@ export function NotificationsPage() {
       try {
         const next = await listNotifications(
           AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
-          0,
-          unreadOnly,
         );
         if (!controller.signal.aborted && current === generation.current) {
           setItems(next);
@@ -58,7 +55,7 @@ export function NotificationsPage() {
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [unreadOnly, version, paged]);
+  }, [version, paged]);
 
   function refresh() {
     setPaged(false);
@@ -94,7 +91,6 @@ export function NotificationsPage() {
       const next = await listNotifications(
         AbortSignal.timeout(15000),
         items.at(-1)?.id,
-        unreadOnly,
       );
       if (current === generation.current) {
         setItems((value) => [...value, ...next]);
@@ -146,41 +142,30 @@ export function NotificationsPage() {
         </p>
       )}
       <div className="management-content">
-        <label className="checkbox-field">
-          <input
-            type="checkbox"
-            checked={unreadOnly}
-            disabled={busy}
-            onChange={(event) => {
-              setUnreadOnly(event.target.checked);
-              setPaged(false);
-            }}
-          />
-          Unread only
-        </label>
         {loading && <p role="status">Loading notifications…</p>}
-        {!loading && !items.length && (
-          <p>No {unreadOnly ? "unread " : ""}notifications.</p>
-        )}
+        {!loading && !items.length && <p>No notifications.</p>}
         {items.map((item) => (
           <article
             className="notification-message"
             key={item.id}
             aria-label={item.title}
           >
-            <h2>
-              {!item.read_at && <span className="type-badge">Unread</span>}{" "}
-              {item.title}
-            </h2>
-            <p>{item.body}</p>
-            <p className="field-help">
-              <time dateTime={new Date(item.created_at * 1000).toISOString()}>
-                {new Date(item.created_at * 1000).toLocaleString()}
-              </time>{" "}
-              · {item.severity} · {item.kind}
-            </p>
+            <div className="notification-content">
+              <h2>
+                {!item.read_at && <span className="type-badge">Unread</span>}{" "}
+                {item.title}
+              </h2>
+              <p>{item.body}</p>
+              <p className="field-help">
+                <time dateTime={new Date(item.created_at * 1000).toISOString()}>
+                  {new Date(item.created_at * 1000).toLocaleString()}
+                </time>{" "}
+                · {item.severity} · {item.kind}
+              </p>
+            </div>
             <button
               className="button"
+              aria-label={`${item.read_at ? "Mark unread" : "Mark read"}: ${item.title}`}
               disabled={busy}
               onClick={() => {
                 void perform(() =>

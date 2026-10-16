@@ -31,6 +31,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/tokens/{tokenID}", a.revokeAPIToken)
 	mux.HandleFunc("GET /api/v1/schedules", a.activityEnabled(a.listSchedules))
 	mux.HandleFunc("POST /api/v1/schedules", a.activityEnabled(a.saveSchedule))
+	mux.HandleFunc("POST /api/v1/schedules/preview", a.activityEnabled(a.previewSchedule))
 	mux.HandleFunc("PUT /api/v1/schedules/{scheduleID}", a.activityEnabled(a.saveSchedule))
 	mux.HandleFunc("DELETE /api/v1/schedules/{scheduleID}", a.activityEnabled(a.deleteSchedule))
 	mux.HandleFunc("POST /api/v1/schedules/{scheduleID}/run", a.activityEnabled(a.runSchedule))

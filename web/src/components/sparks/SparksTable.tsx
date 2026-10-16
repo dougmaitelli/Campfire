@@ -27,14 +27,35 @@ export function SparksTable({
   onDetails,
   onEnroll,
   onProvisioning,
+  loading,
+  error,
+  onRetry,
+  onAdd,
 }: {
   sparks: Spark[];
   onDetails: (spark: Spark) => void;
   onEnroll: (spark: Spark) => void;
   onProvisioning: (spark: Spark) => void;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onAdd: () => void;
 }) {
   return (
-    <Table className="sparks-table">
+    <Table
+      className="sparks-table"
+      empty={sparks.length === 0}
+      loading={loading}
+      error={error}
+      resource="Sparks"
+      emptyDescription="Add your first node to get started."
+      emptyAction={
+        <button className="button button-primary" onClick={onAdd}>
+          Add Spark
+        </button>
+      }
+      onRetry={onRetry}
+    >
       <caption className="visually-hidden">Registered Sparks</caption>
       <thead>
         <tr>

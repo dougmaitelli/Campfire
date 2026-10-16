@@ -11,6 +11,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/pkg/sftp v1.13.11
+	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/crypto v0.55.0
 	golang.org/x/oauth2 v0.37.0
 	gopkg.in/ini.v1 v1.67.0

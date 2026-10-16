@@ -126,7 +126,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 
 	const command = "private-scheduled-command"
 
-	body := fmt.Sprintf(`{"server_id":%q,"name":"Nightly","action":"command","command":%q,"interval_minutes":1440,"next_run_at":%d,"enabled":true}`, server.ID, command, time.Now().Add(time.Hour).Unix())
+	body := fmt.Sprintf(`{"server_id":%q,"name":"Nightly","action":"command","command":%q,"cron_expression":"0 3 * * *","time_zone":"UTC","enabled":true}`, server.ID, command)
 
 	response = request(ownerHandler, "POST", "/api/v1/schedules", body)
 	if response.Code != http.StatusCreated || strings.Contains(response.Body.String(), command) {

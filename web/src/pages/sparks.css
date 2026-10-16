@@ -12,12 +12,6 @@
   display: flex;
   gap: 10px;
 }
-.sparks-content {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  overflow: hidden;
-}
 .spark-name {
   display: block;
   font-weight: 500;
@@ -40,36 +34,6 @@
 .sparks-table time {
   color: var(--muted);
   white-space: nowrap;
-}
-.empty-state {
-  display: flex;
-  min-height: 280px;
-  padding: 36px 24px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-.empty-icon {
-  display: flex;
-  padding: 12px;
-  background: var(--accent-subtle);
-  border-radius: 12px;
-  color: var(--accent);
-}
-.empty-icon svg {
-  width: 28px;
-  height: 28px;
-}
-.empty-state h2 {
-  margin: 18px 0 0;
-  font-size: 18px;
-  font-weight: 500;
-}
-.empty-state p {
-  margin: 8px 0 20px;
-  color: var(--muted);
-  font-size: 14px;
 }
 .list-summary {
   margin: 12px 0;
@@ -184,18 +148,6 @@
   overflow-wrap: anywhere;
 }
 
-.drawer-form .checkbox-field {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 22px;
-}
-.drawer-form .checkbox-field input {
-  width: 16px;
-  min-height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
-}
 @media (max-width: 640px) {
   .page-actions {
     width: 100%;

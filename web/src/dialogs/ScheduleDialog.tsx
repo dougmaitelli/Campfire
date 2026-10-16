@@ -3,13 +3,8 @@ import type { Server } from "../api/servers";
 import { deleteSchedule, saveSchedule, type Schedule } from "../api/activity";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
+import { CronField } from "../components/schedules/CronField";
 
-function localTime(timestamp: number) {
-  const date = new Date(timestamp * 1000);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-}
 export function ScheduleDialog({
   schedule,
   servers,
@@ -27,11 +22,20 @@ export function ScheduleDialog({
   const [name, setName] = useState(schedule?.name ?? "");
   const [action, setAction] = useState(schedule?.action ?? "backup");
   const [command, setCommand] = useState("");
-  const [interval, setInterval] = useState(schedule?.interval_minutes ?? 1440);
-  const [next, setNext] = useState(() =>
-    localTime(schedule?.next_run_at ?? Math.floor(Date.now() / 1000) + 300),
+  const [expression, setExpression] = useState(
+    schedule?.cron_expression ?? "0 3 * * *",
   );
+  const [timeZone, setTimeZone] = useState(
+    schedule?.cron_expression
+      ? schedule.time_zone
+      : Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  );
+  const [validated, setValidated] = useState("");
+  const cronKey = `${expression.trim().replace(/\s+/g, " ")}\n${timeZone}`;
   const [enabled, setEnabled] = useState(schedule?.enabled ?? true);
+  const [onlyWhenRunning, setOnlyWhenRunning] = useState(
+    schedule?.only_when_running ?? false,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
@@ -75,9 +79,10 @@ export function ScheduleDialog({
           name,
           action,
           command,
-          interval_minutes: interval,
-          next_run_at: Math.floor(new Date(next).getTime() / 1000),
+          cron_expression: expression,
+          time_zone: timeZone,
           enabled,
+          only_when_running: onlyWhenRunning,
         },
         schedule?.id,
       );
@@ -123,10 +128,7 @@ export function ScheduleDialog({
             busy ||
             !name.trim() ||
             !serverID ||
-            !next ||
-            !Number.isInteger(interval) ||
-            interval < 1 ||
-            interval > 525600 ||
+            validated !== cronKey ||
             (action === "command" &&
               !command.trim() &&
               schedule?.action !== "command")
@@ -198,37 +200,38 @@ export function ScheduleDialog({
             </p>
           </>
         )}
-        <label htmlFor="schedule-interval">Repeat every (minutes)</label>
-        <input
-          id="schedule-interval"
-          type="number"
-          min={1}
-          max={525600}
-          step={1}
-          value={interval}
-          onChange={(e) => setInterval(Number(e.target.value))}
+        <CronField
+          expression={expression}
+          timeZone={timeZone}
+          onChange={setExpression}
+          onTimeZoneChange={setTimeZone}
+          onValidated={setValidated}
+          disabled={busy}
         />
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={onlyWhenRunning}
+            disabled={busy}
+            onChange={(event) => setOnlyWhenRunning(event.target.checked)}
+          />
+          Only run when the server is running
+        </label>
         <p className="field-help">
-          60 = hourly; 1440 = daily. This is a fixed interval, independent of
-          daylight saving changes.
+          Skip this run if the server is stopped. Otherwise, attempt the
+          scheduled action regardless of server state; each action still has its
+          normal requirements.
         </p>
-        <label htmlFor="schedule-next">Next run (your local time)</label>
-        <input
-          id="schedule-next"
-          type="datetime-local"
-          value={next}
-          onChange={(e) => setNext(e.target.value)}
-        />
-        <label>
+        <label className="checkbox-field">
           <input
             type="checkbox"
             checked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
-          />{" "}
+          />
           Enabled
         </label>
         <p className="field-help">
-          Missed intervals produce one run after downtime. Backups require a
+          Missed runs produce one execution after downtime. Backups require a
           stopped server. Editing makes you the execution owner.
         </p>
       </div>

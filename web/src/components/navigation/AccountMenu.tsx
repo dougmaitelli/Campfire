@@ -134,7 +134,7 @@ export function AccountMenu() {
             </span>
           )}
           <span className="account-identity">
-            <strong>{name}</strong>
+            <strong title={name}>{name}</strong>
             <small>{auth.session?.role}</small>
           </span>
           <NavigationIcon name="chevron" />

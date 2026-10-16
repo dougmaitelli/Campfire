@@ -150,6 +150,10 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 	}
 
 	if status, err := s.dispatchAction(ctx, run.ServerID, "status", "", ""); err == nil {
+		if run.OnlyWhenRunning && status.State != "running" {
+			return model.RuntimeStatus{}, errServerNotRunning
+		}
+
 		if err := s.recordObservation(ctx, run.ServerID, status); err != nil {
 			return model.RuntimeStatus{}, err
 		}
@@ -157,6 +161,8 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 		if status.Busy {
 			return model.RuntimeStatus{}, ErrServerActive
 		}
+	} else if run.OnlyWhenRunning {
+		return model.RuntimeStatus{}, err
 	}
 
 	return s.dispatchAction(ctx, run.ServerID, run.Action, run.Content, run.ID)

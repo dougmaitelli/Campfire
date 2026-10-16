@@ -12,7 +12,8 @@ import {
 import { useCollection } from "../hooks/useCollection";
 import { ScheduleDialog } from "../dialogs/ScheduleDialog";
 import "./management.css";
-import { Table } from "../components/table/Table";
+import { Table, TableRow } from "../components/table/Table";
+import { StatusPill } from "../components/status/StatusPill";
 
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
@@ -24,11 +25,13 @@ export function SchedulesPage() {
   const [editing, setEditing] = useState<Schedule | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [older, setOlder] = useState(false);
   const [polling, setPolling] = useState(true);
+  const [revision, setRevision] = useState(0);
   const generation = useRef(0);
   const managed = servers.items.filter(
     (server) =>
@@ -51,11 +54,11 @@ export function SchedulesPage() {
           setRuns(items);
           replaceSchedules(recurring);
           setOlder(items.length === 100);
-          setError(null);
+          setLoadError(null);
         }
       } catch (cause) {
         if (!controller.signal.aborted)
-          setError(
+          setLoadError(
             cause instanceof Error
               ? cause.message
               : "Unable to load executions.",
@@ -73,7 +76,7 @@ export function SchedulesPage() {
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [filter, polling, replaceSchedules]);
+  }, [filter, polling, replaceSchedules, revision]);
   async function perform(work: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
@@ -153,7 +156,9 @@ export function SchedulesPage() {
           </button>
         </div>
       </header>
-      {(error ?? schedules.error ?? servers.error) && (
+      {(error ??
+        (schedules.items.length ? schedules.error : null) ??
+        (servers.items.length ? servers.error : null)) && (
         <p className="error-message" role="alert">
           {error ?? schedules.error ?? servers.error}
         </p>
@@ -181,13 +186,26 @@ export function SchedulesPage() {
       </div>
       <div className="management-content">
         <h2>Recurring schedules</h2>
-        <Table>
+        <Table
+          empty={
+            !schedules.items.some(
+              (item) => !filter || item.server_id === filter,
+            )
+          }
+          loading={schedules.loading}
+          error={schedules.error}
+          resource="schedules"
+          emptyMessage={filter ? "No matching schedules" : "No schedules yet"}
+          onRetry={() => {
+            void schedules.refresh();
+          }}
+        >
           <caption className="visually-hidden">Recurring schedules</caption>
           <thead>
             <tr>
               <th>Name / server</th>
               <th>Action</th>
-              <th>Interval</th>
+              <th>Schedule</th>
               <th>Next run</th>
               <th>Runs as</th>
               <th className="table-actions">Actions</th>
@@ -197,9 +215,35 @@ export function SchedulesPage() {
             {schedules.items
               .filter((item) => !filter || item.server_id === filter)
               .map((item) => (
-                <tr key={item.id}>
+                <TableRow
+                  key={item.id}
+                  onOpen={
+                    !busy &&
+                    managed.some((server) => server.id === item.server_id)
+                      ? () => {
+                          setEditing(item);
+                          setOpen(true);
+                        }
+                      : undefined
+                  }
+                >
                   <td>
-                    <strong>{item.name}</strong>
+                    {managed.some((server) => server.id === item.server_id) ? (
+                      <button
+                        type="button"
+                        className="table-row-trigger"
+                        disabled={busy}
+                        aria-label={`Edit schedule ${item.name}`}
+                        onClick={() => {
+                          setEditing(item);
+                          setOpen(true);
+                        }}
+                      >
+                        {item.name}
+                      </button>
+                    ) : (
+                      <strong>{item.name}</strong>
+                    )}
                     <span className="row-description">
                       {servers.items.find(
                         (server) => server.id === item.server_id,
@@ -207,7 +251,15 @@ export function SchedulesPage() {
                     </span>
                   </td>
                   <td>{item.action}</td>
-                  <td>{item.interval_minutes} minutes</td>
+                  <td>
+                    <code>{item.cron_expression}</code>
+                    <span className="row-description">{item.time_zone}</span>
+                    {item.only_when_running && (
+                      <span className="row-description">
+                        Only while running
+                      </span>
+                    )}
+                  </td>
                   <td>{item.enabled ? when(item.next_run_at) : "Paused"}</td>
                   <td>{item.username}</td>
                   <td className="table-actions">
@@ -222,37 +274,32 @@ export function SchedulesPage() {
                         >
                           Run now
                         </button>
-                        <button
-                          className="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setEditing(item);
-                            setOpen(true);
-                          }}
-                        >
-                          Edit
-                        </button>
                       </div>
                     )}
                   </td>
-                </tr>
+                </TableRow>
               ))}
-            {!schedules.loading &&
-              !schedules.items.some(
-                (item) => !filter || item.server_id === filter,
-              ) && (
-                <tr>
-                  <td colSpan={6}>No recurring schedules.</td>
-                </tr>
-              )}
           </tbody>
         </Table>
+      </div>
+      <div className="management-content">
         <h2>Execution history</h2>
         <p className="field-help">
           Includes manual server operations. Interrupted work may already have
           executed; inspect the server before retrying.
         </p>
-        <Table>
+        <Table
+          empty={runs.length === 0}
+          loading={loading}
+          error={loadError}
+          resource="executions"
+          emptyMessage="No executions recorded"
+          onRetry={() => {
+            setLoading(true);
+            setPolling(true);
+            setRevision((value) => value + 1);
+          }}
+        >
           <caption className="visually-hidden">Execution history</caption>
           <thead>
             <tr>
@@ -277,7 +324,10 @@ export function SchedulesPage() {
                 </td>
                 <td>{run.username}</td>
                 <td>
-                  {run.state}
+                  <StatusPill
+                    status={run.state}
+                    tone={run.state === "running" ? "pending" : undefined}
+                  />
                   <span className="row-description">{run.message}</span>
                 </td>
                 <td>{when(run.finished_at)}</td>
@@ -314,13 +364,6 @@ export function SchedulesPage() {
                 </td>
               </tr>
             ))}
-            {!runs.length && (
-              <tr>
-                <td colSpan={6}>
-                  {loading ? "Loading…" : "No executions recorded."}
-                </td>
-              </tr>
-            )}
           </tbody>
         </Table>
         {older && (

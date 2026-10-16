@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"campfire/internal/campfire/recurrence"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -135,11 +137,11 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 2 {
-			return fmt.Errorf("database schema version %d is newer than supported version 2", version)
+		if version > 3 {
+			return fmt.Errorf("database schema version %d is newer than supported version 3", version)
 		}
 
-		if version == 2 {
+		if version == 3 && tx.Migrator().HasColumn(&Schedule{}, "OnlyWhenRunning") && tx.Migrator().HasColumn(&ScheduleRun{}, "OnlyWhenRunning") && !tx.Migrator().HasColumn(&Schedule{}, "interval_minutes") {
 			return nil
 		}
 
@@ -150,7 +152,53 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
-			return tx.Create(&schemaMigration{Version: 2}).Error
+			if err := tx.Create(&schemaMigration{Version: 2}).Error; err != nil {
+				return err
+			}
+
+			version = 2
+		}
+
+		if version >= 2 {
+			for _, field := range []string{"CronExpression", "TimeZone", "OnlyWhenRunning"} {
+				if !tx.Migrator().HasColumn(&Schedule{}, field) {
+					if err := tx.Migrator().AddColumn(&Schedule{}, field); err != nil {
+						return fmt.Errorf("add schedule field %s: %w", field, err)
+					}
+				}
+			}
+
+			if !tx.Migrator().HasColumn(&ScheduleRun{}, "OnlyWhenRunning") {
+				if err := tx.Migrator().AddColumn(&ScheduleRun{}, "OnlyWhenRunning"); err != nil {
+					return fmt.Errorf("add execution running condition: %w", err)
+				}
+			}
+
+			if tx.Migrator().HasColumn(&Schedule{}, "interval_minutes") {
+				if err := tx.Exec("ALTER TABLE schedules DROP COLUMN interval_minutes").Error; err != nil {
+					return err
+				}
+			}
+
+			next, err := recurrence.Next("0 3 * * *", "UTC", time.Now(), 1)
+			if err != nil {
+				return err
+			}
+
+			query := tx.Model(&Schedule{}).Where("1 = 1")
+			if version == 3 {
+				query = tx.Model(&Schedule{}).Where("cron_expression = ''")
+			}
+
+			if err := query.Updates(map[string]any{"cron_expression": "0 3 * * *", "time_zone": "UTC", "next_run_at": next[0]}).Error; err != nil {
+				return err
+			}
+
+			if version == 3 {
+				return nil
+			}
+
+			return tx.Create(&schemaMigration{Version: 3}).Error
 		}
 
 		if err := tx.AutoMigrate(
@@ -167,7 +215,7 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("seed built-in roles: %w", err)
 		}
 
-		if err := tx.Create(&schemaMigration{Version: 2}).Error; err != nil {
+		if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
 			return fmt.Errorf("record initial migration: %w", err)
 		}
 

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import "./drawer.css";
+import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 
 interface DrawerProps {
   title: string;
@@ -10,6 +11,8 @@ interface DrawerProps {
   children: ReactNode;
   footerLeft: ReactNode;
   footerRight: ReactNode;
+  embedded?: boolean;
+  unsavedChanges?: boolean;
 }
 
 export function Drawer({
@@ -20,15 +23,37 @@ export function Drawer({
   children,
   footerLeft,
   footerRight,
+  embedded = false,
+  unsavedChanges = false,
 }: DrawerProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
+  useNavigationGuard(embedded, busy, unsavedChanges);
   useEffect(() => {
+    if (embedded) return;
     const dialog = ref.current;
     dialog?.showModal();
     dialog?.querySelector<HTMLInputElement>("input, textarea")?.focus();
     return () => dialog?.close();
-  }, []);
+  }, [embedded]);
+  if (embedded)
+    return (
+      <section className="drawer-form operations-panel" aria-labelledby={id}>
+        <header className="drawer-heading">
+          <div>
+            <h2 id={id}>{title}</h2>
+            <p>{description}</p>
+          </div>
+        </header>
+        <div className="drawer-content-area">{children}</div>
+        {(footerLeft != null || footerRight != null) && (
+          <footer className="drawer-footer">
+            <div className="drawer-footer-left">{footerLeft}</div>
+            <div className="drawer-footer-right">{footerRight}</div>
+          </footer>
+        )}
+      </section>
+    );
   return (
     <dialog
       ref={ref}
