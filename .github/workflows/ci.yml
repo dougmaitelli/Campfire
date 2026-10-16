@@ -2,13 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
+    tags: ["v*"]
   pull_request:
+    branches: [master]
   workflow_dispatch:
   workflow_call:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   validate:
@@ -35,3 +41,12 @@ jobs:
       - run: make dependencies
       - run: make tools
       - run: make check
+
+  publish:
+    name: Publish images and tagged releases
+    needs: validate
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/package.yml

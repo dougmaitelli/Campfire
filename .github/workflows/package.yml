@@ -1,30 +1,51 @@
-name: Package releases
+name: Publish packages
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Release version (for example v0.1.0)
-        required: true
-        default: dev
-      publish_image:
-        description: Publish the multi-platform image to GHCR
-        type: boolean
-        default: false
+  workflow_call:
 
 permissions:
   contents: read
 
-concurrency:
-  group: package-${{ inputs.version }}
-  cancel-in-progress: false
-
 jobs:
-  validate:
-    uses: ./.github/workflows/ci.yml
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      image: ${{ steps.release.outputs.image }}
+      build_date: ${{ steps.release.outputs.build_date }}
+    steps:
+      - name: Determine and validate release version
+        id: release
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          if [[ "$REF_TYPE" == branch && "$REF_NAME" == master ]]; then
+            version=dev
+          elif [[ "$REF_TYPE" == tag ]]; then
+            version="$REF_NAME"
+            semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+            [[ "$version" =~ $semver && ${#version} -le 64 ]] || { echo "Expected vMAJOR.MINOR.PATCH or a SemVer prerelease tag." >&2; exit 1; }
+            if [[ "$version" == *-* ]]; then
+              IFS=. read -ra identifiers <<< "${version#*-}"
+              for identifier in "${identifiers[@]}"; do
+                if [[ "$identifier" =~ ^[0-9]+$ && "$identifier" == 0?* ]]; then
+                  echo "Numeric prerelease identifiers cannot have leading zeroes." >&2
+                  exit 1
+                fi
+              done
+            fi
+          else
+            echo "Publishing requires a master push or a version tag." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
   package:
-    needs: validate
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -37,60 +58,147 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      RELEASE_VERSION: ${{ inputs.version }}
-      RELEASE_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
+        if: github.ref_type == 'tag'
         with:
           node-version: 24
       - uses: docker/setup-buildx-action@v4
-      - name: Build image and static binaries
-        shell: bash
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push architecture image by digest
+        id: image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: runtime
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+          outputs: type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=campfire-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=campfire-${{ matrix.arch }}
+      - name: Export image digest
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
-          [[ "$RELEASE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || exit 1
-          build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          docker buildx build --target runtime --load --tag campfire:package \
-            --build-arg VERSION="$RELEASE_VERSION" --build-arg COMMIT="$GITHUB_SHA" \
-            --build-arg BUILD_DATE="$build_date" .
-          docker buildx build --target binaries --output type=local,dest=dist/binaries \
-            --build-arg VERSION="$RELEASE_VERSION" --build-arg COMMIT="$GITHUB_SHA" \
-            --build-arg BUILD_DATE="$build_date" .
-      - name: Archive binaries and installation examples
+          mkdir -p "$RUNNER_TEMP/digests"
+          digest="${IMAGE_DIGEST#sha256:}"
+          [[ "$digest" =~ ^[a-f0-9]{64}$ ]] || exit 1
+          touch "$RUNNER_TEMP/digests/$digest"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: image-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+      - name: Export static binaries for tagged release
+        if: github.ref_type == 'tag'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: binaries
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+          outputs: type=local,dest=dist/binaries
+          cache-from: type=gha,scope=campfire-${{ matrix.arch }}
+      - name: Archive binaries and installation files
+        if: github.ref_type == 'tag'
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_ARCH: ${{ matrix.arch }}
         run: node scripts/package-release.mjs "$RELEASE_VERSION" "$RELEASE_ARCH" dist/binaries
       - uses: actions/upload-artifact@v7
+        if: github.ref_type == 'tag'
         with:
           name: campfire-linux-${{ matrix.arch }}
           path: |
             dist/releases/*.tar.gz
             dist/releases/*.sha256
           if-no-files-found: error
-      - name: Publish architecture image
-        if: inputs.publish_image
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          docker tag campfire:package "$image:$RELEASE_VERSION-$RELEASE_ARCH"
-          docker push "$image:$RELEASE_VERSION-$RELEASE_ARCH"
 
   publish-manifest:
-    if: inputs.publish_image
-    needs: package
+    needs: [prepare, package]
     runs-on: ubuntu-24.04
     permissions:
+      contents: read
       packages: write
-    env:
-      RELEASE_VERSION: ${{ inputs.version }}
     steps:
       - uses: docker/setup-buildx-action@v4
-      - name: Publish multi-platform tag
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: image-digest-*
+          merge-multiple: true
+      - uses: docker/metadata-action@v6
+        id: metadata
+        with:
+          images: ${{ needs.prepare.outputs.image }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+      - name: Publish multi-platform image tags
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ needs.prepare.outputs.image }}
+          IMAGE_TAGS: ${{ steps.metadata.outputs.tags }}
+        shell: bash
         run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          docker buildx imagetools create --tag "$image:$RELEASE_VERSION" \
-            "$image:$RELEASE_VERSION-amd64" "$image:$RELEASE_VERSION-arm64"
+          images=()
+          for entry in "$RUNNER_TEMP"/digests/*; do
+            digest="${entry##*/}"
+            [[ "$digest" =~ ^[a-f0-9]{64}$ ]] || exit 1
+            images+=("$IMAGE@sha256:$digest")
+          done
+          [[ ${#images[@]} -eq 2 ]] || exit 1
+          tags=()
+          while IFS= read -r tag; do
+            if [[ -n "$tag" ]]; then tags+=(--tag "$tag"); fi
+          done <<< "$IMAGE_TAGS"
+          [[ ${#tags[@]} -gt 0 ]] || exit 1
+          docker buildx imagetools create "${tags[@]}" "${images[@]}"
+
+  release:
+    name: Create GitHub Release
+    if: github.ref_type == 'tag'
+    needs: [prepare, package, publish-manifest]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist/releases
+          pattern: campfire-linux-*
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare.outputs.version }}
+          generate_release_notes: true
+          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
+          make_latest: ${{ contains(needs.prepare.outputs.version, '-') && 'false' || 'true' }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/releases/*.tar.gz
+            dist/releases/*.sha256
