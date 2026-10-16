@@ -74,7 +74,7 @@ export function AuditPage() {
       )}
       <div className="management-content">
         <form
-          className="page-actions"
+          className="list-toolbar"
           onSubmit={(e) => {
             e.preventDefault();
             setFilters({ action: action.trim(), target: target.trim() });

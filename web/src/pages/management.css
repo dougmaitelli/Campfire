@@ -4,6 +4,7 @@
   flex-wrap: wrap;
 }
 .management-content {
+  padding: clamp(16px, 3vw, 24px);
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
@@ -62,18 +63,16 @@
 }
 .list-toolbar {
   display: flex;
+  align-items: flex-end;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
-.list-toolbar input,
-.list-toolbar select {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text);
-  background: var(--surface);
-  font: inherit;
+.list-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
   font-size: 14px;
 }
 .list-toolbar input {
