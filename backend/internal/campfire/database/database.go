@@ -124,8 +124,10 @@ func (d *Database) Close() error {
 
 func migrate(db *gorm.DB) error {
 	return Transaction(db, func(tx *gorm.DB) error {
-		if err := tx.AutoMigrate(&schemaMigration{}); err != nil {
-			return fmt.Errorf("initialize migrations: %w", err)
+		if !tx.Migrator().HasTable(&schemaMigration{}) {
+			if err := tx.Migrator().CreateTable(&schemaMigration{}); err != nil {
+				return fmt.Errorf("initialize migrations: %w", err)
+			}
 		}
 
 		var version int
@@ -133,130 +135,30 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 9 {
-			return fmt.Errorf("database schema version %d is newer than supported version 9", version)
-		}
-
-		if version == 0 {
-			if err := tx.AutoMigrate(&Spark{}); err != nil {
-				return fmt.Errorf("apply Spark schema: %w", err)
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
+		if version > 1 {
+			return fmt.Errorf("database schema version %d is newer than supported version 1", version)
 		}
 
 		if version == 1 {
-			for _, column := range []string{"Description", "Disabled"} {
-				if err := tx.Migrator().AddColumn(&Spark{}, column); err != nil {
-					return fmt.Errorf("add Spark %s: %w", column, err)
-				}
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 2}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
+			return nil
 		}
 
-		if version == 1 || version == 2 {
-			for _, column := range []string{"GameAddress", "CPULimit", "MemoryMB", "DiskMB", "PortAllocations"} {
-				if err := tx.Migrator().AddColumn(&Spark{}, column); err != nil {
-					return fmt.Errorf("add Spark %s: %w", column, err)
-				}
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
+		if err := tx.AutoMigrate(
+			&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
+			&OIDCIdentity{}, &Server{}, &ServerOwnership{}, &ServerMember{}, &SparkRole{},
+			&SparkEnrollment{}, &SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{},
+			&ServerTransfer{}, &BackupPolicy{}, &Backup{}, &APIToken{},
+			&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
+		); err != nil {
+			return fmt.Errorf("apply initial schema: %w", err)
 		}
 
-		if version < 4 {
-			if err := tx.Migrator().CreateTable(&Ember{}, &Server{}); err != nil {
-				return fmt.Errorf("apply server schema: %w", err)
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 4}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
+		if err := seedRoles(tx); err != nil {
+			return fmt.Errorf("seed built-in roles: %w", err)
 		}
 
-		if version < 5 {
-			if err := tx.Migrator().CreateTable(&SparkEnrollment{}, &SparkIdentity{}); err != nil {
-				return fmt.Errorf("apply Spark enrollment schema: %w", err)
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 5}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
-		}
-
-		if version < 6 {
-			if err := tx.Migrator().CreateTable(&AdminCredential{}, &AdminSession{}); err != nil {
-				return fmt.Errorf("apply administrator schema: %w", err)
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 6}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
-		}
-
-		if version < 7 {
-			if err := migrateAccess(tx); err != nil {
-				return fmt.Errorf("apply account authorization schema: %w", err)
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 7}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
-		}
-
-		if version < 8 {
-			if err := tx.Migrator().CreateTable(&OIDCIdentity{}); err != nil {
-				return fmt.Errorf("apply OIDC identity schema: %w", err)
-			}
-
-			if !tx.Migrator().HasColumn(&UserSession{}, "Provider") {
-				if err := tx.Migrator().AddColumn(&UserSession{}, "Provider"); err != nil {
-					return fmt.Errorf("apply session provider schema: %w", err)
-				}
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 8}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
-		}
-
-		if version < 9 {
-			if err := tx.Migrator().CreateTable(&Schedule{}, &ScheduleRun{}, &AuditEvent{}); err != nil {
-				return fmt.Errorf("apply schedules and audit schema: %w", err)
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 9}).Error; err != nil {
-				return fmt.Errorf("record migration: %w", err)
-			}
-		}
-
-		// Keep the current development schema in sync without introducing a new
-		// release migration for features added before the first release.
-		if !tx.Migrator().HasTable(&APIToken{}) {
-			if err := tx.Migrator().CreateTable(&APIToken{}); err != nil {
-				return fmt.Errorf("create API tokens: %w", err)
-			}
-		}
-
-		current := tx.Session(&gorm.Session{})
-		for _, model := range []any{&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{}} {
-			if !tx.Migrator().HasTable(model) {
-				if err := tx.Migrator().CreateTable(model); err != nil {
-					return fmt.Errorf("create notification schema: %w", err)
-				}
-			}
-		}
-
-		current.IgnoreRelationshipsWhenMigrating = true
-		if err := current.AutoMigrate(&SparkIdentity{}, &ServerTransfer{}, &BackupPolicy{}, &Backup{}, &AuditEvent{}, &ScheduleRun{}); err != nil {
-			return fmt.Errorf("apply Spark renewal and transfer schema: %w", err)
+		if err := tx.Create(&schemaMigration{Version: 1}).Error; err != nil {
+			return fmt.Errorf("record initial migration: %w", err)
 		}
 
 		return nil

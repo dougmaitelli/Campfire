@@ -3,14 +3,14 @@ package database_test
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"campfire/internal/campfire/database"
-	"campfire/internal/shared/model"
 )
 
 func TestRejectNewerSchema(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "panel.db")
 
 	db, err := database.Open(ctx, path)
@@ -18,7 +18,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().WithContext(ctx).Exec("INSERT INTO schema_migrations(version) VALUES (10)").Error; err != nil {
+	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (2)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -32,9 +32,13 @@ func TestRejectNewerSchema(t *testing.T) {
 
 		t.Fatal("opened unsupported future schema")
 	}
+
+	if !strings.Contains(err.Error(), "newer than supported version 1") {
+		t.Fatal("wrong schema version error", err)
+	}
 }
 
-func TestSchedulesMigrationPreservesOIDCAndSessions(t *testing.T) {
+func TestInitialSchemaAndReopen(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "panel.db")
 
@@ -43,22 +47,41 @@ func TestSchedulesMigrationPreservesOIDCAndSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, record := range []any{
-		&database.User{ID: 1, Username: "admin", PasswordHash: "preserved", Version: 4, RoleID: database.AdminRole},
-		&database.OIDCIdentity{Issuer: "https://identity.example.com", Subject: "original", UserID: 1},
-		&database.UserSession{Hash: "persisted", Provider: "https://identity.example.com", UserID: 1, CSRF: "csrf", CredentialVersion: 4, ExpiresAt: 9999999999, LastSeenAt: 1},
+	t.Cleanup(func() { _ = db.Close() })
+
+	for _, table := range []any{
+		&database.Spark{}, &database.Ember{}, &database.Server{}, &database.Role{},
+		&database.RolePermission{}, &database.User{}, &database.UserSession{},
+		&database.OIDCIdentity{}, &database.ServerOwnership{}, &database.ServerMember{},
+		&database.SparkRole{}, &database.SparkEnrollment{}, &database.SparkIdentity{},
+		&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{},
+		&database.ServerTransfer{}, &database.BackupPolicy{}, &database.Backup{},
+		&database.APIToken{}, &database.Notification{}, &database.NotificationRecipient{},
+		&database.NotificationDelivery{}, &database.AlertState{},
 	} {
-		if err := db.ORM().Omit("Role", "User").Create(record).Error; err != nil {
-			t.Fatal(err)
+		if !db.ORM().Migrator().HasTable(table) {
+			t.Fatalf("missing initial table: %T", table)
 		}
 	}
 
-	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}); err != nil {
+	for _, table := range []string{"admin_credentials", "admin_sessions"} {
+		if db.ORM().Migrator().HasTable(table) {
+			t.Fatal("created retired authentication table", table)
+		}
+	}
+
+	user := database.User{Username: "admin", PasswordHash: "preserved", Version: 4, RoleID: database.AdminRole}
+	if err := db.ORM().Omit("Role").Create(&user).Error; err != nil {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version = 9").Error; err != nil {
-		t.Fatal(err)
+	for _, record := range []any{
+		&database.OIDCIdentity{Issuer: "https://identity.example.com", Subject: "original", UserID: user.ID},
+		&database.UserSession{Hash: "persisted", Provider: "https://identity.example.com", UserID: user.ID, CSRF: "csrf", CredentialVersion: 4, ExpiresAt: 9999999999, LastSeenAt: 1},
+	} {
+		if err := db.ORM().Omit("User").Create(record).Error; err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if err := db.Close(); err != nil {
@@ -70,6 +93,16 @@ func TestSchedulesMigrationPreservesOIDCAndSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = reopened.Close() }()
+
+	var versions []int
+	if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 1 {
+		t.Fatal("expected exactly one baseline migration", versions, err)
+	}
+
+	var roles []database.Role
+	if err := reopened.ORM().Preload("Permissions").Order("id").Find(&roles).Error; err != nil || len(roles) != 5 || roles[0].ID != database.AdminRole || len(roles[0].Permissions) != 6 || roles[4].ID != database.OperatorRole {
+		t.Fatal("built-in roles or permissions changed on reopen", roles, err)
+	}
 
 	var session database.UserSession
 	if err := reopened.ORM().Preload("User").Take(&session, "hash = ?", "persisted").Error; err != nil {
@@ -77,201 +110,11 @@ func TestSchedulesMigrationPreservesOIDCAndSessions(t *testing.T) {
 	}
 
 	if session.Provider != "https://identity.example.com" || session.User.PasswordHash != "preserved" || session.CredentialVersion != 4 {
-		t.Fatal("migration changed authentication")
+		t.Fatal("reopen changed authentication")
 	}
 
 	var identity database.OIDCIdentity
-	if err := reopened.ORM().Take(&identity, "subject = ?", "original").Error; err != nil {
-		t.Fatal(err)
-	}
-
-	for _, table := range []any{&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}} {
-		if !reopened.ORM().Migrator().HasTable(table) {
-			t.Fatal("activity table missing")
-		}
-	}
-}
-
-func TestOIDCMigrationPreservesAccountsAndLocalSessions(t *testing.T) {
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "panel.db")
-
-	db, err := database.Open(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Omit("Role").Create(&database.User{ID: 1, Username: "admin", PasswordHash: "preserved", Version: 3, RoleID: database.AdminRole}).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Omit("User").Create(&database.UserSession{Hash: "session", UserID: 1, CSRF: "csrf", CredentialVersion: 3, ExpiresAt: 9999999999, LastSeenAt: 1}).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}, &database.OIDCIdentity{}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Migrator().DropColumn(&database.UserSession{}, "Provider"); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version >= 8").Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	reopened, err := database.Open(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer func() { _ = reopened.Close() }()
-
-	var session database.UserSession
-	if err := reopened.ORM().Preload("User").Take(&session, "hash = ?", "session").Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if session.Provider != "" || session.User.PasswordHash != "preserved" || session.User.Version != 3 || session.CSRF != "csrf" || !reopened.ORM().Migrator().HasTable(&database.OIDCIdentity{}) {
-		t.Fatal("OIDC migration changed existing authentication")
-	}
-}
-
-func TestAuthenticationMigrationPreservesPopulatedVersionFive(t *testing.T) {
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "panel.db")
-
-	db, err := database.Open(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = db.Close() }()
-
-	for _, record := range []any{
-		&database.Spark{ID: "node", Name: "Preserved node", Kind: "remote", CreatedAt: "2026-10-14T00:00:00Z"},
-		&database.Ember{ID: "ember", Name: "Preserved ember", Definition: model.Ember{Schema: 1, Name: "Preserved ember"}, CreatedAt: "2026-10-14T00:00:00Z"},
-		&database.Server{ID: "server", Name: "Preserved server", SparkID: "node", EmberID: "ember", Image: "alpine:3.22", Variables: map[string]string{"KEEP": "value"}, CPULimit: 1, MemoryMB: 128, DiskMB: 1024, Ports: []model.ServerPort{{BindIP: "127.0.0.1", HostPort: 25565, ContainerPort: 25565, Protocol: "tcp"}}, CreatedAt: "2026-10-14T00:00:00Z"},
-		&database.SparkIdentity{SparkID: "node", CertificateHash: "preserved-certificate"},
-	} {
-		if err := db.ORM().Create(record).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// Recreate the pre-auth schema by removing only the new tables and migration.
-	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}, &database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version >= 6").Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	reopened, err := database.Open(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = reopened.Close() }()
-
-	var server database.Server
-	if err := reopened.ORM().Preload("Spark").Preload("Ember").Take(&server, "id = ?", "server").Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if server.Name != "Preserved server" || server.Variables["KEEP"] != "value" || server.Spark.Name != "Preserved node" || server.Ember.Definition.Name != "Preserved ember" || len(server.Ports) != 1 || server.Ports[0].HostPort != 25565 {
-		t.Fatal("authentication migration changed existing game configuration")
-	}
-
-	var identity database.SparkIdentity
-	if err := reopened.ORM().Take(&identity, "spark_id = ?", "node").Error; err != nil || identity.CertificateHash != "preserved-certificate" {
-		t.Fatal("authentication migration changed node identity", err)
-	}
-
-	if !reopened.ORM().Migrator().HasTable(&database.User{}) || !reopened.ORM().Migrator().HasTable(&database.UserSession{}) {
-		t.Fatal("authentication tables were not created")
-	}
-}
-
-func TestMultiUserMigrationPreservesAdministratorAndClaimsServers(t *testing.T) {
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "panel.db")
-
-	db, err := database.Open(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer func() { _ = db.Close() }()
-
-	for _, record := range []any{
-		&database.Spark{ID: "node", Name: "Node", Kind: "remote", CreatedAt: "2026-10-14T00:00:00Z"},
-		&database.Ember{ID: "ember", Name: "Game", Definition: model.Ember{Schema: 1, Name: "Game"}, CreatedAt: "2026-10-14T00:00:00Z"},
-		&database.Server{ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", Image: "alpine:3.22", Variables: map[string]string{}, Ports: []model.ServerPort{}, CreatedAt: "2026-10-14T00:00:00Z"},
-	} {
-		if err := db.ORM().Create(record).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := db.ORM().Migrator().DropTable(&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{}, &database.OIDCIdentity{}, &database.ServerMember{}, &database.ServerOwnership{}, &database.SparkRole{}, &database.UserSession{}, &database.User{}, &database.RolePermission{}, &database.Role{}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Migrator().CreateTable(&database.AdminCredential{}, &database.AdminSession{}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Create(&database.AdminCredential{ID: 1, Username: "original", PasswordHash: "unchanged-password-hash", Version: 9}).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Create(&database.AdminSession{Hash: "old-singleton-session", CSRF: "old-csrf", CredentialVersion: 9, ExpiresAt: 9999999999}).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.ORM().Exec("DELETE FROM schema_migrations WHERE version >= 7").Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := db.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	reopened, err := database.Open(ctx, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = reopened.Close() }()
-
-	var user database.User
-	if err := reopened.ORM().Take(&user, 1).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if user.Username != "original" || user.PasswordHash != "unchanged-password-hash" || user.Version != 9 || user.RoleID != database.AdminRole {
-		t.Fatal("administrator identity changed", user.Username)
-	}
-
-	var ownership database.ServerOwnership
-	if err := reopened.ORM().Take(&ownership, "server_id = ?", "game").Error; err != nil || ownership.UserID != user.ID {
-		t.Fatal("existing server did not retain administrator ownership", err)
-	}
-
-	var sessions int64
-	if err := reopened.ORM().Model(&database.UserSession{}).Count(&sessions).Error; err != nil || sessions != 0 {
-		t.Fatal("unbound sessions migrated", err)
-	}
-
-	if reopened.ORM().Migrator().HasTable(&database.AdminCredential{}) || reopened.ORM().Migrator().HasTable(&database.AdminSession{}) {
-		t.Fatal("obsolete singleton authentication tables remain")
+	if err := reopened.ORM().Take(&identity, "subject = ?", "original").Error; err != nil || identity.UserID != user.ID {
+		t.Fatal("reopen changed OIDC identity", err)
 	}
 }

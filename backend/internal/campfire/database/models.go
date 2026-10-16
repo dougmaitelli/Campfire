@@ -22,23 +22,6 @@ type schemaMigration struct {
 	Version int `gorm:"primaryKey;autoIncrement:false"`
 }
 
-// AdminCredential describes the retired schema solely for version-six migrations.
-type AdminCredential struct {
-	ID           int    `gorm:"primaryKey;autoIncrement:false;check:admin_singleton,id = 1"`
-	Username     string `gorm:"type:text;not null"`
-	PasswordHash string `gorm:"type:text;not null"`
-	Version      int64  `gorm:"not null"`
-}
-
-// AdminSession describes retired sessions that are revoked by the multi-user migration.
-type AdminSession struct {
-	Hash              string `gorm:"type:text;primaryKey"`
-	CSRF              string `gorm:"type:text;not null"`
-	CredentialVersion int64  `gorm:"not null"`
-	ExpiresAt         int64  `gorm:"not null;index"`
-	LastSeenAt        int64  `gorm:"not null"`
-}
-
 // Role defines platform or server permissions. Built-in roles cannot be changed.
 type Role struct {
 	ID          int64            `gorm:"primaryKey;autoIncrement" json:"id"`

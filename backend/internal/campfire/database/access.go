@@ -1,10 +1,6 @@
 package database
 
-import (
-	"time"
-
-	"gorm.io/gorm"
-)
+import "gorm.io/gorm"
 
 // Built-in role identifiers are stable so authorization does not depend on display names.
 const (
@@ -15,11 +11,7 @@ const (
 	OperatorRole int64 = 5
 )
 
-func migrateAccess(tx *gorm.DB) error {
-	if err := tx.Migrator().CreateTable(&Role{}, &RolePermission{}, &User{}, &UserSession{}, &ServerOwnership{}, &ServerMember{}, &SparkRole{}); err != nil {
-		return err
-	}
-
+func seedRoles(tx *gorm.DB) error {
 	roles := []Role{
 		{ID: AdminRole, Name: "Admin", Scope: "platform", Builtin: true},
 		{ID: CreatorRole, Name: "Server creator", Scope: "platform", Builtin: true},
@@ -47,21 +39,9 @@ func migrateAccess(tx *gorm.DB) error {
 		}
 	}
 
-	if err := tx.Exec("INSERT INTO users (id, username, password_hash, version, role_id, disabled, created_at) SELECT id, username, password_hash, version, 1, false, ? FROM admin_credentials", time.Now().Unix()).Error; err != nil {
-		return err
-	}
-
 	if tx.Name() == "postgres" {
-		for _, table := range []string{"roles", "users"} {
-			if err := tx.Exec("SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE(MAX(id), 1), COUNT(*) > 0) FROM "+table, table).Error; err != nil {
-				return err
-			}
-		}
+		return tx.Exec("SELECT setval(pg_get_serial_sequence('roles', 'id'), MAX(id)) FROM roles").Error
 	}
 
-	if err := tx.Exec("INSERT INTO server_ownerships (server_id, user_id) SELECT servers.id, users.id FROM servers JOIN users ON users.id = 1").Error; err != nil {
-		return err
-	}
-	// Singleton sessions cannot identify an account and are intentionally revoked.
-	return tx.Migrator().DropTable(&AdminSession{}, &AdminCredential{})
+	return nil
 }
