@@ -37,6 +37,7 @@ COPY --from=build /out/campfire /usr/local/bin/campfire
 USER 10001:10001
 WORKDIR /var/lib/campfire
 ENV CAMPFIRE_DATABASE=/var/lib/campfire/panel.db \
+    CAMPFIRE_DATA=/var/lib/campfire \
     CAMPFIRE_LISTEN=0.0.0.0:8080
 EXPOSE 8080 8443
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

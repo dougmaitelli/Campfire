@@ -80,7 +80,7 @@ func (r *ActivityRepository) DisableSchedule(ctx context.Context, id string, ver
 // EnqueueDue advances each due definition and queues at most one outstanding execution.
 // Missed intervals are coalesced, never replayed as a burst after downtime.
 func (r *ActivityRepository) EnqueueDue(ctx context.Context, now time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var items []database.Schedule
 		if err := tx.Where("enabled = true AND next_run_at <= ?", now.Unix()).Order("next_run_at").Limit(100).Find(&items).Error; err != nil {
 			return err
@@ -186,7 +186,7 @@ func (r *ActivityRepository) UpdateRun(ctx context.Context, id, state, message s
 
 // FinishRun atomically retains a terminal result and its audit record exactly once.
 func (r *ActivityRepository) FinishRun(ctx context.Context, run database.ScheduleRun, state, message string, now time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		result := tx.Model(&database.ScheduleRun{}).Where("id = ? AND state IN ('queued','dispatching','running')", run.ID).Updates(map[string]any{"state": state, "message": message, "finished_at": now.Unix(), "content": ""})
 		if result.Error != nil {
 			return result.Error

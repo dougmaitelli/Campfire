@@ -9,7 +9,7 @@ BUILD_DATE ?= unknown
 BUILD_LDFLAGS := -X campfire/internal/shared/buildinfo.Version=$(VERSION) -X campfire/internal/shared/buildinfo.Commit=$(COMMIT) -X campfire/internal/shared/buildinfo.Date=$(BUILD_DATE)
 
 .PHONY: dependencies dependencies-backend dependencies-frontend \
-	build build-ui build-campfire build-spark test test-backend test-frontend \
+	build build-ui build-campfire build-spark test test-backend test-frontend test-postgres \
 	format format-backend format-frontend format-check format-check-backend format-check-frontend \
 	lint lint-backend lint-frontend vet check tools dev dev-ui preview
 
@@ -38,6 +38,11 @@ test: test-backend test-frontend
 
 test-backend:
 	go -C backend test -race ./...
+
+# Requires an existing disposable PostgreSQL database with CREATE SCHEMA access.
+test-postgres:
+	@test -n "$$CAMPFIRE_TEST_POSTGRES" || (echo "Set CAMPFIRE_TEST_POSTGRES to a PostgreSQL test URL"; exit 1)
+	go -C backend test -race -count=1 ./internal/campfire/database/repository
 
 # Check frontend types until browser behavior tests are available.
 test-frontend:

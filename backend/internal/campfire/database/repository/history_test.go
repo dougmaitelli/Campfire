@@ -3,7 +3,6 @@ package repository_test
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 func historyStore(t *testing.T) (*database.Database, *repository.ActivityRepository) {
 	t.Helper()
 
-	db, err := database.Open(context.Background(), filepath.Join(t.TempDir(), "panel.db"))
+	db, err := database.Open(context.Background(), testDatabaseSource(t))
 	if err != nil {
 		t.Fatal(err)
 	}

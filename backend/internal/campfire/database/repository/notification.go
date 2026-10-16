@@ -69,7 +69,7 @@ func (r *NotificationRepository) Unread(ctx context.Context, access Notification
 
 // MarkRead changes only the caller's receipt; revoked targets remain inaccessible.
 func (r *NotificationRepository) MarkRead(ctx context.Context, access NotificationAccess, id int64, read bool, now time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var count int64
 		if err := notificationVisible(tx, access).Where("notifications.id = ?", id).Count(&count).Error; err != nil {
 			return err
@@ -141,12 +141,12 @@ func emitNotification(tx *gorm.DB, item *database.Notification, queue bool) erro
 
 // Emit atomically stores a message, recipients and optional external delivery.
 func (r *NotificationRepository) Emit(ctx context.Context, item *database.Notification, queue bool) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return emitNotification(tx, item, queue) })
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error { return emitNotification(tx, item, queue) })
 }
 
 // Observe commits an alert state transition and its notification together.
 func (r *NotificationRepository) Observe(ctx context.Context, key string, queue bool, transition func(*database.AlertState) *database.Notification) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var state database.AlertState
 		if err := tx.Take(&state, "key = ?", key).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err

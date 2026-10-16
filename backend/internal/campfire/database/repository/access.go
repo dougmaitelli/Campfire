@@ -64,7 +64,7 @@ func (r *AccessRepository) Role(ctx context.Context, id int64) (database.Role, e
 
 // SaveRole replaces a custom role's permissions atomically.
 func (r *AccessRepository) SaveRole(ctx context.Context, role *database.Role) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if role.ID != 0 {
 			var current database.Role
 			if err := tx.Take(&current, role.ID).Error; err != nil {
@@ -99,7 +99,7 @@ func (r *AccessRepository) SaveRole(ctx context.Context, role *database.Role) er
 
 // DeleteRole rejects built-in or referenced roles.
 func (r *AccessRepository) DeleteRole(ctx context.Context, id int64) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var role database.Role
 		if err := tx.Take(&role, id).Error; err != nil {
 			return err
@@ -145,7 +145,7 @@ func (r *AccessRepository) User(ctx context.Context, id int64) (database.User, e
 
 // CreateUser adds an account after verifying the role scope.
 func (r *AccessRepository) CreateUser(ctx context.Context, user *database.User) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var role database.Role
 		if err := tx.Where("id = ? AND scope = 'platform'", user.RoleID).Take(&role).Error; err != nil {
 			return ErrAccessInput
@@ -180,7 +180,7 @@ func (r *AccessRepository) keepAdmin(tx *gorm.DB, user database.User, roleID int
 
 // UpdateUser revokes that account's sessions when its credentials or role change.
 func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int64, disabled bool, password string) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var user database.User
 		if err := tx.Take(&user, id).Error; err != nil {
 			return err
@@ -214,7 +214,7 @@ func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int6
 
 // DeleteUser preserves owned servers and prevents losing the last enabled admin.
 func (r *AccessRepository) DeleteUser(ctx context.Context, id int64) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var user database.User
 		if err := tx.Take(&user, id).Error; err != nil {
 			return err
@@ -271,7 +271,7 @@ func (r *AccessRepository) MemberRole(ctx context.Context, serverID string, user
 
 // SetMember grants a server role and never changes ownership or platform roles.
 func (r *AccessRepository) SetMember(ctx context.Context, member database.ServerMember) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var role database.Role
 		if err := tx.Where("id = ? AND scope = 'server'", member.RoleID).Take(&role).Error; err != nil || role.ID == database.OwnerRole {
 			return ErrAccessInput
@@ -299,7 +299,7 @@ func (r *AccessRepository) RemoveMember(ctx context.Context, serverID string, us
 
 // TransferOwner replaces ownership without allowing the old owner to retain implicit access.
 func (r *AccessRepository) TransferOwner(ctx context.Context, serverID string, userID int64) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var server database.Server
 		if err := tx.Take(&server, "id = ?", serverID).Error; err != nil {
 			return err
@@ -332,7 +332,7 @@ func (r *AccessRepository) SparkRoles(ctx context.Context, sparkID string) ([]in
 
 // SetSparkRoles atomically changes provisioning eligibility, not Spark management rights.
 func (r *AccessRepository) SetSparkRoles(ctx context.Context, sparkID string, ids []int64) error {
-	return accessError(r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var spark database.Spark
 		if err := tx.Take(&spark, "id = ?", sparkID).Error; err != nil {
 			return err

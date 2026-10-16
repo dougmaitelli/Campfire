@@ -22,7 +22,7 @@ func NewEnrollmentRepository(db *gorm.DB) *EnrollmentRepository { return &Enroll
 
 // CreateToken replaces outstanding enrollment tokens for an enabled remote Spark.
 func (r *EnrollmentRepository) CreateToken(ctx context.Context, id, hash string, expires time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var node database.Spark
 		if err := tx.Where("id = ?", id).Take(&node).Error; err != nil {
 			return err
@@ -44,7 +44,7 @@ func (r *EnrollmentRepository) CreateToken(ctx context.Context, id, hash string,
 func (r *EnrollmentRepository) Redeem(ctx context.Context, hash string, sign func(string) (string, error)) (string, error) {
 	var id string
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var token database.SparkEnrollment
 		if err := tx.Preload("Spark").Where("hash = ?", hash).Take(&token).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -93,7 +93,7 @@ func (r *EnrollmentRepository) Authorized(ctx context.Context, id, hash string) 
 func (r *EnrollmentRepository) Renew(ctx context.Context, id, hash string, expires time.Time, sign func() ([]byte, string, error)) ([]byte, error) {
 	var certificate []byte
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var identity database.SparkIdentity
 		if err := tx.Preload("Spark").Where("spark_id = ?", id).Take(&identity).Error; err != nil {
 			return ErrEnrollment

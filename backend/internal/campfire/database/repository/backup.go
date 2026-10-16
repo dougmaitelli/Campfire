@@ -31,7 +31,7 @@ func (r *BackupRepository) Policy(ctx context.Context, id string) (model.BackupP
 
 // SavePolicy updates retention under the same placement guard as transfers.
 func (r *BackupRepository) SavePolicy(ctx context.Context, id string, p model.BackupPolicy) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if err := activeTransfer(tx, id); err != nil {
 			return err
 		}

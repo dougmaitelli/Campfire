@@ -3,7 +3,6 @@ package repository_test
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -15,7 +14,7 @@ import (
 func authStore(t *testing.T) (*database.Database, *repository.AuthRepository, string) {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "panel.db")
+	path := testDatabaseSource(t)
 
 	db, err := database.Open(context.Background(), path)
 	if err != nil {
@@ -46,7 +45,7 @@ func TestAdministratorSetupRaceAcrossConnections(t *testing.T) {
 		go func() {
 			defer wait.Done()
 
-			results <- store.Setup(context.Background(), database.User{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "initial", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()})
+			results <- store.Setup(context.Background(), database.User{Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "initial", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()})
 		}()
 	}
 
@@ -76,7 +75,7 @@ func TestSessionPersistenceExpiryAndPasswordResetGeneration(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	session := database.UserSession{UserID: 1, Hash: "hashed-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: now.Add(12 * time.Hour).Unix(), LastSeenAt: now.Unix()}
 
-	if err := store.Setup(ctx, database.User{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, session); err != nil {
+	if err := store.Setup(ctx, database.User{Username: "admin", PasswordHash: "encoded", Version: 1}, session); err != nil {
 		t.Fatal(err)
 	}
 
@@ -129,7 +128,7 @@ func TestConcurrentAdminDemotionKeepsOneEnabledAdministrator(t *testing.T) {
 	db, store, path := authStore(t)
 
 	ctx := context.Background()
-	if err := store.Setup(ctx, database.User{ID: 1, Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "first", CSRF: "csrf", CredentialVersion: 1}); err != nil {
+	if err := store.Setup(ctx, database.User{Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "first", CSRF: "csrf", CredentialVersion: 1}); err != nil {
 		t.Fatal(err)
 	}
 

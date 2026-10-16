@@ -1,14 +1,18 @@
-// Package database owns SQLite setup and schema migrations.
+// Package database owns SQLite and PostgreSQL setup and schema migrations.
 package database
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -20,9 +24,81 @@ type Database struct {
 	sql *sql.DB
 }
 
-// Open opens SQLite and applies versioned ORM migrations transactionally.
-func Open(ctx context.Context, path string) (*Database, error) {
-	absolute, err := filepath.Abs(path)
+// Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
+// It applies the same transactional schema migrations to either backend.
+func Open(ctx context.Context, source string) (*Database, error) {
+	driver, err := dialector(source)
+	if err != nil {
+		return nil, err
+	}
+
+	orm, err := gorm.Open(driver, &gorm.Config{
+		Logger:               logger.Default.LogMode(logger.Silent),
+		TranslateError:       true,
+		DisableAutomaticPing: true,
+	})
+	if err != nil {
+		if driver.Name() == "postgres" {
+			return nil, errors.New("open PostgreSQL database: invalid connection configuration")
+		}
+
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+
+	pool, err := orm.DB()
+	if err != nil {
+		return nil, fmt.Errorf("access database pool: %w", err)
+	}
+
+	if driver.Name() == "postgres" {
+		if err := registerWriteLocks(orm); err != nil {
+			_ = pool.Close()
+
+			return nil, fmt.Errorf("initialize database transactions: %w", err)
+		}
+
+		pool.SetMaxOpenConns(10)
+		pool.SetMaxIdleConns(2)
+		pool.SetConnMaxLifetime(30 * time.Minute)
+	} else {
+		pool.SetMaxOpenConns(1)
+		pool.SetMaxIdleConns(1)
+	}
+
+	pingContext, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	if err := pool.PingContext(pingContext); err != nil {
+		_ = pool.Close()
+
+		// Driver errors can contain the connection URL and its password.
+		return nil, errors.New("connect to database: connection failed; check database configuration and availability")
+	}
+
+	db := &Database{orm: orm, sql: pool}
+	if err := migrate(orm.WithContext(ctx)); err != nil {
+		_ = pool.Close()
+		return nil, err
+	}
+
+	return db, nil
+}
+
+func dialector(source string) (gorm.Dialector, error) {
+	if strings.HasPrefix(source, "postgres://") || strings.HasPrefix(source, "postgresql://") {
+		parsed, err := url.Parse(source)
+		if err != nil || parsed.Host == "" || parsed.Path == "" || parsed.Path == "/" || parsed.Fragment != "" {
+			return nil, errors.New("invalid PostgreSQL URL: expected postgres://USER:PASSWORD@HOST:PORT/DATABASE")
+		}
+
+		return postgres.Open(source), nil
+	}
+
+	if strings.TrimSpace(source) == "" || strings.Contains(source, "://") {
+		return nil, errors.New("database must be a SQLite file path or PostgreSQL URL")
+	}
+
+	absolute, err := filepath.Abs(source)
 	if err != nil {
 		return nil, fmt.Errorf("resolve database path: %w", err)
 	}
@@ -33,29 +109,7 @@ func Open(ctx context.Context, path string) (*Database, error) {
 
 	dsn := (&url.URL{Scheme: "file", Path: absolute}).String() + "?_busy_timeout=5000&_foreign_keys=on&_journal_mode=WAL&_txlock=immediate"
 
-	orm, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger:         logger.Default.LogMode(logger.Silent),
-		TranslateError: true,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
-	}
-
-	pool, err := orm.DB()
-	if err != nil {
-		return nil, fmt.Errorf("access database pool: %w", err)
-	}
-
-	pool.SetMaxOpenConns(1)
-	pool.SetMaxIdleConns(1)
-
-	db := &Database{orm: orm, sql: pool}
-	if err := migrate(orm.WithContext(ctx)); err != nil {
-		_ = pool.Close()
-		return nil, err
-	}
-
-	return db, nil
+	return sqlite.Open(dsn), nil
 }
 
 // ORM returns the shared ORM for repositories.
@@ -69,7 +123,7 @@ func (d *Database) Close() error {
 }
 
 func migrate(db *gorm.DB) error {
-	return db.Transaction(func(tx *gorm.DB) error {
+	return Transaction(db, func(tx *gorm.DB) error {
 		if err := tx.AutoMigrate(&schemaMigration{}); err != nil {
 			return fmt.Errorf("initialize migrations: %w", err)
 		}

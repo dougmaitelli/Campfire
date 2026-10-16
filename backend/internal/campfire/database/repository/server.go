@@ -27,9 +27,9 @@ type ServerRepository struct{ db *gorm.DB }
 // NewServerRepository creates a server repository.
 func NewServerRepository(db *gorm.DB) *ServerRepository { return &ServerRepository{db: db} }
 
-// Save creates or updates a server under an immediate SQLite write transaction.
+// Save creates or updates a server under a serialized reservation transaction.
 func (r *ServerRepository) Save(ctx context.Context, server model.Server, create bool) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if !create {
 			if err := activeTransfer(tx, server.ID); err != nil {
 				return err
@@ -195,7 +195,7 @@ func (r *ServerRepository) Get(ctx context.Context, id string) (model.Server, er
 
 // Delete removes a saved configuration and releases its reservations.
 func (r *ServerRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if err := activeTransfer(tx, id); err != nil {
 			return err
 		}

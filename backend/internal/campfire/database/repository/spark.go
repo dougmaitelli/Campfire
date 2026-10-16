@@ -32,7 +32,7 @@ func NewSparkRepository(db *gorm.DB) *SparkRepository {
 // Delete revokes the Spark identity only after all placements and active
 // transfer reservations have been removed in the same write transaction.
 func (r *SparkRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var count int64
 		if err := tx.Model(&database.Server{}).Where("spark_id = ?", id).Count(&count).Error; err != nil {
 			return err
@@ -155,7 +155,7 @@ func (r *SparkRepository) Update(ctx context.Context, id string, changes model.S
 
 	var updated model.Spark
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		result := tx.Model(&database.Spark{}).Where("id = ?", id).Updates(fields)
 		if result.Error != nil {
 			return fmt.Errorf("update Spark: %w", result.Error)

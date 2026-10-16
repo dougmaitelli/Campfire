@@ -1,6 +1,10 @@
 package database
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // Built-in role identifiers are stable so authorization does not depend on display names.
 const (
@@ -43,8 +47,16 @@ func migrateAccess(tx *gorm.DB) error {
 		}
 	}
 
-	if err := tx.Exec("INSERT INTO users (id, username, password_hash, version, role_id, disabled, created_at) SELECT id, username, password_hash, version, 1, false, unixepoch() FROM admin_credentials").Error; err != nil {
+	if err := tx.Exec("INSERT INTO users (id, username, password_hash, version, role_id, disabled, created_at) SELECT id, username, password_hash, version, 1, false, ? FROM admin_credentials", time.Now().Unix()).Error; err != nil {
 		return err
+	}
+
+	if tx.Name() == "postgres" {
+		for _, table := range []string{"roles", "users"} {
+			if err := tx.Exec("SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE(MAX(id), 1), COUNT(*) > 0) FROM "+table, table).Error; err != nil {
+				return err
+			}
+		}
 	}
 
 	if err := tx.Exec("INSERT INTO server_ownerships (server_id, user_id) SELECT servers.id, users.id FROM servers JOIN users ON users.id = 1").Error; err != nil {

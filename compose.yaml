@@ -3,7 +3,8 @@ services:
     image: ${CAMPFIRE_IMAGE:?Set CAMPFIRE_IMAGE to the version published by GitHub CI}
     restart: unless-stopped
     environment:
-      CAMPFIRE_DATABASE: /var/lib/campfire/panel.db
+      CAMPFIRE_DATABASE: ${CAMPFIRE_DATABASE:-/var/lib/campfire/panel.db}
+      CAMPFIRE_DATA: /var/lib/campfire
       CAMPFIRE_LISTEN: 0.0.0.0:8080
       CAMPFIRE_SFTP_LISTEN: ${CAMPFIRE_SFTP_LISTEN:-}
       CAMPFIRE_MAX_UPLOAD_MIB: ${CAMPFIRE_MAX_UPLOAD_MIB:-1024}

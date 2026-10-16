@@ -5,7 +5,7 @@ import "campfire/internal/shared/model"
 // Spark is the persistence model; ORM tags stay outside the domain model.
 type Spark struct {
 	ID              string                 `gorm:"type:text;primaryKey"`
-	Name            string                 `gorm:"type:text COLLATE NOCASE;not null;uniqueIndex:sparks_name"`
+	Name            string                 `gorm:"type:text;not null;uniqueIndex:sparks_name,expression:lower(name)"`
 	Kind            string                 `gorm:"type:text;not null;check:sparks_kind,kind = 'remote'"`
 	Description     string                 `gorm:"type:text;not null;default:''"`
 	Disabled        bool                   `gorm:"not null;default:false"`
@@ -42,7 +42,7 @@ type AdminSession struct {
 // Role defines platform or server permissions. Built-in roles cannot be changed.
 type Role struct {
 	ID          int64            `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name        string           `gorm:"type:text COLLATE NOCASE;not null;uniqueIndex:roles_name_scope" json:"name"`
+	Name        string           `gorm:"type:text;not null;uniqueIndex:roles_name_scope,expression:lower(name)" json:"name"`
 	Scope       string           `gorm:"type:text;not null;check:roles_scope,scope IN ('platform','server');uniqueIndex:roles_name_scope" json:"scope"`
 	Builtin     bool             `gorm:"not null" json:"builtin"`
 	Permissions []RolePermission `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE" json:"-"`
@@ -57,7 +57,7 @@ type RolePermission struct {
 // User stores a panel account with one platform role.
 type User struct {
 	ID           int64  `gorm:"primaryKey;autoIncrement" json:"id"`
-	Username     string `gorm:"type:text COLLATE NOCASE;not null;uniqueIndex:users_username" json:"username"`
+	Username     string `gorm:"type:text;not null;uniqueIndex:users_username,expression:lower(username)" json:"username"`
 	PasswordHash string `gorm:"type:text;not null" json:"-"`
 	Version      int64  `gorm:"not null" json:"-"`
 	RoleID       int64  `gorm:"not null;index" json:"role_id"`
@@ -118,7 +118,7 @@ type SparkRole struct {
 // Server persists server configuration with pinned Spark and Ember identities.
 type Server struct {
 	ID          string             `gorm:"type:text;primaryKey"`
-	Name        string             `gorm:"type:text COLLATE NOCASE;not null;uniqueIndex:servers_name"`
+	Name        string             `gorm:"type:text;not null;uniqueIndex:servers_name,expression:lower(name)"`
 	Description string             `gorm:"type:text;not null;default:''"`
 	SparkID     string             `gorm:"type:text;not null;index"`
 	Spark       Spark              `gorm:"foreignKey:SparkID;constraint:OnDelete:RESTRICT"`
@@ -156,5 +156,5 @@ type SparkIdentity struct {
 	CertificateHash         string `gorm:"type:text;not null"`
 	PreviousCertificateHash string `gorm:"type:text;not null;default:''"`
 	PreviousExpiresAt       int64  `gorm:"not null;default:0"`
-	Certificate             []byte `gorm:"type:blob"`
+	Certificate             []byte
 }

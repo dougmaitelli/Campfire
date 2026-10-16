@@ -39,7 +39,7 @@ func (r *AuthRepository) Credential(ctx context.Context) (*database.User, error)
 // FindCredential looks up one normalized username without exposing lookup failures.
 func (r *AuthRepository) FindCredential(ctx context.Context, username string) (*database.User, error) {
 	var user database.User
-	if err := r.db.WithContext(ctx).Where("username = ?", username).Take(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("lower(username) = lower(?)", username).Take(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -55,7 +55,7 @@ func (r *AuthRepository) Access() *AccessRepository { return NewAccessRepository
 
 // Setup atomically creates exactly one administrator and their initial session.
 func (r *AuthRepository) Setup(ctx context.Context, admin database.User, session database.UserSession) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var count int64
 		if err := tx.Model(&database.User{}).Count(&count).Error; err != nil {
 			return err
@@ -78,7 +78,7 @@ func (r *AuthRepository) Setup(ctx context.Context, admin database.User, session
 
 // CreateSession checks the credential version again to reject logins racing a reset.
 func (r *AuthRepository) CreateSession(ctx context.Context, session database.UserSession, previous string, now time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var admin database.User
 		if err := tx.Take(&admin, session.UserID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -117,7 +117,7 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 
 	var username string
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Where("hash = ? AND expires_at > ? AND last_seen_at > ?", hash, now.Unix(), now.Add(-30*time.Minute).Unix()).Take(&session).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrAuthentication
@@ -160,12 +160,12 @@ func (r *AuthRepository) ResetPassword(ctx context.Context, encoded string) erro
 
 // ResetPasswordFor recovers one administrator without revoking other accounts' sessions.
 func (r *AuthRepository) ResetPasswordFor(ctx context.Context, username, encoded string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var admin database.User
 
 		query := tx.Where("role_id = ?", database.AdminRole)
 		if username != "" {
-			query = query.Where("username = ?", username)
+			query = query.Where("lower(username) = lower(?)", username)
 		}
 
 		if err := query.Order("id").First(&admin).Error; err != nil {

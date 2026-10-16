@@ -15,7 +15,7 @@ import (
 func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, username string, linkID, version int64, linkHash string) (database.User, error) {
 	var user database.User
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if linkID != 0 {
 			var login database.UserSession
 

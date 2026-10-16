@@ -21,7 +21,7 @@ func (r *ActivityRepository) PruneHistory(ctx context.Context, auditBefore, oper
 	const batch = 1000
 
 	more := false
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if !auditBefore.IsZero() {
 			expired := tx.Model(&database.AuditEvent{}).Select("id").Where("created_at < ? AND outcome IN ?", auditBefore.Unix(), []string{"succeeded", "failed", "accepted", "interrupted", "cancelled"}).Order("created_at, id").Limit(batch)
 

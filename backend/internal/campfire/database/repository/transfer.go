@@ -82,7 +82,7 @@ func (r *TransferRepository) Guard(ctx context.Context, serverID string) error {
 
 // Create reserves destination capacity and freezes placement atomically.
 func (r *TransferRepository) Create(ctx context.Context, transfer database.ServerTransfer) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if err := activeTransfer(tx, transfer.ServerID); err != nil {
 			return err
 		}
@@ -174,7 +174,7 @@ func (r *TransferRepository) Advance(ctx context.Context, id, phase string, chan
 
 // Commit changes placement after a verified destination import.
 func (r *TransferRepository) Commit(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var transfer database.ServerTransfer
 		if err := tx.Where("id = ? AND active = ? AND phase = ?", id, true, "committing").Take(&transfer).Error; err != nil {
 			return ErrTransferState
@@ -214,7 +214,7 @@ func (r *TransferRepository) Commit(ctx context.Context, id string) error {
 
 // Retry resumes a failed transfer from its durable checkpoint.
 func (r *TransferRepository) Retry(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		transfer, err := (&TransferRepository{db: tx}).Get(ctx, id)
 		if err != nil {
 			return err
@@ -230,7 +230,7 @@ func (r *TransferRepository) Retry(ctx context.Context, id string) error {
 
 // Cancel requests cleanup before placement has changed.
 func (r *TransferRepository) Cancel(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		transfer, err := (&TransferRepository{db: tx}).Get(ctx, id)
 		if err != nil {
 			return err

@@ -12,6 +12,38 @@ Sparks enroll and connect using the same HTTPS agent protocol as other Sparks.
 There is no embedded runtime or local-mode environment setting. Campfire always
 runs without Docker access; Spark needs Docker and runs with execution privileges.
 
+Database and persistent panel state
+-----------------------------------
+SQLite is the default. CAMPFIRE_DATABASE (or --database) accepts a filesystem
+path, defaulting to data/panel.db for direct binary runs. The Docker image and
+systemd unit default to /var/lib/campfire/panel.db.
+
+To use PostgreSQL instead, create a dedicated database and account and set:
+
+  CAMPFIRE_DATABASE=postgresql://campfire:password@db:5432/campfire?sslmode=require
+  CAMPFIRE_DATA=/var/lib/campfire
+
+postgres:// URLs are accepted too. Percent-encode special characters in URL
+credentials. Configure TLS through PostgreSQL URL options; use verify-full with
+the appropriate root certificate for hostname verification. sslmode=disable is
+appropriate only for a trusted local test database. Campfire creates its tables,
+indexes and migrations automatically; the account must own its schema and have
+permission to create and alter those objects. No PostgreSQL extensions are needed.
+PostgreSQL 17 is covered by integration tests in CI.
+
+CAMPFIRE_DATA (or --data-dir) stores spark-authority.json and the default SFTP
+host key. It defaults beside the SQLite file, or to ./data when using PostgreSQL.
+Docker and systemd set it to /var/lib/campfire. Keep this directory persistent
+even with a remote database. CAMPFIRE_SFTP_HOST_KEY still overrides the key path.
+The supplied Compose file accepts CAMPFIRE_DATABASE from its environment; point
+it at your existing PostgreSQL service. The Campfire image needs no extra build.
+
+Both backends use the same application schema and API. Changing the setting
+connects to the selected database; it does not copy existing data between backends.
+Run one active Campfire process per installation. PostgreSQL support does not
+change the in-process scheduler, agent connections or singleton worker model.
+Password recovery uses the same CAMPFIRE_DATABASE setting or --database URL.
+
 Notifications and monitoring alerts
 -----------------------------------
 The Notifications page stores messages with independent read/unread state for
@@ -122,8 +154,8 @@ SFTP is an optional gateway on Campfire, disabled by default:
   CAMPFIRE_SFTP_LISTEN=0.0.0.0:2022
   CAMPFIRE_SFTP_HOST_KEY=/var/lib/campfire/sftp_host_key
 
-The key path defaults to sftp_host_key beside panel.db. Campfire creates an
-Ed25519 host identity once; preserve it with panel state and verify its SSH
+The key path defaults to sftp_host_key in the panel state directory. Campfire
+creates an Ed25519 host identity once; preserve it with panel state and verify its SSH
 fingerprint in your client. With Docker, also publish the configured TCP port
 (for example add "2022:2022" under Compose ports). Ordinary HTTP reverse proxies
 do not forward SFTP. No additional listener or inbound port is needed on Sparks.
@@ -543,7 +575,8 @@ access disables that schedule and records a failure. Saving a schedule explicitl
 assumes its execution identity. Changing or deleting a schedule cancels queued
 runs from the old definition; already dispatched work is not cancelled.
 
-The worker runs in the single active Campfire process, using SQLite persistence.
+The worker runs in the single active Campfire process, using the configured
+database.
 Missed intervals coalesce into one run after downtime, rather than replaying a
 backlog. A recurrence never overlaps its own outstanding execution. A busy server
 causes a scheduled attempt to be skipped with a failed result. Undispatched work
@@ -699,6 +732,10 @@ of its entire state directory or named volume. Copying just a live SQLite file
 can omit WAL contents. Store state backups privately. Record the current
 binary/image version and the database schema version.
 
+With PostgreSQL, also take a consistent database backup using pg_dump or your
+database provider's backup tooling while Campfire is stopped. The panel state
+directory still contains private identities and must be backed up alongside it.
+
 For binary upgrades, stop the relevant service, preserve its old binary,
 verify and install the new one, then start the service and check the journal,
 health endpoint, login and node connections. Use a stopped Spark and preserve
@@ -723,8 +760,12 @@ or delete private signing keys to bypass a schema/version error.
 Building releases from source
 -----------------------------
 Native builds require Go 1.26+, a C compiler for SQLite, Node 24+ and the pinned
-pnpm version. Run make dependencies, then make check. make build compiles the
-frontend, stages generated assets into backend/internal/campfire/webui/dist, and
+pnpm version. Run make dependencies, then make check. To run the repository suite
+against PostgreSQL as well, set CAMPFIRE_TEST_POSTGRES to a disposable database
+URL and run make test-postgres. Tests create and drop isolated schemas; the test
+account needs CREATE SCHEMA access. CI runs both backends.
+make build compiles the frontend, stages generated assets into
+backend/internal/campfire/webui/dist, and
 builds bin/campfire with the production tag. Direct go build uses development
 mode and serves APIs without bundled frontend assets; use make dev with Vite.
 make build-campfire builds only the panel and bundled UI. make build-spark builds

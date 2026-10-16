@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,7 +15,7 @@ import (
 func TestCertificateRenewalOverlapRollbackAndRevocation(t *testing.T) {
 	ctx := context.Background()
 
-	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "panel.db"))
+	db, err := database.Open(ctx, testDatabaseSource(t))
 	if err != nil {
 		t.Fatal(err)
 	}

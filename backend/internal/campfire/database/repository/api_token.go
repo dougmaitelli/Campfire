@@ -12,7 +12,7 @@ import (
 
 // CreateAPIToken enforces account generation and a maximum of 50 active tokens.
 func (r *AuthRepository) CreateAPIToken(ctx context.Context, token *database.APIToken, now time.Time) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var user database.User
 		if err := tx.Take(&user, token.UserID).Error; err != nil {
 			return ErrAuthentication
@@ -51,7 +51,7 @@ func (r *AuthRepository) APITokens(ctx context.Context, userID, version int64, n
 func (r *AuthRepository) APIToken(ctx context.Context, hash string, now time.Time) (database.APIToken, error) {
 	var token database.APIToken
 
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Where("hash = ? AND expires_at > ?", hash, now.Unix()).Take(&token).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrAuthentication

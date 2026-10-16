@@ -41,7 +41,8 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	listen := flags.String("listen", environment("CAMPFIRE_LISTEN", "127.0.0.1:8080"), "browser and API listen address (CAMPFIRE_LISTEN)")
-	dbPath := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite database path (CAMPFIRE_DATABASE)")
+	dbSource := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite path or PostgreSQL URL (CAMPFIRE_DATABASE)")
+	dataDir := flags.String("data-dir", environment("CAMPFIRE_DATA", ""), "persistent state directory; defaults beside SQLite or ./data for PostgreSQL (CAMPFIRE_DATA)")
 	sftpListen := flags.String("sftp-listen", environment("CAMPFIRE_SFTP_LISTEN", ""), "optional SFTP listen address (CAMPFIRE_SFTP_LISTEN)")
 	sftpKey := flags.String("sftp-host-key", environment("CAMPFIRE_SFTP_HOST_KEY", ""), "persistent SFTP SSH host key (CAMPFIRE_SFTP_HOST_KEY)")
 	maxUpload := flags.String("max-upload-mib", environment("CAMPFIRE_MAX_UPLOAD_MIB", "1024"), "maximum upload size in MiB (CAMPFIRE_MAX_UPLOAD_MIB)")
@@ -102,12 +103,14 @@ func Run(ctx context.Context, args []string) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	db, err := database.Open(ctx, *dbPath)
+	db, err := database.Open(ctx, *dbSource)
 	if err != nil {
 		return err
 	}
 
 	defer func() { _ = db.Close() }()
+
+	stateDir := stateDirectory(*dbSource, *dataDir)
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 
@@ -137,7 +140,7 @@ func Run(ctx context.Context, args []string) error {
 			return fmt.Errorf("load agent HTTPS certificate: %w", err)
 		}
 
-		authority, err := agents.LoadAuthority(filepath.Join(filepath.Dir(*dbPath), "spark-authority.json"))
+		authority, err := agents.LoadAuthority(filepath.Join(stateDir, "spark-authority.json"))
 		if err != nil {
 			return fmt.Errorf("load agent authority: %w", err)
 		}
@@ -245,7 +248,7 @@ func Run(ctx context.Context, args []string) error {
 	if *sftpListen != "" {
 		keyPath := *sftpKey
 		if keyPath == "" {
-			keyPath = filepath.Join(filepath.Dir(*dbPath), "sftp_host_key")
+			keyPath = filepath.Join(stateDir, "sftp_host_key")
 		}
 
 		key, err := filesftp.HostKey(keyPath)

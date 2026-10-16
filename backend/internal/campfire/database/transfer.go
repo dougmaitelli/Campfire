@@ -6,7 +6,7 @@ import "campfire/internal/shared/model"
 // restarts. Historical rows survive server deletion, like execution history.
 type ServerTransfer struct {
 	ID                  string                    `gorm:"type:text;primaryKey" json:"id"`
-	ServerID            string                    `gorm:"type:text;not null;uniqueIndex:transfers_active_server,where:active = 1" json:"server_id"`
+	ServerID            string                    `gorm:"type:text;not null;uniqueIndex:transfers_active_server,where:active = true" json:"server_id"`
 	SourceSparkID       string                    `gorm:"type:text;not null;index" json:"source_spark_id"`
 	TargetSparkID       string                    `gorm:"type:text;not null;index" json:"target_spark_id"`
 	SourceConfiguration model.ServerConfiguration `gorm:"serializer:json;type:text;not null" json:"-"`

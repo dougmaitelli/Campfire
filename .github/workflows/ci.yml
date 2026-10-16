@@ -20,6 +20,20 @@ jobs:
   validate:
     name: Validate application
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: campfire
+          POSTGRES_PASSWORD: campfire
+          POSTGRES_DB: campfire
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U campfire -d campfire"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
 
@@ -41,6 +55,9 @@ jobs:
       - run: make dependencies
       - run: make tools
       - run: make check
+      - run: make test-postgres
+        env:
+          CAMPFIRE_TEST_POSTGRES: postgresql://campfire:campfire@127.0.0.1:5432/campfire?sslmode=disable
 
   publish:
     name: Publish images and tagged releases

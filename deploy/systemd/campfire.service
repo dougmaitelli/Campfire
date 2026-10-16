@@ -11,6 +11,7 @@ StateDirectory=campfire
 StateDirectoryMode=0700
 WorkingDirectory=/var/lib/campfire
 Environment=CAMPFIRE_DATABASE=/var/lib/campfire/panel.db
+Environment=CAMPFIRE_DATA=/var/lib/campfire
 Environment=CAMPFIRE_LISTEN=127.0.0.1:8080
 EnvironmentFile=-/etc/campfire/campfire.env
 ExecStart=/usr/local/bin/campfire
