@@ -144,14 +144,14 @@ func TestMetricsSamplingCachesAndPreservesUnknowns(t *testing.T) {
 	}
 
 	entry := m.metricEntry(d.ServerID)
-	entry.containerAt = time.Now().Add(-6 * time.Second)
+	entry.containerAt = time.Now().Add(-2 * time.Second)
 
 	usage, err := m.Measure(ctx, d)
 	if err != nil || usage.CPUPercent == nil || *usage.CPUPercent != 40 || usage.SampledAt == 0 || usage.DiskSampledAt == 0 {
 		t.Fatal("counter delta not measured", usage, err)
 	}
 
-	entry.containerAt = time.Now().Add(-6 * time.Second)
+	entry.containerAt = time.Now().Add(-2 * time.Second)
 
 	usage, err = m.Measure(ctx, d)
 	if err != nil || usage.CPUPercent != nil {
@@ -159,7 +159,7 @@ func TestMetricsSamplingCachesAndPreservesUnknowns(t *testing.T) {
 	}
 
 	docker.fail = true
-	entry.containerAt = time.Now().Add(-6 * time.Second)
+	entry.containerAt = time.Now().Add(-2 * time.Second)
 	usage, err = m.Measure(ctx, d)
 
 	encoded, encodeErr := json.Marshal(usage)
@@ -171,7 +171,7 @@ func TestMetricsSamplingCachesAndPreservesUnknowns(t *testing.T) {
 	docker.states[container(d.ServerID)] = "exited"
 	docker.mu.Unlock()
 
-	entry.containerAt = time.Now().Add(-6 * time.Second)
+	entry.containerAt = time.Now().Add(-2 * time.Second)
 
 	usage, err = m.Measure(ctx, d)
 	if err != nil || usage.CPUPercent == nil || *usage.CPUPercent != 0 || usage.MemoryBytes == nil || *usage.MemoryBytes != 0 || usage.State != "stopped" {

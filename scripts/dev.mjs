@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const mock = process.argv.includes("--mock");
 const backendDirectory = join(root, "backend");
-const binary = join(root, "bin", "campfire-dev");
+const binary = join(root, "bin", mock ? "campfire-mock" : "campfire-dev");
 const children = new Set();
 let backend;
 let watcher;
@@ -20,6 +21,7 @@ function start(command, args, cwd = root) {
   const child = spawn(command, args, {
     cwd,
     stdio: "inherit",
+    env: { ...process.env, VITE_CAMPFIRE_MOCK: mock ? "true" : "false" },
     detached: process.platform !== "win32",
   });
   children.add(child);
@@ -81,7 +83,14 @@ async function rebuild() {
       console.log("[dev] Building backend…");
       const build = start(
         "go",
-        ["build", "-buildvcs=false", "-o", binary, "./cmd/campfire"],
+        [
+          "build",
+          ...(mock ? ["-gcflags=all=-N -l"] : []),
+          "-buildvcs=false",
+          "-o",
+          binary,
+          mock ? "./cmd/campfire-mock" : "./cmd/campfire",
+        ],
         backendDirectory,
       );
       const code = await completed(build);
@@ -97,10 +106,10 @@ async function rebuild() {
       if (stopping) return;
       if (dirty) continue;
       console.log("[dev] Starting backend at http://127.0.0.1:8080");
-      const running = start(binary, [
-        "--database",
-        join(root, "data", "panel.db"),
-      ]);
+      const running = start(
+        binary,
+        mock ? [] : ["--database", join(root, "data", "panel.db")],
+      );
       backend = running;
       void completed(running).then((exitCode) => {
         if (!stopping && backend === running) {

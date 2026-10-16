@@ -96,8 +96,16 @@
 
 .app-toolbar {
   display: flex;
+  align-items: center;
+  gap: 16px;
   justify-content: flex-end;
   margin-bottom: 16px;
+}
+
+.mock-mode-notice {
+  margin-right: auto;
+  color: var(--accent);
+  font-size: 13px;
 }
 
 .notification-link {

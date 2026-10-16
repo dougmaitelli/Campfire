@@ -61,13 +61,12 @@ export function DashboardPage() {
       </header>
       {monitor.error && (
         <p className="error-message" role="alert">
-          {monitor.error} Previous readings are retained with their sample ages.
+          {monitor.error} Previous readings may be stale.
         </p>
       )}
       {monitor.snapshot?.incomplete && (
         <p className="field-help" role="status">
-          Some servers could not be sampled within the refresh window. Their
-          usage is unavailable.
+          Some servers are not reporting resource usage.
         </p>
       )}
       <div className="monitoring-cards">
@@ -136,7 +135,6 @@ export function DashboardPage() {
                 <th>Server</th>
                 <th>State</th>
                 <th>Measured usage / allocation</th>
-                <th>Sampled</th>
               </tr>
             </thead>
             <tbody>
@@ -161,31 +159,11 @@ export function DashboardPage() {
                       elapsed={monitor.elapsed}
                     />
                   </td>
-                  <td>
-                    {server.usage.sampled_at ? (
-                      <time
-                        dateTime={new Date(
-                          server.usage.sampled_at * 1000,
-                        ).toISOString()}
-                      >
-                        {new Date(
-                          server.usage.sampled_at * 1000,
-                        ).toLocaleTimeString()}
-                      </time>
-                    ) : (
-                      "Unavailable"
-                    )}
-                    {server.usage.disk_error && (
-                      <span className="row-description">
-                        {server.usage.disk_error}
-                      </span>
-                    )}
-                  </td>
                 </tr>
               ))}
               {!servers.length && (
                 <tr>
-                  <td colSpan={4}>
+                  <td colSpan={3}>
                     {monitor.loading
                       ? "Collecting usage…"
                       : "No accessible servers. Create or ask to be assigned a server to see its usage."}

@@ -37,7 +37,7 @@ export function useMonitoring() {
       if (!controller.signal.aborted)
         timer = setTimeout(() => {
           void poll();
-        }, 5000);
+        }, 1000);
     }
     void poll();
     return () => {

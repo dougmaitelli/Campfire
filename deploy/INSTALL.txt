@@ -760,6 +760,46 @@ an upgraded database. Roll back the binary/image AND restore the matching
 pre-upgrade panel state backup while the panel is stopped. Do not drop tables
 or delete private signing keys to bypass a schema/version error.
 
+Local development with simulated Sparks
+--------------------------------------
+After make dependencies, run from the repository root:
+
+  make dev-mock
+
+Alternatively run pnpm --dir web run dev:mock. Open http://127.0.0.1:8081
+and sign in with admin / campfire-dev-password. This is a real local panel:
+authentication, permissions, database writes, schedules, notifications and audit
+records use their normal code paths. Only the Spark transport is simulated.
+The UI displays a Mock mode label. No Docker, DNS, TLS or production secrets
+are required. The mock executable ignores CAMPFIRE_* environment settings and
+always uses a loopback listener with its own data/mock/panel.db database.
+
+On first launch it seeds three Sparks (two online and one offline), four game
+servers, a Minecraft Ember, a recurring restart schedule and inbox messages.
+Lifecycle actions complete immediately, metrics vary over time, console input
+appears in the output stream, and the text file editor supports small files
+with revision checks. State survives backend rebuilds and restarts. To start
+over, stop the runner and remove only the repository's data/mock directory.
+
+Backups, server transfers, archive operations, binary uploads, real installers
+and Docker execution are not simulated. Unsupported operations report an error
+rather than claiming success; test these against real Sparks after deployment.
+The dedicated campfire-mock executable and simulator are excluded by the
+production build tag. Production Campfire has no mock-mode flag.
+
+The runner rebuilds Go changes and hot-reloads the frontend. Mock builds disable
+Go compiler optimizations so a debugger can inspect variables. For a debugger
+that launches its own backend, stop the runner, then use two terminals from the
+repository root (with Delve installed):
+
+  go -C backend build -gcflags='all=-N -l' -o ../bin/campfire-mock ./cmd/campfire-mock
+  dlv exec ./bin/campfire-mock
+
+  VITE_CAMPFIRE_MOCK=true make dev-ui
+
+The mock executable uses data/mock relative to its working directory; launch
+it from the repository root to reuse the runner's fixtures and edits.
+
 Building releases from source
 -----------------------------
 Native builds require Go 1.26+, a C compiler for SQLite, Node 24+ and the pinned
@@ -847,8 +887,9 @@ restrictions on filesystem attribute writes that could change quota assignments.
 Docker must support seccomp. The upstream profile and its license are included
 under backend/internal/spark/runtime/seccomp.
 
-Spark caches container measurements for five seconds and disk measurements for
-30 seconds. The UI polls every five seconds and marks old readings stale.
+Spark caches container measurements for one second and disk measurements for
+30 seconds. The dashboard polls one second after each response, without
+overlapping requests, and marks old readings stale.
 Unavailable readings stay unavailable rather than becoming zero. The first CPU
 sample may need another polling interval to establish a baseline. Measurements
 are live snapshots, without persistent metric history. Background monitoring

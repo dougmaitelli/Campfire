@@ -146,7 +146,7 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 	state.mu.Unlock()
 
 	now := time.Now()
-	if now.Sub(entry.containerAt) >= 5*time.Second {
+	if now.Sub(entry.containerAt) >= time.Second {
 		entry.containerAt = now
 		entry.usage.CPUPercent, entry.usage.MemoryBytes = nil, nil
 		entry.usage.ContainerError = ""

@@ -11,7 +11,7 @@ BUILD_LDFLAGS := -X campfire/internal/shared/buildinfo.Version=$(VERSION) -X cam
 .PHONY: dependencies dependencies-backend dependencies-frontend \
 	build build-ui build-campfire build-spark test test-backend test-frontend test-postgres \
 	format format-backend format-frontend format-check format-check-backend format-check-frontend \
-	lint lint-backend lint-frontend vet check tools dev dev-ui preview
+	lint lint-backend lint-frontend vet check tools dev dev-mock dev-ui preview
 
 dependencies: dependencies-backend dependencies-frontend
 
@@ -84,6 +84,9 @@ $(GOLANGCI_LINT):
 
 dev:
 	node scripts/dev.mjs
+
+dev-mock:
+	node scripts/dev.mjs --mock
 
 dev-ui:
 	pnpm --dir web run dev

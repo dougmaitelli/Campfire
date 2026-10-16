@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:mock": "node ../scripts/dev.mjs --mock",
     "build": "pnpm run typecheck && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

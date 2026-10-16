@@ -29,6 +29,17 @@ import (
 
 // Run starts the admin API and optional dedicated agent TLS listener.
 func Run(ctx context.Context, args []string) error {
+	return run(ctx, args, nil)
+}
+
+type runtimeBackend interface {
+	service.SparkConnectivity
+	service.ConfigurationDispatcher
+}
+
+type runtimeInitializer func(context.Context, *database.Database, *service.AuthService) (runtimeBackend, error)
+
+func run(ctx context.Context, args []string, initialize runtimeInitializer) error {
 	if len(args) > 0 && args[0] == "reset-password" {
 		return resetPassword(ctx, args[1:])
 	}
@@ -114,6 +125,15 @@ func Run(ctx context.Context, args []string) error {
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 
+	var runtime runtimeBackend
+
+	if initialize != nil {
+		runtime, err = initialize(ctx, db, auth)
+		if err != nil {
+			return fmt.Errorf("initialize development runtime: %w", err)
+		}
+	}
+
 	provider, err := service.NewOIDCService(ctx, auth, service.OIDCConfig{Issuer: *oidcIssuer, ClientID: *oidcClient, ClientSecret: *oidcSecret, PublicURL: *publicURL, DisableLocal: *disableLocal})
 	if err != nil {
 		return err
@@ -131,6 +151,9 @@ func Run(ctx context.Context, args []string) error {
 	var hub *agents.Hub
 
 	var connectivity service.SparkConnectivity
+	if runtime != nil {
+		connectivity = runtime
+	}
 
 	var agentTLS *tls.Config
 
@@ -163,6 +186,8 @@ func Run(ctx context.Context, args []string) error {
 
 	if hub != nil {
 		deployment.Remote = hub
+	} else if runtime != nil {
+		deployment.Remote = runtime
 	}
 
 	transfers.Start(ctx)

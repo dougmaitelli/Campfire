@@ -20,6 +20,12 @@ export function DashboardLayout({ page, children }: DashboardLayoutProps) {
       <Sidebar page={page} />
       <main id="main-content" className="main-content" tabIndex={-1}>
         <div className="app-toolbar">
+          {import.meta.env.DEV &&
+            import.meta.env.VITE_CAMPFIRE_MOCK === "true" && (
+              <span className="mock-mode-notice" role="status">
+                Mock mode · Simulated Sparks
+              </span>
+            )}
           <a
             className="notification-link"
             href="#notifications"
