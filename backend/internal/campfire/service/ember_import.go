@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"campfire/internal/shared/model"
 )
@@ -16,8 +17,9 @@ type ImportOptions struct {
 
 // ImportIssue identifies a field that needs attention before an Egg can be used.
 type ImportIssue struct {
-	Field   string `json:"field"`
-	Message string `json:"message"`
+	Field         string `json:"field"`
+	Message       string `json:"message"`
+	Informational bool   `json:"informational,omitempty"`
 }
 
 // EmberPreview is a non-persisting conversion result shared by all import sources.
@@ -35,6 +37,10 @@ func (p *EmberPreview) fail(field, message string) {
 }
 func (p *EmberPreview) warn(field, message string) {
 	p.Warnings = append(p.Warnings, ImportIssue{Field: field, Message: message})
+}
+
+func (p *EmberPreview) note(field, message string) {
+	p.Warnings = append(p.Warnings, ImportIssue{Field: field, Message: message, Informational: true})
 }
 
 // PreviewEmber auto-detects native Embers and supported Egg exports without executing scripts.
@@ -107,7 +113,7 @@ func (s *EmberService) ImportDefinition(ctx context.Context, data []byte, option
 		return model.Ember{}, fmt.Errorf("%w: %s: %s", ErrInvalidEmber, report.Errors[0].Field, report.Errors[0].Message)
 	}
 
-	if len(report.Warnings) > 0 && !options.AcknowledgeWarnings {
+	if slices.ContainsFunc(report.Warnings, func(issue ImportIssue) bool { return !issue.Informational }) && !options.AcknowledgeWarnings {
 		return model.Ember{}, fmt.Errorf("%w: review and acknowledge compatibility warnings before importing", ErrInvalidEmber)
 	}
 

@@ -25,7 +25,7 @@ func TestExtendedEggBehaviorConversionAndRemainingBlocks(t *testing.T) {
 	for _, change := range []func(map[string]any){
 		func(config map[string]any) { config["startup"] = map[string]any{"done": "/(?=Ready)Ready/"} },
 		func(config map[string]any) {
-			config["startup"] = map[string]any{"done": []string{"Ready"}, "userInteraction": []string{"accept"}}
+			config["startup"] = map[string]any{"done": []string{"Ready"}, "userInteraction": []int{1}}
 		},
 		func(config map[string]any) {
 			config["files"] = map[string]any{"settings.xml": map[string]any{"parser": "xml", "find": map[string]string{"server.port": "25565"}}}

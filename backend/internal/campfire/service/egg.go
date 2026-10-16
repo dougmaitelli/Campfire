@@ -147,9 +147,16 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 	}
 
 	for _, feature := range egg.Features {
-		if slices.Contains([]string{"eula", "java_version", "steam_disk_space", "pid_limit"}, feature) {
-			report.warn("features", fmt.Sprintf("%s panel integration is unavailable; handle it manually. Campfire keeps its own resource and process limits.", feature))
-		} else {
+		switch feature {
+		case "eula":
+			report.warn("features.eula", "Before starting a Minecraft server, read its EULA and set eula=true in eula.txt if you agree. Campfire does not accept it for you.")
+		case "java_version":
+			report.warn("features.java_version", "Choose a Java image compatible with your Minecraft version when creating the server. Automatic Java selection is unavailable.")
+		case "pid_limit":
+			report.note("features.pid_limit", "Campfire applies its own process limits.")
+		case "steam_disk_space":
+			report.warn("features.steam_disk_space", "Check available disk space before installing; automatic Steam disk-space checks are unavailable.")
+		default:
 			report.fail("features", fmt.Sprintf("Unsupported Egg feature %q.", feature))
 		}
 	}
@@ -179,7 +186,7 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 		}
 
 		if converted.Pattern != "" {
-			report.warn(path+".rules", "Regex matching uses Go RE2; review Unicode character and case-folding differences from PCRE.")
+			report.note(path+".rules", "Variable validation was converted to Go RE2. Unicode character and case-folding behavior can differ from PCRE.")
 		}
 
 		if converted.Default != "" && converted.ValidateValue(converted.Default) != nil {
@@ -206,8 +213,8 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 
 	convertEggProcess(egg.Config.Startup, egg.Config.Logs, &ember, report)
 	ember.Configs = convertEggFiles(egg.Config.Files, ember.Variables, report)
-	report.warn("runtime", "Uses /home/container and UID 1000:1000. Startup is supplied as STARTUP and sh -c arguments; the image ENTRYPOINT remains active. Review image hooks, shell and script requirements before starting.")
-	report.warn("ports", "Egg exports do not specify Campfire port mappings. Configure all TCP/UDP mappings explicitly; SERVER_PORT is the first container port and SERVER_IP is 0.0.0.0 inside the container.")
+	report.note("runtime", "Uses /home/container and UID 1000:1000. Startup is supplied as STARTUP and sh -c arguments; the image ENTRYPOINT remains active.")
+	report.warn("ports", "Configure the game's TCP/UDP ports when creating the server; Egg exports do not include port mappings.")
 
 	for _, issue := range report.Warnings {
 		ember.Origin.Warnings = append(ember.Origin.Warnings, issue.Field+": "+issue.Message)
@@ -304,7 +311,13 @@ func convertEggProcess(startup, logs json.RawMessage, ember *model.Ember, report
 		}
 
 		if len(process.UserInteraction) > 0 {
-			report.fail("config.startup", "Interactive startup prompts are unsupported.")
+			for _, raw := range process.UserInteraction {
+				var marker string
+				if err := json.Unmarshal(raw, &marker); err != nil {
+					report.fail("config.startup.userInteraction", "Console prompt markers must be strings.")
+				}
+			}
+			report.note("config.startup.userInteraction", "Console prompt highlighting is not imported. Messages remain visible in the server console; respond there or edit the server files as needed.")
 		}
 
 		if len(done) > 16 {
@@ -404,7 +417,7 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 	}
 
 	if len(configs) > 0 {
-		report.warn("config.files", "Missing configuration files are created. JSON/YAML rewrites normalize formatting; YAML anchors, aliases, merges and custom tags are rejected. Review parser-specific paths and wildcard replacements; not every Wings parser behavior is emulated.")
+		report.note("config.files", "Missing configuration files are created. JSON/YAML rewrites normalize formatting; YAML anchors, aliases, merges and custom tags are rejected. Parser paths and wildcard replacements can differ from Wings.")
 	}
 
 	return configs

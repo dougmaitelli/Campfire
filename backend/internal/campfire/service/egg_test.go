@@ -26,6 +26,47 @@ func eggFixture(t *testing.T, name string) []byte {
 	return data
 }
 
+func TestEggConsolePromptsDoNotBlockImport(t *testing.T) {
+	var egg map[string]any
+	if err := json.Unmarshal(eggFixture(t, "ptdl-v2.json"), &egg); err != nil {
+		t.Fatal(err)
+	}
+	egg["features"] = []string{"eula", "java_version", "pid_limit"}
+	config := egg["config"].(map[string]any)
+	config["startup"] = `{"done":")! For help, type ","userInteraction":["Go to eula.txt for more info."]}`
+	data, err := json.Marshal(egg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := PreviewEmber(data, ImportOptions{})
+	if len(report.Errors) != 0 || report.Ember == nil {
+		t.Fatalf("console prompts blocked conversion: %+v", report.Errors)
+	}
+	if report.Ember.Ready != ")! For help, type " {
+		t.Fatal("readiness marker was changed")
+	}
+	for _, field := range []string{"features.eula", "features.java_version", "ports"} {
+		if !slices.ContainsFunc(report.Warnings, func(issue ImportIssue) bool {
+			return issue.Field == field && !issue.Informational
+		}) {
+			t.Fatalf("missing actionable warning for %s", field)
+		}
+	}
+	if !slices.ContainsFunc(report.Warnings, func(issue ImportIssue) bool {
+		return issue.Field == "config.startup.userInteraction" && issue.Informational
+	}) {
+		t.Fatal("missing informational console notice")
+	}
+	config["startup"] = `{"userInteraction":[{"unexpected":true}]}`
+	data, err = json.Marshal(egg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(PreviewEmber(data, ImportOptions{}).Errors) == 0 {
+		t.Fatal("malformed prompt marker accepted")
+	}
+}
+
 func TestEggCompatibilityFixtures(t *testing.T) {
 	for _, test := range []struct {
 		file, format, startup string

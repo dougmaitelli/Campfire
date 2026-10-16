@@ -8,22 +8,6 @@ import {
 import type { Ember, EmberPreview } from "../api/embers";
 import { Drawer } from "../components/layout/Drawer";
 
-const example = JSON.stringify(
-  {
-    schema: 1,
-    name: "Example game",
-    description: "",
-    images: { Alpine: "alpine:3.22" },
-    startup: "sleep 3600",
-    work_dir: "/home/container",
-    user: "1000:1000",
-    variables: [],
-    required_ports: [{ container: 25565, protocol: "tcp" }],
-  },
-  null,
-  2,
-);
-
 export function ImportEmberDialog({
   onClose,
   onImported,
@@ -41,6 +25,9 @@ export function ImportEmberDialog({
   const [preview, setPreview] = useState<EmberPreview | null>(null);
   const [startupCommand, setStartupCommand] = useState("");
   const [reviewed, setReviewed] = useState(false);
+  const warnings =
+    preview?.warnings.filter((issue) => !issue.informational) ?? [];
+  const notes = preview?.warnings.filter((issue) => issue.informational) ?? [];
   const submitting = useRef(false);
   const urlRef = useRef<HTMLInputElement>(null);
   async function loadURL() {
@@ -106,7 +93,7 @@ export function ImportEmberDialog({
       submitting.current ||
       !preview?.ember ||
       preview.errors.length > 0 ||
-      (preview.warnings.length > 0 && !reviewed)
+      (warnings.length > 0 && !reviewed)
     )
       return;
     submitting.current = true;
@@ -170,7 +157,7 @@ export function ImportEmberDialog({
             busy ||
             !preview?.ember ||
             preview.errors.length > 0 ||
-            (preview.warnings.length > 0 && !reviewed)
+            (warnings.length > 0 && !reviewed)
           }
         >
           {busy ? (loadingSource ? "Loading…" : "Importing…") : "Import Ember"}
@@ -273,7 +260,6 @@ export function ImportEmberDialog({
                 setReviewed(false);
                 setStartupCommand("");
               }}
-              placeholder={example}
               spellCheck={false}
             />
             {preview && preview.startup_commands.length > 1 && (
@@ -311,7 +297,11 @@ export function ImportEmberDialog({
             </button>
             {preview && (
               <section aria-label="Compatibility preview">
-                <h3>Compatibility: {preview.format || "unknown format"}</h3>
+                <h3>
+                  {preview.errors.length > 0
+                    ? "Changes needed before import"
+                    : `${preview.ember?.name ?? "Definition"} is ready to import`}
+                </h3>
                 {preview.errors.length > 0 && (
                   <>
                     <p className="error-message" role="alert">
@@ -326,14 +316,12 @@ export function ImportEmberDialog({
                     </ul>
                   </>
                 )}
-                {preview.warnings.length > 0 && (
+                {warnings.length > 0 && (
                   <>
-                    <p>Review these differences before importing:</p>
+                    <p>Before running a server with this Ember:</p>
                     <ul>
-                      {preview.warnings.map((issue, index) => (
-                        <li key={`${issue.field}-${index}`}>
-                          <strong>{issue.field}:</strong> {issue.message}
-                        </li>
+                      {warnings.map((issue, index) => (
+                        <li key={`${issue.field}-${index}`}>{issue.message}</li>
                       ))}
                     </ul>
                     <label className="checkbox-field">
@@ -342,9 +330,21 @@ export function ImportEmberDialog({
                         checked={reviewed}
                         onChange={(event) => setReviewed(event.target.checked)}
                       />
-                      I have reviewed the compatibility warnings.
+                      I understand these setup requirements.
                     </label>
                   </>
+                )}
+                {notes.length > 0 && (
+                  <details>
+                    <summary>Conversion details ({notes.length})</summary>
+                    <ul>
+                      {notes.map((issue, index) => (
+                        <li key={`${issue.field}-${index}`}>
+                          <strong>{issue.field}:</strong> {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 )}
                 {preview.ember && (
                   <details>
@@ -364,20 +364,6 @@ export function ImportEmberDialog({
               import scripts and images you trust; they run when you install or
               start a server.
             </p>
-            <button
-              type="button"
-              className="button"
-              onClick={() => {
-                setSource("paste");
-                setText(example);
-                setPreview(null);
-                setStartupCommand("");
-                setReviewed(false);
-                setError(null);
-              }}
-            >
-              Use example definition
-            </button>
           </fieldset>
         </div>
       </form>

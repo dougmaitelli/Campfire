@@ -119,6 +119,7 @@ export async function importEmber(
 export interface ImportIssue {
   field: string;
   message: string;
+  informational?: boolean;
 }
 export interface EmberPreview {
   format: string;
@@ -136,7 +137,8 @@ function isIssue(value: unknown): value is ImportIssue {
     "field" in value &&
     typeof value.field === "string" &&
     "message" in value &&
-    typeof value.message === "string"
+    typeof value.message === "string" &&
+    (!("informational" in value) || typeof value.informational === "boolean")
   );
 }
 

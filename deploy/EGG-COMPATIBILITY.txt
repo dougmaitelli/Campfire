@@ -138,8 +138,11 @@ Readiness                     Up to 16 alternative literal substrings or /regex/
                               Go RE2 and match individual log lines; lookarounds,
                               backreferences and unsupported modifiers are blocked.
                               strip_ansi removes CSI/OSC terminal escapes before
-                              matching. Interactive prompts and placeholders are
-                              blocked. Detection uses the latest 200 log lines.
+                              matching. userInteraction string markers are omitted
+                              with an informational notice; messages remain visible
+                              in the console without special highlighting.
+                              Placeholders are blocked. Detection uses the latest
+                              200 log lines.
 Stop command                  Literal or variable-expanded stdin command, or
                               ^C or a Docker Linux signal such as ^SIGTERM,
                               ^SIGABRT, ^SIGQUIT or ^SIGKILL. Signal names are
@@ -178,6 +181,8 @@ API and upgrades
 POST /api/v1/embers/preview accepts a raw definition object, or a JSON envelope:
   {"definition":"<JSON or YAML text>","startup_command":"Default"}
 It returns format, definition, ember (or null), warnings, errors, startup_commands.
+Warnings marked informational:true are conversion notes and do not require
+acknowledgement. The import screen collapses these under Conversion details.
 Preview responses with blocking diagnostics still return HTTP 200 for review.
 POST /api/v1/embers/preview-url accepts {"url":"https://.../egg.yaml"} and optional
 startup_command. It uses the same conversion and existing public-HTTPS fetch
