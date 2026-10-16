@@ -14,6 +14,7 @@ import { useServerRuntime } from "../hooks/useServerRuntime";
 import { serverAction } from "../api/runtime";
 import type { ServerAction } from "../api/runtime";
 import "./management.css";
+import { Table } from "../components/table/Table";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
@@ -278,186 +279,182 @@ export function ServersPage() {
             )}
           </div>
         ) : (
-          <div className="table-container">
-            <table className="management-table">
-              <caption className="visually-hidden">Game servers</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Server</th>
-                  <th scope="col">State</th>
-                  <th scope="col">Spark / Ember</th>
-                  <th scope="col">Resources</th>
-                  <th scope="col">Ports</th>
-                  <th scope="col">
-                    <span className="visually-hidden">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((server) => (
-                  <tr key={server.id}>
-                    <td>
-                      <strong>{server.name}</strong>
-                      {server.description && (
-                        <span className="row-description">
-                          {server.description}
-                        </span>
-                      )}
-                      <span className="row-id">{server.id}</span>
-                    </td>
-                    <td>
-                      <span className="type-badge">
-                        {(
-                          runtime.statuses[server.id]?.state ?? "unknown"
-                        ).replaceAll("_", " ")}
-                      </span>
-                      {runtime.statuses[server.id]?.state === "running" && (
-                        <span className="row-description">
-                          {runtime.statuses[server.id]?.ready
-                            ? "Ready"
-                            : "Waiting for readiness"}
-                        </span>
-                      )}
-                      {runtime.statuses[server.id]?.progress && (
-                        <span className="row-description">
-                          {runtime.statuses[server.id]?.progress}
-                        </span>
-                      )}
-                      {runtime.statuses[server.id]?.error && (
-                        <span className="runtime-error" role="status">
-                          {runtime.statuses[server.id]?.error}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span>{server.spark_name}</span>
+          <Table>
+            <caption className="visually-hidden">Game servers</caption>
+            <thead>
+              <tr>
+                <th scope="col">Server</th>
+                <th scope="col">State</th>
+                <th scope="col">Spark / Ember</th>
+                <th scope="col">Resources</th>
+                <th scope="col">Ports</th>
+                <th scope="col">
+                  <span className="visually-hidden">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((server) => (
+                <tr key={server.id}>
+                  <td>
+                    <strong>{server.name}</strong>
+                    {server.description && (
                       <span className="row-description">
-                        {server.ember_name}
+                        {server.description}
                       </span>
-                    </td>
-                    <td>
-                      <ResourceReadings
-                        usage={
-                          monitoring.snapshot?.servers.find(
-                            (item) => item.id === server.id,
-                          )?.usage
-                        }
-                        cpuLimit={server.cpu_limit}
-                        memoryMB={server.memory_mb}
-                        diskMB={server.disk_mb}
-                        elapsed={monitoring.elapsed}
-                      />
-                    </td>
-                    <td>
-                      {server.ports.map((port, index) => (
-                        <span className="resource-line" key={index}>
-                          {server.game_address || port.bind_ip}:{port.host_port}{" "}
-                          / {port.protocol}
-                        </span>
-                      ))}
-                    </td>
-                    <td>
-                      <div className="row-actions">
-                        {server.permissions.includes("server.operate") && (
-                          <ServerLifecycleControls
-                            canConfigure={server.permissions.includes(
-                              "server.configure",
-                            )}
-                            status={runtime.statuses[server.id]}
-                            disabled={
-                              acting !== null ||
-                              deleting !== null ||
-                              options.sparks.find(
-                                (spark) => spark.id === server.spark_id,
-                              )?.disabled === true
-                            }
-                            onAction={(action) => {
-                              void act(server, action);
-                            }}
-                            onConsole={() => setConsoleServer(server)}
-                            onFiles={() => setFilesServer(server)}
-                            onBackups={() => setBackupsServer(server)}
-                          />
-                        )}
-                        {server.permissions.includes("server.configure") && (
-                          <button
-                            className="button"
-                            disabled={
-                              loading ||
-                              deleting !== null ||
-                              runtime.statuses[server.id]?.busy === true ||
-                              !["stopped", "not_installed", "deleted"].includes(
-                                runtime.statuses[server.id]?.state ?? "unknown",
-                              )
-                            }
-                            onClick={() => {
-                              void edit(server);
-                            }}
-                            aria-label={`Edit ${server.name}`}
-                          >
-                            Edit
-                          </button>
-                        )}
-                        {server.permissions.includes("server.delete") && (
-                          <button
-                            className="button"
-                            disabled={
-                              deleting !== null ||
-                              acting !== null ||
-                              runtime.statuses[server.id]?.busy === true
-                            }
-                            onClick={() => {
-                              void remove(server);
-                            }}
-                            aria-label={`Delete ${server.name}`}
-                          >
-                            {deleting === server.id ? "Deleting…" : "Delete"}
-                          </button>
-                        )}
-                        {server.permissions.includes("server.share") && (
-                          <button
-                            className="button"
-                            onClick={() => setAccessServer(server)}
-                            aria-label={`Access to ${server.name}`}
-                          >
-                            Access
-                          </button>
-                        )}
-                        {canApplyRevision && (
-                          <button
-                            className="button"
-                            disabled={
-                              acting !== null ||
-                              deleting !== null ||
-                              runtime.statuses[server.id]?.busy === true ||
-                              !["stopped", "not_installed", "deleted"].includes(
-                                runtime.statuses[server.id]?.state ?? "unknown",
-                              )
-                            }
-                            onClick={() => {
-                              void edit(server, true);
-                            }}
-                            aria-label={`Apply Ember revision to ${server.name}`}
-                          >
-                            Ember revision
-                          </button>
-                        )}
-                        {canTransfer && (
-                          <button
-                            className="button"
-                            onClick={() => setTransferServer(server)}
-                            aria-label={`Transfer ${server.name}`}
-                          >
-                            Transfer
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                    <span className="row-id">{server.id}</span>
+                  </td>
+                  <td>
+                    <span className="type-badge">
+                      {(
+                        runtime.statuses[server.id]?.state ?? "unknown"
+                      ).replaceAll("_", " ")}
+                    </span>
+                    {runtime.statuses[server.id]?.state === "running" && (
+                      <span className="row-description">
+                        {runtime.statuses[server.id]?.ready
+                          ? "Ready"
+                          : "Waiting for readiness"}
+                      </span>
+                    )}
+                    {runtime.statuses[server.id]?.progress && (
+                      <span className="row-description">
+                        {runtime.statuses[server.id]?.progress}
+                      </span>
+                    )}
+                    {runtime.statuses[server.id]?.error && (
+                      <span className="runtime-error" role="status">
+                        {runtime.statuses[server.id]?.error}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <span>{server.spark_name}</span>
+                    <span className="row-description">{server.ember_name}</span>
+                  </td>
+                  <td>
+                    <ResourceReadings
+                      usage={
+                        monitoring.snapshot?.servers.find(
+                          (item) => item.id === server.id,
+                        )?.usage
+                      }
+                      cpuLimit={server.cpu_limit}
+                      memoryMB={server.memory_mb}
+                      diskMB={server.disk_mb}
+                      elapsed={monitoring.elapsed}
+                    />
+                  </td>
+                  <td>
+                    {server.ports.map((port, index) => (
+                      <span className="resource-line" key={index}>
+                        {server.game_address || port.bind_ip}:{port.host_port} /{" "}
+                        {port.protocol}
+                      </span>
+                    ))}
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      {server.permissions.includes("server.operate") && (
+                        <ServerLifecycleControls
+                          canConfigure={server.permissions.includes(
+                            "server.configure",
+                          )}
+                          status={runtime.statuses[server.id]}
+                          disabled={
+                            acting !== null ||
+                            deleting !== null ||
+                            options.sparks.find(
+                              (spark) => spark.id === server.spark_id,
+                            )?.disabled === true
+                          }
+                          onAction={(action) => {
+                            void act(server, action);
+                          }}
+                          onConsole={() => setConsoleServer(server)}
+                          onFiles={() => setFilesServer(server)}
+                          onBackups={() => setBackupsServer(server)}
+                        />
+                      )}
+                      {server.permissions.includes("server.configure") && (
+                        <button
+                          className="button"
+                          disabled={
+                            loading ||
+                            deleting !== null ||
+                            runtime.statuses[server.id]?.busy === true ||
+                            !["stopped", "not_installed", "deleted"].includes(
+                              runtime.statuses[server.id]?.state ?? "unknown",
+                            )
+                          }
+                          onClick={() => {
+                            void edit(server);
+                          }}
+                          aria-label={`Edit ${server.name}`}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {server.permissions.includes("server.delete") && (
+                        <button
+                          className="button"
+                          disabled={
+                            deleting !== null ||
+                            acting !== null ||
+                            runtime.statuses[server.id]?.busy === true
+                          }
+                          onClick={() => {
+                            void remove(server);
+                          }}
+                          aria-label={`Delete ${server.name}`}
+                        >
+                          {deleting === server.id ? "Deleting…" : "Delete"}
+                        </button>
+                      )}
+                      {server.permissions.includes("server.share") && (
+                        <button
+                          className="button"
+                          onClick={() => setAccessServer(server)}
+                          aria-label={`Access to ${server.name}`}
+                        >
+                          Access
+                        </button>
+                      )}
+                      {canApplyRevision && (
+                        <button
+                          className="button"
+                          disabled={
+                            acting !== null ||
+                            deleting !== null ||
+                            runtime.statuses[server.id]?.busy === true ||
+                            !["stopped", "not_installed", "deleted"].includes(
+                              runtime.statuses[server.id]?.state ?? "unknown",
+                            )
+                          }
+                          onClick={() => {
+                            void edit(server, true);
+                          }}
+                          aria-label={`Apply Ember revision to ${server.name}`}
+                        >
+                          Ember revision
+                        </button>
+                      )}
+                      {canTransfer && (
+                        <button
+                          className="button"
+                          onClick={() => setTransferServer(server)}
+                          aria-label={`Transfer ${server.name}`}
+                        >
+                          Transfer
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         )}
       </div>
       <p className="list-summary" role="status">

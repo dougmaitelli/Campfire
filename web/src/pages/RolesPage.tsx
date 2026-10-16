@@ -3,6 +3,7 @@ import { deleteRole, listRoles, type Role } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { RoleDialog } from "../dialogs/RoleDialog";
 import "./management.css";
+import { Table } from "../components/table/Table";
 
 const permissionLabels: Record<string, string> = {
   "users.manage": "Manage users",
@@ -80,67 +81,65 @@ export function RolesPage() {
         </p>
       )}
       <div className="management-content">
-        <div className="table-container">
-          <table className="management-table">
-            <caption className="visually-hidden">Access roles</caption>
-            <thead>
-              <tr>
-                <th>Role</th>
-                <th>Scope</th>
-                <th>Permissions</th>
-                <th>Actions</th>
+        <Table>
+          <caption className="visually-hidden">Access roles</caption>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Scope</th>
+              <th>Permissions</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roles.items.map((role) => (
+              <tr key={role.id}>
+                <td>
+                  <strong>{role.name}</strong>
+                  {role.builtin && (
+                    <span className="row-description">Built-in</span>
+                  )}
+                </td>
+                <td>{role.scope}</td>
+                <td>
+                  {role.permissions.length
+                    ? role.permissions
+                        .map(
+                          (permission) =>
+                            permissionLabels[permission] ?? permission,
+                        )
+                        .join(", ")
+                    : "Access through server ownership or membership"}
+                </td>
+                <td>
+                  {!role.builtin && (
+                    <div className="row-actions">
+                      <button
+                        className="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setEditing(role);
+                          setOpen(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="button"
+                        disabled={busy}
+                        onClick={() => {
+                          void remove(role);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {roles.items.map((role) => (
-                <tr key={role.id}>
-                  <td>
-                    <strong>{role.name}</strong>
-                    {role.builtin && (
-                      <span className="row-description">Built-in</span>
-                    )}
-                  </td>
-                  <td>{role.scope}</td>
-                  <td>
-                    {role.permissions.length
-                      ? role.permissions
-                          .map(
-                            (permission) =>
-                              permissionLabels[permission] ?? permission,
-                          )
-                          .join(", ")
-                      : "Access through server ownership or membership"}
-                  </td>
-                  <td>
-                    {!role.builtin && (
-                      <div className="row-actions">
-                        <button
-                          className="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setEditing(role);
-                            setOpen(true);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="button"
-                          disabled={busy}
-                          onClick={() => {
-                            void remove(role);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </Table>
       </div>
       {roles.loading && <p role="status">Loading roles…</p>}
       {open && (

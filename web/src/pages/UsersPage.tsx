@@ -4,6 +4,7 @@ import { useCollection } from "../hooks/useCollection";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { UserDialog } from "../dialogs/UserDialog";
 import "./management.css";
+import { Table } from "../components/table/Table";
 
 export function UsersPage() {
   const users = useCollection(listUsers);
@@ -72,59 +73,57 @@ export function UsersPage() {
         </p>
       )}
       <div className="management-content">
-        <div className="table-container">
-          <table className="management-table">
-            <caption className="visually-hidden">Panel users</caption>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Platform role</th>
-                <th>Status</th>
-                <th>Actions</th>
+        <Table>
+          <caption className="visually-hidden">Panel users</caption>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Platform role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.items.map((user) => (
+              <tr key={user.id}>
+                <td>
+                  <strong>{user.name || user.username}</strong>
+                  {user.name && (
+                    <span className="row-description">{user.username}</span>
+                  )}
+                  {user.id === auth.session?.user_id && (
+                    <span className="row-description">You</span>
+                  )}
+                </td>
+                <td>{user.role.name}</td>
+                <td>{user.disabled ? "Disabled" : "Enabled"}</td>
+                <td>
+                  <div className="row-actions">
+                    <button
+                      className="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditing(user);
+                        setOpen(true);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="button"
+                      disabled={busy}
+                      onClick={() => {
+                        void remove(user);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {users.items.map((user) => (
-                <tr key={user.id}>
-                  <td>
-                    <strong>{user.name || user.username}</strong>
-                    {user.name && (
-                      <span className="row-description">{user.username}</span>
-                    )}
-                    {user.id === auth.session?.user_id && (
-                      <span className="row-description">You</span>
-                    )}
-                  </td>
-                  <td>{user.role.name}</td>
-                  <td>{user.disabled ? "Disabled" : "Enabled"}</td>
-                  <td>
-                    <div className="row-actions">
-                      <button
-                        className="button"
-                        disabled={busy}
-                        onClick={() => {
-                          setEditing(user);
-                          setOpen(true);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="button"
-                        disabled={busy}
-                        onClick={() => {
-                          void remove(user);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </Table>
       </div>
       {users.loading && <p role="status">Loading users…</p>}
       <p className="field-help">

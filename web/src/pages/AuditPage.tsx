@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { activityCursor, listAudit, type AuditEvent } from "../api/activity";
 import "./management.css";
+import { Table } from "../components/table/Table";
 
 export function AuditPage() {
   const [items, setItems] = useState<AuditEvent[]>([]);
@@ -100,43 +101,41 @@ export function AuditPage() {
           </label>
           <button className="button">Filter</button>
         </form>
-        <div className="table-container">
-          <table className="management-table">
-            <caption className="visually-hidden">Audit records</caption>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Actor</th>
-                <th>Action</th>
-                <th>Target</th>
-                <th>Outcome</th>
-                <th>HTTP status</th>
+        <Table>
+          <caption className="visually-hidden">Audit records</caption>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Target</th>
+              <th>Outcome</th>
+              <th>HTTP status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td>{new Date(item.created_at * 1000).toLocaleString()}</td>
+                <td>
+                  {item.username || "Unauthenticated"}
+                  {item.api_token_id
+                    ? ` (API token #${item.api_token_id})`
+                    : ""}
+                </td>
+                <td>{item.action}</td>
+                <td>{item.target}</td>
+                <td>{item.outcome}</td>
+                <td>{item.status || "—"}</td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td>{new Date(item.created_at * 1000).toLocaleString()}</td>
-                  <td>
-                    {item.username || "Unauthenticated"}
-                    {item.api_token_id
-                      ? ` (API token #${item.api_token_id})`
-                      : ""}
-                  </td>
-                  <td>{item.action}</td>
-                  <td>{item.target}</td>
-                  <td>{item.outcome}</td>
-                  <td>{item.status || "—"}</td>
-                </tr>
-              ))}
-              {!items.length && (
-                <tr>
-                  <td colSpan={6}>No audit records.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {!items.length && (
+              <tr>
+                <td colSpan={6}>No audit records.</td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
         {older && (
           <button
             className="button"

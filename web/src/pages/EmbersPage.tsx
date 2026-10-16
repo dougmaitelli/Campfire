@@ -3,6 +3,7 @@ import { listEmbers } from "../api/embers";
 import { useCollection } from "../hooks/useCollection";
 import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
 import "./management.css";
+import { Table } from "../components/table/Table";
 
 export function EmbersPage() {
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
@@ -62,48 +63,46 @@ export function EmbersPage() {
             )}
           </div>
         ) : (
-          <div className="table-container">
-            <table className="management-table">
-              <caption className="visually-hidden">Imported Embers</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Game definition</th>
-                  <th scope="col">Images</th>
-                  <th scope="col">Variables</th>
-                  <th scope="col">Required ports</th>
+          <Table>
+            <caption className="visually-hidden">Imported Embers</caption>
+            <thead>
+              <tr>
+                <th scope="col">Game definition</th>
+                <th scope="col">Images</th>
+                <th scope="col">Variables</th>
+                <th scope="col">Required ports</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((ember) => (
+                <tr key={ember.id}>
+                  <td>
+                    <strong>{ember.name}</strong>
+                    {ember.origin && (
+                      <span className="row-description">
+                        Imported from {ember.origin.format}
+                      </span>
+                    )}
+                    {ember.description && (
+                      <span className="row-description">
+                        {ember.description}
+                      </span>
+                    )}
+                    <span className="row-id">{ember.id}</span>
+                  </td>
+                  <td>{Object.keys(ember.images).join(", ")}</td>
+                  <td>{ember.variables?.length ?? 0}</td>
+                  <td>
+                    {ember.required_ports?.length
+                      ? ember.required_ports
+                          .map((port) => `${port.container}/${port.protocol}`)
+                          .join(", ")
+                      : "None"}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {items.map((ember) => (
-                  <tr key={ember.id}>
-                    <td>
-                      <strong>{ember.name}</strong>
-                      {ember.origin && (
-                        <span className="row-description">
-                          Imported from {ember.origin.format}
-                        </span>
-                      )}
-                      {ember.description && (
-                        <span className="row-description">
-                          {ember.description}
-                        </span>
-                      )}
-                      <span className="row-id">{ember.id}</span>
-                    </td>
-                    <td>{Object.keys(ember.images).join(", ")}</td>
-                    <td>{ember.variables?.length ?? 0}</td>
-                    <td>
-                      {ember.required_ports?.length
-                        ? ember.required_ports
-                            .map((port) => `${port.container}/${port.protocol}`)
-                            .join(", ")
-                        : "None"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </Table>
         )}
       </div>
       <p className="list-summary" role="status">

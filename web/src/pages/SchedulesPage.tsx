@@ -13,6 +13,7 @@ import {
 import { useCollection } from "../hooks/useCollection";
 import { ScheduleDialog } from "../dialogs/ScheduleDialog";
 import "./management.css";
+import { Table } from "../components/table/Table";
 
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
@@ -177,168 +178,162 @@ export function SchedulesPage() {
           ))}
         </select>
         <h2>Recurring schedules</h2>
-        <div className="table-container">
-          <table className="management-table">
-            <caption className="visually-hidden">Recurring schedules</caption>
-            <thead>
-              <tr>
-                <th>Name / server</th>
-                <th>Action</th>
-                <th>Interval</th>
-                <th>Next run</th>
-                <th>Runs as</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {schedules.items
-                .filter((item) => !filter || item.server_id === filter)
-                .map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <strong>{item.name}</strong>
-                      <span className="row-description">
-                        {servers.items.find(
-                          (server) => server.id === item.server_id,
-                        )?.name ?? item.server_id}
-                      </span>
-                    </td>
-                    <td>{item.action}</td>
-                    <td>{item.interval_minutes} minutes</td>
-                    <td>{item.enabled ? when(item.next_run_at) : "Paused"}</td>
-                    <td>{item.username}</td>
-                    <td>
-                      {managed.some(
-                        (server) => server.id === item.server_id,
-                      ) && (
-                        <div className="row-actions">
-                          <button
-                            className="button"
-                            disabled={busy}
-                            onClick={() => {
-                              void perform(() => runSchedule(item.id));
-                            }}
-                          >
-                            Run now
-                          </button>
-                          <button
-                            className="button"
-                            disabled={busy}
-                            onClick={() => {
-                              setEditing(item);
-                              setOpen(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="button"
-                            disabled={busy}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Delete schedule "${item.name}"? History will be retained.`,
-                                )
-                              )
-                                void perform(() => deleteSchedule(item.id));
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              {!schedules.loading &&
-                !schedules.items.some(
-                  (item) => !filter || item.server_id === filter,
-                ) && (
-                  <tr>
-                    <td colSpan={6}>No recurring schedules.</td>
-                  </tr>
-                )}
-            </tbody>
-          </table>
-        </div>
-        <h2>Execution history</h2>
-        <p className="field-help">
-          Includes manual server operations. Interrupted work may already have
-          executed; inspect the server before retrying.
-        </p>
-        <div className="table-container">
-          <table className="management-table">
-            <caption className="visually-hidden">Execution history</caption>
-            <thead>
-              <tr>
-                <th>Created</th>
-                <th>Server / action</th>
-                <th>Actor</th>
-                <th>State</th>
-                <th>Finished</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => (
-                <tr key={run.id}>
-                  <td>{when(run.created_at)}</td>
+        <Table>
+          <caption className="visually-hidden">Recurring schedules</caption>
+          <thead>
+            <tr>
+              <th>Name / server</th>
+              <th>Action</th>
+              <th>Interval</th>
+              <th>Next run</th>
+              <th>Runs as</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {schedules.items
+              .filter((item) => !filter || item.server_id === filter)
+              .map((item) => (
+                <tr key={item.id}>
                   <td>
-                    <strong>{run.server_name}</strong>
+                    <strong>{item.name}</strong>
                     <span className="row-description">
-                      {run.action} · {run.recurring ? "Recurring" : "Manual"}
-                      {run.retry_of ? " · Retry" : ""}
+                      {servers.items.find(
+                        (server) => server.id === item.server_id,
+                      )?.name ?? item.server_id}
                     </span>
                   </td>
-                  <td>{run.username}</td>
+                  <td>{item.action}</td>
+                  <td>{item.interval_minutes} minutes</td>
+                  <td>{item.enabled ? when(item.next_run_at) : "Paused"}</td>
+                  <td>{item.username}</td>
                   <td>
-                    {run.state}
-                    <span className="row-description">{run.message}</span>
-                  </td>
-                  <td>{when(run.finished_at)}</td>
-                  <td>
-                    {["failed", "interrupted"].includes(run.state) &&
-                      [
-                        "install",
-                        "start",
-                        "stop",
-                        "restart",
-                        "kill",
-                        "backup",
-                      ].includes(run.action) &&
-                      servers.items.some(
-                        (server) =>
-                          server.id === run.server_id &&
-                          server.permissions.includes("server.operate"),
-                      ) && (
+                    {managed.some((server) => server.id === item.server_id) && (
+                      <div className="row-actions">
+                        <button
+                          className="button"
+                          disabled={busy}
+                          onClick={() => {
+                            void perform(() => runSchedule(item.id));
+                          }}
+                        >
+                          Run now
+                        </button>
+                        <button
+                          className="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setEditing(item);
+                            setOpen(true);
+                          }}
+                        >
+                          Edit
+                        </button>
                         <button
                           className="button"
                           disabled={busy}
                           onClick={() => {
                             if (
                               window.confirm(
-                                "Retry this operation? Verify the current server state first; an interrupted operation may already have executed.",
+                                `Delete schedule "${item.name}"? History will be retained.`,
                               )
                             )
-                              void perform(() => retryExecution(run.id));
+                              void perform(() => deleteSchedule(item.id));
                           }}
                         >
-                          Retry
+                          Delete
                         </button>
-                      )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
-              {!runs.length && (
+            {!schedules.loading &&
+              !schedules.items.some(
+                (item) => !filter || item.server_id === filter,
+              ) && (
                 <tr>
-                  <td colSpan={6}>
-                    {loading ? "Loading…" : "No executions recorded."}
-                  </td>
+                  <td colSpan={6}>No recurring schedules.</td>
                 </tr>
               )}
-            </tbody>
-          </table>
-        </div>
+          </tbody>
+        </Table>
+        <h2>Execution history</h2>
+        <p className="field-help">
+          Includes manual server operations. Interrupted work may already have
+          executed; inspect the server before retrying.
+        </p>
+        <Table>
+          <caption className="visually-hidden">Execution history</caption>
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Server / action</th>
+              <th>Actor</th>
+              <th>State</th>
+              <th>Finished</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((run) => (
+              <tr key={run.id}>
+                <td>{when(run.created_at)}</td>
+                <td>
+                  <strong>{run.server_name}</strong>
+                  <span className="row-description">
+                    {run.action} · {run.recurring ? "Recurring" : "Manual"}
+                    {run.retry_of ? " · Retry" : ""}
+                  </span>
+                </td>
+                <td>{run.username}</td>
+                <td>
+                  {run.state}
+                  <span className="row-description">{run.message}</span>
+                </td>
+                <td>{when(run.finished_at)}</td>
+                <td>
+                  {["failed", "interrupted"].includes(run.state) &&
+                    [
+                      "install",
+                      "start",
+                      "stop",
+                      "restart",
+                      "kill",
+                      "backup",
+                    ].includes(run.action) &&
+                    servers.items.some(
+                      (server) =>
+                        server.id === run.server_id &&
+                        server.permissions.includes("server.operate"),
+                    ) && (
+                      <button
+                        className="button"
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Retry this operation? Verify the current server state first; an interrupted operation may already have executed.",
+                            )
+                          )
+                            void perform(() => retryExecution(run.id));
+                        }}
+                      >
+                        Retry
+                      </button>
+                    )}
+                </td>
+              </tr>
+            ))}
+            {!runs.length && (
+              <tr>
+                <td colSpan={6}>
+                  {loading ? "Loading…" : "No executions recorded."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
         {older && (
           <button
             className="button"

@@ -3,6 +3,7 @@ import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import "./management.css";
+import { Table } from "../components/table/Table";
 import "./monitoring.css";
 
 export function DashboardPage() {
@@ -125,148 +126,143 @@ export function DashboardPage() {
         </article>
       </div>
       <div className="management-content">
-        <div className="table-container">
-          <table className="management-table">
-            <caption className="visually-hidden">
-              Measured server resources
-            </caption>
-            <thead>
-              <tr>
-                <th>Server</th>
-                <th>State</th>
-                <th>Measured usage / allocation</th>
+        <Table>
+          <caption className="visually-hidden">
+            Measured server resources
+          </caption>
+          <thead>
+            <tr>
+              <th>Server</th>
+              <th>State</th>
+              <th>Measured usage / allocation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {servers.map((server) => (
+              <tr key={server.id}>
+                <td>
+                  <strong>{server.name}</strong>
+                  <span className="row-description">{server.spark_name}</span>
+                </td>
+                <td>
+                  {server.usage.state}
+                  <span className="row-description">
+                    {server.usage.container_error}
+                  </span>
+                </td>
+                <td>
+                  <ResourceReadings
+                    usage={server.usage}
+                    cpuLimit={server.cpu_limit}
+                    memoryMB={server.memory_mb}
+                    diskMB={server.disk_mb}
+                    elapsed={monitor.elapsed}
+                  />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {servers.map((server) => (
-                <tr key={server.id}>
-                  <td>
-                    <strong>{server.name}</strong>
-                    <span className="row-description">{server.spark_name}</span>
-                  </td>
-                  <td>
-                    {server.usage.state}
-                    <span className="row-description">
-                      {server.usage.container_error}
-                    </span>
-                  </td>
-                  <td>
-                    <ResourceReadings
-                      usage={server.usage}
-                      cpuLimit={server.cpu_limit}
-                      memoryMB={server.memory_mb}
-                      diskMB={server.disk_mb}
-                      elapsed={monitor.elapsed}
-                    />
-                  </td>
-                </tr>
-              ))}
-              {!servers.length && (
-                <tr>
-                  <td colSpan={3}>
-                    {monitor.loading
-                      ? "Collecting usage…"
-                      : "No accessible servers. Create or ask to be assigned a server to see its usage."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {!servers.length && (
+              <tr>
+                <td colSpan={3}>
+                  {monitor.loading
+                    ? "Collecting usage…"
+                    : "No accessible servers. Create or ask to be assigned a server to see its usage."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
       </div>
       {auth.session?.admin && (
         <>
           <h2 className="monitoring-heading">Sparks</h2>
           <div className="management-content">
-            <div className="table-container">
-              <table className="management-table">
-                <caption className="visually-hidden">
-                  Spark connections and configured capacity
-                </caption>
-                <thead>
-                  <tr>
-                    <th>Spark</th>
-                    <th>Connection</th>
-                    <th>Configured capacity</th>
-                    <th>Server allocations</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(monitor.snapshot?.sparks ?? []).map((spark) => {
-                    const hosted = servers.filter(
-                      (server) => server.spark_id === spark.id,
-                    );
-                    return (
-                      <tr key={spark.id}>
-                        <td>
-                          <strong>{spark.name}</strong>
-                          <span className="row-description">
-                            {hosted.length} servers
-                          </span>
-                        </td>
-                        <td>
-                          {spark.disabled
-                            ? "Disabled"
-                            : spark.connected
-                              ? "Connected"
-                              : "Disconnected"}
-                        </td>
-                        <td>
-                          {spark.cpu_limit
-                            ? `${spark.cpu_limit} cores`
-                            : "No CPU cap"}
-                          <span className="resource-line">
-                            {spark.memory_mb
-                              ? `${bytes(spark.memory_mb * 1048576)} memory`
-                              : "No memory cap"}
-                          </span>
-                          <span className="resource-line">
-                            {spark.disk_mb
-                              ? `${bytes(spark.disk_mb * 1048576)} game data`
-                              : "No disk cap"}
-                          </span>
-                        </td>
-                        <td>
-                          {hosted.reduce(
-                            (sum, server) => sum + server.cpu_limit,
-                            0,
+            <Table>
+              <caption className="visually-hidden">
+                Spark connections and configured capacity
+              </caption>
+              <thead>
+                <tr>
+                  <th>Spark</th>
+                  <th>Connection</th>
+                  <th>Configured capacity</th>
+                  <th>Server allocations</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(monitor.snapshot?.sparks ?? []).map((spark) => {
+                  const hosted = servers.filter(
+                    (server) => server.spark_id === spark.id,
+                  );
+                  return (
+                    <tr key={spark.id}>
+                      <td>
+                        <strong>{spark.name}</strong>
+                        <span className="row-description">
+                          {hosted.length} servers
+                        </span>
+                      </td>
+                      <td>
+                        {spark.disabled
+                          ? "Disabled"
+                          : spark.connected
+                            ? "Connected"
+                            : "Disconnected"}
+                      </td>
+                      <td>
+                        {spark.cpu_limit
+                          ? `${spark.cpu_limit} cores`
+                          : "No CPU cap"}
+                        <span className="resource-line">
+                          {spark.memory_mb
+                            ? `${bytes(spark.memory_mb * 1048576)} memory`
+                            : "No memory cap"}
+                        </span>
+                        <span className="resource-line">
+                          {spark.disk_mb
+                            ? `${bytes(spark.disk_mb * 1048576)} game data`
+                            : "No disk cap"}
+                        </span>
+                      </td>
+                      <td>
+                        {hosted.reduce(
+                          (sum, server) => sum + server.cpu_limit,
+                          0,
+                        )}{" "}
+                        cores
+                        <span className="resource-line">
+                          {bytes(
+                            hosted.reduce(
+                              (sum, server) => sum + server.memory_mb * 1048576,
+                              0,
+                            ),
                           )}{" "}
-                          cores
-                          <span className="resource-line">
-                            {bytes(
-                              hosted.reduce(
-                                (sum, server) =>
-                                  sum + server.memory_mb * 1048576,
-                                0,
-                              ),
-                            )}{" "}
-                            memory
-                          </span>
-                          <span className="resource-line">
-                            {bytes(
-                              hosted.reduce(
-                                (sum, server) => sum + server.disk_mb * 1048576,
-                                0,
-                              ),
-                            )}{" "}
-                            game data
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!monitor.snapshot?.sparks?.length && (
-                    <tr>
-                      <td colSpan={4}>
-                        {monitor.loading
-                          ? "Loading Sparks…"
-                          : "No Sparks registered."}
+                          memory
+                        </span>
+                        <span className="resource-line">
+                          {bytes(
+                            hosted.reduce(
+                              (sum, server) => sum + server.disk_mb * 1048576,
+                              0,
+                            ),
+                          )}{" "}
+                          game data
+                        </span>
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+                {!monitor.snapshot?.sparks?.length && (
+                  <tr>
+                    <td colSpan={4}>
+                      {monitor.loading
+                        ? "Loading Sparks…"
+                        : "No Sparks registered."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
           </div>
         </>
       )}

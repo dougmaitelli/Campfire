@@ -10,29 +10,6 @@
   background: var(--surface);
   overflow: hidden;
 }
-.management-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 14px;
-}
-.management-table th {
-  padding: 14px 20px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  border-bottom: 1px solid var(--border);
-}
-.management-table td {
-  padding: 18px 20px;
-  vertical-align: middle;
-}
-.management-table tbody tr + tr td {
-  border-top: 1px solid var(--border);
-}
-.management-table tbody tr:hover {
-  background: var(--surface-hover);
-}
 .row-description {
   display: block;
   margin-top: 6px;
@@ -78,9 +55,6 @@
 .list-toolbar input {
   flex: 1;
   min-width: 150px;
-}
-.management-table strong {
-  overflow-wrap: anywhere;
 }
 .resource-line {
   display: block;

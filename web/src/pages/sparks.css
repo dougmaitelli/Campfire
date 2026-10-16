@@ -18,32 +18,6 @@
   background: var(--surface);
   overflow: hidden;
 }
-.table-container {
-  overflow-x: auto;
-}
-.sparks-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 14px;
-}
-.sparks-table th {
-  padding: 14px 20px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  border-bottom: 1px solid var(--border);
-}
-.sparks-table td {
-  padding: 18px 20px;
-  vertical-align: middle;
-}
-.sparks-table tbody tr + tr td {
-  border-top: 1px solid var(--border);
-}
-.sparks-table tbody tr:hover {
-  background: var(--surface-hover);
-}
 .spark-name {
   display: block;
   font-weight: 500;
@@ -233,11 +207,6 @@
   accent-color: var(--accent);
 }
 @media (max-width: 640px) {
-  .sparks-table th,
-  .sparks-table td {
-    padding-left: 14px;
-    padding-right: 14px;
-  }
   .page-actions {
     width: 100%;
   }
