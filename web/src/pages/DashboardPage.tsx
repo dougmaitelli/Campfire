@@ -2,6 +2,8 @@ import { bytes, containerFresh, diskFresh } from "../api/monitoring";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { ServerState } from "../components/servers/ServerState";
+import { MetricTile, ResourceTile } from "../components/metrics/MetricTile";
 import "./management.css";
 import { Table } from "../components/table/Table";
 import "./monitoring.css";
@@ -42,8 +44,20 @@ export function DashboardPage() {
     (sum, server) => sum + (server.usage.disk_bytes ?? 0),
     0,
   );
-  const coverage = (count: number) =>
-    `${count} of ${servers.length} servers measured`;
+  const allocatedCPU = servers.reduce(
+    (sum, server) => sum + server.cpu_limit,
+    0,
+  );
+  const allocatedMemory = servers.reduce(
+    (sum, server) => sum + server.memory_mb * 1048576,
+    0,
+  );
+  const allocatedDisk = servers.reduce(
+    (sum, server) => sum + server.disk_mb * 1048576,
+    0,
+  );
+  const formatCPU = (value: number) =>
+    value.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return (
     <section aria-labelledby="page-title">
       <header className="page-header management-header">
@@ -71,62 +85,42 @@ export function DashboardPage() {
         </p>
       )}
       <div className="monitoring-cards">
-        <article className="monitoring-card">
-          <span>Servers</span>
-          <strong>{monitor.loading ? "…" : servers.length}</strong>
-          <small>
-            {running} running ·{" "}
-            {
-              servers.filter((server) => server.usage.state === "unknown")
-                .length
-            }{" "}
-            unknown
-          </small>
-        </article>
-        <article className="monitoring-card">
-          <span>CPU in use</span>
-          <strong>
-            {cpuKnown.length
-              ? `${cpu.toLocaleString(undefined, { maximumFractionDigits: 2 })} cores`
-              : "-/-"}
-          </strong>
-          <small>
-            {coverage(cpuKnown.length)} ·{" "}
-            {servers.reduce((sum, server) => sum + server.cpu_limit, 0)} cores
-            allocated
-          </small>
-        </article>
-        <article className="monitoring-card">
-          <span>Memory in use</span>
-          <strong>{memoryKnown.length ? bytes(memory) : "-/-"}</strong>
-          <small>
-            {coverage(memoryKnown.length)} ·{" "}
-            {bytes(
-              servers.reduce(
-                (sum, server) => sum + server.memory_mb * 1048576,
-                0,
-              ),
-            )}{" "}
-            allocated
-          </small>
-        </article>
-        <article className="monitoring-card">
-          <span>Game-data size</span>
-          <strong>{diskKnown.length ? bytes(disk) : "-/-"}</strong>
-          <small>
-            {coverage(diskKnown.length)} ·{" "}
-            {bytes(
-              servers.reduce(
-                (sum, server) => sum + server.disk_mb * 1048576,
-                0,
-              ),
-            )}{" "}
-            allocated
-          </small>
-        </article>
+        <MetricTile
+          label="Servers"
+          value={monitor.loading ? "…" : servers.length}
+          detail={
+            <>
+              {running} running ·{" "}
+              {
+                servers.filter((server) => server.usage.state === "unknown")
+                  .length
+              }{" "}
+              unknown
+            </>
+          }
+        />
+        <ResourceTile
+          label="CPU in use"
+          used={cpuKnown.length ? cpu : null}
+          allocated={allocatedCPU}
+          format={formatCPU}
+          unit="cores"
+        />
+        <ResourceTile
+          label="Memory in use"
+          used={memoryKnown.length ? memory : null}
+          allocated={allocatedMemory}
+          format={bytes}
+        />
+        <ResourceTile
+          label="Game-data size"
+          used={diskKnown.length ? disk : null}
+          allocated={allocatedDisk}
+          format={bytes}
+        />
       </div>
       <div className="management-content">
-        <Table>
+        <Table className="dashboard-server-table">
           <caption className="visually-hidden">
             Measured server resources
           </caption>
@@ -145,7 +139,7 @@ export function DashboardPage() {
                   <span className="row-description">{server.spark_name}</span>
                 </td>
                 <td>
-                  {server.usage.state}
+                  <ServerState state={server.usage.state} />
                   <span className="row-description">
                     {server.usage.container_error}
                   </span>
@@ -157,6 +151,7 @@ export function DashboardPage() {
                     memoryMB={server.memory_mb}
                     diskMB={server.disk_mb}
                     elapsed={monitor.elapsed}
+                    layout="grid"
                   />
                 </td>
               </tr>

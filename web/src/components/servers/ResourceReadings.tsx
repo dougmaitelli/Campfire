@@ -5,6 +5,7 @@ import {
   type ResourceUsage,
 } from "../../api/monitoring";
 import "./resource-readings.css";
+import { ResourceMeter } from "../metrics/ResourceMeter";
 
 function Reading({
   label,
@@ -12,12 +13,14 @@ function Reading({
   allocation,
   fresh,
   detail,
+  compact,
 }: {
   label: string;
   value: number | null;
   allocation: number;
   fresh: boolean;
   detail: string;
+  compact: boolean;
 }) {
   const measured = value !== null;
   const format =
@@ -32,21 +35,19 @@ function Reading({
     >
       <span className="usage-label">{label}</span>
       <span>
-        {measured ? format(value) : "Unavailable"}
+        {measured ? format(value) : "-"}
         <span className="usage-allocation">
-          {" "}
-          / {format(allocation)} allocated
+          {measured ? " / " : "/"}
+          {format(allocation)}
+          {compact ? "" : " allocated"}
         </span>
         {measured && !fresh && <span className="usage-age"> · stale</span>}
       </span>
-      {measured && fresh && (
-        <meter
-          min={0}
-          max={allocation || 1}
-          value={Math.min(value, allocation || 1)}
-          aria-label={`${label} measured usage against allocation`}
-        />
-      )}
+      <ResourceMeter
+        label={label}
+        used={fresh ? value : null}
+        allocated={allocation}
+      />
     </div>
   );
 }
@@ -57,18 +58,23 @@ export function ResourceReadings({
   memoryMB,
   diskMB,
   elapsed,
+  layout = "stack",
 }: {
   usage: ResourceUsage | undefined;
   cpuLimit: number;
   memoryMB: number;
   diskMB: number;
   elapsed: number;
+  layout?: "stack" | "grid";
 }) {
   const cpu = usage?.cpu_percent;
   return (
-    <div className="resource-readings">
+    <div
+      className={`resource-readings${layout === "grid" ? " resource-readings-grid" : ""}`}
+    >
       <Reading
         label="CPU"
+        compact={layout === "grid"}
         value={cpu === undefined || cpu === null ? null : cpu / 100}
         allocation={cpuLimit}
         fresh={containerFresh(usage, elapsed)}
@@ -82,6 +88,7 @@ export function ResourceReadings({
       />
       <Reading
         label="Memory"
+        compact={layout === "grid"}
         value={usage?.memory_bytes ?? null}
         allocation={memoryMB * 1048576}
         fresh={containerFresh(usage, elapsed)}
@@ -93,6 +100,7 @@ export function ResourceReadings({
       />
       <Reading
         label="Game data"
+        compact={layout === "grid"}
         value={usage?.disk_bytes ?? null}
         allocation={diskMB * 1048576}
         fresh={diskFresh(usage, elapsed)}

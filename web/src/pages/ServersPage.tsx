@@ -17,6 +17,7 @@ import "./management.css";
 import { Table } from "../components/table/Table";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { ServerState } from "../components/servers/ServerState";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
@@ -306,11 +307,9 @@ export function ServersPage() {
                     <span className="row-id">{server.id}</span>
                   </td>
                   <td>
-                    <span className="type-badge">
-                      {(
-                        runtime.statuses[server.id]?.state ?? "unknown"
-                      ).replaceAll("_", " ")}
-                    </span>
+                    <ServerState
+                      state={runtime.statuses[server.id]?.state ?? "unknown"}
+                    />
                     {runtime.statuses[server.id]?.state === "running" && (
                       <span className="row-description">
                         {runtime.statuses[server.id]?.ready

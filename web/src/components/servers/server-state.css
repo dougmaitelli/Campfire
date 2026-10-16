@@ -1,0 +1,40 @@
+.server-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.server-state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.server-state-positive {
+  border-color: #3d5235;
+  background: #263220;
+  color: #b5ce9c;
+}
+
+.server-state-negative {
+  border-color: #704938;
+  background: #30221c;
+  color: #f3a294;
+}
+
+.server-state-pending {
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}

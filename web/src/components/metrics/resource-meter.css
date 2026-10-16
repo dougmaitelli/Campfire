@@ -1,0 +1,35 @@
+.resource-meter {
+  --meter-color: #b5ce9c;
+  width: 100%;
+  height: 5px;
+  border: 0;
+  background: var(--border);
+  border-radius: 4px;
+  appearance: none;
+}
+
+.resource-meter-warning {
+  --meter-color: #efce67;
+}
+
+.resource-meter-critical {
+  --meter-color: #f3a294;
+}
+
+.resource-meter::-webkit-meter-bar {
+  background: var(--border);
+  border: 0;
+  border-radius: 4px;
+}
+
+.resource-meter::-webkit-meter-optimum-value,
+.resource-meter::-webkit-meter-suboptimum-value,
+.resource-meter::-webkit-meter-even-less-good-value {
+  background: var(--meter-color);
+  border-radius: 4px;
+}
+
+.resource-meter::-moz-meter-bar {
+  background: var(--meter-color);
+  border-radius: 4px;
+}
