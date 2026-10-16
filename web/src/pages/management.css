@@ -48,13 +48,18 @@
 .list-toolbar label {
   display: flex;
   flex-direction: column;
+  flex: 0 1 240px;
   gap: 8px;
   min-width: 0;
   font-size: 14px;
 }
-.list-toolbar input {
-  flex: 1;
-  min-width: 150px;
+.list-toolbar label:has(input[type="search"]) {
+  flex: 1 1 240px;
+}
+.list-toolbar input,
+.list-toolbar select {
+  width: 100%;
+  min-width: 0;
 }
 .resource-line {
   display: block;

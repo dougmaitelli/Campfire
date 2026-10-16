@@ -73,34 +73,34 @@ export function AuditPage() {
           {error}
         </p>
       )}
+      <form
+        className="list-toolbar"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setFilters({ action: action.trim(), target: target.trim() });
+        }}
+      >
+        <label>
+          Action
+          <input
+            value={action}
+            maxLength={100}
+            placeholder="server.restart"
+            onChange={(e) => setAction(e.target.value)}
+          />
+        </label>
+        <label>
+          Target
+          <input
+            value={target}
+            maxLength={150}
+            placeholder="server:ID"
+            onChange={(e) => setTarget(e.target.value)}
+          />
+        </label>
+        <button className="button">Filter</button>
+      </form>
       <div className="management-content">
-        <form
-          className="list-toolbar"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setFilters({ action: action.trim(), target: target.trim() });
-          }}
-        >
-          <label>
-            Action
-            <input
-              value={action}
-              maxLength={100}
-              placeholder="server.restart"
-              onChange={(e) => setAction(e.target.value)}
-            />
-          </label>
-          <label>
-            Target
-            <input
-              value={target}
-              maxLength={150}
-              placeholder="server:ID"
-              onChange={(e) => setTarget(e.target.value)}
-            />
-          </label>
-          <button className="button">Filter</button>
-        </form>
         <Table>
           <caption className="visually-hidden">Audit records</caption>
           <thead>

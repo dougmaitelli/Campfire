@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { listServers } from "../api/servers";
 import {
   activityCursor,
-  deleteSchedule,
   listExecutions,
   listSchedules,
   retryExecution,
@@ -159,24 +158,28 @@ export function SchedulesPage() {
           {error ?? schedules.error ?? servers.error}
         </p>
       )}
+      <div className="list-toolbar">
+        <label htmlFor="schedule-filter">
+          Server
+          <select
+            id="schedule-filter"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setLoading(true);
+              setPolling(true);
+            }}
+          >
+            <option value="">All accessible servers</option>
+            {servers.items.map((server) => (
+              <option key={server.id} value={server.id}>
+                {server.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="management-content">
-        <label htmlFor="schedule-filter">Server</label>
-        <select
-          id="schedule-filter"
-          value={filter}
-          onChange={(e) => {
-            setFilter(e.target.value);
-            setLoading(true);
-            setPolling(true);
-          }}
-        >
-          <option value="">All accessible servers</option>
-          {servers.items.map((server) => (
-            <option key={server.id} value={server.id}>
-              {server.name}
-            </option>
-          ))}
-        </select>
         <h2>Recurring schedules</h2>
         <Table>
           <caption className="visually-hidden">Recurring schedules</caption>
@@ -187,7 +190,7 @@ export function SchedulesPage() {
               <th>Interval</th>
               <th>Next run</th>
               <th>Runs as</th>
-              <th>Actions</th>
+              <th className="table-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -207,7 +210,7 @@ export function SchedulesPage() {
                   <td>{item.interval_minutes} minutes</td>
                   <td>{item.enabled ? when(item.next_run_at) : "Paused"}</td>
                   <td>{item.username}</td>
-                  <td>
+                  <td className="table-actions">
                     {managed.some((server) => server.id === item.server_id) && (
                       <div className="row-actions">
                         <button
@@ -228,20 +231,6 @@ export function SchedulesPage() {
                           }}
                         >
                           Edit
-                        </button>
-                        <button
-                          className="button"
-                          disabled={busy}
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Delete schedule "${item.name}"? History will be retained.`,
-                              )
-                            )
-                              void perform(() => deleteSchedule(item.id));
-                          }}
-                        >
-                          Delete
                         </button>
                       </div>
                     )}
@@ -272,7 +261,7 @@ export function SchedulesPage() {
               <th>Actor</th>
               <th>State</th>
               <th>Finished</th>
-              <th>Actions</th>
+              <th className="table-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -292,7 +281,7 @@ export function SchedulesPage() {
                   <span className="row-description">{run.message}</span>
                 </td>
                 <td>{when(run.finished_at)}</td>
-                <td>
+                <td className="table-actions">
                   {["failed", "interrupted"].includes(run.state) &&
                     [
                       "install",

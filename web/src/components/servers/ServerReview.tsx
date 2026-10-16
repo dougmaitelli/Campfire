@@ -64,7 +64,7 @@ export function ServerReview({
           </div>
         ))}
       </dl>
-      <p className="field-help">{notice}</p>
+      {notice && <p className="field-help">{notice}</p>}
     </>
   );
 }

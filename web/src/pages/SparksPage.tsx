@@ -8,8 +8,10 @@ import type { Spark } from "../api/sparks";
 import { deleteSpark } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
+import { ResourceDetailsDialog } from "../dialogs/ResourceDetailsDialog";
 
 export function SparksPage() {
+  const [details, setDetails] = useState<Spark | null>(null);
   const { sparks, loading, error, refresh, addSpark } = useSparks();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Spark | null>(null);
@@ -29,6 +31,7 @@ export function SparksPage() {
     setDeleteError(null);
     try {
       await deleteSpark(spark.id);
+      setDetails(null);
       await refresh();
     } catch (cause) {
       setDeleteError(
@@ -76,17 +79,10 @@ export function SparksPage() {
       <div className="sparks-content" aria-busy={loading}>
         {sparks.length > 0 ? (
           <SparksTable
-            deleting={deleting}
-            onDelete={(spark) => {
-              void remove(spark);
-            }}
+            onDetails={setDetails}
             onEnroll={setEnrolling}
             onProvisioning={setProvisioning}
             sparks={sparks}
-            onEdit={(spark) => {
-              setEditing(spark);
-              setAdding(true);
-            }}
           />
         ) : (
           <div className="empty-state">
@@ -136,6 +132,25 @@ export function SparksPage() {
         <EnrollSparkDialog
           spark={enrolling}
           onClose={() => setEnrolling(null)}
+        />
+      )}
+      {details && (
+        <ResourceDetailsDialog
+          key={details.id}
+          target={{ kind: "spark", id: details.id, name: details.name }}
+          onDelete={() => {
+            void remove(details);
+          }}
+          deleting={deleting === details.id}
+          deleteDisabled={deleting !== null}
+          actionError={deleteError}
+          onClose={() => setDetails(null)}
+          onEdit={() => {
+            setDetails(null);
+            setEditing(details);
+            setAdding(true);
+          }}
+          editDisabled={deleting !== null}
         />
       )}
     </section>

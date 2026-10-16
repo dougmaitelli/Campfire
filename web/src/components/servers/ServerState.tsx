@@ -1,4 +1,4 @@
-import "./server-state.css";
+import { StatusPill } from "../status/StatusPill";
 
 const labels: Record<string, string> = {
   running: "Running",
@@ -25,7 +25,15 @@ const labels: Record<string, string> = {
   error: "Error",
 };
 
-export function ServerState({ state = "unknown" }: { state?: string }) {
+export function ServerState({
+  state: runtimeState = "unknown",
+  ready = true,
+}: {
+  state?: string;
+  ready?: boolean;
+}) {
+  const state =
+    runtimeState === "running" && !ready ? "starting" : runtimeState;
   const label = labels[state] ?? "Unavailable";
   const tone =
     state === "running"
@@ -47,5 +55,5 @@ export function ServerState({ state = "unknown" }: { state?: string }) {
             ].includes(state)
           ? "pending"
           : "neutral";
-  return <span className={`server-state server-state-${tone}`}>{label}</span>;
+  return <StatusPill tone={tone}>{label}</StatusPill>;
 }

@@ -1,14 +1,24 @@
+import { useState } from "react";
 import { bytes, containerFresh, diskFresh } from "../api/monitoring";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
-import { ResourceReadings } from "../components/servers/ResourceReadings";
+import {
+  ResourceReading,
+  ResourceReadings,
+} from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { MetricTile, ResourceTile } from "../components/metrics/MetricTile";
 import "./management.css";
-import { Table } from "../components/table/Table";
+import { Table, TableRow } from "../components/table/Table";
+import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
+import {
+  ResourceDetailsDialog,
+  type ResourceDetailTarget,
+} from "../dialogs/ResourceDetailsDialog";
 import "./monitoring.css";
 
 export function DashboardPage() {
+  const [details, setDetails] = useState<ResourceDetailTarget | null>(null);
   const monitor = useMonitoring();
   const auth = useAuthentication();
   const servers = monitor.snapshot?.servers ?? [];
@@ -133,9 +143,31 @@ export function DashboardPage() {
           </thead>
           <tbody>
             {servers.map((server) => (
-              <tr key={server.id}>
+              <TableRow
+                key={server.id}
+                onOpen={() =>
+                  setDetails({
+                    kind: "server",
+                    id: server.id,
+                    name: server.name,
+                  })
+                }
+              >
                 <td>
-                  <strong>{server.name}</strong>
+                  <button
+                    type="button"
+                    className="table-row-trigger"
+                    onClick={() =>
+                      setDetails({
+                        kind: "server",
+                        id: server.id,
+                        name: server.name,
+                      })
+                    }
+                    aria-label={`View details for ${server.name}`}
+                  >
+                    {server.name}
+                  </button>
                   <span className="row-description">{server.spark_name}</span>
                 </td>
                 <td>
@@ -154,7 +186,7 @@ export function DashboardPage() {
                     layout="grid"
                   />
                 </td>
-              </tr>
+              </TableRow>
             ))}
             {!servers.length && (
               <tr>
@@ -172,7 +204,7 @@ export function DashboardPage() {
         <>
           <h2 className="monitoring-heading">Sparks</h2>
           <div className="management-content">
-            <Table>
+            <Table className="dashboard-server-table">
               <caption className="visually-hidden">
                 Spark connections and configured capacity
               </caption>
@@ -180,8 +212,7 @@ export function DashboardPage() {
                 <tr>
                   <th>Spark</th>
                   <th>Connection</th>
-                  <th>Configured capacity</th>
-                  <th>Server allocations</th>
+                  <th>Server allocations / capacity</th>
                 </tr>
               </thead>
               <tbody>
@@ -190,66 +221,84 @@ export function DashboardPage() {
                     (server) => server.spark_id === spark.id,
                   );
                   return (
-                    <tr key={spark.id}>
+                    <TableRow
+                      key={spark.id}
+                      onOpen={() =>
+                        setDetails({
+                          kind: "spark",
+                          id: spark.id,
+                          name: spark.name,
+                        })
+                      }
+                    >
                       <td>
-                        <strong>{spark.name}</strong>
+                        <button
+                          type="button"
+                          className="table-row-trigger"
+                          onClick={() =>
+                            setDetails({
+                              kind: "spark",
+                              id: spark.id,
+                              name: spark.name,
+                            })
+                          }
+                          aria-label={`View details for ${spark.name}`}
+                        >
+                          {spark.name}
+                        </button>
                         <span className="row-description">
                           {hosted.length} servers
                         </span>
                       </td>
                       <td>
-                        {spark.disabled
-                          ? "Disabled"
-                          : spark.connected
-                            ? "Connected"
-                            : "Disconnected"}
+                        <SparkConnectionState
+                          disabled={spark.disabled}
+                          connected={spark.connected}
+                        />
                       </td>
                       <td>
-                        {spark.cpu_limit
-                          ? `${spark.cpu_limit} cores`
-                          : "No CPU cap"}
-                        <span className="resource-line">
-                          {spark.memory_mb
-                            ? `${bytes(spark.memory_mb * 1048576)} memory`
-                            : "No memory cap"}
-                        </span>
-                        <span className="resource-line">
-                          {spark.disk_mb
-                            ? `${bytes(spark.disk_mb * 1048576)} game data`
-                            : "No disk cap"}
-                        </span>
-                      </td>
-                      <td>
-                        {hosted.reduce(
-                          (sum, server) => sum + server.cpu_limit,
-                          0,
-                        )}{" "}
-                        cores
-                        <span className="resource-line">
-                          {bytes(
-                            hosted.reduce(
+                        <div className="resource-readings resource-readings-grid">
+                          <ResourceReading
+                            label="CPU"
+                            value={hosted.reduce(
+                              (sum, server) => sum + server.cpu_limit,
+                              0,
+                            )}
+                            allocation={spark.cpu_limit}
+                            fresh
+                            compact
+                            detail="CPU reserved by servers against this Spark's configured capacity."
+                          />
+                          <ResourceReading
+                            label="Memory"
+                            value={hosted.reduce(
                               (sum, server) => sum + server.memory_mb * 1048576,
                               0,
-                            ),
-                          )}{" "}
-                          memory
-                        </span>
-                        <span className="resource-line">
-                          {bytes(
-                            hosted.reduce(
+                            )}
+                            allocation={spark.memory_mb * 1048576}
+                            fresh
+                            compact
+                            detail="Memory reserved by servers against this Spark's configured capacity."
+                          />
+                          <ResourceReading
+                            label="Game data"
+                            value={hosted.reduce(
                               (sum, server) => sum + server.disk_mb * 1048576,
                               0,
-                            ),
-                          )}{" "}
-                          game data
-                        </span>
+                            )}
+                            allocation={spark.disk_mb * 1048576}
+                            fresh
+                            compact
+                            detail="Game-data storage reserved by servers against this Spark's configured capacity."
+                          />
+                        </div>
                       </td>
-                    </tr>
+                    </TableRow>
                   );
                 })}
                 {!monitor.snapshot?.sparks?.length && (
                   <tr>
-                    <td colSpan={4}>
+                    <td colSpan={3}>
                       {monitor.loading
                         ? "Loading Sparks…"
                         : "No Sparks registered."}
@@ -262,12 +311,19 @@ export function DashboardPage() {
         </>
       )}
       <p className="list-summary">
-        Usage refreshes about every five seconds. CPU and memory readings older
-        than 15 seconds are stale; game-data scans refresh every 30 seconds.
+        Usage refreshes about every second. CPU and memory readings older than
+        15 seconds are stale; game-data scans refresh every 30 seconds.
         Game-data size excludes backups and container images. Filesystem quotas
         limit allocated game-data blocks; reported logical file sizes can
         differ.
       </p>
+      {details && (
+        <ResourceDetailsDialog
+          key={`${details.kind}:${details.id}`}
+          target={details}
+          onClose={() => setDetails(null)}
+        />
+      )}
     </section>
   );
 }

@@ -5,6 +5,7 @@ interface SparkReviewProps {
   description: string;
   disabled: boolean;
   settings: SparkSettings;
+  notice?: string;
 }
 
 export function SparkReview({
@@ -12,6 +13,7 @@ export function SparkReview({
   description,
   disabled,
   settings,
+  notice = "Review these settings before saving.",
 }: SparkReviewProps) {
   return (
     <div className="spark-review">
@@ -75,7 +77,7 @@ export function SparkReview({
           ))}
         </ul>
       )}
-      <p className="field-help">Review these settings before saving.</p>
+      {notice && <p className="field-help">{notice}</p>}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { saveRole, type Role } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
+import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 
 const serverPermissions = [
   ["server.view", "View the server and runtime status"],
@@ -14,10 +15,16 @@ export function RoleDialog({
   role,
   onClose,
   onSaved,
+  onDelete,
+  deleting,
+  deleteError,
 }: {
   role: Role | null;
   onClose: () => void;
   onSaved: (role: Role) => void;
+  onDelete?: (() => void) | undefined;
+  deleting: boolean;
+  deleteError: string | null;
 }) {
   const [name, setName] = useState(role?.name ?? "");
   const [scope, setScope] = useState<Role["scope"]>(role?.scope ?? "server");
@@ -55,17 +62,28 @@ export function RoleDialog({
     <Drawer
       title={role ? "Edit role" : "Create role"}
       description="Platform roles grant panel capabilities; server roles apply only to assigned servers."
-      busy={busy}
+      busy={busy || deleting}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
-          Cancel
-        </button>
+        <div className="row-actions">
+          <DrawerDeleteButton
+            onDelete={onDelete}
+            disabled={busy}
+            deleting={deleting}
+          />
+          <button
+            className="button"
+            disabled={busy || deleting}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </div>
       }
       footerRight={
         <button
           className="button button-primary"
-          disabled={busy || !name.trim()}
+          disabled={busy || deleting || !name.trim()}
           onClick={() => {
             void submit();
           }}
@@ -75,6 +93,11 @@ export function RoleDialog({
       }
     >
       <div className="drawer-content">
+        {deleteError && (
+          <p className="error-message" role="alert">
+            {deleteError}
+          </p>
+        )}
         {error && (
           <p className="error-message" role="alert">
             {error}

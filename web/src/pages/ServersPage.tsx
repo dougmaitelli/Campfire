@@ -14,13 +14,15 @@ import { useServerRuntime } from "../hooks/useServerRuntime";
 import { serverAction } from "../api/runtime";
 import type { ServerAction } from "../api/runtime";
 import "./management.css";
-import { Table } from "../components/table/Table";
+import { Table, TableRow } from "../components/table/Table";
+import { ResourceDetailsDialog } from "../dialogs/ResourceDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
+  const [details, setDetails] = useState<Server | null>(null);
   const auth = useAuthentication();
   const canApplyRevision =
     auth.session?.admin === true ||
@@ -114,6 +116,7 @@ export function ServersPage() {
     setActionError(null);
     try {
       await deleteServer(server.id);
+      setDetails(null);
       await servers.refresh();
     } catch (cause) {
       setActionError(
@@ -230,32 +233,38 @@ export function ServersPage() {
       )}
       {servers.items.length > 0 && (
         <div className="list-toolbar">
-          <input
-            type="search"
-            aria-label="Search servers"
-            placeholder="Search servers"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <select
-            aria-label="Filter by Spark"
-            value={sparkFilter}
-            onChange={(event) => setSparkFilter(event.target.value)}
-          >
-            <option value="">All Sparks</option>
-            {[
-              ...new Map(
-                servers.items.map((server) => [
-                  server.spark_id,
-                  server.spark_name,
-                ]),
-              ).entries(),
-            ].map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <label>
+            Search
+            <input
+              type="search"
+              aria-label="Search servers"
+              placeholder="Search servers"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          <label>
+            Spark
+            <select
+              aria-label="Filter by Spark"
+              value={sparkFilter}
+              onChange={(event) => setSparkFilter(event.target.value)}
+            >
+              <option value="">All Sparks</option>
+              {[
+                ...new Map(
+                  servers.items.map((server) => [
+                    server.spark_id,
+                    server.spark_name,
+                  ]),
+                ).entries(),
+              ].map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       )}
       <div className="management-content" aria-busy={loading}>
@@ -289,16 +298,23 @@ export function ServersPage() {
                 <th scope="col">Spark / Ember</th>
                 <th scope="col">Resources</th>
                 <th scope="col">Ports</th>
-                <th scope="col">
+                <th scope="col" className="table-actions">
                   <span className="visually-hidden">Actions</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {visible.map((server) => (
-                <tr key={server.id}>
+                <TableRow key={server.id} onOpen={() => setDetails(server)}>
                   <td>
-                    <strong>{server.name}</strong>
+                    <button
+                      type="button"
+                      className="table-row-trigger"
+                      onClick={() => setDetails(server)}
+                      aria-label={`View details for ${server.name}`}
+                    >
+                      {server.name}
+                    </button>
                     {server.description && (
                       <span className="row-description">
                         {server.description}
@@ -309,19 +325,14 @@ export function ServersPage() {
                   <td>
                     <ServerState
                       state={runtime.statuses[server.id]?.state ?? "unknown"}
+                      ready={runtime.statuses[server.id]?.ready ?? true}
                     />
-                    {runtime.statuses[server.id]?.state === "running" && (
-                      <span className="row-description">
-                        {runtime.statuses[server.id]?.ready
-                          ? "Ready"
-                          : "Waiting for readiness"}
-                      </span>
-                    )}
-                    {runtime.statuses[server.id]?.progress && (
-                      <span className="row-description">
-                        {runtime.statuses[server.id]?.progress}
-                      </span>
-                    )}
+                    {runtime.statuses[server.id]?.busy &&
+                      runtime.statuses[server.id]?.progress && (
+                        <span className="row-description">
+                          {runtime.statuses[server.id]?.progress}
+                        </span>
+                      )}
                     {runtime.statuses[server.id]?.error && (
                       <span className="runtime-error" role="status">
                         {runtime.statuses[server.id]?.error}
@@ -353,7 +364,7 @@ export function ServersPage() {
                       </span>
                     ))}
                   </td>
-                  <td>
+                  <td className="table-actions">
                     <div className="row-actions">
                       {server.permissions.includes("server.operate") && (
                         <ServerLifecycleControls
@@ -375,41 +386,6 @@ export function ServersPage() {
                           onFiles={() => setFilesServer(server)}
                           onBackups={() => setBackupsServer(server)}
                         />
-                      )}
-                      {server.permissions.includes("server.configure") && (
-                        <button
-                          className="button"
-                          disabled={
-                            loading ||
-                            deleting !== null ||
-                            runtime.statuses[server.id]?.busy === true ||
-                            !["stopped", "not_installed", "deleted"].includes(
-                              runtime.statuses[server.id]?.state ?? "unknown",
-                            )
-                          }
-                          onClick={() => {
-                            void edit(server);
-                          }}
-                          aria-label={`Edit ${server.name}`}
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {server.permissions.includes("server.delete") && (
-                        <button
-                          className="button"
-                          disabled={
-                            deleting !== null ||
-                            acting !== null ||
-                            runtime.statuses[server.id]?.busy === true
-                          }
-                          onClick={() => {
-                            void remove(server);
-                          }}
-                          aria-label={`Delete ${server.name}`}
-                        >
-                          {deleting === server.id ? "Deleting…" : "Delete"}
-                        </button>
                       )}
                       {server.permissions.includes("server.share") && (
                         <button
@@ -450,7 +426,7 @@ export function ServersPage() {
                       )}
                     </div>
                   </td>
-                </tr>
+                </TableRow>
               ))}
             </tbody>
           </Table>
@@ -522,6 +498,43 @@ export function ServersPage() {
         host filesystem with project quotas enabled before installing or
         starting servers.
       </p>
+      {details && (
+        <ResourceDetailsDialog
+          key={details.id}
+          target={{ kind: "server", id: details.id, name: details.name }}
+          onDelete={
+            details.permissions.includes("server.delete")
+              ? () => {
+                  void remove(details);
+                }
+              : undefined
+          }
+          deleteDisabled={
+            deleting !== null ||
+            acting !== null ||
+            runtime.statuses[details.id]?.busy === true
+          }
+          deleting={deleting === details.id}
+          actionError={actionError}
+          onClose={() => setDetails(null)}
+          onEdit={
+            details.permissions.includes("server.configure")
+              ? () => {
+                  setDetails(null);
+                  void edit(details);
+                }
+              : undefined
+          }
+          editDisabled={
+            loading ||
+            deleting !== null ||
+            runtime.statuses[details.id]?.busy === true ||
+            !["stopped", "not_installed", "deleted"].includes(
+              runtime.statuses[details.id]?.state ?? "unknown",
+            )
+          }
+        />
+      )}
     </section>
   );
 }

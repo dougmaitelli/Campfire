@@ -31,7 +31,7 @@ export interface Server extends ServerConfiguration {
   created_at: string;
 }
 
-function isServer(value: unknown): value is Server {
+export function isServer(value: unknown): value is Server {
   return (
     typeof value === "object" &&
     value !== null &&

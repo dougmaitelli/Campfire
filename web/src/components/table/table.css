@@ -34,6 +34,44 @@
   overflow-wrap: anywhere;
 }
 
+.data-table .table-actions {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table-actions .row-actions {
+  justify-content: flex-end;
+  width: max-content;
+  max-width: 32rem;
+  margin-left: auto;
+}
+
+.table-row-interactive {
+  cursor: pointer;
+}
+
+.table-row-interactive:focus-within {
+  background: var(--surface-hover);
+}
+
+.table-row-trigger {
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.table-row-trigger:hover {
+  color: var(--accent);
+}
+
 @media (max-width: 640px) {
   .data-table th,
   .data-table td {

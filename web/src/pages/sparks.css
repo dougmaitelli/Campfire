@@ -184,16 +184,6 @@
   overflow-wrap: anywhere;
 }
 
-.spark-status {
-  white-space: nowrap;
-}
-.spark-status.is-disabled {
-  color: var(--accent);
-  border-color: var(--accent-border);
-}
-.spark-status.is-connected {
-  color: #b5ce9c;
-}
 .drawer-form .checkbox-field {
   display: flex;
   align-items: center;

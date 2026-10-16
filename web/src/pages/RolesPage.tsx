@@ -37,6 +37,7 @@ export function RolesPage() {
     setError(null);
     try {
       await deleteRole(role.id);
+      setOpen(false);
       await roles.refresh();
     } catch (cause) {
       setError(
@@ -88,7 +89,7 @@ export function RolesPage() {
               <th>Role</th>
               <th>Scope</th>
               <th>Permissions</th>
-              <th>Actions</th>
+              <th className="table-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -111,7 +112,7 @@ export function RolesPage() {
                         .join(", ")
                     : "Access through server ownership or membership"}
                 </td>
-                <td>
+                <td className="table-actions">
                   {!role.builtin && (
                     <div className="row-actions">
                       <button
@@ -123,15 +124,6 @@ export function RolesPage() {
                         }}
                       >
                         Edit
-                      </button>
-                      <button
-                        className="button"
-                        disabled={busy}
-                        onClick={() => {
-                          void remove(role);
-                        }}
-                      >
-                        Delete
                       </button>
                     </div>
                   )}
@@ -147,6 +139,15 @@ export function RolesPage() {
           role={editing}
           onClose={() => setOpen(false)}
           onSaved={roles.upsert}
+          onDelete={
+            editing && !editing.builtin
+              ? () => {
+                  void remove(editing);
+                }
+              : undefined
+          }
+          deleting={busy}
+          deleteError={error}
         />
       )}
     </section>

@@ -3,14 +3,24 @@ import { deleteUser, listRoles, listUsers, type User } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { UserDialog } from "../dialogs/UserDialog";
+import { UserDetailsDialog } from "../dialogs/UserDetailsDialog";
+import { StatusPill } from "../components/status/StatusPill";
 import "./management.css";
-import { Table } from "../components/table/Table";
+import { Table, TableRow } from "../components/table/Table";
 
 export function UsersPage() {
   const users = useCollection(listUsers);
   const roles = useCollection(listRoles);
   const auth = useAuthentication();
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const filtered = users.items.filter((user) =>
+    [user.name, user.username].some((value) =>
+      value.toLowerCase().includes(query),
+    ),
+  );
   const [editing, setEditing] = useState<User | null>(null);
+  const [details, setDetails] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +36,7 @@ export function UsersPage() {
     setError(null);
     try {
       await deleteUser(user.id);
+      setDetails(null);
       await users.refresh();
       if (user.id === auth.session?.user_id) await auth.reload();
     } catch (cause) {
@@ -72,6 +83,17 @@ export function UsersPage() {
           {error ?? users.error ?? roles.error}
         </p>
       )}
+      <div className="list-toolbar">
+        <label>
+          Search
+          <input
+            type="search"
+            placeholder="Search users by name or username…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+      </div>
       <div className="management-content">
         <Table>
           <caption className="visually-hidden">Panel users</caption>
@@ -80,48 +102,40 @@ export function UsersPage() {
               <th>User</th>
               <th>Platform role</th>
               <th>Status</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users.items.map((user) => (
-              <tr key={user.id}>
+            {filtered.map((user) => (
+              <TableRow key={user.id} onOpen={() => setDetails(user)}>
                 <td>
-                  <strong>{user.name || user.username}</strong>
+                  <button
+                    type="button"
+                    className="table-row-trigger"
+                    onClick={() => setDetails(user)}
+                    aria-label={`View details for ${user.name || user.username}`}
+                  >
+                    {user.name || user.username}
+                    {user.id === auth.session?.user_id && " (you)"}
+                  </button>
                   {user.name && (
                     <span className="row-description">{user.username}</span>
                   )}
-                  {user.id === auth.session?.user_id && (
-                    <span className="row-description">You</span>
-                  )}
                 </td>
                 <td>{user.role.name}</td>
-                <td>{user.disabled ? "Disabled" : "Enabled"}</td>
                 <td>
-                  <div className="row-actions">
-                    <button
-                      className="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setEditing(user);
-                        setOpen(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="button"
-                      disabled={busy}
-                      onClick={() => {
-                        void remove(user);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  <StatusPill tone={user.disabled ? "neutral" : "positive"}>
+                    {user.disabled ? "Disabled" : "Enabled"}
+                  </StatusPill>
+                </td>
+              </TableRow>
+            ))}
+            {!users.loading && !users.error && filtered.length === 0 && (
+              <tr>
+                <td colSpan={3}>
+                  {query ? "No users match your search." : "No users yet."}
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </Table>
       </div>
@@ -138,6 +152,22 @@ export function UsersPage() {
           onSaved={(user) => {
             users.upsert(user);
             if (user.id === auth.session?.user_id) void auth.reload();
+          }}
+        />
+      )}
+      {details && (
+        <UserDetailsDialog
+          user={details}
+          onDelete={() => {
+            void remove(details);
+          }}
+          busy={busy}
+          error={error}
+          onClose={() => setDetails(null)}
+          onEdit={() => {
+            setDetails(null);
+            setEditing(details);
+            setOpen(true);
           }}
         />
       )}

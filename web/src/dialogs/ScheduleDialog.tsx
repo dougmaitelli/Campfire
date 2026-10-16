@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import type { Server } from "../api/servers";
-import { saveSchedule, type Schedule } from "../api/activity";
+import { deleteSchedule, saveSchedule, type Schedule } from "../api/activity";
 import { Drawer } from "../components/layout/Drawer";
+import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 
 function localTime(timestamp: number) {
   const date = new Date(timestamp * 1000);
@@ -34,6 +35,34 @@ export function ScheduleDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
+  const [deleting, setDeleting] = useState(false);
+  async function remove() {
+    if (
+      !schedule ||
+      pending.current ||
+      !window.confirm(
+        `Delete schedule "${schedule.name}"? History will be retained.`,
+      )
+    )
+      return;
+    pending.current = true;
+    setDeleting(true);
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteSchedule(schedule.id);
+      onSaved();
+      onClose();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to delete schedule.",
+      );
+    } finally {
+      pending.current = false;
+      setDeleting(false);
+      setBusy(false);
+    }
+  }
   async function submit() {
     if (pending.current) return;
     pending.current = true;
@@ -70,9 +99,22 @@ export function ScheduleDialog({
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
-          Cancel
-        </button>
+        <div className="row-actions">
+          <DrawerDeleteButton
+            onDelete={
+              schedule
+                ? () => {
+                    void remove();
+                  }
+                : undefined
+            }
+            disabled={busy}
+            deleting={deleting}
+          />
+          <button className="button" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
+        </div>
       }
       footerRight={
         <button
@@ -93,7 +135,7 @@ export function ScheduleDialog({
             void submit();
           }}
         >
-          {busy ? "Saving…" : "Save schedule"}
+          {busy && !deleting ? "Saving…" : "Save schedule"}
         </button>
       }
     >

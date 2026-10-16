@@ -7,7 +7,7 @@ import {
 import "./resource-readings.css";
 import { ResourceMeter } from "../metrics/ResourceMeter";
 
-function Reading({
+export function ResourceReading({
   label,
   value,
   allocation,
@@ -38,8 +38,8 @@ function Reading({
         {measured ? format(value) : "-"}
         <span className="usage-allocation">
           {measured ? " / " : "/"}
-          {format(allocation)}
-          {compact ? "" : " allocated"}
+          {allocation > 0 ? format(allocation) : "No limit"}
+          {compact || allocation <= 0 ? "" : " allocated"}
         </span>
         {measured && !fresh && <span className="usage-age"> · stale</span>}
       </span>
@@ -72,7 +72,7 @@ export function ResourceReadings({
     <div
       className={`resource-readings${layout === "grid" ? " resource-readings-grid" : ""}`}
     >
-      <Reading
+      <ResourceReading
         label="CPU"
         compact={layout === "grid"}
         value={cpu === undefined || cpu === null ? null : cpu / 100}
@@ -86,7 +86,7 @@ export function ResourceReadings({
               : "Measured CPU use; one fully used core is 100%."
         }
       />
-      <Reading
+      <ResourceReading
         label="Memory"
         compact={layout === "grid"}
         value={usage?.memory_bytes ?? null}
@@ -98,7 +98,7 @@ export function ResourceReadings({
             : "Container memory use, excluding reclaimable file cache."
         }
       />
-      <Reading
+      <ResourceReading
         label="Game data"
         compact={layout === "grid"}
         value={usage?.disk_bytes ?? null}

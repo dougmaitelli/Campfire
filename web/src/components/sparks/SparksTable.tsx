@@ -1,5 +1,6 @@
 import type { Spark } from "../../api/sparks";
-import { Table } from "../table/Table";
+import { Table, TableRow } from "../table/Table";
+import { SparkConnectionState } from "./SparkConnectionState";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -23,18 +24,14 @@ const featureLabels: Record<string, string> = {
 
 export function SparksTable({
   sparks,
-  onEdit,
+  onDetails,
   onEnroll,
   onProvisioning,
-  onDelete,
-  deleting,
 }: {
   sparks: Spark[];
-  onEdit: (spark: Spark) => void;
+  onDetails: (spark: Spark) => void;
   onEnroll: (spark: Spark) => void;
   onProvisioning: (spark: Spark) => void;
-  onDelete: (spark: Spark) => void;
-  deleting: string | null;
 }) {
   return (
     <Table className="sparks-table">
@@ -46,31 +43,33 @@ export function SparksTable({
           <th scope="col">Limits</th>
           <th scope="col">Game networking</th>
           <th scope="col">Added</th>
-          <th scope="col">
+          <th scope="col" className="table-actions">
             <span className="visually-hidden">Actions</span>
           </th>
         </tr>
       </thead>
       <tbody>
         {sparks.map((spark) => (
-          <tr key={spark.id}>
+          <TableRow key={spark.id} onOpen={() => onDetails(spark)}>
             <td>
-              <span className="spark-name">{spark.name}</span>
+              <button
+                type="button"
+                className="table-row-trigger spark-name"
+                onClick={() => onDetails(spark)}
+                aria-label={`View details for ${spark.name}`}
+              >
+                {spark.name}
+              </button>
               {spark.description && (
                 <span className="spark-description">{spark.description}</span>
               )}
               <span className="spark-id">{spark.id}</span>
             </td>
             <td>
-              <span
-                className={`type-badge spark-status ${spark.disabled ? "is-disabled" : spark.connected ? "is-connected" : ""}`}
-              >
-                {spark.disabled
-                  ? "Disabled"
-                  : spark.connected
-                    ? "Connected"
-                    : "Disconnected"}
-              </span>
+              <SparkConnectionState
+                disabled={spark.disabled}
+                connected={spark.connected}
+              />
               {spark.connected && (
                 <details>
                   <summary>
@@ -125,7 +124,7 @@ export function SparksTable({
                 {dateFormat.format(new Date(spark.created_at))}
               </time>
             </td>
-            <td>
+            <td className="table-actions">
               <div className="row-actions">
                 <button
                   className="button"
@@ -133,13 +132,6 @@ export function SparksTable({
                   aria-label={`Provisioning access for ${spark.name}`}
                 >
                   Provisioning
-                </button>
-                <button
-                  className="button"
-                  onClick={() => onEdit(spark)}
-                  aria-label={`Edit ${spark.name}`}
-                >
-                  Edit
                 </button>
                 <button
                   type="button"
@@ -150,17 +142,9 @@ export function SparksTable({
                 >
                   Enroll
                 </button>
-                <button
-                  className="button"
-                  disabled={deleting !== null}
-                  onClick={() => onDelete(spark)}
-                  aria-label={`Remove ${spark.name}`}
-                >
-                  {deleting === spark.id ? "Removing…" : "Remove"}
-                </button>
               </div>
             </td>
-          </tr>
+          </TableRow>
         ))}
       </tbody>
     </Table>

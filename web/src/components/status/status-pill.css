@@ -1,4 +1,4 @@
-.server-state {
+.status-pill {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -12,7 +12,7 @@
   white-space: nowrap;
 }
 
-.server-state::before {
+.status-pill::before {
   content: "";
   width: 6px;
   height: 6px;
@@ -21,19 +21,19 @@
   background: currentColor;
 }
 
-.server-state-positive {
+.status-pill-positive {
   border-color: #3d5235;
   background: #263220;
   color: #b5ce9c;
 }
 
-.server-state-negative {
+.status-pill-negative {
   border-color: #704938;
   background: #30221c;
   color: #f3a294;
 }
 
-.server-state-pending {
+.status-pill-pending {
   border-color: var(--accent-border);
   background: var(--accent-subtle);
   color: var(--accent);
