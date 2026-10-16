@@ -1,0 +1,158 @@
+.account-menu {
+  position: relative;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.account-summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.account-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.account-avatar {
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid var(--accent-border);
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-identity strong,
+.account-identity small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-identity strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-identity small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.account-trigger > svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.account-trigger[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+
+.account-logout {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #f3a294;
+  cursor: pointer;
+}
+
+.account-logout svg,
+.account-dropdown svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.account-trigger:hover:not(:disabled),
+.account-logout:hover:not(:disabled),
+.account-dropdown button:hover {
+  background: var(--surface-hover);
+}
+
+.account-trigger:disabled,
+.account-logout:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.account-dropdown {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+}
+
+.account-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-error {
+  color: #f3a294;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .sidebar-footer.account-menu {
+    display: block;
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  .account-dropdown {
+    left: auto;
+    width: min(280px, 100%);
+  }
+}

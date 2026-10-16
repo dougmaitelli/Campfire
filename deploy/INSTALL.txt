@@ -31,7 +31,8 @@ indexes and migrations automatically; the account must own its schema and have
 permission to create and alter those objects. No PostgreSQL extensions are needed.
 PostgreSQL 17 is covered by integration tests in CI.
 
-The first deployment uses database schema 1, containing all current features.
+The panel uses database schema 2, adding user display names and profile pictures.
+Existing schema 1 databases are upgraded automatically on startup.
 Earlier development schemas are not supported; recreate development databases
 before using this baseline. Future deployed schema changes require new migrations.
 
@@ -744,7 +745,7 @@ health endpoint, login and node connections. Use a stopped Spark and preserve
 its state when upgrading its binary. Detached games continue across ordinary
 agent disconnects; wait for lifecycle/file/backup work to finish before stopping
 an agent. Breaking wire protocol changes require compatible panel and Spark
-versions. The panel uses schema 1 and currently supports wire format 7. Update
+versions. The panel uses schema 2 and currently supports wire format 7. Update
 either component independently while their wire-version ranges overlap and
 their shared capabilities cover the features you use. A missing optional
 capability blocks that feature; a disjoint wire range blocks the connection.

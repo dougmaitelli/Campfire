@@ -135,12 +135,22 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 1 {
-			return fmt.Errorf("database schema version %d is newer than supported version 1", version)
+		if version > 2 {
+			return fmt.Errorf("database schema version %d is newer than supported version 2", version)
+		}
+
+		if version == 2 {
+			return nil
 		}
 
 		if version == 1 {
-			return nil
+			for _, field := range []string{"Name", "Picture"} {
+				if err := tx.Migrator().AddColumn(&User{}, field); err != nil {
+					return fmt.Errorf("add user profile field %s: %w", field, err)
+				}
+			}
+
+			return tx.Create(&schemaMigration{Version: 2}).Error
 		}
 
 		if err := tx.AutoMigrate(
@@ -157,7 +167,7 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("seed built-in roles: %w", err)
 		}
 
-		if err := tx.Create(&schemaMigration{Version: 1}).Error; err != nil {
+		if err := tx.Create(&schemaMigration{Version: 2}).Error; err != nil {
 			return fmt.Errorf("record initial migration: %w", err)
 		}
 

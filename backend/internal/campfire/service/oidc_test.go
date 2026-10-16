@@ -173,7 +173,7 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cookie, state := p.flow(t, provider, 0, "regular-subject", nil)
+	cookie, state := p.flow(t, provider, 0, "regular-subject", map[string]any{"name": "OIDC User", "picture": "https://example.com/avatar.png"})
 
 	session, raw, err := provider.Complete(ctx, cookie, state, "valid")
 	if err != nil {
@@ -182,6 +182,10 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 
 	if session.User.RoleID != database.UserRole || session.UserID == 1 || session.User.PasswordHash != "" || !strings.HasPrefix(session.User.Username, "admin-") || session.Provider != config.Issuer {
 		t.Fatal("OIDC claims selected or elevated an existing account", session.UserID, session.User.RoleID)
+	}
+
+	if session.User.Name != "OIDC User" || session.User.Picture != "https://example.com/avatar.png" {
+		t.Fatal("OIDC profile was not saved", session.User)
 	}
 
 	if _, _, err := provider.Complete(ctx, cookie, state, "valid"); !errors.Is(err, ErrAuthentication) {
@@ -193,6 +197,10 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 	repeated, _, err := provider.Complete(ctx, cookie, state, "valid")
 	if err != nil || repeated.UserID != session.UserID {
 		t.Fatal("subject did not retain account", err)
+	}
+
+	if repeated.User.Name != session.User.Name || repeated.User.Picture != session.User.Picture {
+		t.Fatal("missing claims cleared the saved profile", repeated.User)
 	}
 
 	config.DisableLocal = true
@@ -279,7 +287,7 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := auth.Access().UpdateUser(ctx, 1, database.UserRole, false, ""); !errors.Is(err, repository.ErrLastAdmin) {
+	if _, err := auth.Access().UpdateUser(ctx, 1, database.UserRole, false, "", nil); !errors.Is(err, repository.ErrLastAdmin) {
 		t.Fatal("last OIDC admin could be demoted", err)
 	}
 
@@ -287,7 +295,7 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 		t.Fatal("last OIDC admin could be deleted", err)
 	}
 
-	if _, err := auth.Access().UpdateUser(ctx, session.UserID, database.UserRole, true, ""); err != nil {
+	if _, err := auth.Access().UpdateUser(ctx, session.UserID, database.UserRole, true, "", nil); err != nil {
 		t.Fatal(err)
 	}
 

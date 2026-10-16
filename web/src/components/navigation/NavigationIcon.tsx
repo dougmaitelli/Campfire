@@ -1,6 +1,13 @@
 import type { NavigationIcon as IconName } from "../../routing/navigation";
 
-const paths: Record<IconName | "campfire", string> = {
+type NavigationIconName =
+  IconName | "campfire" | "logout" | "chevron" | "key" | "link";
+
+const paths: Record<NavigationIconName, string> = {
+  logout: "M10 17l5-5-5-5 M15 12H3 M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4",
+  chevron: "m9 14 3-3 3 3",
+  key: "M15 7a4 4 0 1 1-2 7L5 22H2v-3l8-8a4 4 0 0 1 5-4Z M17 10h.01",
+  link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
   notifications: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
   audit: "M5 3h14v18H5z M8 7h8 M8 11h8 M8 15h5",
   users:
@@ -17,7 +24,7 @@ const paths: Record<IconName | "campfire", string> = {
     "M12 2c1 4 6 6 6 10a6 6 0 0 1-12 0c0-2 1-4 3-6 0 3 2 4 3 4 1-2 1-5 0-8Z M4 19l16 3 M20 19 4 22",
 };
 
-export function NavigationIcon({ name }: { name: IconName | "campfire" }) {
+export function NavigationIcon({ name }: { name: NavigationIconName }) {
   return (
     <svg
       viewBox="0 0 24 24"

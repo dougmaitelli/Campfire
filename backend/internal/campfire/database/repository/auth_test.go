@@ -155,7 +155,7 @@ func TestConcurrentAdminDemotionKeepsOneEnabledAdministrator(t *testing.T) {
 			id = other.ID
 		}
 
-		go func() { defer workers.Done(); results <- access.UpdateUser(ctx, id, database.UserRole, false, "") }()
+		go func() { defer workers.Done(); results <- access.UpdateUser(ctx, id, database.UserRole, false, "", nil) }()
 	}
 
 	workers.Wait()

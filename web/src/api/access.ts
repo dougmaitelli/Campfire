@@ -13,6 +13,7 @@ export interface Role {
 export interface User {
   id: number;
   username: string;
+  name: string;
   role_id: number;
   role: { id: number; name: string; scope: "platform" | "server" };
   disabled: boolean;
@@ -20,6 +21,7 @@ export interface User {
 }
 
 export interface UserInput {
+  name: string;
   username: string;
   password: string;
   role_id: number;
@@ -64,6 +66,7 @@ function isUser(value: unknown): value is User {
     object(value) &&
     id(value.id) &&
     typeof value.username === "string" &&
+    typeof value.name === "string" &&
     id(value.role_id) &&
     object(value.role) &&
     id(value.role.id) &&
@@ -124,6 +127,7 @@ export async function saveUser(
     userID ? "PUT" : "POST",
     userID
       ? {
+          name: input.name,
           password: input.password,
           role_id: input.role_id,
           disabled: input.disabled,

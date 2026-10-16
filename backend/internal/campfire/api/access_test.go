@@ -125,6 +125,51 @@ func expectAccess(t *testing.T, handler http.Handler, method, path, body string,
 	}
 }
 
+func TestUserDisplayNames(t *testing.T) {
+	f := newAccessFixture(t)
+	user, regular := f.user("named-user", database.UserRole)
+	path := fmt.Sprintf("/api/v1/users/%d", user.ID)
+
+	for _, name := range []string{"  Jane Doe  ", ""} {
+		body := fmt.Sprintf(`{"name":%q,"role_id":%d}`, name, database.UserRole)
+		expectAccess(t, f.admin, "PUT", path, body, http.StatusOK)
+
+		response := request(regular, "GET", "/api/v1/auth/session", "")
+		if response.Code != http.StatusOK {
+			t.Fatal("name edit revoked the session", response.Code)
+		}
+
+		var state struct {
+			Name     string `json:"name"`
+			Username string `json:"username"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &state); err != nil {
+			t.Fatal(err)
+		}
+
+		if state.Name != strings.TrimSpace(name) || state.Username != user.Username {
+			t.Fatal("session did not expose the updated name", state)
+		}
+	}
+
+	for _, name := range []string{strings.Repeat("x", 101), "bad\nname"} {
+		body := fmt.Sprintf(`{"name":%q,"role_id":%d}`, name, database.UserRole)
+		expectAccess(t, f.admin, "PUT", path, body, http.StatusBadRequest)
+	}
+
+	body := fmt.Sprintf(`{"username":"with-name","name":"John Smith","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
+
+	response := request(f.admin, "POST", "/api/v1/users", body)
+	if response.Code != http.StatusCreated {
+		t.Fatal(response.Code, response.Body)
+	}
+
+	var created database.User
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil || created.Name != "John Smith" {
+		t.Fatal("name not persisted on creation", created, err)
+	}
+}
+
 func TestSparkTransferRequiresPlatformPermissions(t *testing.T) {
 	fixture := newAccessFixture(t)
 

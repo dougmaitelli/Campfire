@@ -12,7 +12,7 @@ import (
 
 // OIDCAccount finds or provisions an identity, or links it to an authenticated account.
 // Names and email claims never select an existing account.
-func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, username string, linkID, version int64, linkHash string) (database.User, error) {
+func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, username string, linkID, version int64, linkHash, name, picture string) (database.User, error) {
 	var user database.User
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -72,6 +72,22 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 
 		if user.Disabled || linkID != 0 && user.Version != version {
 			return ErrAuthentication
+		}
+
+		updates := map[string]any{}
+
+		if user.Name == "" && name != "" {
+			user.Name = name
+			updates["name"] = name
+		}
+
+		if picture != "" {
+			user.Picture = picture
+			updates["picture"] = picture
+		}
+
+		if len(updates) > 0 {
+			return tx.Model(&user).Updates(updates).Error
 		}
 
 		return nil

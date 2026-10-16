@@ -77,7 +77,7 @@ export function UsersPage() {
             <caption className="visually-hidden">Panel users</caption>
             <thead>
               <tr>
-                <th>Username</th>
+                <th>User</th>
                 <th>Platform role</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -87,7 +87,10 @@ export function UsersPage() {
               {users.items.map((user) => (
                 <tr key={user.id}>
                   <td>
-                    <strong>{user.username}</strong>
+                    <strong>{user.name || user.username}</strong>
+                    {user.name && (
+                      <span className="row-description">{user.username}</span>
+                    )}
                     {user.id === auth.session?.user_id && (
                       <span className="row-description">You</span>
                     )}

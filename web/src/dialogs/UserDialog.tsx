@@ -14,6 +14,7 @@ export function UserDialog({
   onSaved: (user: User) => void;
 }) {
   const [username, setUsername] = useState(user?.username ?? "");
+  const [name, setName] = useState(user?.name ?? "");
   const [password, setPassword] = useState("");
   const [roleID, setRoleID] = useState(user?.role_id ?? 3);
   const [disabled, setDisabled] = useState(user?.disabled ?? false);
@@ -32,7 +33,7 @@ export function UserDialog({
     try {
       onSaved(
         await saveUser(
-          { username, password, role_id: roleID, disabled },
+          { username, name, password, role_id: roleID, disabled },
           user?.id,
         ),
       );
@@ -73,6 +74,17 @@ export function UserDialog({
             {error}
           </p>
         )}
+        <label htmlFor="user-display-name">Name (optional)</label>
+        <input
+          id="user-display-name"
+          value={name}
+          maxLength={100}
+          autoComplete="name"
+          onChange={(event) => setName(event.target.value)}
+        />
+        <p className="field-help">
+          Shown in the account menu. Defaults to the username.
+        </p>
         <label htmlFor="user-name">Username</label>
         <input
           id="user-name"
@@ -94,8 +106,8 @@ export function UserDialog({
           onChange={(event) => setPassword(event.target.value)}
         />
         <p className="field-help">
-          At least 15 characters. Account changes revoke this user's existing
-          sessions.
+          At least 15 characters. Password, role, and access changes revoke this
+          user's existing sessions.
         </p>
         <label htmlFor="user-role">Platform role</label>
         <select

@@ -18,7 +18,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (2)").Error; err != nil {
+	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (3)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -33,8 +33,57 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal("opened unsupported future schema")
 	}
 
-	if !strings.Contains(err.Error(), "newer than supported version 1") {
+	if !strings.Contains(err.Error(), "newer than supported version 2") {
 		t.Fatal("wrong schema version error", err)
+	}
+}
+
+func TestUserProfileMigrationPreservesAccounts(t *testing.T) {
+	ctx := t.Context()
+	path := filepath.Join(t.TempDir(), "panel.db")
+
+	db, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user := database.User{Username: "existing", PasswordHash: "preserved", Version: 4, RoleID: database.AdminRole}
+	if err := db.ORM().Omit("Role").Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// Recreate the deployed v1 shape before opening it with the new binary.
+	for _, field := range []string{"Name", "Picture"} {
+		if err := db.ORM().Migrator().DropColumn(&database.User{}, field); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := db.ORM().Exec("UPDATE schema_migrations SET version = 1").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := database.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	var loaded database.User
+	if err := reopened.ORM().Take(&loaded, user.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if loaded.Username != user.Username || loaded.PasswordHash != user.PasswordHash || loaded.Version != user.Version || loaded.RoleID != user.RoleID || loaded.Name != "" || loaded.Picture != "" {
+		t.Fatal("profile migration changed existing account", loaded)
+	}
+
+	if err := reopened.ORM().Model(&loaded).Updates(map[string]any{"name": "Existing Admin", "picture": "https://example.com/avatar.png"}).Error; err != nil {
+		t.Fatal("new profile columns are not writable", err)
 	}
 }
 
@@ -95,7 +144,7 @@ func TestInitialSchemaAndReopen(t *testing.T) {
 	defer func() { _ = reopened.Close() }()
 
 	var versions []int
-	if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 1 {
+	if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 2 {
 		t.Fatal("expected exactly one baseline migration", versions, err)
 	}
 

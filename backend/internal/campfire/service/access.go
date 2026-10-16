@@ -18,6 +18,8 @@ type Principal struct {
 	CredentialVersion int64    `json:"-"`
 	UserID            int64    `json:"user_id"`
 	Username          string   `json:"username"`
+	Name              string   `json:"name"`
+	Picture           string   `json:"picture"`
 	RoleID            int64    `json:"role_id"`
 	Role              string   `json:"role"`
 	Admin             bool     `json:"admin"`
@@ -35,7 +37,7 @@ type RoleView struct {
 
 // PrincipalFromSession uses the account and permission set freshly loaded during authentication.
 func PrincipalFromSession(session database.UserSession) Principal {
-	return Principal{UserID: session.UserID, Username: session.User.Username, RoleID: session.User.RoleID, Role: session.User.Role.Name, Admin: session.User.RoleID == database.AdminRole, Permissions: roleActions(session.User.Role), CredentialVersion: session.User.Version}
+	return Principal{UserID: session.UserID, Username: session.User.Username, Name: session.User.Name, Picture: session.User.Picture, RoleID: session.User.RoleID, Role: session.User.Role.Name, Admin: session.User.RoleID == database.AdminRole, Permissions: roleActions(session.User.Role), CredentialVersion: session.User.Version}
 }
 
 // Allows checks a platform action against the user's permissions and token scopes.
@@ -157,7 +159,12 @@ func (s *AccessService) Users(ctx context.Context) ([]database.User, error) {
 }
 
 // CreateUser validates and hashes a new account password.
-func (s *AccessService) CreateUser(ctx context.Context, username, password string, roleID int64, disabled bool) (database.User, error) {
+func (s *AccessService) CreateUser(ctx context.Context, username, password string, roleID int64, disabled bool, name string) (database.User, error) {
+	name = strings.TrimSpace(name)
+	if !validDisplayName(name) {
+		return database.User{}, repository.ErrAccessInput
+	}
+
 	username = strings.ToLower(strings.TrimSpace(username))
 	if !validAccountInput(username, password) {
 		return database.User{}, ErrAuthInput
@@ -174,7 +181,7 @@ func (s *AccessService) CreateUser(ctx context.Context, username, password strin
 		return database.User{}, err
 	}
 
-	user := database.User{Username: username, PasswordHash: encoded, Version: 1, RoleID: roleID, Disabled: disabled}
+	user := database.User{Username: username, Name: name, PasswordHash: encoded, Version: 1, RoleID: roleID, Disabled: disabled}
 	if err := s.store.CreateUser(ctx, &user); err != nil {
 		return database.User{}, err
 	}
@@ -183,7 +190,16 @@ func (s *AccessService) CreateUser(ctx context.Context, username, password strin
 }
 
 // UpdateUser changes account privileges and revokes that user's sessions.
-func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabled bool, password string) (database.User, error) {
+func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabled bool, password string, name *string) (database.User, error) {
+	if name != nil {
+		trimmed := strings.TrimSpace(*name)
+		if !validDisplayName(trimmed) {
+			return database.User{}, repository.ErrAccessInput
+		}
+
+		name = &trimmed
+	}
+
 	encoded := ""
 
 	if password != "" {
@@ -203,11 +219,15 @@ func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabl
 		}
 	}
 
-	if err := s.store.UpdateUser(ctx, id, roleID, disabled, encoded); err != nil {
+	if err := s.store.UpdateUser(ctx, id, roleID, disabled, encoded, name); err != nil {
 		return database.User{}, err
 	}
 
 	return s.store.User(ctx, id)
+}
+
+func validDisplayName(name string) bool {
+	return utf8.ValidString(name) && utf8.RuneCountInString(name) <= 100 && !strings.ContainsFunc(name, unicode.IsControl)
 }
 
 // DeleteUser cannot remove accounts that still own servers or the last active administrator.

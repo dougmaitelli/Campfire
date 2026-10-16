@@ -6,6 +6,8 @@ export interface AuthState {
   local_login?: boolean;
   oidc_enabled?: boolean;
   username?: string;
+  name?: string;
+  picture?: string;
   user_id?: number;
   role_id?: number;
   role?: string;
@@ -33,6 +35,8 @@ function isAuthState(value: unknown): value is AuthState {
     typeof value.local_login === "boolean" &&
     "oidc_enabled" in value &&
     typeof value.oidc_enabled === "boolean" &&
+    (!("name" in value) || typeof value.name === "string") &&
+    (!("picture" in value) || typeof value.picture === "string") &&
     (!value.authenticated ||
       ("username" in value &&
         typeof value.username === "string" &&

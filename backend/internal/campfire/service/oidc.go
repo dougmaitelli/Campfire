@@ -197,6 +197,8 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 	var claims struct {
 		AuthorizedParty string `json:"azp"`
 		Username        string `json:"preferred_username"`
+		Name            string `json:"name"`
+		Picture         string `json:"picture"`
 	}
 	if err := id.Claims(&claims); err != nil || claims.AuthorizedParty != "" && claims.AuthorizedParty != s.oauth.ClientID || len(id.Audience) > 1 && claims.AuthorizedParty != s.oauth.ClientID {
 		return database.UserSession{}, "", ErrAuthentication
@@ -219,7 +221,17 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		name = "oidc"
 	}
 
-	user, err := s.auth.store.OIDCAccount(ctx, s.issuer, id.Subject, name+"-"+tokenHash(authToken())[:12], attempt.userID, attempt.version, attempt.sessionHash)
+	displayName := strings.TrimSpace(claims.Name)
+	if !validDisplayName(displayName) {
+		displayName = ""
+	}
+
+	picture := ""
+	if parsed, err := url.Parse(claims.Picture); err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && len(claims.Picture) <= 2048 {
+		picture = claims.Picture
+	}
+
+	user, err := s.auth.store.OIDCAccount(ctx, s.issuer, id.Subject, name+"-"+tokenHash(authToken())[:12], attempt.userID, attempt.version, attempt.sessionHash, displayName, picture)
 	if err != nil {
 		return database.UserSession{}, "", err
 	}
