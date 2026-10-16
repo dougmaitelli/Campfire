@@ -39,6 +39,7 @@ WORKDIR /var/lib/campfire
 ENV CAMPFIRE_DATABASE=/var/lib/campfire/panel.db \
     CAMPFIRE_DATA=/var/lib/campfire \
     CAMPFIRE_LISTEN=0.0.0.0:8080
+VOLUME ["/var/lib/campfire"]
 EXPOSE 8080 8443
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
