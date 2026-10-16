@@ -5,11 +5,9 @@ import { useState } from "react";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { linkOIDC } from "../../api/auth";
 import { APITokensDialog } from "../../dialogs/APITokensDialog";
-import { useNotifications } from "../../hooks/useNotifications";
 
 export function Sidebar({ page }: { page: NavigationItem }) {
   const auth = useAuthentication();
-  const inbox = useNotifications();
   const [busy, setBusy] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +38,11 @@ export function Sidebar({ page }: { page: NavigationItem }) {
         {navigation
           .filter(
             (item) =>
-              auth.session?.admin === true ||
-              item.id === "servers" ||
-              item.id === "dashboard" ||
-              item.id === "schedules" ||
-              item.id === "notifications",
+              item.id !== "notifications" &&
+              (auth.session?.admin === true ||
+                item.id === "servers" ||
+                item.id === "dashboard" ||
+                item.id === "schedules"),
           )
           .map((item) => (
             <a
@@ -55,16 +53,6 @@ export function Sidebar({ page }: { page: NavigationItem }) {
             >
               <NavigationIcon name={item.icon} />
               <span>{item.label}</span>
-              {item.id === "notifications" &&
-                inbox.unread !== null &&
-                inbox.unread > 0 && (
-                  <span
-                    className="type-badge"
-                    aria-label={`${inbox.unread} unread notifications`}
-                  >
-                    {inbox.unread > 99 ? "99+" : inbox.unread}
-                  </span>
-                )}
             </a>
           ))}
       </nav>

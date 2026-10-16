@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { NavigationItem } from "../../routing/navigation";
 import { Sidebar } from "../navigation/Sidebar";
+import { NavigationIcon } from "../navigation/NavigationIcon";
+import { useNotifications } from "../../hooks/useNotifications";
 import "./dashboard.css";
 
 interface DashboardLayoutProps {
@@ -9,6 +11,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ page, children }: DashboardLayoutProps) {
+  const inbox = useNotifications();
   return (
     <div className="dashboard-layout">
       <a className="skip-link" href="#main-content">
@@ -16,6 +19,26 @@ export function DashboardLayout({ page, children }: DashboardLayoutProps) {
       </a>
       <Sidebar page={page} />
       <main id="main-content" className="main-content" tabIndex={-1}>
+        <div className="app-toolbar">
+          <a
+            className="notification-link"
+            href="#notifications"
+            aria-label={
+              inbox.unread === null
+                ? "Notifications"
+                : `Notifications, ${inbox.unread} unread`
+            }
+            aria-current={page.id === "notifications" ? "page" : undefined}
+            title="Notifications"
+          >
+            <NavigationIcon name="notifications" />
+            {inbox.unread !== null && inbox.unread > 0 && (
+              <span className="notification-count" aria-hidden="true">
+                {inbox.unread > 99 ? "99+" : inbox.unread}
+              </span>
+            )}
+          </a>
+        </div>
         {children}
       </main>
     </div>

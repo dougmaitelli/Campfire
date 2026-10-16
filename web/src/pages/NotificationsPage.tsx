@@ -3,32 +3,23 @@ import {
   listNotifications,
   markNotificationRead,
   markAllNotificationsRead,
-  notificationStatus,
-  testNotification,
-  retryNotificationDeliveries,
   type Notification,
-  type NotificationStatus,
 } from "../api/notifications";
 import { useNotifications } from "../hooks/useNotifications";
-import { useAuthentication } from "../hooks/useAuthentication";
 import "./management.css";
 
 export function NotificationsPage() {
-  const auth = useAuthentication();
   const inbox = useNotifications();
   const [items, setItems] = useState<Notification[]>([]);
-  const [status, setStatus] = useState<NotificationStatus | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [older, setOlder] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const [paged, setPaged] = useState(false);
   const pending = useRef(false);
   const generation = useRef(0);
-  const admin = auth.session?.admin === true;
   useEffect(() => {
     if (paged) return;
     const controller = new AbortController();
@@ -41,15 +32,9 @@ export function NotificationsPage() {
           0,
           unreadOnly,
         );
-        const delivery = admin
-          ? await notificationStatus(
-              AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
-            )
-          : null;
         if (!controller.signal.aborted && current === generation.current) {
           setItems(next);
           setOlder(next.length === 100);
-          setStatus(delivery);
           setError(null);
         }
       } catch (cause) {
@@ -73,7 +58,7 @@ export function NotificationsPage() {
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [unreadOnly, version, admin, paged]);
+  }, [unreadOnly, version, paged]);
 
   function refresh() {
     setPaged(false);
@@ -85,7 +70,6 @@ export function NotificationsPage() {
     pending.current = true;
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
       await action();
       refresh();
@@ -161,63 +145,7 @@ export function NotificationsPage() {
           {error}
         </p>
       )}
-      {notice && <p role="status">{notice}</p>}
       <div className="management-content">
-        {admin && status && (
-          <section aria-label="Notification delivery">
-            <h2>Monitoring and delivery</h2>
-            <p>
-              Apprise:{" "}
-              {status.apprise_enabled
-                ? "Enabled"
-                : "Disabled — in-app notifications remain enabled"}
-              . {status.pending} queued · {status.failed} failed.
-            </p>
-            <p>
-              Resource thresholds: CPU{" "}
-              {status.cpu_percent === 0 ? "disabled" : `${status.cpu_percent}%`}
-              , memory{" "}
-              {status.memory_percent === 0
-                ? "disabled"
-                : `${status.memory_percent}%`}
-              , disk{" "}
-              {status.disk_percent === 0
-                ? "disabled"
-                : `${status.disk_percent}%`}
-              . Conditions must persist for {status.duration_seconds} seconds.
-              Health alerts {status.health_enabled ? "enabled" : "disabled"}.
-            </p>
-            <div className="page-actions">
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => {
-                  void perform(async () => {
-                    await testNotification();
-                    setNotice(
-                      status.apprise_enabled
-                        ? "Test notification created and queued for Apprise delivery. Delivery status updates here."
-                        : "Test notification created in your inbox.",
-                    );
-                  });
-                }}
-              >
-                Send test
-              </button>
-              <button
-                className="button"
-                disabled={
-                  busy || !status.apprise_enabled || status.failed === 0
-                }
-                onClick={() => {
-                  void perform(retryNotificationDeliveries);
-                }}
-              >
-                Retry failed deliveries
-              </button>
-            </div>
-          </section>
-        )}
         <label className="checkbox-field">
           <input
             type="checkbox"

@@ -54,9 +54,6 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="page-actions">
-          <a className="button" href="#servers">
-            Manage servers
-          </a>
           <button className="button" onClick={monitor.refresh}>
             Refresh
           </button>
@@ -91,7 +88,7 @@ export function DashboardPage() {
           <strong>
             {cpuKnown.length
               ? `${cpu.toLocaleString(undefined, { maximumFractionDigits: 2 })} cores`
-              : "Unavailable"}
+              : "-/-"}
           </strong>
           <small>
             {coverage(cpuKnown.length)} ·{" "}
@@ -101,7 +98,7 @@ export function DashboardPage() {
         </article>
         <article className="monitoring-card">
           <span>Memory in use</span>
-          <strong>{memoryKnown.length ? bytes(memory) : "Unavailable"}</strong>
+          <strong>{memoryKnown.length ? bytes(memory) : "-/-"}</strong>
           <small>
             {coverage(memoryKnown.length)} ·{" "}
             {bytes(
@@ -115,7 +112,7 @@ export function DashboardPage() {
         </article>
         <article className="monitoring-card">
           <span>Game-data size</span>
-          <strong>{diskKnown.length ? bytes(disk) : "Unavailable"}</strong>
+          <strong>{diskKnown.length ? bytes(disk) : "-/-"}</strong>
           <small>
             {coverage(diskKnown.length)} ·{" "}
             {bytes(
