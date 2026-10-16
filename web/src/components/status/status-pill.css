@@ -26,6 +26,9 @@
   background: #263220;
   color: #b5ce9c;
 }
+.status-pill-no-indicator::before {
+  display: none;
+}
 
 .status-pill-negative {
   border-color: #713a3a;

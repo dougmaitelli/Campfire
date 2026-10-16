@@ -46,10 +46,12 @@ export function StatusPill({
   children,
   tone,
   status,
+  indicator = true,
 }: {
   children?: ReactNode;
   tone?: StatusTone | undefined;
   status?: string;
+  indicator?: boolean;
 }) {
   const selectedTone = tone ?? tones[status ?? ""] ?? "neutral";
   const label = status
@@ -58,7 +60,9 @@ export function StatusPill({
         .replace(/^./, (letter) => letter.toUpperCase())
     : "";
   return (
-    <span className={`status-pill status-pill-${selectedTone}`}>
+    <span
+      className={`status-pill status-pill-${selectedTone}${indicator ? "" : " status-pill-no-indicator"}`}
+    >
       {children ?? label}
     </span>
   );

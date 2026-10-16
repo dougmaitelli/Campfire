@@ -16,15 +16,15 @@
 }
 .resource-readings-compact {
   gap: 6px;
-  min-width: 290px;
+  min-width: 340px;
 }
 .resource-readings-compact .usage-reading {
-  grid-template-columns: 58px max-content minmax(50px, 1fr);
+  grid-template-columns: 58px 180px minmax(80px, 1fr);
   align-items: center;
   gap: 8px;
 }
 .resource-readings-compact .usage-reading > span:nth-child(2) {
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .resource-readings-compact > .usage-age {
   font-size: 11px;

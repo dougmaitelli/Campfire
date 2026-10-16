@@ -4,6 +4,7 @@ import { useCollection } from "../hooks/useCollection";
 import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
 import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
+import { StatusPill } from "../components/status/StatusPill";
 
 export function EmbersPage() {
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
@@ -94,11 +95,20 @@ export function EmbersPage() {
                 <td>{Object.keys(ember.images).join(", ")}</td>
                 <td>{ember.variables?.length ?? 0}</td>
                 <td>
-                  {ember.required_ports?.length
-                    ? ember.required_ports
-                        .map((port) => `${port.container}/${port.protocol}`)
-                        .join(", ")
-                    : "None"}
+                  {ember.required_ports?.length ? (
+                    <div className="pill-group">
+                      {ember.required_ports.map((port) => (
+                        <StatusPill
+                          key={`${port.container}/${port.protocol}`}
+                          indicator={false}
+                        >
+                          {port.container} / {port.protocol.toUpperCase()}
+                        </StatusPill>
+                      ))}
+                    </div>
+                  ) : (
+                    "None"
+                  )}
                 </td>
               </TableRow>
             ))}

@@ -13,6 +13,7 @@ import { ResourceDetailsDialog } from "../dialogs/ResourceDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
+import { StatusPill } from "../components/status/StatusPill";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
@@ -280,11 +281,6 @@ export function ServersPage() {
                   >
                     {server.name}
                   </button>
-                  {server.description && (
-                    <span className="row-description">
-                      {server.description}
-                    </span>
-                  )}
                   <span className="row-id">{server.id}</span>
                 </td>
                 <td>
@@ -323,12 +319,14 @@ export function ServersPage() {
                   />
                 </td>
                 <td>
-                  {server.ports.map((port, index) => (
-                    <span className="resource-line" key={index}>
-                      {server.game_address || port.bind_ip}:{port.host_port} /{" "}
-                      {port.protocol}
-                    </span>
-                  ))}
+                  <div className="pill-group">
+                    {server.ports.map((port, index) => (
+                      <StatusPill key={index} indicator={false}>
+                        {server.game_address || port.bind_ip}:{port.host_port} /{" "}
+                        {port.protocol.toUpperCase()}
+                      </StatusPill>
+                    ))}
+                  </div>
                 </td>
                 <td className="table-actions">
                   <div className="row-actions">
