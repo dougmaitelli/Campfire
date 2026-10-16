@@ -296,6 +296,7 @@ and is not saved as a claim about future connections.
 
 Capability                         Behavior
 server.configure.v1                Saved configuration delivery
+server.ember.behavior.v1           Extended config parsers, readiness and stop templates
 server.lifecycle.v1                Status, logs, console input and power actions
 server.files.v1                    Contained game-file management
 server.backups.v1                  Local backup creation, reading and restoration
@@ -848,5 +849,6 @@ new immutable Ember; it does not run the supplied installer or pull any images.
 
 See deploy/EGG-COMPATIBILITY.txt for the format and feature support matrix,
 fixture coverage, API request examples and runtime limitations. Native definitions
-and converted Eggs both use Ember schema 1. Egg conversion does not change
-database schema 9 or negotiated Spark feature requirements.
+and converted Eggs both use Ember schema 1. Egg conversion does not change the
+database schema. Extended config parsers, readiness and stop templates require
+the negotiated server.ember.behavior.v1 Spark capability.

@@ -18,24 +18,25 @@ func CommandTimeout(command Command) time.Duration {
 
 // Capability names version the behavior of individual features independently.
 const (
-	CapabilityConfigure    = "server.configure.v1"
-	CapabilityLifecycle    = "server.lifecycle.v1"
-	CapabilityFiles        = "server.files.v1"
-	CapabilityFileTransfer = "server.files.transfer.v1"
-	CapabilityFileArchive  = "server.files.archive.v1"
-	CapabilityBackups      = "server.backups.v1"
-	CapabilityBackupDelete = "server.backups.delete.v1"
-	CapabilityBackupRemote = "server.backups.remote.v1"
-	CapabilityMetrics      = "server.metrics.v1"
-	CapabilityConsole      = "server.console.stream.v1"
-	CapabilityDiskQuota    = "server.disk-quota.v1"
-	CapabilityTransfer     = "server.transfer.v1"
-	CapabilityUpgrade      = "server.upgrade.v1"
+	CapabilityConfigure     = "server.configure.v1"
+	CapabilityEmberBehavior = "server.ember.behavior.v1"
+	CapabilityLifecycle     = "server.lifecycle.v1"
+	CapabilityFiles         = "server.files.v1"
+	CapabilityFileTransfer  = "server.files.transfer.v1"
+	CapabilityFileArchive   = "server.files.archive.v1"
+	CapabilityBackups       = "server.backups.v1"
+	CapabilityBackupDelete  = "server.backups.delete.v1"
+	CapabilityBackupRemote  = "server.backups.remote.v1"
+	CapabilityMetrics       = "server.metrics.v1"
+	CapabilityConsole       = "server.console.stream.v1"
+	CapabilityDiskQuota     = "server.disk-quota.v1"
+	CapabilityTransfer      = "server.transfer.v1"
+	CapabilityUpgrade       = "server.upgrade.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade}
+	return []string{CapabilityConfigure, CapabilityEmberBehavior, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -117,6 +118,10 @@ func Require(negotiated []string, required ...string) error {
 func RequiredCapabilities(command Command) []string {
 	switch command.Name {
 	case ConfigureServer:
+		if command.Deployment != nil && command.Deployment.Ember.ExtendedBehavior() {
+			return []string{CapabilityConfigure, CapabilityEmberBehavior}
+		}
+
 		return []string{CapabilityConfigure}
 	case ServerTransfer:
 		return []string{CapabilityTransfer, CapabilityDiskQuota}

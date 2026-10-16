@@ -19,7 +19,7 @@ Input                              Status        Compatibility fixture
 Native Ember schema 1              Supported     native.json; imported Eggs saved
                                                 and read back as native JSON
 Pterodactyl PTDL_v1                 Supported*    ptdl-v1.json
-Pterodactyl PTDL_v2                 Supported*    ptdl-v2.json
+Pterodactyl PTDL_v2                 Supported*    ptdl-v2.json, extended.json
 Pelican PLCN_v1                    Supported*    plcn-v1.json
 Pelican PLCN_v2                    Supported*    plcn-v2.json
 Pelican PLCN_v3 JSON               Supported*    plcn-v3.json
@@ -75,13 +75,23 @@ Regex validation              RE2-compatible expressions with /, ~, # or %
                               Lookarounds, backreferences, unsupported modifiers
                               (including u), and unknown rules block import.
                               Unicode/case-folding differences require review.
-Built-in placeholders         SERVER_PORT, SERVER_IP and SERVER_MEMORY; env.NAME,
+Built-in placeholders         SERVER_PORT, SERVER_IP, SERVER_MEMORY, SERVER_CPU,
+                              SERVER_THREADS, SERVER_DISK and SERVER_SWAP; env.NAME,
                               server.build.env.NAME, server.build.environment.NAME
                               and server.environment.NAME for declared variables.
 Allocation placeholders       server.build.default.port/ip and
                               server.allocations.default.port/ip are translated.
 Memory placeholders           server.build.memory and server.build.memory_limit
                               become SERVER_MEMORY (allocated MiB).
+                              server.build.cpu/cpu_limit become SERVER_CPU
+                              (percentage: 100 = one CPU core).
+                              server.build.threads becomes SERVER_THREADS
+                              (empty: no CPU affinity is configured).
+                              server.build.disk/disk_space become SERVER_DISK
+                              (allocated MiB). server.build.swap becomes
+                              SERVER_SWAP (0 MiB: runtime swap is disabled).
+                              Built-ins are also shell environment variables
+                              in installers and running game containers.
 Port and address semantics    SERVER_PORT is the first container port, not the
                               host mapping. SERVER_IP is 0.0.0.0 in the container.
                               Exports cannot infer TCP/UDP mappings. These
@@ -90,23 +100,65 @@ Other placeholders            Blocked, including config.docker.interface and
                               node/location metadata. Variables are not invented.
 Properties config             Simple key=value replacements in existing files.
                               No full Java properties escape/continuation parser.
-JSON config                   Existing JSON object; top-level non-null scalar
-                              replacements only. String values stay strings,
+JSON/YAML config              Object/mapping roots; dot-separated nested keys,
+                              numeric array indices (0–4095) and whole-component
+                              * wildcards over existing objects/arrays. Paths
+                              have at most 32 components. Missing exact paths
+                              are created; wildcards require existing entries.
+                              Non-null scalar replacements. String values stay strings,
                               including "001"; numbers and booleans retain types.
                               Quotes/newlines in substituted strings stay valid.
-Missing config files          Installer must create them; Campfire does not
-                              reproduce Wings' missing-file creation behavior.
-Advanced config               YAML/INI/XML/file parsers, nested JSON paths,
-                              arrays, wildcards and conditional/object replacement
-                              values block import. Null replacements are blocked.
-Readiness                     One literal substring, including a one-item array.
-                              Regex detection, multiple alternatives, prompts
-                              and ANSI-stripping detection block import.
-Stop command                  Literal stdin command or ^C/^SIGINT/^SIGTERM.
-                              Variable stop commands and other signals blocked.
+                              JSON numbers retain precision. YAML output preserves
+                              scalar types but normalizes formatting and comments;
+                              anchors, aliases, merges, custom tags, timestamps,
+                              duplicate keys and multiple documents are rejected.
+INI config                    Default keys or section.key; [section.with.dots].key
+                              selects section names containing dots. Uses the INI
+                              parser's quoting and serialization. Values must be
+                              single-line; unrelated settings are retained.
+Text/file config              Literal line-prefix replacements. Most-specific
+                              prefix wins when prefixes overlap. Unmatched lines
+                              are retained; missing prefixes are not appended.
+                              Replacement values must be single-line.
+Missing config files          Created with contained parent directories for
+                              converted Eggs. Native Embers opt in with create:true.
+                              JSON/YAML start from an empty mapping; other files
+                              start empty. File and parent ownership is assigned
+                              to the Ember user during install/start.
+Configuration bounds          Input/output files are limited to 1 MiB. Template
+                              expansion and structural work are bounded; template
+                              values are substituted once, never recursively.
+                              Each file replacement is atomic. The entire batch
+                              is not a transaction. Symlinks/special files rejected.
+Advanced config               XML, bracket array syntax, partial-component globs,
+                              conditional/object replacements and null replacement
+                              values still block import.
+Readiness                     Up to 16 alternative literal substrings or /regex/
+                              expressions with optional i/m/s flags. Regexes use
+                              Go RE2 and match individual log lines; lookarounds,
+                              backreferences and unsupported modifiers are blocked.
+                              strip_ansi removes CSI/OSC terminal escapes before
+                              matching. Interactive prompts and placeholders are
+                              blocked. Detection uses the latest 200 log lines.
+Stop command                  Literal or variable-expanded stdin command, or
+                              ^C or a Docker Linux signal such as ^SIGTERM,
+                              ^SIGABRT, ^SIGQUIT or ^SIGKILL. Signal names are
+                              case-insensitive; the SIG prefix is optional.
+                              Real-time signals support RTMIN, RTMIN+1..15,
+                              RTMAX-14..1 and RTMAX (with optional SIG prefix).
+                              Explicit signals override the image STOPSIGNAL;
+                              an empty stop uses the image default. Docker
+                              allows 30 seconds before force termination.
+                              Substitution uses the declared
+                              variables and built-ins, not a shell. Expanded
+                              commands must be one line of at most 1024 bytes.
+                              Unknown signals are rejected, never substituted
+                              with a different signal. Commands go to stdin,
+                              without shell evaluation.
 Logs                          Container stdout/stderr. Custom log tailing blocked.
 File denylist                 Non-empty denylist blocked; no silent access change.
-Inherited definitions         Unresolved config_from/copy_script_from blocked;
+Inherited definitions         Intentionally unsupported; not planned.
+                              Unresolved config_from/copy_script_from blocked;
                               export a self-contained definition instead.
 External mounts/privilege     Mounts, privileged installers and forced outgoing
                               addresses block import.
@@ -135,10 +187,26 @@ acknowledge_warnings:true. Invalid/unacknowledged imports return HTTP 400 and
 create no Ember. Raw native definition POSTs continue to work. All three routes
 require an authenticated administrator and the existing CSRF checks.
 
-Native definitions and converted Eggs use Ember schema 1. Variable constraints
-and typed JSON config semantics are part of that schema and are enforced by
-Spark as well as Campfire. The database schema and Spark transport protocol
-remain unchanged (schema 9 / protocol 6).
+Native definitions and converted Eggs use Ember schema 1. Extended configuration,
+readiness and stop behavior are part of that schema and are validated on Spark
+as well as Campfire. Such definitions require the negotiated Spark capability
+server.ember.behavior.v1; older Sparks reject configuration delivery explicitly.
+The database schema and Spark wire protocol are unchanged by these additions.
+
+Native schema 1 uses configs[].create to opt into missing-file creation and
+configs[].parser values json, yaml, ini, file or properties. Structured config
+values use dot paths; configs[].strings forces selected replacements to remain
+strings. Omit ready when using the extended readiness object, for example:
+
+  "readiness": {
+    "any": [
+      {"value":"Ready for connections"},
+      {"value":"^Listening on port [0-9]+$","regex":true}
+    ],
+    "strip_ansi": true
+  }
+
+Stop templates use ordinary native placeholders such as "quit {{STOP_REASON}}".
 
 Fixture scope and references
 ----------------------------
@@ -148,8 +216,12 @@ redistributed upstream game installers. unsupported.json covers blocked runtime
 and security features. Automated tests also cover rule bounds, aliases, malformed
 documents, URL parity, warning acknowledgement, immutable import revisions,
 administrator access, server creation and Spark-side validation. Runtime tests
-verify actual JSON rewriting and built-in environment values. These tests do
-not download or launch Minecraft, Steam games, or external images.
+verify JSON/YAML nesting, array/wildcard bounds, INI/text rewrites, missing file
+creation, unsafe YAML/path rejection, precision, terminal escape removal,
+readiness regexes/alternatives, stop-template injection rejection and capability
+gating. Remote tests deliver extended definitions and rewrite files over the
+authenticated Spark connection. These tests do not download or launch Minecraft,
+Steam games, or external images.
 
 Upstream format references inspected when implementing these importers:
 https://github.com/pterodactyl/panel/blob/1.0-develop/app/Services/Eggs/Sharing/EggExporterService.php

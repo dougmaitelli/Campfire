@@ -7,6 +7,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 
 const featureLabels: Record<string, string> = {
   "server.configure.v1": "Server configuration",
+  "server.ember.behavior.v1": "Extended Ember behavior",
   "server.lifecycle.v1": "Server controls",
   "server.files.v1": "File management",
   "server.backups.v1": "Local backups",

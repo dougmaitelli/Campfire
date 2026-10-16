@@ -383,10 +383,10 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	if state == "running" {
-		status.Ready = d.Ember.Ready == ""
-		if d.Ember.Ready != "" {
+		status.Ready = d.Ember.Ready == "" && d.Ember.Readiness == nil
+		if !status.Ready {
 			logs, err := m.Docker.Run(ctx, nil, "logs", "--tail", "200", container(d.ServerID))
-			status.Ready = err == nil && strings.Contains(logs, d.Ember.Ready)
+			status.Ready = err == nil && readinessMatches(d.Ember, logs)
 		}
 	}
 
@@ -459,16 +459,12 @@ func environment(d model.Deployment) map[string]string {
 
 	env["SERVER_IP"] = "0.0.0.0"
 	env["SERVER_MEMORY"] = strconv.FormatInt(d.Configuration.MemoryMB, 10)
+	env["SERVER_CPU"] = strconv.FormatFloat(d.Configuration.CPULimit*100, 'f', -1, 64)
+	env["SERVER_THREADS"] = ""
+	env["SERVER_DISK"] = strconv.FormatInt(d.Configuration.DiskMB, 10)
+	env["SERVER_SWAP"] = "0"
 
 	return env
-}
-
-func render(value string, env map[string]string) string {
-	for key, replacement := range env {
-		value = strings.ReplaceAll(value, "{{"+key+"}}", replacement)
-	}
-
-	return value
 }
 
 func environmentArgs(env map[string]string) []string {
@@ -657,6 +653,11 @@ func formatIP(ip string) string {
 }
 
 func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
+	signal, err := model.StopSignal(d.Ember.Stop)
+	if err != nil {
+		return err
+	}
+
 	state, err := m.inspect(ctx, d.ServerID)
 	if err != nil {
 		return err
@@ -676,7 +677,12 @@ func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
 			return errors.New("ember stop command requires console input")
 		}
 
-		if err := input.Input(ctx, container(d.ServerID), d.Ember.Stop); err != nil {
+		command, err := stopCommand(d)
+		if err != nil {
+			return err
+		}
+
+		if err := input.Input(ctx, container(d.ServerID), command); err != nil {
 			return err
 		}
 
@@ -706,8 +712,8 @@ func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
 		}
 	}
 
-	if d.Ember.Stop == "^C" || d.Ember.Stop == "^SIGINT" {
-		args = append(args, "--signal", "SIGINT")
+	if signal != "" {
+		args = append(args, "--signal", signal)
 	}
 
 	args = append(args, container(d.ServerID))

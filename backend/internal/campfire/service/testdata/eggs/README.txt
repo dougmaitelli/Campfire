@@ -16,5 +16,9 @@ plcn-v1.json      Legacy startup, string bounds and one-item readiness array.
 plcn-v2.json      Object config and newer namespace aliases.
 plcn-v3.json      Explicit startup selection and typed JSON scalar replacements.
 plcn-v3.yaml      Native YAML, boolean default and literal installer script.
+extended.json     Nested JSON/YAML, arrays and wildcards, INI/text config,
+                  missing-file creation, readiness alternatives, regex/ANSI
+                  detection and variable stop commands.
 unsupported.json Hidden variable, file denylist, PCRE lookahead, unsupported
-                  template, YAML runtime config, custom logs and readiness array.
+                  template and custom logs; its YAML config and readiness
+                  alternatives are now supported while other blockers remain.

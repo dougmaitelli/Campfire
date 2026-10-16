@@ -1,0 +1,54 @@
+{
+  "meta": { "version": "PTDL_v2" },
+  "name": "Extended behavior fixture",
+  "docker_images": { "Alpine": "alpine:3.22" },
+  "startup": "./server --port {{SERVER_PORT}}",
+  "config": {
+    "files": {
+      "settings.json": {
+        "parser": "json",
+        "find": {
+          "network.port": "{{SERVER_PORT}}",
+          "listeners.0.enabled": true,
+          "listeners.*.label": "{{LABEL}}"
+        }
+      },
+      "settings.yaml": {
+        "parser": "yaml",
+        "find": { "network.port": 25565, "network.label": "{{LABEL}}" }
+      },
+      "settings.ini": {
+        "parser": "ini",
+        "find": {
+          "network.port": "{{SERVER_PORT}}",
+          "[game.network].label": "{{LABEL}}"
+        }
+      },
+      "startup.cfg": {
+        "parser": "file",
+        "find": { "server_port ": "server_port {{SERVER_PORT}}" }
+      }
+    },
+    "startup": {
+      "done": ["Ready for connections", "/^Listening on port [0-9]+$/i"],
+      "strip_ansi": true
+    },
+    "stop": "quit {{STOP_REASON}}"
+  },
+  "variables": [
+    {
+      "env_variable": "LABEL",
+      "default_value": "001",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string"
+    },
+    {
+      "env_variable": "STOP_REASON",
+      "default_value": "maintenance",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:64"
+    }
+  ]
+}

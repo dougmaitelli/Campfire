@@ -67,6 +67,8 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 		capability string
 	}{
 		{Command{Name: ConfigureServer}, CapabilityConfigure},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Readiness: &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready"}}}}}}, CapabilityEmberBehavior},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Configs: []model.ConfigFile{{Parser: "json", Create: true}}}}}, CapabilityEmberBehavior},
 		{Command{Name: ServerFiles}, CapabilityFiles},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "upload.begin"}}, CapabilityFileTransfer},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "read.chunk"}}, CapabilityFileTransfer},

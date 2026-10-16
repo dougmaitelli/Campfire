@@ -230,6 +230,9 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 	defer cancel()
 
 	deployment := deploymentFixture(id, "lifecycle")
+	deployment.Ember.Readiness = &model.Readiness{Any: []model.ReadinessMatch{{Value: "^Ready$", Regex: true}}, StripANSI: true}
+
+	deployment.Ember.Configs = []model.ConfigFile{{Path: "config/settings.json", Parser: "json", Create: true, Values: map[string]string{"network.port": "{{SERVER_PORT}}"}, Strings: []string{"network.port"}}}
 	if _, err := hub.Deploy(ctx, id, deployment); err != nil {
 		t.Fatal(err)
 	}
@@ -270,6 +273,11 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 		}
 
 		if action == "install" {
+			config, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "read", Path: "config/settings.json"})
+			if err != nil || !strings.Contains(string(config.Data), `"25565"`) {
+				t.Fatal("remote extended config missing", err, string(config.Data))
+			}
+
 			large := model.FileRequest{ServerID: deployment.ServerID, Operation: "upload.begin", Path: "large.bin", Revision: "absent", Size: 2 * model.FileLimit}
 
 			upload, err := hub.Files(ctx, id, large)
@@ -326,6 +334,10 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 		}
 
 		if action == "start" {
+			if !status.Ready {
+				t.Fatal("remote extended readiness did not match")
+			}
+
 			_, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "delete", Path: "world.bin"})
 
 			var failure *model.FileError

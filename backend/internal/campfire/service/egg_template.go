@@ -10,15 +10,18 @@ import (
 var eggPlaceholder = regexp.MustCompile(`\{\{\s*([^{}]+?)\s*\}\}`)
 
 func eggTemplate(text string, variables []model.Variable, field string, report *EmberPreview) string {
-	known := map[string]bool{"SERVER_PORT": true, "SERVER_IP": true, "SERVER_MEMORY": true}
+	known := model.BuiltinEnvironment()
 	for _, variable := range variables {
-		known[variable.Name] = true
+		known[variable.Name] = ""
 	}
 
 	aliases := map[string]string{
 		"server.build.default.port": "SERVER_PORT", "server.allocations.default.port": "SERVER_PORT",
 		"server.build.default.ip": "SERVER_IP", "server.allocations.default.ip": "SERVER_IP",
 		"server.build.memory": "SERVER_MEMORY", "server.build.memory_limit": "SERVER_MEMORY",
+		"server.build.cpu": "SERVER_CPU", "server.build.cpu_limit": "SERVER_CPU",
+		"server.build.threads": "SERVER_THREADS", "server.build.disk": "SERVER_DISK",
+		"server.build.disk_space": "SERVER_DISK", "server.build.swap": "SERVER_SWAP",
 	}
 
 	result := eggPlaceholder.ReplaceAllStringFunc(text, func(match string) string {
@@ -34,7 +37,7 @@ func eggTemplate(text string, variables []model.Variable, field string, report *
 			}
 		}
 
-		if !known[name] {
+		if _, ok := known[name]; !ok {
 			report.fail(field, "Unsupported placeholder "+match+".")
 			return match
 		}

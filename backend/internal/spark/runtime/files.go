@@ -3,13 +3,11 @@ package runtime
 import (
 	"campfire/internal/shared/model"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -149,16 +147,34 @@ func configure(directory string, d model.Deployment) error {
 			return errors.New("unsafe configuration path")
 		}
 
-		file, err := root.Open(config.Path)
-		if err != nil {
+		if err := configParents(root, config.Path, config.Create); err != nil {
 			return err
 		}
 
-		old, readErr := io.ReadAll(io.LimitReader(file, (1<<20)+1))
-		_ = file.Close()
+		file, err := root.OpenFile(config.Path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+		if err != nil && (!config.Create || !errors.Is(err, os.ErrNotExist)) {
+			return err
+		}
 
-		if readErr != nil {
-			return readErr
+		old := []byte{}
+
+		if file != nil {
+			info, err := file.Stat()
+			if err != nil || !info.Mode().IsRegular() {
+				_ = file.Close()
+				return errors.New("configuration must be a regular file")
+			}
+
+			var readErr error
+
+			old, readErr = io.ReadAll(io.LimitReader(file, (1<<20)+1))
+			_ = file.Close()
+
+			if readErr != nil {
+				return readErr
+			}
+		} else if config.Parser == "json" || config.Parser == "yaml" {
+			old = []byte("{}")
 		}
 
 		if len(old) > 1<<20 {
@@ -167,9 +183,19 @@ func configure(directory string, d model.Deployment) error {
 
 		var updated []byte
 
+		err = nil
+
 		values := make(map[string]string, len(config.Values))
+
+		remaining := 1 << 20
 		for key, value := range config.Values {
-			values[key] = render(value, environment(d))
+			expanded, err := renderBounded(value, environment(d), remaining)
+			if err != nil {
+				return err
+			}
+
+			values[key] = expanded
+			remaining -= len(expanded)
 		}
 
 		switch config.Parser {
@@ -206,31 +232,22 @@ func configure(directory string, d model.Deployment) error {
 			}
 
 			updated = []byte(strings.Join(lines, "\n"))
-		case "json":
-			var object map[string]any
-			if err := json.Unmarshal(old, &object); err != nil {
-				return err
-			}
-
-			if object == nil {
-				return errors.New("configuration must be a JSON object")
-			}
-
-			for key, value := range values {
-				var parsed any
-				if slices.Contains(config.Strings, key) || json.Unmarshal([]byte(value), &parsed) != nil {
-					parsed = value
-				}
-
-				object[key] = parsed
-			}
-
-			updated, err = json.MarshalIndent(object, "", "  ")
-			if err != nil {
-				return err
-			}
+		case "json", "yaml":
+			updated, err = structuredConfig(old, config, values)
+		case "ini":
+			updated, err = iniConfig(old, values)
+		case "file":
+			updated, err = textConfig(old, values)
 		default:
 			return errors.New("unsupported configuration parser")
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if len(updated) > 1<<20 {
+			return errors.New("rewritten configuration exceeds 1 MiB")
 		}
 
 		temporary := filepath.Join(filepath.Dir(config.Path), ".campfire-"+rand.Text())

@@ -203,9 +203,6 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 	ember.Startup = eggTemplate(ember.Startup, ember.Variables, "startup", report)
 
 	ember.Stop = eggTemplate(ember.Stop, ember.Variables, "config.stop", report)
-	if strings.Contains(ember.Stop, "{{") {
-		report.fail("config.stop", "Variable stop commands are unsupported; use a literal command or signal.")
-	}
 
 	convertEggProcess(egg.Config.Startup, egg.Config.Logs, &ember, report)
 	ember.Configs = convertEggFiles(egg.Config.Files, ember.Variables, report)
@@ -293,27 +290,53 @@ func convertEggProcess(startup, logs json.RawMessage, ember *model.Ember, report
 	if err := eggObject(startup, &process); err != nil {
 		report.fail("config.startup", "Unsupported startup detection settings.")
 	} else {
-		var done string
+		var done []string
+
 		if !emptyEggValue(process.Done) {
-			if err := json.Unmarshal(process.Done, &done); err != nil {
-				var alternatives []string
-				if err := json.Unmarshal(process.Done, &alternatives); err != nil || len(alternatives) > 1 {
-					report.fail("config.startup.done", "Only one literal readiness marker is supported.")
-				} else if len(alternatives) == 1 {
-					done = alternatives[0]
+			var literal string
+			if err := json.Unmarshal(process.Done, &literal); err == nil {
+				if literal != "" {
+					done = []string{literal}
 				}
+			} else if err := json.Unmarshal(process.Done, &done); err != nil {
+				report.fail("config.startup.done", "Readiness must be a string or array of strings.")
 			}
 		}
 
-		if strings.HasPrefix(done, "/") || strings.Contains(done, "{{") {
-			report.fail("config.startup.done", "Readiness regexes and placeholders are unsupported.")
+		if len(process.UserInteraction) > 0 {
+			report.fail("config.startup", "Interactive startup prompts are unsupported.")
 		}
 
-		if len(process.UserInteraction) > 0 || process.StripANSI {
-			report.fail("config.startup", "Interactive startup prompts and ANSI-stripping detection are unsupported.")
+		if len(done) > 16 {
+			report.fail("config.startup.done", "At most 16 readiness markers are supported.")
 		}
 
-		ember.Ready = done
+		for _, value := range done {
+			if value == "" || len(value) > 512 || strings.Contains(value, "{{") {
+				report.fail("config.startup.done", "Readiness markers require 1–512 bytes without placeholders.")
+			}
+		}
+
+		if len(done) == 1 && !process.StripANSI && !strings.HasPrefix(done[0], "/") && !strings.Contains(done[0], "{{") {
+			ember.Ready = done[0]
+		} else if len(done) > 0 {
+			ember.Readiness = &model.Readiness{StripANSI: process.StripANSI}
+
+			for _, value := range done {
+				match := model.ReadinessMatch{Value: value}
+				if strings.HasPrefix(value, "/") {
+					pattern, err := eggRegex(value)
+					if err != nil {
+						report.fail("config.startup.done", err.Error())
+						continue
+					}
+
+					match.Value, match.Regex = pattern, true
+				}
+
+				ember.Readiness.Any = append(ember.Readiness.Any, match)
+			}
+		}
 	}
 
 	var logging struct {
@@ -346,15 +369,19 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 			continue
 		}
 
-		if file.Parser != "properties" && file.Parser != "json" {
-			report.fail(path+".parser", "Only properties and top-level JSON replacements are supported.")
+		if file.Parser == "yml" {
+			file.Parser = "yaml"
+		}
+
+		if !slices.Contains([]string{"properties", "json", "yaml", "ini", "file"}, file.Parser) {
+			report.fail(path+".parser", "Supported parsers are properties, JSON, YAML, INI and file.")
 			continue
 		}
 
-		config := model.ConfigFile{Path: name, Parser: file.Parser, Values: map[string]string{}}
+		config := model.ConfigFile{Path: name, Parser: file.Parser, Values: map[string]string{}, Create: true}
 		for _, key := range sortedKeys(file.Find) {
-			if file.Parser == "json" && strings.ContainsAny(key, ".[]*") {
-				report.fail(path+".find."+key, "Nested paths, arrays and wildcards are unsupported.")
+			if err := model.ConfigKey(file.Parser, key); err != nil {
+				report.fail(path+".find."+key, err.Error())
 				continue
 			}
 
@@ -366,7 +393,7 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 				continue
 			}
 
-			if file.Parser == "json" && len(value) > 0 && value[0] == '"' {
+			if (file.Parser == "json" || file.Parser == "yaml") && len(value) > 0 && value[0] == '"' {
 				config.Strings = append(config.Strings, key)
 			}
 
@@ -377,7 +404,7 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 	}
 
 	if len(configs) > 0 {
-		report.warn("config.files", "Configuration files must already exist (create them in the installer). Campfire supports simple key=value properties and top-level JSON; it does not emulate every Wings parser behavior.")
+		report.warn("config.files", "Missing configuration files are created. JSON/YAML rewrites normalize formatting; YAML anchors, aliases, merges and custom tags are rejected. Review parser-specific paths and wildcard replacements; not every Wings parser behavior is emulated.")
 	}
 
 	return configs

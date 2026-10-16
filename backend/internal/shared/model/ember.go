@@ -34,6 +34,19 @@ type ConfigFile struct {
 	Parser  string            `json:"parser"`
 	Values  map[string]string `json:"values"`
 	Strings []string          `json:"strings,omitempty"`
+	Create  bool              `json:"create,omitempty"`
+}
+
+// ReadinessMatch describes a literal or RE2-compatible line matcher.
+type ReadinessMatch struct {
+	Value string `json:"value"`
+	Regex bool   `json:"regex,omitempty"`
+}
+
+// Readiness accepts any matching marker, optionally after removing terminal escapes.
+type Readiness struct {
+	Any       []ReadinessMatch `json:"any"`
+	StripANSI bool             `json:"strip_ansi,omitempty"`
 }
 
 // RequiredPort identifies a container port required by a game.
@@ -56,6 +69,7 @@ type Ember struct {
 	Installer     *Installer        `json:"installer,omitempty"`
 	Stop          string            `json:"stop,omitempty"`
 	Ready         string            `json:"ready,omitempty"`
+	Readiness     *Readiness        `json:"readiness,omitempty"`
 	Configs       []ConfigFile      `json:"configs,omitempty"`
 	RequiredPorts []RequiredPort    `json:"required_ports,omitempty"`
 	Origin        *EmberOrigin      `json:"origin,omitempty"`
@@ -94,8 +108,10 @@ func (e Ember) Validate() error {
 	}
 
 	seen := map[string]bool{}
+
 	for _, v := range e.Variables {
-		if !envName.MatchString(v.Name) || seen[v.Name] || v.Name == "STARTUP" || v.Name == "SERVER_PORT" || v.Name == "SERVER_IP" || v.Name == "SERVER_MEMORY" {
+		_, builtin := BuiltinEnvironment()[v.Name]
+		if !envName.MatchString(v.Name) || seen[v.Name] || v.Name == "STARTUP" || builtin {
 			return fmt.Errorf("invalid or reserved variable %q", v.Name)
 		}
 
@@ -133,13 +149,13 @@ func (e Ember) Validate() error {
 		}
 	}
 
-	if strings.HasPrefix(e.Stop, "^") && e.Stop != "^C" && e.Stop != "^SIGINT" && e.Stop != "^SIGTERM" {
-		return errors.New("supported stop signals are ^C, ^SIGINT, and ^SIGTERM")
+	if _, err := StopSignal(e.Stop); err != nil {
+		return err
 	}
 
 	for _, c := range e.Configs {
-		if len(c.Strings) > 0 && c.Parser != "json" {
-			return errors.New("string replacement types require the JSON parser")
+		if len(c.Strings) > 0 && c.Parser != "json" && c.Parser != "yaml" {
+			return errors.New("string replacement types require JSON or YAML")
 		}
 
 		for _, key := range c.Strings {
@@ -148,7 +164,7 @@ func (e Ember) Validate() error {
 			}
 		}
 
-		if c.Parser != "properties" && c.Parser != "json" {
+		if c.Parser != "properties" && c.Parser != "json" && c.Parser != "yaml" && c.Parser != "ini" && c.Parser != "file" {
 			return fmt.Errorf("unsupported config parser %q", c.Parser)
 		}
 
@@ -157,17 +173,21 @@ func (e Ember) Validate() error {
 		}
 
 		for k, v := range c.Values {
-			if c.Parser == "json" && strings.Contains(k, ".") {
-				return errors.New("nested JSON config keys are unsupported")
+			if err := ConfigKey(c.Parser, k); err != nil {
+				return err
 			}
 
 			if c.Parser == "properties" && (strings.ContainsAny(k, "=\r\n") || strings.ContainsAny(v, "\r\n")) {
 				return errors.New("invalid properties replacement")
 			}
+
+			if (c.Parser == "ini" || c.Parser == "file") && strings.ContainsAny(v, "\r\n\x00") {
+				return errors.New("INI and file replacements must be single lines")
+			}
 		}
 	}
 
-	known := map[string]string{"SERVER_PORT": "", "SERVER_IP": "", "SERVER_MEMORY": ""}
+	known := BuiltinEnvironment()
 
 	for _, v := range e.Variables {
 		known[v.Name] = ""
@@ -175,6 +195,37 @@ func (e Ember) Validate() error {
 
 	if _, err := Startup(e.Startup, known); err != nil {
 		return err
+	}
+
+	stop, err := Startup(e.Stop, known)
+	if err != nil {
+		return err
+	}
+
+	if strings.Contains(stop, "{{") || strings.Contains(stop, "}}") {
+		return errors.New("malformed stop command placeholder")
+	}
+
+	if len(e.Stop) > 1024 || strings.ContainsAny(e.Stop, "\r\n\x00") {
+		return errors.New("stop command must be a single line of at most 1024 bytes")
+	}
+
+	if e.Readiness != nil {
+		if e.Ready != "" || len(e.Readiness.Any) == 0 || len(e.Readiness.Any) > 16 {
+			return errors.New("use ready or 1–16 readiness matchers")
+		}
+
+		for _, match := range e.Readiness.Any {
+			if len(match.Value) == 0 || len(match.Value) > 512 || strings.Contains(match.Value, "{{") {
+				return errors.New("readiness matchers require 1–512 bytes without placeholders")
+			}
+
+			if match.Regex {
+				if _, err := regexp.Compile(match.Value); err != nil {
+					return fmt.Errorf("invalid readiness regex: %w", err)
+				}
+			}
+		}
 	}
 
 	return nil

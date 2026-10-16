@@ -32,6 +32,7 @@ func TestEggCompatibilityFixtures(t *testing.T) {
 	}{
 		{"native.json", "ember", ""}, {"ptdl-v1.json", "PTDL_v1", ""}, {"ptdl-v2.json", "PTDL_v2", ""},
 		{"plcn-v1.json", "PLCN_v1", ""}, {"plcn-v2.json", "PLCN_v2", ""}, {"plcn-v3.json", "PLCN_v3", "Default"}, {"plcn-v3.yaml", "PLCN_v3", ""},
+		{"extended.json", "PTDL_v2", ""},
 	} {
 		t.Run(test.file, func(t *testing.T) {
 			data := eggFixture(t, test.file)
@@ -95,7 +96,7 @@ func TestEggUnsupportedFixtureAndStartupSelection(t *testing.T) {
 		fields = append(fields, issue.Field)
 	}
 
-	for _, field := range []string{"file_denylist", "variables[0].user_viewable", "variables[0].rules", "startup", "config.startup.done", "config.logs", "config.files.settings.yml.parser"} {
+	for _, field := range []string{"file_denylist", "variables[0].user_viewable", "variables[0].rules", "startup", "config.logs"} {
 		if !slices.Contains(fields, field) {
 			t.Fatal("unsupported behavior was not reported", field, report.Errors)
 		}
@@ -149,8 +150,8 @@ func TestEggRejectsRuntimeFeaturesAndUnknownFields(t *testing.T) {
 		{"traversal", func(d map[string]any) {
 			d["config"] = map[string]any{"files": map[string]any{"../escape": map[string]any{"parser": "properties", "find": map[string]string{"port": "25565"}}}}
 		}},
-		{"nested JSON", func(d map[string]any) {
-			d["config"] = map[string]any{"files": map[string]any{"settings.json": map[string]any{"parser": "json", "find": map[string]string{"nested.port": "25565"}}}}
+		{"invalid JSON path", func(d map[string]any) {
+			d["config"] = map[string]any{"files": map[string]any{"settings.json": map[string]any{"parser": "json", "find": map[string]string{"nested..port": "25565"}}}}
 		}},
 		{"conditional", func(d map[string]any) {
 			d["config"] = map[string]any{"files": map[string]any{"server.properties": map[string]any{"parser": "properties", "find": map[string]any{"port": map[string]string{"old": "new"}}}}}
