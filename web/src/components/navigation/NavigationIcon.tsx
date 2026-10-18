@@ -14,9 +14,11 @@ type NavigationIconName =
   | "rename"
   | "delete"
   | "warning"
-  | "table";
+  | "table"
+  | "arrow-right";
 
 const paths: Record<NavigationIconName, string> = {
+  "arrow-right": "M4 12h16 m-6-6 6 6-6 6",
   backups: "M3 3h18v5H3z M5 8v13h14V8 M9 12h6",
   download: "M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5",
   compress: "M3 4h18v5H3z M5 9v12h14V9 M9 13h6 M12 13v5 m-2-2 2 2 2-2",

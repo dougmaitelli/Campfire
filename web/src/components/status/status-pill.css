@@ -11,6 +11,11 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
 .status-pill::before {
   content: "";

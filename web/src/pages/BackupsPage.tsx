@@ -9,6 +9,7 @@ import { bytes } from "../api/monitoring";
 import { useCollection } from "../hooks/useCollection";
 import { Table, TableRow } from "../components/table/Table";
 import { BackupState } from "../components/servers/BackupState";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import "./management.css";
 
 export function BackupsPage() {
@@ -107,8 +108,11 @@ export function BackupsPage() {
                         <ButtonLink
                           href={`/api/v1/servers/${encodeURIComponent(item.server_id)}/backups/${encodeURIComponent(item.name)}`}
                           download
+                          iconOnly
+                          aria-label={`Download ${item.name}`}
+                          title="Download backup"
                         >
-                          Download
+                          <NavigationIcon name="download" />
                         </ButtonLink>
                       )}
                   </td>

@@ -191,6 +191,23 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
 
+	var sparkUpdater service.SparkUpdater
+	if hub != nil {
+		sparkUpdater = hub
+	} else if updater, ok := runtime.(service.SparkUpdater); ok {
+		sparkUpdater = updater
+	}
+
+	sparks.Updates = service.NewSparkUpdateService(sparks, sparkUpdater)
+	if mock, ok := runtime.(interface {
+		LatestSparkVersion(context.Context) (string, error)
+	}); ok {
+		sparks.Updates.WithFetcher(mock.LatestSparkVersion)
+	}
+
+	sparks.Updates.Start(ctx)
+	defer sparks.Updates.Close()
+
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, MaxUploadBytes: maxUploadBytes}
 	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
 	deployment.Transfers = transfers

@@ -29,15 +29,26 @@ const ServerFiles CommandName = "server.files"
 // ServerTransfer moves one fenced archive through the authenticated session.
 const ServerTransfer CommandName = "server.transfer"
 
+// UpdateSpark replaces the agent executable with a verified official release.
+const UpdateSpark CommandName = "spark.update"
+
+// SparkUpdateInfo lets the running agent verify a staged binary's compatibility.
+type SparkUpdateInfo struct {
+	Version         string `json:"version"`
+	MinimumProtocol int    `json:"minimum_protocol"`
+	Protocol        int    `json:"protocol"`
+}
+
 // Command is a correlated, bounded-lifetime request.
 type Command struct {
-	ID         string                 `json:"id"`
-	Name       CommandName            `json:"name"`
-	Deadline   time.Time              `json:"deadline"`
-	Deployment *model.Deployment      `json:"deployment,omitempty"`
-	Runtime    *model.RuntimeRequest  `json:"runtime,omitempty"`
-	Files      *model.FileRequest     `json:"files,omitempty"`
-	Transfer   *model.TransferRequest `json:"transfer,omitempty"`
+	ID           string                 `json:"id"`
+	Name         CommandName            `json:"name"`
+	Deadline     time.Time              `json:"deadline"`
+	Deployment   *model.Deployment      `json:"deployment,omitempty"`
+	Runtime      *model.RuntimeRequest  `json:"runtime,omitempty"`
+	Files        *model.FileRequest     `json:"files,omitempty"`
+	Transfer     *model.TransferRequest `json:"transfer,omitempty"`
+	SparkVersion string                 `json:"spark_version,omitempty"`
 }
 
 // CommandError describes a failed operation independently of transport failure.
@@ -50,12 +61,13 @@ func (e *CommandError) Error() string { return e.Code + ": " + e.Message }
 
 // CommandResponse completes exactly one request on the originating session.
 type CommandResponse struct {
-	ID       string                      `json:"id"`
-	Receipt  *model.ConfigurationReceipt `json:"receipt,omitempty"`
-	Error    *CommandError               `json:"error,omitempty"`
-	Status   *model.RuntimeStatus        `json:"status,omitempty"`
-	Files    *model.FileResult           `json:"files,omitempty"`
-	Transfer *model.TransferResult       `json:"transfer,omitempty"`
+	ID           string                      `json:"id"`
+	Receipt      *model.ConfigurationReceipt `json:"receipt,omitempty"`
+	Error        *CommandError               `json:"error,omitempty"`
+	Status       *model.RuntimeStatus        `json:"status,omitempty"`
+	Files        *model.FileResult           `json:"files,omitempty"`
+	Transfer     *model.TransferResult       `json:"transfer,omitempty"`
+	SparkVersion string                      `json:"spark_version,omitempty"`
 }
 
 // Enrollment returns a signed identity after consuming a bootstrap token.

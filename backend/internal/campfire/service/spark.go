@@ -12,6 +12,7 @@ import (
 
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/sparkrelease"
 )
 
 // Spark errors describe validation, lookup, and registration conflicts.
@@ -58,6 +59,7 @@ type SparkConnectivity interface {
 
 // SparkService validates and registers game server nodes.
 type SparkService struct {
+	Updates      *SparkUpdateService
 	store        SparkStore
 	connectivity SparkConnectivity
 }
@@ -186,6 +188,11 @@ func (s *SparkService) withConnectivity(spark model.Spark) model.Spark {
 		}); ok {
 			spark.Protocol, spark.AgentVersion, spark.Capabilities = features.SparkFeatures(spark.ID)
 		}
+	}
+
+	if s.Updates != nil {
+		spark.LatestAgentVersion = s.Updates.Status().LatestVersion
+		spark.AgentUpdateAvailable = spark.Connected && sparkrelease.Newer(spark.AgentVersion, spark.LatestAgentVersion)
 	}
 
 	return spark

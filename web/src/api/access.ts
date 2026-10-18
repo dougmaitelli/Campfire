@@ -207,6 +207,48 @@ export async function readServerAccess(
   if (!isAccess(body)) throw new Error("Unexpected server access response.");
   return body;
 }
+export async function serverAccessOptions(
+  signal: AbortSignal,
+): Promise<ServerAccess> {
+  const body = await readJSON(
+    await apiFetch("/api/v1/provisioning/access", { signal }),
+  );
+  if (!isAccess(body))
+    throw new Error("Unexpected server access options response.");
+  return body;
+}
+
+export interface ServerAccessDraft {
+  ownerID: number;
+  members: { username: string; role_id: number }[];
+  removedUserIDs: number[];
+}
+
+export async function saveServerAccessDraft(
+  serverID: string,
+  draft: ServerAccessDraft,
+): Promise<void> {
+  const current = await readServerAccess(serverID, AbortSignal.timeout(15000));
+  for (const member of draft.members) {
+    if (member.username.toLowerCase() === current.owner?.username.toLowerCase())
+      continue;
+    if (
+      !current.members.some(
+        (existing) =>
+          existing.username.toLowerCase() === member.username.toLowerCase() &&
+          existing.role_id === member.role_id,
+      )
+    ) {
+      await shareServer(serverID, member.username, member.role_id);
+    }
+  }
+  for (const userID of draft.removedUserIDs) {
+    if (current.members.some((member) => member.user_id === userID))
+      await removeMember(serverID, userID);
+  }
+  if (draft.ownerID && draft.ownerID !== current.owner?.id)
+    await transferOwner(serverID, draft.ownerID);
+}
 export async function shareServer(
   serverID: string,
   username: string,

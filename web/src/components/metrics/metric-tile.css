@@ -1,8 +1,8 @@
 .metric-tile {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
+  gap: 8px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
@@ -14,7 +14,7 @@
 }
 
 .metric-tile-value {
-  font-size: 25px;
+  font-size: 22px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -23,6 +23,9 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
+}
+.metric-tile-visual {
+  margin-top: auto;
 }
 
 .metric-tile-warning {

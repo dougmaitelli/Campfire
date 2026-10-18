@@ -7,8 +7,15 @@ import (
 	"time"
 )
 
+// SparkUpdateTimeout bounds official binary download and verification.
+const SparkUpdateTimeout = 5 * time.Minute
+
 // CommandTimeout permits bounded archive work without enlarging other RPC budgets.
 func CommandTimeout(command Command) time.Duration {
+	if command.Name == UpdateSpark {
+		return SparkUpdateTimeout
+	}
+
 	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation == "compress" || command.Files.Operation == "extract") {
 		return 30 * time.Minute
 	}
@@ -33,11 +40,12 @@ const (
 	CapabilityTransfer      = "server.transfer.v1"
 	CapabilityUpgrade       = "server.upgrade.v1"
 	CapabilityCleanInstall  = "server.reinstall.clean.v1"
+	CapabilitySelfUpdate    = "spark.self-update.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityEmberBehavior, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade, CapabilityCleanInstall}
+	return []string{CapabilityConfigure, CapabilityEmberBehavior, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade, CapabilityCleanInstall, CapabilitySelfUpdate}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -118,6 +126,8 @@ func Require(negotiated []string, required ...string) error {
 // RequiredCapabilities covers every command extension at both dispatch boundaries.
 func RequiredCapabilities(command Command) []string {
 	switch command.Name {
+	case UpdateSpark:
+		return []string{CapabilitySelfUpdate}
 	case ConfigureServer:
 		if command.Deployment != nil && command.Deployment.Ember.ExtendedBehavior() {
 			return []string{CapabilityConfigure, CapabilityEmberBehavior}

@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"os"
@@ -10,7 +11,9 @@ import (
 	"strings"
 	"syscall"
 
+	"campfire/internal/shared/buildinfo"
 	"campfire/internal/shared/cliutil"
+	"campfire/internal/shared/protocol"
 	"campfire/internal/spark/agent"
 )
 
@@ -21,6 +24,7 @@ func Run(ctx context.Context, args []string) error {
 	data := flags.String("data", cliutil.Environment("SPARK_DATA", "spark-data"), "persistent private agent state directory (SPARK_DATA)")
 	ca := flags.String("ca-file", cliutil.Environment("SPARK_CA_FILE", ""), "private panel HTTPS CA certificate (SPARK_CA_FILE)")
 	version := flags.Bool("version", false, "print release version and exit")
+	updateInfo := flags.Bool("update-info", false, "print version and wire compatibility for verified updates")
 	enrollOnly := flags.Bool("enroll-only", false, "enroll and save the agent identity, then exit")
 
 	tokenFile := flags.String("token-file", cliutil.Environment("SPARK_TOKEN_FILE", ""), "private one-time enrollment token file (SPARK_TOKEN_FILE)")
@@ -38,6 +42,10 @@ func Run(ctx context.Context, args []string) error {
 
 	if *version {
 		return cliutil.PrintVersion("Spark")
+	}
+
+	if *updateInfo {
+		return json.NewEncoder(os.Stdout).Encode(protocol.SparkUpdateInfo{Version: buildinfo.Version, MinimumProtocol: protocol.MinimumProtocolVersion, Protocol: protocol.ProtocolVersion})
 	}
 
 	token := strings.TrimSpace(os.Getenv("CAMPFIRE_ENROLLMENT_TOKEN"))
@@ -66,5 +74,15 @@ func Run(ctx context.Context, args []string) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	return agent.Run(ctx, agent.Config{PanelURL: *panel, DataDir: *data, CAFile: *ca, Token: token, EnrollOnly: *enrollOnly})
+	err := agent.Run(ctx, agent.Config{PanelURL: *panel, DataDir: *data, CAFile: *ca, Token: token, EnrollOnly: *enrollOnly})
+
+	var restart *agent.RestartError
+	if errors.As(err, &restart) {
+		if err := syscall.Exec(restart.Executable, os.Args, os.Environ()); err != nil {
+			rollbackErr := os.Rename(restart.Executable+".previous", restart.Executable)
+			return errors.Join(err, rollbackErr)
+		}
+	}
+
+	return err
 }

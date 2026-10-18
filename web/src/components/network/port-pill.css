@@ -1,0 +1,9 @@
+.port-pill {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+.port-pill .status-pill {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

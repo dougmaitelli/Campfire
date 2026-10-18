@@ -15,6 +15,8 @@ export function SparksTable({
   error,
   onRetry,
   onAdd,
+  onUpdate,
+  updating,
 }: {
   sparks: Spark[];
   onDetails: (spark: Spark) => void;
@@ -22,6 +24,8 @@ export function SparksTable({
   error: string | null;
   onRetry: () => void;
   onAdd: () => void;
+  onUpdate: (spark: Spark) => void;
+  updating: string | null;
 }) {
   return (
     <Table
@@ -46,6 +50,9 @@ export function SparksTable({
           <th scope="col">Limits</th>
           <th scope="col">Network</th>
           <th scope="col">Added</th>
+          <th scope="col" className="table-actions">
+            <span className="visually-hidden">Actions</span>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -99,6 +106,27 @@ export function SparksTable({
               <time dateTime={spark.created_at}>
                 {dateFormat.format(new Date(spark.created_at))}
               </time>
+            </td>
+            <td className="table-actions">
+              {spark.agent_update_available && (
+                <Button
+                  variant="warning"
+                  disabled={
+                    updating !== null ||
+                    !spark.capabilities?.includes("spark.self-update.v1")
+                  }
+                  onClick={() => onUpdate(spark)}
+                  title={
+                    spark.capabilities?.includes("spark.self-update.v1")
+                      ? `Update to ${spark.latest_agent_version ?? "the latest release"}`
+                      : "This client needs a manual upgrade before it supports remote updates."
+                  }
+                  loading={updating === spark.id}
+                  loadingLabel="Updating…"
+                >
+                  Update Spark
+                </Button>
+              )}
             </td>
           </TableRow>
         ))}

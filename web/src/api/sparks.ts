@@ -1,5 +1,7 @@
 import { apiFetch, readJSON } from "./client";
 
+const SPARK_UPDATE_REQUEST_TIMEOUT_MS = 330000;
+
 export type SparkKind = "remote";
 
 export interface PortAllocation {
@@ -24,6 +26,8 @@ export interface Spark extends SparkSettings {
   disabled: boolean;
   connected: boolean;
   agent_version?: string;
+  latest_agent_version?: string;
+  agent_update_available?: boolean;
   protocol?: number;
   capabilities?: string[];
   kind: SparkKind;
@@ -64,6 +68,10 @@ export function isSpark(value: unknown): value is Spark {
     "connected" in value &&
     typeof value.connected === "boolean" &&
     (!("agent_version" in value) || typeof value.agent_version === "string") &&
+    (!("latest_agent_version" in value) ||
+      typeof value.latest_agent_version === "string") &&
+    (!("agent_update_available" in value) ||
+      typeof value.agent_update_available === "boolean") &&
     (!("protocol" in value) ||
       (typeof value.protocol === "number" &&
         Number.isSafeInteger(value.protocol) &&
@@ -144,6 +152,20 @@ export async function deleteSpark(id: string): Promise<void> {
     method: "DELETE",
   });
   if (!response.ok) await readResponse(response);
+}
+
+export async function updateSparkClient(
+  id: string,
+  version: string,
+): Promise<void> {
+  await readJSON(
+    await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}/update`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version }),
+      signal: AbortSignal.timeout(SPARK_UPDATE_REQUEST_TIMEOUT_MS),
+    }),
+  );
 }
 
 export interface SparkEnrollment {

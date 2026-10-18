@@ -7,6 +7,7 @@ import type { Server } from "../api/servers";
 import { Drawer } from "../components/layout/Drawer";
 import { Table } from "../components/table/Table";
 import { BackupState } from "../components/servers/BackupState";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { bytes } from "../api/monitoring";
 import "../components/servers/files.css";
 
@@ -239,8 +240,11 @@ export function ServerBackupsDialog({
                         <ButtonLink
                           href={`/api/v1/servers/${encodeURIComponent(server.id)}/backups/${encodeURIComponent(entry.name)}`}
                           download
+                          iconOnly
+                          aria-label={`Download ${entry.name}`}
+                          title="Download backup"
                         >
-                          Download
+                          <NavigationIcon name="download" />
                         </ButtonLink>
                       )}
                     <Button

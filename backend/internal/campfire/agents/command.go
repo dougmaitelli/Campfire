@@ -15,6 +15,10 @@ var ErrDisconnected = errors.New("spark disconnected")
 
 func validResponse(response protocol.CommandResponse) bool {
 	count := 0
+	if response.SparkVersion != "" {
+		count++
+	}
+
 	if response.Transfer != nil {
 		count++
 	}
@@ -36,6 +40,20 @@ func validResponse(response protocol.CommandResponse) bool {
 	}
 
 	return count == 1
+}
+
+// UpdateSpark requests a verified client replacement; reconnection confirms the running version.
+func (h *Hub) UpdateSpark(ctx context.Context, id, version string) error {
+	response, err := h.Execute(ctx, id, protocol.Command{Name: protocol.UpdateSpark, SparkVersion: version})
+	if err != nil {
+		return err
+	}
+
+	if response.SparkVersion != version {
+		return errors.New("invalid Spark update acknowledgement")
+	}
+
+	return nil
 }
 
 // Transfer dispatches one bounded transfer step to its authenticated Spark.

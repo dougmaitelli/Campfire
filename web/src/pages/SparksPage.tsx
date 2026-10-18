@@ -2,21 +2,29 @@ import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SparksTable } from "../components/sparks/SparksTable";
 import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
 import { SparkDialog } from "../dialogs/SparkDialog";
 import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
 import type { Spark } from "../api/sparks";
-import { deleteSpark } from "../api/sparks";
+import { deleteSpark, listSparks, updateSparkClient } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
 import "./management.css";
 import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 
+const UPDATE_RECONNECT_TIMEOUT_MS = 120000;
+const UPDATE_STATUS_POLL_INTERVAL_MS = 2000;
+const UPDATE_STATUS_REQUEST_TIMEOUT_MS = 10000;
+
 export function SparksPage() {
-  const [details, setDetails] = useState<Spark | null>(null);
+  const [selectedDetails, setDetails] = useState<Spark | null>(null);
   const { sparks, loading, error, refresh, addSpark } = useSparks();
+  const details = selectedDetails
+    ? (sparks.find((spark) => spark.id === selectedDetails.id) ??
+      selectedDetails)
+    : null;
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Spark | null>(null);
   const [enrolling, setEnrolling] = useState<{
@@ -28,6 +36,78 @@ export function SparksPage() {
   );
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmUpdate, setConfirmUpdate] = useState<Spark | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState<{
+    id: string;
+    version: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!waiting) return;
+    const controller = new AbortController();
+    const deadline = Date.now() + UPDATE_RECONNECT_TIMEOUT_MS;
+    let checking = false;
+    const timer = window.setInterval(() => {
+      if (checking) return;
+      checking = true;
+      void listSparks(
+        AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(UPDATE_STATUS_REQUEST_TIMEOUT_MS),
+        ]),
+      )
+        .then((items) => {
+          if (controller.signal.aborted) return;
+          const updated = items.find((item) => item.id === waiting.id);
+          if (updated?.connected && updated.agent_version === waiting.version) {
+            addSpark(updated);
+            setDetails((previous) =>
+              previous?.id === updated.id ? updated : previous,
+            );
+            setWaiting(null);
+            setUpdating(null);
+          } else if (Date.now() > deadline) {
+            setUpdateError(
+              "The update was accepted, but Spark has not reconnected with the new version yet. Refresh to check its status.",
+            );
+            setWaiting(null);
+            setUpdating(null);
+          }
+        })
+        .catch(() => {
+          if (!controller.signal.aborted && Date.now() > deadline) {
+            setUpdateError(
+              "Unable to confirm the updated Spark connection. Refresh to check its status.",
+            );
+            setWaiting(null);
+            setUpdating(null);
+          }
+        })
+        .finally(() => {
+          checking = false;
+        });
+    }, UPDATE_STATUS_POLL_INTERVAL_MS);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [waiting, addSpark]);
+  async function updateClient(spark: Spark) {
+    if (updating || !spark.latest_agent_version) return;
+    setUpdating(spark.id);
+    setUpdateError(null);
+    setConfirmUpdate(null);
+    try {
+      await updateSparkClient(spark.id, spark.latest_agent_version);
+      setWaiting({ id: spark.id, version: spark.latest_agent_version });
+    } catch (cause) {
+      setUpdateError(
+        cause instanceof Error ? cause.message : "Unable to update Spark.",
+      );
+      setUpdating(null);
+    }
+  }
   async function remove(spark: Spark) {
     if (
       deleting !== null ||
@@ -83,6 +163,12 @@ export function SparksPage() {
         <InlineMessage role="alert">{error ?? deleteError}</InlineMessage>
       )}
       <div className="management-content" aria-busy={loading}>
+        {updateError && <InlineMessage>{updateError}</InlineMessage>}
+        {waiting && (
+          <InlineMessage tone="info">
+            Spark update installed. Waiting for the client to reconnect…
+          </InlineMessage>
+        )}
         <SparksTable
           loading={loading}
           error={error}
@@ -92,6 +178,8 @@ export function SparksPage() {
           onAdd={openAdd}
           onDetails={setDetails}
           sparks={sparks}
+          updating={updating}
+          onUpdate={setConfirmUpdate}
         />
       </div>
       <p className="list-summary" role="status">
@@ -135,19 +223,37 @@ export function SparksPage() {
             void remove(details);
           }}
           deleting={deleting === details.id}
-          deleteDisabled={deleting !== null}
-          actionError={deleteError}
+          deleteDisabled={deleting !== null || updating !== null}
+          actionError={updateError ?? deleteError}
           actions={
-            <Button
-              type="button"
-              variant="warning"
-              disabled={details.disabled || deleting !== null}
-              onClick={() => {
-                setConfirmEnrollment(details);
-              }}
-            >
-              Re-enroll
-            </Button>
+            <>
+              {details.agent_update_available && (
+                <Button
+                  variant="warning"
+                  disabled={
+                    updating !== null ||
+                    !details.capabilities?.includes("spark.self-update.v1")
+                  }
+                  onClick={() => setConfirmUpdate(details)}
+                  loading={updating === details.id}
+                  loadingLabel="Updating…"
+                >
+                  Update Spark
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="warning"
+                disabled={
+                  details.disabled || deleting !== null || updating !== null
+                }
+                onClick={() => {
+                  setConfirmEnrollment(details);
+                }}
+              >
+                Re-enroll
+              </Button>
+            </>
           }
           onClose={() => setDetails(null)}
           onEdit={() => {
@@ -179,6 +285,20 @@ export function SparksPage() {
             the agent.
           </p>
         </ConfirmDialog>
+      )}
+      {confirmUpdate && (
+        <ConfirmDialog
+          title={`Update ${confirmUpdate.name}?`}
+          description={`Install Spark ${confirmUpdate.latest_agent_version ?? "latest"} from the official GitHub release. Its checksum is verified before replacing the binary. The agent briefly disconnects and restarts; game containers keep running. Finish active server operations, uploads, and transfers first.`}
+          confirmLabel="Update Spark"
+          warning
+          busy={false}
+          error={null}
+          onClose={() => setConfirmUpdate(null)}
+          onConfirm={() => {
+            void updateClient(confirmUpdate);
+          }}
+        />
       )}
     </section>
   );

@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -151,12 +152,23 @@ func Run(ctx context.Context, config Config) error {
 	defer manager.Close()
 
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
+	if config.Token == "" {
+		configurations.Update = func(ctx context.Context, version string) (string, error) {
+			return installSparkUpdate(ctx, version, configurations.NegotiatedProtocol, manager.CanUpdate)
+		}
+	}
 
 agentLoop:
 	for ctx.Err() == nil {
 		started := time.Now()
 
 		renewed, err := connectRenewing(ctx, target.String(), &identity, path, config.dialContext, configurations)
+
+		var restart *RestartError
+		if errors.As(err, &restart) {
+			return restart
+		}
+
 		if ctx.Err() != nil {
 			break
 		}
@@ -398,6 +410,10 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 	}
 
 	offered := protocol.SupportedCapabilities()
+	if configurations.Update == nil {
+		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilitySelfUpdate })
+	}
+
 	if err := conn.WriteJSON(protocol.Message{Type: "hello", Protocol: protocol.ProtocolVersion, MinimumProtocol: protocol.MinimumProtocolVersion, Capabilities: offered, SparkID: id, Hostname: hostname, Version: buildinfo.Version}); err != nil {
 		return err
 	}
@@ -418,6 +434,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 	}
 
 	wireVersion = welcome.Protocol
+	configurations.NegotiatedProtocol = wireVersion
 
 	slog.Info("Spark connected", "spark", id, "protocol", wireVersion, "capabilities", welcome.Capabilities)
 
@@ -481,13 +498,27 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 				return errors.New("missing command")
 			}
 
-			response := configurations.executeNegotiated(ctx, id, *message.Command, welcome.Capabilities)
+			var response protocol.CommandResponse
+			if message.Command.Name == protocol.UpdateSpark {
+				response = updateWithHeartbeats(ctx, func() protocol.CommandResponse {
+					return configurations.executeNegotiated(ctx, id, *message.Command, welcome.Capabilities)
+				}, send)
+			} else {
+				response = configurations.executeNegotiated(ctx, id, *message.Command, welcome.Capabilities)
+			}
+
 			outgoing = protocol.Message{Type: "response", Response: &response}
 		default:
 			return errors.New("unsupported panel message")
 		}
 
-		if err := send(outgoing); err != nil {
+		sendErr := send(outgoing)
+
+		if configurations.RestartExecutable != "" {
+			return &RestartError{Executable: configurations.RestartExecutable}
+		}
+
+		if err := sendErr; err != nil {
 			return err
 		}
 	}

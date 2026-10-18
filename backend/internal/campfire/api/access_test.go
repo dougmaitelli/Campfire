@@ -340,6 +340,56 @@ func TestServerAuthorizationOwnershipAndRevocation(t *testing.T) {
 	expectAccess(t, f.admin, "GET", endpoint, "", http.StatusOK)
 }
 
+func TestCreationAccessOptionsRespectRoleGrantPermissions(t *testing.T) {
+	f := newAccessFixture(t)
+	_, creator := f.user("access-creator", database.CreatorRole)
+
+	response := request(f.admin, "POST", "/api/v1/roles", `{"name":"Access helper","scope":"server","permissions":["server.view","server.share"]}`)
+	if response.Code != http.StatusCreated {
+		t.Fatal(response.Code, response.Body)
+	}
+
+	for _, check := range []struct {
+		name    string
+		handler http.Handler
+		custom  bool
+	}{{"administrator", f.admin, true}, {"creator", creator, false}} {
+		t.Run(check.name, func(t *testing.T) {
+			response := request(check.handler, "GET", "/api/v1/provisioning/access", "")
+			if response.Code != http.StatusOK {
+				t.Fatal(response.Code, response.Body)
+			}
+
+			var options struct {
+				Owner   *database.User     `json:"owner"`
+				Members []json.RawMessage  `json:"members"`
+				Roles   []service.RoleView `json:"roles"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &options); err != nil {
+				t.Fatal(err)
+			}
+
+			if options.Owner != nil || len(options.Members) != 0 || len(options.Roles) == 0 {
+				t.Fatal("creation options exposed unrelated account access", response.Body)
+			}
+
+			foundCustom := false
+
+			for _, role := range options.Roles {
+				if role.Scope != "server" || role.ID == database.OwnerRole || !check.custom && role.ID != database.OperatorRole {
+					t.Fatal("unassignable role exposed", role)
+				}
+
+				foundCustom = foundCustom || role.Name == "Access helper"
+			}
+
+			if foundCustom != check.custom {
+				t.Fatal("custom role visibility does not match grant permissions")
+			}
+		})
+	}
+}
+
 func TestPlatformRoleBoundariesAndLiveServerRoleChanges(t *testing.T) {
 	f := newAccessFixture(t)
 
@@ -348,10 +398,11 @@ func TestPlatformRoleBoundariesAndLiveServerRoleChanges(t *testing.T) {
 
 	user, handler := f.user("member", database.UserRole)
 	for _, check := range []struct{ method, path string }{
+		{"GET", "/sparks/update-status"}, {"POST", "/sparks/node/update"},
 		{"GET", "/sparks"}, {"POST", "/sparks"}, {"GET", "/sparks/node"}, {"PATCH", "/sparks/node"}, {"POST", "/sparks/node/enrollment"}, {"GET", "/sparks/node/roles"}, {"PUT", "/sparks/node/roles"},
 		{"GET", "/users"}, {"POST", "/users"}, {"PUT", "/users/1"}, {"DELETE", "/users/1"},
 		{"GET", "/roles"}, {"POST", "/roles"}, {"PUT", "/roles/1"}, {"DELETE", "/roles/1"},
-		{"GET", "/embers"}, {"POST", "/embers"}, {"POST", "/embers/preview"}, {"POST", "/embers/preview-url"}, {"GET", "/provisioning"}, {"POST", "/servers"},
+		{"GET", "/embers"}, {"POST", "/embers"}, {"POST", "/embers/preview"}, {"POST", "/embers/preview-url"}, {"GET", "/provisioning"}, {"GET", "/provisioning/access"}, {"POST", "/servers"},
 	} {
 		expectAccess(t, handler, check.method, "/api/v1"+check.path, "{}", http.StatusForbidden)
 	}

@@ -17,12 +17,14 @@ type Spark struct {
 	Description string `json:"description"`
 	Disabled    bool   `json:"disabled"`
 	// Connected is calculated by the service and is never persisted.
-	Connected    bool      `json:"connected"`
-	AgentVersion string    `json:"agent_version,omitempty"`
-	Protocol     int       `json:"protocol,omitempty"`
-	Capabilities []string  `json:"capabilities,omitempty"`
-	Kind         SparkKind `json:"kind"`
-	CreatedAt    time.Time `json:"created_at"`
+	Connected            bool      `json:"connected"`
+	AgentVersion         string    `json:"agent_version,omitempty"`
+	LatestAgentVersion   string    `json:"latest_agent_version,omitempty"`
+	AgentUpdateAvailable bool      `json:"agent_update_available"`
+	Protocol             int       `json:"protocol,omitempty"`
+	Capabilities         []string  `json:"capabilities,omitempty"`
+	Kind                 SparkKind `json:"kind"`
+	CreatedAt            time.Time `json:"created_at"`
 }
 
 // SparkSettings describes administrator-configured capacity and game networking.

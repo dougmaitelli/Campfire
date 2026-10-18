@@ -74,7 +74,14 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 		return 0, "", nil
 	}
 
-	return protocol.ProtocolVersion, "mock-dev", []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilityBackupDelete}
+	version := "mock-dev"
+
+	var client sparkClientRecord
+	if err := r.db.Where("spark_id = ?", id).Take(&client).Error; err == nil {
+		version = client.Version
+	}
+
+	return protocol.ProtocolVersion, version, []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilityBackupDelete, protocol.CapabilitySelfUpdate}
 }
 
 func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, error) {

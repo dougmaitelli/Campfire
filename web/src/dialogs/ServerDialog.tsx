@@ -19,11 +19,21 @@ import {
   type BackupPolicy,
 } from "../api/backups";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
+import { useAuthentication } from "../hooks/useAuthentication";
+import {
+  listUsers,
+  readServerAccess,
+  serverAccessOptions,
+  saveServerAccessDraft,
+  type ServerAccess,
+  type User,
+} from "../api/access";
 
 interface ServerDialogProps {
   s3Configured: boolean;
   runtimeRestricted?: boolean;
   applyRevision?: boolean;
+  accessOnly?: boolean;
   server: Server | null;
   sparks: Spark[];
   embers: Ember[];
@@ -36,6 +46,7 @@ export function ServerDialog({
   s3Configured,
   runtimeRestricted = false,
   applyRevision = false,
+  accessOnly = false,
   server,
   sparks,
   embers,
@@ -43,6 +54,55 @@ export function ServerDialog({
   onClose,
   onSaved,
 }: ServerDialogProps) {
+  const session = useAuthentication().session;
+  const admin = session?.admin === true;
+  const canShare =
+    !applyRevision &&
+    (!server || admin || server.permissions.includes("server.share"));
+  const [access, setAccess] = useState<ServerAccess | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessAttempt, setAccessAttempt] = useState(0);
+  const [users, setUsers] = useState<User[]>([]);
+  const [ownerID, setOwnerID] = useState(session?.user_id ?? 0);
+  const [members, setMembers] = useState<
+    {
+      user_id?: number | undefined;
+      username: string;
+      role_id: number;
+      role: string;
+    }[]
+  >([]);
+  const [username, setUsername] = useState("");
+  const [memberRoleID, setMemberRoleID] = useState(0);
+  const [accessDirty, setAccessDirty] = useState(false);
+  const [removedUserIDs, setRemovedUserIDs] = useState<number[]>([]);
+  useEffect(() => {
+    if (!canShare) return;
+    const controller = new AbortController();
+    void Promise.all([
+      server
+        ? readServerAccess(server.id, controller.signal)
+        : serverAccessOptions(controller.signal),
+      admin ? listUsers(controller.signal) : Promise.resolve([]),
+    ])
+      .then(([next, accounts]) => {
+        if (controller.signal.aborted) return;
+        setAccess(next);
+        setMembers(next.members);
+        setOwnerID(next.owner?.id ?? (server ? 0 : (session?.user_id ?? 0)));
+        setMemberRoleID(next.roles[0]?.id ?? 0);
+        setUsers(accounts);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setAccessError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load server access.",
+          );
+      });
+    return () => controller.abort();
+  }, [canShare, admin, server, session?.user_id, accessAttempt]);
   const [value, setValue] = useState<ServerConfiguration>(() => {
     if (server) return server;
     const spark = sparks.find(
@@ -80,7 +140,7 @@ export function ServerDialog({
   const [policyDirty, setPolicyDirty] = useState(false);
   const [confirmPolicy, setConfirmPolicy] = useState(false);
   useEffect(() => {
-    if (!server || applyRevision) return;
+    if (!server || applyRevision || accessOnly) return;
     const controller = new AbortController();
     void getBackupPolicy(server.id, controller.signal)
       .then((result) => {
@@ -98,7 +158,7 @@ export function ServerDialog({
           );
       });
     return () => controller.abort();
-  }, [server, applyRevision]);
+  }, [server, applyRevision, accessOnly]);
   const submitting = useRef(false);
   const createdServer = useRef<Server | null>(null);
   const spark = sparks.find((item) => item.id === value.spark_id);
@@ -119,6 +179,14 @@ export function ServerDialog({
 
   async function finish() {
     if (submitting.current) return;
+    if (canShare && accessDirty && (!access || accessError)) {
+      setError(accessError ?? "Wait for server access to load.");
+      return;
+    }
+    if (canShare && username.trim()) {
+      setError("Add the collaborator or clear the username before saving.");
+      return;
+    }
     submitting.current = true;
     setBusy(true);
     setError(null);
@@ -137,9 +205,11 @@ export function ServerDialog({
         ports: value.ports,
       };
       const saved =
-        applyRevision && server
-          ? await applyServerEmber(server.id, server.ember_id, input)
-          : await saveServer(input, server?.id ?? createdServer.current?.id);
+        accessOnly && server
+          ? server
+          : applyRevision && server
+            ? await applyServerEmber(server.id, server.ember_id, input)
+            : await saveServer(input, server?.id ?? createdServer.current?.id);
       if (!server) {
         createdServer.current = saved;
       }
@@ -150,6 +220,22 @@ export function ServerDialog({
           onSaved(saved);
           throw new Error(
             `Server saved, but backup settings failed. Retry saving to apply them to the same server. ${cause instanceof Error ? cause.message : ""}`,
+            { cause },
+          );
+        }
+      }
+      if (accessDirty) {
+        try {
+          await saveServerAccessDraft(saved.id, {
+            ownerID: admin ? ownerID : 0,
+            members,
+            removedUserIDs,
+          });
+          setAccessDirty(false);
+        } catch (cause) {
+          onSaved(saved);
+          throw new Error(
+            `Server saved, but access changes could not be fully saved. Retry to finish saving the same server. ${cause instanceof Error ? cause.message : ""}`,
             { cause },
           );
         }
@@ -171,14 +257,22 @@ export function ServerDialog({
       busy={busy}
       error={error}
       finishLabel={
-        applyRevision
-          ? "Apply Ember revision"
-          : server
-            ? "Save changes"
-            : "Create server"
+        accessOnly
+          ? "Save access"
+          : applyRevision
+            ? "Apply Ember revision"
+            : server
+              ? "Save changes"
+              : "Create server"
       }
       onFinish={async () => {
-        if (policyDirty) setConfirmPolicy(true);
+        if (
+          policyDirty ||
+          (admin &&
+            accessDirty &&
+            ownerID !== (access?.owner?.id ?? (server ? 0 : session.user_id)))
+        )
+          setConfirmPolicy(true);
         else await finish();
       }}
       steps={[
@@ -638,6 +732,182 @@ export function ServerDialog({
               },
             ]
           : []),
+        ...(canShare
+          ? [
+              {
+                id: "access",
+                title: "Access",
+                validate: () =>
+                  accessError ??
+                  (!access
+                    ? "Wait for server access to load."
+                    : username.trim()
+                      ? "Add the collaborator or clear the username before continuing."
+                      : null),
+                content: accessError ? (
+                  <>
+                    <InlineMessage>{accessError}</InlineMessage>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setAccessError(null);
+                        setAccessAttempt((attempt) => attempt + 1);
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </>
+                ) : !access ? (
+                  <p role="status">Loading access…</p>
+                ) : (
+                  <>
+                    <h4>Owner</h4>
+                    {admin ? (
+                      <FormField
+                        label="Owner"
+                        description="Changing the owner removes the previous owner’s implicit access when you save."
+                      >
+                        <Select
+                          value={ownerID}
+                          onChange={(event) => {
+                            setOwnerID(Number(event.target.value));
+                            setAccessDirty(true);
+                          }}
+                        >
+                          <option value={0} disabled>
+                            Select an account
+                          </option>
+                          {users
+                            .filter(
+                              (user) =>
+                                !user.disabled || user.id === access.owner?.id,
+                            )
+                            .map((user) => (
+                              <option key={user.id} value={user.id}>
+                                {user.username}
+                                {user.disabled ? " (disabled)" : ""}
+                              </option>
+                            ))}
+                        </Select>
+                      </FormField>
+                    ) : (
+                      <p>
+                        {access.owner?.username ??
+                          session?.username ??
+                          "Administrator managed"}
+                      </p>
+                    )}
+                    <h4>Collaborators</h4>
+                    <p className="field-help">
+                      Changes apply when you save. Administrators always have
+                      access.
+                    </p>
+                    {members.length === 0 && (
+                      <p className="field-help">No collaborators assigned.</p>
+                    )}
+                    {members.map((member) => (
+                      <div className="access-member" key={member.username}>
+                        <span>
+                          {member.username} · {member.role}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          onClick={() => {
+                            setMembers(
+                              members.filter(
+                                (entry) => entry.username !== member.username,
+                              ),
+                            );
+                            if (member.user_id)
+                              setRemovedUserIDs([
+                                ...removedUserIDs,
+                                member.user_id,
+                              ]);
+                            setAccessDirty(true);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                    <FormField label="Existing username">
+                      <TextInput
+                        value={username}
+                        maxLength={64}
+                        autoComplete="off"
+                        onChange={(event) => setUsername(event.target.value)}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Server role"
+                      description="Collaborators receive the selected server role; their account role does not change."
+                    >
+                      <Select
+                        value={memberRoleID}
+                        onChange={(event) =>
+                          setMemberRoleID(Number(event.target.value))
+                        }
+                      >
+                        {access.roles.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormField>
+                    <Button
+                      type="button"
+                      disabled={!username.trim() || !memberRoleID}
+                      onClick={() => {
+                        const name = username.trim();
+                        const role = access.roles.find(
+                          (entry) => entry.id === memberRoleID,
+                        );
+                        const previous = access.members.find(
+                          (entry) =>
+                            entry.username.toLowerCase() === name.toLowerCase(),
+                        );
+                        if (!role) return;
+                        if (
+                          name.toLowerCase() ===
+                          (
+                            access.owner?.username ?? session?.username
+                          )?.toLowerCase()
+                        ) {
+                          setError("The owner already has full server access.");
+                          return;
+                        }
+                        setMembers([
+                          ...members.filter(
+                            (member) =>
+                              member.username.toLowerCase() !==
+                              name.toLowerCase(),
+                          ),
+                          {
+                            user_id: previous?.user_id,
+                            username: name,
+                            role_id: role.id,
+                            role: role.name,
+                          },
+                        ]);
+                        if (previous)
+                          setRemovedUserIDs(
+                            removedUserIDs.filter(
+                              (id) => id !== previous.user_id,
+                            ),
+                          );
+                        setUsername("");
+                        setAccessDirty(true);
+                      }}
+                    >
+                      Add collaborator
+                    </Button>
+                  </>
+                ),
+              },
+            ]
+          : []),
         {
           id: "review",
           title: "Review",
@@ -670,33 +940,75 @@ export function ServerDialog({
                   </p>
                 </>
               )}
-              <ServerReview
-                value={value}
-                sparkName={spark?.name ?? ""}
-                emberName={ember?.name ?? ""}
-                notice={
-                  applyRevision
-                    ? "Applying changes the pinned Ember and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
-                    : server
-                      ? "Saving keeps the server in its current state, including when unavailable. Game configuration changes apply on the next restart. Reducing resources or removing reserved host ports requires confirming the server is stopped."
-                      : undefined
-                }
-              />
+              {!accessOnly && (
+                <ServerReview
+                  value={value}
+                  sparkName={spark?.name ?? ""}
+                  emberName={ember?.name ?? ""}
+                  notice={
+                    applyRevision
+                      ? "Applying changes the pinned Ember and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
+                      : server
+                        ? "Saving keeps the server in its current state, including when unavailable. Game configuration changes apply on the next restart. Reducing resources or removing reserved host ports requires confirming the server is stopped."
+                        : undefined
+                  }
+                />
+              )}
+              {canShare && access && (
+                <>
+                  <h4>Access</h4>
+                  <p>
+                    Owner:{" "}
+                    {admin
+                      ? (users.find((user) => user.id === ownerID)?.username ??
+                        "Administrator managed")
+                      : (access.owner?.username ?? session?.username)}
+                  </p>
+                  {members.length ? (
+                    <ul>
+                      {members
+                        .filter(
+                          (member) =>
+                            !admin ||
+                            users
+                              .find((user) => user.id === ownerID)
+                              ?.username.toLowerCase() !==
+                              member.username.toLowerCase(),
+                        )
+                        .map((member) => (
+                          <li key={member.username}>
+                            {member.username} · {member.role}
+                          </li>
+                        ))}
+                    </ul>
+                  ) : (
+                    <p className="field-help">No collaborators assigned.</p>
+                  )}
+                </>
+              )}
             </>
           ),
         },
-      ]}
+      ].filter(
+        (step) => !accessOnly || step.id === "access" || step.id === "review",
+      )}
     >
       {(content, actions) => (
         <Drawer
           title={
-            applyRevision
-              ? "Apply Ember revision"
-              : server
-                ? "Edit server"
-                : "Create server"
+            accessOnly
+              ? "Edit server access"
+              : applyRevision
+                ? "Apply Ember revision"
+                : server
+                  ? "Edit server"
+                  : "Create server"
           }
-          description="Choose where it runs and what it hosts."
+          description={
+            accessOnly
+              ? "Manage ownership and collaborators."
+              : "Choose where it runs, what it hosts, and who has access."
+          }
           busy={busy}
           onClose={onClose}
           footerLeft={
@@ -714,8 +1026,12 @@ export function ServerDialog({
           {content}
           {confirmPolicy && (
             <ConfirmDialog
-              title="Save server and backup settings?"
-              description="Retention runs in the background and permanently deletes expired copies independently from local and S3 storage. Zero disables a limit."
+              title="Save server changes?"
+              description={
+                policyDirty
+                  ? "Retention runs in the background and permanently deletes expired copies independently from local and S3 storage. Zero disables a limit."
+                  : "Changing ownership removes the previous owner’s implicit access to this server."
+              }
               confirmLabel="Save changes"
               busy={busy}
               error={error}
@@ -723,7 +1039,18 @@ export function ServerDialog({
               onConfirm={() => {
                 void finish();
               }}
-            />
+            >
+              {policyDirty &&
+                admin &&
+                accessDirty &&
+                ownerID !==
+                  (access?.owner?.id ?? (server ? 0 : session.user_id)) && (
+                  <p>
+                    Changing ownership also removes the previous owner’s
+                    implicit access to this server.
+                  </p>
+                )}
+            </ConfirmDialog>
           )}
         </Drawer>
       )}

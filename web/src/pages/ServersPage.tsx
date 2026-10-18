@@ -10,7 +10,6 @@ import { deleteServer, listServers } from "../api/servers";
 import type { Server } from "../api/servers";
 import { serverOptions, type ServerOptions } from "../api/access";
 import { useAuthentication } from "../hooks/useAuthentication";
-import { ServerAccessDialog } from "../dialogs/ServerAccessDialog";
 import { useCollection } from "../hooks/useCollection";
 import { ServerDialog } from "../dialogs/ServerDialog";
 import { useServerRuntime } from "../hooks/useServerRuntime";
@@ -20,7 +19,8 @@ import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
-import { StatusPill } from "../components/status/StatusPill";
+import { PortPill } from "../components/network/PortPill";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
@@ -53,7 +53,6 @@ export function ServersPage() {
   const [optionsLoading, setOptionsLoading] = useState(canProvision);
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [optionsRevision, setOptionsRevision] = useState(0);
-  const [accessServer, setAccessServer] = useState<Server | null>(null);
   const editorPending = useRef(false);
   useEffect(() => {
     if (!canProvision) return;
@@ -138,7 +137,9 @@ export function ServersPage() {
     setActionError(null);
     try {
       setDraftOptions(
-        await serverOptions(AbortSignal.timeout(15000), server.id),
+        server.permissions.includes("server.configure") || revision
+          ? await serverOptions(AbortSignal.timeout(15000), server.id)
+          : { s3_available: false, sparks: [], embers: [] },
       );
       setEditing(server);
       setApplyRevision(revision);
@@ -319,10 +320,12 @@ export function ServersPage() {
                 <td>
                   <div className="pill-group">
                     {server.ports.map((port, index) => (
-                      <StatusPill key={index} indicator={false}>
-                        {server.game_address || port.bind_ip}:{port.host_port} /{" "}
-                        {port.protocol.toUpperCase()}
-                      </StatusPill>
+                      <PortPill
+                        key={index}
+                        address={server.game_address || port.bind_ip}
+                        port={port.host_port}
+                        protocol={port.protocol}
+                      />
                     ))}
                   </div>
                 </td>
@@ -330,8 +333,11 @@ export function ServersPage() {
                   <div className="row-actions">
                     <ButtonLink
                       href={`#servers/${encodeURIComponent(server.id)}/console`}
+                      iconOnly
+                      aria-label={`Open ${server.name}`}
+                      title="Open server"
                     >
-                      Open server
+                      <NavigationIcon name="arrow-right" />
                     </ButtonLink>
                   </div>
                 </td>
@@ -348,6 +354,11 @@ export function ServersPage() {
       {open && (
         <ServerDialog
           applyRevision={applyRevision}
+          accessOnly={
+            editing !== null &&
+            !editing.permissions.includes("server.configure") &&
+            !applyRevision
+          }
           server={editing}
           s3Configured={draftOptions.s3_available}
           runtimeRestricted={
@@ -360,15 +371,6 @@ export function ServersPage() {
           onSaved={(server) => {
             servers.upsert(server);
             void refresh();
-          }}
-        />
-      )}
-      {accessServer && (
-        <ServerAccessDialog
-          server={accessServer}
-          onClose={() => setAccessServer(null)}
-          onChanged={() => {
-            void servers.refresh();
           }}
         />
       )}
@@ -401,24 +403,9 @@ export function ServersPage() {
           actionError={actionError}
           actions={
             <>
-              <ButtonLink
-                href={`#servers/${encodeURIComponent(details.id)}/console`}
-              >
-                Open server
-              </ButtonLink>
-              {details.permissions.includes("server.share") && (
-                <Button
-                  disabled={deleting !== null}
-                  onClick={() => {
-                    setDetails(null);
-                    setAccessServer(details);
-                  }}
-                >
-                  Access
-                </Button>
-              )}
               {canApplyRevision && (
                 <Button
+                  variant="warning"
                   disabled={
                     deleting !== null ||
                     runtime.statuses[details.id]?.busy === true ||
@@ -431,11 +418,12 @@ export function ServersPage() {
                     void edit(details, true);
                   }}
                 >
-                  Ember revision
+                  Update Ember
                 </Button>
               )}
               {canTransfer && (
                 <Button
+                  variant="primary"
                   disabled={deleting !== null}
                   onClick={() => {
                     setDetails(null);
@@ -449,7 +437,8 @@ export function ServersPage() {
           }
           onClose={() => setDetails(null)}
           onEdit={
-            details.permissions.includes("server.configure")
+            details.permissions.includes("server.configure") ||
+            details.permissions.includes("server.share")
               ? () => {
                   setDetails(null);
                   void edit(details);

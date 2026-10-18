@@ -18,6 +18,8 @@ import (
 
 const mockPendingUpdateURL = "https://mock.campfire.invalid/minecraft.json"
 const mockCurrentUpdateURL = "https://mock.campfire.invalid/current.json"
+const mockImportedUpdateID = "mock-minecraft-updated"
+const mockUpdateServerName = "Ember update ready · Mock"
 
 func mockUpdateCandidate(current bool) model.Ember {
 	ember := model.Ember{Schema: 1, Name: "Minecraft · Mock", Description: "Updated development fixture. No image is pulled and no game process runs.", UpdateURL: mockPendingUpdateURL, Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp"}}, Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo 'Mock updated installer; no game downloads.'"}}
@@ -82,5 +84,57 @@ func seedEmberUpdates(ctx context.Context, db *gorm.DB) error {
 		}
 
 		return tx.Create(&seedMarker{ID: 4}).Error
+	})
+}
+
+// seedServerEmberUpdate adds an imported revision and a stopped server still
+// pinned to the old definition. Its own marker also upgrades existing mock databases.
+func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
+	return database.Transaction(db.WithContext(ctx), func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&seedMarker{}).Where("id = ?", 5).Count(&count).Error; err != nil || count > 0 {
+			return err
+		}
+
+		emberStore := repository.NewEmberRepository(tx)
+
+		original, err := emberStore.Get(ctx, "mock-minecraft")
+		if err != nil {
+			return err
+		}
+
+		updated := mockUpdateCandidate(false)
+
+		updated.ID = mockImportedUpdateID
+		if err := emberStore.Create(ctx, updated); err != nil {
+			return err
+		}
+
+		if err := repository.NewEmberUpdateRepository(tx).Save(ctx, model.EmberUpdate{EmberID: updated.ID, URL: updated.UpdateURL, CheckedAt: time.Now().Unix()}); err != nil {
+			return err
+		}
+
+		configuration := model.ServerConfiguration{
+			Name: mockUpdateServerName, Description: "Stopped on the older mock Minecraft Ember. Choose Update Ember and select mock-minecraft-updated to apply the already imported revision; no download is needed.",
+			SparkID: "mock-europe", EmberID: original.ID, Image: original.Images["Java 21"],
+			Variables: map[string]string{}, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480,
+			Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25569, ContainerPort: 25565, Protocol: "tcp"}},
+		}
+		servers := service.NewServerService(repository.NewServerRepository(tx), service.NewEmberService(emberStore))
+
+		server, err := servers.CreateOwned(ctx, configuration, 1)
+		if err != nil {
+			return err
+		}
+
+		record := newRecord(configuration.SparkID, model.Deployment{ServerID: server.ID, Configuration: configuration, Ember: original})
+		record.State = "stopped"
+
+		record.Logs += "[Mock Spark] Imported Ember revision mock-minecraft-updated is ready to apply.\n"
+		if err := tx.Create(&record).Error; err != nil {
+			return err
+		}
+
+		return tx.Create(&seedMarker{ID: 5}).Error
 	})
 }

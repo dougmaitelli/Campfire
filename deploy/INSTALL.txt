@@ -358,6 +358,7 @@ server.disk-quota.v1               Continuous game-filesystem quota enforcement
 server.transfer.v1                 Fenced server archive transfer steps
 server.upgrade.v1                  Explicit update and reinstall workflows
 server.reinstall.clean.v1          Clean reinstall while preserving backups
+spark.self-update.v1               Verified client binary replacement and restart
 
 Operations can require several features: install/start/restart require quota
 support; updates/reinstalls additionally require upgrade support; clean reinstall
@@ -372,6 +373,29 @@ Capabilities identify implemented behavior, not current Docker/filesystem health
 Quota preparation and verification still have to succeed on the host before a
 game runs. Certificate enrollment and renewal use their existing HTTPS endpoints
 independently of WebSocket feature negotiation.
+
+Spark client updates
+--------------------
+Campfire checks the official GitHub repository for the latest stable Spark
+release at startup and once per hour. Page refreshes use the cached result.
+The repository and release endpoints are constants in shared/sparkrelease;
+SparkReleaseCheckInterval in service/spark_update.go controls the hourly interval.
+Failed checks retain the last known release and report an error in update status.
+
+Connected clients with a lower semantic version show Update Spark in the Sparks
+list and details drawer. Administrators confirm each update. Clients need the
+spark.self-update.v1 capability; older clients require one manual upgrade first.
+Development version labels are not treated as outdated stable releases.
+
+Spark downloads the official architecture package, checks SHA-256, and extracts
+only the regular Spark executable. The staged binary must report the requested
+version and support the negotiated panel wire protocol. It refuses replacement
+while operations, uploads or server transfer fences are active. The old binary
+is retained as spark.previous, replacement is atomic, and a clean re-exec keeps
+the existing identity, state directory and game containers. If exec fails, the
+old executable is restored. The panel waits for a reconnection reporting the new
+version before marking the UI update complete. Binary directories must be writable;
+immutable container images are updated by replacing the image instead.
 
 Spark certificates and transfers
 -------------------------------
@@ -491,19 +515,24 @@ are administrator-only pages. There is no public password account registration.
 
 The built-in platform roles are Admin, Server creator and User. Server creators
 can create servers only on Sparks approved for their platform role. On the
-Sparks page, choose Provisioning to grant creation access. This grants no Spark
+Sparks page, create or edit a Spark and use its Access step to grant creation
+access. This grants no Spark
 management rights. New roles can grant server creation or selected server-scoped
 permissions; the built-in roles cannot be edited or deleted.
 
 Creating a server makes its creator the Owner. Owners can operate, configure,
-delete and share that server. Open its Access drawer and enter an existing
-username to assign an Operator. Several users can operate the same server.
+delete and share that server. Use the Access step before Review when creating
+or editing a server and enter an existing username to assign an Operator.
+Changes are applied when the wizard is saved. Several users can operate the
+same server. Users with sharing permission but no configuration permission
+can edit Access and Review without modifying the server configuration.
 Operators have lifecycle, console, file and backup access but cannot change
 configuration, delete the server or share access. Owners can assign operators;
 only administrators can assign custom server roles or transfer ownership.
 
-To create a server for another user, create it as an admin and transfer ownership
-in Access. Transfer removes the previous owner's implicit access. Administrators
+To create a server for another user, select its owner in the Access step as an
+admin. Later ownership changes require confirmation when saving and remove the
+previous owner's implicit access. Administrators
 retain access to every server regardless of ownership or membership.
 
 Server permissions are checked by the backend on every endpoint. Removing a
@@ -810,17 +839,22 @@ The UI displays a Mock mode label. No Docker, DNS, TLS or production secrets
 are required. The mock executable ignores CAMPFIRE_* environment settings and
 always uses a loopback listener with its own data/mock/panel.db database.
 
-On first launch it seeds three Sparks (two online and one offline), four game
-servers, a Minecraft Ember, a recurring restart schedule and inbox messages.
+Each fresh runner session seeds three Sparks (two online and one offline), five
+game servers, mock Ember revisions, a recurring restart schedule and inbox messages.
 Lifecycle actions complete immediately, metrics vary over time, console input
 appears in the output stream, and the text file editor supports small files
 with revision checks.
 Mock installed servers report verified disk quotas; simulated game-data usage
 includes editable files, and writes exceeding the allocation are rejected.
-State survives backend rebuilds and restarts. To start
-over, stop the runner and remove only the repository's data/mock directory.
+State survives watcher-triggered backend rebuilds and frontend reloads within
+the same runner session. Stopping and starting make dev-mock or dev:mock clears
+only data/mock and starts fresh. Running the mock binary directly preserves state.
+Europe starts on an outdated simulated Spark client; its Update Spark action
+updates the persisted mock version without contacting GitHub or replacing a binary.
+Ember update ready is stopped on an old revision, with mock-minecraft-updated
+already imported and ready to apply through Update Ember.
 
-Backups, server transfers, archive operations, binary uploads, real installers
+Server transfers, archive operations, binary uploads, real installers
 and Docker execution are not simulated. Unsupported operations report an error
 rather than claiming success; test these against real Sparks after deployment.
 The dedicated campfire-mock executable and simulator are excluded by the

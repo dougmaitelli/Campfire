@@ -6,8 +6,10 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"time"
 
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/protocol"
 )
 
 func (a *API) createSpark(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +27,43 @@ func (a *API) createSpark(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Location", "/api/v1/sparks/"+spark.ID)
 	auditDetail(r, "spark.create", "spark:"+spark.ID)
 	writeJSON(w, http.StatusCreated, spark)
+}
+
+func (a *API) sparkUpdateStatus(w http.ResponseWriter, _ *http.Request) {
+	if a.sparks.Updates == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Spark update checks are unavailable"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, a.sparks.Updates.Status())
+}
+
+func (a *API) updateSparkClient(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Version string `json:"version"`
+	}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	if a.sparks.Updates == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "Spark updates are unavailable"})
+		return
+	}
+
+	// This operation outlives the ordinary panel write timeout while downloading.
+	if err := http.NewResponseController(w).SetWriteDeadline(time.Now().Add(protocol.SparkUpdateTimeout + 10*time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		writeError(w, err)
+		return
+	}
+
+	if err := a.sparks.Updates.Update(r.Context(), r.PathValue("id"), input.Version); err != nil {
+		writeError(w, err)
+		return
+	}
+
+	auditDetail(r, "spark.update", "spark:"+r.PathValue("id"))
+	writeJSON(w, http.StatusAccepted, map[string]string{"version": input.Version})
 }
 
 func (a *API) updateSpark(w http.ResponseWriter, r *http.Request) {

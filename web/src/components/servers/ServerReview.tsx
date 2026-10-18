@@ -1,5 +1,6 @@
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
+import { PortPill } from "../network/PortPill";
 
 export function ServerReview({
   value,
@@ -30,12 +31,17 @@ export function ServerReview({
           {value.disk_mb.toLocaleString()} MiB
         </DetailItem>
         <DetailItem label="Ports">
-          {value.ports
-            .map(
-              (port) =>
-                `${port.bind_ip}:${port.host_port} → ${port.container_port}/${port.protocol}`,
-            )
-            .join("\n")}
+          <div className="pill-group">
+            {value.ports.map((port, index) => (
+              <PortPill
+                key={index}
+                address={port.bind_ip}
+                port={port.host_port}
+                targetPort={port.container_port}
+                protocol={port.protocol}
+              />
+            ))}
+          </div>
         </DetailItem>
         {Object.entries(value.variables).map(([name, content]) => (
           <DetailItem key={name} label={<>{name}</>}>

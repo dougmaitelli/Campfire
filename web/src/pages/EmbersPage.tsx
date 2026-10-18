@@ -16,6 +16,7 @@ import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
 import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
+import { PortPill } from "../components/network/PortPill";
 
 export function EmbersPage() {
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
@@ -189,12 +190,11 @@ export function EmbersPage() {
                     {ember.required_ports?.length ? (
                       <div className="pill-group">
                         {ember.required_ports.map((port) => (
-                          <StatusPill
+                          <PortPill
                             key={`${port.container}/${port.protocol}`}
-                            indicator={false}
-                          >
-                            {port.container} / {port.protocol.toUpperCase()}
-                          </StatusPill>
+                            port={port.container}
+                            protocol={port.protocol}
+                          />
                         ))}
                       </div>
                     ) : (

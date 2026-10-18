@@ -110,6 +110,14 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
+	if err := seedServerEmberUpdate(ctx, db); err != nil {
+		return nil, err
+	}
+
+	if err := seedSparkClients(ctx, db); err != nil {
+		return nil, err
+	}
+
 	return &Runtime{db: db}, nil
 }
 

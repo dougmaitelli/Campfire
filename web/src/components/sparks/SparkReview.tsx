@@ -1,6 +1,7 @@
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { SparkSettings } from "../../api/sparks";
 import { StatusPill } from "../status/StatusPill";
+import { PortPill } from "../network/PortPill";
 
 interface SparkReviewProps {
   name: string;
@@ -59,19 +60,20 @@ export function SparkReview({
       {settings.port_allocations.length === 0 ? (
         <p className="field-help">No ports allocated.</p>
       ) : (
-        <ul className="review-allocations">
+        <div className="pill-group">
           {settings.port_allocations.map((allocation, index) => (
-            <li key={index}>
-              <span>{allocation.bind_ip}</span>
-              <span>
-                {allocation.start === allocation.end
+            <PortPill
+              key={index}
+              address={allocation.bind_ip}
+              port={
+                allocation.start === allocation.end
                   ? allocation.start
-                  : `${allocation.start}–${allocation.end}`}{" "}
-                / {allocation.protocol.toUpperCase()}
-              </span>
-            </li>
+                  : `${allocation.start}–${allocation.end}`
+              }
+              protocol={allocation.protocol}
+            />
           ))}
-        </ul>
+        </div>
       )}
       {notice && <p className="field-help">{notice}</p>}
     </div>

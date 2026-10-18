@@ -22,9 +22,12 @@ var configurationID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 // ConfigurationStore stores desired state on standalone Spark agents.
 type ConfigurationStore struct {
-	Directory string
-	mu        sync.Mutex
-	Runtime   interface {
+	Update             func(context.Context, string) (string, error)
+	RestartExecutable  string
+	NegotiatedProtocol int
+	Directory          string
+	mu                 sync.Mutex
+	Runtime            interface {
 		Execute(context.Context, model.Deployment, model.RuntimeRequest) (model.RuntimeStatus, error)
 		Files(context.Context, model.Deployment, model.FileRequest) (model.FileResult, error)
 	}
@@ -171,6 +174,27 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 	result := protocol.CommandResponse{ID: command.ID}
 	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(protocol.CommandTimeout(command)+time.Second)) {
 		result.Error = &protocol.CommandError{Code: "invalid_deadline", Message: "command deadline is invalid or expired"}
+		return result
+	}
+
+	if command.Name == protocol.UpdateSpark {
+		if s.Update == nil {
+			result.Error = &protocol.CommandError{Code: "unsupported_capability", Message: "Restart Spark without an enrollment token before using remote updates."}
+			return result
+		}
+
+		ctx, cancel := context.WithDeadline(ctx, command.Deadline)
+		defer cancel()
+
+		filename, err := s.Update(ctx, command.SparkVersion)
+		if err != nil {
+			result.Error = &protocol.CommandError{Code: "spark_update_failed", Message: fmt.Sprintf("%.1024s", err.Error())}
+			return result
+		}
+
+		s.RestartExecutable = filename
+		result.SparkVersion = command.SparkVersion
+
 		return result
 	}
 

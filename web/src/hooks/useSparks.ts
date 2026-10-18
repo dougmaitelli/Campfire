@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listSparks } from "../api/sparks";
 import type { Spark } from "../api/sparks";
 
+const SPARK_POLL_INTERVAL_MS = 30000;
+
 export function useSparks() {
   const [sparks, setSparks] = useState<Spark[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,16 @@ export function useSparks() {
     const controller = new AbortController();
     activeRequest.current = controller;
     void load(controller);
-    return () => activeRequest.current?.abort();
+    const timer = window.setInterval(() => {
+      activeRequest.current?.abort();
+      const poll = new AbortController();
+      activeRequest.current = poll;
+      void load(poll);
+    }, SPARK_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+      activeRequest.current?.abort();
+    };
   }, [load]);
 
   const addSpark = useCallback((spark: Spark) => {

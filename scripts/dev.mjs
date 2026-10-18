@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { watch } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -147,6 +147,11 @@ process.on("SIGTERM", () => {
 
 try {
   await mkdir(join(root, "bin"), { recursive: true });
+  if (mock) {
+    // Reset once per dev session; watcher-triggered rebuilds reuse this state.
+    await rm(join(root, "data", "mock"), { recursive: true, force: true });
+    console.log("[dev] Started a fresh mock session.");
+  }
   if (!stopping) {
     watcher = watch(backendDirectory, { recursive: true }, scheduleRebuild);
     watcher.on("error", (error) => {

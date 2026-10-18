@@ -1,5 +1,6 @@
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
+import { PortPill } from "../components/network/PortPill";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, readJSON } from "../api/client";
@@ -161,12 +162,14 @@ export function ServerOperationsPage({
               diskMB={server.disk_mb}
               elapsed={monitoring.elapsed}
             />
-            <div className="operations-addresses">
+            <div className="operations-addresses pill-group">
               {server.ports.map((port, index) => (
-                <span key={index}>
-                  {server.game_address || port.bind_ip}:{port.host_port} /{" "}
-                  {port.protocol}
-                </span>
+                <PortPill
+                  key={index}
+                  address={server.game_address || port.bind_ip}
+                  port={port.host_port}
+                  protocol={port.protocol}
+                />
               ))}
             </div>
           </div>
