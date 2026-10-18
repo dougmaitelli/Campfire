@@ -13,11 +13,40 @@ import (
 	"syscall"
 )
 
-// DiskQuota prepares and verifies persistent game-data limits. Implementations
-// must enforce writes in the filesystem, independently of the Spark process.
+// DiskQuota prepares and verifies persistent game-data limits. Zero removes the
+// limit; positive allocations are enforced independently of the Spark process.
 type DiskQuota interface {
 	Prepare(string, int64) error
 	Verify(string, int64) error
+}
+
+// DiskQuotaSupported reports actual filesystem enforcement, including host permissions.
+func (m *Manager) DiskQuotaSupported() bool { return m.Quota != nil }
+
+func probeDiskQuota(directory string, quota DiskQuota) error {
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		return err
+	}
+
+	probe, err := os.MkdirTemp(directory, ".quota-probe-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(probe) }()
+
+	if err := quota.Prepare(probe, 1); err != nil {
+		return err
+	}
+
+	return quota.Verify(probe, 1)
+}
+
+func (m *Manager) prepareQuota(directory string, megabytes int64) error {
+	if m.Quota == nil {
+		return nil
+	}
+
+	return m.Quota.Prepare(directory, megabytes)
 }
 
 type projectAttributes struct {
@@ -49,7 +78,7 @@ type projectOwner struct {
 }
 
 func quotaError(err error) error {
-	return fmt.Errorf("game-data quota unavailable: %w; Spark requires Linux 5.14+ and an XFS or ext4 filesystem with project quota accounting and enforcement enabled", err)
+	return fmt.Errorf("game-data quota unavailable: %w; enforcement requires Linux 5.14+ and an XFS or ext4 filesystem with project quota accounting and enforcement enabled", err)
 }
 
 func (q *projectQuotas) open(directory string) (*os.File, projectAttributes, projectOwner, error) {
@@ -106,16 +135,24 @@ func (q *projectQuotas) Verify(directory string, megabytes int64) error {
 	}
 	defer func() { _ = file.Close() }()
 
+	if megabytes == 0 && attrs.Project == 0 {
+		return nil
+	}
+
 	if attrs.Project == 0 || attrs.Flags&0x200 == 0 || !q.owned(attrs.Project, owner) {
 		return quotaError(errors.New("directory is not a managed quota project"))
 	}
 
 	limit, err := q.kernel.Get(file, attrs.Project)
+	if megabytes == 0 && errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
 	if err != nil {
 		return quotaError(err)
 	}
 
-	if megabytes <= 0 || megabytes > 1<<30 || limit.Hard != uint64(megabytes)*1024 || limit.Soft != 0 {
+	if megabytes < 0 || megabytes > 1<<30 || limit.Hard != uint64(megabytes)*1024 || limit.Soft != 0 {
 		return quotaError(errors.New("filesystem hard limit does not match the server allocation"))
 	}
 
@@ -123,7 +160,7 @@ func (q *projectQuotas) Verify(directory string, megabytes int64) error {
 }
 
 func (q *projectQuotas) Prepare(directory string, megabytes int64) error {
-	if megabytes <= 0 || megabytes > 1<<30 {
+	if megabytes < 0 || megabytes > 1<<30 {
 		return errors.New("invalid disk allocation")
 	}
 
@@ -193,11 +230,15 @@ func (q *projectQuotas) Prepare(directory string, megabytes int64) error {
 	}
 
 	limit, err := q.kernel.Get(file, attrs.Project)
+	if megabytes == 0 && errors.Is(err, os.ErrNotExist) {
+		err = nil
+	}
+
 	if err != nil {
 		return quotaError(err)
 	}
 
-	if limit.Space > uint64(megabytes)<<20 {
+	if megabytes > 0 && limit.Space > uint64(megabytes)<<20 {
 		return errors.New("allocated filesystem blocks exceed the requested disk allocation")
 	}
 

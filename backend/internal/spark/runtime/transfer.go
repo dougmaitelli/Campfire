@@ -248,7 +248,7 @@ func (m *Manager) prepareTransfer(ctx context.Context, d model.Deployment, q mod
 
 	defer func() { _ = os.RemoveAll(probe) }()
 
-	if err := m.Quota.Prepare(probe, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(probe, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 

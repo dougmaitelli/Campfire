@@ -12,9 +12,42 @@ import (
 	"campfire/internal/campfire/agents"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/spark/runtime"
 
 	"github.com/gorilla/websocket"
 )
+
+func TestQuotaCapabilityReflectsRuntimeSupport(t *testing.T) {
+	manager := &runtime.Manager{}
+	store := &ConfigurationStore{Runtime: manager}
+
+	offered := store.capabilities()
+	if slices.Contains(offered, protocol.CapabilityDiskQuota) {
+		t.Fatal("advertised disk quotas without filesystem support")
+	}
+
+	_, selected, err := protocol.Negotiate(protocol.Message{Protocol: protocol.ProtocolVersion, Capabilities: offered})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, action := range []string{"install", "start", "restart", "restore", "update", "reinstall"} {
+		command := protocol.Command{Name: protocol.ServerAction, Runtime: &model.RuntimeRequest{Action: action}}
+		if err := protocol.Require(selected, protocol.RequiredCapabilities(command)...); err != nil {
+			t.Fatal("optional quotas blocked server operation", action, err)
+		}
+	}
+
+	if err := protocol.Require(selected, protocol.RequiredCapabilities(protocol.Command{Name: protocol.ServerTransfer})...); err != nil {
+		t.Fatal("optional quotas blocked transfer", err)
+	}
+
+	manager.Quota = wireQuota{}
+
+	if !slices.Contains(store.capabilities(), protocol.CapabilityDiskQuota) {
+		t.Fatal("working disk quotas were not advertised")
+	}
+}
 
 func testWireCapabilities(t *testing.T, hub *agents.Hub, id string, config *tls.Config, dial func(context.Context, string, string) (net.Conn, error)) {
 	t.Helper()

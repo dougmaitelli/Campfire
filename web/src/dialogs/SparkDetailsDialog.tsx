@@ -11,9 +11,13 @@ import {
 type Props = Omit<
   ResourceDetailsDialogProps<Spark>,
   "loadDetails" | "children" | "description" | "editLabel"
-> & { id: string };
+> & { id: string; spark?: Spark };
 
-export function SparkDetailsDialog({ id, ...props }: Props) {
+export function SparkDetailsDialog({
+  id,
+  spark: currentSpark,
+  ...props
+}: Props) {
   const loadDetails = useCallback(
     async (signal: AbortSignal) => {
       const value = await readJSON(
@@ -32,18 +36,21 @@ export function SparkDetailsDialog({ id, ...props }: Props) {
       editLabel="Edit Spark"
       loadDetails={loadDetails}
     >
-      {(spark) => (
-        <>
-          <SparkReview
-            name={spark.name}
-            description={spark.description}
-            disabled={spark.disabled}
-            settings={spark}
-            notice=""
-          />
-          <SparkFeatures spark={spark} />
-        </>
-      )}
+      {(loadedSpark) => {
+        const spark = currentSpark ?? loadedSpark;
+        return (
+          <>
+            <SparkReview
+              name={spark.name}
+              description={spark.description}
+              disabled={spark.disabled}
+              settings={spark}
+              notice=""
+            />
+            <SparkFeatures spark={spark} />
+          </>
+        );
+      }}
     </ResourceDetailsDialog>
   );
 }

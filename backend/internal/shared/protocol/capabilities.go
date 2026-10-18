@@ -135,7 +135,7 @@ func RequiredCapabilities(command Command) []string {
 
 		return []string{CapabilityConfigure}
 	case ServerTransfer:
-		return []string{CapabilityTransfer, CapabilityDiskQuota}
+		return []string{CapabilityTransfer}
 	case ServerFiles:
 		if command.Files != nil {
 			switch command.Files.Operation {
@@ -167,17 +167,15 @@ func RequiredCapabilities(command Command) []string {
 		case "backup":
 			requirements = append(requirements, CapabilityBackups)
 		case "restore":
-			requirements = append(requirements, CapabilityBackups, CapabilityDiskQuota)
+			requirements = append(requirements, CapabilityBackups)
 			if command.Runtime.BackupSource != nil {
 				requirements = append(requirements, CapabilityBackupRemote)
 			}
 		case "update", "reinstall":
-			requirements = append(requirements, CapabilityUpgrade, CapabilityDiskQuota)
+			requirements = append(requirements, CapabilityUpgrade)
 			if command.Runtime.Action == "reinstall" && command.Runtime.Content == "clean" {
 				requirements = append(requirements, CapabilityCleanInstall)
 			}
-		case "install", "start", "restart":
-			requirements = append(requirements, CapabilityDiskQuota)
 		}
 
 		return requirements

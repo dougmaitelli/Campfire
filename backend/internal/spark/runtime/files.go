@@ -110,6 +110,10 @@ func ownership(directory, user string) error {
 }
 
 func diskCheck(directory string, limitMB int64) error {
+	if limitMB == 0 {
+		return nil
+	}
+
 	var total int64
 
 	return filepath.WalkDir(directory, func(_ string, entry os.DirEntry, err error) error {

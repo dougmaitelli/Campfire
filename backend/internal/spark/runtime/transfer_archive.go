@@ -268,7 +268,7 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 	}
 
 	data := filepath.Join(stage, "data")
-	if err := m.Quota.Prepare(data, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(data, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -287,7 +287,7 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
-	if err := m.Quota.Prepare(data, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(data, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -412,7 +412,7 @@ func extractTransfer(ctx context.Context, input io.Reader, directory string, d m
 			dataBytes += header.Size
 		}
 
-		if dataBytes > d.Configuration.DiskMB<<20 {
+		if d.Configuration.DiskMB > 0 && dataBytes > d.Configuration.DiskMB<<20 {
 			return false, errors.New("incoming game data exceeds allocation")
 		}
 

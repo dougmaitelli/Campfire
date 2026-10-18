@@ -401,6 +401,36 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 	}
 }
 
+func TestUnlimitedTransferWithoutQuotaSupport(t *testing.T) {
+	f := newTransferFixture(t)
+	f.source.Quota, f.target.Quota = nil, nil
+	configuration := f.server.ServerConfiguration
+
+	configuration.DiskMB = 0
+	if _, err := f.service.Deployment.Servers.Update(t.Context(), f.server.ID, configuration); err != nil {
+		t.Fatal(err)
+	}
+
+	item, err := f.service.Begin(t.Context(), f.server.ID, "target", f.ports)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.service.Start(t.Context())
+	t.Cleanup(f.service.Close)
+	waitTransfer(t, f.service, item.ID, "complete")
+
+	data, err := os.ReadFile(filepath.Join(f.target.Directory, f.server.ID, "data", "world.bin"))
+	if err != nil || !bytes.Equal(data, f.world) {
+		t.Fatal("unlimited transfer did not preserve world", err)
+	}
+
+	server, err := f.service.Deployment.Servers.Get(t.Context(), f.server.ID)
+	if err != nil || server.SparkID != "target" || server.DiskMB != 0 {
+		t.Fatal("unlimited transfer changed allocation or placement", server, err)
+	}
+}
+
 func TestTransferResumesAfterLostAcknowledgementAndSparkRestart(t *testing.T) {
 	f := newTransferFixture(t)
 	ctx := context.Background()

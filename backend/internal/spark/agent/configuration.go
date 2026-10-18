@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sync"
 	"time"
 
@@ -31,6 +32,19 @@ type ConfigurationStore struct {
 		Execute(context.Context, model.Deployment, model.RuntimeRequest) (model.RuntimeStatus, error)
 		Files(context.Context, model.Deployment, model.FileRequest) (model.FileResult, error)
 	}
+}
+
+func (s *ConfigurationStore) capabilities() []string {
+	offered := protocol.SupportedCapabilities()
+	if host, ok := s.Runtime.(interface{ DiskQuotaSupported() bool }); !ok || !host.DiskQuotaSupported() {
+		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityDiskQuota })
+	}
+
+	if s.Update == nil {
+		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilitySelfUpdate })
+	}
+
+	return offered
 }
 
 // Files resolves the saved game definition and invokes the shared file manager.
@@ -118,7 +132,7 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 		}
 	}
 
-	if !allowed || c.Name == "" || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < 0.1 || c.CPULimit > 1024 || c.MemoryMB < 64 || c.MemoryMB > 1048576 || c.DiskMB < 1 || c.DiskMB > 1073741824 || len(c.Ports) == 0 || len(c.Ports) > 32 {
+	if !allowed || c.Name == "" || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < 0.1 || c.CPULimit > 1024 || c.MemoryMB < 64 || c.MemoryMB > 1048576 || c.DiskMB < 0 || c.DiskMB > 1073741824 || len(c.Ports) == 0 || len(c.Ports) > 32 {
 		return model.ConfigurationReceipt{}, errors.New("invalid server image or resources")
 	}
 

@@ -94,6 +94,42 @@ func TestChunkedFilesAtomicPublicationAndConflict(t *testing.T) {
 	}
 }
 
+func TestUnlimitedFilesAndArchivesWithoutQuotaSupport(t *testing.T) {
+	m, d := fileTestManager(t)
+	m.Quota = nil
+	d.Configuration.DiskMB = 0
+	call := func(q model.FileRequest) model.FileResult {
+		t.Helper()
+
+		q.ServerID = d.ServerID
+
+		result, err := m.Files(t.Context(), d, q)
+		if err != nil {
+			t.Fatal(q.Operation, err)
+		}
+
+		return result
+	}
+
+	call(model.FileRequest{Operation: "write", Path: "world", Revision: "absent", Data: []byte("saved world")})
+	call(model.FileRequest{Operation: "compress", Path: "world", Destination: "world.tar.gz"})
+	call(model.FileRequest{Operation: "extract", Path: "world.tar.gz", Destination: "restored"})
+
+	read := call(model.FileRequest{Operation: "read", Path: "restored/world"})
+	if string(read.Data) != "saved world" {
+		t.Fatal("unlimited archive did not preserve data")
+	}
+
+	upload := call(model.FileRequest{Operation: "upload.begin", Path: "upload", Revision: "absent", Size: 3})
+	call(model.FileRequest{Operation: "upload.chunk", Path: "upload", UploadID: upload.UploadID, Data: []byte("abc")})
+	call(model.FileRequest{Operation: "upload.commit", Path: "upload", UploadID: upload.UploadID})
+
+	read = call(model.FileRequest{Operation: "read", Path: "upload"})
+	if string(read.Data) != "abc" {
+		t.Fatal("unlimited upload did not preserve data")
+	}
+}
+
 func TestConfiguredUploadLimitForKnownAndUnknownSizes(t *testing.T) {
 	m, d := fileTestManager(t)
 

@@ -428,11 +428,15 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 	defer func() { _ = os.RemoveAll(stage) }()
 	// A separate project gives the staged replacement its own full allocation;
 	// the project follows the directory when it is renamed into place.
-	if err := m.Quota.Prepare(stage, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(stage, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
-	limit := min(backupBytes, d.Configuration.DiskMB<<20)
+	limit := backupBytes
+	if d.Configuration.DiskMB > 0 {
+		limit = min(limit, d.Configuration.DiskMB<<20)
+	}
+
 	if err := extractBackup(ctx, file, stage, limit); err != nil {
 		return errors.New("backup validation failed; original game data was preserved")
 	}
@@ -441,7 +445,7 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 		return errors.New("could not assign restored game ownership; original game data was preserved")
 	}
 
-	if err := m.Quota.Prepare(stage, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(stage, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 

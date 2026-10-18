@@ -134,6 +134,31 @@ func TestServerConfigurationLifecycle(t *testing.T) {
 	}
 }
 
+func TestServerUnlimitedDiskAllocation(t *testing.T) {
+	handler, closeDB := openAPI(t, filepath.Join(t.TempDir(), "panel.db"))
+	defer closeDB()
+
+	_, _, input := serverFixture(t, handler)
+	input.DiskMB = 0
+
+	response := request(handler, "POST", "/api/v1/servers", configJSON(t, input))
+	if response.Code != http.StatusCreated {
+		t.Fatal("unlimited disk rejected", response.Code, response.Body)
+	}
+
+	var server model.Server
+	if err := json.Unmarshal(response.Body.Bytes(), &server); err != nil || server.DiskMB != 0 {
+		t.Fatal("unlimited disk was not saved", server, err)
+	}
+
+	input.DiskMB = -1
+
+	response = request(handler, "PUT", "/api/v1/servers/"+server.ID, configJSON(t, input))
+	if response.Code != http.StatusBadRequest {
+		t.Fatal("negative disk allocation accepted", response.Code, response.Body)
+	}
+}
+
 func TestServerValidationAndReservations(t *testing.T) {
 	handler, _ := openAPI(t, filepath.Join(t.TempDir(), "panel.db"))
 

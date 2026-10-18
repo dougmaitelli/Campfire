@@ -375,9 +375,10 @@ execution checks negotiated support again. Unsupported operations return a clear
 capability error (HTTP 409) while supported operations remain available on the
 same connection. No unsupported operation is automatically substituted or retried.
 
-Capabilities identify implemented behavior, not current Docker/filesystem health.
-Quota preparation and verification still have to succeed on the host before a
-game runs. Certificate enrollment and renewal use their existing HTTPS endpoints
+Capabilities identify implemented behavior. Disk quota support is advertised only
+after a filesystem enforcement probe succeeds on the host. On those hosts, quota
+preparation and verification still have to succeed before a game runs.
+Certificate enrollment and renewal use their existing HTTPS endpoints
 independently of WebSocket feature negotiation.
 
 Spark client updates
@@ -980,23 +981,32 @@ Disk usage counts logical sizes of regular files in the server data directory;
 hard links count once, and symlinks, backups and Docker image layers are excluded.
 These logical sizes can differ from the filesystem blocks charged to a quota.
 
-Spark enforces each server's game-data allocation with Linux project quotas.
-Execution hosts require Linux 5.14 or newer, root privileges, and XFS or ext4
+Spark probes Linux project quota support at startup. Enforcement requires
+Linux 5.14 or newer, sufficient privileges, and XFS or ext4
 with project quota accounting AND enforcement enabled on the filesystem holding
 SPARK_DATA/runtime. XFS needs the prjquota (or pquota) mount option; ext4 also
 needs its project and quota filesystem features and project quotas enabled.
 Prepare the filesystem using its distribution's filesystem administration tools
 before starting Spark. Spark does not format filesystems or change mount options.
-Install, start and file writes fail if a matching quota cannot be established;
-there is no fallback to periodic size checks. Status and monitoring report
-whether the current allocation was verified as enforced.
+When enforcement is unavailable (including restricted LXC hosts), Spark omits
+server.disk-quota.v1 from its negotiated features and allows normal operations
+without hard filesystem limits. Disk usage is still monitored and managed file
+operations retain their size checks for positive allocations. The Spark details
+show that hard quotas are unavailable. Restart Spark after changing host support.
+When quota support was detected, later enforcement failures still block affected
+operations instead of silently disabling an existing limit.
+
+A server disk allocation of 0 means unlimited. On supported hosts this removes
+any existing hard limit while retaining the managed project identity, so a limit
+can be applied later. Status never reports unlimited allocations as enforced.
+Independent archive, upload and backup operation size limits still apply.
 
 Use one Spark data directory per execution filesystem. Reserve project IDs
 1073741824 through 2147483647 for Campfire on that filesystem. Spark records
 ownership in runtime/.quota-projects; retain this directory with the runtime
 data. IDs and quota records are deliberately not recycled after deletion,
 because deleted files may still have open descriptors and charged blocks.
-Unmanaged nonempty game-data directories are rejected instead of silently
+On quota-enabled hosts, unmanaged nonempty game-data directories are rejected instead of silently
 adopted. Moving runtime data to another filesystem requires fresh quota setup.
 
 The hard limit covers game-data filesystem blocks, including directory space,
@@ -1007,7 +1017,7 @@ file write; shrinking below charged usage is rejected. File deletion remains
 available when a quota is full or requires repair. Temporary files for atomic
 saves need quota headroom. Quotas remain active without a Spark connection.
 
-Restores stage a separately quota-limited directory before replacing the original;
+Where quotas are supported and requested, restores stage a separately quota-limited directory before replacing the original;
 both copies temporarily consume host space. Backups, images, container writable
 layers and bounded Docker logs are outside the game-data allocation and still
 require host free-space management. Docker's --storage-opt size limits its

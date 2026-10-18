@@ -200,7 +200,10 @@ export function SparksPage() {
       )}
       {enrolling && (
         <EnrollSparkDialog
-          spark={enrolling.spark}
+          spark={
+            sparks.find((spark) => spark.id === enrolling.spark.id) ??
+            enrolling.spark
+          }
           reEnrollment={enrolling.reEnrollment}
           onClose={() => setEnrolling(null)}
         />
@@ -209,6 +212,7 @@ export function SparksPage() {
         <SparkDetailsDialog
           key={details.id}
           id={details.id}
+          spark={details}
           title={
             <>
               <span>{details.name}</span>

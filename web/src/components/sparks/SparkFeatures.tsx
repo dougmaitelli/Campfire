@@ -28,6 +28,12 @@ export function SparkFeatures({ spark }: { spark: Spark }) {
             Spark {spark.agent_version ?? "unknown version"} · Wire protocol{" "}
             {spark.protocol ?? "unknown"}
           </p>
+          {!spark.capabilities?.includes("server.disk-quota.v1") && (
+            <p className="field-help">
+              Hard disk quotas are unavailable on this host. Game-data usage is
+              still monitored, but filesystem disk limits are not enforced.
+            </p>
+          )}
           {spark.capabilities?.length ? (
             <ul>
               {spark.capabilities.map((feature) => (

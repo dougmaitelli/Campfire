@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createSparkEnrollment } from "../api/sparks";
 import type { Spark, SparkEnrollment } from "../api/sparks";
 import { Drawer } from "../components/layout/Drawer";
+import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
 import {
   sparkInstallCommand,
   validAgentAddress,
@@ -87,7 +88,16 @@ export function EnrollSparkDialog({
   }
   return (
     <Drawer
-      title={`${reEnrollment ? "Re-enroll Spark" : "Install Spark"} · ${spark.name}`}
+      title={
+        <>
+          <span>{`${reEnrollment ? "Re-enroll Spark" : "Install Spark"} · ${spark.name}`}</span>
+          <SparkConnectionState
+            disabled={spark.disabled}
+            connected={spark.connected}
+            version={spark.agent_version}
+          />
+        </>
+      }
       description="Run one command on the game host to install and enroll Spark."
       busy={busy}
       onClose={onClose}

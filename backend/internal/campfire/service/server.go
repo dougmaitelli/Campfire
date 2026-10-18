@@ -139,7 +139,7 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 	server.Name = strings.TrimSpace(server.Name)
 	if server.Name == "" || !utf8.ValidString(server.Name) || utf8.RuneCountInString(server.Name) > 100 || strings.ContainsFunc(server.Name, unicode.IsControl) ||
 		math.IsNaN(server.CPULimit) || math.IsInf(server.CPULimit, 0) || server.CPULimit < 0.1 || server.CPULimit > 1024 ||
-		server.MemoryMB < 64 || server.MemoryMB > 1048576 || server.DiskMB < 1 || server.DiskMB > 1073741824 ||
+		server.MemoryMB < 64 || server.MemoryMB > 1048576 || server.DiskMB < 0 || server.DiskMB > 1073741824 ||
 		len(server.Ports) == 0 || len(server.Ports) > 32 {
 		return model.Server{}, fmt.Errorf("%w: provide a name, 0.1–1024 CPU cores, at least 64 MiB memory, positive disk capacity, and 1–32 ports", ErrInvalidServer)
 	}

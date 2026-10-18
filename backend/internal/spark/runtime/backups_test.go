@@ -44,6 +44,40 @@ func awaitBackup(t *testing.T, m *Manager, d model.Deployment, q model.RuntimeRe
 	return status
 }
 
+func TestUnlimitedRestoreWithoutQuotaSupport(t *testing.T) {
+	m, d := fileTestManager(t)
+	m.Quota = nil
+	m.Ownership = func(string, string) error { return nil }
+	d.Configuration.DiskMB = 0
+
+	if status := awaitOperation(t, m, d, "install", "install"); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+
+	file := filepath.Join(m.root(d.ServerID), "data", "world")
+	if err := os.WriteFile(file, []byte("saved world"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if status := awaitOperation(t, m, d, "backup", "snapshot"); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+
+	if err := os.WriteFile(file, []byte("changed world"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "restore", Content: "snapshot.tar.gz"})
+	if status.Error != "" || status.DiskQuotaEnforced {
+		t.Fatal("unlimited restore failed or claimed enforcement", status)
+	}
+
+	data, err := os.ReadFile(file)
+	if err != nil || string(data) != "saved world" {
+		t.Fatal("unlimited world was not restored", string(data), err)
+	}
+}
+
 func TestBackupRoundTripChunksAndDeletion(t *testing.T) {
 	m, d := fileTestManager(t)
 	m.Ownership = func(string, string) error { return nil }

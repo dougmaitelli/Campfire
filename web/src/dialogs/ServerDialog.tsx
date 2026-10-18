@@ -516,11 +516,14 @@ export function ServerDialog({
                   </FormField>
                 </div>
                 <div>
-                  <FormField label="Disk (MiB)">
+                  <FormField
+                    label="Disk (MiB)"
+                    description="Use 0 for unlimited. Hard limits require disk quota support on the Spark."
+                  >
                     <TextInput
                       id="server-disk"
                       type="number"
-                      min={1}
+                      min={0}
                       max={1073741824}
                       step={1}
                       required

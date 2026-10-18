@@ -207,7 +207,10 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		return err
 	}
 
-	budget := max(int64(0), d.Configuration.DiskMB*1048576-used)
+	budget := model.FileTransferLimit
+	if d.Configuration.DiskMB > 0 {
+		budget = max(int64(0), d.Configuration.DiskMB*1048576-used)
+	}
 
 	target, err := root.OpenRoot(stage)
 	if err != nil {

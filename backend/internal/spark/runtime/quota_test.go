@@ -266,6 +266,92 @@ func TestQuotaFailurePreventsInstallerAndGameStart(t *testing.T) {
 	}
 }
 
+func TestQuotaProbeChecksPermissionsAndEnforcement(t *testing.T) {
+	for _, scenario := range []string{"supported", "unsupported", "permission denied", "not enforced"} {
+		t.Run(scenario, func(t *testing.T) {
+			quota, kernel, directory := quotaFixture(t)
+			kernel.disabled = scenario == "unsupported"
+
+			kernel.ignoreSet = scenario == "not enforced"
+			if scenario == "permission denied" {
+				kernel.setError = syscall.EPERM
+			}
+
+			err := probeDiskQuota(filepath.Dir(directory), quota)
+			if (err == nil) != (scenario == "supported") {
+				t.Fatal("incorrect quota detection", err)
+			}
+
+			probes, err := filepath.Glob(filepath.Join(filepath.Dir(directory), ".quota-probe-*"))
+			if err != nil || len(probes) != 0 {
+				t.Fatal("quota probe left a temporary directory", probes, err)
+			}
+		})
+	}
+}
+
+func TestUnlimitedQuotaClearsLimitAndRetainsProjectIdentity(t *testing.T) {
+	for _, initial := range []int64{0, 8} {
+		quota, kernel, directory := quotaFixture(t)
+		if err := quota.Prepare(directory, initial); err != nil {
+			t.Fatal(err)
+		}
+
+		var id uint32
+		for _, attributes := range kernel.attrs {
+			id = attributes.Project
+		}
+
+		limit := kernel.limits[id]
+		limit.Space = 16 << 20
+		kernel.limits[id] = limit
+
+		if err := os.WriteFile(filepath.Join(directory, "world"), []byte("game data"), 0600); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := quota.Prepare(directory, 0); err != nil {
+			t.Fatal("could not remove quota", err)
+		}
+
+		if err := quota.Verify(directory, 0); err != nil || kernel.limits[id].Hard != 0 {
+			t.Fatal("unlimited allocation retained a hard limit", err)
+		}
+
+		if err := quota.Prepare(directory, 8); err == nil {
+			t.Fatal("reapplied quota smaller than current usage")
+		}
+
+		limit = kernel.limits[id]
+		limit.Space = 4 << 20
+		kernel.limits[id] = limit
+
+		if err := quota.Prepare(directory, 8); err != nil || kernel.limits[id].Hard != 8*1024 {
+			t.Fatal("could not reapply quota to an existing unlimited world", err)
+		}
+	}
+}
+
+func TestLifecycleWithoutQuotaSupport(t *testing.T) {
+	for _, allocation := range []int64{0, 1024} {
+		m := newTestManager(t.Context(), t.TempDir())
+		t.Cleanup(m.Close)
+		m.Quota = nil
+		m.Docker = &fakeDocker{states: make(map[string]string)}
+		m.Ownership = func(string, string) error { return nil }
+
+		d := runtimeFixture()
+		d.Configuration.DiskMB = allocation
+
+		for _, action := range []string{"install", "start", "stop"} {
+			status := awaitOperation(t, m, d, action, action)
+			if status.Error != "" || status.DiskQuotaEnforced {
+				t.Fatal("quota-less lifecycle failed or claimed enforcement", action, status)
+			}
+		}
+	}
+}
+
 func TestQuotaFailureBlocksWritesButAllowsDeletion(t *testing.T) {
 	m, d := fileTestManager(t)
 	m.Quota = fakeQuota{err: syscall.EOPNOTSUPP}

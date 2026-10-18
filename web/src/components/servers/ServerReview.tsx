@@ -28,7 +28,9 @@ export function ServerReview({
           {value.memory_mb.toLocaleString()} MiB
         </DetailItem>
         <DetailItem label="Disk">
-          {value.disk_mb.toLocaleString()} MiB
+          {value.disk_mb === 0
+            ? "Unlimited"
+            : `${value.disk_mb.toLocaleString()} MiB`}
         </DetailItem>
         <DetailItem label="Ports">
           <div className="pill-group">

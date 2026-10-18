@@ -49,7 +49,13 @@ type entry struct {
 // New constructs a manager whose background operations follow the process lifetime.
 func New(ctx context.Context, directory string) *Manager {
 	ctx, cancel := context.WithCancel(ctx)
-	return &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: &projectQuotas{registry: filepath.Join(directory, ".quota-projects"), kernel: linuxProjectKernel{}}, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
+
+	var quota DiskQuota = &projectQuotas{registry: filepath.Join(directory, ".quota-projects"), kernel: linuxProjectKernel{}}
+	if err := probeDiskQuota(directory, quota); err != nil {
+		quota = nil
+	}
+
+	return &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: quota, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
 }
 
 // Close prevents new operations and waits for in-flight work after process cancellation.
@@ -369,7 +375,7 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	status := model.RuntimeStatus{ServerID: d.ServerID, State: state}
-	if volume, err := m.volume(d.ServerID); err == nil {
+	if volume, err := m.volume(d.ServerID); err == nil && m.Quota != nil && d.Configuration.DiskMB > 0 {
 		status.DiskQuotaEnforced = m.Quota.Verify(volume, d.Configuration.DiskMB) == nil
 	}
 
@@ -500,7 +506,7 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		return err
 	}
 
-	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -556,7 +562,7 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		return err
 	}
 
-	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -583,7 +589,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 			return err
 		}
 
-		return m.Quota.Verify(volume, d.Configuration.DiskMB)
+		return m.prepareQuota(volume, d.Configuration.DiskMB)
 	}
 
 	if state != "missing" {
@@ -597,7 +603,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 		return err
 	}
 
-	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -614,7 +620,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	}
 
 	env := environment(d)
-	if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 

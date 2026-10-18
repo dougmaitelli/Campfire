@@ -81,7 +81,7 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "update"}}, CapabilityUpgrade},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall"}}, CapabilityUpgrade},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall", Content: "clean"}}, CapabilityCleanInstall},
-		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "start"}}, CapabilityDiskQuota},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "start"}}, CapabilityLifecycle},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "restore", BackupSource: &model.BackupSource{}}}, CapabilityBackupRemote},
 	}
 	for _, test := range cases {

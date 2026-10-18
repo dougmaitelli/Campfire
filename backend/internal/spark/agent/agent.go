@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -151,6 +150,8 @@ func Run(ctx context.Context, config Config) error {
 		return errors.New("spark runtime is unavailable")
 	}
 	defer manager.Close()
+
+	slog.Info("Game-data disk quota support", "enabled", manager.DiskQuotaSupported())
 
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
 	if config.Token == "" {
@@ -420,10 +421,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		return err
 	}
 
-	offered := protocol.SupportedCapabilities()
-	if configurations.Update == nil {
-		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilitySelfUpdate })
-	}
+	offered := configurations.capabilities()
 
 	if err := conn.WriteJSON(protocol.Message{Type: "hello", Protocol: protocol.ProtocolVersion, MinimumProtocol: protocol.MinimumProtocolVersion, Capabilities: offered, SparkID: id, Hostname: hostname, Version: buildinfo.SparkVersion()}); err != nil {
 		return err

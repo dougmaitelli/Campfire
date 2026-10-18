@@ -220,7 +220,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		// The prepared project quota enforces total usage on every write. Avoid
 		// walking the full game tree for each SFTP packet; verify logical usage
 		// at admission and publication, and bound sparse-file growth here.
-		if newSize > d.Configuration.DiskMB*1048576 {
+		if d.Configuration.DiskMB > 0 && newSize > d.Configuration.DiskMB*1048576 {
 			return result, fileFailure("file_limit", "Upload exceeds the server disk allocation.")
 		}
 

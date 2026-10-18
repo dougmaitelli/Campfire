@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listSparks } from "../api/sparks";
 import type { Spark } from "../api/sparks";
 
-const SPARK_POLL_INTERVAL_MS = 30000;
+const SPARK_POLL_INTERVAL_MS = 2000;
+const SPARK_REQUEST_TIMEOUT_MS = 10000;
 
 export function useSparks() {
   const [sparks, setSparks] = useState<Spark[]>([]);
@@ -11,10 +12,16 @@ export function useSparks() {
   const activeRequest = useRef<AbortController | null>(null);
 
   const load = useCallback((controller: AbortController) => {
-    return listSparks(controller.signal)
+    return listSparks(
+      AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(SPARK_REQUEST_TIMEOUT_MS),
+      ]),
+    )
       .then((result) => {
         if (!controller.signal.aborted) {
           setSparks(result);
+          setError(null);
         }
       })
       .catch((cause: unknown) => {
@@ -26,6 +33,7 @@ export function useSparks() {
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
+        if (activeRequest.current === controller) activeRequest.current = null;
       });
   }, []);
 
@@ -43,7 +51,7 @@ export function useSparks() {
     activeRequest.current = controller;
     void load(controller);
     const timer = window.setInterval(() => {
-      activeRequest.current?.abort();
+      if (activeRequest.current) return;
       const poll = new AbortController();
       activeRequest.current = poll;
       void load(poll);
@@ -56,6 +64,7 @@ export function useSparks() {
 
   const addSpark = useCallback((spark: Spark) => {
     activeRequest.current?.abort();
+    activeRequest.current = null;
     setSparks((current) =>
       current.some((item) => item.id === spark.id)
         ? current.map((item) => (item.id === spark.id ? spark : item))

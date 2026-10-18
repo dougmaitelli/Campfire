@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -81,7 +82,12 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 		version = client.Version
 	}
 
-	return protocol.ProtocolVersion, version, []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilityBackupDelete, protocol.CapabilitySelfUpdate}
+	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityUpgrade, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilityBackupDelete, protocol.CapabilitySelfUpdate}
+	if id == "mock-america" {
+		features = slices.DeleteFunc(features, func(feature string) bool { return feature == protocol.CapabilityDiskQuota })
+	}
+
+	return protocol.ProtocolVersion, version, features
 }
 
 func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, error) {
@@ -205,7 +211,7 @@ func metrics(record runtimeRecord) *model.ResourceUsage {
 }
 
 func quotaEnforced(record runtimeRecord) bool {
-	return record.Deployment.Configuration.DiskMB > 0 && record.State != "not_installed" && record.State != "deleted"
+	return record.SparkID != "mock-america" && record.Deployment.Configuration.DiskMB > 0 && record.State != "not_installed" && record.State != "deleted"
 }
 
 func diskUsage(record runtimeRecord) int64 {

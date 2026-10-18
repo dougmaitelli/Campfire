@@ -146,7 +146,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	defer func() { _ = root.Close() }()
 
 	if mutate && (q.Operation == "write" || q.Operation == "mkdir" || strings.HasPrefix(q.Operation, "upload.") || q.Operation == "compress" || q.Operation == "extract") {
-		if err := m.Quota.Prepare(volume, d.Configuration.DiskMB); err != nil {
+		if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 			return model.FileResult{}, fileFailure("file_limit", err.Error())
 		}
 	}
@@ -338,6 +338,10 @@ func assignFileOwner(file *os.File, user string) error {
 }
 
 func checkWriteCapacity(ctx context.Context, directory string, limitMB, oldSize, newSize int64) error {
+	if limitMB == 0 {
+		return nil
+	}
+
 	used, err := fileUsage(ctx, directory)
 	if err != nil {
 		return err

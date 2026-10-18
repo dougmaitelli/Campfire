@@ -241,9 +241,9 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 	}
 
 	entry.usage.DiskQuotaEnforced = false
-	entry.usage.DiskQuotaError = "Game-data quota has not been verified."
+	entry.usage.DiskQuotaError = ""
 
-	if volume, err := m.volume(d.ServerID); err == nil {
+	if volume, err := m.volume(d.ServerID); err == nil && m.Quota != nil && d.Configuration.DiskMB > 0 {
 		if err := m.Quota.Verify(volume, d.Configuration.DiskMB); err != nil {
 			entry.usage.DiskQuotaError = "The configured game-data quota could not be verified. Check host project quotas and apply the allocation by starting the server."
 		} else {
