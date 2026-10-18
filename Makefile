@@ -51,7 +51,7 @@ test-postgres:
 # Check frontend types and installation command behavior.
 test-frontend:
 	pnpm --dir web run typecheck
-	node --test scripts/test-spark-installer.mjs scripts/test-api-client.mjs
+	node --test scripts/test-spark-installer.mjs scripts/test-api-client.mjs scripts/test-operation-message.mjs
 
 format: format-backend format-frontend
 

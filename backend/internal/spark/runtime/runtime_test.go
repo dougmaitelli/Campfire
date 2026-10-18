@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -15,12 +16,13 @@ import (
 )
 
 type fakeDocker struct {
-	mu            sync.Mutex
-	states        map[string]string
-	calls         [][]string
-	failInstaller bool
-	block         <-chan struct{}
-	input         string
+	mu              sync.Mutex
+	states          map[string]string
+	calls           [][]string
+	failInstaller   bool
+	block           <-chan struct{}
+	input           string
+	installerScript string
 }
 
 type fakeQuota struct{ err error }
@@ -35,7 +37,7 @@ func newTestManager(ctx context.Context, directory string) *Manager {
 	return m
 }
 
-func (f *fakeDocker) Run(ctx context.Context, _ io.Reader, args ...string) (string, error) {
+func (f *fakeDocker) Run(ctx context.Context, input io.Reader, args ...string) (string, error) {
 	if args[0] == "run" && f.block != nil {
 		select {
 		case <-ctx.Done():
@@ -52,6 +54,15 @@ func (f *fakeDocker) Run(ctx context.Context, _ io.Reader, args ...string) (stri
 	name := args[len(args)-1]
 	switch args[0] {
 	case "run":
+		if input != nil {
+			data, err := io.ReadAll(input)
+			if err != nil {
+				return "", err
+			}
+
+			f.installerScript = string(data)
+		}
+
 		if f.failInstaller {
 			return "password=private-value", errors.New("installer failed")
 		}
@@ -213,6 +224,33 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(dir, d.ServerID, "data")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("game data survived deletion")
+	}
+}
+
+func TestInstallerNormalizesWindowsLineEndings(t *testing.T) {
+	m := newTestManager(t.Context(), t.TempDir())
+	t.Cleanup(m.Close)
+
+	docker := &fakeDocker{states: make(map[string]string)}
+	m.Docker = docker
+	m.Ownership = func(string, string) error { return nil }
+	d := runtimeFixture()
+
+	d.Ember.Installer.Script = "#!/bin/bash\r\nif true; then\r\n  printf 'installed\\n'\r\nelif false; then\r\n  exit 1\r\nfi\r\n"
+	if status := awaitOperation(t, m, d, "install", "crlf"); status.ErrorCode != "" || status.OperationState != model.OperationSucceeded {
+		t.Fatal(status)
+	}
+
+	docker.mu.Lock()
+	script := docker.installerScript
+	docker.mu.Unlock()
+
+	command := exec.CommandContext(t.Context(), "bash", "-s")
+	command.Stdin = strings.NewReader(script)
+
+	output, err := command.CombinedOutput()
+	if err != nil || string(output) != "installed\n" || strings.Contains(script, "\r\n") {
+		t.Fatal("Windows line endings reached the installer", string(output), err)
 	}
 }
 

@@ -2,13 +2,18 @@ import { useCallback } from "react";
 import { apiFetch, readJSON } from "../api/client";
 import { isServer, type Server } from "../api/servers";
 import { ServerReview } from "../components/servers/ServerReview";
+import { serverStatus, type RuntimeStatus } from "../api/runtime";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { formatErrorMessage } from "../utils/errors";
 import {
   ResourceDetailsDialog,
   type ResourceDetailsDialogProps,
 } from "./ResourceDetailsDialog";
 
+type Details = Server & { runtime: RuntimeStatus | undefined };
+
 type Props = Omit<
-  ResourceDetailsDialogProps<Server>,
+  ResourceDetailsDialogProps<Details>,
   "loadDetails" | "children" | "description" | "editLabel"
 > & { id: string };
 
@@ -20,7 +25,8 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
       );
       if (!isServer(value))
         throw new Error("Unexpected server details response.");
-      return value;
+      const runtime = await serverStatus(id, signal).catch(() => undefined);
+      return { ...value, runtime };
     },
     [id],
   );
@@ -32,12 +38,22 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
       loadDetails={loadDetails}
     >
       {(server) => (
-        <ServerReview
-          value={server}
-          sparkName={server.spark_name}
-          emberName={server.ember_name}
-          notice=""
-        />
+        <>
+          <ServerReview
+            value={server}
+            sparkName={server.spark_name}
+            emberName={server.ember_name}
+            notice=""
+          />
+          {server.runtime?.disk_quota_error_code && (
+            <InlineMessage tone="info">
+              {formatErrorMessage(
+                server.runtime.disk_quota_error ??
+                  "Disk quota enforcement is unavailable on this Spark.",
+              )}
+            </InlineMessage>
+          )}
+        </>
       )}
     </ResourceDetailsDialog>
   );

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"campfire/internal/shared/model"
 )
 
 // DiskQuota prepares and verifies persistent game-data limits. Zero removes the
@@ -78,7 +80,7 @@ type projectOwner struct {
 }
 
 func quotaError(err error) error {
-	return fmt.Errorf("game-data quota unavailable: %w; enforcement requires Linux 5.14+ and an XFS or ext4 filesystem with project quota accounting and enforcement enabled", err)
+	return &runtimeFailure{code: model.RuntimeQuotaUnavailable, cause: err, message: fmt.Sprintf("Disk quota enforcement is unavailable: %v. Enforcement requires Linux 5.14+ and XFS or ext4 with project quota accounting and enforcement enabled.", err)}
 }
 
 func (q *projectQuotas) open(directory string) (*os.File, projectAttributes, projectOwner, error) {

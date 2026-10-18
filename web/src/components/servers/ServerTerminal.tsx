@@ -4,7 +4,7 @@ import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { StatusPill } from "../status/StatusPill";
+import { StatusPill, type StatusTone } from "../status/StatusPill";
 import { sendConsole } from "../../api/runtime";
 import "@xterm/xterm/css/xterm.css";
 import "./server-terminal.css";
@@ -18,9 +18,10 @@ export function ServerTerminal({
 }) {
   const container = useRef<HTMLDivElement>(null);
   const terminal = useRef<Terminal | null>(null);
-  const [connection, setConnection] = useState("Connecting…");
-  const [connected, setConnected] = useState(false);
-  const [revision, setRevision] = useState(0);
+  const [connection, setConnection] = useState<{
+    label: string;
+    tone: StatusTone;
+  }>({ label: "Connecting…", tone: "pending" });
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,10 +124,12 @@ export function ServerTerminal({
     const stream = new EventSource(
       `/api/v1/servers/${encodeURIComponent(serverID)}/console/stream`,
     );
+    let ended = false;
+    let replaceOutput = true;
     stream.addEventListener("ready", () => {
-      term.reset();
-      setConnected(true);
-      setConnection("Connected");
+      ended = false;
+      replaceOutput = true;
+      setConnection({ label: "Connected", tone: "positive" });
     });
     stream.addEventListener("output", (event: MessageEvent<string>) => {
       try {
@@ -136,30 +139,38 @@ export function ServerTerminal({
           value !== null &&
           "content" in value &&
           typeof value.content === "string"
-        )
-          term.write(value.content);
+        ) {
+          if (value.content.length > 0) {
+            term.write(
+              `${replaceOutput ? "\x1b[H\x1b[2J" : ""}${value.content}`,
+            );
+            replaceOutput = false;
+          }
+        }
       } catch {
-        setConnected(false);
-        setConnection("Invalid console output. Reconnect to retry.");
-        stream.close();
+        setConnection({
+          label: "Invalid console output; retrying…",
+          tone: "negative",
+        });
       }
     });
     stream.addEventListener("ended", () => {
-      setConnected(false);
-      setConnection("Console ended; reconnecting…");
+      ended = true;
+      setConnection({ label: "Waiting for server output…", tone: "neutral" });
     });
     stream.addEventListener("denied", () => {
-      setConnected(false);
-      setConnection("Console access ended.");
+      setConnection({ label: "Console access ended.", tone: "negative" });
       stream.close();
     });
     stream.onerror = () => {
-      setConnected(false);
-      setConnection(
-        stream.readyState === EventSource.CLOSED
-          ? "Console unavailable"
-          : "Connection lost; reconnecting…",
-      );
+      if (ended) return;
+      setConnection({
+        label:
+          stream.readyState === EventSource.CLOSED
+            ? "Console unavailable"
+            : "Connection lost; reconnecting…",
+        tone: "pending",
+      });
     };
     return () => {
       stream.close();
@@ -168,22 +179,12 @@ export function ServerTerminal({
       terminal.current = null;
       term.dispose();
     };
-  }, [serverID, revision]);
+  }, [serverID]);
   return (
     <div className="server-terminal">
       <div className="server-terminal-toolbar">
         <span role="status">
-          <StatusPill
-            tone={
-              connected
-                ? "positive"
-                : connection === "Connecting…"
-                  ? "pending"
-                  : "negative"
-            }
-          >
-            {connection}
-          </StatusPill>
+          <StatusPill tone={connection.tone}>{connection.label}</StatusPill>
         </span>
         <div className="row-actions">
           <Button
@@ -201,18 +202,6 @@ export function ServerTerminal({
           >
             Clear
           </Button>
-          {!connected && (
-            <Button
-              type="button"
-
-              onClick={() => {
-                setConnection("Connecting…");
-                setRevision((value) => value + 1);
-              }}
-            >
-              Reconnect
-            </Button>
-          )}
         </div>
       </div>
       <div className="server-terminal-window">

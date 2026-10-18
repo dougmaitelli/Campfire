@@ -3,11 +3,6 @@ import type { Spark } from "../../api/sparks";
 import { Table, TableRow } from "../table/Table";
 import { SparkConnectionState } from "./SparkConnectionState";
 
-const dateFormat = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 export function SparksTable({
   sparks,
   onDetails,
@@ -49,7 +44,6 @@ export function SparksTable({
           <th scope="col">Status</th>
           <th scope="col">Limits</th>
           <th scope="col">Network</th>
-          <th scope="col">Added</th>
           <th scope="col" className="table-actions">
             <span className="visually-hidden">Actions</span>
           </th>
@@ -101,11 +95,6 @@ export function SparksTable({
                 {spark.port_allocations.length} port{" "}
                 {spark.port_allocations.length === 1 ? "range" : "ranges"}
               </span>
-            </td>
-            <td>
-              <time dateTime={spark.created_at}>
-                {dateFormat.format(new Date(spark.created_at))}
-              </time>
             </td>
             <td className="table-actions">
               {spark.agent_update_available && (

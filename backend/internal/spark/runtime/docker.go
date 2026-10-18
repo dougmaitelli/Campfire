@@ -4,9 +4,10 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"os/exec"
+
+	"campfire/internal/shared/model"
 )
 
 // Executor is the Docker command boundary, replaceable in tests.
@@ -36,7 +37,7 @@ func (Docker) Run(ctx context.Context, input io.Reader, args ...string) (string,
 
 	command.Stdout, command.Stderr = output, output
 	if err := command.Run(); err != nil {
-		return output.String(), errors.New("docker operation failed; inspect Docker and server logs on the Spark")
+		return output.String(), &runtimeFailure{code: model.RuntimeDockerFailed, cause: err, message: "Docker could not complete the operation. Check the Docker and server logs on the Spark."}
 	}
 
 	return output.String(), nil

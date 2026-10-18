@@ -1,0 +1,35 @@
+.spark-feature-checklist {
+  display: grid;
+  gap: 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.spark-feature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.spark-feature svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  color: var(--muted);
+}
+.spark-feature-available svg {
+  color: #b5ce9c;
+}
+.spark-feature-state {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 700px) {
+  .spark-feature-checklist {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -185,6 +185,16 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 	}
 
 	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == "running", OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
+	if record.OperationID != "" {
+		status.OperationState = model.OperationSucceeded
+		status.Progress = "Complete"
+	}
+
+	if record.SparkID == "mock-america" && record.Deployment.Configuration.DiskMB > 0 {
+		status.DiskQuotaErrorCode = model.RuntimeQuotaUnavailable
+		status.DiskQuotaError = "Hard disk quotas are unavailable on this mock Spark. Game-data usage is still monitored."
+	}
+
 	if request.Action == "logs" {
 		status.Logs = record.Logs
 	}

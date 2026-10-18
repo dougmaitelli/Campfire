@@ -75,6 +75,24 @@ func testWireConsole(t *testing.T, hub *agents.Hub, id string, docker *wireDocke
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	for _, action := range []string{"install", "start"} {
+		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: action, OperationID: "console-" + action})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for status.Busy {
+			status, err = hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: "status"})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		if status.ErrorCode != "" {
+			t.Fatal(status)
+		}
+	}
+
 	events := make(chan model.ConsoleEvent, 16)
 
 	finished := make(chan error, 1)
@@ -202,6 +220,12 @@ func (d *wireDocker) Run(_ context.Context, _ io.Reader, args ...string) (string
 	defer d.mu.Unlock()
 
 	switch args[0] {
+	case "ps":
+		if d.state == "" {
+			return "", nil
+		}
+
+		return "container-id", nil
 	case "inspect":
 		if d.state == "" {
 			return "no such object", errors.New("missing")

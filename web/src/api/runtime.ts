@@ -20,8 +20,13 @@ export interface RuntimeStatus {
   error?: string;
   operation_id?: string;
   operation?: string;
+  operation_state?:
+    "queued" | "running" | "succeeded" | "failed" | "interrupted";
+  error_code?: string;
   logs?: string;
   disk_quota_enforced: boolean;
+  disk_quota_error?: string;
+  disk_quota_error_code?: string;
 }
 
 function isRuntimeStatus(value: unknown): value is RuntimeStatus {
@@ -38,7 +43,17 @@ function isRuntimeStatus(value: unknown): value is RuntimeStatus {
     typeof value.busy === "boolean" &&
     "disk_quota_enforced" in value &&
     typeof value.disk_quota_enforced === "boolean" &&
-    ["progress", "error", "operation_id", "operation", "logs"].every(
+    [
+      "progress",
+      "error",
+      "operation_id",
+      "operation",
+      "operation_state",
+      "error_code",
+      "logs",
+      "disk_quota_error",
+      "disk_quota_error_code",
+    ].every(
       (key) => !(key in value) || typeof Reflect.get(value, key) === "string",
     )
   );

@@ -991,8 +991,8 @@ before starting Spark. Spark does not format filesystems or change mount options
 When enforcement is unavailable (including restricted LXC hosts), Spark omits
 server.disk-quota.v1 from its negotiated features and allows normal operations
 without hard filesystem limits. Disk usage is still monitored and managed file
-operations retain their size checks for positive allocations. The Spark details
-show that hard quotas are unavailable. Restart Spark after changing host support.
+operations retain their size checks for positive allocations. The server details
+drawer shows quota compatibility information. Restart Spark after changing host support.
 When quota support was detected, later enforcement failures still block affected
 operations instead of silently disabling an existing limit.
 

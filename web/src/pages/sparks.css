@@ -17,10 +17,6 @@
   border-radius: 5px;
   font-size: 12px;
 }
-.sparks-table time {
-  color: var(--muted);
-  white-space: nowrap;
-}
 .list-summary {
   margin: 12px 0;
   font-size: 12px;

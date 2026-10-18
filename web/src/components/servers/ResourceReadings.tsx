@@ -114,22 +114,6 @@ export function ResourceReadings({
               : "Waiting for a game-data size sample."
         }
       />
-      {usage !== undefined &&
-        diskMB > 0 &&
-        usage.state !== "not_installed" &&
-        usage.state !== "deleted" &&
-        containerFresh(usage, elapsed) &&
-        !usage.disk_quota_enforced && (
-          <span
-            className="usage-age"
-            title={
-              usage.disk_quota_error ||
-              "The server's disk allocation is not confirmed as a hard filesystem limit."
-            }
-          >
-            Game-data quota not enforced
-          </span>
-        )}
     </div>
   );
 }

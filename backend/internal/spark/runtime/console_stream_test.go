@@ -3,13 +3,94 @@ package runtime
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
 )
+
+type startingConsoleDocker struct {
+	mu       sync.Mutex
+	created  bool
+	checked  chan struct{}
+	followed chan string
+}
+
+func (d *startingConsoleDocker) Run(context.Context, io.Reader, ...string) (string, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	select {
+	case d.checked <- struct{}{}:
+	default:
+	}
+
+	if !d.created {
+		return "", nil
+	}
+
+	return "container-id", nil
+}
+
+func (d *startingConsoleDocker) Follow(_ context.Context, name string, emit func(string) error) error {
+	d.followed <- name
+	return emit("Installer output\n")
+}
+
+func TestConsoleWaitsForInstallerContainer(t *testing.T) {
+	m := newTestManager(t.Context(), t.TempDir())
+	t.Cleanup(m.Close)
+
+	docker := &startingConsoleDocker{checked: make(chan struct{}, 1), followed: make(chan string, 1)}
+	m.Docker = docker
+	d := runtimeFixture()
+
+	state, err := m.load(d.ServerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	state.Status.Busy, state.Status.Operation = true, "install"
+
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+
+	finished := make(chan error, 1)
+	go func() { finished <- m.StreamConsole(ctx, d, func(string) error { return nil }) }()
+
+	select {
+	case <-docker.checked:
+	case <-ctx.Done():
+		t.Fatal("console did not check container")
+	}
+
+	select {
+	case <-docker.followed:
+		t.Fatal("console followed a container before creation")
+	default:
+	}
+
+	docker.mu.Lock()
+	docker.created = true
+	docker.mu.Unlock()
+
+	select {
+	case err := <-finished:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("console did not follow the created installer")
+	}
+
+	if name := <-docker.followed; name != container(d.ServerID)+"-install" {
+		t.Fatal("wrong console target", name)
+	}
+}
 
 func TestConsoleProcess(_ *testing.T) {
 	if os.Getenv("CAMPFIRE_CONSOLE_HELPER") != "1" {

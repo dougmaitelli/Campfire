@@ -15,6 +15,9 @@ import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
 import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
+import { Button } from "../components/forms/Button";
+import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
+import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
 
 const confirmations = {
@@ -42,6 +45,10 @@ export function ServerOperationsPage({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [requestedAction, setRequestedAction] = useState<ServerAction | null>(
+    null,
+  );
   const [reinstallMode, setReinstallMode] = useState<"keep" | "clean">("keep");
   const [confirmation, setConfirmation] = useState<ConfirmedAction | null>(
     null,
@@ -50,6 +57,16 @@ export function ServerOperationsPage({
   const runtime = useServerRuntime(server ? [server.id] : []);
   const monitoring = useMonitoring();
   const status = runtime.statuses[serverID];
+  const message = operationMessage(
+    error && server
+      ? {
+          error,
+          error_code: "operation_failed",
+          operation_state: "failed",
+          ...(requestedAction ? { operation: requestedAction } : {}),
+        }
+      : status,
+  );
   const activeTab = ["console", "files", "backups"].includes(tab)
     ? tab
     : "console";
@@ -83,6 +100,7 @@ export function ServerOperationsPage({
     if (!server || pending.current) return;
     pending.current = true;
     setActing(true);
+    setRequestedAction(action);
     setError(null);
     try {
       runtime.upsert(
@@ -146,7 +164,7 @@ export function ServerOperationsPage({
           )
         }
       />
-      {error && <InlineMessage role="alert">{error}</InlineMessage>}
+      {error && !server && <InlineMessage role="alert">{error}</InlineMessage>}
       {loading && <ContentState loading resource="server" />}
       {server && (
         <>
@@ -178,13 +196,27 @@ export function ServerOperationsPage({
               {monitoring.error}
             </InlineMessage>
           )}
-          {status?.progress && (
-            <InlineMessage tone="info" role="status">
-              {status.progress}
+          {message && (
+            <InlineMessage tone={message.tone}>
+              <strong>{message.title}</strong>
+              {message.detail && <> {message.detail}</>}
+              {status?.disk_quota_error_code &&
+                status.operation_state === "failed" && (
+                  <>
+                    {" "}
+                    <Button onClick={() => setShowDetails(true)}>
+                      View server details
+                    </Button>
+                  </>
+                )}
             </InlineMessage>
           )}
-          {status?.error && (
-            <InlineMessage role="alert">{status.error}</InlineMessage>
+          {showDetails && (
+            <ServerDetailsDialog
+              id={server.id}
+              title={server.name}
+              onClose={() => setShowDetails(false)}
+            />
           )}
           {server.permissions.includes("server.operate") ? (
             <>

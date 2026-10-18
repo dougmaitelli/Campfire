@@ -22,20 +22,21 @@ var startupVariables = regexp.MustCompile(`\{\{([A-Z][A-Z0-9_]*)\}\}`)
 
 // Manager shares lifecycle behavior between the panel and remote Spark processes.
 type Manager struct {
-	Directory     string
-	Docker        Executor
-	Ownership     func(string, string) error
-	FileOwner     func(*os.File, string) error
-	Quota         DiskQuota
-	ctx           context.Context
-	cancel        context.CancelFunc
-	mu            sync.Mutex
-	entries       map[string]*entry
-	wg            sync.WaitGroup
-	closed        bool
-	metricsMu     sync.Mutex
-	metrics       map[string]*metricsEntry
-	transferTasks map[string]context.CancelFunc
+	Directory        string
+	Docker           Executor
+	Ownership        func(string, string) error
+	FileOwner        func(*os.File, string) error
+	Quota            DiskQuota
+	quotaUnavailable string
+	ctx              context.Context
+	cancel           context.CancelFunc
+	mu               sync.Mutex
+	entries          map[string]*entry
+	wg               sync.WaitGroup
+	closed           bool
+	metricsMu        sync.Mutex
+	metrics          map[string]*metricsEntry
+	transferTasks    map[string]context.CancelFunc
 }
 
 type entry struct {
@@ -51,11 +52,14 @@ func New(ctx context.Context, directory string) *Manager {
 	ctx, cancel := context.WithCancel(ctx)
 
 	var quota DiskQuota = &projectQuotas{registry: filepath.Join(directory, ".quota-projects"), kernel: linuxProjectKernel{}}
+
+	quotaUnavailable := ""
 	if err := probeDiskQuota(directory, quota); err != nil {
+		quotaUnavailable = err.Error()
 		quota = nil
 	}
 
-	return &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: quota, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
+	return &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: quota, quotaUnavailable: quotaUnavailable, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
 }
 
 // Close prevents new operations and waits for in-flight work after process cancellation.
@@ -87,6 +91,8 @@ func (m *Manager) load(id string) (*entry, error) {
 		if e.Status.Busy {
 			e.Status.Busy = false
 			e.Status.Error = "operation interrupted by Spark restart"
+			e.Status.ErrorCode = model.RuntimeOperationInterrupted
+			e.Status.OperationState = model.OperationInterrupted
 			e.Status.Progress = "Interrupted"
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -164,6 +170,8 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 		e.Status.State, e.Status.Ready = status.State, status.Ready
 		e.Status.DiskQuotaEnforced = status.DiskQuotaEnforced
+		e.Status.DiskQuotaError = status.DiskQuotaError
+		e.Status.DiskQuotaErrorCode = status.DiskQuotaErrorCode
 
 		return e.Status, nil
 	}
@@ -268,7 +276,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		phase = "stopped"
 	}
 
-	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, Progress: "Queued", Busy: true}
+	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, OperationState: model.OperationQueued, Progress: "Queued", Busy: true}
 	if err := m.persist(q.ServerID, e); err != nil {
 		e.Status.Busy = false
 		return model.RuntimeStatus{}, err
@@ -294,6 +302,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 func (m *Manager) progress(_ string, e *entry, text string) {
 	e.mu.Lock()
 	e.Status.Progress = text
+	e.Status.OperationState = model.OperationRunning
 	e.mu.Unlock()
 }
 
@@ -328,19 +337,35 @@ func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
 	e.Status.Busy = false
 
 	e.Status.Progress = "Complete"
+	e.Status.OperationState = model.OperationSucceeded
+
 	if err != nil {
-		e.Status.Error = err.Error()
+		code := runtimeErrorCode(err)
+		if code == model.RuntimeQuotaUnavailable {
+			e.Status.DiskQuotaError, e.Status.DiskQuotaErrorCode = err.Error(), code
+		} else {
+			e.Status.Error, e.Status.ErrorCode = err.Error(), code
+		}
+
 		e.Status.Progress = "Failed"
+		e.Status.OperationState = model.OperationFailed
 	}
 
 	status, observeErr := m.observe(ctx, d, e)
 	if observeErr == nil {
 		e.Status.State, e.Status.Ready = status.State, status.Ready
+
 		e.Status.DiskQuotaEnforced = status.DiskQuotaEnforced
+		if e.Status.DiskQuotaErrorCode == "" {
+			e.Status.DiskQuotaError = status.DiskQuotaError
+			e.Status.DiskQuotaErrorCode = status.DiskQuotaErrorCode
+		}
 	} else {
 		e.Status.State = "unknown"
 		if e.Status.Error == "" {
 			e.Status.Error = "could not inspect Docker state"
+			e.Status.ErrorCode = model.RuntimeDockerFailed
+			e.Status.OperationState = model.OperationFailed
 		}
 	}
 
@@ -350,6 +375,8 @@ func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
 
 	if err := m.persist(d.ServerID, e); err != nil {
 		e.Status.Error = "could not persist runtime state"
+		e.Status.ErrorCode = model.RuntimeOperationFailed
+		e.Status.OperationState = model.OperationFailed
 		e.Status.Progress = "Failed"
 	}
 }
@@ -375,8 +402,19 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	status := model.RuntimeStatus{ServerID: d.ServerID, State: state}
+	if d.Configuration.DiskMB > 0 && m.Quota == nil {
+		status.DiskQuotaError = m.quotaUnavailable
+		if status.DiskQuotaError != "" {
+			status.DiskQuotaErrorCode = model.RuntimeQuotaUnavailable
+		}
+	}
+
 	if volume, err := m.volume(d.ServerID); err == nil && m.Quota != nil && d.Configuration.DiskMB > 0 {
-		status.DiskQuotaEnforced = m.Quota.Verify(volume, d.Configuration.DiskMB) == nil
+		if err := m.Quota.Verify(volume, d.Configuration.DiskMB); err != nil {
+			status.DiskQuotaError, status.DiskQuotaErrorCode = err.Error(), model.RuntimeQuotaUnavailable
+		} else {
+			status.DiskQuotaEnforced = true
+		}
 	}
 
 	if state == "missing" {
@@ -527,8 +565,14 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		args = append(args, environmentArgs(environment(d))...)
 		args = append(args, "--security-opt", "seccomp="+seccomp)
 		args = append(args, installer.Image, "-s")
-		output, runErr := m.Docker.Run(ctx, strings.NewReader(installer.Script), args...)
+		script := strings.ReplaceAll(installer.Script, "\r\n", "\n")
+		output, runErr := m.Docker.Run(ctx, strings.NewReader(script), args...)
+
 		err = runErr
+		if runErr != nil {
+			err = &runtimeFailure{code: model.RuntimeInstallerFailed, cause: runErr, message: "The installer script failed. Review the installer output for details."}
+		}
+
 		logErr := writeAtomic(filepath.Join(m.root(d.ServerID), "installer.log"), []byte(output), 0600)
 		cleanup, stop := context.WithTimeout(context.Background(), 15*time.Second)
 		_, cleanupErr = m.Docker.Run(cleanup, nil, "rm", "--force", container(d.ServerID)+"-install")
