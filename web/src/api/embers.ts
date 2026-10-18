@@ -13,6 +13,7 @@ export interface Ember {
   schema: number;
   name: string;
   description: string;
+  updateUrl?: string;
   images: Record<string, string>;
   startup: string;
   work_dir: string;
@@ -39,6 +40,7 @@ export function isEmber(value: unknown): value is Ember {
     typeof value.name === "string" &&
     "description" in value &&
     typeof value.description === "string" &&
+    (!("updateUrl" in value) || typeof value.updateUrl === "string") &&
     "images" in value &&
     typeof value.images === "object" &&
     value.images !== null &&
@@ -107,6 +109,7 @@ export async function importEmber(
   definition: string,
   startupCommand: string,
   acknowledgeWarnings: boolean,
+  sourceURL?: string,
 ): Promise<Ember> {
   const body = await readJSON(
     await apiFetch("/api/v1/embers", {
@@ -116,6 +119,7 @@ export async function importEmber(
         definition,
         startup_command: startupCommand,
         acknowledge_warnings: acknowledgeWarnings,
+        source_url: sourceURL,
       }),
     }),
   );
@@ -135,6 +139,7 @@ export interface EmberPreview {
   warnings: ImportIssue[];
   errors: ImportIssue[];
   startup_commands: string[];
+  selected_startup_command?: string | undefined;
 }
 
 function isIssue(value: unknown): value is ImportIssue {
@@ -178,18 +183,28 @@ async function readPreview(response: Response): Promise<EmberPreview> {
     warnings: body.warnings,
     errors: body.errors,
     startup_commands: body.startup_commands,
+    selected_startup_command:
+      "selected_startup_command" in body &&
+      typeof body.selected_startup_command === "string"
+        ? body.selected_startup_command
+        : undefined,
   };
 }
 
 export async function previewEmberDefinition(
   definition: string,
   startupCommand: string,
+  sourceURL?: string,
 ): Promise<EmberPreview> {
   return readPreview(
     await apiFetch("/api/v1/embers/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ definition, startup_command: startupCommand }),
+      body: JSON.stringify({
+        definition,
+        startup_command: startupCommand,
+        source_url: sourceURL,
+      }),
     }),
   );
 }
@@ -200,6 +215,75 @@ export async function previewEmberURL(url: string): Promise<EmberPreview> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
+    }),
+  );
+}
+
+export interface EmberUpdate {
+  id: string;
+  ember_id: string;
+  url: string;
+  checked_at: number;
+  available: boolean;
+  error?: string | undefined;
+}
+
+function readEmberUpdate(value: unknown): EmberUpdate {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("ember_id" in value) ||
+    typeof value.ember_id !== "string" ||
+    !("url" in value) ||
+    typeof value.url !== "string" ||
+    !("checked_at" in value) ||
+    typeof value.checked_at !== "number" ||
+    !("available" in value) ||
+    typeof value.available !== "boolean" ||
+    ("error" in value && typeof value.error !== "string")
+  )
+    throw new Error("Unexpected Ember update response.");
+  return {
+    id: value.ember_id,
+    ember_id: value.ember_id,
+    url: value.url,
+    checked_at: value.checked_at,
+    available: value.available,
+    error: "error" in value ? (value.error as string) : undefined,
+  };
+}
+
+export async function listEmberUpdates(
+  signal: AbortSignal,
+): Promise<EmberUpdate[]> {
+  const body = await readJSON(
+    await apiFetch("/api/v1/embers/updates", { signal }),
+  );
+  if (!Array.isArray(body))
+    throw new Error("Unexpected Ember updates response.");
+  return body.map(readEmberUpdate);
+}
+
+export async function checkEmberUpdate(id: string): Promise<EmberUpdate> {
+  return readEmberUpdate(
+    await readJSON(
+      await apiFetch(`/api/v1/embers/${encodeURIComponent(id)}/check-update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        signal: AbortSignal.timeout(30000),
+      }),
+    ),
+  );
+}
+
+export async function downloadEmberUpdate(id: string): Promise<EmberPreview> {
+  return readPreview(
+    await apiFetch(`/api/v1/embers/${encodeURIComponent(id)}/download-update`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(30000),
     }),
   );
 }

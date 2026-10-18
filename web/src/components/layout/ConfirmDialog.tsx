@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import "./confirm-dialog.css";
 
 export function ConfirmDialog({
@@ -6,6 +6,8 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   danger = false,
+  warning = false,
+  children,
   busy,
   disabled = false,
   error,
@@ -16,6 +18,8 @@ export function ConfirmDialog({
   description: string;
   confirmLabel: string;
   danger?: boolean;
+  warning?: boolean;
+  children?: ReactNode;
   busy: boolean;
   disabled?: boolean;
   error: string | null;
@@ -44,6 +48,7 @@ export function ConfirmDialog({
     >
       <h2 id={`${id}-title`}>{title}</h2>
       <p id={`${id}-description`}>{description}</p>
+      {children}
       {error && (
         <p className="error-message" role="alert">
           {error}
@@ -61,7 +66,7 @@ export function ConfirmDialog({
         </button>
         <button
           type="button"
-          className={`button ${danger ? "button-danger" : "button-primary"}`}
+          className={`button ${danger ? "button-danger" : warning ? "button-warning" : "button-primary"}`}
           disabled={busy || disabled}
           onClick={onConfirm}
         >

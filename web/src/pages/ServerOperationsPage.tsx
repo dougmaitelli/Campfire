@@ -19,15 +19,10 @@ const confirmations = {
     description:
       "Force the server to stop immediately. Unsaved game data may be lost.",
   },
-  update: {
-    label: "Update game files",
-    description:
-      "Pull the current images and run the installer from the pinned Ember. The game directory and backups are kept, but the installer may overwrite files. Take a backup first. The server stays stopped.",
-  },
   reinstall: {
     label: "Reinstall server",
     description:
-      "Run the installer from the pinned Ember again. The game directory and backups are kept, but the installer may overwrite files. Take a backup first. The server stays stopped.",
+      "Pull current images and run the pinned Ember’s installer. Choose whether to keep existing game files or start clean. Backups and saved server settings are kept in either case. The server stays stopped.",
   },
 };
 type ConfirmedAction = keyof typeof confirmations;
@@ -43,6 +38,7 @@ export function ServerOperationsPage({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [reinstallMode, setReinstallMode] = useState<"keep" | "clean">("keep");
   const [confirmation, setConfirmation] = useState<ConfirmedAction | null>(
     null,
   );
@@ -85,7 +81,14 @@ export function ServerOperationsPage({
     setActing(true);
     setError(null);
     try {
-      runtime.upsert(await serverAction(server.id, action));
+      runtime.upsert(
+        await serverAction(
+          server.id,
+          action,
+          undefined,
+          action === "reinstall" ? reinstallMode : undefined,
+        ),
+      );
       setConfirmation(null);
     } catch (cause) {
       setError(
@@ -134,12 +137,9 @@ export function ServerOperationsPage({
                 }
                 canConfigure={server.permissions.includes("server.configure")}
                 onAction={(action) => {
-                  if (
-                    action === "kill" ||
-                    action === "update" ||
-                    action === "reinstall"
-                  ) {
+                  if (action === "kill" || action === "reinstall") {
                     setError(null);
+                    setReinstallMode("keep");
                     setConfirmation(action);
                   } else void act(action);
                 }}
@@ -236,8 +236,13 @@ export function ServerOperationsPage({
         <ConfirmDialog
           title={`${confirmations[confirmation].label}: ${server.name}`}
           description={confirmations[confirmation].description}
-          confirmLabel={confirmations[confirmation].label}
-          danger={confirmation !== "update"}
+          confirmLabel={
+            confirmation === "reinstall" && reinstallMode === "clean"
+              ? "Delete game files and reinstall"
+              : confirmations[confirmation].label
+          }
+          danger={confirmation === "kill" || reinstallMode === "clean"}
+          warning={confirmation === "reinstall"}
           busy={acting}
           disabled={
             !status ||
@@ -259,7 +264,42 @@ export function ServerOperationsPage({
           onConfirm={() => {
             void act(confirmation);
           }}
-        />
+        >
+          {confirmation === "reinstall" && (
+            <fieldset className="reinstall-options" disabled={acting}>
+              <legend>Installation mode</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="reinstall-mode"
+                  value="keep"
+                  checked={reinstallMode === "keep"}
+                  onChange={() => setReinstallMode("keep")}
+                />
+                Reinstall keeping files
+              </label>
+              <p className="field-help">
+                Keeps existing game files, worlds and configuration. The
+                installer may overwrite files. Take a backup first.
+              </p>
+              <label>
+                <input
+                  type="radio"
+                  name="reinstall-mode"
+                  value="clean"
+                  checked={reinstallMode === "clean"}
+                  onChange={() => setReinstallMode("clean")}
+                />
+                Clean install
+              </label>
+              <p className="field-help">
+                Permanently deletes all game files, including worlds, mods and
+                in-game configuration, before installing. Existing backups are
+                kept. Take a backup first.
+              </p>
+            </fieldset>
+          )}
+        </ConfirmDialog>
       )}
     </section>
   );

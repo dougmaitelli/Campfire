@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
@@ -14,28 +15,41 @@ import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 
 export function ImportEmberDialog({
   ember,
+  initialPreview,
+  initialSourceURL,
   onClose,
   onImported,
   onDeleted,
 }: {
   ember?: Ember | null;
+  initialPreview?: EmberPreview | undefined;
+  initialSourceURL?: string | undefined;
   onClose: () => void;
   onImported: (ember: Ember) => void;
   onDeleted?: () => void;
 }) {
-  const [text, setText] = useState(() =>
-    ember ? JSON.stringify(ember, null, 2) : "",
+  const [text, setText] = useState(
+    () =>
+      initialPreview?.definition ??
+      (ember ? JSON.stringify(ember, null, 2) : ""),
   );
   const formID = useId();
   const [source, setSource] = useState<"file" | "url" | "paste">(
-    ember ? "paste" : "file",
+    ember || initialPreview ? "paste" : "file",
   );
   const [url, setURL] = useState("");
+  const [sourceURL, setSourceURL] = useState<string | undefined>(
+    initialSourceURL,
+  );
   const [busy, setBusy] = useState(false);
   const [loadingSource, setLoadingSource] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<EmberPreview | null>(null);
-  const [startupCommand, setStartupCommand] = useState("");
+  const [preview, setPreview] = useState<EmberPreview | null>(
+    initialPreview ?? null,
+  );
+  const [startupCommand, setStartupCommand] = useState(
+    initialPreview?.selected_startup_command ?? "",
+  );
   const [reviewed, setReviewed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const warnings =
@@ -60,6 +74,7 @@ export function ImportEmberDialog({
     setError(null);
     try {
       const result = await previewEmberURL(url.trim());
+      setSourceURL(url.trim());
       setText(result.definition);
       setPreview(result);
     } catch (cause) {
@@ -73,6 +88,7 @@ export function ImportEmberDialog({
   async function readFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setSourceURL(undefined);
     if (file.size > 1024 * 1024) {
       setText("");
       setPreview(null);
@@ -113,7 +129,12 @@ export function ImportEmberDialog({
     setBusy(true);
     setError(null);
     try {
-      const ember = await importEmber(text, startupCommand, reviewed);
+      const ember = await importEmber(
+        text,
+        startupCommand,
+        reviewed,
+        sourceURL,
+      );
       onImported(ember);
       onClose();
     } catch (cause) {
@@ -132,7 +153,7 @@ export function ImportEmberDialog({
     setReviewed(false);
     setError(null);
     try {
-      setPreview(await previewEmberDefinition(text, startupCommand));
+      setPreview(await previewEmberDefinition(text, startupCommand, sourceURL));
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -165,9 +186,15 @@ export function ImportEmberDialog({
   }
   return (
     <Drawer
-      title={ember ? "Edit Ember" : "Import Ember"}
-      description={
+      title={
         ember
+          ? "Edit Ember"
+          : initialPreview
+            ? "Review Ember update"
+            : "Import Ember"
+      }
+      description={
+        ember || initialPreview
           ? "Edit the definition and review it before saving a new revision. Existing servers keep their pinned revision until you apply the new one."
           : "Import a native Ember or Pterodactyl/Pelican Egg from JSON or YAML. Review compatibility before saving an immutable revision."
       }
@@ -324,7 +351,7 @@ export function ImportEmberDialog({
                 <label htmlFor="egg-startup-command">
                   Startup command to import
                 </label>
-                <select
+                <Select
                   id="egg-startup-command"
                   value={startupCommand}
                   onChange={(event) => {
@@ -339,7 +366,7 @@ export function ImportEmberDialog({
                       {command}
                     </option>
                   ))}
-                </select>
+                </Select>
               </>
             )}
             <button

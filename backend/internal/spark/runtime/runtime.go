@@ -112,6 +112,10 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("invalid server identity")
 	}
 
+	if q.Action == "reinstall" && q.Content != "" && q.Content != "keep" && q.Content != "clean" {
+		return model.RuntimeStatus{}, errors.New("invalid reinstall mode")
+	}
+
 	if q.Action == "metrics" {
 		usage, err := m.Measure(ctx, d)
 		return model.RuntimeStatus{ServerID: d.ServerID, State: usage.State, Metrics: &usage}, err
@@ -296,6 +300,8 @@ func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
 	var err error
 
 	switch q.Action {
+	case "reinstall":
+		err = m.reinstallMode(ctx, d, e, true, q.Content == "clean")
 	case "backup":
 		err = m.createBackup(ctx, d, q.OperationID, e)
 	case "restore":

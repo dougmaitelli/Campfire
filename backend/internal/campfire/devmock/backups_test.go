@@ -36,9 +36,13 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 	}
 
 	for _, entry := range seeded {
-		download := files("backup.read", entry.Name)
-		if download.Size != entry.Size || int64(len(download.Data)) != entry.Size {
-			t.Fatal("fixture download size differs from listing", entry, download.Size)
+		for offset := int64(0); offset < entry.Size; {
+			download, err := runtime.Files(t.Context(), server.SparkID, model.FileRequest{ServerID: server.ID, Operation: "backup.read", Path: entry.Name, Offset: offset})
+			if err != nil || download.Size != entry.Size || len(download.Data) == 0 || int64(len(download.Data)) > min(model.FileLimit, entry.Size-offset) {
+				t.Fatal("fixture download chunk differs from listing", entry, offset, download.Size, err)
+			}
+
+			offset += int64(len(download.Data))
 		}
 	}
 

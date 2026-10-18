@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
 import { saveRole, type Role } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
@@ -112,7 +113,7 @@ export function RoleDialog({
           onChange={(event) => setName(event.target.value)}
         />
         <label htmlFor="role-scope">Scope</label>
-        <select
+        <Select
           id="role-scope"
           value={scope}
           disabled={role !== null}
@@ -125,7 +126,7 @@ export function RoleDialog({
         >
           <option value="server">Server</option>
           <option value="platform">Platform</option>
-        </select>
+        </Select>
         <h3>Permissions</h3>
         {choices.map(([permission, label]) => (
           <CheckboxField

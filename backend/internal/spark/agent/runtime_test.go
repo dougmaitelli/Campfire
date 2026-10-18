@@ -250,7 +250,12 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 			}
 		}
 
-		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: action, OperationID: action + "-operation", Content: "backup-operation.tar.gz"})
+		content := ""
+		if action == "restore" {
+			content = "backup-operation.tar.gz"
+		}
+
+		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: action, OperationID: action + "-operation", Content: content})
 		if err != nil {
 			t.Fatal(err)
 		}

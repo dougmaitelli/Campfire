@@ -13,6 +13,7 @@ import (
 type ImportOptions struct {
 	StartupCommand      string `json:"startup_command,omitempty"`
 	AcknowledgeWarnings bool   `json:"acknowledge_warnings,omitempty"`
+	SourceURL           string `json:"source_url,omitempty"`
 }
 
 // ImportIssue identifies a field that needs attention before an Egg can be used.
@@ -24,12 +25,13 @@ type ImportIssue struct {
 
 // EmberPreview is a non-persisting conversion result shared by all import sources.
 type EmberPreview struct {
-	Format          string        `json:"format"`
-	Definition      string        `json:"definition"`
-	Ember           *model.Ember  `json:"ember"`
-	Warnings        []ImportIssue `json:"warnings"`
-	Errors          []ImportIssue `json:"errors"`
-	StartupCommands []string      `json:"startup_commands"`
+	Format                 string        `json:"format"`
+	Definition             string        `json:"definition"`
+	Ember                  *model.Ember  `json:"ember"`
+	Warnings               []ImportIssue `json:"warnings"`
+	Errors                 []ImportIssue `json:"errors"`
+	StartupCommands        []string      `json:"startup_commands"`
+	SelectedStartupCommand string        `json:"selected_startup_command,omitempty"`
 }
 
 func (p *EmberPreview) fail(field, message string) {
@@ -93,6 +95,14 @@ func PreviewEmber(data []byte, options ImportOptions) EmberPreview {
 	}
 
 	ember.ID = ""
+	if ember.UpdateURL == "" && ember.Origin != nil {
+		ember.UpdateURL = ember.Origin.UpdateURL
+	}
+
+	if ember.UpdateURL == "" {
+		ember.UpdateURL = options.SourceURL
+	}
+
 	if len(report.Errors) == 0 {
 		if err := validateEmber(&ember); err != nil {
 			report.fail("ember", err.Error())

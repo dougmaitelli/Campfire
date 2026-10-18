@@ -27,6 +27,26 @@
   cursor: pointer;
   border-radius: 4px;
 }
+.wizard-progress > li {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.wizard-progress > li:last-child {
+  flex: 0 0 auto;
+}
+.wizard-progress > li:not(:last-child)::after {
+  content: "";
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  background: var(--border);
+}
+.wizard-progress > li.is-complete:not(:last-child)::after {
+  background: var(--accent-border);
+}
 .wizard-step-link:disabled {
   opacity: 0.45;
   cursor: default;
@@ -86,5 +106,12 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+  }
+  .wizard-progress > li {
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .wizard-progress > li:not(:last-child)::after {
+    margin-top: 13px;
   }
 }

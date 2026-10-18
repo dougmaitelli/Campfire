@@ -137,12 +137,16 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 4 {
-			return fmt.Errorf("database schema version %d is newer than supported version 4", version)
+		if version > 5 {
+			return fmt.Errorf("database schema version %d is newer than supported version 5", version)
+		}
+
+		if version == 5 {
+			return nil
 		}
 
 		if version == 4 {
-			return nil
+			return migrateEmberUpdates(tx)
 		}
 
 		if version == 3 && tx.Migrator().HasColumn(&Schedule{}, "OnlyWhenRunning") && tx.Migrator().HasColumn(&ScheduleRun{}, "OnlyWhenRunning") && !tx.Migrator().HasColumn(&Schedule{}, "interval_minutes") {
@@ -210,7 +214,7 @@ func migrate(db *gorm.DB) error {
 		}
 
 		if err := tx.AutoMigrate(
-			&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
+			&Spark{}, &Ember{}, &EmberUpdate{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
 			&OIDCIdentity{}, &Server{}, &ServerOwnership{}, &ServerMember{}, &SparkRole{},
 			&SparkEnrollment{}, &SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{},
 			&ServerTransfer{}, &BackupPolicy{}, &Backup{}, &APIToken{},
@@ -223,7 +227,7 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("seed built-in roles: %w", err)
 		}
 
-		if err := tx.Create(&schemaMigration{Version: 4}).Error; err != nil {
+		if err := tx.Create(&schemaMigration{Version: 5}).Error; err != nil {
 			return fmt.Errorf("record initial migration: %w", err)
 		}
 
@@ -238,5 +242,17 @@ func migrateUserEmail(tx *gorm.DB) error {
 		}
 	}
 
-	return tx.Create(&schemaMigration{Version: 4}).Error
+	if err := tx.Create(&schemaMigration{Version: 4}).Error; err != nil {
+		return err
+	}
+
+	return migrateEmberUpdates(tx)
+}
+
+func migrateEmberUpdates(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&EmberUpdate{}); err != nil {
+		return fmt.Errorf("add Ember update checks: %w", err)
+	}
+
+	return tx.Create(&schemaMigration{Version: 5}).Error
 }

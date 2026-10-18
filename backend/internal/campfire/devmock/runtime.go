@@ -129,6 +129,10 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 	switch request.Action {
 	case "status", "logs", "metrics":
 	case "install", "update", "reinstall":
+		if request.Action == "reinstall" && request.Content == "clean" {
+			record.Files = mockFiles()
+		}
+
 		record.State = "stopped"
 	case "start", "restart":
 		if record.State == "not_installed" || record.State == "deleted" {

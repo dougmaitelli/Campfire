@@ -79,6 +79,14 @@ input[type="radio"] {
   background: rgb(248 113 113 / 10%);
   color: #f87171;
 }
+.button-warning {
+  border-color: #facc15;
+  background: rgb(250 204 21 / 10%);
+  color: #facc15;
+}
+.button-warning:hover:not(:disabled) {
+  background: rgb(250 204 21 / 20%);
+}
 .button-danger:hover:not(:disabled) {
   background: rgb(248 113 113 / 20%);
 }

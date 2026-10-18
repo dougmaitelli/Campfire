@@ -45,22 +45,13 @@ export function ServerLifecycleControls({
         Kill
       </button>
       {canConfigure && (
-        <>
-          <button
-            className="button"
-            disabled={blocked || running}
-            onClick={() => onAction("update")}
-          >
-            Update game files
-          </button>
-          <button
-            className="button"
-            disabled={blocked || running}
-            onClick={() => onAction("reinstall")}
-          >
-            Reinstall (keep files)
-          </button>
-        </>
+        <button
+          className="button button-warning"
+          disabled={blocked || running}
+          onClick={() => onAction("reinstall")}
+        >
+          Reinstall
+        </button>
       )}
     </>
   );

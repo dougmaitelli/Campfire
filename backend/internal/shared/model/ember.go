@@ -61,6 +61,7 @@ type Ember struct {
 	Schema        int               `json:"schema"`
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
+	UpdateURL     string            `json:"updateUrl,omitempty"`
 	Images        map[string]string `json:"images"`
 	Startup       string            `json:"startup"`
 	WorkDir       string            `json:"work_dir"`

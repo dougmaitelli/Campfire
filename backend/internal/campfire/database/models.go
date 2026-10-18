@@ -127,6 +127,16 @@ type Ember struct {
 	CreatedAt  string      `gorm:"type:text;not null;autoCreateTime:false"`
 }
 
+// EmberUpdate stores the last remote check without mutating the imported revision.
+type EmberUpdate struct {
+	EmberID   string `gorm:"type:text;primaryKey"`
+	Ember     Ember  `gorm:"foreignKey:EmberID;constraint:OnDelete:CASCADE"`
+	URL       string `gorm:"type:text;not null"`
+	CheckedAt int64  `gorm:"not null"`
+	Available bool   `gorm:"not null"`
+	Error     string `gorm:"type:text;not null"`
+}
+
 // SparkEnrollment stores only a short-lived enrollment token hash.
 type SparkEnrollment struct {
 	Hash      string `gorm:"type:text;primaryKey"`

@@ -13,6 +13,7 @@ const featureLabels: Record<string, string> = {
   "server.disk-quota.v1": "Disk quotas",
   "server.transfer.v1": "Server transfers",
   "server.upgrade.v1": "Updates and reinstalls",
+  "server.reinstall.clean.v1": "Clean reinstalls",
 };
 
 export function SparkFeatures({ spark }: { spark: Spark }) {

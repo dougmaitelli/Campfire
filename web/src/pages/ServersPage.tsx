@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { deleteServer, listServers } from "../api/servers";
 import type { Server } from "../api/servers";
@@ -34,10 +35,12 @@ export function ServersPage() {
   const servers = useCollection(listServers);
   const monitoring = useMonitoring();
   const [options, setOptions] = useState<ServerOptions>({
+    s3_available: false,
     sparks: [],
     embers: [],
   });
   const [draftOptions, setDraftOptions] = useState<ServerOptions>({
+    s3_available: false,
     sparks: [],
     embers: [],
   });
@@ -208,7 +211,7 @@ export function ServersPage() {
           </label>
           <label>
             Spark
-            <select
+            <Select
               aria-label="Filter by Spark"
               value={sparkFilter}
               onChange={(event) => setSparkFilter(event.target.value)}
@@ -226,7 +229,7 @@ export function ServersPage() {
                   {name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </div>
       )}
@@ -352,6 +355,10 @@ export function ServersPage() {
         <ServerDialog
           applyRevision={applyRevision}
           server={editing}
+          s3Configured={draftOptions.s3_available}
+          runtimeRestricted={
+            editing !== null && runtime.statuses[editing.id]?.busy === true
+          }
           sparks={draftOptions.sparks}
           embers={draftOptions.embers}
           servers={servers.items}
@@ -458,14 +465,7 @@ export function ServersPage() {
                 }
               : undefined
           }
-          editDisabled={
-            loading ||
-            deleting !== null ||
-            runtime.statuses[details.id]?.busy === true ||
-            !["stopped", "not_installed", "deleted"].includes(
-              runtime.statuses[details.id]?.state ?? "unknown",
-            )
-          }
+          editDisabled={loading}
         />
       )}
     </section>

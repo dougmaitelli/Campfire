@@ -107,6 +107,10 @@ func TestExplicitEmberApplicationAndInstallerPermissions(t *testing.T) {
 		expectAccess(t, operator, "POST", endpoint+"/actions", fmt.Sprintf(`{"action":%q}`, action), http.StatusForbidden)
 	}
 
+	expectAccess(t, operator, "POST", endpoint+"/actions", `{"action":"reinstall","mode":"clean"}`, http.StatusForbidden)
+	expectAccess(t, owner, "POST", endpoint+"/actions", `{"action":"reinstall","mode":"invalid"}`, http.StatusBadRequest)
+	expectAccess(t, owner, "POST", endpoint+"/actions", `{"action":"start","mode":"clean"}`, http.StatusBadRequest)
+
 	response = request(f.admin, "POST", endpoint+"/ember", string(body))
 	if response.Code != http.StatusOK {
 		t.Fatal(response.Code, response.Body)
@@ -149,5 +153,9 @@ func TestExplicitEmberApplicationAndInstallerPermissions(t *testing.T) {
 
 	for _, action := range []string{"update", "reinstall"} {
 		expectAccess(t, owner, "POST", endpoint+"/actions", fmt.Sprintf(`{"action":%q}`, action), http.StatusAccepted)
+	}
+
+	for _, mode := range []string{"keep", "clean"} {
+		expectAccess(t, owner, "POST", endpoint+"/actions", fmt.Sprintf(`{"action":"reinstall","mode":%q}`, mode), http.StatusAccepted)
 	}
 }

@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
 import type { Server } from "../api/servers";
 import { deleteSchedule, saveSchedule, type Schedule } from "../api/activity";
@@ -156,7 +157,7 @@ export function ScheduleDialog({
           onChange={(e) => setName(e.target.value)}
         />
         <label htmlFor="schedule-server">Server</label>
-        <select
+        <Select
           id="schedule-server"
           value={serverID}
           disabled={schedule !== null}
@@ -167,9 +168,9 @@ export function ScheduleDialog({
               {server.name}
             </option>
           ))}
-        </select>
+        </Select>
         <label htmlFor="schedule-action">Action</label>
-        <select
+        <Select
           id="schedule-action"
           value={action}
           onChange={(e) => setAction(e.target.value)}
@@ -183,7 +184,7 @@ export function ScheduleDialog({
               </option>
             ),
           )}
-        </select>
+        </Select>
         {action === "command" && (
           <>
             <label htmlFor="schedule-command">Console command</label>

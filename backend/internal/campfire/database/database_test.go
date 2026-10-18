@@ -10,6 +10,38 @@ import (
 	"campfire/internal/campfire/database"
 )
 
+func TestEmberChecksMigrateFromVersionFour(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "panel.db")
+
+	db, err := database.Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Migrator().DropTable(&database.EmberUpdate{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Exec("UPDATE schema_migrations SET version = 4").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err = database.Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = db.Close() })
+
+	if !db.ORM().Migrator().HasTable(&database.EmberUpdate{}) {
+		t.Fatal("migration did not create Ember update checks")
+	}
+}
+
 func TestRejectNewerSchema(t *testing.T) {
 	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "panel.db")
@@ -19,7 +51,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (5)").Error; err != nil {
+	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (6)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -34,7 +66,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal("opened unsupported future schema")
 	}
 
-	if !strings.Contains(err.Error(), "newer than supported version 4") {
+	if !strings.Contains(err.Error(), "newer than supported version 5") {
 		t.Fatal("wrong schema version error", err)
 	}
 }
@@ -262,7 +294,7 @@ func TestInitialSchemaAndReopen(t *testing.T) {
 	defer func() { _ = reopened.Close() }()
 
 	var versions []int
-	if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 4 {
+	if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 5 {
 		t.Fatal("expected exactly one baseline migration", versions, err)
 	}
 

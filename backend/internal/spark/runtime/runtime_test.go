@@ -103,11 +103,16 @@ func runtimeFixture() model.Deployment {
 
 func awaitOperation(t *testing.T, m *Manager, d model.Deployment, action, id string) model.RuntimeStatus {
 	t.Helper()
+	return awaitRequest(t, m, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: id})
+}
+
+func awaitRequest(t *testing.T, m *Manager, d model.Deployment, request model.RuntimeRequest) model.RuntimeStatus {
+	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: id})
+	status, err := m.Execute(ctx, d, request)
 	if err != nil {
 		t.Fatal(err)
 	}

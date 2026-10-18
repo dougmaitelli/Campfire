@@ -31,6 +31,20 @@ func NewServerRepository(db *gorm.DB) *ServerRepository { return &ServerReposito
 func (r *ServerRepository) Save(ctx context.Context, server model.Server, create bool) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if !create {
+			var current database.Server
+			if err := tx.Where("id = ?", server.ID).Take(&current).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return ErrServerNotFound
+				}
+
+				return err
+			}
+
+			configuration := model.ServerConfiguration{SparkID: current.SparkID, EmberID: current.EmberID, Image: current.Image, Variables: current.Variables, CPULimit: current.CPULimit, MemoryMB: current.MemoryMB, DiskMB: current.DiskMB, Ports: current.Ports}
+			if model.SameRuntimeConfiguration(configuration, server.ServerConfiguration) {
+				return tx.Model(&database.Server{}).Where("id = ?", server.ID).Updates(map[string]any{"name": server.Name, "description": server.Description}).Error
+			}
+
 			if err := activeTransfer(tx, server.ID); err != nil {
 				return err
 			}

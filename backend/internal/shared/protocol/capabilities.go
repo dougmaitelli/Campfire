@@ -32,11 +32,12 @@ const (
 	CapabilityDiskQuota     = "server.disk-quota.v1"
 	CapabilityTransfer      = "server.transfer.v1"
 	CapabilityUpgrade       = "server.upgrade.v1"
+	CapabilityCleanInstall  = "server.reinstall.clean.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityEmberBehavior, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade}
+	return []string{CapabilityConfigure, CapabilityEmberBehavior, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade, CapabilityCleanInstall}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -162,6 +163,9 @@ func RequiredCapabilities(command Command) []string {
 			}
 		case "update", "reinstall":
 			requirements = append(requirements, CapabilityUpgrade, CapabilityDiskQuota)
+			if command.Runtime.Action == "reinstall" && command.Runtime.Content == "clean" {
+				requirements = append(requirements, CapabilityCleanInstall)
+			}
 		case "install", "start", "restart":
 			requirements = append(requirements, CapabilityDiskQuota)
 		}

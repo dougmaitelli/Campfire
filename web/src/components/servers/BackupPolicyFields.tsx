@@ -1,3 +1,4 @@
+import { Select } from "../forms/Select";
 import type { BackupPolicy } from "../../api/backups";
 
 export function BackupPolicyFields({
@@ -12,7 +13,7 @@ export function BackupPolicyFields({
   return (
     <>
       <label htmlFor="backup-storage">Background S3 sync</label>
-      <select
+      <Select
         id="backup-storage"
         value={value.storage}
         onChange={(event) =>
@@ -26,7 +27,7 @@ export function BackupPolicyFields({
         <option value="s3" disabled={!s3Available}>
           Enabled
         </option>
-      </select>
+      </Select>
       {!s3Available && (
         <p className="field-help">
           Configure S3 on Campfire before enabling sync.

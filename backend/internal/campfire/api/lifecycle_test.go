@@ -162,8 +162,32 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 			}
 
 			response = request(handler, "PUT", endpoint, configJSON(t, input))
-			if response.Code != http.StatusConflict {
-				t.Fatalf("running server edit changed reservations: %d", response.Code)
+			if response.Code != http.StatusOK {
+				t.Fatalf("running server edit rejected: %d %s", response.Code, response.Body)
+			}
+
+			edited := input
+			edited.Description = "Edited while running"
+			edited.Image = input.Image
+			expectAccess(t, handler, "PUT", endpoint, configJSON(t, edited), http.StatusOK)
+			// Savings must not release capacity or ports still used by the process.
+			edited.MemoryMB = input.MemoryMB - 1
+			expectAccess(t, handler, "PUT", endpoint, configJSON(t, edited), http.StatusConflict)
+			edited = input
+			edited.CPULimit = input.CPULimit - 0.1
+			expectAccess(t, handler, "PUT", endpoint, configJSON(t, edited), http.StatusConflict)
+			edited = input
+			edited.DiskMB = input.DiskMB - 1
+			expectAccess(t, handler, "PUT", endpoint, configJSON(t, edited), http.StatusConflict)
+			edited = input
+			edited.Ports = append([]model.ServerPort(nil), input.Ports...)
+			edited.Ports[0].HostPort++
+			expectAccess(t, handler, "PUT", endpoint, configJSON(t, edited), http.StatusConflict)
+			response = request(handler, "GET", endpoint+"/status", "")
+
+			var observed model.RuntimeStatus
+			if err := json.Unmarshal(response.Body.Bytes(), &observed); err != nil || observed.State != "running" {
+				t.Fatal("editing disturbed running server", response.Code, response.Body)
 			}
 
 			response = request(handler, "GET", endpoint+"/console", "")
@@ -261,6 +285,17 @@ func TestLifecycleAPIAndDeletionReservations(t *testing.T) {
 	docker.mu.Lock()
 	docker.fail = true
 	docker.mu.Unlock()
+
+	input.Description = "Edited while unavailable"
+	expectAccess(t, handler, "PUT", endpoint, configJSON(t, input), http.StatusOK)
+	reduced := input
+	reduced.MemoryMB--
+	expectAccess(t, handler, "PUT", endpoint, configJSON(t, reduced), http.StatusConflict)
+
+	replaced := input
+	replaced.Ports = append([]model.ServerPort(nil), input.Ports...)
+	replaced.Ports[0].HostPort++
+	expectAccess(t, handler, "PUT", endpoint, configJSON(t, replaced), http.StatusConflict)
 
 	response = request(handler, "DELETE", endpoint, "")
 	if response.Code != http.StatusServiceUnavailable {

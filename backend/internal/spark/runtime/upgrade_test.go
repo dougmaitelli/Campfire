@@ -9,6 +9,74 @@ import (
 	"campfire/internal/shared/model"
 )
 
+func TestCleanReinstallDeletesGameFilesAndKeepsBackups(t *testing.T) {
+	d := runtimeFixture()
+	m := newTestManager(context.Background(), t.TempDir())
+	m.Docker = &fakeDocker{states: make(map[string]string)}
+	m.Ownership = func(string, string) error { return nil }
+	t.Cleanup(m.Close)
+
+	if status := awaitOperation(t, m, d, "install", "initial"); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+
+	volume := filepath.Join(m.Directory, d.ServerID, "data")
+
+	backups := filepath.Join(m.Directory, d.ServerID, "backups")
+	if err := os.MkdirAll(backups, 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	backup := filepath.Join(backups, "retained.tar.gz")
+
+	world := filepath.Join(volume, "world.bin")
+	for _, name := range []string{world, backup} {
+		if err := os.WriteFile(name, []byte("retained"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Deleting a symlink in the game directory must not follow it into backups.
+	if err := os.Symlink(backups, filepath.Join(volume, "linked-backups")); err != nil {
+		t.Fatal(err)
+	}
+
+	request := model.RuntimeRequest{ServerID: d.ServerID, Action: "reinstall", Content: "clean", OperationID: "clean"}
+	if status := awaitOperation(t, m, d, "start", "start"); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+
+	if _, err := m.Execute(context.Background(), d, request); err == nil {
+		t.Fatal("accepted clean install against running server")
+	}
+
+	if _, err := os.Stat(world); err != nil {
+		t.Fatal("rejected request removed game files", err)
+	}
+
+	if status := awaitOperation(t, m, d, "stop", "stop"); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+
+	if status := awaitRequest(t, m, d, request); status.Error != "" || status.State != "stopped" {
+		t.Fatal(status)
+	}
+
+	if _, err := os.Stat(world); !os.IsNotExist(err) {
+		t.Fatal("clean install retained world", err)
+	}
+
+	if data, err := os.ReadFile(backup); err != nil || string(data) != "retained" {
+		t.Fatal("clean install changed backup", err)
+	}
+
+	request.Content = "invalid"
+
+	request.OperationID = "invalid"
+	if _, err := m.Execute(context.Background(), d, request); err == nil {
+		t.Fatal("accepted invalid reinstall mode")
+	}
+}
+
 func TestUpdateAndReinstallPreserveFilesAndFenceFailedInstall(t *testing.T) {
 	d := runtimeFixture()
 	docker := &fakeDocker{states: make(map[string]string)}
@@ -74,7 +142,7 @@ func TestUpdateAndReinstallPreserveFilesAndFenceFailedInstall(t *testing.T) {
 		}
 		docker.mu.Unlock()
 
-		if (action == "update" && pulls == 0) || (action == "reinstall" && pulls != 0) || installers != 1 {
+		if pulls == 0 || installers != 1 {
 			t.Fatalf("%s: pulls=%d installers=%d", action, pulls, installers)
 		}
 

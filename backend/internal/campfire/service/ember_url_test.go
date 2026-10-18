@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -46,6 +47,55 @@ func TestDefinitionURLPreview(t *testing.T) {
 				}
 			} else if !errors.Is(err, ErrInvalidEmber) && len(ember.Errors) == 0 {
 				t.Fatalf("expected invalid definition, got %v", err)
+			}
+		})
+	}
+}
+
+func TestURLImportsPreserveUpdateURLThroughPreviewAndSave(t *testing.T) {
+	const source = "https://example.com/import.json"
+	for _, test := range []struct {
+		name     string
+		fixture  string
+		declared string
+		want     string
+	}{
+		{"native fallback", "native.json", "", source},
+		{"native declared", "native.json", "https://example.com/native.json", "https://example.com/native.json"},
+		{"egg fallback", "ptdl-v2.json", "", source},
+		{"egg declared", "ptdl-v2.json", "https://example.com/egg.json", "https://example.com/egg.json"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var definition map[string]any
+			if err := json.Unmarshal(eggFixture(t, test.fixture), &definition); err != nil {
+				t.Fatal(err)
+			}
+
+			if meta, ok := definition["meta"].(map[string]any); ok {
+				meta["update_url"] = test.declared
+			} else if test.declared != "" {
+				definition["updateUrl"] = test.declared
+			}
+
+			data, err := json.Marshal(definition)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			client := &http.Client{Transport: definitionTransport(func(r *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(string(data))), Header: make(http.Header), Request: r}, nil
+			})}
+
+			preview, err := fetchEmberURL(t.Context(), source, client, ImportOptions{})
+			if err != nil || preview.Ember == nil || preview.Ember.UpdateURL != test.want {
+				t.Fatal("URL preview lost update URL", preview, err)
+			}
+
+			store := &importMemoryStore{}
+
+			saved, err := NewEmberService(store).ImportDefinition(t.Context(), []byte(preview.Definition), ImportOptions{SourceURL: source, AcknowledgeWarnings: true})
+			if err != nil || saved.UpdateURL != test.want || len(store.saved) != 1 || store.saved[0].UpdateURL != test.want {
+				t.Fatal("import lost update URL", saved, err)
 			}
 		})
 	}

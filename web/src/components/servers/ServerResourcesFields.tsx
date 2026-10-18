@@ -1,11 +1,14 @@
+import { Select } from "../forms/Select";
 import type { ServerConfiguration, ServerPort } from "../../api/servers";
 import type { Spark } from "../../api/sparks";
 
 export function ServerResourcesFields({
+  disabled = false,
   value,
   spark,
   onChange,
 }: {
+  disabled?: boolean;
   value: ServerConfiguration;
   spark: Spark | undefined;
   onChange: (config: ServerConfiguration) => void;
@@ -20,7 +23,7 @@ export function ServerResourcesFields({
   }
   const allocations = spark?.port_allocations ?? [];
   return (
-    <>
+    <fieldset disabled={disabled}>
       <p className="field-help">
         Reserve capacity on {spark?.name ?? "the selected Spark"}. Set the
         resources allocated to this server.
@@ -90,7 +93,7 @@ export function ServerResourcesFields({
             <label htmlFor={`mapping-allocation-${index}`}>
               Spark allocation
             </label>
-            <select
+            <Select
               id={`mapping-allocation-${index}`}
               required
               value={selected >= 0 ? String(selected) : ""}
@@ -113,7 +116,7 @@ export function ServerResourcesFields({
                   {entry.protocol.toUpperCase()}
                 </option>
               ))}
-            </select>
+            </Select>
             <div className="form-grid">
               <div>
                 <label htmlFor={`mapping-host-${index}`}>Host port</label>
@@ -191,6 +194,6 @@ export function ServerResourcesFields({
       >
         + Add mapping
       </button>
-    </>
+    </fieldset>
   );
 }

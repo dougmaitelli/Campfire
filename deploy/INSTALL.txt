@@ -277,6 +277,18 @@ storage is available. Cleanup waits for active server operations and transfers.
 Deleting a server also removes its managed S3 versions before deleting local
 game data, backups and database reservations; unavailable S3 blocks completion.
 
+Editing running servers
+-----------------------
+Server settings can be saved while a server is running or unavailable. Saving does not restart
+it; game configuration changes apply on the next restart. Resource increases
+reserve capacity immediately. Stop the server before reducing CPU, memory or
+disk reservations, or removing/replacing reserved host ports, so resources still
+in use cannot be assigned to another server. When unavailable, existing resource
+and port reservations remain protected until a stopped state can be confirmed.
+Names and descriptions can be edited in every state, including during active
+operations and transfers. Those operations restrict game settings, resources and
+ports. Ember revision changes continue to require a stopped server.
+
 Server Ember revisions, updates and reinstalls
 ---------------------------------------------
 Import a new Ember before applying it. Imports remain immutable, and importing
@@ -295,20 +307,21 @@ attached, and other servers remain pinned to their existing imports.
 
 Applying a revision changes saved configuration only. It does not run the
 installer, change game files, or start the server. The next configuration
-delivery uses that revision. Select Update game files or Reinstall (keep files)
-from More when an installer run is required. These actions require server
+delivery uses that revision. Select Reinstall when an installer run is required,
+then choose Reinstall keeping files or Clean install. This requires server
 configure and operate permissions, a stopped server, and no active transfer.
-Update explicitly pulls the runtime and installer images before rerunning the
-installer; Reinstall uses local images where available (Docker fetches missing
-images). Both reapply configuration and file ownership and leave games stopped.
+Both modes pull current runtime and installer images before rerunning the pinned
+Ember installer, reapply configuration and ownership, and leave games stopped.
 
-Campfire never deletes the game directory or backups during update/reinstall.
-The Ember installer itself may overwrite files, so take a backup before changing
+Keeping files retains the game directory, but the Ember installer may overwrite
+files. Clean install permanently clears the game directory, including worlds,
+mods and game configuration. Both modes preserve backups and saved server settings.
+Take a backup before changing
 revisions or running installers. There is no automatic game-data rollback.
 Progress and results appear in server status and retained execution history.
 A failed or interrupted installer keeps its files and prevents starting an
 incomplete installation. Review Console output, then explicitly retry Install,
-Update or Reinstall. Operations are never silently replayed after a Spark restart.
+or Reinstall. Operations are never silently replayed after a Spark restart.
 
 Spark feature negotiation
 -------------------------
@@ -344,9 +357,11 @@ server.console.stream.v1           Continuous console streaming
 server.disk-quota.v1               Continuous game-filesystem quota enforcement
 server.transfer.v1                 Fenced server archive transfer steps
 server.upgrade.v1                  Explicit update and reinstall workflows
+server.reinstall.clean.v1          Clean reinstall while preserving backups
 
 Operations can require several features: install/start/restart require quota
-support; updates/reinstalls additionally require upgrade support; remote restores
+support; updates/reinstalls additionally require upgrade support; clean reinstall
+also requires server.reinstall.clean.v1; remote restores
 require lifecycle, local backup, quota and remote backup support. Transfers check
 both Sparks before creating a reservation. Every actual dispatch and Spark-side
 execution checks negotiated support again. Unsupported operations return a clear
@@ -934,6 +949,21 @@ Embers can be imported from native definitions or Pterodactyl/Pelican Egg export
 in JSON or YAML. The import drawer previews conversion, lists unsupported fields
 and requires acknowledgement of compatibility warnings. An import saves only a
 new immutable Ember; it does not run the supplied installer or pull any images.
+URL imports retain their source as the native Ember updateUrl. A definition's
+own updateUrl, or an Egg's meta.update_url, takes precedence over the import URL.
+This metadata is kept through preview, conversion and saving. Campfire checks
+each imported revision's update URL on startup when due and about every 24 hours
+afterward. A background worker looks for due checks every ten minutes. Check
+times, failures and availability are persisted separately from immutable Embers.
+The Embers page shows the last check and provides Check now and Download update.
+Downloads open the import review flow and require the usual warning review before
+saving a new revision. Existing servers stay pinned until an administrator applies
+the new revision explicitly. Formatting and JSON object-key order do not count as
+new versions; changes to the parsed game definition do. Checks use the same public
+HTTPS restrictions and size limits as URL imports. No URL means no automatic check.
+Mock development mode seeds both an available update and an up-to-date Ember.
+Check now and Download update use fixed local mock responses without network
+requests; importing a mock update creates a new revision and survives restarts.
 
 See deploy/EGG-COMPATIBILITY.txt for the format and feature support matrix,
 fixture coverage, API request examples and runtime limitations. Native definitions

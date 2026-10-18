@@ -76,6 +76,8 @@ func fetchEmberURL(ctx context.Context, address string, client *http.Client, opt
 		return EmberPreview{}, fmt.Errorf("%w: definitions must be at most 1 MiB", ErrInvalidEmber)
 	}
 
+	options.SourceURL = target.String()
+
 	return PreviewEmber(data, options), nil
 }
 

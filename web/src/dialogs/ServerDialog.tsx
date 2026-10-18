@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { applyServerEmber, saveServer } from "../api/servers";
 import type { Server, ServerConfiguration } from "../api/servers";
@@ -17,6 +18,8 @@ import { BackupPolicyFields } from "../components/servers/BackupPolicyFields";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 
 interface ServerDialogProps {
+  s3Configured: boolean;
+  runtimeRestricted?: boolean;
   applyRevision?: boolean;
   server: Server | null;
   sparks: Spark[];
@@ -27,6 +30,8 @@ interface ServerDialogProps {
 }
 
 export function ServerDialog({
+  s3Configured,
+  runtimeRestricted = false,
   applyRevision = false,
   server,
   sparks,
@@ -56,9 +61,19 @@ export function ServerDialog({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [backupPolicy, setBackupPolicy] = useState<BackupPolicy | null>(null);
+  const [backupPolicy, setBackupPolicy] = useState<BackupPolicy | null>(() =>
+    server
+      ? null
+      : {
+          storage: "local",
+          local_keep_last: 0,
+          local_max_age_days: 0,
+          remote_keep_last: 0,
+          remote_max_age_days: 0,
+        },
+  );
   const [policyError, setPolicyError] = useState<string | null>(null);
-  const [s3Available, setS3Available] = useState(false);
+  const [s3Available, setS3Available] = useState(s3Configured);
   const [policyDirty, setPolicyDirty] = useState(false);
   const [confirmPolicy, setConfirmPolicy] = useState(false);
   useEffect(() => {
@@ -82,6 +97,7 @@ export function ServerDialog({
     return () => controller.abort();
   }, [server, applyRevision]);
   const submitting = useRef(false);
+  const createdServer = useRef<Server | null>(null);
   const spark = sparks.find((item) => item.id === value.spark_id);
   const ember = embers.find((item) => item.id === value.ember_id);
   async function finish() {
@@ -106,9 +122,20 @@ export function ServerDialog({
       const saved =
         applyRevision && server
           ? await applyServerEmber(server.id, server.ember_id, input)
-          : await saveServer(input, server?.id);
-      if (server && policyDirty && backupPolicy) {
-        await saveBackupPolicy(server.id, backupPolicy);
+          : await saveServer(input, server?.id ?? createdServer.current?.id);
+      if (!server) {
+        createdServer.current = saved;
+      }
+      if (policyDirty && backupPolicy) {
+        try {
+          await saveBackupPolicy(saved.id, backupPolicy);
+        } catch (cause) {
+          onSaved(saved);
+          throw new Error(
+            `Server saved, but backup settings failed. Retry saving to apply them to the same server. ${cause instanceof Error ? cause.message : ""}`,
+            { cause },
+          );
+        }
       }
       onSaved(saved);
       onClose();
@@ -149,6 +176,13 @@ export function ServerDialog({
                 : null,
           content: (
             <>
+              {runtimeRestricted && (
+                <p className="field-help">
+                  You can edit the name and description during an operation.
+                  Game settings, resources and ports are locked until it
+                  finishes.
+                </p>
+              )}
               <label htmlFor="server-name">Server name</label>
               <input
                 id="server-name"
@@ -164,14 +198,14 @@ export function ServerDialog({
               <textarea
                 id="server-description"
                 maxLength={1000}
-                rows={3}
+                rows={5}
                 value={value.description}
                 onChange={(event) =>
                   setValue({ ...value, description: event.target.value })
                 }
               />
               <label htmlFor="server-spark">Spark</label>
-              <select
+              <Select
                 id="server-spark"
                 required
                 disabled={server !== null}
@@ -199,7 +233,7 @@ export function ServerDialog({
                       {item.disabled ? " (disabled)" : ""}
                     </option>
                   ))}
-              </select>
+              </Select>
               <label htmlFor="server-ember">Ember</label>
               {applyRevision && (
                 <p className="field-help">
@@ -209,7 +243,7 @@ export function ServerDialog({
                   startup, and ownership before applying.
                 </p>
               )}
-              <select
+              <Select
                 id="server-ember"
                 required
                 disabled={server !== null && !applyRevision}
@@ -249,10 +283,11 @@ export function ServerDialog({
                     {item.name} · {item.id.slice(-6)}
                   </option>
                 ))}
-              </select>
+              </Select>
               <label htmlFor="server-image">Image</label>
-              <select
+              <Select
                 id="server-image"
+                disabled={runtimeRestricted}
                 required
                 value={value.image}
                 onChange={(event) =>
@@ -264,7 +299,7 @@ export function ServerDialog({
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
               {(ember?.variables ?? []).length > 0 && <h4>Game settings</h4>}
               {(ember?.variables ?? []).map((variable) => (
                 <div key={variable.name}>
@@ -273,6 +308,7 @@ export function ServerDialog({
                   </label>
                   <input
                     id={`variable-${variable.name}`}
+                    disabled={runtimeRestricted}
                     required={variable.required}
                     readOnly={!variable.editable}
                     maxLength={8192}
@@ -310,13 +346,14 @@ export function ServerDialog({
                 : null,
           content: (
             <ServerResourcesFields
+              disabled={runtimeRestricted}
               value={value}
               spark={spark}
               onChange={setValue}
             />
           ),
         },
-        ...(server && !applyRevision
+        ...(!applyRevision
           ? [
               {
                 id: "backups",
@@ -378,9 +415,9 @@ export function ServerDialog({
                 emberName={ember?.name ?? ""}
                 notice={
                   applyRevision
-                    ? "Applying changes the pinned Ember and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Update or Reinstall separately if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
+                    ? "Applying changes the pinned Ember and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
                     : server
-                      ? "Saving updates the configuration and reservations. The server stays stopped."
+                      ? "Saving keeps the server in its current state, including when unavailable. Game configuration changes apply on the next restart. Reducing resources or removing reserved host ports requires confirming the server is stopped."
                       : undefined
                 }
               />

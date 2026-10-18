@@ -22,6 +22,15 @@ func (s *DeploymentService) Action(ctx context.Context, id, action string) (mode
 	return s.runAction(ctx, id, action, "")
 }
 
+// Reinstall reruns the installer, optionally clearing game files first.
+func (s *DeploymentService) Reinstall(ctx context.Context, id, mode string) (model.RuntimeStatus, error) {
+	if mode != "" && mode != "keep" && mode != "clean" {
+		return model.RuntimeStatus{}, ErrInvalidServer
+	}
+
+	return s.runAction(ctx, id, "reinstall", mode)
+}
+
 // Restore restores a named archive on the server's saved execution node.
 func (s *DeploymentService) Restore(ctx context.Context, id, name string) (model.RuntimeStatus, error) {
 	return s.runAction(ctx, id, "restore", name)

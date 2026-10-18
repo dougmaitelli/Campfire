@@ -72,6 +72,7 @@ func definitionRequest(w http.ResponseWriter, r *http.Request) ([]byte, service.
 		Definition          string `json:"definition"`
 		StartupCommand      string `json:"startup_command,omitempty"`
 		AcknowledgeWarnings bool   `json:"acknowledge_warnings,omitempty"`
+		SourceURL           string `json:"source_url,omitempty"`
 	}
 
 	decoder := json.NewDecoder(strings.NewReader(string(raw)))
@@ -82,7 +83,7 @@ func definitionRequest(w http.ResponseWriter, r *http.Request) ([]byte, service.
 		return nil, service.ImportOptions{}, false
 	}
 
-	return []byte(input.Definition), service.ImportOptions{StartupCommand: input.StartupCommand, AcknowledgeWarnings: input.AcknowledgeWarnings}, true
+	return []byte(input.Definition), service.ImportOptions{StartupCommand: input.StartupCommand, AcknowledgeWarnings: input.AcknowledgeWarnings, SourceURL: input.SourceURL}, true
 }
 
 func (a *API) listEmbers(w http.ResponseWriter, r *http.Request) {

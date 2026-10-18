@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
 import { deleteUser, saveUser, type Role, type User } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
@@ -173,7 +174,7 @@ export function UserDialog({
           user's existing sessions.
         </p>
         <label htmlFor="user-role">Platform role</label>
-        <select
+        <Select
           id="user-role"
           value={roleID}
           onChange={(event) => setRoleID(Number(event.target.value))}
@@ -185,7 +186,7 @@ export function UserDialog({
                 {role.name}
               </option>
             ))}
-        </select>
+        </Select>
         <CheckboxField
           checked={disabled}
           disabled={busy}

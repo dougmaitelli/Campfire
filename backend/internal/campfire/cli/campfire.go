@@ -177,6 +177,17 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
+
+	embers.Updates = service.NewEmberUpdateService(embers, repository.NewEmberUpdateRepository(db.ORM()))
+	if mock, ok := runtime.(interface {
+		FetchEmberUpdate(context.Context, string, service.ImportOptions) (service.EmberPreview, error)
+	}); ok {
+		embers.Updates.WithFetcher(mock.FetchEmberUpdate)
+	}
+
+	embers.Updates.Start(ctx)
+	defer embers.Updates.Close()
+
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
 

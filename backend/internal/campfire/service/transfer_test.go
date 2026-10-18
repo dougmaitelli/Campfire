@@ -333,8 +333,16 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 		t.Fatal("transfer did not fence Ember changes", err)
 	}
 
-	if _, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, f.server.ServerConfiguration); !errors.Is(err, repository.ErrTransferActive) {
-		t.Fatal("transfer did not fence edits", err)
+	edited := f.server.ServerConfiguration
+
+	edited.Description = "Edited during transfer"
+	if saved, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, edited); err != nil || saved.Description != edited.Description {
+		t.Fatal("transfer blocked metadata edit", err)
+	}
+
+	edited.MemoryMB++
+	if _, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, edited); !errors.Is(err, repository.ErrTransferActive) {
+		t.Fatal("transfer did not fence runtime edits", err)
 	}
 
 	if err := f.service.Deployment.Sparks.Delete(ctx, "source"); !errors.Is(err, repository.ErrSparkInUse) {

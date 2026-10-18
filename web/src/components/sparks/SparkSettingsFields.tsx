@@ -1,3 +1,4 @@
+import { Select } from "../forms/Select";
 import type { PortAllocation, SparkSettings } from "../../api/sparks";
 
 interface SparkSettingsFieldsProps {
@@ -141,7 +142,7 @@ export function SparkSettingsFields({
             </div>
           </div>
           <label htmlFor={`allocation-protocol-${index}`}>Protocol</label>
-          <select
+          <Select
             id={`allocation-protocol-${index}`}
             value={allocation.protocol}
             onChange={(event) =>
@@ -152,7 +153,7 @@ export function SparkSettingsFields({
           >
             <option value="tcp">TCP</option>
             <option value="udp">UDP</option>
-          </select>
+          </Select>
           <button
             type="button"
             className="button button-danger"

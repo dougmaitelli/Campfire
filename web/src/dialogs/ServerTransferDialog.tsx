@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { listSparks, type Spark } from "../api/sparks";
 import type { Server, ServerPort } from "../api/servers";
@@ -214,7 +215,7 @@ export function ServerTransferDialog({
             </p>
           )}
         <label htmlFor="transfer-target">Destination Spark</label>
-        <select
+        <Select
           id="transfer-target"
           value={targetID}
           disabled={busy || active}
@@ -227,7 +228,7 @@ export function ServerTransferDialog({
               {spark.connected ? "" : " (disconnected)"}
             </option>
           ))}
-        </select>
+        </Select>
         {target && (
           <>
             <p className="field-help">
@@ -246,7 +247,7 @@ export function ServerTransferDialog({
                 <label htmlFor={`transfer-ip-${index}`}>
                   Destination interface
                 </label>
-                <select
+                <Select
                   id={`transfer-ip-${index}`}
                   value={port.bind_ip}
                   onChange={(event) =>
@@ -273,7 +274,7 @@ export function ServerTransferDialog({
                       {ip}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <label htmlFor={`transfer-port-${index}`}>
                   Destination host port
                 </label>

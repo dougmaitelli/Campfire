@@ -1,6 +1,17 @@
 package model
 
-import "time"
+import (
+	"maps"
+	"slices"
+	"time"
+)
+
+// SameRuntimeConfiguration ignores display metadata when comparing saved settings.
+func SameRuntimeConfiguration(a, b ServerConfiguration) bool {
+	return a.SparkID == b.SparkID && a.EmberID == b.EmberID && a.Image == b.Image &&
+		a.CPULimit == b.CPULimit && a.MemoryMB == b.MemoryMB && a.DiskMB == b.DiskMB &&
+		maps.Equal(a.Variables, b.Variables) && slices.Equal(a.Ports, b.Ports)
+}
 
 // Server is a saved game server configuration; runtime state is not persisted.
 type Server struct {

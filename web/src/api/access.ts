@@ -42,6 +42,7 @@ export interface ServerAccess {
 }
 
 export interface ServerOptions {
+  s3_available: boolean;
   sparks: Spark[];
   embers: Ember[];
 }
@@ -184,10 +185,15 @@ export async function serverOptions(
     !Array.isArray(body.sparks) ||
     !body.sparks.every(isSpark) ||
     !Array.isArray(body.embers) ||
-    !body.embers.every(isEmber)
+    !body.embers.every(isEmber) ||
+    typeof body.s3_available !== "boolean"
   )
     throw new Error("Unexpected server options response.");
-  return { sparks: body.sparks, embers: body.embers };
+  return {
+    sparks: body.sparks,
+    embers: body.embers,
+    s3_available: body.s3_available,
+  };
 }
 export async function readServerAccess(
   serverID: string,

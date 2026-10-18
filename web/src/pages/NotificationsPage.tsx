@@ -153,10 +153,10 @@ export function NotificationsPage() {
           >
             <div className="notification-content">
               <h2>
+                <span>{item.title}</span>
                 {!item.read_at && (
                   <StatusPill tone="warning">Unread</StatusPill>
-                )}{" "}
-                {item.title}
+                )}
               </h2>
               <p>{item.body}</p>
               <p className="field-help">

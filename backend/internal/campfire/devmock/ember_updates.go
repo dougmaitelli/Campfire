@@ -1,0 +1,86 @@
+//go:build !production
+
+package devmock
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
+
+	"gorm.io/gorm"
+)
+
+const mockPendingUpdateURL = "https://mock.campfire.invalid/minecraft.json"
+const mockCurrentUpdateURL = "https://mock.campfire.invalid/current.json"
+
+func mockUpdateCandidate(current bool) model.Ember {
+	ember := model.Ember{Schema: 1, Name: "Minecraft · Mock", Description: "Updated development fixture. No image is pulled and no game process runs.", UpdateURL: mockPendingUpdateURL, Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp"}}, Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo 'Mock updated installer; no game downloads.'"}}
+	if current {
+		ember.Name = "Minecraft · Current"
+		ember.UpdateURL = mockCurrentUpdateURL
+	}
+
+	return ember
+}
+
+// FetchEmberUpdate serves fixed development definitions without making network requests.
+func (r *Runtime) FetchEmberUpdate(ctx context.Context, address string, options service.ImportOptions) (service.EmberPreview, error) {
+	if err := ctx.Err(); err != nil {
+		return service.EmberPreview{}, err
+	}
+
+	if address != mockPendingUpdateURL && address != mockCurrentUpdateURL {
+		return service.EmberPreview{}, fmt.Errorf("%w: no mock update is configured for this URL", service.ErrInvalidEmber)
+	}
+
+	data, err := json.Marshal(mockUpdateCandidate(address == mockCurrentUpdateURL))
+	if err != nil {
+		return service.EmberPreview{}, err
+	}
+
+	return service.PreviewEmber(data, options), nil
+}
+
+func seedEmberUpdates(ctx context.Context, db *gorm.DB) error {
+	return database.Transaction(db.WithContext(ctx), func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&seedMarker{}).Where("id = ?", 4).Count(&count).Error; err != nil || count > 0 {
+			return err
+		}
+
+		var original database.Ember
+		if err := tx.Where("id = ?", "mock-minecraft").Take(&original).Error; err != nil {
+			return err
+		}
+
+		original.Definition.UpdateURL = mockPendingUpdateURL
+		if err := tx.Model(&original).Select("Definition").Updates(original).Error; err != nil {
+			return err
+		}
+
+		current := mockUpdateCandidate(true)
+
+		current.ID = "mock-current"
+		if err := repository.NewEmberRepository(tx).Create(ctx, current); err != nil {
+			return err
+		}
+
+		checks := repository.NewEmberUpdateRepository(tx)
+		for _, item := range []model.EmberUpdate{
+			{EmberID: original.ID, URL: mockPendingUpdateURL, Available: true, CheckedAt: time.Now().Add(-2 * time.Hour).Unix()},
+			{EmberID: current.ID, URL: mockCurrentUpdateURL, Available: false, CheckedAt: time.Now().Add(-2 * time.Hour).Unix()},
+		} {
+			if err := checks.Save(ctx, item); err != nil {
+				return err
+			}
+		}
+
+		return tx.Create(&seedMarker{ID: 4}).Error
+	})
+}

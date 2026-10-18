@@ -26,7 +26,10 @@ type EmberStore interface {
 }
 
 // EmberService stores immutable native definitions, including converted Egg imports.
-type EmberService struct{ store EmberStore }
+type EmberService struct {
+	store   EmberStore
+	Updates *EmberUpdateService
+}
 
 // NewEmberService creates the game definition service.
 func NewEmberService(store EmberStore) *EmberService { return &EmberService{store: store} }

@@ -38,12 +38,14 @@ type ServerService struct {
 	embers  *EmberService
 	runtime interface {
 		BeforeUpdate(context.Context, string) (func(), error)
+		BeforeEdit(context.Context, string, model.ServerConfiguration) (func(), error)
 	}
 }
 
-// WithRuntimeGuard prevents changing reservations while a runtime is active.
+// WithRuntimeGuard serializes edits with lifecycle and reservation changes.
 func (s *ServerService) WithRuntimeGuard(guard interface {
 	BeforeUpdate(context.Context, string) (func(), error)
+	BeforeEdit(context.Context, string, model.ServerConfiguration) (func(), error)
 }) *ServerService {
 	s.runtime = guard
 	return s
@@ -70,7 +72,7 @@ func (s *ServerService) CreateOwned(ctx context.Context, input model.ServerConfi
 // Update changes a configuration while preserving placement and game identity.
 func (s *ServerService) Update(ctx context.Context, id string, input model.ServerConfiguration) (model.Server, error) {
 	if s.runtime != nil {
-		release, err := s.runtime.BeforeUpdate(ctx, id)
+		release, err := s.runtime.BeforeEdit(ctx, id, input)
 		if err != nil {
 			return model.Server{}, err
 		}

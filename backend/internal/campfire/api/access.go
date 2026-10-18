@@ -285,8 +285,9 @@ func (a *API) setSparkRoles(w http.ResponseWriter, r *http.Request) {
 }
 
 type editorOptions struct {
-	Sparks []model.Spark `json:"sparks"`
-	Embers []model.Ember `json:"embers"`
+	Sparks      []model.Spark `json:"sparks"`
+	Embers      []model.Ember `json:"embers"`
+	S3Available bool          `json:"s3_available"`
 }
 
 func (a *API) provisioning(w http.ResponseWriter, r *http.Request) {
@@ -316,7 +317,7 @@ func (a *API) provisioning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, editorOptions{allowed, embers})
+	writeJSON(w, http.StatusOK, editorOptions{allowed, embers, a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
 }
 
 func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
@@ -347,5 +348,5 @@ func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, editorOptions{[]model.Spark{spark}, embers})
+	writeJSON(w, http.StatusOK, editorOptions{[]model.Spark{spark}, embers, a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
 }

@@ -202,6 +202,7 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Action string `json:"action"`
 		Backup string `json:"backup,omitempty"`
+		Mode   string `json:"mode,omitempty"`
 	}
 	if !decodeRequest(w, r, &input, 1024) {
 		return
@@ -210,6 +211,11 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	switch input.Action {
 	case "install", "update", "reinstall", "start", "stop", "restart", "kill", "backup", "restore":
 	default:
+		writeError(w, service.ErrInvalidServer)
+		return
+	}
+
+	if input.Mode != "" && (input.Action != "reinstall" || (input.Mode != "keep" && input.Mode != "clean")) {
 		writeError(w, service.ErrInvalidServer)
 		return
 	}
@@ -237,9 +243,13 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	auditDetail(r, "server."+input.Action, "server:"+r.PathValue("id"))
 
 	var err error
-	if input.Action == "restore" {
+
+	switch input.Action {
+	case "restore":
 		status, err = a.deployment.Restore(r.Context(), r.PathValue("id"), input.Backup)
-	} else {
+	case "reinstall":
+		status, err = a.deployment.Reinstall(r.Context(), r.PathValue("id"), input.Mode)
+	default:
 		status, err = a.deployment.Action(r.Context(), r.PathValue("id"), input.Action)
 	}
 

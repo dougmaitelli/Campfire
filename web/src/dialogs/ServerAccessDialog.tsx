@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import {
   listUsers,
@@ -97,7 +98,7 @@ export function ServerAccessDialog({
             {admin && (
               <>
                 <label htmlFor="server-owner">Transfer ownership</label>
-                <select
+                <Select
                   id="server-owner"
                   value={ownerID}
                   onChange={(event) => setOwnerID(Number(event.target.value))}
@@ -110,7 +111,7 @@ export function ServerAccessDialog({
                         {user.username}
                       </option>
                     ))}
-                </select>
+                </Select>
                 <button
                   className="button"
                   disabled={busy || !ownerID || ownerID === access.owner?.id}
@@ -156,7 +157,7 @@ export function ServerAccessDialog({
               onChange={(event) => setUsername(event.target.value)}
             />
             <label htmlFor="member-role">Server role</label>
-            <select
+            <Select
               id="member-role"
               value={roleID}
               onChange={(event) => setRoleID(Number(event.target.value))}
@@ -166,7 +167,7 @@ export function ServerAccessDialog({
                   {role.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <p className="field-help">
               Operators can use lifecycle controls, console, files, and backups.
               They cannot change configuration, delete the server, or share

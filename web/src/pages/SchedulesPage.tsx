@@ -1,3 +1,4 @@
+import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { listServers } from "../api/servers";
 import {
@@ -166,7 +167,7 @@ export function SchedulesPage() {
       <div className="list-toolbar">
         <label htmlFor="schedule-filter">
           Server
-          <select
+          <Select
             id="schedule-filter"
             value={filter}
             onChange={(e) => {
@@ -181,7 +182,7 @@ export function SchedulesPage() {
                 {server.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       <div className="management-content">

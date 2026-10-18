@@ -67,11 +67,12 @@ export function serverAction(
   id: string,
   action: ServerAction,
   backup?: string,
+  mode?: "keep" | "clean",
 ): Promise<RuntimeStatus> {
   return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/actions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, backup }),
+    body: JSON.stringify({ action, backup, mode }),
     signal: AbortSignal.timeout(35000),
   }).then((response) => readStatus(response, id));
 }
