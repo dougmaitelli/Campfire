@@ -28,6 +28,11 @@
   color: var(--muted);
   font-size: 12px;
 }
+.spark-feature-unavailable,
+.spark-feature-unavailable svg,
+.spark-feature-unavailable .spark-feature-state {
+  color: #fca5a5;
+}
 @media (max-width: 700px) {
   .spark-feature-checklist {
     grid-template-columns: minmax(0, 1fr);

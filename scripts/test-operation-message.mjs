@@ -82,3 +82,18 @@ test("interrupted operations keep their own state", () => {
     "Backup interrupted.",
   );
 });
+
+test("success messages only appear for the operation started in this page session", () => {
+  const status = {
+    operation: "start",
+    operation_id: "start-1",
+    operation_state: "succeeded",
+    busy: false,
+  };
+  assert.equal(operationMessage(status), null);
+  assert.equal(operationMessage(status, "start-2"), null);
+  assert.deepEqual(operationMessage(status, "start-1"), {
+    title: "Server start completed.",
+    tone: "success",
+  });
+});

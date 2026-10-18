@@ -45,6 +45,9 @@ export function ServerOperationsPage({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [currentOperationID, setCurrentOperationID] = useState<string | null>(
+    null,
+  );
   const [showDetails, setShowDetails] = useState(false);
   const [requestedAction, setRequestedAction] = useState<ServerAction | null>(
     null,
@@ -67,6 +70,7 @@ export function ServerOperationsPage({
           ...(requestedAction ? { operation: requestedAction } : {}),
         }
       : status,
+    currentOperationID,
   );
   const activeTab = ["console", "files", "backups"].includes(tab)
     ? tab
@@ -102,16 +106,17 @@ export function ServerOperationsPage({
     pending.current = true;
     setActing(true);
     setRequestedAction(action);
+    setCurrentOperationID(null);
     setError(null);
     try {
-      runtime.upsert(
-        await serverAction(
-          server.id,
-          action,
-          undefined,
-          action === "reinstall" ? reinstallMode : undefined,
-        ),
+      const result = await serverAction(
+        server.id,
+        action,
+        undefined,
+        action === "reinstall" ? reinstallMode : undefined,
       );
+      setCurrentOperationID(result.operation_id ?? null);
+      runtime.upsert(result);
       setConfirmation(null);
     } catch (cause) {
       setError(

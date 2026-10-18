@@ -20,6 +20,7 @@ export function operationMessage(
     | Pick<
         RuntimeStatus,
         | "operation"
+        | "operation_id"
         | "operation_state"
         | "progress"
         | "error"
@@ -27,6 +28,7 @@ export function operationMessage(
         | "busy"
       >
     | undefined,
+  currentOperationID: string | null = null,
 ): {
   title: string;
   detail?: string;
@@ -61,7 +63,9 @@ export function operationMessage(
     };
   }
   if (status.operation_state === "succeeded")
-    return { title: `${name} completed.`, tone: "success" };
+    return currentOperationID && status.operation_id === currentOperationID
+      ? { title: `${name} completed.`, tone: "success" }
+      : null;
   if (status.operation_state === "queued")
     return { title: `${name} queued.`, tone: "info" };
   return {
