@@ -4,20 +4,32 @@ export function SparkConnectionState({
   disabled,
   connected,
   version,
+  updating = false,
 }: {
   disabled: boolean;
   connected: boolean;
   version?: string | undefined;
+  updating?: boolean;
 }) {
   return (
     <StatusPill
-      tone={disabled ? "warning" : connected ? "positive" : "negative"}
+      tone={
+        updating
+          ? "pending"
+          : disabled
+            ? "warning"
+            : connected
+              ? "positive"
+              : "negative"
+      }
     >
-      {disabled
-        ? "Disabled"
-        : connected
-          ? `Connected${version?.trim() ? ` - ${version.trim()}` : ""}`
-          : "Disconnected"}
+      {updating
+        ? "Updating…"
+        : disabled
+          ? "Disabled"
+          : connected
+            ? `Connected${version?.trim() ? ` - ${version.trim()}` : ""}`
+            : "Disconnected"}
     </StatusPill>
   );
 }

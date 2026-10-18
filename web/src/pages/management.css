@@ -59,13 +59,6 @@
 .prerequisite-note a {
   color: var(--accent);
 }
-.runtime-error {
-  display: block;
-  max-width: 20rem;
-  color: var(--color-danger, #f3a294);
-  font-size: 0.8rem;
-}
-
 .notification-message {
   display: flex;
   align-items: center;

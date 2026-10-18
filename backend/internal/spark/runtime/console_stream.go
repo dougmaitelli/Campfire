@@ -123,7 +123,7 @@ func (m *Manager) StreamConsole(ctx context.Context, d model.Deployment, emit fu
 
 			name := container(d.ServerID)
 
-			installer := !installed || busy && (operation == "install" || operation == "update" || operation == "reinstall")
+			installer := !installed || operation == "install" || operation == "update" || operation == "reinstall"
 			if installer {
 				name += "-install"
 

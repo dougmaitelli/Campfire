@@ -62,6 +62,7 @@ export function ServerOperationsPage({
       ? {
           error,
           error_code: "operation_failed",
+          busy: false,
           operation_state: "failed",
           ...(requestedAction ? { operation: requestedAction } : {}),
         }
@@ -240,7 +241,12 @@ export function ServerOperationsPage({
                 ))}
               </nav>
               {activeTab === "console" && (
-                <ServerConsoleDialog embedded server={server} onClose={back} />
+                <ServerConsoleDialog
+                  embedded
+                  server={server}
+                  status={status}
+                  onClose={back}
+                />
               )}
               {activeTab === "files" && (
                 <ServerFilesDialog

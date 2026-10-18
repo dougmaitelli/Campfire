@@ -19,7 +19,12 @@ export function operationMessage(
   status:
     | Pick<
         RuntimeStatus,
-        "operation" | "operation_state" | "progress" | "error" | "error_code"
+        | "operation"
+        | "operation_state"
+        | "progress"
+        | "error"
+        | "error_code"
+        | "busy"
       >
     | undefined,
 ): {
@@ -27,7 +32,12 @@ export function operationMessage(
   detail?: string;
   tone: "error" | "info" | "success";
 } | null {
-  if (!status?.operation_state && !status?.error_code && !status?.progress)
+  if (
+    !status?.operation_state &&
+    !status?.error_code &&
+    !status?.error &&
+    !status?.progress
+  )
     return null;
   const name = operationNames[status.operation ?? ""] ?? "Server operation";
   if (
@@ -39,7 +49,11 @@ export function operationMessage(
       ...(status.error ? { detail: formatErrorMessage(status.error) } : {}),
       tone: "error",
     };
-  if (status.error_code || status.operation_state === "failed") {
+  if (
+    status.error_code ||
+    status.error ||
+    status.operation_state === "failed"
+  ) {
     return {
       title: `${name} failed.`,
       ...(status.error ? { detail: formatErrorMessage(status.error) } : {}),
@@ -51,7 +65,10 @@ export function operationMessage(
   if (status.operation_state === "queued")
     return { title: `${name} queued.`, tone: "info" };
   return {
-    title: status.operation ? `${name} in progress.` : "Server status.",
+    title:
+      status.operation && (status.busy || status.operation_state === "running")
+        ? `${name} in progress.`
+        : "Server status.",
     ...(status.progress ? { detail: formatErrorMessage(status.progress) } : {}),
     tone: "info",
   };

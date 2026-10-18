@@ -16,8 +16,10 @@ export function ServerLifecycleControls({
     disabled ||
     !status ||
     status.busy ||
-    !["running", "stopped", "not_installed", "deleted"].includes(status.state);
-  const running = status?.state === "running";
+    !["running", "restarting", "stopped", "not_installed", "deleted"].includes(
+      status.state,
+    );
+  const running = status?.state === "running" || status?.state === "restarting";
   const install =
     status?.state === "not_installed" || status?.state === "deleted";
   return (

@@ -469,7 +469,11 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action string
 			return nil
 		}
 
-		_, err = m.Docker.Run(ctx, nil, "kill", container(d.ServerID))
+		if _, err := m.Docker.Run(ctx, nil, "update", "--restart", "no", container(d.ServerID)); err != nil {
+			return err
+		}
+
+		_, err = m.Docker.Run(ctx, nil, "stop", "--signal", "SIGKILL", "--time", "0", container(d.ServerID))
 
 		return err
 	case "delete":
@@ -563,8 +567,10 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		args := make([]string, 0, 40+2*len(d.Configuration.Variables))
 		args = append(args, "run", "--name", container(d.ServerID)+"-install", "--label", "campfire.server="+d.ServerID, "--memory", strconv.FormatInt(d.Configuration.MemoryMB, 10)+"m", "--cpus", strconv.FormatFloat(d.Configuration.CPULimit, 'f', -1, 64), "--pids-limit", "128", "--security-opt", "no-new-privileges", "--cap-drop", "ALL", "--cap-add", "CHOWN", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER", "--mount", "type=bind,source="+volume+",target=/mnt/server", "--workdir", "/mnt/server", "--entrypoint", installer.Entrypoint, "-i")
 		args = append(args, environmentArgs(environment(d))...)
+		// Package managers drop privileges and may chroot while configuring packages.
+		args = append(args, "--cap-add", "SETUID", "--cap-add", "SETGID", "--cap-add", "SYS_CHROOT")
 		args = append(args, "--security-opt", "seccomp="+seccomp)
-		args = append(args, installer.Image, "-s")
+		args = append(args, installer.Image, "-e", "-s")
 		script := strings.ReplaceAll(installer.Script, "\r\n", "\n")
 		output, runErr := m.Docker.Run(ctx, strings.NewReader(script), args...)
 
@@ -675,6 +681,8 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 
 	startup := startupVariables.ReplaceAllStringFunc(d.Ember.Startup, func(value string) string { return "${" + value[2:len(value)-2] + "}" })
 	env["STARTUP"] = startup
+	// Images may launch their own Tini beneath Docker's PID 1 init process.
+	env["TINI_SUBREAPER"] = "1"
 	args := []string{"create", "--name", container(d.ServerID), "--label", "campfire.server=" + d.ServerID, "--interactive", "--init", "--user", d.Ember.User, "--memory", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--memory-swap", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--cpus", strconv.FormatFloat(d.Configuration.CPULimit, 'f', -1, 64), "--pids-limit", "512", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--restart", "unless-stopped", "--log-driver", "local", "--log-opt", "max-size=10m", "--log-opt", "max-file=3", "--mount", "type=bind,source=" + volume + ",target=" + d.Ember.WorkDir, "--workdir", d.Ember.WorkDir}
 
 	args = append(args, environmentArgs(env)...)
@@ -723,9 +731,13 @@ func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
 		return nil
 	}
 
+	if _, err := m.Docker.Run(ctx, nil, "update", "--restart", "no", container(d.ServerID)); err != nil {
+		return err
+	}
+
 	args := []string{"stop", "--time", "30"}
 
-	if d.Ember.Stop != "" && !strings.HasPrefix(d.Ember.Stop, "^") {
+	if state == "running" && d.Ember.Stop != "" && !strings.HasPrefix(d.Ember.Stop, "^") {
 		input, ok := m.Docker.(interface {
 			Input(context.Context, string, string) error
 		})
@@ -739,7 +751,9 @@ func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
 		}
 
 		if err := input.Input(ctx, container(d.ServerID), command); err != nil {
-			return err
+			// A crash between inspect and attach must not prevent a manual stop.
+			_, stopErr := m.Docker.Run(ctx, nil, "stop", "--time", "30", container(d.ServerID))
+			return stopErr
 		}
 
 		deadline := time.NewTimer(30 * time.Second)
@@ -761,8 +775,12 @@ func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
 					return err
 				}
 
-				if state != "running" {
+				if state == "missing" || state == "exited" || state == "created" {
 					return nil
+				}
+
+				if state != "running" {
+					waiting = false
 				}
 			}
 		}

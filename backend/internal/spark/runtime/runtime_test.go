@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -23,6 +24,7 @@ type fakeDocker struct {
 	block           <-chan struct{}
 	input           string
 	installerScript string
+	inputError      error
 }
 
 type fakeQuota struct{ err error }
@@ -99,6 +101,10 @@ func (f *fakeDocker) Run(ctx context.Context, input io.Reader, args ...string) (
 func (f *fakeDocker) Input(ctx context.Context, id, text string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
+	if f.inputError != nil {
+		return f.inputError
+	}
 
 	f.input = text
 	if text == "stop" {
@@ -186,7 +192,7 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	}
 
 	joined := strings.Join(create, " ")
-	for _, expected := range []string{"--user 1000:1000", "--cpus 0.5", "--memory 128m", "--memory-swap 128m", "--publish 127.0.0.1:25565:25565/tcp", "--cap-drop ALL", "sleep ${SECONDS}"} {
+	for _, expected := range []string{"--user 1000:1000", "--cpus 0.5", "--memory 128m", "--memory-swap 128m", "--publish 127.0.0.1:25565:25565/tcp", "--cap-drop ALL", "--env TINI_SUBREAPER=1", "sleep ${SECONDS}"} {
 		if !strings.Contains(joined, expected) {
 			t.Errorf("missing container setting %s", expected)
 		}
@@ -251,6 +257,76 @@ func TestInstallerNormalizesWindowsLineEndings(t *testing.T) {
 	output, err := command.CombinedOutput()
 	if err != nil || string(output) != "installed\n" || strings.Contains(script, "\r\n") {
 		t.Fatal("Windows line endings reached the installer", string(output), err)
+	}
+}
+
+type shellInstallerDocker struct{ fakeDocker }
+
+func TestStopFallsBackWhenConsoleCannotAttach(t *testing.T) {
+	m := newTestManager(t.Context(), t.TempDir())
+	t.Cleanup(m.Close)
+
+	d := runtimeFixture()
+	d.Ember.Stop = "stop"
+	m.Docker = &fakeDocker{states: map[string]string{container(d.ServerID): "running"}, inputError: errors.New("container restarted during attach")}
+
+	e, err := m.load(d.ServerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e.Installed = true
+
+	if status := awaitOperation(t, m, d, "stop", "attach-failed"); status.State != "stopped" || status.ErrorCode != "" {
+		t.Fatal("console failure prevented stopping", status)
+	}
+}
+
+func (f *shellInstallerDocker) Run(ctx context.Context, input io.Reader, args ...string) (string, error) {
+	if args[0] != "run" {
+		return f.fakeDocker.Run(ctx, input, args...)
+	}
+
+	image := slices.Index(args, "alpine:3.22")
+	if image < 0 {
+		return "", errors.New("unexpected installer image")
+	}
+
+	command := exec.CommandContext(ctx, "bash", args[image+1:]...)
+	command.Stdin = input
+	output, err := command.CombinedOutput()
+
+	return string(output), err
+}
+
+func TestInstallerStopsOnFailureBeforeSuccessMessage(t *testing.T) {
+	m := newTestManager(t.Context(), t.TempDir())
+	t.Cleanup(m.Close)
+	m.Docker = &shellInstallerDocker{fakeDocker{states: make(map[string]string)}}
+	m.Ownership = func(string, string) error { return nil }
+	d := runtimeFixture()
+	d.Ember.Installer.Script = "printf 'Download failed\\n'\nfalse\nprintf 'Install Complete\\n'\n"
+
+	status := awaitOperation(t, m, d, "install", "script-fails")
+	if status.OperationState != model.OperationFailed || status.ErrorCode != model.RuntimeInstallerFailed {
+		t.Fatal("installer falsely reported success", status)
+	}
+
+	output, err := os.ReadFile(filepath.Join(m.root(d.ServerID), "installer.log"))
+	if err != nil || string(output) != "Download failed\n" {
+		t.Fatal("installer continued after failure", string(output), err)
+	}
+
+	d.Ember.Installer.Script = "printf 'Retry succeeded\\n'\n"
+
+	status = awaitOperation(t, m, d, "install", "script-retry")
+	if status.OperationState != model.OperationSucceeded || status.ErrorCode != "" {
+		t.Fatal("installer retry did not succeed", status)
+	}
+
+	output, err = os.ReadFile(filepath.Join(m.root(d.ServerID), "installer.log"))
+	if err != nil || string(output) != "Retry succeeded\n" {
+		t.Fatal("installer retry retained old logs", string(output), err)
 	}
 }
 

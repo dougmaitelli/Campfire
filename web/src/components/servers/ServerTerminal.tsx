@@ -11,9 +11,11 @@ import "./server-terminal.css";
 
 export function ServerTerminal({
   serverID,
+  streamKey,
   onBusyChange,
 }: {
   serverID: string;
+  streamKey: string;
   onBusyChange: (busy: boolean) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -121,6 +123,16 @@ export function ServerTerminal({
     });
     observer.observe(container.current);
     fit.fit();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+      terminal.current = null;
+      term.dispose();
+    };
+  }, [serverID]);
+  useEffect(() => {
+    const term = terminal.current;
+    if (!term) return;
     const stream = new EventSource(
       `/api/v1/servers/${encodeURIComponent(serverID)}/console/stream`,
     );
@@ -174,12 +186,8 @@ export function ServerTerminal({
     };
     return () => {
       stream.close();
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-      terminal.current = null;
-      term.dispose();
     };
-  }, [serverID]);
+  }, [serverID, streamKey]);
   return (
     <div className="server-terminal">
       <div className="server-terminal-toolbar">

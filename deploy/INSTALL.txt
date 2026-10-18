@@ -1051,7 +1051,9 @@ Each connection starts with Docker's latest 200 lines and then follows new outpu
 The browser retains the latest 256K characters. Automatic reconnection replaces displayed
 history instead of appending duplicates; this is not durable log storage or a
 guarantee of replay across disconnected periods. Installer output is streamed
-while installing, with saved installer output available after completion.
+while installing, with the last 64 KiB saved after completion, including successful
+installs before the game container exists. Starting a new operation switches the
+console stream without clearing its display before replacement output arrives.
 
 Each Spark connection permits 16 simultaneous console viewers. Stream buffers
 are bounded and apply backpressure; interrupted viewers reconnect rather than

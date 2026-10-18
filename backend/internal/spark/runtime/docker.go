@@ -22,9 +22,18 @@ type boundedOutput struct{ bytes.Buffer }
 
 func (b *boundedOutput) Write(value []byte) (int, error) {
 	n := len(value)
-	if available := 65536 - b.Len(); available > 0 {
-		_, _ = b.Buffer.Write(value[:min(available, n)])
+
+	const limit = 65536
+
+	if n >= limit {
+		b.Reset()
+
+		value = value[n-limit:]
+	} else if excess := b.Len() + n - limit; excess > 0 {
+		b.Next(excess)
 	}
+
+	_, _ = b.Buffer.Write(value)
 
 	return n, nil
 }

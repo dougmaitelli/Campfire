@@ -82,6 +82,7 @@ export function SparksTable({
                 disabled={spark.disabled}
                 connected={spark.connected}
                 version={spark.agent_version}
+                updating={updating === spark.id}
               />
             </td>
             <td>

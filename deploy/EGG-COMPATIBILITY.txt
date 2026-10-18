@@ -50,6 +50,14 @@ Installer                     Image, literal script and sh/bash/ash entrypoint
                               environment. Panel {{...}} script templates are
                               blocked. Scripts run with Campfire's existing
                               installer capabilities, not privileged host access.
+                              CRLF line endings are normalized before execution.
+                              Shells run with -e so unhandled command failures
+                              stop installation instead of being hidden by a
+                              final success message. Scripts must explicitly
+                              handle command failures they intend to tolerate.
+                              Installer-only capabilities allow package managers
+                              to change user/group and chroot; game containers
+                              still drop all capabilities.
 Variables                     Environment name, scalar default, required and
                               user_editable retained. YAML boolean defaults
                               become strings true/false. Non-editable variables

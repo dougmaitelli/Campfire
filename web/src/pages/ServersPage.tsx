@@ -293,11 +293,6 @@ export function ServersPage() {
                         {runtime.statuses[server.id]?.progress}
                       </span>
                     )}
-                  {runtime.statuses[server.id]?.error && (
-                    <span className="runtime-error" role="status">
-                      {runtime.statuses[server.id]?.error}
-                    </span>
-                  )}
                 </td>
                 <td>
                   <span>{server.spark_name}</span>

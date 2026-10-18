@@ -166,11 +166,6 @@ export function SparksPage() {
       )}
       <div className="management-content" aria-busy={loading}>
         {updateError && <InlineMessage>{updateError}</InlineMessage>}
-        {waiting && (
-          <InlineMessage tone="info">
-            Spark update installed. Waiting for the client to reconnect…
-          </InlineMessage>
-        )}
         <SparksTable
           loading={loading}
           error={error}
@@ -228,6 +223,7 @@ export function SparksPage() {
                 disabled={details.disabled}
                 connected={details.connected}
                 version={details.agent_version}
+                updating={updating === details.id}
               />
             </>
           }
@@ -301,7 +297,7 @@ export function SparksPage() {
       {confirmUpdate && (
         <ConfirmDialog
           title={`Update ${confirmUpdate.name}?`}
-          description={`Install Spark ${confirmUpdate.latest_agent_version ?? "matching this panel"} from this Campfire panel. Its checksum is verified before replacing the binary. The agent briefly disconnects and restarts; game containers keep running. Finish active server operations, uploads, and transfers first.`}
+          description={`Install Spark ${confirmUpdate.latest_agent_version ?? "matching this panel"} from this Campfire panel. The node briefly disconnects and restarts; game containers keep running. Finish active server operations, uploads, and transfers first.`}
           confirmLabel="Update Spark"
           warning
           busy={false}

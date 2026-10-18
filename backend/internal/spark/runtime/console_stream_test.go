@@ -6,11 +6,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"campfire/internal/shared/model"
 )
 
 type startingConsoleDocker struct {
@@ -89,6 +92,61 @@ func TestConsoleWaitsForInstallerContainer(t *testing.T) {
 
 	if name := <-docker.followed; name != container(d.ServerID)+"-install" {
 		t.Fatal("wrong console target", name)
+	}
+}
+
+func TestConsoleShowsCompletedInstallerBeforeFirstStart(t *testing.T) {
+	m := newTestManager(t.Context(), t.TempDir())
+	t.Cleanup(m.Close)
+
+	docker := &startingConsoleDocker{checked: make(chan struct{}, 1), followed: make(chan string, 1)}
+	m.Docker = docker
+	d := runtimeFixture()
+
+	state, err := m.load(d.ServerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(m.root(d.ServerID), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, attempt := range []struct {
+		installed bool
+		state     model.OperationState
+		output    string
+	}{
+		{false, model.OperationFailed, "First attempt failed\n"},
+		{true, model.OperationSucceeded, "Second attempt installed successfully\n"},
+	} {
+		state.Installed = attempt.installed
+		state.Status.Operation = "install"
+
+		state.Status.OperationState = attempt.state
+		if err := writeAtomic(filepath.Join(m.root(d.ServerID), "installer.log"), []byte(attempt.output), 0600); err != nil {
+			t.Fatal(err)
+		}
+
+		var output strings.Builder
+
+		if err := m.StreamConsole(t.Context(), d, func(text string) error { output.WriteString(text); return nil }); err != nil {
+			t.Fatal(err)
+		}
+
+		if output.String() != attempt.output {
+			t.Fatal("console retained the previous attempt", output.String())
+		}
+	}
+}
+
+func TestBoundedOutputRetainsFailureAtEnd(t *testing.T) {
+	output := &boundedOutput{}
+	_, _ = output.Write([]byte(strings.Repeat("package output\n", 10000)))
+
+	_, _ = output.Write([]byte("Fabric installer failed: missing server jar\n"))
+	if output.Len() != 65536 || !strings.HasSuffix(output.String(), "Fabric installer failed: missing server jar\n") {
+		t.Fatal("installer failure was truncated", output.Len())
 	}
 }
 

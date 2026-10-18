@@ -1,6 +1,7 @@
 import { Button } from "../components/forms/Button";
 import { lazy, Suspense, useState } from "react";
 import type { Server } from "../api/servers";
+import type { RuntimeStatus } from "../api/runtime";
 import { Drawer } from "../components/layout/Drawer";
 const ServerTerminal = lazy(() =>
   import("../components/servers/ServerTerminal").then((module) => ({
@@ -12,10 +13,12 @@ export function ServerConsoleDialog({
   server,
   onClose,
   embedded = false,
+  status,
 }: {
   server: Server;
   onClose: () => void;
   embedded?: boolean;
+  status?: RuntimeStatus | undefined;
 }) {
   const [busy, setBusy] = useState(false);
   return (
@@ -36,7 +39,11 @@ export function ServerConsoleDialog({
     >
       <div className="drawer-content">
         <Suspense fallback={<p role="status">Loading console…</p>}>
-          <ServerTerminal serverID={server.id} onBusyChange={setBusy} />
+          <ServerTerminal
+            serverID={server.id}
+            streamKey={`${status?.operation_id ?? ""}:${status?.busy ?? false}`}
+            onBusyChange={setBusy}
+          />
         </Suspense>
       </div>
     </Drawer>
