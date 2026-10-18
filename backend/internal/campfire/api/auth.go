@@ -197,7 +197,13 @@ func (a *API) authSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, authState{SetupRequired: setup, LocalLogin: a.auth.LocalLoginEnabled(), OIDCEnabled: a.oidc != nil})
+	localLogin, err := a.auth.LocalLoginEnabled(r.Context())
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, authState{SetupRequired: setup, LocalLogin: localLogin, OIDCEnabled: a.oidc != nil})
 }
 
 func (a *API) writeLoginState(w http.ResponseWriter, r *http.Request, session database.UserSession) {
@@ -210,14 +216,26 @@ func (a *API) writeLoginState(w http.ResponseWriter, r *http.Request, session da
 	}
 
 	state.Principal = &principal
-	state.LocalLogin = a.auth.LocalLoginEnabled()
+
+	state.LocalLogin, err = a.auth.LocalLoginEnabled(r.Context())
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
 	state.OIDCEnabled = a.oidc != nil
 
 	writeJSON(w, http.StatusOK, state)
 }
 
 func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
-	if !a.auth.LocalLoginEnabled() {
+	localLogin, err := a.auth.LocalLoginEnabled(r.Context())
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+
+	if !localLogin {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "local login is disabled; sign in with OpenID Connect"})
 		return
 	}

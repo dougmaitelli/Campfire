@@ -231,7 +231,12 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 
 // Login verifies credentials and rotates any current browser session.
 func (s *AuthService) Login(ctx context.Context, username, password, previous string) (database.UserSession, string, error) {
-	if s.disableLocal {
+	enabled, err := s.LocalLoginEnabled(ctx)
+	if err != nil {
+		return database.UserSession{}, "", err
+	}
+
+	if !enabled {
 		return database.UserSession{}, "", ErrAuthentication
 	}
 
@@ -275,15 +280,32 @@ func (s *AuthService) Session(ctx context.Context, token string) (database.UserS
 	}
 
 	session, username, err := s.store.Session(ctx, tokenHash(token), s.now())
-	if err == nil && (session.Provider == "" && s.disableLocal || session.Provider != "" && session.Provider != s.loginProvider) {
+	if err != nil {
+		return session, username, err
+	}
+
+	enabled, err := s.LocalLoginEnabled(ctx)
+	if err != nil {
+		return database.UserSession{}, "", err
+	}
+
+	if session.Provider == "" && !enabled || session.Provider != "" && session.Provider != s.loginProvider {
 		return database.UserSession{}, "", ErrAuthentication
 	}
 
 	return session, username, err
 }
 
-// LocalLoginEnabled reports the configured password-login policy.
-func (s *AuthService) LocalLoginEnabled() bool { return !s.disableLocal }
+// LocalLoginEnabled keeps setup and password recovery available until OIDC has an enabled administrator.
+func (s *AuthService) LocalLoginEnabled(ctx context.Context) (bool, error) {
+	if !s.disableLocal || s.loginProvider == "" {
+		return true, nil
+	}
+
+	ready, err := s.store.HasOIDCAdmin(ctx, s.loginProvider)
+
+	return !ready, err
+}
 
 // Logout revokes the current browser's session.
 func (s *AuthService) Logout(ctx context.Context, token string) error {

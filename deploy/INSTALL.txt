@@ -596,8 +596,10 @@ To require OIDC for all logins:
 2. Sign out and verify that OpenID Connect signs in to the administrator account.
 3. Set CAMPFIRE_DISABLE_LOCAL_LOGIN=true (or --disable-local-login) and restart.
 
-Campfire refuses this setting unless an enabled administrator is linked to the
-configured issuer. Password login and setup endpoints are then disabled; existing
+Until an enabled administrator is linked to the configured issuer, Campfire
+keeps initial setup and password login available even when this setting is true.
+Without OIDC configured, password login also remains available. Once an enabled
+administrator is linked, password login and setup endpoints are disabled; existing
 password sessions are revoked. At least one OIDC-linked administrator
 must remain enabled. Local accounts and passwords remain stored. To recover from
 provider failure, set CAMPFIRE_DISABLE_LOCAL_LOGIN=false, restart, and use local

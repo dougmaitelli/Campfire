@@ -16,6 +16,42 @@ import (
 	"campfire/internal/campfire/service"
 )
 
+func TestOIDCDisabledLocalLoginAllowsInitialSetup(t *testing.T) {
+	ctx := context.Background()
+	auth, _, token := authFixture(t, "")
+
+	var issuer string
+
+	providerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"issuer": issuer, "authorization_endpoint": issuer + "/authorize", "token_endpoint": issuer + "/token", "jwks_uri": issuer + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}})
+	}))
+	t.Cleanup(providerServer.Close)
+	issuer = providerServer.URL
+
+	provider, err := service.NewOIDCService(ctx, auth, service.OIDCConfig{Issuer: issuer, ClientID: "campfire", PublicURL: "https://panel.example.com", DisableLocal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler := api.New(nil, nil, nil).WithAuthentication(auth, "").WithOIDC(provider).Handler()
+
+	response := request(handler, "GET", "/api/v1/auth/session", "")
+	if !strings.Contains(response.Body.String(), `"setup_required":true`) || !strings.Contains(response.Body.String(), `"local_login":true`) {
+		t.Fatal("initial setup unavailable", response.Code, response.Body)
+	}
+
+	response = request(handler, "POST", "/api/v1/auth/setup", setupBody(t, token))
+	if response.Code != http.StatusOK {
+		t.Fatal("initial setup rejected", response.Code, response.Body)
+	}
+
+	response = request(handler, "POST", "/api/v1/auth/login", `{"username":"admin","password":"`+testAdminPassword+`"}`)
+	if response.Code != http.StatusOK {
+		t.Fatal("unlinked admin cannot log in", response.Code, response.Body)
+	}
+}
+
 func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	ctx := context.Background()
 
@@ -47,7 +83,7 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	t.Cleanup(providerServer.Close)
 	issuer = providerServer.URL
 
-	config := service.OIDCConfig{Issuer: issuer, ClientID: "campfire", PublicURL: "https://panel.example.com"}
+	config := service.OIDCConfig{Issuer: issuer, ClientID: "campfire", PublicURL: "https://panel.example.com", DisableLocal: true}
 
 	provider, err := service.NewOIDCService(ctx, auth, config)
 	if err != nil {

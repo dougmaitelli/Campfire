@@ -47,8 +47,8 @@ type OIDCService struct {
 // NewOIDCService discovers the configured provider and checks that login remains possible.
 func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (*OIDCService, error) {
 	if config.Issuer == "" {
-		if config.ClientID != "" || config.ClientSecret != "" || config.DisableLocal {
-			return nil, errors.New("OIDC issuer and client ID are required when configuring OIDC or disabling local login")
+		if config.ClientID != "" || config.ClientSecret != "" {
+			return nil, errors.New("OIDC issuer and client ID are required when configuring OIDC")
 		}
 
 		if auth.store != nil {
@@ -97,18 +97,18 @@ func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (
 		}
 	}
 
+	disableLocal := false
+
 	if config.DisableLocal {
 		ready, err := auth.store.HasOIDCAdmin(ctx, config.Issuer)
 		if err != nil {
 			return nil, err
 		}
 
-		if !ready {
-			return nil, errors.New("link an enabled administrator to this OIDC provider before disabling local login")
-		}
+		disableLocal = ready
 	}
 
-	if err := auth.store.PruneLoginProviders(ctx, config.Issuer, config.DisableLocal); err != nil {
+	if err := auth.store.PruneLoginProviders(ctx, config.Issuer, disableLocal); err != nil {
 		return nil, err
 	}
 
@@ -241,6 +241,17 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 
 	if err := s.auth.store.CreateSession(ctx, session, "", s.auth.now()); err != nil {
 		return database.UserSession{}, "", err
+	}
+
+	localLogin, err := s.auth.LocalLoginEnabled(ctx)
+	if err != nil {
+		return database.UserSession{}, "", err
+	}
+
+	if !localLogin {
+		if err := s.auth.store.PruneLoginProviders(ctx, s.issuer, true); err != nil {
+			return database.UserSession{}, "", err
+		}
 	}
 
 	session, _, err = s.auth.Session(ctx, rawSession)

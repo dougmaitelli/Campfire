@@ -204,8 +204,14 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 	}
 
 	config.DisableLocal = true
-	if _, err := NewOIDCService(ctx, NewAuthService(auth.store), config); err == nil {
-		t.Fatal("OIDC-only login accepted without a linked admin")
+
+	fallbackAuth := NewAuthService(auth.store)
+	if _, err := NewOIDCService(ctx, fallbackAuth, config); err != nil {
+		t.Fatal("unlinked admin should retain local login", err)
+	}
+
+	if enabled, err := fallbackAuth.LocalLoginEnabled(ctx); err != nil || !enabled {
+		t.Fatal("local login unavailable without a linked admin", err)
 	}
 
 	cookie, state = p.flow(t, provider, 1, "regular-subject", nil)
@@ -218,6 +224,10 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 	linked, adminRaw, err := provider.Complete(ctx, cookie, state, "valid")
 	if err != nil || linked.UserID != 1 {
 		t.Fatal("admin linking failed", err)
+	}
+
+	if enabled, err := fallbackAuth.LocalLoginEnabled(ctx); err != nil || enabled {
+		t.Fatal("local login did not turn off after admin linking", err)
 	}
 
 	cookie, state = p.flow(t, provider, 1, "cancelled-link", nil)
@@ -367,12 +377,15 @@ func TestOIDCRejectsInvalidFlowsAndTokens(t *testing.T) {
 
 func TestOIDCConfigurationValidation(t *testing.T) {
 	auth := NewAuthService(nil)
-	if provider, err := NewOIDCService(context.Background(), auth, OIDCConfig{}); err != nil || provider != nil || !auth.LocalLoginEnabled() {
+	if provider, err := NewOIDCService(context.Background(), auth, OIDCConfig{DisableLocal: true}); err != nil || provider != nil {
 		t.Fatal("OIDC should be optional", err)
 	}
 
+	if enabled, err := auth.LocalLoginEnabled(context.Background()); err != nil || !enabled {
+		t.Fatal("local login must remain available without OIDC", err)
+	}
+
 	for _, config := range []OIDCConfig{
-		{DisableLocal: true},
 		{ClientID: "orphan"},
 		{Issuer: "http://identity.example.com", ClientID: "campfire", PublicURL: "https://panel.example.com"},
 		{Issuer: "https://identity.example.com", ClientID: "campfire"},

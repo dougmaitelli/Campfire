@@ -164,7 +164,14 @@ func (r *AccessRepository) keepAdmin(tx *gorm.DB, user database.User, roleID int
 
 	query := tx.Model(&database.User{}).Where("role_id = ? AND disabled = false AND id != ?", database.AdminRole, user.ID)
 	if r.issuer != "" {
-		query = query.Where("id IN (?)", tx.Model(&database.OIDCIdentity{}).Select("user_id").Where("issuer = ?", r.issuer))
+		ready, err := NewAuthRepository(tx).HasOIDCAdmin(tx.Statement.Context, r.issuer)
+		if err != nil {
+			return err
+		}
+
+		if ready {
+			query = query.Where("id IN (?)", tx.Model(&database.OIDCIdentity{}).Select("user_id").Where("issuer = ?", r.issuer))
+		}
 	}
 
 	if err := query.Count(&count).Error; err != nil {
