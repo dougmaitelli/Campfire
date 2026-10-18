@@ -1,6 +1,7 @@
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
 import { PortPill } from "../network/PortPill";
+import { formatDisplayValue } from "../../utils/formatDisplayValue";
 
 export function ServerReview({
   value,
@@ -18,7 +19,7 @@ export function ServerReview({
       <DetailsList>
         <DetailItem label="Name">{value.name.trim()}</DetailItem>
         <DetailItem label="Description">
-          {value.description.trim() || "None"}
+          {formatDisplayValue(value.description)}
         </DetailItem>
         <DetailItem label="Spark">{sparkName}</DetailItem>
         <DetailItem label="Ember">{emberName}</DetailItem>

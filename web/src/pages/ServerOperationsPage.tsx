@@ -214,7 +214,15 @@ export function ServerOperationsPage({
           {showDetails && (
             <ServerDetailsDialog
               id={server.id}
-              title={server.name}
+              title={
+                <>
+                  <span>{server.name}</span>
+                  <ServerState
+                    state={status?.state ?? "unknown"}
+                    ready={status?.ready ?? true}
+                  />
+                </>
+              }
               onClose={() => setShowDetails(false)}
             />
           )}

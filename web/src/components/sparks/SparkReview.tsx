@@ -2,6 +2,7 @@ import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { SparkSettings } from "../../api/sparks";
 import { StatusPill } from "../status/StatusPill";
 import { PortPill } from "../network/PortPill";
+import { formatDisplayValue } from "../../utils/formatDisplayValue";
 
 interface SparkReviewProps {
   name: string;
@@ -25,7 +26,7 @@ export function SparkReview({
       <DetailsList>
         <DetailItem label="Name">{name.trim()}</DetailItem>
         <DetailItem label="Description" valueClassName="review-description">
-          {description.trim() || "None"}
+          {formatDisplayValue(description)}
         </DetailItem>
         <DetailItem label="Availability">
           <StatusPill tone={disabled ? "warning" : "positive"}>

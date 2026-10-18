@@ -328,7 +328,17 @@ export function DashboardPage() {
         <ServerDetailsDialog
           key={details.id}
           id={details.id}
-          title={details.name}
+          title={
+            <>
+              <span>{details.name}</span>
+              <ServerState
+                state={
+                  servers.find((server) => server.id === details.id)?.usage
+                    .state ?? "unknown"
+                }
+              />
+            </>
+          }
           onClose={() => setDetails(null)}
         />
       )}

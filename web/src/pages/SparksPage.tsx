@@ -10,6 +10,7 @@ import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
 import type { Spark } from "../api/sparks";
 import { deleteSpark, listSparks, updateSparkClient } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
+import { useMonitoring } from "../hooks/useMonitoring";
 import "./sparks.css";
 import "./management.css";
 import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
@@ -21,6 +22,7 @@ const UPDATE_STATUS_REQUEST_TIMEOUT_MS = 10000;
 export function SparksPage() {
   const [selectedDetails, setDetails] = useState<Spark | null>(null);
   const { sparks, loading, error, refresh, addSpark } = useSparks();
+  const monitoring = useMonitoring();
   const details = selectedDetails
     ? (sparks.find((spark) => spark.id === selectedDetails.id) ??
       selectedDetails)
@@ -178,6 +180,12 @@ export function SparksPage() {
           onAdd={openAdd}
           onDetails={setDetails}
           sparks={sparks}
+          servers={
+            monitoring.snapshot?.incomplete
+              ? undefined
+              : monitoring.snapshot?.servers
+          }
+          elapsed={monitoring.elapsed}
           updating={updating}
           onUpdate={setConfirmUpdate}
         />

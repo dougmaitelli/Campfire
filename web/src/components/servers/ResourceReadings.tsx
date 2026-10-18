@@ -6,6 +6,7 @@ import {
 } from "../../api/monitoring";
 import "./resource-readings.css";
 import { ResourceMeter } from "../metrics/ResourceMeter";
+import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
 
 export function ResourceReading({
   label,
@@ -32,7 +33,7 @@ export function ResourceReading({
     >
       <span className="usage-label">{label}</span>
       <span>
-        {measured ? format(value) : "-"}
+        {measured ? format(value) : EMPTY_VALUE}
         <span className="usage-allocation">
           {measured ? " / " : "/"}
           {allocation > 0 ? format(allocation) : "No limit"}

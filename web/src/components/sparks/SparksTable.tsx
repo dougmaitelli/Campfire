@@ -2,6 +2,13 @@ import { Button } from "../forms/Button";
 import type { Spark } from "../../api/sparks";
 import { Table, TableRow } from "../table/Table";
 import { SparkConnectionState } from "./SparkConnectionState";
+import {
+  EMPTY_VALUE,
+  formatDisplayValue,
+} from "../../utils/formatDisplayValue";
+import { PortPill } from "../network/PortPill";
+import { SparkResourceReadings } from "./SparkResourceReadings";
+import type { MonitoredServer } from "../../api/monitoring";
 
 export function SparksTable({
   sparks,
@@ -12,6 +19,8 @@ export function SparksTable({
   onAdd,
   onUpdate,
   updating,
+  servers,
+  elapsed,
 }: {
   sparks: Spark[];
   onDetails: (spark: Spark) => void;
@@ -21,6 +30,8 @@ export function SparksTable({
   onAdd: () => void;
   onUpdate: (spark: Spark) => void;
   updating: string | null;
+  servers: MonitoredServer[] | undefined;
+  elapsed: number;
 }) {
   return (
     <Table
@@ -42,7 +53,7 @@ export function SparksTable({
         <tr>
           <th scope="col">Name</th>
           <th scope="col">Status</th>
-          <th scope="col">Limits</th>
+          <th scope="col">Resources</th>
           <th scope="col">Network</th>
           <th scope="col" className="table-actions">
             <span className="visually-hidden">Actions</span>
@@ -74,27 +85,31 @@ export function SparksTable({
               />
             </td>
             <td>
-              <span className="resource-summary">
-                CPU:{" "}
-                {spark.cpu_limit === 0
-                  ? "No limit"
-                  : `${spark.cpu_limit} cores`}
-              </span>
-              <span className="resource-summary">
-                Memory: {formatMemory(spark.memory_mb)}
-              </span>
-              <span className="resource-summary">
-                Disk: {formatMemory(spark.disk_mb)}
-              </span>
+              <SparkResourceReadings
+                spark={spark}
+                servers={servers}
+                elapsed={elapsed}
+              />
             </td>
             <td>
               <span className="resource-summary">
-                {spark.game_address || "No game address"}
+                {formatDisplayValue(spark.game_address)}
               </span>
-              <span className="resource-summary">
-                {spark.port_allocations.length} port{" "}
-                {spark.port_allocations.length === 1 ? "range" : "ranges"}
-              </span>
+              <div className="pill-group">
+                {spark.port_allocations.map((allocation, index) => (
+                  <PortPill
+                    key={index}
+                    address={allocation.bind_ip}
+                    port={
+                      allocation.start === allocation.end
+                        ? allocation.start
+                        : `${allocation.start}–${allocation.end}`
+                    }
+                    protocol={allocation.protocol}
+                  />
+                ))}
+                {spark.port_allocations.length === 0 && EMPTY_VALUE}
+              </div>
             </td>
             <td className="table-actions">
               {spark.agent_update_available && (
@@ -122,11 +137,4 @@ export function SparksTable({
       </tbody>
     </Table>
   );
-}
-
-function formatMemory(mib: number) {
-  if (mib === 0) return "No limit";
-  return mib >= 1024
-    ? `${(mib / 1024).toLocaleString(undefined, { maximumFractionDigits: 2 })} GiB`
-    : `${mib} MiB`;
 }

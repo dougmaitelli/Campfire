@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
 import {
   resourceUtilization,
   utilizationThresholds,
@@ -71,7 +72,7 @@ export function ResourceTile({
       }
       value={
         <>
-          {used === null ? "-" : format(used)} / {format(allocated)}
+          {used === null ? EMPTY_VALUE : format(used)} / {format(allocated)}
           {unit && ` ${unit}`}
         </>
       }

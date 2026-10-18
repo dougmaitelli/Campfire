@@ -1,4 +1,5 @@
 import { FormField } from "../components/forms/FormField";
+import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
@@ -283,17 +284,19 @@ export function ServerTransferDialog({
                   description={
                     <>
                       Allowed ranges:{" "}
-                      {target.port_allocations
-                        .filter(
-                          (allocation) =>
-                            allocation.protocol === port.protocol &&
-                            allocation.bind_ip === port.bind_ip,
-                        )
-                        .map(
-                          (allocation) =>
-                            `${allocation.start}–${allocation.end}`,
-                        )
-                        .join(", ") || "None"}
+                      {formatDisplayValue(
+                        target.port_allocations
+                          .filter(
+                            (allocation) =>
+                              allocation.protocol === port.protocol &&
+                              allocation.bind_ip === port.bind_ip,
+                          )
+                          .map(
+                            (allocation) =>
+                              `${allocation.start}–${allocation.end}`,
+                          )
+                          .join(", "),
+                      )}
                     </>
                   }
                 >

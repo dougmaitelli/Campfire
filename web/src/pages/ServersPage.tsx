@@ -388,7 +388,15 @@ export function ServersPage() {
         <ServerDetailsDialog
           key={details.id}
           id={details.id}
-          title={details.name}
+          title={
+            <>
+              <span>{details.name}</span>
+              <ServerState
+                state={runtime.statuses[details.id]?.state ?? "unknown"}
+                ready={runtime.statuses[details.id]?.ready ?? true}
+              />
+            </>
+          }
           onDelete={
             details.permissions.includes("server.delete")
               ? () => {

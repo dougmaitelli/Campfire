@@ -1,4 +1,5 @@
 import { FormField } from "../components/forms/FormField";
+import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -840,14 +841,16 @@ export function ServerDialog({
                   </p>
                   <p>
                     Removed settings:{" "}
-                    {Object.keys(server?.variables ?? {})
-                      .filter(
-                        (name) =>
-                          !(ember?.variables ?? []).some(
-                            (variable) => variable.name === name,
-                          ),
-                      )
-                      .join(", ") || "None"}
+                    {formatDisplayValue(
+                      Object.keys(server?.variables ?? {})
+                        .filter(
+                          (name) =>
+                            !(ember?.variables ?? []).some(
+                              (variable) => variable.name === name,
+                            ),
+                        )
+                        .join(", "),
+                    )}
                     . Shared editable settings are retained; new and locked
                     settings use the current definition’s defaults.
                   </p>

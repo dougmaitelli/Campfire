@@ -17,6 +17,7 @@ import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
 import { PortPill } from "../components/network/PortPill";
+import { EMPTY_VALUE } from "../utils/formatDisplayValue";
 
 export function EmbersPage() {
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
@@ -199,7 +200,7 @@ export function EmbersPage() {
                         ))}
                       </div>
                     ) : (
-                      "None"
+                      EMPTY_VALUE
                     )}
                   </td>
                   <td>
