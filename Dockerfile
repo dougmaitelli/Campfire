@@ -8,7 +8,7 @@ COPY web/ ./
 RUN pnpm run build
 
 FROM golang:1.26-alpine AS build
-RUN apk add --no-cache build-base
+RUN apk add --no-cache build-base bash
 WORKDIR /src/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
@@ -17,11 +17,14 @@ COPY --from=frontend /src/web/dist ./internal/campfire/webui/dist
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
+COPY scripts/build-spark-bundles.sh /src/scripts/build-spark-bundles.sh
+COPY deploy/systemd/spark.service /src/deploy/systemd/spark.service
+RUN VERSION="$VERSION" COMMIT="$COMMIT" BUILD_DATE="$BUILD_DATE" bash /src/scripts/build-spark-bundles.sh
 ENV CGO_ENABLED=1
 RUN release_flags="-s -w -linkmode external -extldflags '-static' -X campfire/internal/shared/buildinfo.Version=${VERSION} -X campfire/internal/shared/buildinfo.Commit=${COMMIT} -X campfire/internal/shared/buildinfo.Date=${BUILD_DATE}" \
     && go build -tags production -buildvcs=false -trimpath -ldflags "$release_flags" -o /out/campfire ./cmd/campfire \
     && go build -buildvcs=false -trimpath -ldflags "$release_flags" -o /out/spark ./cmd/spark \
-    && go test -tags production ./internal/campfire/webui
+    && go test -tags production -ldflags "$release_flags" ./internal/campfire/webui ./internal/campfire/sparkbundle
 
 # Export statically linked Linux binaries without a dependency on host glibc.
 FROM scratch AS binaries

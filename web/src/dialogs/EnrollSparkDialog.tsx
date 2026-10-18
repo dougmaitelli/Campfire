@@ -133,8 +133,8 @@ export function EnrollSparkDialog({
         )}
         <p>
           Run this on a Linux amd64 or arm64 host with Docker running, curl,
-          systemd, and sudo access. It downloads the latest stable GitHub
-          release, verifies its checksum, installs Spark, enrolls it, and starts
+          systemd, and sudo access. It downloads this panel’s matching Spark
+          build, verifies its checksum, installs Spark, enrolls it, and starts
           the service.
         </p>
         <FormField

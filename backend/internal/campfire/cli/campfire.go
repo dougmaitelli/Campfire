@@ -225,7 +225,6 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 
 	sparks.Updates.Start(ctx)
-	defer sparks.Updates.Close()
 
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, MaxUploadBytes: maxUploadBytes}
 	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)

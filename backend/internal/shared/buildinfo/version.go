@@ -7,3 +7,12 @@ var (
 	Commit  = "unknown"
 	Date    = "unknown"
 )
+
+// SparkVersion identifies development binaries by commit, matching their panel.
+func SparkVersion() string {
+	if Version == "dev" && Commit != "unknown" && Commit != "" {
+		return "dev-" + Commit
+	}
+
+	return Version
+}

@@ -31,6 +31,6 @@ export function sparkInstallCommand(
     : serverCA
       ? ` --ca-base64 ${quote(btoa(serverCA))}`
       : "";
-  const script = `set -eu; installer=$(mktemp); trap 'rm -f -- "$installer"' EXIT; curl --fail --silent --show-error --location ${quote(`${origin}/install-spark.sh`)} --output "$installer"; sudo bash "$installer" --panel ${quote(panel)} --token ${quote(token)}${trust}`;
+  const script = `set -eu; installer=$(mktemp); trap 'rm -f -- "$installer"' EXIT; curl --fail --silent --show-error --location ${quote(`${origin}/install-spark.sh`)} --output "$installer"; sudo bash "$installer" --source ${quote(`${origin}/downloads/spark`)} --panel ${quote(panel)} --token ${quote(token)}${trust}`;
   return `bash -c ${quote(script)}`;
 }

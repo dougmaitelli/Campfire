@@ -14,7 +14,15 @@ const installer = resolve("web/public/install-spark.sh");
 test("installer lists every missing dependency before changing the host", () => {
   const result = spawnSync(
     "/bin/bash",
-    [installer, "--panel", "https://panel.test:8443", "--token", "testtoken"],
+    [
+      installer,
+      "--source",
+      "https://panel.test/downloads/spark",
+      "--panel",
+      "https://panel.test:8443",
+      "--token",
+      "testtoken",
+    ],
     { env: { PATH: "" }, encoding: "utf8" },
   );
   assert.equal(result.status, 1);
@@ -78,6 +86,8 @@ test("installer command preserves arguments without executing shell syntax", asy
     );
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual((await readFile(log, "utf8")).split("\0").slice(0, -1), [
+      "--source",
+      "https://campfire.test/downloads/spark",
       "--panel",
       "https://agents.test:8443",
       "--token",
@@ -103,14 +113,16 @@ test("installer command preserves arguments without executing shell syntax", asy
     const automatic = execute(generated);
     assert.equal(automatic.status, 0, automatic.stderr);
     const args = (await readFile(log, "utf8")).split("\0").slice(0, -1);
-    assert.deepEqual(args.slice(0, 5), [
+    assert.deepEqual(args.slice(0, 7), [
+      "--source",
+      "https://campfire.test/downloads/spark",
       "--panel",
       "https://agents.test:8443",
       "--token",
       "testtoken",
       "--ca-base64",
     ]);
-    assert.equal(Buffer.from(args[5], "base64").toString("utf8"), certificate);
+    assert.equal(Buffer.from(args[7], "base64").toString("utf8"), certificate);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

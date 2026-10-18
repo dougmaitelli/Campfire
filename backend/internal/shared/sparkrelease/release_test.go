@@ -4,11 +4,11 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -25,7 +25,9 @@ func TestVersionComparison(t *testing.T) {
 	}{
 		{"v1.9.9", "v1.10.0", true}, {"1.0.0", "v2.0.0", true}, {"v1.0.0-rc.1", "v1.0.0", true},
 		{"v2.0.0", "v1.10.0", false}, {"v1.0.0+build", "v1.0.0", false}, {"dev", "v2.0.0", false}, {"mock-dev", "v2.0.0", false},
-		{"v1.0.0", "v1.0.0", false}, {"v1.0.0", "v2.0.0-rc.1", false}, {"v01.0.0", "v2.0.0", false},
+		{"v1.0.0", "v1.0.0", false}, {"v1.0.0", "v2.0.0-rc.1", true}, {"v01.0.0", "v2.0.0", false},
+		{"v1.0.0-rc.2", "v1.0.0-rc.10", true}, {"v1.0.0-rc.10", "v1.0.0-rc.2", false},
+		{"v1.0.0", "v1.0.0-rc.1", false}, {"v1.0.0-beta", "v1.0.0-rc.1", true},
 	} {
 		if got := Newer(check.current, check.latest); got != check.newer {
 			t.Fatalf("%s -> %s: %v", check.current, check.latest, got)
@@ -78,12 +80,16 @@ func TestVerifiedArchiveExtractsOnlySparkAndRejectsTampering(t *testing.T) {
 
 			digest := sha256.Sum256(archive.Bytes())
 
-			checksum := fmt.Sprintf("%x  %s\n", digest, archiveName("v1.2.3", "amd64"))
+			checksum := fmt.Sprintf("%x  %s\n", digest, archiveName("amd64"))
 			if scenario == "checksum" {
-				checksum = strings.Repeat("0", 64) + "  " + archiveName("v1.2.3", "amd64")
+				checksum = strings.Repeat("0", 64) + "  " + archiveName("amd64")
 			}
 
-			client := &Client{HTTP: &http.Client{Transport: testTransport(func(r *http.Request) (*http.Response, error) {
+			client := &Client{BaseURL: "https://panel.test/spark/downloads", HTTP: &http.Client{Transport: testTransport(func(r *http.Request) (*http.Response, error) {
+				if !strings.HasPrefix(r.URL.String(), "https://panel.test/spark/downloads/v1.2.3/spark_linux_amd64.tar.gz") {
+					t.Fatal("download escaped the panel build", r.URL)
+				}
+
 				body := archive.Bytes()
 				if strings.HasSuffix(r.URL.Path, ".sha256") {
 					body = []byte(checksum)
@@ -120,15 +126,38 @@ func TestVerifiedArchiveExtractsOnlySparkAndRejectsTampering(t *testing.T) {
 	}
 }
 
-func TestLatestRequiresStableCompleteRelease(t *testing.T) {
-	client := &Client{HTTP: &http.Client{Transport: testTransport(func(r *http.Request) (*http.Response, error) {
-		if r.URL.String() != latestURL {
-			t.Fatal("unexpected release URL", r.URL)
+func TestPanelBuildUpdates(t *testing.T) {
+	for _, check := range []struct {
+		current, target string
+		available       bool
+	}{
+		{"dev-abcdef123", "dev-123abcdef", true},
+		{"dev-abcdef123", "dev-abcdef123", false},
+		{"dev", "dev-123abcdef", true},
+		{"v1.1.0", "v1.0.0", false},
+		{"v1.0.0", "v1.1.0", true},
+		{"v1.0.0", "dev-abcdef123", false},
+		{"dev-abcdef123", "../../escape", false},
+	} {
+		if got := UpdateAvailable(check.current, check.target); got != check.available {
+			t.Fatalf("%s -> %s: %v", check.current, check.target, got)
 		}
+	}
+}
 
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"tag_name":"v1.2.3","assets":[]}`)), Header: make(http.Header)}, nil
-	})}}
-	if _, err := client.Latest(context.Background()); err == nil {
-		t.Fatal("incomplete release accepted")
+func TestPanelDownloadsRejectRedirectsAndInsecureOrigins(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://other.example/spark", http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, server.Client().Transport)
+	if _, err := client.Stage(t.Context(), "v1.0.0", "amd64", t.TempDir()); err == nil || !strings.Contains(err.Error(), "redirects are not allowed") {
+		t.Fatal("package download followed an external redirect", err)
+	}
+
+	client.BaseURL = "http://panel.test/spark/downloads"
+	if _, err := client.Stage(t.Context(), "v1.0.0", "amd64", t.TempDir()); err == nil {
+		t.Fatal("package download allowed HTTP")
 	}
 }

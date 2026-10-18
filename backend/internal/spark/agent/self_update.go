@@ -54,9 +54,9 @@ func updateWithHeartbeats(ctx context.Context, execute func() protocol.CommandRe
 	return result
 }
 
-func installSparkUpdate(ctx context.Context, version string, wireVersion int, idle func() error) (string, error) {
-	if runtime.GOOS != "linux" || !sparkrelease.Newer(buildinfo.Version, version) {
-		return "", errors.New("select a newer stable Spark release")
+func installSparkUpdate(ctx context.Context, version string, wireVersion int, idle func() error, client *sparkrelease.Client) (string, error) {
+	if runtime.GOOS != "linux" || !sparkrelease.UpdateAvailable(buildinfo.SparkVersion(), version) {
+		return "", errors.New("select a newer Spark release or a different development build from the panel")
 	}
 
 	executable, err := os.Executable()
@@ -73,7 +73,7 @@ func installSparkUpdate(ctx context.Context, version string, wireVersion int, id
 		return "", err
 	}
 
-	staged, err := sparkrelease.NewClient().Stage(ctx, version, runtime.GOARCH, filepath.Dir(executable))
+	staged, err := client.Stage(ctx, version, runtime.GOARCH, filepath.Dir(executable))
 	if err != nil {
 		return "", err
 	}

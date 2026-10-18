@@ -8,6 +8,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	"campfire/internal/campfire/sparkbundle"
 )
 
 var fingerprinted = regexp.MustCompile(`-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9.]+$`)
@@ -21,6 +23,7 @@ func newHandler(api http.Handler, files fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/api", api)
 	mux.Handle("/api/", api)
+	mux.Handle("/downloads/spark/", http.StripPrefix("/downloads/spark/", sparkbundle.Handler()))
 	mux.HandleFunc("/spark", http.NotFound)
 	mux.HandleFunc("/spark/", http.NotFound)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {

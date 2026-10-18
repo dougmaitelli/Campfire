@@ -45,7 +45,7 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	if *updateInfo {
-		return json.NewEncoder(os.Stdout).Encode(protocol.SparkUpdateInfo{Version: buildinfo.Version, MinimumProtocol: protocol.MinimumProtocolVersion, Protocol: protocol.ProtocolVersion})
+		return json.NewEncoder(os.Stdout).Encode(protocol.SparkUpdateInfo{Version: buildinfo.SparkVersion(), MinimumProtocol: protocol.MinimumProtocolVersion, Protocol: protocol.ProtocolVersion})
 	}
 
 	token := strings.TrimSpace(os.Getenv("CAMPFIRE_ENROLLMENT_TOKEN"))

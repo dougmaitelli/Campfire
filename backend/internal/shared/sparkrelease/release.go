@@ -1,4 +1,4 @@
-// Package sparkrelease reads and verifies official Spark release packages.
+// Package sparkrelease downloads and verifies Spark packages from the connected panel.
 package sparkrelease
 
 import (
@@ -7,11 +7,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,9 +19,6 @@ import (
 	"time"
 )
 
-const repositoryName = "dougmaitelli/Campfire"
-const repository = "https://github.com/" + repositoryName
-const latestURL = "https://api.github.com/repos/" + repositoryName + "/releases/latest"
 const releaseDownloadTimeout = 5 * time.Minute
 const maximumArchiveBytes = 256 << 20
 const maximumExpandedBytes = 512 << 20
@@ -29,16 +26,26 @@ const maximumBinaryBytes = 128 << 20
 
 var versionPattern = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
 
-// StableVersion accepts only full stable release tags.
-func StableVersion(version string) bool {
-	parts := versionPattern.FindStringSubmatch(version)
-	return len(parts) != 0 && strings.HasPrefix(version, "v") && parts[4] == "" && parts[5] == ""
+var developmentPattern = regexp.MustCompile(`^dev-[a-f0-9]{7,64}$`)
+
+// ValidVersion accepts release identifiers and commit-pinned development builds.
+func ValidVersion(version string) bool {
+	return version == "dev" || versionPattern.MatchString(version) || developmentPattern.MatchString(version)
+}
+
+// UpdateAvailable allows newer releases or a different commit on the development channel.
+func UpdateAvailable(current, target string) bool {
+	if (current == "dev" || strings.HasPrefix(current, "dev-")) && developmentPattern.MatchString(target) {
+		return ValidVersion(current) && current != target
+	}
+
+	return Newer(current, target)
 }
 
 // Newer compares numeric version components, excluding development labels.
 func Newer(current, latest string) bool {
 	a, b := versionPattern.FindStringSubmatch(current), versionPattern.FindStringSubmatch(latest)
-	if len(a) == 0 || len(b) == 0 || !StableVersion(latest) {
+	if len(a) == 0 || len(b) == 0 {
 		return false
 	}
 
@@ -52,20 +59,49 @@ func Newer(current, latest string) bool {
 		}
 	}
 
-	return a[4] != ""
+	if a[4] == "" || a[4] == b[4] {
+		return false
+	}
+
+	if b[4] == "" {
+		return true
+	}
+
+	left, right := strings.Split(a[4][1:], "."), strings.Split(b[4][1:], ".")
+	for index := range min(len(left), len(right)) {
+		if left[index] == right[index] {
+			continue
+		}
+
+		aNumeric, bNumeric := numeric(left[index]), numeric(right[index])
+		if aNumeric != bNumeric {
+			return aNumeric
+		}
+
+		if aNumeric && len(left[index]) != len(right[index]) {
+			return len(right[index]) > len(left[index])
+		}
+
+		return right[index] > left[index]
+	}
+
+	return len(right) > len(left)
+}
+
+func numeric(value string) bool {
+	return value != "" && strings.Trim(value, "0123456789") == ""
 }
 
 // Client uses bounded HTTPS requests; tests can supply an isolated transport.
-type Client struct{ HTTP *http.Client }
+type Client struct {
+	HTTP    *http.Client
+	BaseURL string
+}
 
-// NewClient creates an official-release transport.
-func NewClient() *Client {
-	return &Client{HTTP: &http.Client{Timeout: releaseDownloadTimeout, CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		if req.URL.Scheme != "https" || len(via) >= 5 {
-			return errors.New("invalid release redirect")
-		}
-
-		return nil
+// NewClient uses the panel origin and its existing trusted TLS transport.
+func NewClient(baseURL string, transport http.RoundTripper) *Client {
+	return &Client{BaseURL: strings.TrimRight(baseURL, "/"), HTTP: &http.Client{Transport: transport, Timeout: releaseDownloadTimeout, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return errors.New("spark package redirects are not allowed")
 	}}}
 }
 
@@ -76,7 +112,7 @@ func (c *Client) get(ctx context.Context, address string) (*http.Response, error
 	}
 
 	req.Header.Set("User-Agent", "Campfire-Spark-Updater")
-	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Accept", "application/octet-stream")
 
 	response, err := c.HTTP.Do(req)
 	if err != nil {
@@ -91,58 +127,24 @@ func (c *Client) get(ctx context.Context, address string) (*http.Response, error
 	return response, nil
 }
 
-// Latest returns the published stable release only when both packages exist.
-func (c *Client) Latest(ctx context.Context) (string, error) {
-	response, err := c.get(ctx, latestURL)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	var release struct {
-		Tag        string `json:"tag_name"`
-		Draft      bool   `json:"draft"`
-		Prerelease bool   `json:"prerelease"`
-		Assets     []struct {
-			Name string `json:"name"`
-		} `json:"assets"`
-	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&release); err != nil {
-		return "", err
-	}
-
-	if release.Draft || release.Prerelease || !StableVersion(release.Tag) {
-		return "", errors.New("no stable Spark release is available")
-	}
-
-	assets := map[string]bool{}
-	for _, asset := range release.Assets {
-		assets[asset.Name] = true
-	}
-
-	for _, arch := range []string{"amd64", "arm64"} {
-		name := archiveName(release.Tag, arch)
-		if !assets[name] || !assets[name+".sha256"] {
-			return "", errors.New("spark release packages are not yet published")
-		}
-	}
-
-	return release.Tag, nil
-}
-
-func archiveName(version, arch string) string {
-	return "campfire_" + version + "_linux_" + arch + ".tar.gz"
+func archiveName(arch string) string {
+	return "spark_linux_" + arch + ".tar.gz"
 }
 
 // Stage downloads and verifies an archive, extracting only its regular Spark binary.
 // The returned private temporary path is on the destination filesystem.
 func (c *Client) Stage(ctx context.Context, version, arch, directory string) (string, error) {
-	if !StableVersion(version) || (arch != "amd64" && arch != "arm64") {
+	if !ValidVersion(version) || (arch != "amd64" && arch != "arm64") {
 		return "", errors.New("unsupported Spark release or architecture")
 	}
 
-	name := archiveName(version, arch)
-	base := repository + "/releases/download/" + version + "/" + name
+	address, err := url.Parse(c.BaseURL)
+	if err != nil || address.Scheme != "https" || address.Host == "" || address.User != nil || address.RawQuery != "" || address.Fragment != "" {
+		return "", errors.New("spark packages require a trusted HTTPS panel origin")
+	}
+
+	name := archiveName(arch)
+	base := c.BaseURL + "/" + version + "/" + name
 
 	checksum, err := c.get(ctx, base+".sha256")
 	if err != nil {

@@ -29,7 +29,7 @@ const ServerFiles CommandName = "server.files"
 // ServerTransfer moves one fenced archive through the authenticated session.
 const ServerTransfer CommandName = "server.transfer"
 
-// UpdateSpark replaces the agent executable with a verified official release.
+// UpdateSpark replaces the agent executable with the verified panel build.
 const UpdateSpark CommandName = "spark.update"
 
 // SparkUpdateInfo lets the running agent verify a staged binary's compatibility.

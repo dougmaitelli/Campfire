@@ -192,10 +192,11 @@ func maintainIdentity(ctx context.Context, address string, identity *agentIdenti
 				continue
 			}
 
-			*identity = updated
-
 			cancel()
 			<-done
+
+			*identity = updated
+
 			slog.Info("Spark certificate renewed", "spark", id)
 
 			return true, nil

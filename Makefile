@@ -4,7 +4,7 @@ GOLANGCI_LINT_CACHE := $(CURDIR)/.cache/golangci-lint
 export GOLANGCI_LINT_CACHE
 
 VERSION ?= dev
-COMMIT ?= unknown
+COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= unknown
 BUILD_LDFLAGS := -X campfire/internal/shared/buildinfo.Version=$(VERSION) -X campfire/internal/shared/buildinfo.Commit=$(COMMIT) -X campfire/internal/shared/buildinfo.Date=$(BUILD_DATE)
 
@@ -23,13 +23,17 @@ dependencies-frontend:
 
 build: build-campfire build-spark
 
-build-campfire: build-ui
+build-campfire: build-ui build-spark-bundles
 	node scripts/prepare-ui.mjs
 	go -C backend build -tags production -buildvcs=false -trimpath -ldflags '$(BUILD_LDFLAGS)' -o ../bin/campfire ./cmd/campfire
-	go -C backend test -tags production ./internal/campfire/webui
+	go -C backend test -tags production -ldflags '$(BUILD_LDFLAGS)' ./internal/campfire/webui ./internal/campfire/sparkbundle
 
 build-spark:
 	go -C backend build -buildvcs=false -trimpath -ldflags '$(BUILD_LDFLAGS)' -o ../bin/spark ./cmd/spark
+
+.PHONY: build-spark-bundles
+build-spark-bundles:
+	VERSION='$(VERSION)' COMMIT='$(COMMIT)' BUILD_DATE='$(BUILD_DATE)' bash scripts/build-spark-bundles.sh
 
 build-ui:
 	pnpm --dir web run build

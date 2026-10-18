@@ -59,7 +59,7 @@ func TestSparkUpdatesUseCachedVersionsAndRejectUnsupportedRequests(t *testing.T)
 	}
 
 	if fetches != 1 {
-		t.Fatal("page reads fetched GitHub again")
+		t.Fatal("page reads reloaded the panel build")
 	}
 
 	if err := updates.Update(t.Context(), "node", "v1.2.0"); !errors.Is(err, ErrSparkUpdate) {
@@ -92,7 +92,7 @@ func TestSparkUpdatesUseCachedVersionsAndRejectUnsupportedRequests(t *testing.T)
 		t.Fatal("equal version updated", err)
 	}
 
-	updates.WithFetcher(func(context.Context) (string, error) { return "", errors.New("GitHub unavailable") }).check(t.Context())
+	updates.WithFetcher(func(context.Context) (string, error) { return "", errors.New("packages unavailable") }).check(t.Context())
 
 	if status := updates.Status(); status.LatestVersion != "v1.1.0" || status.Error == "" {
 		t.Fatal("failed check discarded last good release", status)

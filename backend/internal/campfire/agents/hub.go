@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"campfire/internal/campfire/sparkbundle"
 	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
@@ -122,6 +123,7 @@ func (h *Hub) TLSConfig() *tls.Config {
 // Handler exposes bootstrap enrollment and authenticated agent connections.
 func (h *Hub) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("/spark/downloads/", http.StripPrefix("/spark/downloads/", sparkbundle.Handler()))
 	mux.HandleFunc("POST /spark/enroll", h.enroll)
 	mux.HandleFunc("POST /spark/renew", h.renew)
 	mux.HandleFunc("GET /spark/connect", h.connect)

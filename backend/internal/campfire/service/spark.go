@@ -186,7 +186,7 @@ func (s *SparkService) withConnectivity(spark model.Spark) model.Spark {
 
 	if s.Updates != nil {
 		spark.LatestAgentVersion = s.Updates.Status().LatestVersion
-		spark.AgentUpdateAvailable = spark.Connected && sparkrelease.Newer(spark.AgentVersion, spark.LatestAgentVersion)
+		spark.AgentUpdateAvailable = spark.Connected && sparkrelease.UpdateAvailable(spark.AgentVersion, spark.LatestAgentVersion)
 	}
 
 	return spark

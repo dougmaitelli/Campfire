@@ -3,16 +3,15 @@ package service
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"sync"
 	"time"
 
+	"campfire/internal/campfire/sparkbundle"
+	"campfire/internal/shared/buildinfo"
 	"campfire/internal/shared/protocol"
 	"campfire/internal/shared/sparkrelease"
 )
 
-// SparkReleaseCheckInterval bounds GitHub checks independently of UI polling.
-const SparkReleaseCheckInterval = time.Hour
 const sparkReleaseCheckTimeout = 20 * time.Second
 
 // SparkUpdater delivers an explicit client upgrade over an authenticated connection.
@@ -20,7 +19,7 @@ type SparkUpdater interface {
 	UpdateSpark(context.Context, string, string) error
 }
 
-// SparkReleaseStatus is the last hourly release check; failures retain the last good version.
+// SparkReleaseStatus describes the Spark build bundled with the running panel.
 type SparkReleaseStatus struct {
 	LatestVersion string `json:"latest_version"`
 	CheckedAt     int64  `json:"checked_at"`
@@ -28,9 +27,9 @@ type SparkReleaseStatus struct {
 }
 
 // ErrSparkUpdate describes a stale, unsupported or unnecessary upgrade request.
-var ErrSparkUpdate = errors.New("spark must be connected, support remote updates, and be older than the selected latest release")
+var ErrSparkUpdate = errors.New("spark must be connected, support remote updates, and need the selected panel build")
 
-// SparkUpdateService caches release metadata once per hour for the whole panel.
+// SparkUpdateService offers only the build bundled with the running panel.
 type SparkUpdateService struct {
 	sparks  *SparkService
 	updater SparkUpdater
@@ -38,13 +37,17 @@ type SparkUpdateService struct {
 	mu      sync.RWMutex
 	status  SparkReleaseStatus
 	active  map[string]bool
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
 }
 
-// NewSparkUpdateService creates the shared release checker.
+// NewSparkUpdateService selects the panel build without contacting external services.
 func NewSparkUpdateService(sparks *SparkService, updater SparkUpdater) *SparkUpdateService {
-	return &SparkUpdateService{sparks: sparks, updater: updater, fetch: sparkrelease.NewClient().Latest, active: make(map[string]bool)}
+	return &SparkUpdateService{sparks: sparks, updater: updater, fetch: func(context.Context) (string, error) {
+		if !sparkbundle.Available() {
+			return "", errors.New("spark packages are not bundled")
+		}
+
+		return buildinfo.SparkVersion(), nil
+	}, active: make(map[string]bool)}
 }
 
 // WithFetcher supplies a deterministic release source for mock development.
@@ -72,14 +75,12 @@ func (s *SparkUpdateService) check(ctx context.Context) {
 	s.status.CheckedAt = time.Now().Unix()
 
 	if err != nil {
-		slog.Warn("Could not check the latest Spark release", "error", err)
-
-		s.status.Error = "Unable to check GitHub for the latest Spark release."
+		s.status.Error = "The panel’s bundled Spark packages are unavailable."
 
 		return
 	}
 
-	if !sparkrelease.StableVersion(version) {
+	if !sparkrelease.ValidVersion(version) {
 		s.status.Error = "The release source returned an invalid Spark version."
 		return
 	}
@@ -87,33 +88,9 @@ func (s *SparkUpdateService) check(ctx context.Context) {
 	s.status.LatestVersion, s.status.Error = version, ""
 }
 
-// Start checks at startup and hourly thereafter, independent of page visits.
+// Start loads the build metadata once; it cannot change during this process.
 func (s *SparkUpdateService) Start(ctx context.Context) {
-	ctx, s.cancel = context.WithCancel(ctx)
-	s.wg.Go(func() {
-		s.check(ctx)
-
-		ticker := time.NewTicker(SparkReleaseCheckInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				s.check(ctx)
-			}
-		}
-	})
-}
-
-// Close cancels in-flight checks before shutdown.
-func (s *SparkUpdateService) Close() {
-	if s.cancel != nil {
-		s.cancel()
-	}
-
-	s.wg.Wait()
+	s.check(ctx)
 }
 
 // Update revalidates the connected client's version and negotiated capability.
@@ -134,7 +111,7 @@ func (s *SparkUpdateService) Update(ctx context.Context, id, version string) err
 		return err
 	}
 
-	if s.updater == nil || !spark.Connected || version != s.Status().LatestVersion || !sparkrelease.Newer(spark.AgentVersion, version) {
+	if s.updater == nil || !spark.Connected || version != s.Status().LatestVersion || !sparkrelease.UpdateAvailable(spark.AgentVersion, version) {
 		return ErrSparkUpdate
 	}
 

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// SparkUpdateTimeout bounds official binary download and verification.
+// SparkUpdateTimeout bounds panel-hosted binary download and verification.
 const SparkUpdateTimeout = 5 * time.Minute
 
 // CommandTimeout permits bounded archive work without enlarging other RPC budgets.

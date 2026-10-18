@@ -382,18 +382,20 @@ independently of WebSocket feature negotiation.
 
 Spark client updates
 --------------------
-Campfire checks the official GitHub repository for the latest stable Spark
-release at startup and once per hour. Page refreshes use the cached result.
-The repository and release endpoints are constants in shared/sparkrelease;
-SparkReleaseCheckInterval in service/spark_update.go controls the hourly interval.
-Failed checks retain the last known release and report an error in update status.
+Campfire bundles matching Linux amd64 and arm64 Spark packages. Installation
+and remote updates download these packages directly from the running panel;
+neither contacts GitHub. Package URLs include the panel build identifier, so
+an upgrade during a download fails rather than mixing builds. The version and
+checksums are loaded locally; no periodic release checks are needed.
 
 Connected clients with a lower semantic version show Update Spark in the Sparks
 list and details drawer. Administrators confirm each update. Clients need the
 spark.self-update.v1 capability; older clients require one manual upgrade first.
-Development version labels are not treated as outdated stable releases.
+Development builds include their commit ID; different development commits can
+be updated to the panel's commit. Stable clients are never downgraded.
 
-Spark downloads the official architecture package, checks SHA-256, and extracts
+Spark downloads its architecture package through the trusted agent TLS listener,
+checks SHA-256, and extracts
 only the regular Spark executable. The staged binary must report the requested
 version and support the negotiated panel wire protocol. It refuses replacement
 while operations, uploads or server transfer fences are active. The old binary
@@ -755,10 +757,10 @@ existing credentials and briefly restarts the Spark service.
 
 The helper requires Linux amd64/arm64, a running Docker daemon, systemd, curl,
 and sudo access. It lists all missing command dependencies before installing
-anything. It downloads the latest stable tagged GitHub release, verifies
+anything. It downloads the matching Spark package from the panel, verifies
 the archive's SHA-256 checksum, saves the agent identity in /var/lib/spark,
 installs /usr/local/bin/spark and spark.service, and enables the service.
-The release must support --enroll-only. For a custom private HTTPS certificate,
+For a custom private HTTPS certificate,
 provide the path to its CA file on the game host; generated TLS needs no manual
 CA file. The helper also requires the base64 utility. The command includes a
 single-use token that expires after fifteen minutes; generate another if needed.

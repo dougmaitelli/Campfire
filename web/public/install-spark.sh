@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Installs the latest tagged Spark release on a Linux systemd host.
+# Installs the Spark build bundled with the selected Campfire panel.
 set -euo pipefail
 umask 077
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
-panel= token= ca_file= ca_base64=
+panel= token= ca_file= ca_base64= source=
 while (($#)); do
   case "$1" in
-    --panel|--token|--ca-file|--ca-base64)
+    --panel|--token|--ca-file|--ca-base64|--source)
       (($# >= 2)) || fail "Missing value for $1"
       case "$1" in
         --panel) panel=$2 ;;
+        --source) source=$2 ;;
         --token) token=$2 ;;
         --ca-file) ca_file=$2 ;;
         --ca-base64) ca_base64=$2 ;;
@@ -20,6 +21,7 @@ while (($#)); do
   esac
 done
 [[ $panel =~ ^https://[^[:space:]]+$ ]] || fail "An HTTPS agent address is required."
+[[ $source =~ ^https://[^[:space:]]+$ ]] || fail "An HTTPS panel download address is required (--source)."
 [[ $token =~ ^[A-Za-z0-9]+$ && ${#token} -le 256 ]] || fail "A valid enrollment token is required."
 [[ -z $ca_file || -z $ca_base64 ]] || fail "Use either --ca-file or --ca-base64."
 [[ ${#ca_base64} -le 65536 ]] || fail "The panel CA certificate is too large."
@@ -55,13 +57,11 @@ if [[ -n $ca_base64 ]]; then
   printf '%s' "$ca_base64" | base64 --decode > "$ca_file" || fail "Invalid panel CA certificate encoding."
   [[ -s $ca_file ]] || fail "The panel CA certificate is empty."
 fi
-repository=https://github.com/dougmaitelli/Campfire
-release_url=$(curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 60 --output /dev/null --write-out '%{url_effective}' "$repository/releases/latest")
-version=${release_url##*/}
-[[ $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Could not resolve the latest stable GitHub release."
-archive=campfire_${version}_linux_${arch}.tar.gz
+version=$(curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 60 "$source/version") || fail "Could not read the panel's bundled Spark version."
+[[ $version =~ ^[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}$ ]] || fail "The panel returned an invalid Spark version."
+archive=spark_linux_${arch}.tar.gz
 for asset in "$archive" "$archive.sha256"; do
-  curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 600 "$repository/releases/download/$version/$asset" --output "$stage/$asset"
+  curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 600 "$source/$version/$asset" --output "$stage/$asset" || fail "Could not download the panel's Spark package ($asset). Regenerate the command if Campfire was upgraded."
 done
 (
   cd "$stage"
@@ -73,7 +73,8 @@ done
 tar -xzf "$stage/$archive" -C "$stage" ./spark ./deploy/systemd/spark.service
 chmod 0755 "$stage/spark"
 # Check compatibility before changing an existing installation.
-"$stage/spark" --help 2>&1 | grep -q -- '-enroll-only' || fail "The latest release does not yet support automatic installation. Install a release with --enroll-only support."
+"$stage/spark" --help 2>&1 | grep -q -- '-enroll-only' || fail "The bundled Spark does not support automatic installation."
+"$stage/spark" --update-info | grep -Fq -- "\"version\":\"$version\"" || fail "The bundled Spark version does not match the panel."
 install -d -m 0700 /var/lib/spark
 if systemctl is-active --quiet spark.service; then
   restart_previous=true

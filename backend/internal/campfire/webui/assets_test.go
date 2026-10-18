@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"campfire/internal/shared/buildinfo"
 )
 
 func TestProductionBundleIncludesEntrypointAndAssets(t *testing.T) {
@@ -24,7 +26,7 @@ func TestProductionBundleIncludesEntrypointAndAssets(t *testing.T) {
 	}
 
 	handler := Handler(http.NotFoundHandler())
-	for _, name := range append([]string{"index.html", "install-spark.sh"}, entries...) {
+	for _, name := range append([]string{"index.html", "install-spark.sh", "downloads/spark/version", "downloads/spark/" + buildinfo.SparkVersion() + "/spark_linux_arm64.tar.gz.sha256"}, entries...) {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequestWithContext(context.Background(), "GET", "/"+name, nil))
 		if response.Code != http.StatusOK || response.Body.Len() == 0 {

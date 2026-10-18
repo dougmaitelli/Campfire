@@ -29,6 +29,7 @@ import (
 	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/buildinfo"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/sparkrelease"
 	"campfire/internal/spark/runtime"
 
 	"github.com/gorilla/websocket"
@@ -154,7 +155,17 @@ func Run(ctx context.Context, config Config) error {
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
 	if config.Token == "" {
 		configurations.Update = func(ctx context.Context, version string) (string, error) {
-			return installSparkUpdate(ctx, version, configurations.NegotiatedProtocol, manager.CanUpdate)
+			tlsConfig, err := identityTLS(identity)
+			if err != nil {
+				return "", err
+			}
+
+			transport := &http.Transport{TLSClientConfig: tlsConfig, DialContext: config.dialContext}
+			defer transport.CloseIdleConnections()
+
+			client := sparkrelease.NewClient(identity.PanelURL+"/spark/downloads", transport)
+
+			return installSparkUpdate(ctx, version, configurations.NegotiatedProtocol, manager.CanUpdate, client)
 		}
 	}
 
@@ -414,7 +425,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilitySelfUpdate })
 	}
 
-	if err := conn.WriteJSON(protocol.Message{Type: "hello", Protocol: protocol.ProtocolVersion, MinimumProtocol: protocol.MinimumProtocolVersion, Capabilities: offered, SparkID: id, Hostname: hostname, Version: buildinfo.Version}); err != nil {
+	if err := conn.WriteJSON(protocol.Message{Type: "hello", Protocol: protocol.ProtocolVersion, MinimumProtocol: protocol.MinimumProtocolVersion, Capabilities: offered, SparkID: id, Hostname: hostname, Version: buildinfo.SparkVersion()}); err != nil {
 		return err
 	}
 
