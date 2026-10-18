@@ -1,3 +1,7 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
 import type { Server } from "../api/servers";
@@ -106,9 +110,9 @@ export function ScheduleDialog({
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
+        <Button disabled={busy} onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       }
       footerRight={
         <>
@@ -123,8 +127,8 @@ export function ScheduleDialog({
             disabled={busy}
             deleting={deleting}
           />
-          <button
-            className="button button-primary"
+          <Button
+            variant="primary"
             disabled={
               busy ||
               !name.trim() ||
@@ -137,69 +141,70 @@ export function ScheduleDialog({
             onClick={() => {
               void submit();
             }}
+            loading={busy && !deleting}
+            loadingLabel={"Saving…"}
           >
-            {busy && !deleting ? "Saving…" : "Save schedule"}
-          </button>
+            {"Save schedule"}
+          </Button>
         </>
       }
     >
       <div className="drawer-content">
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
-        <label htmlFor="schedule-name">Name</label>
-        <input
-          id="schedule-name"
-          maxLength={100}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <label htmlFor="schedule-server">Server</label>
-        <Select
-          id="schedule-server"
-          value={serverID}
-          disabled={schedule !== null}
-          onChange={(e) => setServerID(e.target.value)}
-        >
-          {servers.map((server) => (
-            <option key={server.id} value={server.id}>
-              {server.name}
-            </option>
-          ))}
-        </Select>
-        <label htmlFor="schedule-action">Action</label>
-        <Select
-          id="schedule-action"
-          value={action}
-          onChange={(e) => setAction(e.target.value)}
-        >
-          {["backup", "restart", "start", "stop", "kill", "command"].map(
-            (value) => (
-              <option key={value} value={value}>
-                {value === "command"
-                  ? "Console command"
-                  : value.charAt(0).toUpperCase() + value.slice(1)}
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
+        <FormField label="Name">
+          <TextInput
+            id="schedule-name"
+            maxLength={100}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </FormField>
+        <FormField label="Server">
+          <Select
+            id="schedule-server"
+            value={serverID}
+            disabled={schedule !== null}
+            onChange={(e) => setServerID(e.target.value)}
+          >
+            {servers.map((server) => (
+              <option key={server.id} value={server.id}>
+                {server.name}
               </option>
-            ),
-          )}
-        </Select>
+            ))}
+          </Select>
+        </FormField>
+        <FormField label="Action">
+          <Select
+            id="schedule-action"
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+          >
+            {["backup", "restart", "start", "stop", "kill", "command"].map(
+              (value) => (
+                <option key={value} value={value}>
+                  {value === "command"
+                    ? "Console command"
+                    : value.charAt(0).toUpperCase() + value.slice(1)}
+                </option>
+              ),
+            )}
+          </Select>
+        </FormField>
         {action === "command" && (
           <>
-            <label htmlFor="schedule-command">Console command</label>
-            <input
-              id="schedule-command"
-              type="password"
-              autoComplete="off"
-              value={command}
-              maxLength={4096}
-              onChange={(e) => setCommand(e.target.value)}
-            />
-            <p className="field-help">
-              Commands are stored privately for execution. When editing a
-              command schedule, leave this blank to keep its stored command.
-            </p>
+            <FormField
+              label="Console command"
+              description="Commands are stored privately for execution. When editing a command schedule, leave this blank to keep its stored command."
+            >
+              <TextInput
+                id="schedule-command"
+                type="password"
+                autoComplete="off"
+                value={command}
+                maxLength={4096}
+                onChange={(e) => setCommand(e.target.value)}
+              />
+            </FormField>
           </>
         )}
         <CronField

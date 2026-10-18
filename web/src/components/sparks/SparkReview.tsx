@@ -1,3 +1,4 @@
+import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { SparkSettings } from "../../api/sparks";
 import { StatusPill } from "../status/StatusPill";
 
@@ -7,6 +8,7 @@ interface SparkReviewProps {
   disabled: boolean;
   settings: SparkSettings;
   notice?: string;
+  serverCreationRoles?: string;
 }
 
 export function SparkReview({
@@ -14,54 +16,45 @@ export function SparkReview({
   description,
   disabled,
   settings,
+  serverCreationRoles,
   notice = "Review these settings before saving.",
 }: SparkReviewProps) {
   return (
     <div className="spark-review">
-      <dl>
-        <div>
-          <dt>Name</dt>
-          <dd>{name.trim()}</dd>
-        </div>
-        <div>
-          <dt>Description</dt>
-          <dd className="review-description">{description.trim() || "None"}</dd>
-        </div>
-        <div>
-          <dt>Availability</dt>
-          <dd>
-            <StatusPill status={disabled ? "disabled" : "enabled"} />
-          </dd>
-        </div>
-        <div>
-          <dt>CPU limit</dt>
-          <dd>
-            {settings.cpu_limit === 0
-              ? "No limit"
-              : `${settings.cpu_limit} cores`}
-          </dd>
-        </div>
-        <div>
-          <dt>Memory limit</dt>
-          <dd>
-            {settings.memory_mb === 0
-              ? "No limit"
-              : `${settings.memory_mb.toLocaleString()} MiB`}
-          </dd>
-        </div>
-        <div>
-          <dt>Disk limit</dt>
-          <dd>
-            {settings.disk_mb === 0
-              ? "No limit"
-              : `${settings.disk_mb.toLocaleString()} MiB`}
-          </dd>
-        </div>
-        <div>
-          <dt>Game address</dt>
-          <dd>{settings.game_address.trim() || "Not set"}</dd>
-        </div>
-      </dl>
+      <DetailsList>
+        <DetailItem label="Name">{name.trim()}</DetailItem>
+        <DetailItem label="Description" valueClassName="review-description">
+          {description.trim() || "None"}
+        </DetailItem>
+        <DetailItem label="Availability">
+          <StatusPill tone={disabled ? "warning" : "positive"}>
+            {disabled ? "Disabled" : "Enabled"}
+          </StatusPill>
+        </DetailItem>
+        {serverCreationRoles && (
+          <DetailItem label="Server creation access">
+            {serverCreationRoles}
+          </DetailItem>
+        )}
+        <DetailItem label="CPU limit">
+          {settings.cpu_limit === 0
+            ? "No limit"
+            : `${settings.cpu_limit} cores`}
+        </DetailItem>
+        <DetailItem label="Memory limit">
+          {settings.memory_mb === 0
+            ? "No limit"
+            : `${settings.memory_mb.toLocaleString()} MiB`}
+        </DetailItem>
+        <DetailItem label="Disk limit">
+          {settings.disk_mb === 0
+            ? "No limit"
+            : `${settings.disk_mb.toLocaleString()} MiB`}
+        </DetailItem>
+        <DetailItem label="Game address">
+          {settings.game_address.trim() || "Not set"}
+        </DetailItem>
+      </DetailsList>
       <h4>Port allocations</h4>
       {settings.port_allocations.length === 0 ? (
         <p className="field-help">No ports allocated.</p>

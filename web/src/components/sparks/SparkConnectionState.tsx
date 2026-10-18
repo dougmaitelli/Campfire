@@ -9,7 +9,7 @@ export function SparkConnectionState({
 }) {
   return (
     <StatusPill
-      status={disabled ? "disabled" : connected ? "connected" : "disconnected"}
+      tone={disabled ? "warning" : connected ? "positive" : "negative"}
     >
       {disabled ? "Disabled" : connected ? "Connected" : "Disconnected"}
     </StatusPill>

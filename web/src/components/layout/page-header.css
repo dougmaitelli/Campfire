@@ -1,0 +1,49 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  min-height: 36px;
+  margin-bottom: 24px;
+}
+.page-header-copy {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.page-header-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.page-header h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.7px;
+  overflow-wrap: anywhere;
+}
+.page-description {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.page-header .page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+.page-header .page-actions .button {
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .page-header .page-actions {
+    width: 100%;
+  }
+}

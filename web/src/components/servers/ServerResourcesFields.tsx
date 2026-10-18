@@ -1,3 +1,6 @@
+import { FormField } from "../forms/FormField";
+import { TextInput } from "../forms/TextInput";
+import { Button } from "../forms/Button";
 import { Select } from "../forms/Select";
 import type { ServerConfiguration, ServerPort } from "../../api/servers";
 import type { Spark } from "../../api/sparks";
@@ -28,49 +31,52 @@ export function ServerResourcesFields({
         Reserve capacity on {spark?.name ?? "the selected Spark"}. Set the
         resources allocated to this server.
       </p>
-      <label htmlFor="server-cpu">CPU cores</label>
-      <input
-        id="server-cpu"
-        type="number"
-        min={0.1}
-        max={1024}
-        step="any"
-        required
-        value={Number.isNaN(value.cpu_limit) ? "" : value.cpu_limit}
-        onChange={(event) =>
-          onChange({ ...value, cpu_limit: event.target.valueAsNumber })
-        }
-      />
+      <FormField label="CPU cores">
+        <TextInput
+          id="server-cpu"
+          type="number"
+          min={0.1}
+          max={1024}
+          step="any"
+          required
+          value={Number.isNaN(value.cpu_limit) ? "" : value.cpu_limit}
+          onChange={(event) =>
+            onChange({ ...value, cpu_limit: event.target.valueAsNumber })
+          }
+        />
+      </FormField>
       <div className="form-grid">
         <div>
-          <label htmlFor="server-memory">Memory (MiB)</label>
-          <input
-            id="server-memory"
-            type="number"
-            min={64}
-            max={1048576}
-            step={1}
-            required
-            value={Number.isNaN(value.memory_mb) ? "" : value.memory_mb}
-            onChange={(event) =>
-              onChange({ ...value, memory_mb: event.target.valueAsNumber })
-            }
-          />
+          <FormField label="Memory (MiB)">
+            <TextInput
+              id="server-memory"
+              type="number"
+              min={64}
+              max={1048576}
+              step={1}
+              required
+              value={Number.isNaN(value.memory_mb) ? "" : value.memory_mb}
+              onChange={(event) =>
+                onChange({ ...value, memory_mb: event.target.valueAsNumber })
+              }
+            />
+          </FormField>
         </div>
         <div>
-          <label htmlFor="server-disk">Disk (MiB)</label>
-          <input
-            id="server-disk"
-            type="number"
-            min={1}
-            max={1073741824}
-            step={1}
-            required
-            value={Number.isNaN(value.disk_mb) ? "" : value.disk_mb}
-            onChange={(event) =>
-              onChange({ ...value, disk_mb: event.target.valueAsNumber })
-            }
-          />
+          <FormField label="Disk (MiB)">
+            <TextInput
+              id="server-disk"
+              type="number"
+              min={1}
+              max={1073741824}
+              step={1}
+              required
+              value={Number.isNaN(value.disk_mb) ? "" : value.disk_mb}
+              onChange={(event) =>
+                onChange({ ...value, disk_mb: event.target.valueAsNumber })
+              }
+            />
+          </FormField>
         </div>
       </div>
       <h4>Port mappings</h4>
@@ -90,74 +96,77 @@ export function ServerResourcesFields({
         return (
           <fieldset className="port-mapping" key={index}>
             <legend>Mapping {index + 1}</legend>
-            <label htmlFor={`mapping-allocation-${index}`}>
-              Spark allocation
-            </label>
-            <Select
-              id={`mapping-allocation-${index}`}
-              required
-              value={selected >= 0 ? String(selected) : ""}
-              onChange={(event) => {
-                const next = allocations[Number(event.target.value)];
-                if (next)
-                  changePort(index, {
-                    bind_ip: next.bind_ip,
-                    protocol: next.protocol,
-                    host_port: next.start,
-                  });
-              }}
-            >
-              <option value="" disabled>
-                Select allocation
-              </option>
-              {allocations.map((entry, i) => (
-                <option key={i} value={i}>
-                  {entry.bind_ip} · {entry.start}–{entry.end} /{" "}
-                  {entry.protocol.toUpperCase()}
+            <FormField label="Spark allocation">
+              <Select
+                id={`mapping-allocation-${index}`}
+                required
+                value={selected >= 0 ? String(selected) : ""}
+                onChange={(event) => {
+                  const next = allocations[Number(event.target.value)];
+                  if (next)
+                    changePort(index, {
+                      bind_ip: next.bind_ip,
+                      protocol: next.protocol,
+                      host_port: next.start,
+                    });
+                }}
+              >
+                <option value="" disabled>
+                  Select allocation
                 </option>
-              ))}
-            </Select>
+                {allocations.map((entry, i) => (
+                  <option key={i} value={i}>
+                    {entry.bind_ip} · {entry.start}–{entry.end} /{" "}
+                    {entry.protocol.toUpperCase()}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
             <div className="form-grid">
               <div>
-                <label htmlFor={`mapping-host-${index}`}>Host port</label>
-                <input
-                  id={`mapping-host-${index}`}
-                  type="number"
-                  min={allocation?.start ?? 1}
-                  max={allocation?.end ?? 65535}
-                  step={1}
-                  required
-                  value={Number.isNaN(port.host_port) ? "" : port.host_port}
-                  onChange={(event) =>
-                    changePort(index, { host_port: event.target.valueAsNumber })
-                  }
-                />
+                <FormField label="Host port">
+                  <TextInput
+                    id={`mapping-host-${index}`}
+                    type="number"
+                    min={allocation?.start ?? 1}
+                    max={allocation?.end ?? 65535}
+                    step={1}
+                    required
+                    value={Number.isNaN(port.host_port) ? "" : port.host_port}
+                    onChange={(event) =>
+                      changePort(index, {
+                        host_port: event.target.valueAsNumber,
+                      })
+                    }
+                  />
+                </FormField>
               </div>
               <div>
-                <label htmlFor={`mapping-container-${index}`}>
-                  Container port
-                </label>
-                <input
-                  id={`mapping-container-${index}`}
-                  type="number"
-                  min={1}
-                  max={65535}
-                  step={1}
-                  required
-                  value={
-                    Number.isNaN(port.container_port) ? "" : port.container_port
-                  }
-                  onChange={(event) =>
-                    changePort(index, {
-                      container_port: event.target.valueAsNumber,
-                    })
-                  }
-                />
+                <FormField label="Container port">
+                  <TextInput
+                    id={`mapping-container-${index}`}
+                    type="number"
+                    min={1}
+                    max={65535}
+                    step={1}
+                    required
+                    value={
+                      Number.isNaN(port.container_port)
+                        ? ""
+                        : port.container_port
+                    }
+                    onChange={(event) =>
+                      changePort(index, {
+                        container_port: event.target.valueAsNumber,
+                      })
+                    }
+                  />
+                </FormField>
               </div>
             </div>
-            <button
+            <Button
               type="button"
-              className="button button-danger"
+              variant="danger"
               onClick={() =>
                 onChange({
                   ...value,
@@ -167,13 +176,13 @@ export function ServerResourcesFields({
               aria-label={`Remove mapping ${index + 1}`}
             >
               Remove mapping
-            </button>
+            </Button>
           </fieldset>
         );
       })}
-      <button
+      <Button
         type="button"
-        className="button"
+
         disabled={allocations.length === 0 || value.ports.length >= 32}
         onClick={() => {
           const first = allocations[0];
@@ -193,7 +202,7 @@ export function ServerResourcesFields({
         }}
       >
         + Add mapping
-      </button>
+      </Button>
     </fieldset>
   );
 }

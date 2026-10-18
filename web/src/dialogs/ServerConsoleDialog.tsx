@@ -1,3 +1,4 @@
+import { Button } from "../components/forms/Button";
 import { lazy, Suspense, useState } from "react";
 import type { Server } from "../api/servers";
 import { Drawer } from "../components/layout/Drawer";
@@ -26,9 +27,9 @@ export function ServerConsoleDialog({
       onClose={onClose}
       footerLeft={
         embedded ? null : (
-          <button className="button" disabled={busy} onClick={onClose}>
+          <Button disabled={busy} onClick={onClose}>
             Close
-          </button>
+          </Button>
         )
       }
       footerRight={null}

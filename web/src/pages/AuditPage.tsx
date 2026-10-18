@@ -1,8 +1,14 @@
+import { ListToolbar } from "../components/layout/ListToolbar";
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useState } from "react";
 import { activityCursor, listAudit, type AuditEvent } from "../api/activity";
 import "./management.css";
 import { Table } from "../components/table/Table";
-import { StatusPill } from "../components/status/StatusPill";
+import { AuditOutcome } from "../components/activity/AuditOutcome";
 
 export function AuditPage() {
   const [items, setItems] = useState<AuditEvent[]>([]);
@@ -61,56 +67,51 @@ export function AuditPage() {
   }
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Audit</h1>
-          <p className="page-description">
-            Administrative changes, authentication attempts, and server
-            operations.
-          </p>
-        </div>
-        <button
-          className="button"
-          onClick={() => {
-            setLoading(true);
-            setVersion((v) => v + 1);
-          }}
-        >
-          Refresh
-        </button>
-      </header>
+      <PageHeader
+        title="Audit"
+        description="Administrative changes, authentication attempts, and server operations."
+        actions={
+          <>
+            <Button
+              onClick={() => {
+                setLoading(true);
+                setVersion((v) => v + 1);
+              }}
+            >
+              Refresh
+            </Button>
+          </>
+        }
+      />
       {error && items.length > 0 && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
+        <InlineMessage role="alert">{error}</InlineMessage>
       )}
       <form
-        className="list-toolbar"
         onSubmit={(e) => {
           e.preventDefault();
           setLoading(true);
           setFilters({ action: action.trim(), target: target.trim() });
         }}
       >
-        <label>
-          Action
-          <input
-            value={action}
-            maxLength={100}
-            placeholder="server.restart"
-            onChange={(e) => setAction(e.target.value)}
-          />
-        </label>
-        <label>
-          Target
-          <input
-            value={target}
-            maxLength={150}
-            placeholder="server:ID"
-            onChange={(e) => setTarget(e.target.value)}
-          />
-        </label>
-        <button className="button">Filter</button>
+        <ListToolbar>
+          <FormField label="Action">
+            <TextInput
+              value={action}
+              maxLength={100}
+              placeholder="server.restart"
+              onChange={(e) => setAction(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Target">
+            <TextInput
+              value={target}
+              maxLength={150}
+              placeholder="server:ID"
+              onChange={(e) => setTarget(e.target.value)}
+            />
+          </FormField>
+          <Button>Filter</Button>
+        </ListToolbar>
       </form>
       <div className="management-content">
         <Table
@@ -147,22 +148,21 @@ export function AuditPage() {
                 <td>{item.action}</td>
                 <td>{item.target}</td>
                 <td>
-                  <StatusPill status={item.outcome} />
+                  <AuditOutcome outcome={item.outcome} />
                 </td>
               </tr>
             ))}
           </tbody>
         </Table>
         {older && (
-          <button
-            className="button"
+          <Button
             disabled={busy}
             onClick={() => {
               void more();
             }}
           >
             Load older records
-          </button>
+          </Button>
         )}
       </div>
     </section>

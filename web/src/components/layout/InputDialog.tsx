@@ -1,3 +1,7 @@
+import { FormField } from "../forms/FormField";
+import { TextInput } from "../forms/TextInput";
+import { InlineMessage } from "../status/InlineMessage";
+import { Button } from "../forms/Button";
 import { useEffect, useId, useRef, useState } from "react";
 import { formatErrorMessage } from "../../utils/errors";
 import "./confirm-dialog.css";
@@ -76,36 +80,35 @@ export function InputDialog({
       >
         <h2 id={`${id}-title`}>{title}</h2>
         <p id={`${id}-description`}>{description}</p>
-        <label htmlFor={`${id}-input`}>{label}</label>
-        <input
-          ref={input}
-          id={`${id}-input`}
-          value={value}
-          required
-          disabled={busy}
-          onChange={(event) => setValue(event.target.value)}
-        />
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        <FormField label={<>{label}</>}>
+          <TextInput
+            ref={input}
+            id={`${id}-input`}
+            value={value}
+            required
+            disabled={busy}
+            onChange={(event) => setValue(event.target.value)}
+          />
+        </FormField>
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
         <div className="confirm-dialog-actions">
-          <button
+          <Button
             type="button"
-            className="button"
+
             disabled={busy}
             onClick={onClose}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className="button button-primary"
+            variant="primary"
             disabled={busy || !value.trim()}
+            loading={busy}
+            loadingLabel={"Working…"}
           >
-            {busy ? "Working…" : submitLabel}
-          </button>
+            {submitLabel}
+          </Button>
         </div>
       </form>
     </dialog>

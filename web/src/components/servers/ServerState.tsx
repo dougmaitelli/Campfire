@@ -1,4 +1,25 @@
-import { StatusPill } from "../status/StatusPill";
+import { StatusPill, type StatusTone } from "../status/StatusPill";
+
+const tones: Record<string, StatusTone> = {
+  running: "positive",
+  not_installed: "warning",
+  paused: "warning",
+  dead: "negative",
+  unknown: "negative",
+  failed: "negative",
+  error: "negative",
+  starting: "pending",
+  stopping: "pending",
+  restarting: "pending",
+  installing: "pending",
+  reinstalling: "pending",
+  updating: "pending",
+  restoring: "pending",
+  backing_up: "pending",
+  importing: "pending",
+  exporting: "pending",
+  deleting: "pending",
+};
 
 const labels: Record<string, string> = {
   running: "Running",
@@ -36,7 +57,7 @@ export function ServerState({
     runtimeState === "running" && !ready ? "starting" : runtimeState;
   const label = labels[state] ?? "Unavailable";
   return (
-    <StatusPill status={labels[state] ? state : "unavailable"}>
+    <StatusPill tone={labels[state] ? (tones[state] ?? "neutral") : "negative"}>
       {label}
     </StatusPill>
   );

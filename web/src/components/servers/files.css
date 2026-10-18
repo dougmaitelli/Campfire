@@ -68,18 +68,8 @@
   max-width: 75ch;
   color: var(--muted);
 }
-.file-sftp-content dl {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px 20px;
+.file-sftp-content .details-list {
   margin: 16px 0;
-}
-.file-sftp-content dt {
-  color: var(--muted);
-}
-.file-sftp-content dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 .file-list {
   display: flex;

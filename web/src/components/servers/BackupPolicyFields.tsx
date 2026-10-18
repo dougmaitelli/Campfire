@@ -1,3 +1,5 @@
+import { FormField } from "../forms/FormField";
+import { TextInput } from "../forms/TextInput";
 import { Select } from "../forms/Select";
 import type { BackupPolicy } from "../../api/backups";
 
@@ -12,22 +14,23 @@ export function BackupPolicyFields({
 }) {
   return (
     <>
-      <label htmlFor="backup-storage">Background S3 sync</label>
-      <Select
-        id="backup-storage"
-        value={value.storage}
-        onChange={(event) =>
-          onChange({
-            ...value,
-            storage: event.target.value as BackupPolicy["storage"],
-          })
-        }
-      >
-        <option value="local">Disabled</option>
-        <option value="s3" disabled={!s3Available}>
-          Enabled
-        </option>
-      </Select>
+      <FormField label="Background S3 sync">
+        <Select
+          id="backup-storage"
+          value={value.storage}
+          onChange={(event) =>
+            onChange({
+              ...value,
+              storage: event.target.value as BackupPolicy["storage"],
+            })
+          }
+        >
+          <option value="local">Disabled</option>
+          <option value="s3" disabled={!s3Available}>
+            Enabled
+          </option>
+        </Select>
+      </FormField>
       {!s3Available && (
         <p className="field-help">
           Configure S3 on Campfire before enabling sync.
@@ -42,19 +45,20 @@ export function BackupPolicyFields({
         ] as const
       ).map(([key, label, max]) => (
         <div key={key}>
-          <label htmlFor={`backup-${key}`}>{label}</label>
-          <input
-            id={`backup-${key}`}
-            type="number"
-            min={0}
-            max={max}
-            step={1}
-            required
-            value={value[key]}
-            onChange={(event) =>
-              onChange({ ...value, [key]: Number(event.target.value) })
-            }
-          />
+          <FormField label={<>{label}</>}>
+            <TextInput
+              id={`backup-${key}`}
+              type="number"
+              min={0}
+              max={max}
+              step={1}
+              required
+              value={value[key]}
+              onChange={(event) =>
+                onChange({ ...value, [key]: Number(event.target.value) })
+              }
+            />
+          </FormField>
         </div>
       ))}
       <p className="field-help">

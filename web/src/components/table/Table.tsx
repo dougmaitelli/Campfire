@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
-import { NavigationIcon } from "../navigation/NavigationIcon";
+import { ContentState } from "../layout/ContentState";
 import "./table.css";
 
 export function Table({
@@ -26,41 +26,15 @@ export function Table({
 }) {
   if (empty)
     return (
-      <div
-        className={`table-state${loading ? " table-state-loading" : ""}`}
-        role={error && !loading ? "alert" : "status"}
-        aria-busy={loading}
-      >
-        <span className="table-state-icon">
-          <NavigationIcon
-            name={loading ? "loading" : error ? "warning" : "table"}
-          />
-        </span>
-        <h2>
-          {loading
-            ? `Loading ${resource}…`
-            : error
-              ? `Unable to load ${resource}`
-              : (emptyMessage ?? `No ${resource} yet`)}
-        </h2>
-        {error && !loading ? (
-          <>
-            <p>{error}</p>
-            {onRetry && (
-              <button type="button" className="button" onClick={onRetry}>
-                Try again
-              </button>
-            )}
-          </>
-        ) : (
-          !loading && (
-            <>
-              {emptyDescription && <p>{emptyDescription}</p>}
-              {emptyAction}
-            </>
-          )
-        )}
-      </div>
+      <ContentState
+        loading={loading}
+        error={error}
+        resource={resource}
+        emptyMessage={emptyMessage}
+        emptyDescription={emptyDescription}
+        emptyAction={emptyAction}
+        onRetry={onRetry}
+      />
     );
   return (
     <div className="table-container">

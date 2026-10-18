@@ -1,3 +1,7 @@
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { ContentState } from "../components/layout/ContentState";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useRef, useState } from "react";
 import {
   listNotifications,
@@ -110,41 +114,40 @@ export function NotificationsPage() {
   }
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Notifications</h1>
-          <p className="page-description">
-            Health and resource alerts, recoveries, and messages for your
-            account.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button className="button" disabled={busy} onClick={refresh}>
-            Refresh
-          </button>
-          <button
-            className="button"
-            disabled={busy || !items.length}
-            onClick={() => {
-              void perform(() =>
-                markAllNotificationsRead(
-                  Math.max(...items.map((item) => item.id)),
-                ),
-              );
-            }}
-          >
-            Mark all read
-          </button>
-        </div>
-      </header>
-      {error && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
-      )}
+      <PageHeader
+        title="Notifications"
+        description="Health and resource alerts, recoveries, and messages for your account."
+        actions={
+          <>
+            <Button disabled={busy} onClick={refresh}>
+              Refresh
+            </Button>
+            <Button
+              disabled={busy || !items.length}
+              onClick={() => {
+                void perform(() =>
+                  markAllNotificationsRead(
+                    Math.max(...items.map((item) => item.id)),
+                  ),
+                );
+              }}
+            >
+              Mark all read
+            </Button>
+          </>
+        }
+      />
+      {error && <InlineMessage role="alert">{error}</InlineMessage>}
       <div className="management-content">
-        {loading && <p role="status">Loading notifications…</p>}
-        {!loading && !items.length && <p>No notifications.</p>}
+        {(loading || !items.length) && (
+          <ContentState
+            loading={loading}
+            error={error}
+            resource="notifications"
+            emptyMessage="No notifications."
+            onRetry={refresh}
+          />
+        )}
         {items.map((item) => (
           <article
             className="notification-message"
@@ -166,8 +169,7 @@ export function NotificationsPage() {
                 · {item.severity} · {item.kind}
               </p>
             </div>
-            <button
-              className="button"
+            <Button
               aria-label={`${item.read_at ? "Mark unread" : "Mark read"}: ${item.title}`}
               disabled={busy}
               onClick={() => {
@@ -177,19 +179,18 @@ export function NotificationsPage() {
               }}
             >
               {item.read_at ? "Mark unread" : "Mark read"}
-            </button>
+            </Button>
           </article>
         ))}
         {older && (
-          <button
-            className="button"
+          <Button
             disabled={busy}
             onClick={() => {
               void more();
             }}
           >
             Load older
-          </button>
+          </Button>
         )}
       </div>
     </section>

@@ -1,9 +1,14 @@
+import { SearchField } from "../components/forms/SearchField";
+import { Button, ButtonLink } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { ListToolbar } from "../components/layout/ListToolbar";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useState } from "react";
 import { listAllBackups } from "../api/backups";
 import { bytes } from "../api/monitoring";
 import { useCollection } from "../hooks/useCollection";
 import { Table, TableRow } from "../components/table/Table";
-import { StatusPill } from "../components/status/StatusPill";
+import { BackupState } from "../components/servers/BackupState";
 import "./management.css";
 
 export function BackupsPage() {
@@ -17,39 +22,33 @@ export function BackupsPage() {
   );
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Backups</h1>
-          <p className="page-description">
-            Backup archives across all servers, including local and S3 copies.
-          </p>
-        </div>
-        <button
-          className="button"
-          disabled={backups.loading}
-          onClick={() => {
-            void backups.refresh();
-          }}
-        >
-          Refresh
-        </button>
-      </header>
+      <PageHeader
+        title="Backups"
+        description="Backup archives across all servers, including local and S3 copies."
+        actions={
+          <>
+            <Button
+              disabled={backups.loading}
+              onClick={() => {
+                void backups.refresh();
+              }}
+            >
+              Refresh
+            </Button>
+          </>
+        }
+      />
       {backups.error && backups.items.length > 0 && (
-        <p className="error-message" role="alert">
-          {backups.error}
-        </p>
+        <InlineMessage role="alert">{backups.error}</InlineMessage>
       )}
-      <div className="list-toolbar">
-        <label>
-          Search
-          <input
-            type="search"
-            placeholder="Search backups by archive or server…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </label>
-      </div>
+      <ListToolbar>
+        <SearchField
+          label="Search"
+          placeholder="Search backups by archive or server…"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </ListToolbar>
       <div className="management-content">
         <Table
           empty={filtered.length === 0}
@@ -100,18 +99,17 @@ export function BackupsPage() {
                       .join(" · ") || "—"}
                   </td>
                   <td>
-                    <StatusPill status={item.state} />
+                    <BackupState state={item.state} />
                   </td>
                   <td className="table-actions">
                     {item.state !== "deleting" &&
                       (item.local || item.remote) && (
-                        <a
-                          className="button"
+                        <ButtonLink
                           href={`/api/v1/servers/${encodeURIComponent(item.server_id)}/backups/${encodeURIComponent(item.name)}`}
                           download
                         >
                           Download
-                        </a>
+                        </ButtonLink>
                       )}
                   </td>
                 </TableRow>

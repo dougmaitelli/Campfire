@@ -1,3 +1,4 @@
+import { Button } from "../forms/Button";
 import type { Spark } from "../../api/sparks";
 import { Table, TableRow } from "../table/Table";
 import { SparkConnectionState } from "./SparkConnectionState";
@@ -10,8 +11,6 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 export function SparksTable({
   sparks,
   onDetails,
-  onEnroll,
-  onProvisioning,
   loading,
   error,
   onRetry,
@@ -19,8 +18,6 @@ export function SparksTable({
 }: {
   sparks: Spark[];
   onDetails: (spark: Spark) => void;
-  onEnroll: (spark: Spark) => void;
-  onProvisioning: (spark: Spark) => void;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -35,9 +32,9 @@ export function SparksTable({
       resource="Sparks"
       emptyDescription="Add your first node to get started."
       emptyAction={
-        <button className="button button-primary" onClick={onAdd}>
+        <Button variant="primary" onClick={onAdd}>
           Add Spark
-        </button>
+        </Button>
       }
       onRetry={onRetry}
     >
@@ -49,9 +46,6 @@ export function SparksTable({
           <th scope="col">Limits</th>
           <th scope="col">Game networking</th>
           <th scope="col">Added</th>
-          <th scope="col" className="table-actions">
-            <span className="visually-hidden">Actions</span>
-          </th>
         </tr>
       </thead>
       <tbody>
@@ -104,26 +98,6 @@ export function SparksTable({
               <time dateTime={spark.created_at}>
                 {dateFormat.format(new Date(spark.created_at))}
               </time>
-            </td>
-            <td className="table-actions">
-              <div className="row-actions">
-                <button
-                  className="button"
-                  onClick={() => onProvisioning(spark)}
-                  aria-label={`Provisioning access for ${spark.name}`}
-                >
-                  Provisioning
-                </button>
-                <button
-                  type="button"
-                  className="button"
-                  disabled={spark.disabled}
-                  onClick={() => onEnroll(spark)}
-                  aria-label={`Enroll ${spark.name}`}
-                >
-                  Enroll
-                </button>
-              </div>
             </td>
           </TableRow>
         ))}

@@ -1,3 +1,5 @@
+import { InlineMessage } from "../status/InlineMessage";
+import { Button } from "../forms/Button";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import "./confirm-dialog.css";
 
@@ -49,29 +51,27 @@ export function ConfirmDialog({
       <h2 id={`${id}-title`}>{title}</h2>
       <p id={`${id}-description`}>{description}</p>
       {children}
-      {error && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <InlineMessage role="alert">{error}</InlineMessage>}
       <div className="confirm-dialog-actions">
-        <button
+        <Button
           ref={cancel}
           type="button"
-          className="button"
+
           disabled={busy}
           onClick={onClose}
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className={`button ${danger ? "button-danger" : warning ? "button-warning" : "button-primary"}`}
+          variant={danger ? "danger" : warning ? "warning" : "primary"}
           disabled={busy || disabled}
           onClick={onConfirm}
+          loading={busy}
+          loadingLabel={"Working…"}
         >
-          {busy ? "Working…" : confirmLabel}
-        </button>
+          {confirmLabel}
+        </Button>
       </div>
     </dialog>
   );

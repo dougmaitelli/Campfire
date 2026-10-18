@@ -1,3 +1,7 @@
+import { FormField } from "../components/forms/FormField";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { Button, ButtonLink } from "../components/forms/Button";
+import { TextInput } from "../components/forms/TextInput";
 import { useRef, useState } from "react";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { useAuthentication } from "../hooks/useAuthentication";
@@ -57,17 +61,14 @@ export function AuthenticationPage() {
         </h1>
         {auth.error ? (
           <>
-            <p className="error-message" role="alert">
-              {auth.error}
-            </p>
-            <button
-              className="button"
+            <InlineMessage role="alert">{auth.error}</InlineMessage>
+            <Button
               onClick={() => {
                 void auth.reload();
               }}
             >
               Retry
-            </button>
+            </Button>
           </>
         ) : !auth.session ? (
           <p role="status">Connecting…</p>
@@ -85,25 +86,34 @@ export function AuthenticationPage() {
                 : "Sign in to access your game servers."}
             </p>
             {(error !== null || oidcError) && (
-              <p className="error-message" role="alert">
+              <InlineMessage role="alert">
                 {error ??
                   "OpenID Connect sign-in failed. Please try again or contact your administrator."}
-              </p>
+              </InlineMessage>
             )}
             {!setup && auth.session.oidc_enabled && (
-              <a
-                className="button button-primary"
-                href="/api/v1/auth/oidc/start"
-              >
+              <ButtonLink variant="primary" href="/api/v1/auth/oidc/start">
                 Sign in with OpenID Connect
-              </a>
+              </ButtonLink>
             )}
             {localLogin && (
               <>
                 {setup && (
-                  <label>
-                    Setup token
-                    <input
+                  <FormField
+                    label="Setup token"
+                    description={
+                      <>
+                        <span
+                          id="setup-token-help"
+                          className="authentication-hint"
+                        >
+                          Copy the one-time setup token from Campfire’s startup
+                          console output or container logs.
+                        </span>
+                      </>
+                    }
+                  >
+                    <TextInput
                       type="password"
                       name="setup_token"
                       autoComplete="off"
@@ -112,17 +122,11 @@ export function AuthenticationPage() {
                       required
                       disabled={busy}
                       onChange={(event) => setToken(event.target.value)}
-                      aria-describedby="setup-token-help"
                     />
-                    <span id="setup-token-help" className="authentication-hint">
-                      Copy the one-time setup token from Campfire’s startup
-                      console output or container logs.
-                    </span>
-                  </label>
+                  </FormField>
                 )}
-                <label>
-                  Username
-                  <input
+                <FormField label="Username">
+                  <TextInput
                     autoComplete="username"
                     name="username"
                     autoCapitalize="none"
@@ -134,10 +138,9 @@ export function AuthenticationPage() {
                     disabled={busy}
                     onChange={(event) => setUsername(event.target.value)}
                   />
-                </label>
-                <label>
-                  Password
-                  <input
+                </FormField>
+                <FormField label="Password">
+                  <TextInput
                     type="password"
                     autoComplete={setup ? "new-password" : "current-password"}
                     name="password"
@@ -148,11 +151,20 @@ export function AuthenticationPage() {
                     disabled={busy}
                     onChange={(event) => setPassword(event.target.value)}
                   />
-                </label>
+                </FormField>
                 {setup && (
-                  <label>
-                    Confirm password
-                    <input
+                  <FormField
+                    label="Confirm password"
+                    description={
+                      <>
+                        <span className="authentication-hint">
+                          Use at least 15 characters. Spaces and passphrases are
+                          welcome.
+                        </span>
+                      </>
+                    }
+                  >
+                    <TextInput
                       type="password"
                       autoComplete="new-password"
                       name="confirmation"
@@ -163,19 +175,16 @@ export function AuthenticationPage() {
                       disabled={busy}
                       onChange={(event) => setConfirmation(event.target.value)}
                     />
-                    <span className="authentication-hint">
-                      Use at least 15 characters. Spaces and passphrases are
-                      welcome.
-                    </span>
-                  </label>
+                  </FormField>
                 )}
-                <button className="button button-primary" disabled={busy}>
-                  {busy
-                    ? "Please wait…"
-                    : setup
-                      ? "Create administrator"
-                      : "Sign in"}
-                </button>
+                <Button
+                  variant="primary"
+                  disabled={busy}
+                  loading={busy}
+                  loadingLabel={"Please wait…"}
+                >
+                  {setup ? "Create administrator" : "Sign in"}
+                </Button>
                 {!setup && (
                   <p className="authentication-hint">
                     Forgot your password? Use the reset-password command on your

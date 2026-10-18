@@ -1,3 +1,7 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
 import { saveRole, type Role } from "../api/access";
@@ -63,17 +67,13 @@ export function RoleDialog({
   return (
     <Drawer
       title={role ? "Edit role" : "Create role"}
-      description="Platform roles grant panel capabilities; server roles apply only to assigned servers."
+      description="Roles grant panel capabilities; server roles apply only to assigned servers."
       busy={busy || deleting}
       onClose={onClose}
       footerLeft={
-        <button
-          className="button"
-          disabled={busy || deleting}
-          onClick={onClose}
-        >
+        <Button disabled={busy || deleting} onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       }
       footerRight={
         <>
@@ -82,51 +82,49 @@ export function RoleDialog({
             disabled={busy}
             deleting={deleting}
           />
-          <button
-            className="button button-primary"
+          <Button
+            variant="primary"
             disabled={busy || deleting || !name.trim()}
             onClick={() => {
               void submit();
             }}
+            loading={busy}
+            loadingLabel={"Saving…"}
           >
-            {busy ? "Saving…" : "Save role"}
-          </button>
+            {"Save role"}
+          </Button>
         </>
       }
     >
       <div className="drawer-content">
         {deleteError && (
-          <p className="error-message" role="alert">
-            {deleteError}
-          </p>
+          <InlineMessage role="alert">{deleteError}</InlineMessage>
         )}
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
-        <label htmlFor="role-name">Name</label>
-        <input
-          id="role-name"
-          value={name}
-          maxLength={64}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <label htmlFor="role-scope">Scope</label>
-        <Select
-          id="role-scope"
-          value={scope}
-          disabled={role !== null}
-          onChange={(event) => {
-            const next =
-              event.target.value === "platform" ? "platform" : "server";
-            setScope(next);
-            setPermissions(next === "server" ? ["server.view"] : []);
-          }}
-        >
-          <option value="server">Server</option>
-          <option value="platform">Platform</option>
-        </Select>
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
+        <FormField label="Name">
+          <TextInput
+            id="role-name"
+            value={name}
+            maxLength={64}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </FormField>
+        <FormField label="Scope">
+          <Select
+            id="role-scope"
+            value={scope}
+            disabled={role !== null}
+            onChange={(event) => {
+              const next =
+                event.target.value === "platform" ? "platform" : "server";
+              setScope(next);
+              setPermissions(next === "server" ? ["server.view"] : []);
+            }}
+          >
+            <option value="server">Server</option>
+            <option value="platform">Platform</option>
+          </Select>
+        </FormField>
         <h3>Permissions</h3>
         {choices.map(([permission, label]) => (
           <CheckboxField

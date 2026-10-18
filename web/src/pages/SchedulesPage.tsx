@@ -1,3 +1,8 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { ListToolbar } from "../components/layout/ListToolbar";
+import { PageHeader } from "../components/layout/PageHeader";
 import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { listServers } from "../api/servers";
@@ -14,7 +19,7 @@ import { useCollection } from "../hooks/useCollection";
 import { ScheduleDialog } from "../dialogs/ScheduleDialog";
 import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
-import { StatusPill } from "../components/status/StatusPill";
+import { ExecutionState } from "../components/schedules/ExecutionState";
 
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
@@ -129,44 +134,40 @@ export function SchedulesPage() {
   }
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Schedules</h1>
-          <p className="page-description">
-            Recurring operations and durable execution history.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button
-            className="button"
-            onClick={() => {
-              void perform(async () => {});
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            className="button button-primary"
-            disabled={!managed.length}
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
-          >
-            + Create schedule
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Schedules"
+        description="Recurring operations and durable execution history."
+        actions={
+          <>
+            <Button
+              onClick={() => {
+                void perform(async () => {});
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!managed.length}
+              onClick={() => {
+                setEditing(null);
+                setOpen(true);
+              }}
+            >
+              + Create schedule
+            </Button>
+          </>
+        }
+      />
       {(error ??
         (schedules.items.length ? schedules.error : null) ??
         (servers.items.length ? servers.error : null)) && (
-        <p className="error-message" role="alert">
+        <InlineMessage role="alert">
           {error ?? schedules.error ?? servers.error}
-        </p>
+        </InlineMessage>
       )}
-      <div className="list-toolbar">
-        <label htmlFor="schedule-filter">
-          Server
+      <ListToolbar>
+        <FormField label="Server">
           <Select
             id="schedule-filter"
             value={filter}
@@ -183,8 +184,8 @@ export function SchedulesPage() {
               </option>
             ))}
           </Select>
-        </label>
-      </div>
+        </FormField>
+      </ListToolbar>
       <div className="management-content">
         <Table
           empty={
@@ -265,15 +266,14 @@ export function SchedulesPage() {
                   <td className="table-actions">
                     {managed.some((server) => server.id === item.server_id) && (
                       <div className="row-actions">
-                        <button
-                          className="button"
+                        <Button
                           disabled={busy}
                           onClick={() => {
                             void perform(() => runSchedule(item.id));
                           }}
                         >
                           Run now
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </td>
@@ -324,10 +324,7 @@ export function SchedulesPage() {
                 </td>
                 <td>{run.username}</td>
                 <td>
-                  <StatusPill
-                    status={run.state}
-                    tone={run.state === "running" ? "pending" : undefined}
-                  />
+                  <ExecutionState state={run.state} />
                   <span className="row-description">{run.message}</span>
                 </td>
                 <td>{when(run.finished_at)}</td>
@@ -346,8 +343,7 @@ export function SchedulesPage() {
                         server.id === run.server_id &&
                         server.permissions.includes("server.operate"),
                     ) && (
-                      <button
-                        className="button"
+                      <Button
                         disabled={busy}
                         onClick={() => {
                           if (
@@ -359,7 +355,7 @@ export function SchedulesPage() {
                         }}
                       >
                         Retry
-                      </button>
+                      </Button>
                     )}
                 </td>
               </tr>
@@ -367,15 +363,14 @@ export function SchedulesPage() {
           </tbody>
         </Table>
         {older && (
-          <button
-            className="button"
+          <Button
             disabled={busy}
             onClick={() => {
               void more();
             }}
           >
             Load older executions
-          </button>
+          </Button>
         )}
       </div>
       {open && (

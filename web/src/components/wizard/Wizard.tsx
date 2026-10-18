@@ -1,3 +1,5 @@
+import { InlineMessage } from "../status/InlineMessage";
+import { Button } from "../forms/Button";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import "./wizard.css";
@@ -121,9 +123,7 @@ export function Wizard({
           {step.title}
         </h3>
         {(validationError ?? error) && (
-          <p className="error-message" role="alert">
-            {validationError ?? error}
-          </p>
+          <InlineMessage role="alert">{validationError ?? error}</InlineMessage>
         )}
         <fieldset
           className="wizard-fields"
@@ -147,29 +147,27 @@ export function Wizard({
   const actions = (
     <>
       {index > 0 && (
-        <button
+        <Button
           type="button"
-          className="button"
+
           disabled={busy}
           onClick={() => {
             goToStep(index - 1);
           }}
         >
           Back
-        </button>
+        </Button>
       )}
-      <button
+      <Button
         type="submit"
         form={formID}
-        className="button button-primary"
+        variant="primary"
         disabled={busy}
+        loading={busy}
+        loadingLabel={"Saving…"}
       >
-        {busy
-          ? "Saving…"
-          : finalStep
-            ? finishLabel
-            : `Next: ${steps[index + 1]?.title ?? ""}`}
-      </button>
+        {finalStep ? finishLabel : `Next: ${steps[index + 1]?.title ?? ""}`}
+      </Button>
     </>
   );
 

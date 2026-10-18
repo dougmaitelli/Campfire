@@ -1,3 +1,8 @@
+import { SearchField } from "../components/forms/SearchField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { ListToolbar } from "../components/layout/ListToolbar";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useState } from "react";
 import { listRoles, listUsers, type User } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
@@ -26,51 +31,43 @@ export function UsersPage() {
   }
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Users</h1>
-          <p className="page-description">
-            Accounts, platform roles, and sign-in access.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button
-            className="button"
-            onClick={() => {
-              void users.refresh();
-              void roles.refresh();
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            className="button button-primary"
-            disabled={roles.loading || !!roles.error}
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
-          >
-            + Create user
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Users"
+        description="Accounts, roles, and sign-in access."
+        actions={
+          <>
+            <Button
+              onClick={() => {
+                void users.refresh();
+                void roles.refresh();
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              disabled={roles.loading || !!roles.error}
+              onClick={() => {
+                setEditing(null);
+                setOpen(true);
+              }}
+            >
+              + Create user
+            </Button>
+          </>
+        }
+      />
       {users.items.length > 0 && (users.error ?? roles.error) && (
-        <p className="error-message" role="alert">
-          {users.error ?? roles.error}
-        </p>
+        <InlineMessage role="alert">{users.error ?? roles.error}</InlineMessage>
       )}
-      <div className="list-toolbar">
-        <label>
-          Search
-          <input
-            type="search"
-            placeholder="Search users by name, username, or email…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </label>
-      </div>
+      <ListToolbar>
+        <SearchField
+          label="Search"
+          placeholder="Search users by name, username, or email…"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </ListToolbar>
       <div className="management-content">
         <Table
           empty={filtered.length === 0}
@@ -86,7 +83,7 @@ export function UsersPage() {
           <thead>
             <tr>
               <th>User</th>
-              <th>Platform role</th>
+              <th>Role</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -109,7 +106,7 @@ export function UsersPage() {
                 </td>
                 <td>{user.role.name}</td>
                 <td>
-                  <StatusPill status={user.disabled ? "disabled" : "enabled"}>
+                  <StatusPill tone={user.disabled ? "warning" : "positive"}>
                     {user.disabled ? "Disabled" : "Enabled"}
                   </StatusPill>
                 </td>

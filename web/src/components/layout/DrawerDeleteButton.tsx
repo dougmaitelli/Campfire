@@ -1,3 +1,4 @@
+import { Button } from "../forms/Button";
 export function DrawerDeleteButton({
   onDelete,
   disabled = false,
@@ -9,13 +10,15 @@ export function DrawerDeleteButton({
 }) {
   if (!onDelete) return null;
   return (
-    <button
+    <Button
       type="button"
-      className="button button-danger"
+      variant="danger"
       disabled={disabled || deleting}
       onClick={onDelete}
+      loading={deleting}
+      loadingLabel={"Deleting…"}
     >
-      {deleting ? "Deleting…" : "Delete"}
-    </button>
+      {"Delete"}
+    </Button>
   );
 }

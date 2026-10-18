@@ -1,16 +1,18 @@
+import { Button } from "../forms/Button";
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import "./drawer.css";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 
 interface DrawerProps {
-  title: string;
+  title: ReactNode;
   description: string;
   busy: boolean;
   onClose: () => void;
   children: ReactNode;
   footerLeft: ReactNode;
   footerRight: ReactNode;
+  actions?: ReactNode;
   embedded?: boolean;
   unsavedChanges?: boolean;
 }
@@ -23,6 +25,7 @@ export function Drawer({
   children,
   footerLeft,
   footerRight,
+  actions,
   embedded = false,
   unsavedChanges = false,
 }: DrawerProps) {
@@ -36,22 +39,31 @@ export function Drawer({
     dialog?.querySelector<HTMLInputElement>("input, textarea")?.focus();
     return () => dialog?.close();
   }, [embedded]);
+  const actionBar = actions != null && (
+    <div className="drawer-actions" role="group" aria-label="Actions">
+      {actions}
+    </div>
+  );
+  const footer = (footerLeft != null || footerRight != null) && (
+    <footer className="drawer-footer">
+      <div className="drawer-footer-left">{footerLeft}</div>
+      <div className="drawer-footer-right">{footerRight}</div>
+    </footer>
+  );
   if (embedded)
     return (
       <section className="drawer-form operations-panel" aria-labelledby={id}>
         <header className="drawer-heading">
           <div>
-            <h2 id={id}>{title}</h2>
+            <h2 id={id} className="drawer-title">
+              {title}
+            </h2>
             <p>{description}</p>
           </div>
         </header>
+        {actionBar}
         <div className="drawer-content-area">{children}</div>
-        {(footerLeft != null || footerRight != null) && (
-          <footer className="drawer-footer">
-            <div className="drawer-footer-left">{footerLeft}</div>
-            <div className="drawer-footer-right">{footerRight}</div>
-          </footer>
-        )}
+        {footer}
       </section>
     );
   return (
@@ -68,12 +80,14 @@ export function Drawer({
       <div className="drawer-form">
         <header className="drawer-heading">
           <div>
-            <h2 id={id}>{title}</h2>
+            <h2 id={id} className="drawer-title">
+              {title}
+            </h2>
             <p id={`${id}-description`}>{description}</p>
           </div>
-          <button
+          <Button
             type="button"
-            className="button button-icon"
+            className="button-icon"
             aria-label="Close"
             disabled={busy}
             onClick={onClose}
@@ -90,13 +104,11 @@ export function Drawer({
             >
               <path d="M6 6l12 12M18 6 6 18" />
             </svg>
-          </button>
+          </Button>
         </header>
+        {actionBar}
         <div className="drawer-content-area">{children}</div>
-        <footer className="drawer-footer">
-          <div className="drawer-footer-left">{footerLeft}</div>
-          <div className="drawer-footer-right">{footerRight}</div>
-        </footer>
+        {footer}
       </div>
     </dialog>
   );

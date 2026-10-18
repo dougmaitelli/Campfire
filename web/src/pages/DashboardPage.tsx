@@ -1,3 +1,6 @@
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useState } from "react";
 import { bytes, containerFresh, diskFresh } from "../api/monitoring";
 import { useMonitoring } from "../hooks/useMonitoring";
@@ -11,14 +14,16 @@ import { MetricTile, ResourceTile } from "../components/metrics/MetricTile";
 import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
 import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
-import {
-  ResourceDetailsDialog,
-  type ResourceDetailTarget,
-} from "../dialogs/ResourceDetailsDialog";
+import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
+import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 import "./monitoring.css";
 
 export function DashboardPage() {
-  const [details, setDetails] = useState<ResourceDetailTarget | null>(null);
+  const [details, setDetails] = useState<{
+    kind: "server" | "spark";
+    id: string;
+    name: string;
+  } | null>(null);
   const monitor = useMonitoring();
   const auth = useAuthentication();
   const servers = monitor.snapshot?.servers ?? [];
@@ -70,30 +75,30 @@ export function DashboardPage() {
     value.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Dashboard</h1>
-          <p className="page-description">
+      <PageHeader
+        title="Dashboard"
+        description={
+          <>
             Live usage for{" "}
             {auth.session?.admin ? "all servers" : "your accessible servers"}.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button className="button" onClick={monitor.refresh}>
-            Refresh
-          </button>
-        </div>
-      </header>
+          </>
+        }
+        actions={
+          <>
+            <Button onClick={monitor.refresh}>Refresh</Button>
+          </>
+        }
+      />
       {monitor.error &&
         (servers.length > 0 || !!monitor.snapshot?.sparks?.length) && (
-          <p className="error-message" role="alert">
+          <InlineMessage role="alert">
             {monitor.error} Previous readings may be stale.
-          </p>
+          </InlineMessage>
         )}
       {monitor.snapshot?.incomplete && (
-        <p className="field-help" role="status">
+        <InlineMessage tone="info" role="status">
           Some servers are not reporting resource usage.
-        </p>
+        </InlineMessage>
       )}
       <div className="monitoring-cards">
         <MetricTile
@@ -259,6 +264,7 @@ export function DashboardPage() {
                         <div className="resource-readings resource-readings-grid">
                           <ResourceReading
                             label="CPU"
+                            format={(value) => `${formatCPU(value)} cores`}
                             value={hosted.reduce(
                               (sum, server) => sum + server.cpu_limit,
                               0,
@@ -270,6 +276,7 @@ export function DashboardPage() {
                           />
                           <ResourceReading
                             label="Memory"
+                            format={bytes}
                             value={hosted.reduce(
                               (sum, server) => sum + server.memory_mb * 1048576,
                               0,
@@ -281,6 +288,7 @@ export function DashboardPage() {
                           />
                           <ResourceReading
                             label="Game data"
+                            format={bytes}
                             value={hosted.reduce(
                               (sum, server) => sum + server.disk_mb * 1048576,
                               0,
@@ -307,10 +315,19 @@ export function DashboardPage() {
         limit allocated game-data blocks; reported logical file sizes can
         differ.
       </p>
-      {details && (
-        <ResourceDetailsDialog
-          key={`${details.kind}:${details.id}`}
-          target={details}
+      {details?.kind === "spark" && (
+        <SparkDetailsDialog
+          key={details.id}
+          id={details.id}
+          title={details.name}
+          onClose={() => setDetails(null)}
+        />
+      )}
+      {details?.kind === "server" && (
+        <ServerDetailsDialog
+          key={details.id}
+          id={details.id}
+          title={details.name}
           onClose={() => setDetails(null)}
         />
       )}

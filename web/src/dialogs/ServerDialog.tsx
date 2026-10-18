@@ -1,3 +1,8 @@
+import { FormField } from "../components/forms/FormField";
+import { TextInput } from "../components/forms/TextInput";
+import { Textarea } from "../components/forms/Textarea";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { Button } from "../components/forms/Button";
 import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { applyServerEmber, saveServer } from "../api/servers";
@@ -183,146 +188,154 @@ export function ServerDialog({
                   finishes.
                 </p>
               )}
-              <label htmlFor="server-name">Server name</label>
-              <input
-                id="server-name"
-                required
-                maxLength={100}
-                value={value.name}
-                onChange={(event) =>
-                  setValue({ ...value, name: event.target.value })
-                }
-                placeholder="Friday Minecraft"
-              />
-              <label htmlFor="server-description">Description (optional)</label>
-              <textarea
-                id="server-description"
-                maxLength={1000}
-                rows={5}
-                value={value.description}
-                onChange={(event) =>
-                  setValue({ ...value, description: event.target.value })
-                }
-              />
-              <label htmlFor="server-spark">Spark</label>
-              <Select
-                id="server-spark"
-                required
-                disabled={server !== null}
-                value={value.spark_id}
-                onChange={(event) => {
-                  const selected = sparks.find(
-                    (item) => item.id === event.target.value,
-                  );
-                  setValue({
-                    ...value,
-                    spark_id: event.target.value,
-                    ports: defaultPorts(selected, ember, servers),
-                  });
-                }}
-              >
-                {sparks
-                  .filter(
-                    (item) =>
-                      item.id === server?.spark_id ||
-                      (!item.disabled && item.port_allocations.length > 0),
+              <FormField label="Server name">
+                <TextInput
+                  id="server-name"
+                  required
+                  maxLength={100}
+                  value={value.name}
+                  onChange={(event) =>
+                    setValue({ ...value, name: event.target.value })
+                  }
+                  placeholder="Friday Minecraft"
+                />
+              </FormField>
+              <FormField label="Description (optional)">
+                <Textarea
+                  id="server-description"
+                  maxLength={1000}
+                  value={value.description}
+                  onChange={(event) =>
+                    setValue({ ...value, description: event.target.value })
+                  }
+                />
+              </FormField>
+              <FormField label="Spark">
+                <Select
+                  id="server-spark"
+                  required
+                  disabled={server !== null}
+                  value={value.spark_id}
+                  onChange={(event) => {
+                    const selected = sparks.find(
+                      (item) => item.id === event.target.value,
+                    );
+                    setValue({
+                      ...value,
+                      spark_id: event.target.value,
+                      ports: defaultPorts(selected, ember, servers),
+                    });
+                  }}
+                >
+                  {sparks
+                    .filter(
+                      (item) =>
+                        item.id === server?.spark_id ||
+                        (!item.disabled && item.port_allocations.length > 0),
+                    )
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                        {item.disabled ? " (disabled)" : ""}
+                      </option>
+                    ))}
+                </Select>
+              </FormField>
+              <FormField
+                label="Ember"
+                description={
+                  applyRevision && (
+                    <>
+                      Current revision: {server?.ember_name} ·{" "}
+                      {server?.ember_id}. Select an imported revision
+                      explicitly; names do not imply compatibility. Review
+                      variables, images, required ports, startup, and ownership
+                      before applying.
+                    </>
                   )
-                  .map((item) => (
+                }
+              >
+                <Select
+                  id="server-ember"
+                  required
+                  disabled={server !== null && !applyRevision}
+                  value={value.ember_id}
+                  onChange={(event) => {
+                    const selected = embers.find(
+                      (item) => item.id === event.target.value,
+                    );
+                    setValue({
+                      ...value,
+                      ember_id: event.target.value,
+                      image:
+                        applyRevision &&
+                        selected &&
+                        Object.values(selected.images).includes(value.image)
+                          ? value.image
+                          : (Object.values(selected?.images ?? {})[0] ?? ""),
+                      variables: applyRevision
+                        ? Object.fromEntries(
+                            (selected?.variables ?? []).map((variable) => [
+                              variable.name,
+                              variable.editable
+                                ? (server?.variables[variable.name] ??
+                                  variable.default)
+                                : variable.default,
+                            ]),
+                          )
+                        : defaultVariables(selected),
+                      ports: applyRevision
+                        ? value.ports
+                        : defaultPorts(spark, selected, servers),
+                    });
+                  }}
+                >
+                  {embers.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.name}
-                      {item.disabled ? " (disabled)" : ""}
+                      {item.name} · {item.id.slice(-6)}
                     </option>
                   ))}
-              </Select>
-              <label htmlFor="server-ember">Ember</label>
-              {applyRevision && (
-                <p className="field-help">
-                  Current revision: {server?.ember_name} · {server?.ember_id}.
-                  Select an imported revision explicitly; names do not imply
-                  compatibility. Review variables, images, required ports,
-                  startup, and ownership before applying.
-                </p>
-              )}
-              <Select
-                id="server-ember"
-                required
-                disabled={server !== null && !applyRevision}
-                value={value.ember_id}
-                onChange={(event) => {
-                  const selected = embers.find(
-                    (item) => item.id === event.target.value,
-                  );
-                  setValue({
-                    ...value,
-                    ember_id: event.target.value,
-                    image:
-                      applyRevision &&
-                      selected &&
-                      Object.values(selected.images).includes(value.image)
-                        ? value.image
-                        : (Object.values(selected?.images ?? {})[0] ?? ""),
-                    variables: applyRevision
-                      ? Object.fromEntries(
-                          (selected?.variables ?? []).map((variable) => [
-                            variable.name,
-                            variable.editable
-                              ? (server?.variables[variable.name] ??
-                                variable.default)
-                              : variable.default,
-                          ]),
-                        )
-                      : defaultVariables(selected),
-                    ports: applyRevision
-                      ? value.ports
-                      : defaultPorts(spark, selected, servers),
-                  });
-                }}
-              >
-                {embers.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} · {item.id.slice(-6)}
-                  </option>
-                ))}
-              </Select>
-              <label htmlFor="server-image">Image</label>
-              <Select
-                id="server-image"
-                disabled={runtimeRestricted}
-                required
-                value={value.image}
-                onChange={(event) =>
-                  setValue({ ...value, image: event.target.value })
-                }
-              >
-                {Object.entries(ember?.images ?? {}).map(([label, image]) => (
-                  <option key={label} value={image}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
+                </Select>
+              </FormField>
+              <FormField label="Image">
+                <Select
+                  id="server-image"
+                  disabled={runtimeRestricted}
+                  required
+                  value={value.image}
+                  onChange={(event) =>
+                    setValue({ ...value, image: event.target.value })
+                  }
+                >
+                  {Object.entries(ember?.images ?? {}).map(([label, image]) => (
+                    <option key={label} value={image}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
               {(ember?.variables ?? []).length > 0 && <h4>Game settings</h4>}
               {(ember?.variables ?? []).map((variable) => (
                 <div key={variable.name}>
-                  <label htmlFor={`variable-${variable.name}`}>
-                    {variable.name}
-                  </label>
-                  <input
-                    id={`variable-${variable.name}`}
-                    disabled={runtimeRestricted}
-                    required={variable.required}
-                    readOnly={!variable.editable}
-                    maxLength={8192}
-                    value={value.variables[variable.name] ?? variable.default}
-                    onChange={(event) =>
-                      setValue({
-                        ...value,
-                        variables: {
-                          ...value.variables,
-                          [variable.name]: event.target.value,
-                        },
-                      })
-                    }
-                  />
+                  <FormField label={<>{variable.name}</>}>
+                    <TextInput
+                      id={`variable-${variable.name}`}
+                      disabled={runtimeRestricted}
+                      required={variable.required}
+                      readOnly={!variable.editable}
+                      maxLength={8192}
+                      value={value.variables[variable.name] ?? variable.default}
+                      onChange={(event) =>
+                        setValue({
+                          ...value,
+                          variables: {
+                            ...value.variables,
+                            [variable.name]: event.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </FormField>
                 </div>
               ))}
             </>
@@ -359,9 +372,7 @@ export function ServerDialog({
                 id: "backups",
                 title: "Backups",
                 content: policyError ? (
-                  <p className="error-message" role="alert">
-                    {policyError}
-                  </p>
+                  <InlineMessage role="alert">{policyError}</InlineMessage>
                 ) : backupPolicy ? (
                   <BackupPolicyFields
                     value={backupPolicy}
@@ -439,14 +450,14 @@ export function ServerDialog({
           busy={busy}
           onClose={onClose}
           footerLeft={
-            <button
+            <Button
               type="button"
-              className="button"
+
               disabled={busy}
               onClick={onClose}
             >
               Cancel
-            </button>
+            </Button>
           }
           footerRight={actions}
         >

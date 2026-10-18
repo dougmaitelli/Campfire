@@ -1,3 +1,6 @@
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useState } from "react";
 import { deleteRole, listRoles, type Role } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
@@ -55,37 +58,32 @@ export function RolesPage() {
   }
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Roles</h1>
-          <p className="page-description">
-            Platform capabilities and server-scoped access.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button
-            className="button"
-            onClick={() => {
-              void roles.refresh();
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            className="button button-primary"
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
-          >
-            + Create role
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Roles"
+        description="Platform capabilities and server-scoped access."
+        actions={
+          <>
+            <Button
+              onClick={() => {
+                void roles.refresh();
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setEditing(null);
+                setOpen(true);
+              }}
+            >
+              + Create role
+            </Button>
+          </>
+        }
+      />
       {(error ?? (roles.items.length ? roles.error : null)) && (
-        <p className="error-message" role="alert">
-          {error ?? roles.error}
-        </p>
+        <InlineMessage role="alert">{error ?? roles.error}</InlineMessage>
       )}
       <div className="management-content">
         <Table

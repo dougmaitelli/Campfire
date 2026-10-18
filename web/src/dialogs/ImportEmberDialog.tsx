@@ -1,3 +1,8 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
+import { Textarea } from "../components/forms/Textarea";
 import { Select } from "../components/forms/Select";
 import { useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
@@ -201,14 +206,14 @@ export function ImportEmberDialog({
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button
+        <Button
           type="button"
-          className="button"
+
           disabled={busy}
           onClick={onClose}
         >
           Cancel
-        </button>
+        </Button>
       }
       footerRight={
         <>
@@ -222,10 +227,10 @@ export function ImportEmberDialog({
               }}
             />
           )}
-          <button
+          <Button
             type="submit"
             form={formID}
-            className="button button-primary"
+            variant="primary"
             disabled={
               busy ||
               !preview?.ember ||
@@ -242,7 +247,7 @@ export function ImportEmberDialog({
               : ember
                 ? "Save revision"
                 : "Import Ember"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -253,11 +258,7 @@ export function ImportEmberDialog({
         }}
       >
         <div className="drawer-content">
-          {error && (
-            <p className="error-message" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <InlineMessage role="alert">{error}</InlineMessage>}
           <fieldset disabled={busy}>
             {!ember && (
               <div
@@ -266,10 +267,10 @@ export function ImportEmberDialog({
                 aria-label="Definition source"
               >
                 {(["file", "url", "paste"] as const).map((option) => (
-                  <button
+                  <Button
                     key={option}
                     type="button"
-                    className="button"
+
                     aria-pressed={source === option}
                     onClick={() => {
                       setSource(option);
@@ -281,104 +282,108 @@ export function ImportEmberDialog({
                       : option === "url"
                         ? "From URL"
                         : "Paste definition"}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
             {source === "file" && (
               <>
-                <label htmlFor="ember-file">JSON or YAML file</label>
-                <input
-                  id="ember-file"
-                  type="file"
-                  accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
-                  onChange={(event) => {
-                    void readFile(event);
-                  }}
-                />
+                <FormField label="JSON or YAML file">
+                  <input
+                    id="ember-file"
+                    type="file"
+                    accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
+                    onChange={(event) => {
+                      void readFile(event);
+                    }}
+                  />
+                </FormField>
               </>
             )}
             {source === "url" && (
               <>
-                <label htmlFor="ember-url">Definition URL</label>
-                <input
-                  ref={urlRef}
-                  id="ember-url"
-                  type="url"
-                  value={url}
-                  onChange={(event) => setURL(event.target.value)}
-                  placeholder="https://example.com/game.ember.json"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void loadURL();
-                    }
-                  }}
-                />
-                <button
+                <FormField label="Definition URL">
+                  <TextInput
+                    ref={urlRef}
+                    id="ember-url"
+                    type="url"
+                    value={url}
+                    onChange={(event) => setURL(event.target.value)}
+                    placeholder="https://example.com/game.ember.json"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void loadURL();
+                      }
+                    }}
+                  />
+                </FormField>
+                <Button
                   type="button"
-                  className="button"
+
                   disabled={url.trim() === ""}
                   onClick={() => {
                     void loadURL();
                   }}
+                  loading={busy}
+                  loadingLabel={"Loading…"}
                 >
-                  {busy ? "Loading…" : "Load definition"}
-                </button>
+                  {"Load definition"}
+                </Button>
                 <p className="field-help">
                   Use a public HTTPS link to the raw JSON or YAML file, then
                   review the definition below.
                 </p>
               </>
             )}
-            <label htmlFor="ember-definition">Definition</label>
-            <textarea
-              id="ember-definition"
-              className="definition-editor"
-              rows={24}
-              required
-              value={text}
-              onChange={(event) => {
-                setText(event.target.value);
-                setPreview(null);
-                setReviewed(false);
-                setStartupCommand("");
-              }}
-              spellCheck={false}
-            />
+            <FormField label="Definition">
+              <Textarea
+                id="ember-definition"
+                className="definition-editor"
+                rows={24}
+                required
+                value={text}
+                onChange={(event) => {
+                  setText(event.target.value);
+                  setPreview(null);
+                  setReviewed(false);
+                  setStartupCommand("");
+                }}
+                spellCheck={false}
+              />
+            </FormField>
             {preview && preview.startup_commands.length > 1 && (
               <>
-                <label htmlFor="egg-startup-command">
-                  Startup command to import
-                </label>
-                <Select
-                  id="egg-startup-command"
-                  value={startupCommand}
-                  onChange={(event) => {
-                    setStartupCommand(event.target.value);
-                    setReviewed(false);
-                    setPreview({ ...preview, ember: null });
-                  }}
-                >
-                  <option value="">Select a startup command</option>
-                  {preview.startup_commands.map((command) => (
-                    <option key={command} value={command}>
-                      {command}
-                    </option>
-                  ))}
-                </Select>
+                <FormField label="Startup command to import">
+                  <Select
+                    id="egg-startup-command"
+                    value={startupCommand}
+                    onChange={(event) => {
+                      setStartupCommand(event.target.value);
+                      setReviewed(false);
+                      setPreview({ ...preview, ember: null });
+                    }}
+                  >
+                    <option value="">Select a startup command</option>
+                    {preview.startup_commands.map((command) => (
+                      <option key={command} value={command}>
+                        {command}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
               </>
             )}
-            <button
+            <Button
               type="button"
-              className="button"
+
               disabled={!text.trim()}
               onClick={() => {
                 void review();
               }}
             >
               Preview compatibility
-            </button>
+            </Button>
             {preview && (
               <section aria-label="Compatibility preview">
                 <h3>
@@ -388,9 +393,9 @@ export function ImportEmberDialog({
                 </h3>
                 {preview.errors.length > 0 && (
                   <>
-                    <p className="error-message" role="alert">
+                    <InlineMessage role="alert">
                       This definition cannot be imported yet.
-                    </p>
+                    </InlineMessage>
                     <ul>
                       {preview.errors.map((issue, index) => (
                         <li key={`${issue.field}-${index}`}>

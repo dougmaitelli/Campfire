@@ -1,3 +1,7 @@
+import { FormField } from "../forms/FormField";
+import { TextInput } from "../forms/TextInput";
+import { Button } from "../forms/Button";
+import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useId, useState } from "react";
 import { previewSchedule } from "../../api/activity";
 import "./cron-field.css";
@@ -108,18 +112,19 @@ export function CronField({
   }
   return (
     <fieldset className="cron-field" disabled={disabled}>
-      <label htmlFor={`${id}-expression`}>Cron schedule</label>
-      <input
-        id={`${id}-expression`}
-        className="cron-expression"
-        value={expression}
-        maxLength={256}
-        autoComplete="off"
-        spellCheck={false}
-        aria-describedby={`${id}-help ${id}-preview`}
-        aria-invalid={!!current?.error}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <FormField label="Cron schedule">
+        <TextInput
+          id={`${id}-expression`}
+          className="cron-expression"
+          value={expression}
+          maxLength={256}
+          autoComplete="off"
+          spellCheck={false}
+          aria-describedby={`${id}-help ${id}-preview`}
+          aria-invalid={!!current?.error}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </FormField>
       <dl className="cron-fields" aria-label="Cron fields">
         {fields.map((field, index) => (
           <div key={field}>
@@ -130,30 +135,31 @@ export function CronField({
       </dl>
       <div className="cron-presets" aria-label="Fill cron schedule">
         {presets.map((preset) => (
-          <button
+          <Button
             type="button"
-            className="button"
+
             key={preset.value}
             aria-pressed={normalized === preset.value}
             onClick={() => onChange(preset.value)}
           >
             {preset.label}
-          </button>
+          </Button>
         ))}
       </div>
       <p id={`${id}-help`} className="field-help">
         Use * for any value, commas for lists, - for ranges, and / for steps.
         Sunday is 0. Day and weekday restrictions match either field.
       </p>
-      <label htmlFor={`${id}-zone`}>Time zone</label>
-      <input
-        id={`${id}-zone`}
-        list={`${id}-zones`}
-        value={timeZone}
-        autoComplete="off"
-        maxLength={100}
-        onChange={(event) => onTimeZoneChange(event.target.value)}
-      />
+      <FormField label="Time zone">
+        <TextInput
+          id={`${id}-zone`}
+          list={`${id}-zones`}
+          value={timeZone}
+          autoComplete="off"
+          maxLength={100}
+          onChange={(event) => onTimeZoneChange(event.target.value)}
+        />
+      </FormField>
       <datalist id={`${id}-zones`}>
         {zones.map((zone) => (
           <option key={zone} value={zone} />
@@ -165,9 +171,7 @@ export function CronField({
             "Custom cron schedule"}
         </p>
         {current?.error ? (
-          <p className="error-message" role="alert">
-            {current.error}
-          </p>
+          <InlineMessage role="alert">{current.error}</InlineMessage>
         ) : current ? (
           <>
             <span className="field-help">Next runs</span>
@@ -182,9 +186,9 @@ export function CronField({
             </ul>
           </>
         ) : (
-          <p className="field-help" role="status">
+          <InlineMessage tone="info" role="status">
             Checking schedule…
-          </p>
+          </InlineMessage>
         )}
       </div>
     </fieldset>

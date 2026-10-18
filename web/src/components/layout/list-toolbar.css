@@ -1,0 +1,19 @@
+.list-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.list-toolbar > .form-field {
+  flex: 0 1 240px;
+  margin: 0;
+}
+.list-toolbar > .search-field {
+  flex: 1 1 240px;
+}
+.list-toolbar input,
+.list-toolbar select {
+  width: 100%;
+  min-width: 0;
+}

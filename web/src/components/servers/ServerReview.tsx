@@ -1,3 +1,4 @@
+import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
 
 export function ServerReview({
@@ -13,57 +14,35 @@ export function ServerReview({
 }) {
   return (
     <>
-      <dl className="review-grid">
-        <div>
-          <dt>Name</dt>
-          <dd>{value.name.trim()}</dd>
-        </div>
-        <div>
-          <dt>Description</dt>
-          <dd>{value.description.trim() || "None"}</dd>
-        </div>
-        <div>
-          <dt>Spark</dt>
-          <dd>{sparkName}</dd>
-        </div>
-        <div>
-          <dt>Ember</dt>
-          <dd>{emberName}</dd>
-        </div>
-        <div>
-          <dt>Image</dt>
-          <dd>{value.image}</dd>
-        </div>
-        <div>
-          <dt>CPU</dt>
-          <dd>{value.cpu_limit} cores</dd>
-        </div>
-        <div>
-          <dt>Memory</dt>
-          <dd>{value.memory_mb.toLocaleString()} MiB</dd>
-        </div>
-        <div>
-          <dt>Disk</dt>
-          <dd>{value.disk_mb.toLocaleString()} MiB</dd>
-        </div>
-        <div>
-          <dt>Ports</dt>
-          <dd>
-            {value.ports
-              .map(
-                (port) =>
-                  `${port.bind_ip}:${port.host_port} → ${port.container_port}/${port.protocol}`,
-              )
-              .join("\n")}
-          </dd>
-        </div>
+      <DetailsList>
+        <DetailItem label="Name">{value.name.trim()}</DetailItem>
+        <DetailItem label="Description">
+          {value.description.trim() || "None"}
+        </DetailItem>
+        <DetailItem label="Spark">{sparkName}</DetailItem>
+        <DetailItem label="Ember">{emberName}</DetailItem>
+        <DetailItem label="Image">{value.image}</DetailItem>
+        <DetailItem label="CPU">{value.cpu_limit} cores</DetailItem>
+        <DetailItem label="Memory">
+          {value.memory_mb.toLocaleString()} MiB
+        </DetailItem>
+        <DetailItem label="Disk">
+          {value.disk_mb.toLocaleString()} MiB
+        </DetailItem>
+        <DetailItem label="Ports">
+          {value.ports
+            .map(
+              (port) =>
+                `${port.bind_ip}:${port.host_port} → ${port.container_port}/${port.protocol}`,
+            )
+            .join("\n")}
+        </DetailItem>
         {Object.entries(value.variables).map(([name, content]) => (
-          <div key={name}>
-            <dt>{name}</dt>
-            <dd>{content || "(empty)"}</dd>
-          </div>
+          <DetailItem key={name} label={<>{name}</>}>
+            {content || "(empty)"}
+          </DetailItem>
         ))}
-      </dl>
+      </DetailsList>
       {notice && <p className="field-help">{notice}</p>}
     </>
   );

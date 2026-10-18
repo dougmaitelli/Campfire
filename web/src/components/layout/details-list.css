@@ -1,0 +1,25 @@
+.details-list {
+  margin: 0;
+}
+.details-list > div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.details-list dt {
+  color: var(--muted);
+}
+.details-list dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .details-list > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}

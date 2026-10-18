@@ -1,3 +1,7 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
 import { deleteUser, saveUser, type Role, type User } from "../api/access";
@@ -84,13 +88,13 @@ export function UserDialog({
   return (
     <Drawer
       title={user ? "Edit user" : "Create user"}
-      description="Manage this account's platform role and sign-in access."
+      description="Manage this account's role and sign-in access."
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
+        <Button disabled={busy} onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       }
       footerRight={
         <>
@@ -105,88 +109,88 @@ export function UserDialog({
             disabled={busy}
             deleting={deleting}
           />
-          <button
-            className="button button-primary"
+          <Button
+            variant="primary"
             disabled={busy || !username.trim()}
             onClick={() => {
               void submit();
             }}
+            loading={busy && !deleting}
+            loadingLabel={"Saving…"}
           >
-            {busy && !deleting ? "Saving…" : "Save user"}
-          </button>
+            {"Save user"}
+          </Button>
         </>
       }
     >
       <div className="drawer-content">
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {user && (
           <p className="field-help">
             User ID: <code>{user.id}</code>
           </p>
         )}
-        <label htmlFor="user-name">Username</label>
-        <input
-          id="user-name"
-          value={username}
-          readOnly={user !== null}
-          maxLength={64}
-          autoComplete="off"
-          onChange={(event) => setUsername(event.target.value)}
-        />
-        <label htmlFor="user-display-name">Name (optional)</label>
-        <input
-          id="user-display-name"
-          value={name}
-          maxLength={100}
-          autoComplete="name"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <p className="field-help">
-          Shown in the account menu. Defaults to the username.
-        </p>
-        <label htmlFor="user-email">Email (optional)</label>
-        <input
-          ref={emailInput}
-          id="user-email"
-          type="email"
-          value={email}
-          maxLength={254}
-          autoComplete="email"
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <label htmlFor="user-password">
-          {user ? "New password (optional)" : "Password"}
-        </label>
-        <input
-          id="user-password"
-          type="password"
-          value={password}
-          maxLength={1024}
-          autoComplete="new-password"
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        <p className="field-help">
-          At least 15 characters. Password, role, and access changes revoke this
-          user's existing sessions.
-        </p>
-        <label htmlFor="user-role">Platform role</label>
-        <Select
-          id="user-role"
-          value={roleID}
-          onChange={(event) => setRoleID(Number(event.target.value))}
+        <FormField label="Username">
+          <TextInput
+            id="user-name"
+            value={username}
+            readOnly={user !== null}
+            maxLength={64}
+            autoComplete="off"
+            onChange={(event) => setUsername(event.target.value)}
+          />
+        </FormField>
+        <FormField
+          label="Name (optional)"
+          description="Shown in the account menu. Defaults to the username."
         >
-          {roles
-            .filter((role) => role.scope === "platform")
-            .map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-        </Select>
+          <TextInput
+            id="user-display-name"
+            value={name}
+            maxLength={100}
+            autoComplete="name"
+            onChange={(event) => setName(event.target.value)}
+          />
+        </FormField>
+        <FormField label="Email (optional)">
+          <TextInput
+            ref={emailInput}
+            id="user-email"
+            type="email"
+            value={email}
+            maxLength={254}
+            autoComplete="email"
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </FormField>
+        <FormField
+          label={<>{user ? "New password (optional)" : "Password"}</>}
+          description="At least 15 characters. Password, role, and access changes revoke this user's existing sessions."
+        >
+          <TextInput
+            id="user-password"
+            type="password"
+            value={password}
+            maxLength={1024}
+            autoComplete="new-password"
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </FormField>
+        <FormField label="Role">
+          <Select
+            id="user-role"
+            value={roleID}
+            onChange={(event) => setRoleID(Number(event.target.value))}
+          >
+            {roles
+              .filter((role) => role.scope === "platform")
+              .map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+          </Select>
+        </FormField>
         <CheckboxField
           checked={disabled}
           disabled={busy}

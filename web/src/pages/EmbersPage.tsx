@@ -1,3 +1,7 @@
+import { Button } from "../components/forms/Button";
+import { ListToolbar } from "../components/layout/ListToolbar";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useState } from "react";
 import {
   listEmbers,
@@ -19,6 +23,7 @@ export function EmbersPage() {
   const [editing, setEditing] = useState<Ember | null>(null);
   const checks = useCollection(listEmberUpdates);
   const [busy, setBusy] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [update, setUpdate] = useState<{
     preview: EmberPreview;
@@ -31,25 +36,42 @@ export function EmbersPage() {
     }, 60000);
     return () => window.clearInterval(timer);
   }, [refreshChecks]);
-  async function check(ember: Ember, download = false) {
-    if (busy) return;
+  async function checkAll() {
+    if (busy || checking) return;
+    setChecking(true);
+    setActionError(null);
+    const failed: string[] = [];
+    try {
+      for (const ember of items) {
+        if (!(ember.updateUrl ?? ember.origin?.update_url)) continue;
+        try {
+          checks.upsert(await checkEmberUpdate(ember.id));
+        } catch {
+          failed.push(ember.name);
+        }
+      }
+      if (failed.length > 0) {
+        setActionError(`Unable to check updates for: ${failed.join(", ")}.`);
+      }
+    } finally {
+      setChecking(false);
+    }
+  }
+  async function download(ember: Ember) {
+    if (busy || checking) return;
     setBusy(ember.id);
     setActionError(null);
     try {
-      if (download) {
-        const preview = await downloadEmberUpdate(ember.id);
-        setUpdate({
-          preview,
-          url: ember.updateUrl ?? ember.origin?.update_url ?? "",
-        });
-        setImporting(true);
-        await refreshChecks();
-      } else {
-        checks.upsert(await checkEmberUpdate(ember.id));
-      }
+      const preview = await downloadEmberUpdate(ember.id);
+      setUpdate({
+        preview,
+        url: ember.updateUrl ?? ember.origin?.update_url ?? "",
+      });
+      setImporting(true);
+      await refreshChecks();
     } catch (cause) {
       setActionError(
-        cause instanceof Error ? cause.message : "Unable to check for updates.",
+        cause instanceof Error ? cause.message : "Unable to download update.",
       );
     } finally {
       setBusy(null);
@@ -57,42 +79,56 @@ export function EmbersPage() {
   }
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Embers</h1>
-          <p className="page-description">
-            Game definitions used to configure your servers. Update URLs are
-            checked daily. Download updates to review and import a new revision.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button
-            className="button"
-            disabled={loading}
-            onClick={() => {
-              void refresh();
-              void refreshChecks();
-            }}
-          >
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
-          <button
-            className="button button-primary"
-            onClick={() => setImporting(true)}
-          >
-            + Import Ember
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Embers"
+        description="Game definitions used to configure your servers."
+        actions={
+          <>
+            <Button
+              disabled={loading}
+              onClick={() => {
+                void refresh();
+                void refreshChecks();
+              }}
+              loading={loading}
+              loadingLabel={"Refreshing…"}
+            >
+              {"Refresh"}
+            </Button>
+            <Button variant="primary" onClick={() => setImporting(true)}>
+              + Import Ember
+            </Button>
+          </>
+        }
+      />
+      <ListToolbar>
+        <Button
+          disabled={
+            loading ||
+            checking ||
+            busy !== null ||
+            !items.some((ember) => ember.updateUrl ?? ember.origin?.update_url)
+          }
+          onClick={() => {
+            void checkAll();
+          }}
+          loading={checking}
+          loadingLabel={"Checking updates…"}
+        >
+          {"Check updates"}
+        </Button>
+        <span className="field-help">
+          Updates are checked daily. Review updates before importing a new
+          revision.
+        </span>
+      </ListToolbar>
       {error && items.length > 0 && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
+        <InlineMessage role="alert">{error}</InlineMessage>
       )}
       {(actionError ?? checks.error) && (
-        <p className="error-message" role="alert">
+        <InlineMessage role="alert">
           {actionError ?? checks.error}
-        </p>
+        </InlineMessage>
       )}
       <div className="management-content" aria-busy={loading}>
         <Table
@@ -102,12 +138,9 @@ export function EmbersPage() {
           resource="Embers"
           emptyDescription="Import a game definition before creating servers."
           emptyAction={
-            <button
-              className="button button-primary"
-              onClick={() => setImporting(true)}
-            >
+            <Button variant="primary" onClick={() => setImporting(true)}>
               Import Ember
-            </button>
+            </Button>
           }
           onRetry={() => {
             void refresh();
@@ -117,9 +150,9 @@ export function EmbersPage() {
           <thead>
             <tr>
               <th scope="col">Game definition</th>
-              <th scope="col">Updates</th>
               <th scope="col">Images</th>
               <th scope="col">Required ports</th>
+              <th scope="col">Updates</th>
             </tr>
           </thead>
           <tbody>
@@ -151,78 +184,6 @@ export function EmbersPage() {
                     )}
                     <span className="row-id">{ember.id}</span>
                   </td>
-                  <td>
-                    {updateURL ? (
-                      <>
-                        <StatusPill
-                          tone={
-                            status?.error
-                              ? "negative"
-                              : status?.available
-                                ? "warning"
-                                : status
-                                  ? "positive"
-                                  : "neutral"
-                          }
-                        >
-                          {status?.error
-                            ? "Check failed"
-                            : status?.available
-                              ? "Update available"
-                              : status
-                                ? "Up to date"
-                                : "Not checked yet"}
-                        </StatusPill>
-                        <span className="row-description">
-                          {status ? (
-                            <>
-                              Last checked:{" "}
-                              <time
-                                dateTime={new Date(
-                                  status.checked_at * 1000,
-                                ).toISOString()}
-                              >
-                                {new Date(
-                                  status.checked_at * 1000,
-                                ).toLocaleString()}
-                              </time>
-                            </>
-                          ) : (
-                            "Checks run automatically every day."
-                          )}
-                        </span>
-                        {status?.error && (
-                          <span className="row-description">
-                            {status.error}
-                          </span>
-                        )}
-                        <div className="row-actions">
-                          <button
-                            className="button"
-                            disabled={busy !== null}
-                            onClick={() => {
-                              void check(ember);
-                            }}
-                          >
-                            {busy === ember.id ? "Working…" : "Check now"}
-                          </button>
-                          {status?.available && !status.error && (
-                            <button
-                              className="button button-primary"
-                              disabled={busy !== null}
-                              onClick={() => {
-                                void check(ember, true);
-                              }}
-                            >
-                              Download update
-                            </button>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      "No update URL"
-                    )}
-                  </td>
                   <td>{Object.keys(ember.images).join(", ")}</td>
                   <td>
                     {ember.required_ports?.length ? (
@@ -238,6 +199,48 @@ export function EmbersPage() {
                       </div>
                     ) : (
                       "None"
+                    )}
+                  </td>
+                  <td>
+                    {updateURL ? (
+                      status?.available && !status.error ? (
+                        <Button
+                          variant="primary"
+                          disabled={busy !== null || checking}
+                          onClick={() => {
+                            void download(ember);
+                          }}
+                          loading={busy === ember.id}
+                          loadingLabel={"Downloading…"}
+                        >
+                          {"Update"}
+                        </Button>
+                      ) : (
+                        <>
+                          <StatusPill
+                            tone={
+                              status?.error
+                                ? "negative"
+                                : status
+                                  ? "positive"
+                                  : "neutral"
+                            }
+                          >
+                            {status?.error
+                              ? "Check failed"
+                              : status
+                                ? "Up to date"
+                                : "Not checked yet"}
+                          </StatusPill>
+                          {status?.error && (
+                            <span className="row-description">
+                              {status.error}
+                            </span>
+                          )}
+                        </>
+                      )
+                    ) : (
+                      "No update URL"
                     )}
                   </td>
                 </TableRow>

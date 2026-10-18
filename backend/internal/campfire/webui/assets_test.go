@@ -24,7 +24,7 @@ func TestProductionBundleIncludesEntrypointAndAssets(t *testing.T) {
 	}
 
 	handler := Handler(http.NotFoundHandler())
-	for _, name := range append([]string{"index.html"}, entries...) {
+	for _, name := range append([]string{"index.html", "install-spark.sh"}, entries...) {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequestWithContext(context.Background(), "GET", "/"+name, nil))
 		if response.Code != http.StatusOK || response.Body.Len() == 0 {

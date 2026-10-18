@@ -671,7 +671,28 @@ restricted owner/group permissions. Open port 8443 to the Spark hosts. An
 ordinary TLS-terminating reverse proxy does not preserve the agent's mutual
 TLS authentication. Keep the direct listener or use TLS passthrough.
 
-On a game host install spark and Docker, then:
+After adding a Spark in the panel, the installation helper provides a copyable
+command. Set the dedicated agent HTTPS address (not the browser address unless
+both listeners are explicitly routed that way), then run it on the game host.
+The same helper is available through Re-enroll in the Spark details drawer,
+with a confirmation explaining that successful re-enrollment replaces the
+existing credentials and briefly restarts the Spark service.
+
+The helper requires Linux amd64/arm64, a running Docker daemon, systemd, curl,
+and sudo access. It lists all missing command dependencies before installing
+anything. It downloads the latest stable tagged GitHub release, verifies
+the archive's SHA-256 checksum, saves the agent identity in /var/lib/spark,
+installs /usr/local/bin/spark and spark.service, and enables the service.
+The release must support --enroll-only. With a private agent HTTPS certificate,
+provide the path to its CA file on the game host. The command includes a
+single-use token that expires after fifteen minutes; generate another if needed.
+The token is removed after installation and is not kept in the service config.
+Existing Spark installations retain their data; an active service is stopped
+while enrollment is updated and restarted afterward. The installer installs a
+systemd drop-in that uses /var/lib/spark and the saved identity, bypassing an
+older /etc/campfire/spark.env enrollment configuration.
+
+For manual installation, on a game host install spark and Docker, then:
 
   sudo install -d -m 0750 /etc/campfire
   sudo install -m 0600 spark.env.example /etc/campfire/spark.env
@@ -955,14 +976,15 @@ This metadata is kept through preview, conversion and saving. Campfire checks
 each imported revision's update URL on startup when due and about every 24 hours
 afterward. A background worker looks for due checks every ten minutes. Check
 times, failures and availability are persisted separately from immutable Embers.
-The Embers page shows the last check and provides Check now and Download update.
+The Embers page provides a shared Check updates action and per-revision Download
+update actions. Last-check timestamps are kept internally for daily scheduling.
 Downloads open the import review flow and require the usual warning review before
 saving a new revision. Existing servers stay pinned until an administrator applies
 the new revision explicitly. Formatting and JSON object-key order do not count as
 new versions; changes to the parsed game definition do. Checks use the same public
 HTTPS restrictions and size limits as URL imports. No URL means no automatic check.
 Mock development mode seeds both an available update and an up-to-date Ember.
-Check now and Download update use fixed local mock responses without network
+Check updates and Download update use fixed local mock responses without network
 requests; importing a mock update creates a new revision and survives restarts.
 
 See deploy/EGG-COMPATIBILITY.txt for the format and feature support matrix,

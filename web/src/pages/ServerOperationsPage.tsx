@@ -1,3 +1,6 @@
+import { ContentState } from "../components/layout/ContentState";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, readJSON } from "../api/client";
 import { isServer, type Server } from "../api/servers";
@@ -104,56 +107,46 @@ export function ServerOperationsPage({
   };
   return (
     <section className="server-operations" aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
+      <PageHeader
+        title={server?.name ?? "Server"}
+        leading={
           <a className="operations-back" href="#servers">
             ← Servers
           </a>
-          <div className="operations-title">
-            <h1 id="page-title">{server?.name ?? "Server"}</h1>
-            {server && (
-              <ServerState
-                state={status?.state ?? "unknown"}
-                ready={status?.ready ?? true}
-              />
-            )}
-          </div>
-          {server && (
-            <p className="page-description">
-              {server.description || server.ember_name}
-            </p>
-          )}
-        </div>
-        {server && (
-          <div className="page-actions">
-            {server.permissions.includes("server.operate") && (
-              <ServerLifecycleControls
-                status={status}
-                disabled={
-                  acting ||
-                  monitoring.snapshot?.sparks?.some(
-                    (spark) => spark.id === server.spark_id && spark.disabled,
-                  ) === true
-                }
-                canConfigure={server.permissions.includes("server.configure")}
-                onAction={(action) => {
-                  if (action === "kill" || action === "reinstall") {
-                    setError(null);
-                    setReinstallMode("keep");
-                    setConfirmation(action);
-                  } else void act(action);
-                }}
-              />
-            )}
-          </div>
-        )}
-      </header>
-      {error && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
-      )}
-      {loading && <p role="status">Loading server…</p>}
+        }
+        badge={
+          server && (
+            <ServerState
+              state={status?.state ?? "unknown"}
+              ready={status?.ready ?? true}
+            />
+          )
+        }
+        description={server && (server.description || server.ember_name)}
+        actions={
+          server?.permissions.includes("server.operate") && (
+            <ServerLifecycleControls
+              status={status}
+              disabled={
+                acting ||
+                monitoring.snapshot?.sparks?.some(
+                  (spark) => spark.id === server.spark_id && spark.disabled,
+                ) === true
+              }
+              canConfigure={server.permissions.includes("server.configure")}
+              onAction={(action) => {
+                if (action === "kill" || action === "reinstall") {
+                  setError(null);
+                  setReinstallMode("keep");
+                  setConfirmation(action);
+                } else void act(action);
+              }}
+            />
+          )
+        }
+      />
+      {error && <InlineMessage role="alert">{error}</InlineMessage>}
+      {loading && <ContentState loading resource="server" />}
       {server && (
         <>
           <div className="management-content operations-resources">
@@ -178,19 +171,17 @@ export function ServerOperationsPage({
             </div>
           </div>
           {monitoring.error && (
-            <p className="field-help" role="status">
+            <InlineMessage tone="info" role="status">
               {monitoring.error}
-            </p>
+            </InlineMessage>
           )}
           {status?.progress && (
-            <p className="field-help" role="status">
+            <InlineMessage tone="info" role="status">
               {status.progress}
-            </p>
+            </InlineMessage>
           )}
           {status?.error && (
-            <p className="error-message" role="alert">
-              {status.error}
-            </p>
+            <InlineMessage role="alert">{status.error}</InlineMessage>
           )}
           {server.permissions.includes("server.operate") ? (
             <>

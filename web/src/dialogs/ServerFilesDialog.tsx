@@ -1,3 +1,9 @@
+import { DetailsList, DetailItem } from "../components/layout/DetailsList";
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { ContentState } from "../components/layout/ContentState";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { Textarea } from "../components/forms/Textarea";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "../api/servers";
 import {
@@ -337,8 +343,7 @@ export function ServerFilesDialog({
       onClose={close}
       footerLeft={
         embedded && !editor ? null : (
-          <button
-            className="button"
+          <Button
             disabled={busy}
             onClick={() => {
               if (editor) {
@@ -353,20 +358,22 @@ export function ServerFilesDialog({
             }}
           >
             {editor ? "Back to files" : "Close"}
-          </button>
+          </Button>
         )
       }
       footerRight={
         editor ? (
-          <button
-            className="button button-primary"
+          <Button
+            variant="primary"
             disabled={busy || !canWrite}
             onClick={() => {
               void perform(save);
             }}
+            loading={busy}
+            loadingLabel={"Saving…"}
           >
-            {busy ? "Saving…" : "Save file"}
-          </button>
+            {"Save file"}
+          </Button>
         ) : null
       }
     >
@@ -441,19 +448,12 @@ export function ServerFilesDialog({
         {progress && (
           <p role="status">
             {progress}{" "}
-            <button
-              className="button"
-              onClick={() => transfer.current?.abort()}
-            >
+            <Button onClick={() => transfer.current?.abort()}>
               Cancel upload
-            </button>
+            </Button>
           </p>
         )}
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {!canWrite && (
           <p className="prerequisite-note">
             File modifications are currently unavailable. Wait for the current
@@ -462,18 +462,19 @@ export function ServerFilesDialog({
         )}
         {editor ? (
           <>
-            <label htmlFor="server-file-content">{editor.path}</label>
-            <textarea
-              id="server-file-content"
-              className="file-editor"
-              value={editor.text}
-              readOnly={!canWrite}
-              disabled={busy}
-              spellCheck={false}
-              onChange={(event) =>
-                setEditor({ ...editor, text: event.target.value })
-              }
-            />
+            <FormField label={<>{editor.path}</>}>
+              <Textarea
+                id="server-file-content"
+                className="file-editor"
+                value={editor.text}
+                readOnly={!canWrite}
+                disabled={busy}
+                spellCheck={false}
+                onChange={(event) =>
+                  setEditor({ ...editor, text: event.target.value })
+                }
+              />
+            </FormField>
             {editor.text !== editor.initial && (
               <p className="list-summary" role="status">
                 Unsaved changes
@@ -489,14 +490,14 @@ export function ServerFilesDialog({
                   Connect with an SFTP client using the address and port
                   provided by your administrator. SFTP must be enabled first.
                 </p>
-                <dl>
-                  <dt>Username</dt>
-                  <dd>
+                <DetailsList>
+                  <DetailItem label="Username">
                     <code>{server.id}</code>
-                  </dd>
-                  <dt>Password</dt>
-                  <dd>Your personal API token</dd>
-                </dl>
+                  </DetailItem>
+                  <DetailItem label="Password">
+                    Your personal API token
+                  </DetailItem>
+                </DetailsList>
                 <p>
                   Create a token from <strong>API keys</strong> in your account
                   menu, with <code>server.view</code> and{" "}
@@ -505,26 +506,23 @@ export function ServerFilesDialog({
               </div>
             </details>
             <div className="file-toolbar">
-              <button
-                className="button"
+              <Button
                 disabled={busy || loading || !canWrite}
                 onClick={() => {
                   setCreating("file");
                 }}
               >
                 New file
-              </button>
-              <button
-                className="button"
+              </Button>
+              <Button
                 disabled={busy || loading || !canWrite}
                 onClick={() => {
                   setCreating("folder");
                 }}
               >
                 New folder
-              </button>
-              <button
-                className="button"
+              </Button>
+              <Button
                 type="button"
                 disabled={
                   busy || loading || !canWrite || maxUploadBytes === null
@@ -532,16 +530,16 @@ export function ServerFilesDialog({
                 onClick={() => uploadInput.current?.click()}
               >
                 Upload file
-              </button>
-              <button
-                className="button file-refresh"
+              </Button>
+              <Button
+                className="file-refresh"
                 disabled={busy || loading}
                 onClick={() => {
                   void perform(() => load(directory));
                 }}
               >
                 Refresh
-              </button>
+              </Button>
               <input
                 ref={uploadInput}
                 hidden
@@ -614,11 +612,13 @@ export function ServerFilesDialog({
                 </div>
               )}
               {loading ? (
-                <p className="list-summary" role="status">
-                  Loading files…
-                </p>
+                <ContentState loading resource="files" compact />
               ) : entries.length === 0 ? (
-                <p className="list-summary">This folder is empty.</p>
+                <ContentState
+                  resource="files"
+                  emptyMessage="This folder is empty."
+                  compact
+                />
               ) : (
                 entries.map((entry) => (
                   <div className="file-row" key={entry.name}>
@@ -641,8 +641,8 @@ export function ServerFilesDialog({
                     </button>
                     <div className="row-actions">
                       {entry.kind === "file" && (
-                        <button
-                          className="button button-icon"
+                        <Button
+                          className="button-icon"
                           title="Download"
                           disabled={busy || entry.size > fileTransferLimit}
                           onClick={() => {
@@ -651,11 +651,11 @@ export function ServerFilesDialog({
                           aria-label={`Download ${entry.name}`}
                         >
                           <NavigationIcon name="download" />
-                        </button>
+                        </Button>
                       )}
                       {entry.kind !== "unsupported" && (
-                        <button
-                          className="button button-icon"
+                        <Button
+                          className="button-icon"
                           title="Compress"
                           aria-label={`Compress ${entry.name}`}
                           disabled={busy || !canWrite}
@@ -664,12 +664,12 @@ export function ServerFilesDialog({
                           }}
                         >
                           <NavigationIcon name="compress" />
-                        </button>
+                        </Button>
                       )}
                       {entry.kind === "file" &&
                         /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
-                          <button
-                            className="button button-icon"
+                          <Button
+                            className="button-icon"
                             title="Extract"
                             aria-label={`Extract ${entry.name}`}
                             disabled={busy || !canWrite}
@@ -678,10 +678,10 @@ export function ServerFilesDialog({
                             }}
                           >
                             <NavigationIcon name="extract" />
-                          </button>
+                          </Button>
                         )}
-                      <button
-                        className="button button-icon"
+                      <Button
+                        className="button-icon"
                         title="Rename"
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
@@ -692,9 +692,10 @@ export function ServerFilesDialog({
                         aria-label={`Rename ${entry.name}`}
                       >
                         <NavigationIcon name="rename" />
-                      </button>
-                      <button
-                        className="button button-icon button-danger"
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="button-icon"
                         title="Delete"
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
@@ -706,7 +707,7 @@ export function ServerFilesDialog({
                         aria-label={`Delete ${entry.name}`}
                       >
                         <NavigationIcon name="delete" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))

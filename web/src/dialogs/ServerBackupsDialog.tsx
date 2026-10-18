@@ -1,10 +1,12 @@
+import { Button, ButtonLink } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
 import { deleteBackup, listBackups, type Backup } from "../api/backups";
 import { serverAction, serverStatus, type RuntimeStatus } from "../api/runtime";
 import type { Server } from "../api/servers";
 import { Drawer } from "../components/layout/Drawer";
 import { Table } from "../components/table/Table";
-import { StatusPill } from "../components/status/StatusPill";
+import { BackupState } from "../components/servers/BackupState";
 import { bytes } from "../api/monitoring";
 import "../components/servers/files.css";
 
@@ -145,50 +147,46 @@ export function ServerBackupsDialog({
       onClose={onClose}
       footerLeft={
         embedded ? null : (
-          <button className="button" disabled={busy} onClick={onClose}>
+          <Button disabled={busy} onClick={onClose}>
             Close
-          </button>
+          </Button>
         )
       }
       footerRight={
-        <button
-          className="button button-primary"
+        <Button
+          variant="primary"
           disabled={!canChange}
           onClick={() => {
             void submit("backup");
           }}
         >
           Create backup
-        </button>
+        </Button>
       }
     >
       <div className="drawer-content">
-        {runtimeError && <p role="status">{runtimeError}</p>}
+        {runtimeError && (
+          <InlineMessage tone="warning">{runtimeError}</InlineMessage>
+        )}
         {loadError && entries.length > 0 && (
-          <p className="error-message" role="alert">
-            {loadError}
-          </p>
+          <InlineMessage role="alert">{loadError}</InlineMessage>
         )}
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {status?.error && (
-          <p className="error-message" role="alert">
-            {status.error}
-          </p>
+          <InlineMessage role="alert">{status.error}</InlineMessage>
         )}
-        {status?.busy && <p role="status">{status.progress}</p>}
+        {status?.busy && (
+          <InlineMessage tone="info">{status.progress}</InlineMessage>
+        )}
         {!status?.busy &&
           !status?.error &&
           (status?.operation === "backup" ||
             status?.operation === "restore") && (
-            <p role="status">
+            <InlineMessage tone="success">
               {status.operation === "backup"
                 ? "Backup created."
                 : "Backup restored. The server is stopped."}
-            </p>
+            </InlineMessage>
           )}
         <Table
           empty={entries.length === 0}
@@ -230,7 +228,7 @@ export function ServerBackupsDialog({
                     .join(" · ") || "—"}
                 </td>
                 <td>
-                  <StatusPill status={entry.state} />
+                  <BackupState state={entry.state} />
                 </td>
                 <td className="table-actions">
                   <div className="row-actions">
@@ -238,16 +236,14 @@ export function ServerBackupsDialog({
                       entry.state !== "deleting" &&
                       (entry.remote ||
                         (entry.local && status && !status.busy)) && (
-                        <a
-                          className="button"
+                        <ButtonLink
                           href={`/api/v1/servers/${encodeURIComponent(server.id)}/backups/${encodeURIComponent(entry.name)}`}
                           download
                         >
                           Download
-                        </a>
+                        </ButtonLink>
                       )}
-                    <button
-                      className="button"
+                    <Button
                       disabled={
                         !canChange ||
                         entry.state === "deleting" ||
@@ -258,10 +254,10 @@ export function ServerBackupsDialog({
                       }}
                     >
                       Restore
-                    </button>
+                    </Button>
                     {canConfigure && entry.local && (
-                      <button
-                        className="button button-danger"
+                      <Button
+                        variant="danger"
                         disabled={
                           busy ||
                           status?.busy === true ||
@@ -272,11 +268,11 @@ export function ServerBackupsDialog({
                         }}
                       >
                         Delete local
-                      </button>
+                      </Button>
                     )}
                     {canConfigure && entry.remote && (
-                      <button
-                        className="button button-danger"
+                      <Button
+                        variant="danger"
                         disabled={
                           busy ||
                           status?.busy === true ||
@@ -287,7 +283,7 @@ export function ServerBackupsDialog({
                         }}
                       >
                         Delete S3
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </td>

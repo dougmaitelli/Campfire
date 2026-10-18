@@ -166,6 +166,26 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	agentDir := filepath.Join(dir, "agent")
 	agentConfig := Config{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, dialContext: listener.dial}
+	bootstrap := agentConfig
+	bootstrap.EnrollOnly = true
+
+	bootstrap.runtimeFactory = func(context.Context, string) *runtime.Manager {
+		t.Fatal("enrollment-only mode started the game runtime")
+		return nil
+	}
+	if err := Run(ctx, bootstrap); err != nil {
+		t.Fatalf("enroll-only: %v", err)
+	}
+
+	if err := agentidentity.CheckPermissions(filepath.Join(agentDir, "identity.json")); err != nil {
+		t.Fatalf("enroll-only did not persist a private identity: %v", err)
+	}
+
+	if hub.Connected(node.ID) {
+		t.Fatal("enrollment-only mode opened a persistent connection")
+	}
+	// Service startup uses only the saved identity, without the consumed token.
+	agentConfig.Token = ""
 	wire := &wireDocker{console: make(chan string)}
 	agentConfig.runtimeFactory = func(ctx context.Context, directory string) *runtime.Manager {
 		manager := runtime.New(ctx, directory)

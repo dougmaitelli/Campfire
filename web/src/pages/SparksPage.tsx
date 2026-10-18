@@ -1,22 +1,31 @@
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { PageHeader } from "../components/layout/PageHeader";
+import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { useState } from "react";
 import { SparksTable } from "../components/sparks/SparksTable";
+import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
 import { SparkDialog } from "../dialogs/SparkDialog";
 import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
-import { SparkRolesDialog } from "../dialogs/SparkRolesDialog";
 import type { Spark } from "../api/sparks";
 import { deleteSpark } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import "./sparks.css";
 import "./management.css";
-import { ResourceDetailsDialog } from "../dialogs/ResourceDetailsDialog";
+import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 
 export function SparksPage() {
   const [details, setDetails] = useState<Spark | null>(null);
   const { sparks, loading, error, refresh, addSpark } = useSparks();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Spark | null>(null);
-  const [enrolling, setEnrolling] = useState<Spark | null>(null);
-  const [provisioning, setProvisioning] = useState<Spark | null>(null);
+  const [enrolling, setEnrolling] = useState<{
+    spark: Spark;
+    reEnrollment: boolean;
+  } | null>(null);
+  const [confirmEnrollment, setConfirmEnrollment] = useState<Spark | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   async function remove(spark: Spark) {
@@ -49,32 +58,29 @@ export function SparksPage() {
 
   return (
     <section className="page" aria-labelledby="page-title">
-      <header className="page-header sparks-header">
-        <div>
-          <h1 id="page-title">Sparks</h1>
-          <p className="page-description">
-            The nodes that host your game servers.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button
-            className="button"
-            disabled={loading}
-            onClick={() => {
-              void refresh();
-            }}
-          >
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
-          <button className="button button-primary" onClick={openAdd}>
-            + Add Spark
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Sparks"
+        description="The nodes that host your game servers."
+        actions={
+          <>
+            <Button
+              disabled={loading}
+              onClick={() => {
+                void refresh();
+              }}
+              loading={loading}
+              loadingLabel={"Refreshing…"}
+            >
+              {"Refresh"}
+            </Button>
+            <Button variant="primary" onClick={openAdd}>
+              + Add Spark
+            </Button>
+          </>
+        }
+      />
       {(deleteError ?? (sparks.length ? error : null)) && (
-        <p className="error-message" role="alert">
-          {error ?? deleteError}
-        </p>
+        <InlineMessage role="alert">{error ?? deleteError}</InlineMessage>
       )}
       <div className="management-content" aria-busy={loading}>
         <SparksTable
@@ -85,8 +91,6 @@ export function SparksPage() {
           }}
           onAdd={openAdd}
           onDetails={setDetails}
-          onEnroll={setEnrolling}
-          onProvisioning={setProvisioning}
           sparks={sparks}
         />
       </div>
@@ -102,31 +106,48 @@ export function SparksPage() {
           onSaved={(spark) => {
             addSpark(spark);
             void refresh();
+            if (!editing) setEnrolling({ spark, reEnrollment: false });
           }}
-        />
-      )}
-      {provisioning && (
-        <SparkRolesDialog
-          spark={provisioning}
-          onClose={() => setProvisioning(null)}
         />
       )}
       {enrolling && (
         <EnrollSparkDialog
-          spark={enrolling}
+          spark={enrolling.spark}
+          reEnrollment={enrolling.reEnrollment}
           onClose={() => setEnrolling(null)}
         />
       )}
       {details && (
-        <ResourceDetailsDialog
+        <SparkDetailsDialog
           key={details.id}
-          target={{ kind: "spark", id: details.id, name: details.name }}
+          id={details.id}
+          title={
+            <>
+              <span>{details.name}</span>
+              <SparkConnectionState
+                disabled={details.disabled}
+                connected={details.connected}
+              />
+            </>
+          }
           onDelete={() => {
             void remove(details);
           }}
           deleting={deleting === details.id}
           deleteDisabled={deleting !== null}
           actionError={deleteError}
+          actions={
+            <Button
+              type="button"
+              variant="warning"
+              disabled={details.disabled || deleting !== null}
+              onClick={() => {
+                setConfirmEnrollment(details);
+              }}
+            >
+              Re-enroll
+            </Button>
+          }
           onClose={() => setDetails(null)}
           onEdit={() => {
             setDetails(null);
@@ -135,6 +156,28 @@ export function SparksPage() {
           }}
           editDisabled={deleting !== null}
         />
+      )}
+      {confirmEnrollment && (
+        <ConfirmDialog
+          title={`Re-enroll ${confirmEnrollment.name}?`}
+          description="Running the re-enrollment command will replace this Spark’s existing credentials. Agents using the old credentials will no longer be able to reconnect. The installer briefly stops and restarts the Spark service, interrupting its connection to Campfire. Server files and configuration are preserved."
+          confirmLabel="Continue to re-enrollment"
+          warning
+          busy={false}
+          error={null}
+          onClose={() => setConfirmEnrollment(null)}
+          onConfirm={() => {
+            setEnrolling({ spark: confirmEnrollment, reEnrollment: true });
+            setConfirmEnrollment(null);
+            setDetails(null);
+          }}
+        >
+          <p>
+            Opening the helper or generating a command does not reset
+            credentials. They are replaced when the command successfully enrolls
+            the agent.
+          </p>
+        </ConfirmDialog>
       )}
     </section>
   );

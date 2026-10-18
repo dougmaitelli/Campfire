@@ -14,6 +14,7 @@ export function ResourceReading({
   fresh,
   detail,
   compact,
+  format,
 }: {
   label: string;
   value: number | null;
@@ -21,13 +22,9 @@ export function ResourceReading({
   fresh: boolean;
   detail: string;
   compact: boolean;
+  format: (value: number) => string;
 }) {
   const measured = value !== null;
-  const format =
-    label === "CPU"
-      ? (value: number) =>
-          `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} cores`
-      : bytes;
   return (
     <div
       className={`usage-reading${measured && !fresh ? " usage-stale" : ""}`}
@@ -74,6 +71,9 @@ export function ResourceReadings({
     >
       <ResourceReading
         label="CPU"
+        format={(value) =>
+          `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} cores`
+        }
         compact={layout !== "stack"}
         value={cpu === undefined || cpu === null ? null : cpu / 100}
         allocation={cpuLimit}
@@ -88,6 +88,7 @@ export function ResourceReadings({
       />
       <ResourceReading
         label="Memory"
+        format={bytes}
         compact={layout !== "stack"}
         value={usage?.memory_bytes ?? null}
         allocation={memoryMB * 1048576}
@@ -100,6 +101,7 @@ export function ResourceReadings({
       />
       <ResourceReading
         label="Game data"
+        format={bytes}
         compact={layout !== "stack"}
         value={usage?.disk_bytes ?? null}
         allocation={diskMB * 1048576}

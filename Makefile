@@ -44,9 +44,10 @@ test-postgres:
 	@test -n "$$CAMPFIRE_TEST_POSTGRES" || (echo "Set CAMPFIRE_TEST_POSTGRES to a PostgreSQL test URL"; exit 1)
 	go -C backend test -race -count=1 ./internal/campfire/database/repository
 
-# Check frontend types until browser behavior tests are available.
+# Check frontend types and installation command behavior.
 test-frontend:
 	pnpm --dir web run typecheck
+	node --test scripts/test-spark-installer.mjs
 
 format: format-backend format-frontend
 

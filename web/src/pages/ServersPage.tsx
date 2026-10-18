@@ -1,3 +1,9 @@
+import { SearchField } from "../components/forms/SearchField";
+import { FormField } from "../components/forms/FormField";
+import { Button, ButtonLink } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { ListToolbar } from "../components/layout/ListToolbar";
+import { PageHeader } from "../components/layout/PageHeader";
 import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { deleteServer, listServers } from "../api/servers";
@@ -10,7 +16,7 @@ import { ServerDialog } from "../dialogs/ServerDialog";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import "./management.css";
 import { Table, TableRow } from "../components/table/Table";
-import { ResourceDetailsDialog } from "../dialogs/ResourceDetailsDialog";
+import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
@@ -149,38 +155,31 @@ export function ServersPage() {
   }
   return (
     <section aria-labelledby="page-title">
-      <header className="page-header management-header">
-        <div>
-          <h1 id="page-title">Servers</h1>
-          <p className="page-description">
-            Server configuration, access, and allocated resources.
-          </p>
-        </div>
-        <div className="page-actions">
-          <button
-            className="button"
-            disabled={loading}
-            onClick={() => {
-              void refresh();
-            }}
-          >
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
-          {canProvision && (
-            <button
-              className="button button-primary"
-              disabled={!canCreate}
-              onClick={create}
+      <PageHeader
+        title="Servers"
+        description="Server configuration, access, and allocated resources."
+        actions={
+          <>
+            <Button
+              disabled={loading}
+              onClick={() => {
+                void refresh();
+              }}
+              loading={loading}
+              loadingLabel={"Refreshing…"}
             >
-              + Create server
-            </button>
-          )}
-        </div>
-      </header>
+              {"Refresh"}
+            </Button>
+            {canProvision && (
+              <Button variant="primary" disabled={!canCreate} onClick={create}>
+                + Create server
+              </Button>
+            )}
+          </>
+        }
+      />
       {error && servers.items.length > 0 && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
+        <InlineMessage role="alert">{error}</InlineMessage>
       )}
       {!loading && canProvision && !canCreate && (
         <p className="prerequisite-note">
@@ -193,24 +192,20 @@ export function ServersPage() {
               .
             </>
           ) : (
-            "Ask an administrator to approve a Spark for your platform role before creating a server."
+            "Ask an administrator to approve a Spark for your role before creating a server."
           )}
         </p>
       )}
       {servers.items.length > 0 && (
-        <div className="list-toolbar">
-          <label>
-            Search
-            <input
-              type="search"
-              aria-label="Search servers"
-              placeholder="Search servers"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-          <label>
-            Spark
+        <ListToolbar>
+          <SearchField
+            label="Search"
+            aria-label="Search servers"
+            placeholder="Search servers"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <FormField label="Spark">
             <Select
               aria-label="Filter by Spark"
               value={sparkFilter}
@@ -230,8 +225,8 @@ export function ServersPage() {
                 </option>
               ))}
             </Select>
-          </label>
-        </div>
+          </FormField>
+        </ListToolbar>
       )}
       <div className="management-content" aria-busy={loading}>
         <Table
@@ -250,9 +245,9 @@ export function ServersPage() {
           }
           emptyAction={
             canCreate && servers.items.length === 0 ? (
-              <button className="button button-primary" onClick={create}>
+              <Button variant="primary" onClick={create}>
                 Create server
-              </button>
+              </Button>
             ) : null
           }
           onRetry={() => {
@@ -333,12 +328,11 @@ export function ServersPage() {
                 </td>
                 <td className="table-actions">
                   <div className="row-actions">
-                    <a
-                      className="button"
+                    <ButtonLink
                       href={`#servers/${encodeURIComponent(server.id)}/console`}
                     >
                       Open server
-                    </a>
+                    </ButtonLink>
                   </div>
                 </td>
               </TableRow>
@@ -389,9 +383,10 @@ export function ServersPage() {
         />
       )}
       {details && (
-        <ResourceDetailsDialog
+        <ServerDetailsDialog
           key={details.id}
-          target={{ kind: "server", id: details.id, name: details.name }}
+          id={details.id}
+          title={details.name}
           onDelete={
             details.permissions.includes("server.delete")
               ? () => {
@@ -406,15 +401,13 @@ export function ServersPage() {
           actionError={actionError}
           actions={
             <>
-              <a
-                className="button"
+              <ButtonLink
                 href={`#servers/${encodeURIComponent(details.id)}/console`}
               >
                 Open server
-              </a>
+              </ButtonLink>
               {details.permissions.includes("server.share") && (
-                <button
-                  className="button"
+                <Button
                   disabled={deleting !== null}
                   onClick={() => {
                     setDetails(null);
@@ -422,11 +415,10 @@ export function ServersPage() {
                   }}
                 >
                   Access
-                </button>
+                </Button>
               )}
               {canApplyRevision && (
-                <button
-                  className="button"
+                <Button
                   disabled={
                     deleting !== null ||
                     runtime.statuses[details.id]?.busy === true ||
@@ -440,11 +432,10 @@ export function ServersPage() {
                   }}
                 >
                   Ember revision
-                </button>
+                </Button>
               )}
               {canTransfer && (
-                <button
-                  className="button"
+                <Button
                   disabled={deleting !== null}
                   onClick={() => {
                     setDetails(null);
@@ -452,7 +443,7 @@ export function ServersPage() {
                   }}
                 >
                   Transfer
-                </button>
+                </Button>
               )}
             </>
           }

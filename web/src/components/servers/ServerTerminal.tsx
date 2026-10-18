@@ -1,3 +1,6 @@
+import { Button } from "../forms/Button";
+import { TextInput } from "../forms/TextInput";
+import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -171,44 +174,44 @@ export function ServerTerminal({
       <div className="server-terminal-toolbar">
         <span role="status">
           <StatusPill
-            status={
+            tone={
               connected
-                ? "connected"
+                ? "positive"
                 : connection === "Connecting…"
                   ? "pending"
-                  : "disconnected"
+                  : "negative"
             }
           >
             {connection}
           </StatusPill>
         </span>
         <div className="row-actions">
-          <button
+          <Button
             type="button"
-            className="button"
+
             title="Download retained console output (up to 5,000 lines of scrollback)."
             onClick={downloadLogs}
           >
             Download logs
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="button"
+
             onClick={() => terminal.current?.clear()}
           >
             Clear
-          </button>
+          </Button>
           {!connected && (
-            <button
+            <Button
               type="button"
-              className="button"
+
               onClick={() => {
                 setConnection("Connecting…");
                 setRevision((value) => value + 1);
               }}
             >
               Reconnect
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -227,7 +230,7 @@ export function ServerTerminal({
           }}
         >
           <span aria-hidden="true">&gt;</span>
-          <input
+          <TextInput
             aria-label="Command"
             value={command}
             readOnly={busy}
@@ -264,11 +267,7 @@ export function ServerTerminal({
           />
         </form>
       </div>
-      {error && (
-        <p className="error-message" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <InlineMessage role="alert">{error}</InlineMessage>}
     </div>
   );
 }

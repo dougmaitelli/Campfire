@@ -12,23 +12,21 @@ export function MetricTile({
   detail,
   tone = "neutral",
   title,
+  announcement,
 }: {
   label: string;
   value: ReactNode;
   detail?: ReactNode;
   tone?: UtilizationTone;
   title?: string;
+  announcement?: ReactNode;
 }) {
   return (
     <article className={`metric-tile metric-tile-${tone}`} title={title}>
       <span className="metric-tile-label">{label}</span>
       <strong className="metric-tile-value">{value}</strong>
       {detail && <small className="metric-tile-detail">{detail}</small>}
-      {tone !== "neutral" && (
-        <span className="visually-hidden">
-          {tone === "critical" ? "Critical utilization" : "High utilization"}
-        </span>
-      )}
+      {announcement && <span className="visually-hidden">{announcement}</span>}
     </article>
   );
 }
@@ -61,6 +59,7 @@ export function ResourceTile({
       label={label}
       tone={tone}
       title={title}
+      announcement={tone !== "neutral" ? title : undefined}
       value={
         <>
           {used === null ? "-" : format(used)} / {format(allocated)}

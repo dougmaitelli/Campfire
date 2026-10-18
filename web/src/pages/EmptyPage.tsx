@@ -1,9 +1,8 @@
+import { PageHeader } from "../components/layout/PageHeader";
 export function EmptyPage({ title }: { title: string }) {
   return (
     <section className="page" aria-labelledby="page-title">
-      <header className="page-header">
-        <h1 id="page-title">{title}</h1>
-      </header>
+      <PageHeader title={title} />
       <div className="page-content" />
     </section>
   );

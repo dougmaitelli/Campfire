@@ -1,3 +1,7 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -77,18 +81,14 @@ export function ServerAccessDialog({
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
+        <Button disabled={busy} onClick={onClose}>
           Close
-        </button>
+        </Button>
       }
       footerRight={null}
     >
       <div className="drawer-content">
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {!access ? (
           <p role="status">Loading access…</p>
         ) : (
@@ -97,23 +97,23 @@ export function ServerAccessDialog({
             <p>{access.owner?.username ?? "Administrator managed"}</p>
             {admin && (
               <>
-                <label htmlFor="server-owner">Transfer ownership</label>
-                <Select
-                  id="server-owner"
-                  value={ownerID}
-                  onChange={(event) => setOwnerID(Number(event.target.value))}
-                >
-                  <option value={0}>Select an account</option>
-                  {users
-                    .filter((user) => !user.disabled)
-                    .map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.username}
-                      </option>
-                    ))}
-                </Select>
-                <button
-                  className="button"
+                <FormField label="Transfer ownership">
+                  <Select
+                    id="server-owner"
+                    value={ownerID}
+                    onChange={(event) => setOwnerID(Number(event.target.value))}
+                  >
+                    <option value={0}>Select an account</option>
+                    {users
+                      .filter((user) => !user.disabled)
+                      .map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.username}
+                        </option>
+                      ))}
+                  </Select>
+                </FormField>
+                <Button
                   disabled={busy || !ownerID || ownerID === access.owner?.id}
                   onClick={() => {
                     if (
@@ -125,7 +125,7 @@ export function ServerAccessDialog({
                   }}
                 >
                   Transfer
-                </button>
+                </Button>
               </>
             )}
             <h3>Collaborators</h3>
@@ -137,44 +137,44 @@ export function ServerAccessDialog({
                 <span>
                   {member.username} · {member.role}
                 </span>
-                <button
-                  className="button button-danger"
+                <Button
+                  variant="danger"
                   disabled={busy}
                   onClick={() => {
                     void change(() => removeMember(server.id, member.user_id));
                   }}
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             ))}
-            <label htmlFor="member-name">Existing username</label>
-            <input
-              id="member-name"
-              value={username}
-              maxLength={64}
-              autoComplete="off"
-              onChange={(event) => setUsername(event.target.value)}
-            />
-            <label htmlFor="member-role">Server role</label>
-            <Select
-              id="member-role"
-              value={roleID}
-              onChange={(event) => setRoleID(Number(event.target.value))}
+            <FormField label="Existing username">
+              <TextInput
+                id="member-name"
+                value={username}
+                maxLength={64}
+                autoComplete="off"
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </FormField>
+            <FormField
+              label="Server role"
+              description="Operators can use lifecycle controls, console, files, and backups. They cannot change configuration, delete the server, or share access. Administrators always have access."
             >
-              {access.roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </Select>
-            <p className="field-help">
-              Operators can use lifecycle controls, console, files, and backups.
-              They cannot change configuration, delete the server, or share
-              access. Administrators always have access.
-            </p>
-            <button
-              className="button button-primary"
+              <Select
+                id="member-role"
+                value={roleID}
+                onChange={(event) => setRoleID(Number(event.target.value))}
+              >
+                {access.roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <Button
+              variant="primary"
               disabled={busy || !username.trim()}
               onClick={() => {
                 void change(async () => {
@@ -184,7 +184,7 @@ export function ServerAccessDialog({
               }}
             >
               Assign user
-            </button>
+            </Button>
           </>
         )}
       </div>

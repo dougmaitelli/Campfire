@@ -1,3 +1,7 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { listSparks, type Spark } from "../api/sparks";
@@ -182,27 +186,25 @@ export function ServerTransferDialog({
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
+        <Button disabled={busy} onClick={onClose}>
           Close
-        </button>
+        </Button>
       }
       footerRight={
-        <button
-          className="button button-primary"
+        <Button
+          variant="primary"
           disabled={!canBegin}
           onClick={() => {
             void submit("begin");
           }}
         >
           Transfer server
-        </button>
+        </Button>
       }
     >
       <div className="drawer-content">
         {(error ?? loadError) && (
-          <p className="error-message" role="alert">
-            {error ?? loadError}
-          </p>
+          <InlineMessage role="alert">{error ?? loadError}</InlineMessage>
         )}
         <p>
           Current Spark: <strong>{server.spark_name}</strong>. Ownership,
@@ -214,21 +216,22 @@ export function ServerTransferDialog({
               Stop the server before beginning a transfer.
             </p>
           )}
-        <label htmlFor="transfer-target">Destination Spark</label>
-        <Select
-          id="transfer-target"
-          value={targetID}
-          disabled={busy || active}
-          onChange={(event) => selectTarget(event.target.value)}
-        >
-          <option value="">Select a Spark</option>
-          {choices.map((spark) => (
-            <option key={spark.id} value={spark.id}>
-              {spark.name}
-              {spark.connected ? "" : " (disconnected)"}
-            </option>
-          ))}
-        </Select>
+        <FormField label="Destination Spark">
+          <Select
+            id="transfer-target"
+            value={targetID}
+            disabled={busy || active}
+            onChange={(event) => selectTarget(event.target.value)}
+          >
+            <option value="">Select a Spark</option>
+            {choices.map((spark) => (
+              <option key={spark.id} value={spark.id}>
+                {spark.name}
+                {spark.connected ? "" : " (disconnected)"}
+              </option>
+            ))}
+          </Select>
+        </FormField>
         {target && (
           <>
             <p className="field-help">
@@ -244,70 +247,77 @@ export function ServerTransferDialog({
                 <legend>
                   Container port {port.container_port}/{port.protocol}
                 </legend>
-                <label htmlFor={`transfer-ip-${index}`}>
-                  Destination interface
-                </label>
-                <Select
-                  id={`transfer-ip-${index}`}
-                  value={port.bind_ip}
-                  onChange={(event) =>
-                    setPorts((current) =>
-                      current.map((entry, i) =>
-                        i === index
-                          ? { ...entry, bind_ip: event.target.value }
-                          : entry,
+                <FormField label="Destination interface">
+                  <Select
+                    id={`transfer-ip-${index}`}
+                    value={port.bind_ip}
+                    onChange={(event) =>
+                      setPorts((current) =>
+                        current.map((entry, i) =>
+                          i === index
+                            ? { ...entry, bind_ip: event.target.value }
+                            : entry,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">Select an interface</option>
+                    {[
+                      ...new Set(
+                        target.port_allocations
+                          .filter(
+                            (allocation) =>
+                              allocation.protocol === port.protocol,
+                          )
+                          .map((allocation) => allocation.bind_ip),
                       ),
-                    )
+                    ].map((ip) => (
+                      <option key={ip} value={ip}>
+                        {ip}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField
+                  label="Destination host port"
+                  description={
+                    <>
+                      Allowed ranges:{" "}
+                      {target.port_allocations
+                        .filter(
+                          (allocation) =>
+                            allocation.protocol === port.protocol &&
+                            allocation.bind_ip === port.bind_ip,
+                        )
+                        .map(
+                          (allocation) =>
+                            `${allocation.start}–${allocation.end}`,
+                        )
+                        .join(", ") || "None"}
+                    </>
                   }
                 >
-                  <option value="">Select an interface</option>
-                  {[
-                    ...new Set(
-                      target.port_allocations
-                        .filter(
-                          (allocation) => allocation.protocol === port.protocol,
-                        )
-                        .map((allocation) => allocation.bind_ip),
-                    ),
-                  ].map((ip) => (
-                    <option key={ip} value={ip}>
-                      {ip}
-                    </option>
-                  ))}
-                </Select>
-                <label htmlFor={`transfer-port-${index}`}>
-                  Destination host port
-                </label>
-                <input
-                  id={`transfer-port-${index}`}
-                  type="number"
-                  min="1"
-                  max="65535"
-                  required
-                  value={port.host_port}
-                  onChange={(event) =>
-                    setPorts((current) =>
-                      current.map((entry, i) =>
-                        i === index
-                          ? { ...entry, host_port: Number(event.target.value) }
-                          : entry,
-                      ),
-                    )
-                  }
-                />
-                <p className="field-help">
-                  Allowed ranges:{" "}
-                  {target.port_allocations
-                    .filter(
-                      (allocation) =>
-                        allocation.protocol === port.protocol &&
-                        allocation.bind_ip === port.bind_ip,
-                    )
-                    .map(
-                      (allocation) => `${allocation.start}–${allocation.end}`,
-                    )
-                    .join(", ") || "None"}
-                </p>
+                  <TextInput
+                    id={`transfer-port-${index}`}
+                    type="number"
+                    min="1"
+                    max="65535"
+                    required
+                    value={port.host_port}
+                    onChange={(event) =>
+                      setPorts((current) =>
+                        current.map((entry, i) =>
+                          i === index
+                            ? {
+                                ...entry,
+                                host_port: Number(event.target.value),
+                              }
+                            : entry,
+                        ),
+                      )
+                    }
+                  />
+                </FormField>
               </fieldset>
             ))}
           </>
@@ -338,33 +348,29 @@ export function ServerTransferDialog({
               </>
             )}
             {item.error && (
-              <p className="error-message" role="alert">
-                {item.error}
-              </p>
+              <InlineMessage role="alert">{item.error}</InlineMessage>
             )}
             {item.active && (
               <div className="row-actions">
                 {item.phase === "failed" && (
-                  <button
-                    className="button"
+                  <Button
                     disabled={busy}
                     onClick={() => {
                       void submit("retry", item);
                     }}
                   >
                     Retry transfer
-                  </button>
+                  </Button>
                 )}
                 {item.can_cancel && (
-                  <button
-                    className="button"
+                  <Button
                     disabled={busy}
                     onClick={() => {
                       void submit("cancel", item);
                     }}
                   >
                     Cancel transfer
-                  </button>
+                  </Button>
                 )}
                 {!item.can_cancel && item.phase !== "cancelling" && (
                   <p className="field-help">

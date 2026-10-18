@@ -39,6 +39,7 @@ type Config struct {
 	DataDir        string
 	CAFile         string
 	Token          string
+	EnrollOnly     bool
 	dialContext    func(context.Context, string, string) (net.Conn, error)
 	runtimeFactory func(context.Context, string) *runtime.Manager
 	serverCA       []byte
@@ -128,6 +129,10 @@ func Run(ctx context.Context, config Config) error {
 
 	if _, err := identityTLS(identity); err != nil {
 		return err
+	}
+
+	if config.EnrollOnly {
+		return nil
 	}
 
 	target.Scheme = "wss"

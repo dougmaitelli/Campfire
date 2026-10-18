@@ -1,0 +1,31 @@
+.form-field {
+  min-width: 0;
+  margin-bottom: 20px;
+}
+.form-field > label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.form-field > .text-input,
+.form-field > .textarea,
+.form-field > .select,
+.drawer-form .form-field > input,
+.drawer-form .form-field > textarea,
+.drawer-form .form-field > select {
+  width: 100%;
+  margin-bottom: 0;
+}
+.form-field > .field-help,
+.form-field-error {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.form-field-error {
+  color: #fca5a5;
+}
+.authentication-form .form-field {
+  margin: 0;
+}

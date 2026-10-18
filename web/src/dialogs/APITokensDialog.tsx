@@ -1,3 +1,7 @@
+import { FormField } from "../components/forms/FormField";
+import { Button } from "../components/forms/Button";
+import { InlineMessage } from "../components/status/InlineMessage";
+import { TextInput } from "../components/forms/TextInput";
 import { useEffect, useRef, useState } from "react";
 import {
   createToken,
@@ -82,18 +86,14 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <button className="button" disabled={busy} onClick={onClose}>
+        <Button disabled={busy} onClick={onClose}>
           Close
-        </button>
+        </Button>
       }
       footerRight={null}
     >
       <div className="drawer-content">
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {secret && (
           <section aria-label="New token secret">
             <h3>Save your token</h3>
@@ -101,15 +101,14 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               This secret is shown only once. Store it somewhere safe before
               closing this window.
             </p>
-            <input
+            <TextInput
               aria-label="Token secret"
               value={secret}
               readOnly
               spellCheck={false}
               autoComplete="off"
             />
-            <button
-              className="button"
+            <Button
               disabled={busy}
               onClick={() => {
                 void perform(async () => {
@@ -119,7 +118,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               }}
             >
               {copied ? "Copied" : "Copy token"}
-            </button>
+            </Button>
           </section>
         )}
         <h3>Create a token</h3>
@@ -135,26 +134,28 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             });
           }}
         >
-          <label htmlFor="token-name">Name</label>
-          <input
-            id="token-name"
-            required
-            maxLength={100}
-            value={name}
-            disabled={busy}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <label htmlFor="token-expiry">Expires in days</label>
-          <input
-            id="token-expiry"
-            type="number"
-            min={1}
-            max={365}
-            required
-            value={days}
-            disabled={busy}
-            onChange={(event) => setDays(Number(event.target.value))}
-          />
+          <FormField label="Name">
+            <TextInput
+              id="token-name"
+              required
+              maxLength={100}
+              value={name}
+              disabled={busy}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </FormField>
+          <FormField label="Expires in days">
+            <TextInput
+              id="token-expiry"
+              type="number"
+              min={1}
+              max={365}
+              required
+              value={days}
+              disabled={busy}
+              onChange={(event) => setDays(Number(event.target.value))}
+            />
+          </FormField>
           <CheckboxField
             checked={scopes.includes("*")}
             disabled={busy}
@@ -182,8 +183,8 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             password, role, or disabled-state changes invalidate existing
             tokens.
           </p>
-          <button
-            className="button button-primary"
+          <Button
+            variant="primary"
             disabled={
               busy ||
               loading ||
@@ -194,7 +195,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             }
           >
             Create token
-          </button>
+          </Button>
           {secret && (
             <p>Close and reopen this window to create another token.</p>
           )}
@@ -224,8 +225,8 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 ? "All my current permissions"
                 : token.scopes.join(", ")}
             </p>
-            <button
-              className="button button-danger"
+            <Button
+              variant="danger"
               disabled={busy}
               onClick={() => {
                 if (
@@ -243,7 +244,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               }}
             >
               Revoke
-            </button>
+            </Button>
           </section>
         ))}
       </div>
