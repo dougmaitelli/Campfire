@@ -36,6 +36,15 @@ export function ScheduleDialog({
       ? schedule.time_zone
       : Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   );
+  const [once, setOnce] = useState(schedule?.cron_expression === "");
+  const [runAt, setRunAt] = useState(() => {
+    const date = new Date(
+      (schedule?.next_run_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000,
+    );
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+  });
   const [validated, setValidated] = useState("");
   const cronKey = `${expression.trim().replace(/\s+/g, " ")}\n${timeZone}`;
   const [enabled, setEnabled] = useState(schedule?.enabled ?? true);
@@ -75,6 +84,10 @@ export function ScheduleDialog({
   }
   async function submit() {
     if (pending.current) return;
+    if (once && enabled && new Date(runAt).getTime() <= Date.now()) {
+      setError("Choose a future date and time for this one-off schedule.");
+      return;
+    }
     pending.current = true;
     setBusy(true);
     setError(null);
@@ -85,7 +98,8 @@ export function ScheduleDialog({
           name,
           action,
           command,
-          cron_expression: expression,
+          cron_expression: once ? "" : expression,
+          next_run_at: once ? Math.floor(new Date(runAt).getTime() / 1000) : 0,
           time_zone: timeZone,
           enabled,
           only_when_running: onlyWhenRunning,
@@ -106,7 +120,7 @@ export function ScheduleDialog({
   return (
     <Drawer
       title={schedule ? "Edit schedule" : "Create schedule"}
-      description="Recurring server operations run with your current permissions."
+      description="One-off and recurring operations run with your current permissions."
       busy={busy}
       onClose={onClose}
       footerLeft={
@@ -133,7 +147,9 @@ export function ScheduleDialog({
               busy ||
               !name.trim() ||
               !serverID ||
-              validated !== cronKey ||
+              (once
+                ? !runAt || !Number.isFinite(new Date(runAt).getTime())
+                : validated !== cronKey) ||
               (action === "command" &&
                 !command.trim() &&
                 schedule?.action !== "command")
@@ -207,14 +223,37 @@ export function ScheduleDialog({
             </FormField>
           </>
         )}
-        <CronField
-          expression={expression}
-          timeZone={timeZone}
-          onChange={setExpression}
-          onTimeZoneChange={setTimeZone}
-          onValidated={setValidated}
-          disabled={busy}
-        />
+        <FormField label="Timing">
+          <Select
+            value={once ? "once" : "recurring"}
+            onChange={(event) => setOnce(event.target.value === "once")}
+          >
+            <option value="recurring">Recurring</option>
+            <option value="once">Run once</option>
+          </Select>
+        </FormField>
+        {once ? (
+          <FormField
+            label="Run at"
+            description="Date and time in your browser’s local time zone."
+          >
+            <TextInput
+              type="datetime-local"
+              value={runAt}
+              required
+              onChange={(event) => setRunAt(event.target.value)}
+            />
+          </FormField>
+        ) : (
+          <CronField
+            expression={expression}
+            timeZone={timeZone}
+            onChange={setExpression}
+            onTimeZoneChange={setTimeZone}
+            onValidated={setValidated}
+            disabled={busy}
+          />
+        )}
         <CheckboxField
           checked={onlyWhenRunning}
           disabled={busy}
@@ -235,8 +274,9 @@ export function ScheduleDialog({
           Enabled
         </CheckboxField>
         <p className="field-help">
-          Missed runs produce one execution after downtime. Backups require a
-          stopped server. Editing makes you the execution owner.
+          Work stays pending while its Spark is offline. Missed recurring times
+          produce one attempt after reconnection. Backups require a stopped
+          server. Editing makes you the execution owner.
         </p>
       </div>
     </Drawer>

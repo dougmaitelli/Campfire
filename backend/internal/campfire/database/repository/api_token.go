@@ -18,11 +18,11 @@ func (r *AuthRepository) CreateAPIToken(ctx context.Context, token *database.API
 			return ErrAuthentication
 		}
 
-		if user.Disabled || user.Version != token.CredentialVersion {
+		if user.Disabled || user.CredentialVersion != token.CredentialVersion {
 			return ErrAuthentication
 		}
 
-		if err := tx.Where("user_id = ? AND (expires_at <= ? OR credential_version <> ?)", user.ID, now.Unix(), user.Version).Delete(&database.APIToken{}).Error; err != nil {
+		if err := tx.Where("user_id = ? AND (expires_at <= ? OR credential_version <> ?)", user.ID, now.Unix(), user.CredentialVersion).Delete(&database.APIToken{}).Error; err != nil {
 			return err
 		}
 
@@ -64,7 +64,7 @@ func (r *AuthRepository) APIToken(ctx context.Context, hash string, now time.Tim
 			return ErrAuthentication
 		}
 
-		if token.User.Disabled || token.User.Version != token.CredentialVersion {
+		if token.User.Disabled || token.User.CredentialVersion != token.CredentialVersion {
 			return ErrAuthentication
 		}
 

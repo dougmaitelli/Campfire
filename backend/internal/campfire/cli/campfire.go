@@ -27,7 +27,7 @@ import (
 	"campfire/internal/campfire/webui"
 )
 
-// Run starts the admin API and optional dedicated agent TLS listener.
+// Run starts the admin API and the dedicated agent TLS listener.
 func Run(ctx context.Context, args []string) error {
 	return run(ctx, args, nil)
 }
@@ -62,7 +62,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	oidcClient := flags.String("oidc-client-id", environment("CAMPFIRE_OIDC_CLIENT_ID", ""), "OIDC client ID (CAMPFIRE_OIDC_CLIENT_ID)")
 	oidcSecret := flags.String("oidc-client-secret", environment("CAMPFIRE_OIDC_CLIENT_SECRET", ""), "OIDC client secret (CAMPFIRE_OIDC_CLIENT_SECRET)")
 	disableLocal := flags.Bool("disable-local-login", disableLocalDefault, "require OIDC instead of passwords (CAMPFIRE_DISABLE_LOCAL_LOGIN)")
-	agentListen := flags.String("agent-listen", environment("CAMPFIRE_AGENT_LISTEN", ""), "dedicated agent HTTPS listener (CAMPFIRE_AGENT_LISTEN)")
+	agentListen := flags.String("agent-listen", environment("CAMPFIRE_AGENT_LISTEN", defaultAgentListen), "dedicated agent HTTPS listener; empty disables it (CAMPFIRE_AGENT_LISTEN)")
+	agentPublicURL := flags.String("agent-public-url", environment("CAMPFIRE_AGENT_PUBLIC_URL", ""), "reachable agent HTTPS origin; defaults to the panel hostname and agent port (CAMPFIRE_AGENT_PUBLIC_URL)")
 	tlsCert := flags.String("agent-tls-cert", environment("CAMPFIRE_AGENT_TLS_CERT", ""), "agent HTTPS certificate (CAMPFIRE_AGENT_TLS_CERT)")
 	tlsKey := flags.String("agent-tls-key", environment("CAMPFIRE_AGENT_TLS_KEY", ""), "agent HTTPS private key (CAMPFIRE_AGENT_TLS_KEY)")
 	version := flags.Bool("version", false, "print release version and exit")
@@ -105,10 +106,13 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 		return err
 	}
 
-	if *agentListen != "" {
-		if *tlsCert == "" || *tlsKey == "" {
-			return errors.New("--agent-listen requires --agent-tls-cert and --agent-tls-key")
-		}
+	endpoint, err := agentPublicAddress(*agentListen, *agentPublicURL, *publicURL)
+	if err != nil {
+		return err
+	}
+
+	if (*tlsCert == "") != (*tlsKey == "") {
+		return errors.New("provide both --agent-tls-cert and --agent-tls-key, or omit both for generated agent TLS")
 	}
 
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
@@ -145,7 +149,7 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 
 	if setupToken != "" {
-		slog.Info("Administrator setup required; enter this one-time token in the setup form", "setup_token", setupToken)
+		slog.Info("Administrator setup token: " + setupToken)
 	}
 
 	var hub *agents.Hub
@@ -158,11 +162,6 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	var agentTLS *tls.Config
 
 	if *agentListen != "" {
-		certificate, err := tls.LoadX509KeyPair(*tlsCert, *tlsKey)
-		if err != nil {
-			return fmt.Errorf("load agent HTTPS certificate: %w", err)
-		}
-
 		authority, err := agents.LoadAuthority(filepath.Join(stateDir, "spark-authority.json"))
 		if err != nil {
 			return fmt.Errorf("load agent authority: %w", err)
@@ -173,7 +172,27 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 
 		connectivity = hub
 		agentTLS = hub.TLSConfig()
-		agentTLS.Certificates = []tls.Certificate{certificate}
+
+		var serverCA func() []byte
+
+		if *tlsCert != "" {
+			certificate, err := tls.LoadX509KeyPair(*tlsCert, *tlsKey)
+			if err != nil {
+				return fmt.Errorf("load agent HTTPS certificate: %w", err)
+			}
+
+			agentTLS.Certificates = []tls.Certificate{certificate}
+		} else {
+			server, err := agents.LoadServerTLS(stateDir, agentCertificateHosts(endpoint))
+			if err != nil {
+				return fmt.Errorf("load generated agent HTTPS certificate: %w", err)
+			}
+
+			agentTLS.GetCertificate = server.GetCertificate
+			serverCA = server.PEM
+		}
+
+		hub.WithEnrollmentEndpoint(endpoint, serverCA)
 	}
 
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))

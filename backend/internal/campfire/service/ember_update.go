@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -55,15 +53,7 @@ func emberUpdateURL(ember model.Ember) string {
 }
 
 // fingerprint compares parsed definitions so formatting and object key order do not count as updates.
-func emberFingerprint(ember model.Ember) [32]byte {
-	ember.ID = ""
-	// Attribution and update locations do not change the game's definition.
-	ember.Origin = nil
-	ember.UpdateURL = ""
-	data, _ := json.Marshal(ember)
-
-	return sha256.Sum256(data)
-}
+func emberFingerprint(ember model.Ember) string { return model.EmberHash(ember) }
 
 // Check refreshes one revision's status and returns the downloaded preview.
 func (s *EmberUpdateService) Check(ctx context.Context, id string) (model.EmberUpdate, EmberPreview, error) {
@@ -117,7 +107,7 @@ func (s *EmberUpdateService) check(ctx context.Context, id string) (model.EmberU
 		}
 	}
 
-	item := model.EmberUpdate{EmberID: id, URL: address, CheckedAt: s.now().UTC().Unix()}
+	item := model.EmberUpdate{EmberID: id, CheckedAt: s.now().UTC().Unix()}
 	if fetchErr != nil {
 		item.Error = fetchErr.Error()
 	} else if preview.Ember == nil || len(preview.Errors) > 0 {
@@ -158,7 +148,7 @@ func (s *EmberUpdateService) Sweep(ctx context.Context) error {
 		address := emberUpdateURL(ember)
 
 		last := previous[ember.ID]
-		if address == "" || (last.URL == address && s.now().Sub(time.Unix(last.CheckedAt, 0)) < emberCheckInterval) {
+		if address == "" || s.now().Sub(time.Unix(last.CheckedAt, 0)) < emberCheckInterval {
 			continue
 		}
 

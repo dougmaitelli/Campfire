@@ -82,13 +82,34 @@ func renewAgent(ctx context.Context, identity agentIdentity, path string, dial f
 
 	var result struct {
 		Certificate []byte `json:"certificate"`
+		ServerCA    []byte `json:"server_ca,omitempty"`
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 65536)).Decode(&result); err != nil {
 		return identity, err
 	}
 
 	updated := identity
+
 	updated.Certificate = result.Certificate
+	if len(result.ServerCA) > 0 {
+		// Trust refresh arrives over the already-verified mutual TLS connection.
+		// Retain normal hostname/chain checks before persisting its replacement.
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(result.ServerCA) || response.TLS == nil || len(response.TLS.PeerCertificates) == 0 {
+			return identity, errors.New("invalid renewed agent HTTPS authority")
+		}
+
+		intermediates := x509.NewCertPool()
+		for _, certificate := range response.TLS.PeerCertificates[1:] {
+			intermediates.AddCert(certificate)
+		}
+
+		if _, err := response.TLS.PeerCertificates[0].Verify(x509.VerifyOptions{Roots: roots, Intermediates: intermediates, DNSName: target.Hostname()}); err != nil {
+			return identity, fmt.Errorf("verify renewed agent HTTPS authority: %w", err)
+		}
+
+		updated.ServerCA = append([]byte(nil), result.ServerCA...)
+	}
 
 	newTLS, err := identityTLS(updated)
 	if err != nil {

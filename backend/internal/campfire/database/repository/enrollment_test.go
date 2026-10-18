@@ -23,7 +23,7 @@ func TestCertificateRenewalOverlapRollbackAndRevocation(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	nodes := repository.NewSparkRepository(db.ORM())
-	if err := nodes.Create(ctx, model.Spark{ID: "node", Name: "Node", Kind: model.SparkRemote, CreatedAt: time.Now().UTC()}); err != nil {
+	if err := nodes.Create(ctx, model.Spark{ID: "node", Name: "Node", CreatedAt: time.Now().UTC()}); err != nil {
 		t.Fatal(err)
 	}
 

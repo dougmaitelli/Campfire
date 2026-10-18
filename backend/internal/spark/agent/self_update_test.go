@@ -16,10 +16,10 @@ func TestVerifySparkUpdateCompatibility(t *testing.T) {
 		info  string
 		valid bool
 	}{
-		{"compatible", `{"version":"v1.1.0","minimum_protocol":1,"protocol":7}`, true},
-		{"wrong version", `{"version":"v1.2.0","minimum_protocol":1,"protocol":7}`, false},
-		{"future protocol", `{"version":"v1.1.0","minimum_protocol":8,"protocol":8}`, false},
-		{"old protocol", `{"version":"v1.1.0","minimum_protocol":1,"protocol":6}`, false},
+		{"compatible", `{"version":"v1.1.0","minimum_protocol":1,"protocol":1}`, true},
+		{"wrong version", `{"version":"v1.2.0","minimum_protocol":1,"protocol":1}`, false},
+		{"future protocol", `{"version":"v1.1.0","minimum_protocol":2,"protocol":2}`, false},
+		{"old protocol", `{"version":"v1.1.0","minimum_protocol":0,"protocol":0}`, false},
 		{"invalid response", `invalid`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -28,7 +28,7 @@ func TestVerifySparkUpdateCompatibility(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := verifySparkUpdate(t.Context(), executable, "v1.1.0", 7); (err == nil) != test.valid {
+			if err := verifySparkUpdate(t.Context(), executable, "v1.1.0", protocol.ProtocolVersion); (err == nil) != test.valid {
 				t.Fatalf("valid=%v, error=%v", test.valid, err)
 			}
 		})

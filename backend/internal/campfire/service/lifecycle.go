@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"time"
 
 	"campfire/internal/campfire/database"
@@ -154,7 +155,7 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 	}
 	defer release()
 
-	if _, err := s.Activity.checkQueued(ctx, run); err != nil {
+	if _, err := s.Activity.checkExecution(ctx, run); err != nil {
 		return model.RuntimeStatus{}, err
 	}
 
@@ -221,7 +222,11 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		}
 	}
 
-	if action != "status" && action != "logs" && action != "command" {
+	if server.EmberUpdateAvailable && (action == "install" || action == "update" || action == "reinstall") {
+		return model.RuntimeStatus{}, fmt.Errorf("%w: apply the current Ember before installing game files", ErrInvalidServer)
+	}
+
+	if !server.EmberUpdateAvailable && action != "status" && action != "logs" && action != "command" {
 		if _, err := s.sync(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}

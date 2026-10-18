@@ -64,6 +64,7 @@ export function EmbersPage() {
     setActionError(null);
     try {
       const preview = await downloadEmberUpdate(ember.id);
+      setEditing(ember);
       setUpdate({
         preview,
         url: ember.updateUrl ?? ember.origin?.update_url ?? "",
@@ -119,8 +120,8 @@ export function EmbersPage() {
           {"Check updates"}
         </Button>
         <span className="field-help">
-          Updates are checked daily. Review updates before importing a new
-          revision.
+          Updates are checked daily. Review updates before replacing the local
+          Ember.
         </span>
       </ListToolbar>
       {error && items.length > 0 && (

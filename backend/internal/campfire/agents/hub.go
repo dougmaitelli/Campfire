@@ -33,6 +33,8 @@ type EnrollmentStore interface {
 type EnrollmentToken struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
+	AgentURL  string    `json:"agent_url,omitempty"`
+	ServerCA  string    `json:"server_ca,omitempty"`
 }
 
 // AgentInfo describes a currently connected agent.
@@ -59,6 +61,8 @@ type Hub struct {
 	mu        sync.RWMutex
 	peers     map[string]*peer
 	closed    bool
+	publicURL string
+	serverCA  func() []byte
 }
 
 // NewHub creates an agent connection manager.
@@ -66,9 +70,23 @@ func NewHub(store EnrollmentStore, authority *Authority) *Hub {
 	return &Hub{store: store, authority: authority, peers: make(map[string]*peer)}
 }
 
+// WithEnrollmentEndpoint configures public bootstrap metadata before serving requests.
+func (h *Hub) WithEnrollmentEndpoint(address string, serverCA func() []byte) *Hub {
+	h.publicURL, h.serverCA = address, serverCA
+	return h
+}
+
+func (h *Hub) serverTrust() []byte {
+	if h.serverCA == nil {
+		return nil
+	}
+
+	return h.serverCA()
+}
+
 // CreateEnrollment creates a single-use token that expires after fifteen minutes.
 func (h *Hub) CreateEnrollment(ctx context.Context, id string) (EnrollmentToken, error) {
-	result := EnrollmentToken{Token: rand.Text() + rand.Text(), ExpiresAt: time.Now().UTC().Add(15 * time.Minute)}
+	result := EnrollmentToken{Token: rand.Text() + rand.Text(), ExpiresAt: time.Now().UTC().Add(15 * time.Minute), AgentURL: h.publicURL, ServerCA: string(h.serverTrust())}
 	if err := h.store.CreateToken(ctx, id, agentidentity.Fingerprint([]byte(result.Token)), result.ExpiresAt); err != nil {
 		return EnrollmentToken{}, err
 	}

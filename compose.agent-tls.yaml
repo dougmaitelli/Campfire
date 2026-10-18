@@ -1,0 +1,13 @@
+# Optional override: docker compose -f compose.yaml -f compose.agent-tls.yaml up -d
+services:
+  campfire:
+    environment:
+      CAMPFIRE_AGENT_TLS_CERT: /run/campfire-tls/panel.crt
+      CAMPFIRE_AGENT_TLS_KEY: /run/campfire-tls/panel.key
+    volumes:
+      - type: bind
+        source: ${CAMPFIRE_TLS_DIR:?Set CAMPFIRE_TLS_DIR to your agent certificate directory}
+        target: /run/campfire-tls
+        read_only: true
+        bind:
+          create_host_path: false

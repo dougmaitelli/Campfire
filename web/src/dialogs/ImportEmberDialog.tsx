@@ -134,13 +134,14 @@ export function ImportEmberDialog({
     setBusy(true);
     setError(null);
     try {
-      const ember = await importEmber(
+      const saved = await importEmber(
         text,
         startupCommand,
         reviewed,
         sourceURL,
+        ember?.id,
       );
-      onImported(ember);
+      onImported(saved);
       onClose();
     } catch (cause) {
       setError(
@@ -200,8 +201,8 @@ export function ImportEmberDialog({
       }
       description={
         ember || initialPreview
-          ? "Edit the definition and review it before saving a new revision. Existing servers keep their pinned revision until you apply the new one."
-          : "Import a native Ember or Pterodactyl/Pelican Egg from JSON or YAML. Review compatibility before saving an immutable revision."
+          ? "Review the definition before replacing this Ember. Existing servers show an update until you apply it."
+          : "Import a native Ember or Pterodactyl/Pelican Egg from JSON or YAML. Review compatibility before importing."
       }
       busy={busy}
       onClose={onClose}
@@ -245,7 +246,7 @@ export function ImportEmberDialog({
                   ? "Saving…"
                   : "Importing…"
               : ember
-                ? "Save revision"
+                ? "Save Ember"
                 : "Import Ember"}
           </Button>
         </>
@@ -457,7 +458,7 @@ export function ImportEmberDialog({
       {ember && confirmDelete && (
         <ConfirmDialog
           title="Delete Ember?"
-          description={`Permanently delete "${ember.name}"? This revision cannot be deleted while servers reference it.`}
+          description={`Permanently delete "${ember.name}"? This Ember cannot be deleted while servers reference it.`}
           confirmLabel="Delete"
           danger
           busy={busy}

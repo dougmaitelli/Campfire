@@ -86,11 +86,10 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	for _, item := range []any{
-		&database.User{ID: 2, Username: "owner", RoleID: database.UserRole, Version: 1},
-		&database.Spark{ID: "node", Name: "Node", Kind: "remote", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
+		&database.User{ID: 2, Username: "owner", RoleID: database.UserRole, CredentialVersion: 1},
+		&database.Spark{ID: "node", Name: "Node", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
 		&database.Ember{ID: "ember", Name: "Game", Definition: model.Ember{Schema: 1, ID: "ember", Name: "Game"}},
-		&database.Server{ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
-		&database.ServerOwnership{ServerID: "game", UserID: 2},
+		&database.Server{OwnerUserID: new(int64(2)), ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
 	} {
 		if err := db.ORM().Omit("Role", "Spark", "Ember", "Server", "User").Create(item).Error; err != nil {
 			t.Fatal(err)

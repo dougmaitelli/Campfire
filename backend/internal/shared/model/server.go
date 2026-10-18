@@ -19,11 +19,13 @@ type Server struct {
 	OwnerUserID int64    `json:"owner_user_id"`
 	Permissions []string `json:"permissions,omitempty"`
 	ServerConfiguration
-	SparkName   string    `json:"spark_name"`
-	EmberName   string    `json:"ember_name"`
-	GameAddress string    `json:"game_address"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
+	SparkName            string    `json:"spark_name"`
+	EmberName            string    `json:"ember_name"`
+	EmberHash            string    `json:"ember_hash"`
+	EmberUpdateAvailable bool      `json:"ember_update_available"`
+	GameAddress          string    `json:"game_address"`
+	Status               string    `json:"status"`
+	CreatedAt            time.Time `json:"created_at"`
 }
 
 // ServerConfiguration contains the operator-configured placement and reservations.

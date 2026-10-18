@@ -10,7 +10,7 @@ import (
 
 func TestNotificationReadWatermarksAndDeliveryExhaustion(t *testing.T) {
 	db, _ := historyStore(t)
-	if err := db.ORM().Create(&database.User{ID: 1, Username: "admin", RoleID: database.AdminRole, Version: 1}).Error; err != nil {
+	if err := db.ORM().Create(&database.User{ID: 1, Username: "admin", RoleID: database.AdminRole, CredentialVersion: 1}).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -70,7 +70,11 @@ func TestNotificationReadWatermarksAndDeliveryExhaustion(t *testing.T) {
 		t.Fatal("manual retry did not reset exhausted delivery", err)
 	}
 
-	if err := db.ORM().Delete(&database.User{}, 1).Error; err != nil {
+	if err := db.ORM().Create(&database.User{ID: 2, Username: "other-admin", RoleID: database.AdminRole, CredentialVersion: 1}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := repository.NewAccessRepository(db.ORM()).DeleteUser(ctx, 1); err != nil {
 		t.Fatal(err)
 	}
 

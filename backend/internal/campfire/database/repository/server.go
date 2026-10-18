@@ -41,7 +41,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			}
 
 			configuration := model.ServerConfiguration{SparkID: current.SparkID, EmberID: current.EmberID, Image: current.Image, Variables: current.Variables, CPULimit: current.CPULimit, MemoryMB: current.MemoryMB, DiskMB: current.DiskMB, Ports: current.Ports}
-			if model.SameRuntimeConfiguration(configuration, server.ServerConfiguration) {
+			if model.SameRuntimeConfiguration(configuration, server.ServerConfiguration) && current.EmberHash == server.EmberHash {
 				return tx.Model(&database.Server{}).Where("id = ?", server.ID).Updates(map[string]any{"name": server.Name, "description": server.Description}).Error
 			}
 
@@ -68,15 +68,19 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			return fmt.Errorf("read reservations: %w", err)
 		}
 
-		record := database.Server{ID: server.ID, Name: server.Name, Description: server.Description, SparkID: server.SparkID, EmberID: server.EmberID, Image: server.Image, Variables: server.Variables, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Ports: server.Ports, CreatedAt: server.CreatedAt.Format(time.RFC3339Nano)}
+		record := database.Server{ID: server.ID, Name: server.Name, Description: server.Description, SparkID: server.SparkID, EmberID: server.EmberID, EmberHash: server.EmberHash, Image: server.Image, Variables: server.Variables, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Ports: server.Ports, CreatedAt: server.CreatedAt.Format(time.RFC3339Nano)}
+		if create && server.OwnerUserID > 0 {
+			record.OwnerUserID = &server.OwnerUserID
+		}
+
 		if err := checkReservations(spark, append(existing, record)); err != nil {
 			return err
 		}
 
 		if create {
-			err = tx.Omit("Spark", "Ember").Create(&record).Error
+			err = tx.Omit("Spark", "Ember", "Owner").Create(&record).Error
 		} else {
-			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "EmberID", "Image", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
+			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "EmberID", "EmberHash", "Image", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
 
 			err = result.Error
 			if err == nil && result.RowsAffected == 0 {
@@ -90,12 +94,6 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 
 		if err != nil {
 			return fmt.Errorf("save server: %w", err)
-		}
-
-		if create && server.OwnerUserID > 0 {
-			if err := tx.Omit("Server", "User").Create(&database.ServerOwnership{ServerID: server.ID, UserID: server.OwnerUserID}).Error; err != nil {
-				return err
-			}
 		}
 
 		return nil
@@ -158,23 +156,16 @@ func (r *ServerRepository) List(ctx context.Context) ([]model.Server, error) {
 
 	servers := make([]model.Server, 0, len(records))
 
-	var owners []database.ServerOwnership
-	if err := r.db.WithContext(ctx).Find(&owners).Error; err != nil {
-		return nil, err
-	}
-
-	ownerIDs := map[string]int64{}
-	for _, owner := range owners {
-		ownerIDs[owner.ServerID] = owner.UserID
-	}
-
 	for _, record := range records {
 		server, err := toServer(record)
 		if err != nil {
 			return nil, err
 		}
 
-		server.OwnerUserID = ownerIDs[server.ID]
+		if record.OwnerUserID != nil {
+			server.OwnerUserID = *record.OwnerUserID
+		}
+
 		servers = append(servers, server)
 	}
 
@@ -197,12 +188,9 @@ func (r *ServerRepository) Get(ctx context.Context, id string) (model.Server, er
 		return server, err
 	}
 
-	var ownership database.ServerOwnership
-	if err := r.db.WithContext(ctx).Where("server_id = ?", id).Take(&ownership).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return server, err
+	if record.OwnerUserID != nil {
+		server.OwnerUserID = *record.OwnerUserID
 	}
-
-	server.OwnerUserID = ownership.UserID
 
 	return server, nil
 }
@@ -233,5 +221,5 @@ func toServer(record database.Server) (model.Server, error) {
 		return model.Server{}, fmt.Errorf("read server timestamp: %w", err)
 	}
 
-	return model.Server{ID: record.ID, ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, GameAddress: record.Spark.GameAddress, Status: "not_installed", CreatedAt: created}, nil
+	return model.Server{ID: record.ID, EmberHash: record.EmberHash, EmberUpdateAvailable: record.EmberHash != "" && record.EmberHash != model.EmberHash(record.Ember.Definition), ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, GameAddress: record.Spark.GameAddress, Status: "not_installed", CreatedAt: created}, nil
 }

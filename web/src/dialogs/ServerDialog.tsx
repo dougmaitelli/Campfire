@@ -24,10 +24,14 @@ import {
   listUsers,
   readServerAccess,
   serverAccessOptions,
-  saveServerAccessDraft,
+  saveAccessGrants,
+  transferOwner,
+  type AccessGrant,
   type ServerAccess,
   type User,
 } from "../api/access";
+
+import { AccessGrantFields } from "../components/forms/AccessGrantFields";
 
 interface ServerDialogProps {
   s3Configured: boolean;
@@ -64,18 +68,9 @@ export function ServerDialog({
   const [accessAttempt, setAccessAttempt] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [ownerID, setOwnerID] = useState(session?.user_id ?? 0);
-  const [members, setMembers] = useState<
-    {
-      user_id?: number | undefined;
-      username: string;
-      role_id: number;
-      role: string;
-    }[]
-  >([]);
-  const [username, setUsername] = useState("");
-  const [memberRoleID, setMemberRoleID] = useState(0);
+  const [grants, setGrants] = useState<AccessGrant[]>([]);
   const [accessDirty, setAccessDirty] = useState(false);
-  const [removedUserIDs, setRemovedUserIDs] = useState<number[]>([]);
+  const [removedGrantIDs, setRemovedGrantIDs] = useState<number[]>([]);
   useEffect(() => {
     if (!canShare) return;
     const controller = new AbortController();
@@ -88,9 +83,8 @@ export function ServerDialog({
       .then(([next, accounts]) => {
         if (controller.signal.aborted) return;
         setAccess(next);
-        setMembers(next.members);
+        setGrants(next.grants);
         setOwnerID(next.owner?.id ?? (server ? 0 : (session?.user_id ?? 0)));
-        setMemberRoleID(next.roles[0]?.id ?? 0);
         setUsers(accounts);
       })
       .catch((cause: unknown) => {
@@ -104,7 +98,24 @@ export function ServerDialog({
     return () => controller.abort();
   }, [canShare, admin, server, session?.user_id, accessAttempt]);
   const [value, setValue] = useState<ServerConfiguration>(() => {
-    if (server) return server;
+    if (server) {
+      if (!applyRevision) return server;
+      const latest = embers.find((item) => item.id === server.ember_id);
+      return {
+        ...server,
+        image: Object.values(latest?.images ?? {}).includes(server.image)
+          ? server.image
+          : (Object.values(latest?.images ?? {})[0] ?? ""),
+        variables: Object.fromEntries(
+          (latest?.variables ?? []).map((variable) => [
+            variable.name,
+            variable.editable
+              ? (server.variables[variable.name] ?? variable.default)
+              : variable.default,
+          ]),
+        ),
+      };
+    }
     const spark = sparks.find(
       (item) => !item.disabled && item.port_allocations.length > 0,
     );
@@ -183,10 +194,6 @@ export function ServerDialog({
       setError(accessError ?? "Wait for server access to load.");
       return;
     }
-    if (canShare && username.trim()) {
-      setError("Add the collaborator or clear the username before saving.");
-      return;
-    }
     submitting.current = true;
     setBusy(true);
     setError(null);
@@ -226,11 +233,13 @@ export function ServerDialog({
       }
       if (accessDirty) {
         try {
-          await saveServerAccessDraft(saved.id, {
-            ownerID: admin ? ownerID : 0,
-            members,
-            removedUserIDs,
-          });
+          await saveAccessGrants(
+            `/api/v1/servers/${encodeURIComponent(saved.id)}/access`,
+            grants.filter((grant) => grant.user_id !== ownerID),
+            removedGrantIDs,
+          );
+          if (admin && ownerID && ownerID !== access?.owner?.id)
+            await transferOwner(saved.id, ownerID);
           setAccessDirty(false);
         } catch (cause) {
           onSaved(saved);
@@ -260,7 +269,7 @@ export function ServerDialog({
         accessOnly
           ? "Save access"
           : applyRevision
-            ? "Apply Ember revision"
+            ? "Update Ember"
             : server
               ? "Save changes"
               : "Create server"
@@ -278,10 +287,10 @@ export function ServerDialog({
       steps={[
         {
           id: "basics",
-          title: "Basics",
+          title: "General",
           validate: () =>
-            applyRevision && value.ember_id === server?.ember_id
-              ? "Select a different imported Ember revision."
+            applyRevision && !server?.ember_update_available
+              ? "This server already uses the current Ember."
               : !value.name.trim() || !spark || !ember || !value.image
                 ? "Choose a name, Spark, Ember, and image."
                 : null,
@@ -352,11 +361,9 @@ export function ServerDialog({
                 description={
                   applyRevision && (
                     <>
-                      Current revision: {server?.ember_name} ·{" "}
-                      {server?.ember_id}. Select an imported revision
-                      explicitly; names do not imply compatibility. Review
-                      variables, images, required ports, startup, and ownership
-                      before applying.
+                      The latest definition for {server?.ember_name} will be
+                      applied. Review variables, images, required ports,
+                      startup, and ownership before applying.
                     </>
                   )
                 }
@@ -364,7 +371,7 @@ export function ServerDialog({
                 <Select
                   id="server-ember"
                   required
-                  disabled={server !== null && !applyRevision}
+                  disabled={server !== null}
                   value={value.ember_id}
                   onChange={(event) => {
                     const selected = embers.find(
@@ -739,11 +746,7 @@ export function ServerDialog({
                 title: "Access",
                 validate: () =>
                   accessError ??
-                  (!access
-                    ? "Wait for server access to load."
-                    : username.trim()
-                      ? "Add the collaborator or clear the username before continuing."
-                      : null),
+                  (!access ? "Wait for server access to load." : null),
                 content: accessError ? (
                   <>
                     <InlineMessage>{accessError}</InlineMessage>
@@ -797,112 +800,18 @@ export function ServerDialog({
                           "Administrator managed"}
                       </p>
                     )}
-                    <h4>Collaborators</h4>
-                    <p className="field-help">
-                      Changes apply when you save. Administrators always have
-                      access.
-                    </p>
-                    {members.length === 0 && (
-                      <p className="field-help">No collaborators assigned.</p>
-                    )}
-                    {members.map((member) => (
-                      <div className="access-member" key={member.username}>
-                        <span>
-                          {member.username} · {member.role}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          onClick={() => {
-                            setMembers(
-                              members.filter(
-                                (entry) => entry.username !== member.username,
-                              ),
-                            );
-                            if (member.user_id)
-                              setRemovedUserIDs([
-                                ...removedUserIDs,
-                                member.user_id,
-                              ]);
-                            setAccessDirty(true);
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
-                    <FormField label="Existing username">
-                      <TextInput
-                        value={username}
-                        maxLength={64}
-                        autoComplete="off"
-                        onChange={(event) => setUsername(event.target.value)}
-                      />
-                    </FormField>
-                    <FormField
-                      label="Server role"
-                      description="Collaborators receive the selected server role; their account role does not change."
-                    >
-                      <Select
-                        value={memberRoleID}
-                        onChange={(event) =>
-                          setMemberRoleID(Number(event.target.value))
-                        }
-                      >
-                        {access.roles.map((role) => (
-                          <option key={role.id} value={role.id}>
-                            {role.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-                    <Button
-                      type="button"
-                      disabled={!username.trim() || !memberRoleID}
-                      onClick={() => {
-                        const name = username.trim();
-                        const role = access.roles.find(
-                          (entry) => entry.id === memberRoleID,
-                        );
-                        const previous = access.members.find(
-                          (entry) =>
-                            entry.username.toLowerCase() === name.toLowerCase(),
-                        );
-                        if (!role) return;
-                        if (
-                          name.toLowerCase() ===
-                          (
-                            access.owner?.username ?? session?.username
-                          )?.toLowerCase()
-                        ) {
-                          setError("The owner already has full server access.");
-                          return;
-                        }
-                        setMembers([
-                          ...members.filter(
-                            (member) =>
-                              member.username.toLowerCase() !==
-                              name.toLowerCase(),
-                          ),
-                          {
-                            user_id: previous?.user_id,
-                            username: name,
-                            role_id: role.id,
-                            role: role.name,
-                          },
-                        ]);
-                        if (previous)
-                          setRemovedUserIDs(
-                            removedUserIDs.filter(
-                              (id) => id !== previous.user_id,
-                            ),
-                          );
-                        setUsername("");
+                    <h4>Access grants</h4>
+                    <AccessGrantFields
+                      grants={grants}
+                      subjectRoles={access.subject_roles}
+                      accessRoles={access.roles}
+                      onChange={(next, removedID) => {
+                        setGrants(next);
+                        if (removedID)
+                          setRemovedGrantIDs([...removedGrantIDs, removedID]);
                         setAccessDirty(true);
                       }}
-                    >
-                      Add collaborator
-                    </Button>
+                    />
                   </>
                 ),
               },
@@ -916,7 +825,8 @@ export function ServerDialog({
               {applyRevision && (
                 <>
                   <p>
-                    Revision: {server?.ember_id} → {value.ember_id}
+                    Revision: {server?.ember_hash.slice(0, 12)} →{" "}
+                    {ember?.revision?.slice(0, 12)}
                   </p>
                   <p>
                     Startup: <code>{ember?.startup}</code>
@@ -936,7 +846,7 @@ export function ServerDialog({
                       )
                       .join(", ") || "None"}
                     . Shared editable settings are retained; new and locked
-                    settings use the selected revision’s defaults.
+                    settings use the current definition’s defaults.
                   </p>
                 </>
               )}
@@ -947,7 +857,7 @@ export function ServerDialog({
                   emberName={ember?.name ?? ""}
                   notice={
                     applyRevision
-                      ? "Applying changes the pinned Ember and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
+                      ? "Applying updates the server’s Ember revision and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
                       : server
                         ? "Saving keeps the server in its current state, including when unavailable. Game configuration changes apply on the next restart. Reducing resources or removing reserved host ports requires confirming the server is stopped."
                         : undefined
@@ -964,25 +874,25 @@ export function ServerDialog({
                         "Administrator managed")
                       : (access.owner?.username ?? session?.username)}
                   </p>
-                  {members.length ? (
+                  {grants.length ? (
                     <ul>
-                      {members
-                        .filter(
-                          (member) =>
-                            !admin ||
-                            users
-                              .find((user) => user.id === ownerID)
-                              ?.username.toLowerCase() !==
-                              member.username.toLowerCase(),
-                        )
-                        .map((member) => (
-                          <li key={member.username}>
-                            {member.username} · {member.role}
-                          </li>
-                        ))}
+                      {grants.map((grant) => (
+                        <li
+                          key={
+                            grant.role_id === null
+                              ? grant.username
+                              : `role:${grant.role_id}`
+                          }
+                        >
+                          {grant.role_id === null
+                            ? grant.username
+                            : `Role: ${grant.role_name}`}{" "}
+                          · {grant.access_role}
+                        </li>
+                      ))}
                     </ul>
                   ) : (
-                    <p className="field-help">No collaborators assigned.</p>
+                    <p className="field-help">No access grants assigned.</p>
                   )}
                 </>
               )}
@@ -999,7 +909,7 @@ export function ServerDialog({
             accessOnly
               ? "Edit server access"
               : applyRevision
-                ? "Apply Ember revision"
+                ? "Update Ember"
                 : server
                   ? "Edit server"
                   : "Create server"

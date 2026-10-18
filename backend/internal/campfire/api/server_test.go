@@ -17,10 +17,10 @@ func serverFixture(t *testing.T, handler http.Handler) (model.Spark, model.Ember
 	return serverFixtureKind(t, handler, "remote")
 }
 
-func serverFixtureKind(t *testing.T, handler http.Handler, kind string) (model.Spark, model.Ember, model.ServerConfiguration) {
+func serverFixtureKind(t *testing.T, handler http.Handler, _ string) (model.Spark, model.Ember, model.ServerConfiguration) {
 	t.Helper()
 
-	response := request(handler, "POST", "/api/v1/sparks", fmt.Sprintf(`{"name":"Game node","kind":%q,"cpu_limit":2,"memory_mb":2048,"disk_mb":20480,"port_allocations":[{"bind_ip":"0.0.0.0","start":25565,"end":25570,"protocol":"tcp"}]}`, kind))
+	response := request(handler, "POST", "/api/v1/sparks", `{"name":"Game node","cpu_limit":2,"memory_mb":2048,"disk_mb":20480,"port_allocations":[{"bind_ip":"0.0.0.0","start":25565,"end":25570,"protocol":"tcp"}]}`)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("Spark: %d %s", response.Code, response.Body)
 	}

@@ -1,4 +1,5 @@
 import { apiFetch, readJSON } from "./client";
+import { isUser, type User } from "./access";
 
 export interface Schedule {
   id: string;
@@ -10,12 +11,12 @@ export interface Schedule {
   only_when_running: boolean;
   next_run_at: number;
   enabled: boolean;
-  user_id: number;
+  run_as_user_id: number;
   username: string;
   created_at: number;
-  version: number;
 }
 export interface ScheduleInput {
+  next_run_at?: number;
   server_id: string;
   name: string;
   action: string;
@@ -44,7 +45,8 @@ export interface Execution {
 export interface AuditEvent {
   id: string;
   api_token_id?: number;
-  user_id: number;
+  user_id: number | null;
+  user?: User;
   username: string;
   action: string;
   target: string;
@@ -81,7 +83,7 @@ function isSchedule(value: unknown): value is Schedule {
       "cron_expression",
       "time_zone",
     ]) &&
-    numbers(value, ["next_run_at", "user_id", "created_at", "version"]) &&
+    numbers(value, ["next_run_at", "run_as_user_id", "created_at"]) &&
     typeof value.enabled === "boolean" &&
     typeof value.only_when_running === "boolean"
   );
@@ -111,7 +113,11 @@ function isAudit(value: unknown): value is AuditEvent {
       (typeof value.api_token_id === "number" &&
         Number.isSafeInteger(value.api_token_id))) &&
     strings(value, ["id", "username", "action", "target", "outcome"]) &&
-    numbers(value, ["user_id", "status", "created_at"])
+    (value.user_id === null ||
+      (typeof value.user_id === "number" &&
+        Number.isSafeInteger(value.user_id))) &&
+    (value.user === undefined || isUser(value.user)) &&
+    numbers(value, ["status", "created_at"])
   );
 }
 async function collection<T>(

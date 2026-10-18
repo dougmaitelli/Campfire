@@ -235,6 +235,17 @@ func TestEggRejectsRuntimeFeaturesAndUnknownFields(t *testing.T) {
 
 type importMemoryStore struct{ saved []model.Ember }
 
+func (s *importMemoryStore) Replace(_ context.Context, e model.Ember) error {
+	for i := range s.saved {
+		if s.saved[i].ID == e.ID {
+			s.saved[i] = e
+			return nil
+		}
+	}
+
+	return ErrEmberNotFound
+}
+
 func (s *importMemoryStore) Delete(_ context.Context, id string) error {
 	for index, ember := range s.saved {
 		if ember.ID == id {

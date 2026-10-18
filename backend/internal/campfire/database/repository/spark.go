@@ -66,8 +66,7 @@ func (r *SparkRepository) Delete(ctx context.Context, id string) error {
 // Create inserts a Spark, enforcing unique names.
 func (r *SparkRepository) Create(ctx context.Context, spark model.Spark) error {
 	record := database.Spark{
-		ID: spark.ID, Name: spark.Name, Kind: string(spark.Kind),
-		Description: spark.Description, Disabled: spark.Disabled,
+		ID: spark.ID, Name: spark.Name, Description: spark.Description, Disabled: spark.Disabled,
 		GameAddress: spark.GameAddress, CPULimit: spark.CPULimit, MemoryMB: spark.MemoryMB, DiskMB: spark.DiskMB,
 		PortAllocations: spark.PortAllocations,
 		CreatedAt:       spark.CreatedAt.Format(time.RFC3339Nano),
@@ -200,7 +199,7 @@ func toSpark(record database.Spark) (model.Spark, error) {
 
 	return model.Spark{
 		SparkSettings: model.SparkSettings{GameAddress: record.GameAddress, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, PortAllocations: allocations},
-		ID:            record.ID, Name: record.Name, Kind: model.SparkKind(record.Kind), CreatedAt: timestamp,
+		ID:            record.ID, Name: record.Name, CreatedAt: timestamp,
 		Description: record.Description, Disabled: record.Disabled,
 	}, nil
 }

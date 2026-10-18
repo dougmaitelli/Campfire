@@ -4,15 +4,16 @@ set -euo pipefail
 umask 077
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
-panel= token= ca_file=
+panel= token= ca_file= ca_base64=
 while (($#)); do
   case "$1" in
-    --panel|--token|--ca-file)
+    --panel|--token|--ca-file|--ca-base64)
       (($# >= 2)) || fail "Missing value for $1"
       case "$1" in
         --panel) panel=$2 ;;
         --token) token=$2 ;;
         --ca-file) ca_file=$2 ;;
+        --ca-base64) ca_base64=$2 ;;
       esac
       shift 2 ;;
     *) fail "Unknown option: $1" ;;
@@ -20,8 +21,10 @@ while (($#)); do
 done
 [[ $panel =~ ^https://[^[:space:]]+$ ]] || fail "An HTTPS agent address is required."
 [[ $token =~ ^[A-Za-z0-9]+$ && ${#token} -le 256 ]] || fail "A valid enrollment token is required."
+[[ -z $ca_file || -z $ca_base64 ]] || fail "Use either --ca-file or --ca-base64."
+[[ ${#ca_base64} -le 65536 ]] || fail "The panel CA certificate is too large."
 missing=()
-for tool in curl tar sha256sum install systemctl docker uname mktemp chmod rm grep; do
+for tool in curl tar sha256sum install systemctl docker uname mktemp chmod rm grep base64; do
   if ! command -v "$tool" >/dev/null; then missing+=("$tool"); fi
 done
 if ((${#missing[@]})); then
@@ -47,6 +50,11 @@ cleanup() {
   if $restart_previous; then systemctl start spark.service || true; fi
 }
 trap cleanup EXIT
+if [[ -n $ca_base64 ]]; then
+  ca_file=$stage/panel-ca.pem
+  printf '%s' "$ca_base64" | base64 --decode > "$ca_file" || fail "Invalid panel CA certificate encoding."
+  [[ -s $ca_file ]] || fail "The panel CA certificate is empty."
+fi
 repository=https://github.com/dougmaitelli/Campfire
 release_url=$(curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 60 --output /dev/null --write-out '%{url_effective}' "$repository/releases/latest")
 version=${release_url##*/}

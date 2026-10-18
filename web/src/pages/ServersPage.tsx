@@ -403,7 +403,7 @@ export function ServersPage() {
           actionError={actionError}
           actions={
             <>
-              {canApplyRevision && (
+              {canApplyRevision && details.ember_update_available && (
                 <Button
                   variant="warning"
                   disabled={

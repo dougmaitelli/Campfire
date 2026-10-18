@@ -17,7 +17,7 @@ func TestCaseInsensitiveNamesAndGeneratedRoleIDs(t *testing.T) {
 	db, auth, _ := authStore(t)
 
 	ctx := t.Context()
-	if err := auth.Setup(ctx, database.User{Username: "Admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "setup", CredentialVersion: 1}); err != nil {
+	if err := auth.Setup(ctx, database.User{Username: "Admin", PasswordHash: "encoded", CredentialVersion: 1}, database.UserSession{Hash: "setup", CredentialVersion: 1}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -26,7 +26,7 @@ func TestCaseInsensitiveNamesAndGeneratedRoleIDs(t *testing.T) {
 		t.Fatal("case-insensitive login failed", err)
 	}
 
-	duplicate := database.User{Username: "ADMIN", Version: 1, RoleID: database.UserRole}
+	duplicate := database.User{Username: "ADMIN", CredentialVersion: 1, RoleID: database.UserRole}
 	if err := auth.Access().CreateUser(ctx, &duplicate); !errors.Is(err, repository.ErrAccessConflict) {
 		t.Fatal("case-insensitive username uniqueness lost", err)
 	}
@@ -51,7 +51,7 @@ func TestPlacementSchedulesAndStorageAcrossConnections(t *testing.T) {
 	ctx := t.Context()
 	nodes := repository.NewSparkRepository(db.ORM())
 
-	node := model.Spark{ID: "node", Name: "Node", Kind: model.SparkRemote, CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{
+	node := model.Spark{ID: "node", Name: "Node", CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{
 		CPULimit: 1, MemoryMB: 1024, DiskMB: 2048,
 		PortAllocations: []model.PortAllocation{{BindIP: "127.0.0.1", Start: 25565, End: 25565, Protocol: "tcp"}},
 	}}
@@ -120,18 +120,14 @@ func TestPlacementSchedulesAndStorageAcrossConnections(t *testing.T) {
 	id := servers[0].ID
 	activity := repository.NewActivityRepository(db.ORM())
 
-	schedule := database.Schedule{ID: "nightly", ServerID: id, Name: "Restart", Action: "restart", CronExpression: "0 * * * *", TimeZone: "UTC", Enabled: true, NextRunAt: time.Now().Add(-time.Minute).Unix(), Version: 1}
+	schedule := database.Schedule{ID: "nightly", ServerID: id, Name: "Restart", Action: "restart", CronExpression: "0 * * * *", TimeZone: "UTC", Enabled: true, NextRunAt: time.Now().Add(-time.Minute).Unix()}
 	if err := activity.SaveSchedule(ctx, &schedule, true); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := activity.EnqueueDue(ctx, time.Now()); err != nil {
-		t.Fatal(err)
-	}
-
-	runs, err := activity.Pending(ctx)
-	if err != nil || len(runs) != 1 || !runs[0].Recurring {
-		t.Fatal("recurring schedule was not persisted", runs, err)
+	run, err := activity.ClaimSchedule(ctx, schedule.ID, time.Now(), nil)
+	if err != nil || !run.Recurring || run.State != "dispatching" {
+		t.Fatal("schedule attempt was not persisted", run, err)
 	}
 
 	backups := repository.NewBackupRepository(db.ORM())

@@ -31,10 +31,11 @@ indexes and migrations automatically; the account must own its schema and have
 permission to create and alter those objects. No PostgreSQL extensions are needed.
 PostgreSQL 17 is covered by integration tests in CI.
 
-The panel uses database schema 2, adding user display names and profile pictures.
-Existing schema 1 databases are upgraded automatically on startup.
-Earlier development schemas are not supported; recreate development databases
-before using this baseline. Future deployed schema changes require new migrations.
+The release database baseline is version 1. New databases receive the complete
+schema in one step. Existing pre-release schemas 5 and 6 are imported without
+losing their data, and their migration history is consolidated to one version-1
+record. Older pre-release databases must first run commit 204d134. Future release
+schema changes will use new migration numbers.
 
 CAMPFIRE_DATA (or --data-dir) stores spark-authority.json and the default SFTP
 host key. It defaults beside the SQLite file, or to ./data when using PostgreSQL.
@@ -291,11 +292,11 @@ ports. Ember revision changes continue to require a stopped server.
 
 Server Ember revisions, updates and reinstalls
 ---------------------------------------------
-Import a new Ember before applying it. Imports remain immutable, and importing
-alone never changes existing servers. A platform administrator with
-servers.manage_all can stop a server, choose Ember revision from Servers, and
-review a different imported definition. Names do not identify a compatible
-revision family; select the intended definition explicitly.
+Each Ember has one local definition. Editing it or accepting a remote update
+replaces that definition while retaining its ID. No version history is stored.
+Servers retain an applied revision hash and show Update Ember when it differs
+from the current local definition. A platform administrator with
+servers.manage_all can stop a server and review Update Ember from Servers.
 
 The revision editor keeps shared editable variable values and existing port
 mappings. New or locked variables use the selected definition's defaults;
@@ -303,7 +304,10 @@ removed variables are dropped. Review images, startup, runtime UID, working
 directory, variables and required ports. Invalid values, missing port mappings
 and reservation conflicts reject the whole change. A stale Ember pin requires
 reopening the editor. Ownership, members, schedules and server identity stay
-attached, and other servers remain pinned to their existing imports.
+attached, and other servers keep their existing applied revision hashes.
+While an update is pending, existing Spark configurations continue to support
+lifecycle operations. Apply the update before changing game configuration,
+synchronizing configuration, installing game files or transferring the server.
 
 Applying a revision changes saved configuration only. It does not run the
 installer, change game files, or start the server. The next configuration
@@ -328,8 +332,10 @@ Spark feature negotiation
 On each authenticated connection Spark advertises its supported wire-version
 range and versioned capabilities. Campfire selects the highest wire version in
 the shared range and the intersection of supported features. Every later
-message uses that selected version. Builds currently support wire format 7;
-a future build can advertise a newer maximum while retaining format 7 support.
+message uses that selected version. Builds currently support wire format 1;
+pre-release wire-format-7 Sparks must be updated alongside Campfire before they
+can reconnect. A future build can advertise a newer maximum while retaining
+format 1 support.
 Disjoint ranges are rejected. The Spark release version is informational and
 does not determine compatibility.
 
@@ -513,8 +519,8 @@ Users, roles and server access
 Admins manage all users, roles, Sparks, Embers and servers. Users and Roles
 are administrator-only pages. There is no public password account registration.
 
-The built-in platform roles are Admin, Server creator and User. Server creators
-can create servers only on Sparks approved for their platform role. On the
+The built-in roles are Admin, Server creator and User. Server creators
+can create servers only on Sparks approved for their role. On the
 Sparks page, create or edit a Spark and use its Access step to grant creation
 access. This grants no Spark
 management rights. New roles can grant server creation or selected server-scoped
@@ -543,7 +549,13 @@ An account that owns servers must transfer them before it can be deleted. Roles
 assigned to accounts or server members cannot be deleted. Removing a Spark's
 provisioning grant does not remove users' ownership of existing servers.
 
-Current builds negotiate wire format 7 and individual
+Deleting an account is a soft delete: it disappears from account lists and cannot
+sign in. Its sessions, API tokens and direct access grants are removed, schedules
+running as that account are disabled, and its password hash is cleared. The user
+record and OIDC identity remain for history and to prevent reprovisioning the
+deleted identity. Deleted usernames remain reserved.
+
+Current builds negotiate wire format 1 and individual
 feature capabilities as described above.
 
 Optional OpenID Connect login
@@ -601,36 +613,34 @@ provider tracking are included in the initial database schema.
 
 Schedules and audit
 -------------------
-The Schedules page contains recurring tasks and retained execution history.
-Owners and admins can configure schedules; custom server roles need both
+The Schedules page contains one-off and recurring definitions plus execution
+history. Owners and admins can configure schedules; custom server roles need
 server.configure and server.operate. Operators can view history and retry
 supported failed operations on their assigned servers. Only admins can read Audit.
 
-Create a schedule with a server, action, repeat interval in minutes and first-run
-time. The UI uses your local time for entry/display; the database stores UTC
-timestamps. Intervals are fixed durations: 60 minutes is hourly and 1440 minutes
-is daily, independent of daylight saving changes. Available recurring actions
-are start, stop, restart, kill, backup and console command. Backups require a
-stopped server; scheduling a backup does not automatically stop a running game.
-Run now also works for paused schedules. Edit to pause or resume a schedule.
-Commands are stored privately for execution and are never returned in listings.
-Leave the command blank when editing to preserve its existing value.
+Choose Run once and a due date/time, or Recurring and a five-field cron expression
+with a time zone. The one-off date input uses the browser's local time; the
+database stores its UTC timestamp. Available actions are start, stop, restart,
+kill, backup and console command. Backups require a stopped server; scheduling a
+backup does not automatically stop a running game. Run now works for paused
+schedules too. Commands remain private; leave a command blank while editing to
+preserve its stored value.
 
-Schedules run as the user who last saved them. Permissions and disabled account
-state are checked again immediately before execution. Losing the required server
-access disables that schedule and records a failure. Saving a schedule explicitly
-assumes its execution identity. Changing or deleting a schedule cancels queued
-runs from the old definition; already dispatched work is not cancelled.
+Schedules run as the user who last saved them (run_as_user_id). Due definitions
+stay pending while their Spark is disconnected or disabled. No run-history row is
+created until an attempt starts. An atomic claim snapshots the current definition,
+including its execution identity, and creates a dispatching run. A one-off schedule
+then disables; a recurring schedule advances to its next due time. Missed recurring
+occurrences coalesce into one attempt after downtime. The same schedule cannot
+have overlapping attempts. Edits before a claim affect that attempt; edits, pauses
+or deletion after the claim do not cancel its captured configuration. There are
+no schedule version counters or pre-created queued runs.
 
-The worker runs in the single active Campfire process, using the configured
-database.
-Missed intervals coalesce into one run after downtime, rather than replaying a
-backlog. A recurrence never overlaps its own outstanding execution. A busy server
-causes a scheduled attempt to be skipped with a failed result. Undispatched work
-waits for disconnected Sparks to reconnect. A lost connection after dispatch
-produces a recorded interruption if the result cannot be confirmed; uncertain
-mutations are never replayed automatically. Multiple panel processes against one
-database remain unsupported.
+Permissions and account state are checked again immediately before dispatch,
+including after waiting for the server lock. Failed or skipped attempts stay in
+history. Busy servers fail that attempt; uncertain node work is never replayed
+automatically. The worker runs in the single active Campfire process; multiple
+panel processes against one database remain unsupported.
 
 Manual lifecycle operations and recurring work retain actor, server, action,
 operation ID, state and timestamps. Node operation IDs match execution IDs.
@@ -648,6 +658,11 @@ the request. Incomplete audit records are marked interrupted after restart.
 History and audit survive account, schedule and server deletion; deleted-server
 history remains visible to admins. Reads are paginated in batches of 100, with
 exact action/target filters on Audit.
+Audit records reference retained user profiles, including deleted accounts, so
+administrators can still see their email and other public profile fields. The
+username stored on each event is the historical username at the time of action.
+Unauthenticated events and legacy records for already-removed users have no user
+foreign key; their existing historical username is preserved.
 
 Configure independent panel-wide history retention limits, for example:
 
@@ -688,21 +703,50 @@ frontend server is needed. Non-loopback listeners require an explicit HTTPS
 public URL.
 For local development only, loopback HTTP is supported without a public URL.
 
-Remote Sparks use a separate direct TLS listener. Configure:
+Remote Sparks use a separate direct TLS listener, enabled by default on
+0.0.0.0:8443. No manually provisioned certificate is required. Campfire creates
+agent-https-authority.json and agent-https.json in its persistent state directory,
+using private file permissions. Keep these files with the database and
+spark-authority.json in backups. The HTTPS authority is separate from the
+authority that authenticates Spark clients. Generated server certificates renew
+before expiry without replacing the CA's signing key. Updated Sparks also
+refresh the public CA certificate during authenticated client renewal, so
+renewing the CA certificate does not leave their saved trust expired.
+
+The public agent address defaults to the panel public URL's hostname and the
+agent listener's port. For a different hostname or externally mapped port, set:
+
+  CAMPFIRE_AGENT_PUBLIC_URL=https://agents.example.com:8443
+
+That hostname/IP is included in the generated certificate. Loopback names and
+addresses are also included. For local development without a panel public URL,
+the public address defaults to localhost (or a specific listener address).
+Changing the public hostname requires a panel restart to update the certificate.
+Existing Sparks still need a valid saved address matching the certificate.
+Set CAMPFIRE_AGENT_LISTEN to an empty value to disable the listener explicitly.
+Mock mode disables it automatically.
+
+Optional overrides:
 
   CAMPFIRE_AGENT_LISTEN=0.0.0.0:8443
   CAMPFIRE_AGENT_TLS_CERT=/etc/campfire/tls/panel.crt
   CAMPFIRE_AGENT_TLS_KEY=/etc/campfire/tls/panel.key
 
-Use a server certificate matching the hostname agents connect to. Certificate
+When overriding TLS, supply both certificate paths and use a server certificate
+matching the hostname agents connect to. Certificate
 files must be readable by the service user; protect the private key with
 restricted owner/group permissions. Open port 8443 to the Spark hosts. An
 ordinary TLS-terminating reverse proxy does not preserve the agent's mutual
 TLS authentication. Keep the direct listener or use TLS passthrough.
 
 After adding a Spark in the panel, the installation helper provides a copyable
-command. Set the dedicated agent HTTPS address (not the browser address unless
-both listeners are explicitly routed that way), then run it on the game host.
+command with the configured agent address and, for generated TLS, its public CA
+certificate embedded. The CA is delivered through the authenticated browser
+session and written to a temporary file by the installer before enrollment;
+Spark saves it in its private identity. TLS and hostname verification remain
+enabled; the installer never uses --insecure. Set the dedicated agent HTTPS
+address (not the browser address unless both listeners are explicitly routed
+that way), then run it on the game host.
 The same helper is available through Re-enroll in the Spark details drawer,
 with a confirmation explaining that successful re-enrollment replaces the
 existing credentials and briefly restarts the Spark service.
@@ -712,8 +756,9 @@ and sudo access. It lists all missing command dependencies before installing
 anything. It downloads the latest stable tagged GitHub release, verifies
 the archive's SHA-256 checksum, saves the agent identity in /var/lib/spark,
 installs /usr/local/bin/spark and spark.service, and enables the service.
-The release must support --enroll-only. With a private agent HTTPS certificate,
-provide the path to its CA file on the game host. The command includes a
+The release must support --enroll-only. For a custom private HTTPS certificate,
+provide the path to its CA file on the game host; generated TLS needs no manual
+CA file. The helper also requires the base64 utility. The command includes a
 single-use token that expires after fifteen minutes; generate another if needed.
 The token is removed after installation and is not kept in the service config.
 Existing Spark installations retain their data; an active service is stopped
@@ -755,12 +800,9 @@ does not mount the host Docker socket. Game servers run on binary Sparks.
 Use the release archive's compose.yaml and .env.example, or equivalent settings.
 
 Copy .env.example to .env and set CAMPFIRE_IMAGE to the version published by
-GitHub CI and CAMPFIRE_PUBLIC_URL to your HTTPS browser origin. Put the certificate and
-private key for the agent listener in the directory named CAMPFIRE_TLS_DIR,
-as panel.crt and panel.key. The directory must already exist. For a Linux
-host, a private example layout is root:10001 ownership, directory mode 0750,
-certificate mode 0644 and private key mode 0640. The non-root container must
-be able to traverse the directory and read both files.
+GitHub CI and CAMPFIRE_PUBLIC_URL to your HTTPS browser origin. The agent TLS
+certificate and CA are generated and persisted automatically. Optionally set
+CAMPFIRE_AGENT_PUBLIC_URL for a different agent hostname or external port.
 
   docker compose config --quiet
   docker compose pull
@@ -768,11 +810,22 @@ be able to traverse the directory and read both files.
   docker compose logs -f campfire
 
 Compose publishes browser HTTP only on 127.0.0.1:8080 for a host HTTPS proxy.
-It publishes agent TLS on port 8443, mounts TLS files read-only, and persists
-the database and private signing authority in the campfire-data named volume.
+It publishes agent TLS on port 8443 and persists the database, generated TLS
+credentials and private signing authorities in the campfire-data named volume.
 Its root filesystem is read-only with a bounded temporary directory, dropped
 capabilities and no-new-privileges. Named volumes initialize with the image's
 10001 ownership. Pre-existing bind-mounted state needs that ownership explicitly.
+
+To use your own certificate, add compose.agent-tls.yaml to the Compose command
+(-f compose.yaml -f compose.agent-tls.yaml) and set CAMPFIRE_TLS_DIR to an existing
+directory containing panel.crt and panel.key. This is also required when moving
+an existing Compose deployment with custom certificates to the new base Compose
+file: keep using the same custom certificate so enrolled Sparks retain trust.
+Do not switch an enrolled fleet's CA without explicitly distributing the new
+trust or re-enrolling it. For Linux, a private example layout is root:10001
+ownership, directory mode 0750, certificate mode 0644 and key mode 0640. The
+container must be able to traverse the directory and read both files. The
+override mounts this directory read-only.
 
 Image tags use ghcr.io/OWNER/REPOSITORY:VERSION. Compose deploys the CI-built
 image and does not build from local source. No image has been published just
@@ -810,7 +863,7 @@ health endpoint, login and node connections. Use a stopped Spark and preserve
 its state when upgrading its binary. Detached games continue across ordinary
 agent disconnects; wait for lifecycle/file/backup work to finish before stopping
 an agent. Breaking wire protocol changes require compatible panel and Spark
-versions. The panel uses schema 2 and currently supports wire format 7. Update
+versions. The panel uses schema 1 and currently supports wire format 1. Update
 either component independently while their wire-version ranges overlap and
 their shared capabilities cover the features you use. A missing optional
 capability blocks that feature; a disjoint wire range blocks the connection.
@@ -851,8 +904,8 @@ the same runner session. Stopping and starting make dev-mock or dev:mock clears
 only data/mock and starts fresh. Running the mock binary directly preserves state.
 Europe starts on an outdated simulated Spark client; its Update Spark action
 updates the persisted mock version without contacting GitHub or replacing a binary.
-Ember update ready is stopped on an old revision, with mock-minecraft-updated
-already imported and ready to apply through Update Ember.
+Ember update ready is stopped on an old applied revision, with the current local
+mock-minecraft definition ready to apply through Update Ember.
 
 Server transfers, archive operations, binary uploads, real installers
 and Docker execution are not simulated. Unsupported operations report an error
@@ -1003,23 +1056,23 @@ Egg compatibility
 Embers can be imported from native definitions or Pterodactyl/Pelican Egg exports
 in JSON or YAML. The import drawer previews conversion, lists unsupported fields
 and requires acknowledgement of compatibility warnings. An import saves only a
-new immutable Ember; it does not run the supplied installer or pull any images.
+new Ember; it does not run the supplied installer or pull any images.
 URL imports retain their source as the native Ember updateUrl. A definition's
 own updateUrl, or an Egg's meta.update_url, takes precedence over the import URL.
 This metadata is kept through preview, conversion and saving. Campfire checks
 each imported revision's update URL on startup when due and about every 24 hours
 afterward. A background worker looks for due checks every ten minutes. Check
-times, failures and availability are persisted separately from immutable Embers.
-The Embers page provides a shared Check updates action and per-revision Download
+times, failures and availability are stored on each Ember row.
+The Embers page provides a shared Check updates action and per-Ember Update
 update actions. Last-check timestamps are kept internally for daily scheduling.
 Downloads open the import review flow and require the usual warning review before
-saving a new revision. Existing servers stay pinned until an administrator applies
-the new revision explicitly. Formatting and JSON object-key order do not count as
+replacing the local definition. Existing servers keep their applied revision
+until an administrator applies the update explicitly. Formatting and JSON object-key order do not count as
 new versions; changes to the parsed game definition do. Checks use the same public
 HTTPS restrictions and size limits as URL imports. No URL means no automatic check.
 Mock development mode seeds both an available update and an up-to-date Ember.
 Check updates and Download update use fixed local mock responses without network
-requests; importing a mock update creates a new revision and survives restarts.
+requests; accepting a mock update replaces its local definition and survives reloads.
 
 See deploy/EGG-COMPATIBILITY.txt for the format and feature support matrix,
 fixture coverage, API request examples and runtime limitations. Native definitions

@@ -20,7 +20,6 @@ import (
 
 type actorKey struct{}
 
-var errScheduleChanged = errors.New("schedule changed before execution")
 var errSparkOffline = errors.New("spark is offline before dispatch")
 var errSparkDisabled = errors.New("spark is disabled before dispatch")
 var errServerNotRunning = errors.New("schedule requires a running server")
@@ -71,34 +70,48 @@ func (s *ActivityService) Start(ctx context.Context) error {
 		defer ticker.Stop()
 
 		for {
-			if err := s.Store.EnqueueDue(ctx, time.Now()); err != nil && ctx.Err() == nil {
-				slog.Error("queue recurring schedules", "error", err)
-			}
-
 			runs, err := s.Store.Pending(ctx)
 			if err != nil && ctx.Err() == nil {
-				slog.Error("read pending schedules", "error", err)
+				slog.Error("read active executions", "error", err)
 			}
 
 			for _, run := range runs {
+				s.launch(ctx, run)
+			}
+
+			schedules, err := s.Store.Due(ctx, time.Now())
+			if err != nil && ctx.Err() == nil {
+				slog.Error("read due schedules", "error", err)
+			}
+
+			for _, item := range schedules {
+				if !s.available(ctx, item.ServerID) {
+					continue
+				}
+
 				s.mu.Lock()
-				if s.active[run.ServerID] || len(s.active) >= 4 {
+				if s.active[item.ServerID] || len(s.active) >= 4 {
 					s.mu.Unlock()
 					continue
 				}
 
-				s.active[run.ServerID] = true
+				s.active[item.ServerID] = true
 				s.mu.Unlock()
 
-				s.wg.Add(1)
-				go func() {
-					defer s.wg.Done()
-					defer func() { s.mu.Lock(); delete(s.active, run.ServerID); s.mu.Unlock() }()
+				run, err := s.Store.ClaimSchedule(ctx, item.ID, time.Now(), nil)
+				if err != nil {
+					s.mu.Lock()
+					delete(s.active, item.ServerID)
+					s.mu.Unlock()
 
-					if err := s.process(ctx, run); err != nil && ctx.Err() == nil {
-						slog.Error("process schedule execution", "run", run.ID, "error", err)
+					if !errors.Is(err, repository.ErrAccessConflict) && !errors.Is(err, repository.ErrAccessNotFound) && ctx.Err() == nil {
+						slog.Error("claim scheduled execution", "error", err)
 					}
-				}()
+
+					continue
+				}
+
+				s.run(ctx, run)
 			}
 
 			select {
@@ -110,6 +123,42 @@ func (s *ActivityService) Start(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+// available leaves definitions pending while the assigned Spark cannot accept work.
+func (s *ActivityService) available(ctx context.Context, serverID string) bool {
+	server, err := s.deployment.Servers.Get(ctx, serverID)
+	if err != nil {
+		return false
+	}
+
+	node, err := s.deployment.Sparks.Get(ctx, server.SparkID)
+
+	return err == nil && !node.Disabled && (s.deployment.Sparks.connectivity == nil || node.Connected)
+}
+
+func (s *ActivityService) launch(ctx context.Context, run database.ScheduleRun) {
+	s.mu.Lock()
+	if s.active[run.ServerID] || len(s.active) >= 4 {
+		s.mu.Unlock()
+		return
+	}
+
+	s.active[run.ServerID] = true
+	s.mu.Unlock()
+	s.run(ctx, run)
+}
+
+func (s *ActivityService) run(ctx context.Context, run database.ScheduleRun) {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		defer func() { s.mu.Lock(); delete(s.active, run.ServerID); s.mu.Unlock() }()
+
+		if err := s.process(ctx, run); err != nil && ctx.Err() == nil {
+			slog.Error("process execution", "run", run.ID, "error", err)
+		}
+	}()
 }
 
 // Close stops polling and waits for bounded dispatch requests, leaving recoverable state.
@@ -169,7 +218,6 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 
 	if create {
 		item.ID = rand.Text()
-		item.Version = 1
 	} else {
 		old, err := s.Store.Schedule(ctx, item.ID)
 		if err != nil {
@@ -180,7 +228,7 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 			return database.Schedule{}, repository.ErrAccessInput
 		}
 
-		item.CreatedAt, item.Version = old.CreatedAt, old.Version+1
+		item.CreatedAt = old.CreatedAt
 		if item.Action == "command" && old.Action == "command" && item.Command == "" {
 			item.Command = old.Command
 		}
@@ -198,12 +246,18 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 		item.TimeZone = "UTC"
 	}
 
-	next, err := recurrence.Next(item.CronExpression, item.TimeZone, time.Now(), 1)
-	if err != nil {
-		return database.Schedule{}, repository.ErrAccessInput
-	}
+	if item.CronExpression == "" {
+		if item.NextRunAt <= 0 || item.Enabled && item.NextRunAt <= time.Now().Unix() {
+			return database.Schedule{}, repository.ErrAccessInput
+		}
+	} else {
+		next, err := recurrence.Next(item.CronExpression, item.TimeZone, time.Now(), 1)
+		if err != nil {
+			return database.Schedule{}, repository.ErrAccessInput
+		}
 
-	item.NextRunAt = next[0]
+		item.NextRunAt = next[0]
+	}
 
 	if !slices.Contains([]string{"start", "stop", "restart", "kill", "backup", "command"}, item.Action) {
 		return database.Schedule{}, repository.ErrAccessInput
@@ -217,7 +271,7 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 		item.Command = ""
 	}
 
-	item.UserID, item.Username = principal.UserID, principal.Username
+	item.RunAsUserID, item.Username = principal.UserID, principal.Username
 	if err := s.Store.SaveSchedule(ctx, &item, create); err != nil {
 		return database.Schedule{}, err
 	}
@@ -239,43 +293,48 @@ func (s *ActivityService) Remove(ctx context.Context, principal Principal, id st
 	return s.Store.DeleteSchedule(ctx, id)
 }
 
-// Queue creates an explicit run; the worker rechecks permissions immediately before dispatch.
-func (s *ActivityService) Queue(ctx context.Context, principal Principal, serverID, action, content, scheduleID, retryOf string) (database.ScheduleRun, error) {
-	if err := s.authorize(ctx, principal, serverID, scheduleID != ""); err != nil {
-		return database.ScheduleRun{}, err
-	}
-
-	server, err := s.deployment.Servers.Get(ctx, serverID)
-	if err != nil {
-		return database.ScheduleRun{}, err
-	}
-
-	run := database.ScheduleRun{ID: rand.Text(), ScheduleID: scheduleID, RetryOf: retryOf, ServerID: serverID, ServerName: server.Name, Action: action, Content: content, UserID: principal.UserID, Username: principal.Username, State: "queued", CreatedAt: time.Now().Unix()}
-	if scheduleID != "" {
-		item, err := s.Store.Schedule(ctx, scheduleID)
-		if err != nil {
-			return database.ScheduleRun{}, err
-		}
-
-		if item.ServerID != serverID || item.Action != action || item.Command != content {
-			return database.ScheduleRun{}, repository.ErrAccessConflict
-		}
-
-		run.ScheduleVersion = item.Version
-		run.OnlyWhenRunning = item.OnlyWhenRunning
-	}
-
-	return run, s.Store.CreateRun(ctx, &run)
-}
-
-// RunNow queues a configured task under the current authorized caller.
+// RunNow starts an immediate attempt using the current saved definition.
 func (s *ActivityService) RunNow(ctx context.Context, principal Principal, id string) (database.ScheduleRun, error) {
 	item, err := s.Store.Schedule(ctx, id)
 	if err != nil {
 		return database.ScheduleRun{}, err
 	}
 
-	return s.Queue(ctx, principal, item.ServerID, item.Action, item.Command, item.ID, "")
+	if err := s.authorize(ctx, principal, item.ServerID, true); err != nil {
+		return database.ScheduleRun{}, err
+	}
+
+	run, err := s.Store.ClaimSchedule(ctx, id, time.Now(), &principal.UserID)
+	if err != nil {
+		return database.ScheduleRun{}, err
+	}
+
+	if err := s.process(ctx, run); err != nil {
+		return database.ScheduleRun{}, err
+	}
+
+	return s.Store.Run(ctx, run.ID)
+}
+
+// attempt records and dispatches an explicitly requested retry.
+func (s *ActivityService) attempt(ctx context.Context, principal Principal, old database.ScheduleRun) (database.ScheduleRun, error) {
+	server, err := s.deployment.Servers.Get(ctx, old.ServerID)
+	if err != nil {
+		return database.ScheduleRun{}, err
+	}
+
+	now := time.Now().Unix()
+
+	run := database.ScheduleRun{ID: rand.Text(), RetryOf: old.ID, ServerID: server.ID, ServerName: server.Name, Action: old.Action, UserID: principal.UserID, Username: principal.Username, State: "dispatching", CreatedAt: now, StartedAt: now}
+	if err := s.Store.CreateRun(ctx, &run); err != nil {
+		return database.ScheduleRun{}, err
+	}
+
+	if err := s.process(ctx, run); err != nil {
+		return database.ScheduleRun{}, err
+	}
+
+	return s.Store.Run(ctx, run.ID)
 }
 
 // Retry creates a new tracked execution and never silently replays uncertain node work.
@@ -293,29 +352,14 @@ func (s *ActivityService) Retry(ctx context.Context, principal Principal, id str
 		return database.ScheduleRun{}, repository.ErrAccessInput
 	}
 
-	return s.Queue(ctx, principal, old.ServerID, old.Action, "", "", old.ID)
+	return s.attempt(ctx, principal, old)
 }
 
 func (s *ActivityService) finish(ctx context.Context, run database.ScheduleRun, state, message string) error {
 	return s.Store.FinishRun(ctx, run, state, message, time.Now())
 }
 
-func (s *ActivityService) checkQueued(ctx context.Context, run database.ScheduleRun) (Principal, error) {
-	if run.ScheduleID != "" {
-		item, err := s.Store.Schedule(ctx, run.ScheduleID)
-		if errors.Is(err, repository.ErrAccessNotFound) {
-			return Principal{}, errScheduleChanged
-		}
-
-		if err != nil {
-			return Principal{}, err
-		}
-
-		if item.Version != run.ScheduleVersion || run.Recurring && !item.Enabled {
-			return Principal{}, errScheduleChanged
-		}
-	}
-
+func (s *ActivityService) checkExecution(ctx context.Context, run database.ScheduleRun) (Principal, error) {
 	principal, err := s.principal(ctx, run.UserID)
 	if err == nil {
 		err = s.authorize(ctx, principal, run.ServerID, run.ScheduleID != "")
@@ -346,31 +390,21 @@ func (s *ActivityService) checkQueued(ctx context.Context, run database.Schedule
 	return principal, err
 }
 
-func (s *ActivityService) rejectQueued(ctx context.Context, run database.ScheduleRun, err error) error {
+func (s *ActivityService) rejectAttempt(ctx context.Context, run database.ScheduleRun, err error) error {
 	if errors.Is(err, errServerNotRunning) {
 		return s.finish(ctx, run, "skipped", "Server is not running; this schedule only runs while the server is running.")
 	}
 
 	if errors.Is(err, errSparkOffline) {
-		return s.Store.UpdateRun(ctx, run.ID, "queued", "Waiting for Spark to reconnect.", time.Now())
+		return s.finish(ctx, run, "failed", "Spark became unavailable before dispatch.")
 	}
 
 	if errors.Is(err, errSparkDisabled) {
 		return s.finish(ctx, run, "failed", "Hosting Spark is disabled; execution was skipped.")
 	}
 
-	if errors.Is(err, errScheduleChanged) {
-		return s.finish(ctx, run, "cancelled", "Schedule was changed, paused or removed before execution.")
-	}
-
 	if !errors.Is(err, repository.ErrAccessDenied) && !errors.Is(err, repository.ErrAccessNotFound) && !errors.Is(err, ErrServerNotFound) {
 		return err
-	}
-
-	if run.ScheduleID != "" {
-		if err := s.Store.DisableSchedule(ctx, run.ScheduleID, run.ScheduleVersion); err != nil {
-			return err
-		}
 	}
 
 	return s.finish(ctx, run, "failed", "Execution permission was revoked or the server was removed.")
@@ -381,14 +415,10 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 		return err
 	}
 
-	if run.State == "queued" {
-		principal, err := s.checkQueued(ctx, run)
+	if run.State == "dispatching" {
+		principal, err := s.checkExecution(ctx, run)
 		if err != nil {
-			return s.rejectQueued(ctx, run, err)
-		}
-
-		if err := s.Store.UpdateRun(ctx, run.ID, "dispatching", "", time.Now()); err != nil {
-			return err
+			return s.rejectAttempt(ctx, run, err)
 		}
 
 		status, err := s.deployment.executeTracked(WithActor(ctx, principal), run)
@@ -397,8 +427,8 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 		}
 
 		if err != nil {
-			if errors.Is(err, errServerNotRunning) || errors.Is(err, errScheduleChanged) || errors.Is(err, errSparkOffline) || errors.Is(err, errSparkDisabled) || errors.Is(err, repository.ErrAccessDenied) || errors.Is(err, repository.ErrAccessNotFound) || errors.Is(err, ErrServerNotFound) {
-				return s.rejectQueued(ctx, run, err)
+			if errors.Is(err, errServerNotRunning) || errors.Is(err, errSparkOffline) || errors.Is(err, errSparkDisabled) || errors.Is(err, repository.ErrAccessDenied) || errors.Is(err, repository.ErrAccessNotFound) || errors.Is(err, ErrServerNotFound) {
+				return s.rejectAttempt(ctx, run, err)
 			}
 
 			return s.finish(ctx, run, "interrupted", "Dispatch failed; verify server state before retrying.")

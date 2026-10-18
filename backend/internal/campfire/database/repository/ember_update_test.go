@@ -26,7 +26,7 @@ func TestEmberUpdateChecksPersistAndCascadeWithoutChangingDefinitions(t *testing
 
 	checks := repository.NewEmberUpdateRepository(db.ORM())
 
-	item := model.EmberUpdate{EmberID: ember.ID, URL: ember.UpdateURL, CheckedAt: 100, Available: true}
+	item := model.EmberUpdate{EmberID: ember.ID, CheckedAt: 100, Available: true}
 	if err := checks.Save(t.Context(), item); err != nil {
 		t.Fatal(err)
 	}

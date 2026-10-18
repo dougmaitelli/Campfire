@@ -110,11 +110,11 @@ func (r *AccessRepository) DeleteRole(ctx context.Context, id int64) error {
 		}
 
 		var users, members int64
-		if err := tx.Model(&database.User{}).Where("role_id = ?", id).Count(&users).Error; err != nil {
+		if err := tx.Unscoped().Model(&database.User{}).Where("role_id = ?", id).Count(&users).Error; err != nil {
 			return err
 		}
 
-		if err := tx.Model(&database.ServerMember{}).Where("role_id = ?", id).Count(&members).Error; err != nil {
+		if err := tx.Model(&database.ServerAccessGrant{}).Where("access_role_id = ?", id).Count(&members).Error; err != nil {
 			return err
 		}
 
@@ -212,7 +212,7 @@ func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int6
 			return tx.Model(&user).Updates(updates).Error
 		}
 
-		updates["role_id"], updates["disabled"], updates["version"] = roleID, disabled, gorm.Expr("version + 1")
+		updates["role_id"], updates["disabled"], updates["credential_version"] = roleID, disabled, gorm.Expr("credential_version + 1")
 
 		if password != "" {
 			updates["password_hash"] = password
@@ -239,7 +239,7 @@ func (r *AccessRepository) DeleteUser(ctx context.Context, id int64) error {
 		}
 
 		var owned int64
-		if err := tx.Model(&database.ServerOwnership{}).Where("user_id = ?", id).Count(&owned).Error; err != nil {
+		if err := tx.Model(&database.Server{}).Where("owner_user_id = ?", id).Count(&owned).Error; err != nil {
 			return err
 		}
 
@@ -247,104 +247,164 @@ func (r *AccessRepository) DeleteUser(ctx context.Context, id int64) error {
 			return ErrAccessConflict
 		}
 
+		if err := tx.Model(&user).Updates(map[string]any{"disabled": true, "password_hash": "", "credential_version": gorm.Expr("credential_version + 1")}).Error; err != nil {
+			return err
+		}
+
+		for _, record := range []any{&database.UserSession{}, &database.APIToken{}, &database.ServerAccessGrant{}, &database.SparkAccessGrant{}, &database.NotificationRecipient{}} {
+			if err := tx.Where("user_id = ?", id).Delete(record).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Model(&database.Schedule{}).Where("run_as_user_id = ?", id).Update("enabled", false).Error; err != nil {
+			return err
+		}
+
 		return tx.Delete(&user).Error
 	}))
 }
 
-// Owner returns the server's current owner, if one exists before account setup.
+// Owner returns the account referenced directly by the server.
 func (r *AccessRepository) Owner(ctx context.Context, serverID string) (*database.User, error) {
-	var ownership database.ServerOwnership
+	var user database.User
 
-	err := r.db.WithContext(ctx).Preload("User.Role").Where("server_id = ?", serverID).Take(&ownership).Error
+	err := r.db.WithContext(ctx).Preload("Role").Joins("JOIN servers ON servers.owner_user_id = users.id").Where("servers.id = ?", serverID).Take(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 
-	return &ownership.User, err
+	return &user, err
 }
 
-// Members lists server-scoped grants without listing unrelated panel accounts.
-func (r *AccessRepository) Members(ctx context.Context, serverID string) ([]database.ServerMember, error) {
-	members := []database.ServerMember{}
-	err := r.db.WithContext(ctx).Preload("User.Role").Preload("Role.Permissions").Where("server_id = ?", serverID).Order("user_id").Find(&members).Error
+// Members lists explicit server grants.
+func (r *AccessRepository) Members(ctx context.Context, serverID string) ([]database.ServerAccessGrant, error) {
+	items := []database.ServerAccessGrant{}
+	err := r.db.WithContext(ctx).Preload("User").Preload("Role").Preload("AccessRole.Permissions").Where("server_id = ?", serverID).Order("id").Find(&items).Error
 
-	return members, err
+	return items, err
 }
 
-// MemberRole reads current permissions on every request, so revoked access is immediate.
+// MemberRole combines direct user grants and grants to the user's current account role.
 func (r *AccessRepository) MemberRole(ctx context.Context, serverID string, userID int64) (database.Role, error) {
-	var member database.ServerMember
+	permissions := []database.RolePermission{}
+	err := r.db.WithContext(ctx).Model(&database.RolePermission{}).
+		Joins("JOIN server_access_grants ON server_access_grants.access_role_id = role_permissions.role_id").
+		Joins("JOIN users ON users.id = ? AND users.deleted_at IS NULL AND users.disabled = false AND (server_access_grants.user_id = users.id OR server_access_grants.role_id = users.role_id)", userID).
+		Where("server_access_grants.server_id = ?", serverID).Distinct("role_permissions.permission").Find(&permissions).Error
 
-	err := r.db.WithContext(ctx).Preload("Role.Permissions").Where("server_id = ? AND user_id = ?", serverID, userID).Take(&member).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return database.Role{}, nil
+	return database.Role{Permissions: permissions}, err
+}
+
+func validateGrantSubject(tx *gorm.DB, userID, roleID *int64) error {
+	if (userID == nil) == (roleID == nil) {
+		return ErrAccessInput
 	}
 
-	return member.Role, err
+	if userID != nil {
+		var count int64
+		if err := tx.Model(&database.User{}).Where("id = ? AND disabled = false", *userID).Count(&count).Error; err != nil {
+			return err
+		}
+
+		if count != 1 {
+			return ErrAccessInput
+		}
+	} else {
+		var count int64
+		if err := tx.Model(&database.Role{}).Where("id = ? AND scope = 'platform'", *roleID).Count(&count).Error; err != nil {
+			return err
+		}
+
+		if count != 1 {
+			return ErrAccessInput
+		}
+	}
+
+	return nil
 }
 
-// SetMember grants a server role and never changes ownership or platform roles.
-func (r *AccessRepository) SetMember(ctx context.Context, member database.ServerMember) error {
+// SetMember upserts one subject's server access level without changing ownership.
+func (r *AccessRepository) SetMember(ctx context.Context, grant database.ServerAccessGrant) error {
 	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		var role database.Role
-		if err := tx.Where("id = ? AND scope = 'server'", member.RoleID).Take(&role).Error; err != nil || role.ID == database.OwnerRole {
+		if err := validateGrantSubject(tx, grant.UserID, grant.RoleID); err != nil {
+			return err
+		}
+
+		var level database.Role
+		if err := tx.Where("id = ? AND scope = 'server'", grant.AccessRoleID).Take(&level).Error; err != nil || level.ID == database.OwnerRole {
 			return ErrAccessInput
 		}
 
-		var ownership database.ServerOwnership
-		if err := tx.Where("server_id = ? AND user_id = ?", member.ServerID, member.UserID).Take(&ownership).Error; err == nil {
-			return ErrAccessInput
+		if grant.UserID != nil {
+			var count int64
+			if err := tx.Model(&database.Server{}).Where("id = ? AND owner_user_id = ?", grant.ServerID, *grant.UserID).Count(&count).Error; err != nil {
+				return err
+			}
+
+			if count > 0 {
+				return ErrAccessInput
+			}
+		}
+
+		query := tx.Where("server_id = ?", grant.ServerID)
+		if grant.UserID != nil {
+			query = query.Where("user_id = ?", *grant.UserID)
+		} else {
+			query = query.Where("role_id = ?", *grant.RoleID)
+		}
+
+		var current database.ServerAccessGrant
+		if err := query.Take(&current).Error; err == nil {
+			return tx.Model(&current).Update("access_role_id", grant.AccessRoleID).Error
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
-		if err := tx.Where("server_id = ? AND user_id = ?", member.ServerID, member.UserID).Delete(&database.ServerMember{}).Error; err != nil {
-			return err
-		}
-
-		return tx.Omit("Server", "User", "Role").Create(&member).Error
+		return tx.Omit("Server", "User", "Role", "AccessRole").Create(&grant).Error
 	}))
 }
 
-// RemoveMember revokes only the named collaborator's server access.
-func (r *AccessRepository) RemoveMember(ctx context.Context, serverID string, userID int64) error {
-	return r.db.WithContext(ctx).Where("server_id = ? AND user_id = ?", serverID, userID).Delete(&database.ServerMember{}).Error
+// RemoveMember removes a legacy direct user grant.
+func (r *AccessRepository) RemoveMember(ctx context.Context, id string, userID int64) error {
+	return r.db.WithContext(ctx).Where("server_id = ? AND user_id = ?", id, userID).Delete(&database.ServerAccessGrant{}).Error
 }
 
-// TransferOwner replaces ownership without allowing the old owner to retain implicit access.
+// RemoveServerGrant removes one server access grant.
+func (r *AccessRepository) RemoveServerGrant(ctx context.Context, id string, grantID int64) error {
+	return r.db.WithContext(ctx).Where("server_id = ? AND id = ?", id, grantID).Delete(&database.ServerAccessGrant{}).Error
+}
+
+// TransferOwner changes ownership and clears the new owner's redundant grant.
 func (r *AccessRepository) TransferOwner(ctx context.Context, serverID string, userID int64) error {
 	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		var server database.Server
-		if err := tx.Take(&server, "id = ?", serverID).Error; err != nil {
-			return err
-		}
-
 		var user database.User
 		if err := tx.Where("id = ? AND disabled = false", userID).Take(&user).Error; err != nil {
 			return ErrAccessInput
 		}
 
-		if err := tx.Where("server_id = ?", serverID).Delete(&database.ServerOwnership{}).Error; err != nil {
-			return err
+		result := tx.Model(&database.Server{}).Where("id = ?", serverID).Update("owner_user_id", userID)
+		if result.Error != nil {
+			return result.Error
 		}
 
-		if err := tx.Omit("Server", "User").Create(&database.ServerOwnership{ServerID: serverID, UserID: userID}).Error; err != nil {
-			return err
+		if result.RowsAffected != 1 {
+			return ErrAccessNotFound
 		}
 
-		return tx.Where("server_id = ? AND user_id = ?", serverID, userID).Delete(&database.ServerMember{}).Error
+		return tx.Where("server_id = ? AND user_id = ?", serverID, userID).Delete(&database.ServerAccessGrant{}).Error
 	}))
 }
 
-// SparkRoles returns platform roles allowed to provision on the given Spark.
+// SparkRoles is retained for older API clients; user grants are managed separately.
 func (r *AccessRepository) SparkRoles(ctx context.Context, sparkID string) ([]int64, error) {
 	ids := []int64{}
-	err := r.db.WithContext(ctx).Model(&database.SparkRole{}).Where("spark_id = ?", sparkID).Order("role_id").Pluck("role_id", &ids).Error
+	err := r.db.WithContext(ctx).Model(&database.SparkAccessGrant{}).Where("spark_id = ? AND role_id IS NOT NULL", sparkID).Order("role_id").Pluck("role_id", &ids).Error
 
 	return ids, err
 }
 
-// SetSparkRoles atomically changes provisioning eligibility, not Spark management rights.
+// SetSparkRoles replaces account role grants while retaining direct user grants.
 func (r *AccessRepository) SetSparkRoles(ctx context.Context, sparkID string, ids []int64) error {
 	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var spark database.Spark
@@ -352,7 +412,7 @@ func (r *AccessRepository) SetSparkRoles(ctx context.Context, sparkID string, id
 			return err
 		}
 
-		if err := tx.Where("spark_id = ?", sparkID).Delete(&database.SparkRole{}).Error; err != nil {
+		if err := tx.Where("spark_id = ? AND role_id IS NOT NULL", sparkID).Delete(&database.SparkAccessGrant{}).Error; err != nil {
 			return err
 		}
 
@@ -363,21 +423,75 @@ func (r *AccessRepository) SetSparkRoles(ctx context.Context, sparkID string, id
 			}
 
 			seen[id] = true
-
-			var count int64
-			if err := tx.Model(&database.RolePermission{}).Joins("JOIN roles ON roles.id = role_id").Where("role_id = ? AND permission = 'servers.create' AND roles.scope = 'platform'", id).Count(&count).Error; err != nil {
+			if err := validateGrantSubject(tx, nil, &id); err != nil {
 				return err
 			}
 
-			if id == database.AdminRole || count != 1 {
+			if id == database.AdminRole {
 				return ErrAccessInput
 			}
 
-			if err := tx.Omit("Spark", "Role").Create(&database.SparkRole{SparkID: sparkID, RoleID: id}).Error; err != nil {
+			if err := tx.Omit("Spark", "User", "Role", "AccessRole").Create(&database.SparkAccessGrant{SparkID: sparkID, RoleID: &id, AccessRoleID: database.CreatorRole}).Error; err != nil {
 				return err
 			}
 		}
 
 		return nil
 	}))
+}
+
+// SparkGrants lists explicit Spark provisioning grants.
+func (r *AccessRepository) SparkGrants(ctx context.Context, id string) ([]database.SparkAccessGrant, error) {
+	items := []database.SparkAccessGrant{}
+	err := r.db.WithContext(ctx).Preload("User").Preload("Role").Preload("AccessRole.Permissions").Where("spark_id = ?", id).Order("id").Find(&items).Error
+
+	return items, err
+}
+
+// SetSparkGrant grants server creation on a Spark.
+func (r *AccessRepository) SetSparkGrant(ctx context.Context, grant database.SparkAccessGrant) error {
+	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		if err := validateGrantSubject(tx, grant.UserID, grant.RoleID); err != nil {
+			return err
+		}
+
+		grant.AccessRoleID = database.CreatorRole
+
+		query := tx.Where("spark_id = ?", grant.SparkID)
+		if grant.UserID != nil {
+			query = query.Where("user_id = ?", *grant.UserID)
+		} else {
+			query = query.Where("role_id = ?", *grant.RoleID)
+		}
+
+		var current database.SparkAccessGrant
+		if err := query.Take(&current).Error; err == nil {
+			return tx.Model(&current).Update("access_role_id", grant.AccessRoleID).Error
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		return tx.Omit("Spark", "User", "Role", "AccessRole").Create(&grant).Error
+	}))
+}
+
+// RemoveSparkGrant revokes one Spark provisioning grant.
+func (r *AccessRepository) RemoveSparkGrant(ctx context.Context, id string, grantID int64) error {
+	return r.db.WithContext(ctx).Where("spark_id = ? AND id = ?", id, grantID).Delete(&database.SparkAccessGrant{}).Error
+}
+
+// HasSparkGrant checks current assignments; an empty Spark ID checks any eligible Spark.
+func (r *AccessRepository) HasSparkGrant(ctx context.Context, userID, roleID int64, sparkID string) (bool, error) {
+	var count int64
+
+	query := r.db.WithContext(ctx).Model(&database.SparkAccessGrant{}).Joins("JOIN sparks ON sparks.id = spark_access_grants.spark_id").
+		Joins("JOIN users ON users.id = ? AND users.deleted_at IS NULL AND users.disabled = false", userID).
+		Where("sparks.disabled = false AND (spark_access_grants.user_id = ? OR spark_access_grants.role_id = ?)", userID, roleID)
+	if sparkID != "" {
+		query = query.Where("spark_access_grants.spark_id = ?", sparkID)
+	}
+
+	err := query.Count(&count).Error
+
+	return count > 0, err
 }

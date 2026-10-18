@@ -21,6 +21,8 @@ export interface ServerConfiguration {
 }
 
 export interface Server extends ServerConfiguration {
+  ember_hash: string;
+  ember_update_available: boolean;
   id: string;
   owner_user_id: number;
   permissions: string[];
@@ -37,6 +39,10 @@ export function isServer(value: unknown): value is Server {
     value !== null &&
     "id" in value &&
     typeof value.id === "string" &&
+    "ember_hash" in value &&
+    typeof value.ember_hash === "string" &&
+    "ember_update_available" in value &&
+    typeof value.ember_update_available === "boolean" &&
     "owner_user_id" in value &&
     typeof value.owner_user_id === "number" &&
     Number.isSafeInteger(value.owner_user_id) &&

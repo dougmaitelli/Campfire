@@ -17,7 +17,7 @@ import (
 
 // Spark errors describe validation, lookup, and registration conflicts.
 var (
-	ErrInvalidSpark       = errors.New("name must contain 1–100 characters without control characters; kind must be remote")
+	ErrInvalidSpark       = errors.New("name must contain 1–100 characters without control characters")
 	ErrSparkNotFound      = errors.New("spark not found")
 	ErrSparkConflict      = errors.New("a Spark with that name already exists")
 	ErrInvalidDescription = errors.New("description must contain at most 1000 characters, without control characters except newlines and tabs")
@@ -67,10 +67,9 @@ type SparkService struct {
 // CreateSparkInput contains the operator-supplied registration fields.
 type CreateSparkInput struct {
 	model.SparkSettings
-	Name        string          `json:"name"`
-	Kind        model.SparkKind `json:"kind"`
-	Description string          `json:"description"`
-	Disabled    bool            `json:"disabled"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Disabled    bool   `json:"disabled"`
 }
 
 // UpdateSparkInput contains mutable operator fields; nil means unchanged.
@@ -83,14 +82,9 @@ func NewSparkService(store SparkStore, connectivity SparkConnectivity) *SparkSer
 
 // Create validates input and assigns the identifier and creation timestamp.
 func (s *SparkService) Create(ctx context.Context, input CreateSparkInput) (model.Spark, error) {
-	if input.Kind == "" {
-		input.Kind = model.SparkRemote
-	}
-
 	name := strings.TrimSpace(input.Name)
 	if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > 100 ||
-		strings.ContainsFunc(name, unicode.IsControl) ||
-		input.Kind != model.SparkRemote {
+		strings.ContainsFunc(name, unicode.IsControl) {
 		return model.Spark{}, ErrInvalidSpark
 	}
 
@@ -101,7 +95,7 @@ func (s *SparkService) Create(ctx context.Context, input CreateSparkInput) (mode
 
 	spark := model.Spark{
 		SparkSettings: input.SparkSettings,
-		ID:            rand.Text(), Name: name, Kind: input.Kind, CreatedAt: time.Now().UTC(),
+		ID:            rand.Text(), Name: name, CreatedAt: time.Now().UTC(),
 		Description: description, Disabled: input.Disabled,
 	}
 	if err := validateSettings(&spark.SparkSettings); err != nil {

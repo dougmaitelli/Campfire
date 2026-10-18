@@ -144,6 +144,12 @@ export function AuditPage() {
                   {item.api_token_id
                     ? ` (API token #${item.api_token_id})`
                     : ""}
+                  {item.user?.email && (
+                    <div className="field-help">{item.user.email}</div>
+                  )}
+                  {item.user?.deleted_at && (
+                    <div className="field-help">Deleted account</div>
+                  )}
                 </td>
                 <td>{item.action}</td>
                 <td>{item.target}</td>

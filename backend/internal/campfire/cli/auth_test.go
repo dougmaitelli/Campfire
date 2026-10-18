@@ -58,18 +58,18 @@ func TestStartupLogsSetupTokenOnlyBeforeFirstAccount(t *testing.T) {
 
 	for line := range strings.SplitSeq(strings.TrimSpace(output), "\n") {
 		var event struct {
-			Token string `json:"setup_token"`
+			Message string `json:"msg"`
 		}
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
 
-		if event.Token != "" {
+		if value, ok := strings.CutPrefix(event.Message, "Administrator setup token: "); ok {
 			if token != "" {
 				t.Fatal("setup token printed more than once")
 			}
 
-			token = event.Token
+			token = value
 		}
 	}
 
@@ -94,7 +94,7 @@ func TestStartupLogsSetupTokenOnlyBeforeFirstAccount(t *testing.T) {
 		t.Fatal(createErr, closeErr)
 	}
 
-	if output := run(); strings.Contains(output, "setup_token") || strings.Contains(output, token) {
+	if output := run(); strings.Contains(output, "Administrator setup token:") || strings.Contains(output, token) {
 		t.Fatal("configured startup printed a setup secret")
 	}
 }
@@ -139,7 +139,7 @@ func TestResetPasswordCommandRevokesSessions(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	store := repository.NewAuthRepository(db.ORM())
-	if err := store.Setup(ctx, database.User{ID: 1, Username: "admin", PasswordHash: "old", Version: 1}, database.UserSession{Hash: "old-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()}); err != nil {
+	if err := store.Setup(ctx, database.User{ID: 1, Username: "admin", PasswordHash: "old", CredentialVersion: 1}, database.UserSession{Hash: "old-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()}); err != nil {
 		t.Fatal(err)
 	}
 

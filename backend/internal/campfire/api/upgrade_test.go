@@ -56,7 +56,7 @@ func TestExplicitEmberApplicationAndInstallerPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	response = request(f.admin, "POST", "/api/v1/embers", string(definition))
+	response = request(f.admin, "PUT", "/api/v1/embers/"+original.ID, string(definition))
 	if response.Code != http.StatusCreated {
 		t.Fatal(response.Code, response.Body)
 	}
@@ -76,7 +76,9 @@ func TestExplicitEmberApplicationAndInstallerPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectAccess(t, f.admin, "PUT", endpoint, configJSON(t, input), http.StatusBadRequest)
+	changedInput := input
+	changedInput.Image = "invalid:latest"
+	expectAccess(t, f.admin, "PUT", endpoint, configJSON(t, changedInput), http.StatusBadRequest)
 	expectAccess(t, owner, "POST", endpoint+"/ember", string(body), http.StatusForbidden)
 
 	var invalid map[string]any
@@ -138,8 +140,8 @@ func TestExplicitEmberApplicationAndInstallerPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if retained.Startup != original.Startup || len(retained.Variables) != len(original.Variables) {
-		t.Fatal("original import changed")
+	if retained.Startup != revision.Startup || len(retained.Variables) != len(revision.Variables) {
+		t.Fatal("replacement definition was not retained")
 	}
 
 	response = request(f.admin, "GET", "/api/v1/servers/"+sibling.ID, "")
@@ -147,7 +149,7 @@ func TestExplicitEmberApplicationAndInstallerPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if unchanged.EmberID != original.ID {
+	if unchanged.EmberID != original.ID || !unchanged.EmberUpdateAvailable || unchanged.EmberHash == changed.EmberHash {
 		t.Fatal("applying a revision changed another server")
 	}
 

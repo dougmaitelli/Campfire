@@ -105,7 +105,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Model(&user).Update("version", user.Version+1).Error; err != nil {
+	if err := db.ORM().Model(&user).Update("credential_version", user.CredentialVersion+1).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +117,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 		t.Fatal("stale principal minted token", err)
 	}
 
-	if err := db.ORM().Delete(&user).Error; err != nil {
+	if err := auth.Access().DeleteUser(ctx, user.ID); err != nil {
 		t.Fatal(err)
 	}
 

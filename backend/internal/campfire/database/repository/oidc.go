@@ -55,13 +55,13 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 					return ErrAuthentication
 				}
 
-				user = database.User{Username: username, Version: 1, RoleID: database.UserRole}
+				user = database.User{Username: username, CredentialVersion: 1, RoleID: database.UserRole}
 				if err := tx.Omit("Role").Create(&user).Error; err != nil {
 					return err
 				}
 			}
 
-			if user.Disabled || linkID != 0 && user.Version != version {
+			if user.Disabled || linkID != 0 && user.CredentialVersion != version {
 				return ErrAuthentication
 			}
 
@@ -70,7 +70,7 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 			}
 		}
 
-		if user.Disabled || linkID != 0 && user.Version != version {
+		if user.Disabled || linkID != 0 && user.CredentialVersion != version {
 			return ErrAuthentication
 		}
 
@@ -102,7 +102,7 @@ func (r *AuthRepository) HasOIDCAdmin(ctx context.Context, issuer string) (bool,
 
 	err := r.db.WithContext(ctx).Model(&database.OIDCIdentity{}).
 		Joins("JOIN users ON users.id = oidc_identities.user_id").
-		Where("oidc_identities.issuer = ? AND users.role_id = ? AND users.disabled = ?", issuer, database.AdminRole, false).
+		Where("oidc_identities.issuer = ? AND users.role_id = ? AND users.disabled = ? AND users.deleted_at IS NULL", issuer, database.AdminRole, false).
 		Count(&count).Error
 
 	return count > 0, err

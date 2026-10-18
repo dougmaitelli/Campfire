@@ -11,6 +11,7 @@ import (
 
 // ImportOptions controls explicit selection and acknowledgement during conversion.
 type ImportOptions struct {
+	ReplaceID           string `json:"-"`
 	StartupCommand      string `json:"startup_command,omitempty"`
 	AcknowledgeWarnings bool   `json:"acknowledge_warnings,omitempty"`
 	SourceURL           string `json:"source_url,omitempty"`
@@ -125,6 +126,10 @@ func (s *EmberService) ImportDefinition(ctx context.Context, data []byte, option
 
 	if slices.ContainsFunc(report.Warnings, func(issue ImportIssue) bool { return !issue.Informational }) && !options.AcknowledgeWarnings {
 		return model.Ember{}, fmt.Errorf("%w: review and acknowledge compatibility warnings before importing", ErrInvalidEmber)
+	}
+
+	if options.ReplaceID != "" {
+		return s.Replace(ctx, options.ReplaceID, *report.Ember)
 	}
 
 	return s.Import(ctx, *report.Ember)

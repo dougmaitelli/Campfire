@@ -36,8 +36,7 @@ type NotificationView struct {
 
 func notificationVisible(tx *gorm.DB, access NotificationAccess) *gorm.DB {
 	return tx.Model(&database.Notification{}).Joins("JOIN notification_recipients ON notification_recipients.notification_id = notifications.id AND notification_recipients.user_id = ?", access.UserID).
-		Where("(notifications.target_type = 'account' AND notifications.target_id = ?) OR (notifications.target_type = 'server' AND ? AND (? OR notifications.target_id IN (?))) OR (notifications.target_type = 'spark' AND ?)", strconv.FormatInt(access.UserID, 10), access.ServerView, access.Admin, visibleServers(tx, access.UserID), access.SparkView).
-		Where("notifications.target_type <> 'server' OR ? OR notifications.target_id IN (SELECT server_id FROM server_ownerships WHERE user_id = ?) OR notifications.target_id IN (SELECT server_id FROM server_members JOIN role_permissions ON role_permissions.role_id = server_members.role_id WHERE user_id = ? AND permission = 'server.view')", access.Admin, access.UserID, access.UserID)
+		Where("(notifications.target_type = 'account' AND notifications.target_id = ?) OR (notifications.target_type = 'server' AND ? AND (? OR notifications.target_id IN (?))) OR (notifications.target_type = 'spark' AND ?)", strconv.FormatInt(access.UserID, 10), access.ServerView, access.Admin, visibleServers(tx, access.UserID), access.SparkView)
 }
 
 // List applies live access before pagination and never returns another inbox.
@@ -111,7 +110,7 @@ func emitNotification(tx *gorm.DB, item *database.Notification, queue bool) erro
 	case "spark":
 		users = users.Where("role_id = ?", database.AdminRole)
 	case "server":
-		users = users.Where("role_id = ? OR id IN (SELECT user_id FROM server_ownerships WHERE server_id = ?) OR id IN (SELECT server_members.user_id FROM server_members JOIN role_permissions ON role_permissions.role_id = server_members.role_id WHERE server_id = ? AND permission = 'server.view')", database.AdminRole, item.TargetID, item.TargetID)
+		users = users.Where("users.role_id = ? OR users.id IN (SELECT owner_user_id FROM servers WHERE id = ?) OR EXISTS (SELECT 1 FROM server_access_grants JOIN role_permissions ON role_permissions.role_id = server_access_grants.access_role_id WHERE server_id = ? AND permission = 'server.view' AND (server_access_grants.user_id = users.id OR server_access_grants.role_id = users.role_id))", database.AdminRole, item.TargetID, item.TargetID)
 	default:
 		return ErrAccessInput
 	}

@@ -1,12 +1,15 @@
 package database
 
-import "campfire/internal/shared/model"
+import (
+	"campfire/internal/shared/model"
+
+	"gorm.io/gorm"
+)
 
 // Spark is the persistence model; ORM tags stay outside the domain model.
 type Spark struct {
 	ID              string                 `gorm:"type:text;primaryKey"`
 	Name            string                 `gorm:"type:text;not null;uniqueIndex:sparks_name,expression:lower(name)"`
-	Kind            string                 `gorm:"type:text;not null;check:sparks_kind,kind = 'remote'"`
 	Description     string                 `gorm:"type:text;not null;default:''"`
 	Disabled        bool                   `gorm:"not null;default:false"`
 	GameAddress     string                 `gorm:"type:text;not null;default:''"`
@@ -15,7 +18,9 @@ type Spark struct {
 	DiskMB          int64                  `gorm:"not null;default:0"`
 	PortAllocations []model.PortAllocation `gorm:"serializer:json;type:text;not null;default:'[]'"`
 	// Retain RFC3339 text storage for compatibility with existing databases.
-	CreatedAt string `gorm:"type:text;not null;autoCreateTime:false"`
+	CreatedAt           string  `gorm:"type:text;not null;autoCreateTime:false"`
+	EnrollmentTokenHash *string `gorm:"type:text;uniqueIndex"`
+	EnrollmentExpiresAt int64   `gorm:"not null;default:0"`
 }
 
 type schemaMigration struct {
@@ -39,17 +44,18 @@ type RolePermission struct {
 
 // User stores a panel account with one platform role.
 type User struct {
-	ID           int64  `gorm:"primaryKey;autoIncrement" json:"id"`
-	Username     string `gorm:"type:text;not null;uniqueIndex:users_username,expression:lower(username)" json:"username"`
-	Name         string `gorm:"type:text;not null;default:''" json:"name"`
-	Email        string `gorm:"type:text;not null;default:''" json:"email"`
-	Picture      string `gorm:"type:text;not null;default:''" json:"picture"`
-	PasswordHash string `gorm:"type:text;not null" json:"-"`
-	Version      int64  `gorm:"not null" json:"-"`
-	RoleID       int64  `gorm:"not null;index" json:"role_id"`
-	Role         Role   `gorm:"foreignKey:RoleID;constraint:OnDelete:RESTRICT" json:"role"`
-	Disabled     bool   `gorm:"not null;default:false" json:"disabled"`
-	CreatedAt    int64  `gorm:"not null;autoCreateTime" json:"created_at"`
+	ID                int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	Username          string         `gorm:"type:text;not null;uniqueIndex:users_username,expression:lower(username)" json:"username"`
+	Name              string         `gorm:"type:text;not null;default:''" json:"name"`
+	Email             string         `gorm:"type:text;not null;default:''" json:"email"`
+	Picture           string         `gorm:"type:text;not null;default:''" json:"picture"`
+	PasswordHash      string         `gorm:"type:text;not null" json:"-"`
+	CredentialVersion int64          `gorm:"not null" json:"-"`
+	RoleID            int64          `gorm:"not null;index" json:"role_id"`
+	Role              Role           `gorm:"foreignKey:RoleID;constraint:OnDelete:RESTRICT" json:"role"`
+	Disabled          bool           `gorm:"not null;default:false" json:"disabled"`
+	CreatedAt         int64          `gorm:"not null;autoCreateTime" json:"created_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"deleted_at"`
 }
 
 // UserSession binds a hashed session to an account and credential generation.
@@ -75,41 +81,18 @@ type OIDCIdentity struct {
 // TableName keeps the protocol acronym intact in SQL identifiers.
 func (OIDCIdentity) TableName() string { return "oidc_identities" }
 
-// ServerOwnership identifies the single owner; account removal requires transfer first.
-type ServerOwnership struct {
-	ServerID string `gorm:"type:text;primaryKey"`
-	UserID   int64  `gorm:"not null;index"`
-	Server   Server `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE"`
-	User     User   `gorm:"foreignKey:UserID;constraint:OnDelete:RESTRICT"`
-}
-
-// ServerMember grants scoped access to an additional user.
-type ServerMember struct {
-	ServerID string `gorm:"type:text;primaryKey"`
-	UserID   int64  `gorm:"primaryKey;autoIncrement:false"`
-	RoleID   int64  `gorm:"not null"`
-	Server   Server `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE"`
-	User     User   `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
-	Role     Role   `gorm:"foreignKey:RoleID;constraint:OnDelete:RESTRICT"`
-}
-
-// SparkRole permits a platform role to provision servers on a Spark.
-type SparkRole struct {
-	SparkID string `gorm:"type:text;primaryKey"`
-	RoleID  int64  `gorm:"primaryKey;autoIncrement:false"`
-	Spark   Spark  `gorm:"foreignKey:SparkID;constraint:OnDelete:CASCADE"`
-	Role    Role   `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE"`
-}
-
 // Server persists server configuration with pinned Spark and Ember identities.
 type Server struct {
 	ID          string             `gorm:"type:text;primaryKey"`
+	OwnerUserID *int64             `gorm:"index"`
+	Owner       *User              `gorm:"foreignKey:OwnerUserID;constraint:OnDelete:RESTRICT"`
 	Name        string             `gorm:"type:text;not null;uniqueIndex:servers_name,expression:lower(name)"`
 	Description string             `gorm:"type:text;not null;default:''"`
 	SparkID     string             `gorm:"type:text;not null;index"`
 	Spark       Spark              `gorm:"foreignKey:SparkID;constraint:OnDelete:RESTRICT"`
 	EmberID     string             `gorm:"type:text;not null;index"`
 	Ember       Ember              `gorm:"foreignKey:EmberID;constraint:OnDelete:RESTRICT"`
+	EmberHash   string             `gorm:"type:text;not null;default:''"`
 	Image       string             `gorm:"type:text;not null"`
 	Variables   map[string]string  `gorm:"serializer:json;type:text;not null"`
 	CPULimit    float64            `gorm:"not null"`
@@ -119,30 +102,15 @@ type Server struct {
 	CreatedAt   string             `gorm:"type:text;not null;autoCreateTime:false"`
 }
 
-// Ember stores an immutable imported game definition.
+// Ember stores the current imported game definition.
 type Ember struct {
-	ID         string      `gorm:"type:text;primaryKey"`
-	Name       string      `gorm:"type:text;not null;index"`
-	Definition model.Ember `gorm:"serializer:json;type:text;not null"`
-	CreatedAt  string      `gorm:"type:text;not null;autoCreateTime:false"`
-}
-
-// EmberUpdate stores the last remote check without mutating the imported revision.
-type EmberUpdate struct {
-	EmberID   string `gorm:"type:text;primaryKey"`
-	Ember     Ember  `gorm:"foreignKey:EmberID;constraint:OnDelete:CASCADE"`
-	URL       string `gorm:"type:text;not null"`
-	CheckedAt int64  `gorm:"not null"`
-	Available bool   `gorm:"not null"`
-	Error     string `gorm:"type:text;not null"`
-}
-
-// SparkEnrollment stores only a short-lived enrollment token hash.
-type SparkEnrollment struct {
-	Hash      string `gorm:"type:text;primaryKey"`
-	SparkID   string `gorm:"type:text;not null;uniqueIndex"`
-	Spark     Spark  `gorm:"foreignKey:SparkID;constraint:OnDelete:CASCADE"`
-	ExpiresAt int64  `gorm:"not null"`
+	ID              string      `gorm:"type:text;primaryKey"`
+	Name            string      `gorm:"type:text;not null;index"`
+	Definition      model.Ember `gorm:"serializer:json;type:text;not null"`
+	CreatedAt       string      `gorm:"type:text;not null;autoCreateTime:false"`
+	UpdateCheckedAt int64       `gorm:"not null;default:0"`
+	UpdateAvailable bool        `gorm:"not null;default:false"`
+	UpdateError     string      `gorm:"type:text;not null;default:''"`
 }
 
 // SparkIdentity records the currently authorized client certificate.

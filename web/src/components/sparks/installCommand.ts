@@ -23,8 +23,14 @@ export function sparkInstallCommand(
   panel: string,
   token: string,
   caFile: string,
+  serverCA = "",
 ): string {
   if (!validAgentAddress(panel)) return "";
-  const script = `set -eu; installer=$(mktemp); trap 'rm -f -- "$installer"' EXIT; curl --fail --silent --show-error --location ${quote(`${origin}/install-spark.sh`)} --output "$installer"; sudo bash "$installer" --panel ${quote(panel)} --token ${quote(token)}${caFile.trim() ? ` --ca-file ${quote(caFile.trim())}` : ""}`;
+  const trust = caFile.trim()
+    ? ` --ca-file ${quote(caFile.trim())}`
+    : serverCA
+      ? ` --ca-base64 ${quote(btoa(serverCA))}`
+      : "";
+  const script = `set -eu; installer=$(mktemp); trap 'rm -f -- "$installer"' EXIT; curl --fail --silent --show-error --location ${quote(`${origin}/install-spark.sh`)} --output "$installer"; sudo bash "$installer" --panel ${quote(panel)} --token ${quote(token)}${trust}`;
   return `bash -c ${quote(script)}`;
 }

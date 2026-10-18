@@ -31,12 +31,18 @@ export function EnrollSparkDialog({
   const [copied, setCopied] = useState(false);
   const started = useRef(false);
   const pending = useRef(false);
+  const panelEdited = useRef(false);
+
+  function acceptEnrollment(value: SparkEnrollment) {
+    setEnrollment(value);
+    if (!panelEdited.current && value.agent_url) setPanel(value.agent_url);
+  }
   useEffect(() => {
     if (started.current || spark.disabled) return;
     started.current = true;
     pending.current = true;
     void createSparkEnrollment(spark.id)
-      .then(setEnrollment)
+      .then(acceptEnrollment)
       .catch((cause: unknown) =>
         setError(
           cause instanceof Error
@@ -56,6 +62,7 @@ export function EnrollSparkDialog({
         panel,
         enrollment.token,
         caFile,
+        enrollment.server_ca,
       )
     : "";
   async function generate() {
@@ -66,7 +73,7 @@ export function EnrollSparkDialog({
     setCopied(false);
     setEnrollment(null);
     try {
-      setEnrollment(await createSparkEnrollment(spark.id));
+      acceptEnrollment(await createSparkEnrollment(spark.id));
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -138,25 +145,28 @@ export function EnrollSparkDialog({
             type="url"
             value={panel}
             onChange={(event) => {
+              panelEdited.current = true;
               setPanel(event.target.value);
               setCopied(false);
             }}
             aria-invalid={!validPanel}
           />
         </FormField>
-        <FormField
-          label="Private CA file (optional)"
-          description="For a private HTTPS certificate, enter the absolute path to its CA certificate on the Spark host."
-        >
-          <TextInput
-            value={caFile}
-            onChange={(event) => {
-              setCAFile(event.target.value);
-              setCopied(false);
-            }}
-            placeholder="/etc/campfire/panel-ca.crt"
-          />
-        </FormField>
+        {!busy && !enrollment?.server_ca && (
+          <FormField
+            label="Private CA file (optional)"
+            description="For a private HTTPS certificate, enter the absolute path to its CA certificate on the Spark host."
+          >
+            <TextInput
+              value={caFile}
+              onChange={(event) => {
+                setCAFile(event.target.value);
+                setCopied(false);
+              }}
+              placeholder="/etc/campfire/panel-ca.crt"
+            />
+          </FormField>
+        )}
         {busy && <p role="status">Generating installation command…</p>}
         {enrollment && (
           <>

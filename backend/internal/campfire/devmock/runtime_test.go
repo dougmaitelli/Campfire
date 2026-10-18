@@ -96,7 +96,7 @@ func TestSeedAuthenticationAndPersistence(t *testing.T) {
 		count int64
 	}{
 		{&database.User{}, 1}, {&database.Server{}, 5}, {&database.Spark{}, 3},
-		{&database.Ember{}, 3}, {&database.Schedule{}, 1}, {&database.Notification{}, 2},
+		{&database.Ember{}, 2}, {&database.Schedule{}, 1}, {&database.Notification{}, 2},
 	} {
 		var count int64
 		if err := db.ORM().Model(record.model).Count(&count).Error; err != nil || count != record.count {

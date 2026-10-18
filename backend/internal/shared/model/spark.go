@@ -3,12 +3,6 @@ package model
 
 import "time"
 
-// SparkKind identifies the standalone agent transport.
-type SparkKind string
-
-// SparkRemote is used for all agents, including agents on the panel host.
-const SparkRemote SparkKind = "remote"
-
 // Spark is a registered game server node. Registration does not imply connectivity.
 type Spark struct {
 	SparkSettings
@@ -23,7 +17,6 @@ type Spark struct {
 	AgentUpdateAvailable bool      `json:"agent_update_available"`
 	Protocol             int       `json:"protocol,omitempty"`
 	Capabilities         []string  `json:"capabilities,omitempty"`
-	Kind                 SparkKind `json:"kind"`
 	CreatedAt            time.Time `json:"created_at"`
 }
 

@@ -38,7 +38,7 @@ export function UserDialog({
       !user ||
       pending.current ||
       !window.confirm(
-        `Delete "${user.username}"? Transfer their owned servers first. Their server memberships and sessions will be removed.`,
+        `Delete "${user.username}"? Transfer their owned servers first. Their access and credentials will be revoked. Their profile will be retained for audit history.`,
       )
     )
       return;

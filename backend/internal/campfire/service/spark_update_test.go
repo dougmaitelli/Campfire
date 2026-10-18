@@ -34,7 +34,7 @@ func (p *updateTestPeer) SparkFeatures(string) (int, string, []string) {
 		features = append(features, protocol.CapabilitySelfUpdate)
 	}
 
-	return 7, p.version, features
+	return protocol.ProtocolVersion, p.version, features
 }
 func (p *updateTestPeer) UpdateSpark(_ context.Context, _, version string) error {
 	p.calls++

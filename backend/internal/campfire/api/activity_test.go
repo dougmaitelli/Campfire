@@ -216,15 +216,15 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	var completed, denied, login, tokenActor bool
 
 	for _, event := range events {
-		if event.Target == "server:"+server.ID && event.Outcome == "succeeded" && event.UserID == owner.ID && event.APITokenID == token.ID {
+		if event.Target == "server:"+server.ID && event.Outcome == "succeeded" && event.UserID != nil && *event.UserID == owner.ID && event.APITokenID == token.ID {
 			tokenActor = true
 		}
 
-		if event.Action == "server.command" && event.Outcome == "succeeded" && event.UserID == owner.ID {
+		if event.Action == "server.command" && event.Outcome == "succeeded" && event.UserID != nil && *event.UserID == owner.ID {
 			completed = true
 		}
 
-		if event.Status == http.StatusForbidden && event.UserID == operator.ID {
+		if event.Status == http.StatusForbidden && event.UserID != nil && *event.UserID == operator.ID {
 			denied = true
 		}
 

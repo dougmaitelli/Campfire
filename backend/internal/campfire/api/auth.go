@@ -63,8 +63,11 @@ func (a *API) requestPrincipal(r *http.Request) (service.Principal, error) {
 	}
 
 	session, _, err := a.auth.Session(r.Context(), browserToken(r))
+	if err != nil {
+		return service.Principal{}, err
+	}
 
-	return service.PrincipalFromSession(session), err
+	return a.access.EffectivePrincipal(r.Context(), service.PrincipalFromSession(session))
 }
 
 func (a *API) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires int64) {
@@ -147,6 +150,13 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 		}
 
 		principal := service.PrincipalFromSession(session)
+
+		principal, err = a.access.EffectivePrincipal(r.Context(), principal)
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+
 		auditActor(r, principal)
 		ctx := service.WithActor(r.Context(), principal)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, principalKey{}, principal)))
@@ -172,7 +182,7 @@ func writeAuthError(w http.ResponseWriter, err error) {
 func (a *API) authSession(w http.ResponseWriter, r *http.Request) {
 	session, _, err := a.auth.Session(r.Context(), browserToken(r))
 	if err == nil {
-		writeJSON(w, http.StatusOK, a.loginState(session))
+		a.writeLoginState(w, r, session)
 		return
 	}
 
@@ -190,12 +200,20 @@ func (a *API) authSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, authState{SetupRequired: setup, LocalLogin: a.auth.LocalLoginEnabled(), OIDCEnabled: a.oidc != nil})
 }
 
-func (a *API) loginState(session database.UserSession) authState {
+func (a *API) writeLoginState(w http.ResponseWriter, r *http.Request, session database.UserSession) {
 	state := sessionState(session)
+
+	principal, err := a.access.EffectivePrincipal(r.Context(), *state.Principal)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	state.Principal = &principal
 	state.LocalLogin = a.auth.LocalLoginEnabled()
 	state.OIDCEnabled = a.oidc != nil
 
-	return state
+	writeJSON(w, http.StatusOK, state)
 }
 
 func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
@@ -245,7 +263,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 
 	a.setSessionCookie(w, r, token, session.ExpiresAt)
 	auditActor(r, service.PrincipalFromSession(session))
-	writeJSON(w, http.StatusOK, a.loginState(session))
+	a.writeLoginState(w, r, session)
 }
 
 func (a *API) authSetup(w http.ResponseWriter, r *http.Request) { a.authAttempt(w, r, true) }

@@ -199,7 +199,7 @@ func newTransferFixture(t *testing.T) *transferFixture {
 
 	sparks := NewSparkService(repository.NewSparkRepository(db.ORM()), nil)
 	for _, id := range []string{"source", "target"} {
-		if err := db.ORM().Create(&database.Spark{ID: id, Name: id, Kind: "remote", MemoryMB: 128, PortAllocations: []model.PortAllocation{{BindIP: "0.0.0.0", Start: 25565, End: 25570, Protocol: "tcp"}}, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}).Error; err != nil {
+		if err := db.ORM().Create(&database.Spark{ID: id, Name: id, MemoryMB: 128, PortAllocations: []model.PortAllocation{{BindIP: "0.0.0.0", Start: 25565, End: 25570, Protocol: "tcp"}}, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -211,7 +211,7 @@ func newTransferFixture(t *testing.T) *transferFixture {
 		t.Fatal(err)
 	}
 
-	for _, user := range []database.User{{ID: 1, Username: "owner", RoleID: database.UserRole, Version: 1}, {ID: 2, Username: "operator", RoleID: database.UserRole, Version: 1}} {
+	for _, user := range []database.User{{ID: 1, Username: "owner", RoleID: database.UserRole, CredentialVersion: 1}, {ID: 2, Username: "operator", RoleID: database.UserRole, CredentialVersion: 1}} {
 		if err := db.ORM().Omit("Role").Create(&user).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -224,7 +224,7 @@ func newTransferFixture(t *testing.T) *transferFixture {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Omit("Server", "User", "Role").Create(&database.ServerMember{ServerID: server.ID, UserID: 2, RoleID: database.OperatorRole}).Error; err != nil {
+	if err := db.ORM().Omit("Server", "User", "Role").Create(&database.ServerAccessGrant{ServerID: server.ID, UserID: new(int64(2)), AccessRoleID: database.OperatorRole}).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -369,8 +369,8 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 		t.Fatalf("placement or ownership changed incorrectly: %+v %v", server, err)
 	}
 
-	var member database.ServerMember
-	if err := f.db.ORM().Where("server_id = ? AND user_id = ?", server.ID, 2).Take(&member).Error; err != nil || member.RoleID != database.OperatorRole {
+	var member database.ServerAccessGrant
+	if err := f.db.ORM().Where("server_id = ? AND user_id = ?", server.ID, 2).Take(&member).Error; err != nil || member.AccessRoleID != database.OperatorRole {
 		t.Fatal("server membership was lost", err)
 	}
 

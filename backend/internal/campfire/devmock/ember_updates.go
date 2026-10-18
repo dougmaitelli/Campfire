@@ -18,7 +18,7 @@ import (
 
 const mockPendingUpdateURL = "https://mock.campfire.invalid/minecraft.json"
 const mockCurrentUpdateURL = "https://mock.campfire.invalid/current.json"
-const mockImportedUpdateID = "mock-minecraft-updated"
+const mockImportedUpdateID = "mock-minecraft"
 const mockUpdateServerName = "Ember update ready · Mock"
 
 func mockUpdateCandidate(current bool) model.Ember {
@@ -75,8 +75,8 @@ func seedEmberUpdates(ctx context.Context, db *gorm.DB) error {
 
 		checks := repository.NewEmberUpdateRepository(tx)
 		for _, item := range []model.EmberUpdate{
-			{EmberID: original.ID, URL: mockPendingUpdateURL, Available: true, CheckedAt: time.Now().Add(-2 * time.Hour).Unix()},
-			{EmberID: current.ID, URL: mockCurrentUpdateURL, Available: false, CheckedAt: time.Now().Add(-2 * time.Hour).Unix()},
+			{EmberID: original.ID, Available: true, CheckedAt: time.Now().Add(-2 * time.Hour).Unix()},
+			{EmberID: current.ID, Available: false, CheckedAt: time.Now().Add(-2 * time.Hour).Unix()},
 		} {
 			if err := checks.Save(ctx, item); err != nil {
 				return err
@@ -105,17 +105,19 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 
 		updated := mockUpdateCandidate(false)
 
-		updated.ID = mockImportedUpdateID
-		if err := emberStore.Create(ctx, updated); err != nil {
+		updated.ID = original.ID
+
+		updated.Description += " Local update awaiting application."
+		if err := emberStore.Replace(ctx, updated); err != nil {
 			return err
 		}
 
-		if err := repository.NewEmberUpdateRepository(tx).Save(ctx, model.EmberUpdate{EmberID: updated.ID, URL: updated.UpdateURL, CheckedAt: time.Now().Unix()}); err != nil {
+		if err := repository.NewEmberUpdateRepository(tx).Save(ctx, model.EmberUpdate{EmberID: updated.ID, CheckedAt: time.Now().Unix(), Available: true}); err != nil {
 			return err
 		}
 
 		configuration := model.ServerConfiguration{
-			Name: mockUpdateServerName, Description: "Stopped on the older mock Minecraft Ember. Choose Update Ember and select mock-minecraft-updated to apply the already imported revision; no download is needed.",
+			Name: mockUpdateServerName, Description: "Stopped on an older mock Minecraft definition. Choose Update Ember to apply the current local definition; no download is needed.",
 			SparkID: "mock-europe", EmberID: original.ID, Image: original.Images["Java 21"],
 			Variables: map[string]string{}, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480,
 			Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25569, ContainerPort: 25565, Protocol: "tcp"}},
@@ -127,10 +129,14 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 
+		if err := tx.Model(&database.Server{}).Where("id = ?", server.ID).Update("ember_hash", model.EmberHash(original)).Error; err != nil {
+			return err
+		}
+
 		record := newRecord(configuration.SparkID, model.Deployment{ServerID: server.ID, Configuration: configuration, Ember: original})
 		record.State = "stopped"
 
-		record.Logs += "[Mock Spark] Imported Ember revision mock-minecraft-updated is ready to apply.\n"
+		record.Logs += "[Mock Spark] The current local Ember definition is ready to apply.\n"
 		if err := tx.Create(&record).Error; err != nil {
 			return err
 		}

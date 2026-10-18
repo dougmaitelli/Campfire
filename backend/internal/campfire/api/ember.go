@@ -32,6 +32,8 @@ func (a *API) importEmber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	options.ReplaceID = r.PathValue("id")
+
 	ember, err := a.embers.ImportDefinition(r.Context(), data, options)
 	if err != nil {
 		writeError(w, err)

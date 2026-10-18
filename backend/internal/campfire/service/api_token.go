@@ -91,5 +91,5 @@ func (s *AuthService) AuthenticateAPIToken(ctx context.Context, raw string) (Pri
 	principal := PrincipalFromSession(database.UserSession{UserID: token.UserID, User: token.User})
 	principal.APITokenID, principal.TokenScopes = token.ID, token.Scopes
 
-	return principal, nil
+	return s.Access().EffectivePrincipal(ctx, principal)
 }

@@ -8,7 +8,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
-	"campfire/internal/shared/model"
+	"campfire/internal/shared/protocol"
 )
 
 type connectivity map[string]bool
@@ -16,7 +16,7 @@ type connectivity map[string]bool
 func (c connectivity) Connected(id string) bool { return c[id] }
 
 func (c connectivity) SparkFeatures(string) (int, string, []string) {
-	return 7, "test", []string{"server.lifecycle.v1"}
+	return protocol.ProtocolVersion, "test", []string{"server.lifecycle.v1"}
 }
 
 func TestCalculatedConnectivity(t *testing.T) {
@@ -33,7 +33,7 @@ func TestCalculatedConnectivity(t *testing.T) {
 	connections := make(connectivity)
 	sparks := service.NewSparkService(store, connections)
 
-	spark, err := sparks.Create(ctx, service.CreateSparkInput{Name: "node", Kind: model.SparkRemote})
+	spark, err := sparks.Create(ctx, service.CreateSparkInput{Name: "node"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestCalculatedConnectivity(t *testing.T) {
 	connections[spark.ID] = true
 
 	spark, err = sparks.Get(ctx, spark.ID)
-	if err != nil || !spark.Connected || spark.Protocol != 7 || len(spark.Capabilities) != 1 || spark.AgentVersion != "test" {
+	if err != nil || !spark.Connected || spark.Protocol != protocol.ProtocolVersion || len(spark.Capabilities) != 1 || spark.AgentVersion != "test" {
 		t.Fatalf("live connection missing: %+v %v", spark, err)
 	}
 

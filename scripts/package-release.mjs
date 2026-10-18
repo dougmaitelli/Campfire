@@ -45,6 +45,10 @@ try {
     join(stage, "SPARK-SECCOMP-LICENSE.txt"),
   );
   await cp(join(root, "compose.yaml"), join(stage, "compose.yaml"));
+  await cp(
+    join(root, "compose.agent-tls.yaml"),
+    join(stage, "compose.agent-tls.yaml"),
+  );
   await cp(join(root, ".env.example"), join(stage, ".env.example"));
 
   await mkdir(destination, { recursive: true });

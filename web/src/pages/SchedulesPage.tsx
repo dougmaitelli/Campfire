@@ -136,7 +136,7 @@ export function SchedulesPage() {
     <section aria-labelledby="page-title">
       <PageHeader
         title="Schedules"
-        description="Recurring operations and durable execution history."
+        description="One-off and recurring operations with execution history."
         actions={
           <>
             <Button
@@ -201,7 +201,7 @@ export function SchedulesPage() {
             void schedules.refresh();
           }}
         >
-          <caption className="visually-hidden">Recurring schedules</caption>
+          <caption className="visually-hidden">Schedules</caption>
           <thead>
             <tr>
               <th>Name / server</th>
@@ -253,7 +253,7 @@ export function SchedulesPage() {
                   </td>
                   <td>{item.action}</td>
                   <td>
-                    <code>{item.cron_expression}</code>
+                    <code>{item.cron_expression || "Run once"}</code>
                     <span className="row-description">{item.time_zone}</span>
                     {item.only_when_running && (
                       <span className="row-description">
@@ -261,7 +261,7 @@ export function SchedulesPage() {
                       </span>
                     )}
                   </td>
-                  <td>{item.enabled ? when(item.next_run_at) : "Paused"}</td>
+                  <td>{item.enabled ? when(item.next_run_at) : "Inactive"}</td>
                   <td>{item.username}</td>
                   <td className="table-actions">
                     {managed.some((server) => server.id === item.server_id) && (
@@ -318,7 +318,12 @@ export function SchedulesPage() {
                 <td>
                   <strong>{run.server_name}</strong>
                   <span className="row-description">
-                    {run.action} · {run.recurring ? "Recurring" : "Manual"}
+                    {run.action} ·{" "}
+                    {run.recurring
+                      ? "Recurring"
+                      : run.schedule_id
+                        ? "One-off"
+                        : "Manual"}
                     {run.retry_of ? " · Retry" : ""}
                   </span>
                 </td>

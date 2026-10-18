@@ -71,7 +71,8 @@ func TestAlertTransitionsAreSustainedAndUnknownDoesNotRecover(t *testing.T) {
 func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	activity, db, _, owner := activityFixture(t)
 	deployment := activity.deployment
-	online := &activityConnectivity{online: true}
+	online := &activityConnectivity{}
+	online.online.Store(true)
 	deployment.Sparks.connectivity = online
 
 	if err := db.ORM().Model(&database.Server{}).Where("id = ?", "game").Update("cpu_limit", 2).Error; err != nil {
@@ -143,7 +144,7 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 		t.Fatal("recovery messages missing", len(messages), err)
 	}
 
-	online.online = false
+	online.online.Store(false)
 
 	if err := restarted.scan(ctx); err != nil {
 		t.Fatal(err)

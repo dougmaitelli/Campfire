@@ -8,15 +8,14 @@ type Schedule struct {
 	Name            string `gorm:"type:text;not null" json:"name"`
 	Action          string `gorm:"type:text;not null" json:"action"`
 	Command         string `gorm:"type:text;not null" json:"-"`
-	CronExpression  string `gorm:"type:text;not null;default:'0 3 * * *'" json:"cron_expression"`
+	CronExpression  string `gorm:"type:text;not null;default:''" json:"cron_expression"`
 	TimeZone        string `gorm:"type:text;not null;default:'UTC'" json:"time_zone"`
 	OnlyWhenRunning bool   `gorm:"not null;default:false" json:"only_when_running"`
 	NextRunAt       int64  `gorm:"not null;index" json:"next_run_at"`
 	Enabled         bool   `gorm:"not null" json:"enabled"`
-	UserID          int64  `gorm:"not null" json:"user_id"`
-	Username        string `gorm:"type:text;not null" json:"username"`
+	RunAsUserID     int64  `gorm:"not null" json:"run_as_user_id"`
+	Username        string `gorm:"->;-:migration" json:"username"` // Current user lookup; not a stored schedule column.
 	CreatedAt       int64  `gorm:"not null;autoCreateTime" json:"created_at"`
-	Version         int64  `gorm:"not null" json:"version"`
 }
 
 // ScheduleRun records manual and recurring operations without foreign-key cascades.
@@ -24,7 +23,6 @@ type ScheduleRun struct {
 	OnlyWhenRunning bool   `gorm:"not null;default:false" json:"-"`
 	ID              string `gorm:"type:text;primaryKey" json:"id"`
 	ScheduleID      string `gorm:"type:text;not null;index" json:"schedule_id"`
-	ScheduleVersion int64  `gorm:"not null" json:"-"`
 	Recurring       bool   `gorm:"not null" json:"recurring"`
 	RetryOf         string `gorm:"type:text;not null" json:"retry_of"`
 	ServerID        string `gorm:"type:text;not null;index" json:"server_id"`
@@ -45,7 +43,8 @@ type ScheduleRun struct {
 type AuditEvent struct {
 	APITokenID int64  `gorm:"not null;default:0" json:"api_token_id,omitempty"`
 	ID         string `gorm:"type:text;primaryKey" json:"id"`
-	UserID     int64  `gorm:"not null;index" json:"user_id"`
+	UserID     *int64 `gorm:"index" json:"user_id"`
+	User       *User  `gorm:"foreignKey:UserID;constraint:OnDelete:RESTRICT" json:"user,omitempty"`
 	Username   string `gorm:"type:text;not null" json:"username"`
 	Action     string `gorm:"type:text;not null;index" json:"action"`
 	Target     string `gorm:"type:text;not null;index" json:"target"`

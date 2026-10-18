@@ -11,6 +11,7 @@ export async function apiFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   const headers = new Headers(init.headers);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
   if (
     !["GET", "HEAD", "OPTIONS"].includes((init.method ?? "GET").toUpperCase())
   )
@@ -30,7 +31,20 @@ export async function apiFetch(
 }
 
 export async function readJSON(response: Response): Promise<unknown> {
-  const body: unknown = await response.json();
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch (cause) {
+    if (!(cause instanceof SyntaxError)) throw cause;
+    const path = response.url ? new URL(response.url).pathname : "the API";
+    const contentType =
+      response.headers.get("Content-Type")?.split(";")[0] ??
+      "missing Content-Type";
+    throw new Error(
+      `Expected JSON from ${path}, but received an unexpected response (HTTP ${response.status}, ${contentType}). Check the deployed backend and reverse proxy.`,
+      { cause },
+    );
+  }
   if (!response.ok) {
     const message =
       typeof body === "object" &&

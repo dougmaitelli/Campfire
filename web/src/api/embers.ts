@@ -9,6 +9,7 @@ export interface EmberVariable {
 }
 
 export interface Ember {
+  revision?: string;
   id: string;
   schema: number;
   name: string;
@@ -110,18 +111,24 @@ export async function importEmber(
   startupCommand: string,
   acknowledgeWarnings: boolean,
   sourceURL?: string,
+  replaceID?: string,
 ): Promise<Ember> {
   const body = await readJSON(
-    await apiFetch("/api/v1/embers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        definition,
-        startup_command: startupCommand,
-        acknowledge_warnings: acknowledgeWarnings,
-        source_url: sourceURL,
-      }),
-    }),
+    await apiFetch(
+      replaceID
+        ? `/api/v1/embers/${encodeURIComponent(replaceID)}`
+        : "/api/v1/embers",
+      {
+        method: replaceID ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          definition,
+          startup_command: startupCommand,
+          acknowledge_warnings: acknowledgeWarnings,
+          source_url: sourceURL,
+        }),
+      },
+    ),
   );
   if (!isEmber(body)) throw new Error("Unexpected Ember import response.");
   return body;
@@ -222,7 +229,6 @@ export async function previewEmberURL(url: string): Promise<EmberPreview> {
 export interface EmberUpdate {
   id: string;
   ember_id: string;
-  url: string;
   checked_at: number;
   available: boolean;
   error?: string | undefined;
@@ -234,8 +240,6 @@ function readEmberUpdate(value: unknown): EmberUpdate {
     value === null ||
     !("ember_id" in value) ||
     typeof value.ember_id !== "string" ||
-    !("url" in value) ||
-    typeof value.url !== "string" ||
     !("checked_at" in value) ||
     typeof value.checked_at !== "number" ||
     !("available" in value) ||
@@ -246,7 +250,6 @@ function readEmberUpdate(value: unknown): EmberUpdate {
   return {
     id: value.ember_id,
     ember_id: value.ember_id,
-    url: value.url,
     checked_at: value.checked_at,
     available: value.available,
     error: "error" in value ? (value.error as string) : undefined,

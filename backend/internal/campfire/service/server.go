@@ -32,7 +32,7 @@ type ServerStore interface {
 	Delete(context.Context, string) error
 }
 
-// ServerService validates configurations against immutable Ember definitions.
+// ServerService validates configurations against current Ember definitions.
 type ServerService struct {
 	store   ServerStore
 	embers  *EmberService
@@ -94,7 +94,7 @@ func (s *ServerService) Update(ctx context.Context, id string, input model.Serve
 }
 
 // ApplyEmber explicitly replaces a stopped server's pinned definition. The
-// installer is never run implicitly and existing imports remain immutable.
+// installer is never run implicitly and the Ember identity remains unchanged.
 func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, input model.ServerConfiguration) (model.Server, error) {
 	if s.runtime == nil {
 		return model.Server{}, ErrDeploymentUnavailable
@@ -115,9 +115,20 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 		return model.Server{}, fmt.Errorf("%w: the pinned Ember changed; reopen the revision editor", ErrServerConflict)
 	}
 
-	if input.SparkID != server.SparkID || input.EmberID == server.EmberID {
-		return model.Server{}, fmt.Errorf("%w: select a different Ember and preserve the Spark", ErrInvalidServer)
+	if input.SparkID != server.SparkID || input.EmberID != server.EmberID {
+		return model.Server{}, fmt.Errorf("%w: preserve the server's Spark and Ember", ErrInvalidServer)
 	}
+
+	latest, err := s.embers.Get(ctx, server.EmberID)
+	if err != nil {
+		return model.Server{}, err
+	}
+
+	if latest.Revision == server.EmberHash {
+		return model.Server{}, fmt.Errorf("%w: this server already uses the current Ember", ErrServerConflict)
+	}
+
+	server.EmberHash = latest.Revision
 
 	server.ServerConfiguration = input
 
@@ -139,10 +150,32 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 	}
 
 	server.Description = description
+	if !create && server.EmberUpdateAvailable {
+		current, err := s.Get(ctx, server.ID)
+		if err != nil {
+			return model.Server{}, err
+		}
+
+		if server.EmberHash == current.EmberHash {
+			if !model.SameRuntimeConfiguration(current.ServerConfiguration, server.ServerConfiguration) {
+				return model.Server{}, fmt.Errorf("%w: apply the current Ember before changing game configuration", ErrInvalidServer)
+			}
+
+			if err := s.store.Save(ctx, server, false); err != nil {
+				return model.Server{}, err
+			}
+
+			return s.Get(ctx, server.ID)
+		}
+	}
 
 	ember, err := s.embers.Get(ctx, server.EmberID)
 	if err != nil {
 		return model.Server{}, err
+	}
+
+	if create {
+		server.EmberHash = ember.Revision
 	}
 
 	allowed := false

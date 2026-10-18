@@ -112,7 +112,7 @@ func oidcFixture(t *testing.T) (*AuthService, *database.Database, *testOIDCProvi
 	t.Cleanup(func() { _ = db.Close() })
 
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
-	if err := db.ORM().Omit("Role").Create(&database.User{Username: "admin", Version: 1, RoleID: database.AdminRole}).Error; err != nil {
+	if err := db.ORM().Omit("Role").Create(&database.User{Username: "admin", CredentialVersion: 1, RoleID: database.AdminRole}).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -283,7 +283,7 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 		t.Fatal("disallowed local session revived when passwords were reenabled", err)
 	}
 
-	if err := db.ORM().Omit("Role").Create(&database.User{Username: "local-admin", Version: 1, RoleID: database.AdminRole}).Error; err != nil {
+	if err := db.ORM().Omit("Role").Create(&database.User{Username: "local-admin", CredentialVersion: 1, RoleID: database.AdminRole}).Error; err != nil {
 		t.Fatal(err)
 	}
 

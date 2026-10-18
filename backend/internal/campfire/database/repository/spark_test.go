@@ -16,7 +16,7 @@ func TestSparkPersistenceAcrossReopen(t *testing.T) {
 	db, _, source := authStore(t)
 	store := repository.NewSparkRepository(db.ORM())
 
-	input := model.Spark{ID: "node", Name: "Existing Spark", Kind: model.SparkRemote, CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{PortAllocations: []model.PortAllocation{}}}
+	input := model.Spark{ID: "node", Name: "Existing Spark", CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{PortAllocations: []model.PortAllocation{}}}
 	if err := store.Create(ctx, input); err != nil {
 		t.Fatal(err)
 	}

@@ -73,7 +73,7 @@ func TestSparkPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if spark.ID == "" || spark.Name != "First Spark" || spark.Kind != model.SparkRemote || spark.CreatedAt.IsZero() {
+	if spark.ID == "" || spark.Name != "First Spark" || spark.CreatedAt.IsZero() {
 		t.Fatalf("invalid Spark: %+v", spark)
 	}
 
@@ -114,14 +114,14 @@ func TestSparkPersistence(t *testing.T) {
 func TestSparkValidation(t *testing.T) {
 	handler, _ := openAPI(t, filepath.Join(t.TempDir(), "panel.db"))
 	for _, body := range []string{
-		`{}`, `null`, `{"name":" ","kind":"remote"}`,
+		`{}`, `null`, `{"name":" "}`,
 		`{"name":"node","kind":"invalid"}`,
 		`{"name":"node","kind":"local"}`,
-		`{"name":"node\nname","kind":"remote"}`,
-		`{"name":"node","kind":"remote","unknown":true}`,
-		`{"name":"node","kind":"remote"} {}`,
+		`{"name":"node\nname"}`,
+		`{"name":"node","unknown":true}`,
+		`{"name":"node"} {}`,
 		`{"name":`,
-		fmt.Sprintf(`{"name":%q,"kind":"remote"}`, strings.Repeat("a", 101)),
+		fmt.Sprintf(`{"name":%q}`, strings.Repeat("a", 101)),
 	} {
 		t.Run(body, func(t *testing.T) {
 			response := request(handler, "POST", "/api/v1/sparks", body)
@@ -136,12 +136,12 @@ func TestSparkValidation(t *testing.T) {
 		t.Fatalf("oversized malformed request: %d", response.Code)
 	}
 
-	response = request(handler, "POST", "/api/v1/sparks", fmt.Sprintf(`{"name":%q,"kind":"remote"}`, strings.Repeat("a", 17000)))
+	response = request(handler, "POST", "/api/v1/sparks", fmt.Sprintf(`{"name":%q}`, strings.Repeat("a", 17000)))
 	if response.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("oversized JSON: %d", response.Code)
 	}
 
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/sparks", bytes.NewBufferString(`{"name":"node","kind":"remote"}`))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/sparks", bytes.NewBufferString(`{"name":"node"}`))
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, req)
 
@@ -166,9 +166,9 @@ func TestSparkConflicts(t *testing.T) {
 		body   string
 		status int
 	}{
-		{`{"name":"remote","kind":"remote"}`, http.StatusCreated},
-		{`{"name":"REMOTE","kind":"remote"}`, http.StatusConflict},
-		{`{"name":"second remote","kind":"remote"}`, http.StatusCreated},
+		{`{"name":"remote"}`, http.StatusCreated},
+		{`{"name":"REMOTE"}`, http.StatusConflict},
+		{`{"name":"second remote"}`, http.StatusCreated},
 	} {
 		response := request(handler, "POST", "/api/v1/sparks", test.body)
 		if response.Code != test.status {
@@ -213,7 +213,7 @@ func TestSparkDescriptionAndDisabledUpdates(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "panel.db")
 	handler, closeDB := openAPI(t, path)
 
-	response := request(handler, "POST", "/api/v1/sparks", `{"name":"node","kind":"remote","description":"  Rack one\nShelf two  ","disabled":true}`)
+	response := request(handler, "POST", "/api/v1/sparks", `{"name":"node","description":"  Rack one\nShelf two  ","disabled":true}`)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", response.Code, response.Body)
 	}
@@ -245,7 +245,7 @@ func TestSparkDescriptionAndDisabledUpdates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if updated.Description != "Updated" || updated.Disabled || updated.Connected || updated.Name != original.Name || updated.Kind != original.Kind || updated.CreatedAt != original.CreatedAt {
+	if updated.Description != "Updated" || updated.Disabled || updated.Connected || updated.Name != original.Name || updated.CreatedAt != original.CreatedAt {
 		t.Fatalf("update did not persist correctly: %+v", updated)
 	}
 
@@ -284,7 +284,7 @@ func TestSparkCapacityAndNetworking(t *testing.T) {
 	handler, closeDB := openAPI(t, path)
 
 	response := request(handler, "POST", "/api/v1/sparks", `{
-		"name":"Game host","kind":"remote","game_address":" Games.Example.COM ",
+		"name":"Game host","game_address":" Games.Example.COM ",
 		"cpu_limit":4.5,"memory_mb":8192,"disk_mb":102400,
 		"port_allocations":[
 			{"bind_ip":"0.0.0.0","start":25565,"end":25570,"protocol":"tcp"},

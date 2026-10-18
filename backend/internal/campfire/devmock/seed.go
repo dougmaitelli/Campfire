@@ -133,7 +133,7 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 		{"mock-america", "America · Mock", "Simulated online node with a second running server."},
 		{"mock-offline", "Offline · Mock", "Always disconnected, for unavailable-state testing."},
 	} {
-		input := model.Spark{ID: node.id, Name: node.name, Description: node.description, Kind: model.SparkRemote, CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{
+		input := model.Spark{ID: node.id, Name: node.name, Description: node.description, CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{
 			GameAddress: "127.0.0.1", CPULimit: 16, MemoryMB: 32768, DiskMB: 409600,
 			PortAllocations: []model.PortAllocation{{BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: "tcp"}, {BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: "udp"}},
 		}}
@@ -181,7 +181,7 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 				return err
 			}
 
-			schedule := database.Schedule{ID: "mock-restart", ServerID: server.ID, Name: "Daily restart · Mock", Action: "restart", CronExpression: "0 3 * * *", TimeZone: "UTC", OnlyWhenRunning: true, NextRunAt: next[0], Enabled: true, UserID: 1, Username: Username, Version: 1}
+			schedule := database.Schedule{ID: "mock-restart", ServerID: server.ID, Name: "Daily restart · Mock", Action: "restart", CronExpression: "0 3 * * *", TimeZone: "UTC", OnlyWhenRunning: true, NextRunAt: next[0], Enabled: true, RunAsUserID: 1, Username: Username}
 			if err := tx.Omit("Server").Create(&schedule).Error; err != nil {
 				return err
 			}

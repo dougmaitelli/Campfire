@@ -113,6 +113,15 @@ func TestEmberUpdateChecksCompareDefinitionsAndRespectDailyInterval(t *testing.T
 	if store.saved[0].Installer != imported.Installer {
 		t.Fatal("check modified immutable definition")
 	}
+
+	// Each check reads the current definition rather than a saved check URL.
+	store.saved[0].UpdateURL = "https://example.com/replacement.json"
+	imported.UpdateURL = store.saved[0].UpdateURL
+	fail = false
+
+	if _, _, err := s.Check(t.Context(), imported.ID); err != nil {
+		t.Fatal("could not check the definition's current URL", err)
+	}
 }
 
 func TestEmberUpdateInvalidSourceAndCanceledQueue(t *testing.T) {

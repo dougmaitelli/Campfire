@@ -6,8 +6,9 @@ import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import {
   listRoles,
-  readSparkRoles,
-  setSparkRoles,
+  readSparkAccess,
+  saveAccessGrants,
+  type AccessGrant,
   type Role,
 } from "../api/access";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -18,6 +19,7 @@ import { SparkReview } from "../components/sparks/SparkReview";
 import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import "./spark-dialog.css";
+import { AccessGrantFields } from "../components/forms/AccessGrantFields";
 
 interface SparkDialogProps {
   spark: Spark | null;
@@ -29,7 +31,8 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
   const submittingRef = useRef(false);
   const [created, setCreated] = useState<Spark | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
+  const [grants, setGrants] = useState<AccessGrant[]>([]);
+  const [removedIDs, setRemovedIDs] = useState<number[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [rolesError, setRolesError] = useState<string | null>(null);
   const [rolesAttempt, setRolesAttempt] = useState(0);
@@ -37,19 +40,16 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
     const controller = new AbortController();
     void Promise.all([
       listRoles(controller.signal),
-      spark ? readSparkRoles(spark.id, controller.signal) : Promise.resolve([]),
+      spark
+        ? readSparkAccess(spark.id, controller.signal)
+        : Promise.resolve({ grants: [] }),
     ])
       .then(([catalog, ids]) => {
         if (controller.signal.aborted) return;
         setRoles(
-          catalog.filter(
-            (role) =>
-              role.id !== 1 &&
-              role.scope === "platform" &&
-              role.permissions.includes("servers.create"),
-          ),
+          catalog.filter((role) => role.id !== 1 && role.scope === "platform"),
         );
-        setSelectedRoles(ids);
+        setGrants(ids.grants);
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
@@ -107,9 +107,10 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
           });
       if (!spark) setCreated(result);
       try {
-        await setSparkRoles(
-          result.id,
-          selectedRoles.filter((id) => roles.some((role) => role.id === id)),
+        await saveAccessGrants(
+          `/api/v1/sparks/${encodeURIComponent(result.id)}/access`,
+          grants,
+          removedIDs,
         );
       } catch (cause) {
         throw new Error(
@@ -436,7 +437,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
             <fieldset>
               <legend>Server creation access</legend>
               <p className="field-help">
-                Choose which roles can create servers on this Spark.
+                Choose which users or roles can create servers on this Spark.
                 Administrators always have access.
               </p>
               {rolesLoading ? (
@@ -455,26 +456,16 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                     Retry
                   </Button>
                 </>
-              ) : roles.length === 0 ? (
-                <p className="field-help">
-                  No other roles have server creation permission.
-                </p>
               ) : (
-                roles.map((role) => (
-                  <CheckboxField
-                    key={role.id}
-                    checked={selectedRoles.includes(role.id)}
-                    onChange={(event) =>
-                      setSelectedRoles(
-                        event.target.checked
-                          ? [...selectedRoles, role.id]
-                          : selectedRoles.filter((id) => id !== role.id),
-                      )
-                    }
-                  >
-                    {role.name}
-                  </CheckboxField>
-                ))
+                <AccessGrantFields
+                  grants={grants}
+                  subjectRoles={roles}
+                  accessRoles={[{ id: 2, name: "Create servers" }]}
+                  onChange={(next, removedID) => {
+                    setGrants(next);
+                    if (removedID) setRemovedIDs([...removedIDs, removedID]);
+                  }}
+                />
               )}
               <p className="field-help">
                 This does not grant Spark management access. Removing access
@@ -494,9 +485,11 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               settings={settings}
               serverCreationRoles={[
                 "Administrators",
-                ...roles
-                  .filter((role) => selectedRoles.includes(role.id))
-                  .map((role) => role.name),
+                ...grants.map((grant) =>
+                  grant.role_id === null
+                    ? grant.username
+                    : `Role: ${grant.role_name}`,
+                ),
               ].join(", ")}
             />
           ),

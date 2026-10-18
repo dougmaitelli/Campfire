@@ -153,18 +153,18 @@ func TestAuthenticationBoundarySetupAndCSRF(t *testing.T) {
 	}
 
 	for _, csrf := range []string{"", "wrong"} {
-		response := authRequest(handler, "POST", "/api/v1/sparks", `{"name":"node","kind":"remote"}`, cookie, csrf, "https://panel.example.com")
+		response := authRequest(handler, "POST", "/api/v1/sparks", `{"name":"node"}`, cookie, csrf, "https://panel.example.com")
 		if response.Code != http.StatusForbidden {
 			t.Fatal("missing/invalid CSRF accepted", response.Code)
 		}
 	}
 
-	response = authRequest(handler, "POST", "/api/v1/sparks", `{"name":"node","kind":"remote"}`, cookie, state.CSRF, "https://evil.example.com")
+	response = authRequest(handler, "POST", "/api/v1/sparks", `{"name":"node"}`, cookie, state.CSRF, "https://evil.example.com")
 	if response.Code != http.StatusForbidden {
 		t.Fatal("valid CSRF bypassed origin guard", response.Code)
 	}
 
-	response = authRequest(handler, "POST", "/api/v1/sparks", `{"name":"node","kind":"remote"}`, cookie, state.CSRF, "https://panel.example.com")
+	response = authRequest(handler, "POST", "/api/v1/sparks", `{"name":"node"}`, cookie, state.CSRF, "https://panel.example.com")
 	if response.Code != http.StatusCreated {
 		t.Fatal("authenticated mutation failed", response.Code, response.Body)
 	}

@@ -1,6 +1,9 @@
 package model
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -58,6 +61,7 @@ type RequiredPort struct {
 // Ember is an immutable, imported native game definition.
 type Ember struct {
 	ID            string            `json:"id"`
+	Revision      string            `json:"revision,omitempty"`
 	Schema        int               `json:"schema"`
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
@@ -74,6 +78,15 @@ type Ember struct {
 	Configs       []ConfigFile      `json:"configs,omitempty"`
 	RequiredPorts []RequiredPort    `json:"required_ports,omitempty"`
 	Origin        *EmberOrigin      `json:"origin,omitempty"`
+}
+
+// EmberHash identifies definition content without storing historical copies.
+func EmberHash(ember Ember) string {
+	ember.ID, ember.Revision, ember.UpdateURL, ember.Origin = "", "", "", nil
+	data, _ := json.Marshal(ember)
+	digest := sha256.Sum256(data)
+
+	return hex.EncodeToString(digest[:])
 }
 
 // EmberOrigin retains attribution and conversion warnings for imported Eggs.

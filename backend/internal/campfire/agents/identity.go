@@ -33,6 +33,10 @@ type authorityFile struct {
 
 // LoadAuthority creates or loads the panel's persistent private agent authority.
 func LoadAuthority(path string) (*Authority, error) {
+	return loadAuthority(path, "Campfire Spark authority")
+}
+
+func loadAuthority(path, name string) (*Authority, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -46,7 +50,7 @@ func LoadAuthority(path string) (*Authority, error) {
 		}
 
 		now := time.Now()
-		template := &x509.Certificate{SerialNumber: number, Subject: pkix.Name{CommonName: "Campfire Spark authority"}, NotBefore: now.Add(-time.Minute), NotAfter: now.AddDate(10, 0, 0), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
+		template := &x509.Certificate{SerialNumber: number, Subject: pkix.Name{CommonName: name}, NotBefore: now.Add(-time.Minute), NotAfter: now.AddDate(10, 0, 0), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
 
 		cert, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 		if err != nil {

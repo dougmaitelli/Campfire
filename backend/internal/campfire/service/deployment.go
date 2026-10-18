@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -81,6 +82,10 @@ func (s *DeploymentService) sync(ctx context.Context, id string) (model.Configur
 	ember, err := s.Embers.Get(ctx, server.EmberID)
 	if err != nil {
 		return model.ConfigurationReceipt{}, err
+	}
+
+	if server.EmberUpdateAvailable {
+		return model.ConfigurationReceipt{}, fmt.Errorf("%w: apply the current Ember before synchronizing configuration", ErrInvalidServer)
 	}
 
 	dispatch := s.Remote

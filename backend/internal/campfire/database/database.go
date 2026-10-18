@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"campfire/internal/campfire/recurrence"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -25,6 +23,8 @@ type Database struct {
 	orm *gorm.DB
 	sql *sql.DB
 }
+
+const schemaVersion = 1
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It applies the same transactional schema migrations to either backend.
@@ -125,6 +125,13 @@ func (d *Database) Close() error {
 }
 
 func migrate(db *gorm.DB) error {
+	if db.Name() == "sqlite" {
+		if err := db.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
+			return err
+		}
+		defer db.Exec("PRAGMA foreign_keys = ON")
+	}
+
 	return Transaction(db, func(tx *gorm.DB) error {
 		if !tx.Migrator().HasTable(&schemaMigration{}) {
 			if err := tx.Migrator().CreateTable(&schemaMigration{}); err != nil {
@@ -137,122 +144,61 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if version > 5 {
-			return fmt.Errorf("database schema version %d is newer than supported version 5", version)
+		legacyUsers := tx.Migrator().HasTable("admin_credentials") || tx.Migrator().HasTable("users") && !tx.Migrator().HasColumn(&User{}, "CredentialVersion")
+		if version >= 1 && version <= 4 && legacyUsers {
+			return fmt.Errorf("database schema version %d predates the release baseline; upgrade to Campfire commit 204d134 first", version)
 		}
 
-		if version == 5 {
+		if version == schemaVersion {
 			return nil
 		}
 
-		if version == 4 {
-			return migrateEmberUpdates(tx)
+		prerelease := version == 5 && legacyUsers || version == 6 && tx.Migrator().HasColumn(&Schedule{}, "version")
+		if version != 0 && !prerelease {
+			return fmt.Errorf("database schema version %d is newer than supported version %d", version, schemaVersion)
 		}
 
-		if version == 3 && tx.Migrator().HasColumn(&Schedule{}, "OnlyWhenRunning") && tx.Migrator().HasColumn(&ScheduleRun{}, "OnlyWhenRunning") && !tx.Migrator().HasColumn(&Schedule{}, "interval_minutes") {
-			return migrateUserEmail(tx)
-		}
-
-		if version == 1 {
-			for _, field := range []string{"Name", "Picture"} {
-				if err := tx.Migrator().AddColumn(&User{}, field); err != nil {
-					return fmt.Errorf("add user profile field %s: %w", field, err)
-				}
+		if version != 0 {
+			if err := importPrereleaseSchema(tx); err != nil {
+				return fmt.Errorf("import pre-release schema: %w", err)
 			}
-
-			if err := tx.Create(&schemaMigration{Version: 2}).Error; err != nil {
-				return err
-			}
-
-			version = 2
-		}
-
-		if version >= 2 {
-			for _, field := range []string{"CronExpression", "TimeZone", "OnlyWhenRunning"} {
-				if !tx.Migrator().HasColumn(&Schedule{}, field) {
-					if err := tx.Migrator().AddColumn(&Schedule{}, field); err != nil {
-						return fmt.Errorf("add schedule field %s: %w", field, err)
-					}
-				}
-			}
-
-			if !tx.Migrator().HasColumn(&ScheduleRun{}, "OnlyWhenRunning") {
-				if err := tx.Migrator().AddColumn(&ScheduleRun{}, "OnlyWhenRunning"); err != nil {
-					return fmt.Errorf("add execution running condition: %w", err)
-				}
-			}
-
-			if tx.Migrator().HasColumn(&Schedule{}, "interval_minutes") {
-				if err := tx.Exec("ALTER TABLE schedules DROP COLUMN interval_minutes").Error; err != nil {
-					return err
-				}
-			}
-
-			next, err := recurrence.Next("0 3 * * *", "UTC", time.Now(), 1)
-			if err != nil {
-				return err
-			}
-
-			query := tx.Model(&Schedule{}).Where("1 = 1")
-			if version == 3 {
-				query = tx.Model(&Schedule{}).Where("cron_expression = ''")
-			}
-
-			if err := query.Updates(map[string]any{"cron_expression": "0 3 * * *", "time_zone": "UTC", "next_run_at": next[0]}).Error; err != nil {
-				return err
-			}
-
-			if version == 3 {
-				return migrateUserEmail(tx)
-			}
-
-			if err := tx.Create(&schemaMigration{Version: 3}).Error; err != nil {
-				return err
-			}
-
-			return migrateUserEmail(tx)
 		}
 
 		if err := tx.AutoMigrate(
-			&Spark{}, &Ember{}, &EmberUpdate{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
-			&OIDCIdentity{}, &Server{}, &ServerOwnership{}, &ServerMember{}, &SparkRole{},
-			&SparkEnrollment{}, &SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{},
+			&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
+			&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
+			&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{},
 			&ServerTransfer{}, &BackupPolicy{}, &Backup{}, &APIToken{},
 			&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
 		); err != nil {
 			return fmt.Errorf("apply initial schema: %w", err)
 		}
 
-		if err := seedRoles(tx); err != nil {
-			return fmt.Errorf("seed built-in roles: %w", err)
+		if version == 0 {
+			if err := seedRoles(tx); err != nil {
+				return fmt.Errorf("seed built-in roles: %w", err)
+			}
 		}
 
-		if err := tx.Create(&schemaMigration{Version: 5}).Error; err != nil {
+		if tx.Name() == "sqlite" {
+			var violations []struct{ Table string }
+			if err := tx.Raw("PRAGMA foreign_key_check").Scan(&violations).Error; err != nil {
+				return err
+			}
+
+			if len(violations) != 0 {
+				return errors.New("migration produced invalid foreign keys")
+			}
+		}
+
+		if err := tx.Where("1 = 1").Delete(&schemaMigration{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Create(&schemaMigration{Version: schemaVersion}).Error; err != nil {
 			return fmt.Errorf("record initial migration: %w", err)
 		}
 
 		return nil
 	})
-}
-
-func migrateUserEmail(tx *gorm.DB) error {
-	if !tx.Migrator().HasColumn(&User{}, "Email") {
-		if err := tx.Migrator().AddColumn(&User{}, "Email"); err != nil {
-			return fmt.Errorf("add user email: %w", err)
-		}
-	}
-
-	if err := tx.Create(&schemaMigration{Version: 4}).Error; err != nil {
-		return err
-	}
-
-	return migrateEmberUpdates(tx)
-}
-
-func migrateEmberUpdates(tx *gorm.DB) error {
-	if err := tx.AutoMigrate(&EmberUpdate{}); err != nil {
-		return fmt.Errorf("add Ember update checks: %w", err)
-	}
-
-	return tx.Create(&schemaMigration{Version: 5}).Error
 }

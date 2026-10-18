@@ -28,15 +28,15 @@ func (r *EnrollmentRepository) CreateToken(ctx context.Context, id, hash string,
 			return err
 		}
 
-		if node.Kind != "remote" || node.Disabled {
+		if node.Disabled {
 			return ErrEnrollment
 		}
 
-		if err := tx.Where("spark_id = ? OR expires_at <= ?", id, time.Now().Unix()).Delete(&database.SparkEnrollment{}).Error; err != nil {
+		if err := tx.Model(&database.Spark{}).Where("enrollment_token_hash IS NOT NULL AND enrollment_expires_at <= ?", time.Now().Unix()).Updates(map[string]any{"enrollment_token_hash": nil, "enrollment_expires_at": 0}).Error; err != nil {
 			return err
 		}
 
-		return tx.Create(&database.SparkEnrollment{Hash: hash, SparkID: id, ExpiresAt: expires.Unix()}).Error
+		return tx.Model(&node).Updates(map[string]any{"enrollment_token_hash": hash, "enrollment_expires_at": expires.Unix()}).Error
 	})
 }
 
@@ -45,8 +45,8 @@ func (r *EnrollmentRepository) Redeem(ctx context.Context, hash string, sign fun
 	var id string
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		var token database.SparkEnrollment
-		if err := tx.Preload("Spark").Where("hash = ?", hash).Take(&token).Error; err != nil {
+		var node database.Spark
+		if err := tx.Where("enrollment_token_hash = ?", hash).Take(&node).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrEnrollment
 			}
@@ -54,24 +54,24 @@ func (r *EnrollmentRepository) Redeem(ctx context.Context, hash string, sign fun
 			return err
 		}
 
-		if token.ExpiresAt <= time.Now().Unix() || token.Spark.Disabled || token.Spark.Kind != "remote" {
+		if node.EnrollmentExpiresAt <= time.Now().Unix() || node.Disabled {
 			return ErrEnrollment
 		}
 
-		certificateHash, err := sign(token.SparkID)
+		certificateHash, err := sign(node.ID)
 		if err != nil {
 			return err
 		}
 
-		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "spark_id"}}, DoUpdates: clause.AssignmentColumns([]string{"certificate_hash", "previous_certificate_hash", "previous_expires_at", "certificate"})}).Create(&database.SparkIdentity{SparkID: token.SparkID, CertificateHash: certificateHash}).Error; err != nil {
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "spark_id"}}, DoUpdates: clause.AssignmentColumns([]string{"certificate_hash", "previous_certificate_hash", "previous_expires_at", "certificate"})}).Create(&database.SparkIdentity{SparkID: node.ID, CertificateHash: certificateHash}).Error; err != nil {
 			return err
 		}
 
-		if err := tx.Where("hash = ?", hash).Delete(&database.SparkEnrollment{}).Error; err != nil {
+		if err := tx.Model(&node).Updates(map[string]any{"enrollment_token_hash": nil, "enrollment_expires_at": 0}).Error; err != nil {
 			return err
 		}
 
-		id = token.SparkID
+		id = node.ID
 
 		return nil
 	})
@@ -83,7 +83,7 @@ func (r *EnrollmentRepository) Redeem(ctx context.Context, hash string, sign fun
 func (r *EnrollmentRepository) Authorized(ctx context.Context, id, hash string) bool {
 	var count int64
 
-	err := r.db.WithContext(ctx).Model(&database.SparkIdentity{}).Joins("JOIN sparks ON sparks.id = spark_id").Where("spark_id = ? AND sparks.disabled = ? AND sparks.kind = ? AND (certificate_hash = ? OR (previous_certificate_hash = ? AND previous_expires_at > ?))", id, false, "remote", hash, hash, time.Now().Unix()).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&database.SparkIdentity{}).Joins("JOIN sparks ON sparks.id = spark_id").Where("spark_id = ? AND sparks.disabled = ? AND (certificate_hash = ? OR (previous_certificate_hash = ? AND previous_expires_at > ?))", id, false, hash, hash, time.Now().Unix()).Count(&count).Error
 
 	return err == nil && count == 1
 }
@@ -99,7 +99,7 @@ func (r *EnrollmentRepository) Renew(ctx context.Context, id, hash string, expir
 			return ErrEnrollment
 		}
 
-		if identity.Spark.Disabled || identity.Spark.Kind != "remote" {
+		if identity.Spark.Disabled {
 			return ErrEnrollment
 		}
 

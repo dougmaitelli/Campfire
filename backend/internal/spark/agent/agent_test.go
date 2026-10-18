@@ -96,7 +96,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	store := repository.NewEnrollmentRepository(db.ORM())
 	nodes := repository.NewSparkRepository(db.ORM())
 
-	node := model.Spark{ID: "remote-node", Name: "Remote", Kind: model.SparkRemote, CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{PortAllocations: []model.PortAllocation{}}}
+	node := model.Spark{ID: "remote-node", Name: "Remote", CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{PortAllocations: []model.PortAllocation{}}}
 	if err := nodes.Create(ctx, node); err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestEnrollmentExpiryAndRollback(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	nodes := repository.NewSparkRepository(db.ORM())
-	if err := nodes.Create(ctx, model.Spark{ID: "node", Name: "Node", Kind: model.SparkRemote, CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{PortAllocations: []model.PortAllocation{}}}); err != nil {
+	if err := nodes.Create(ctx, model.Spark{ID: "node", Name: "Node", CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{PortAllocations: []model.PortAllocation{}}}); err != nil {
 		t.Fatal(err)
 	}
 

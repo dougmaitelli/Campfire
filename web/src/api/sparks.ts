@@ -2,8 +2,6 @@ import { apiFetch, readJSON } from "./client";
 
 const SPARK_UPDATE_REQUEST_TIMEOUT_MS = 330000;
 
-export type SparkKind = "remote";
-
 export interface PortAllocation {
   bind_ip: string;
   start: number;
@@ -30,13 +28,11 @@ export interface Spark extends SparkSettings {
   agent_update_available?: boolean;
   protocol?: number;
   capabilities?: string[];
-  kind: SparkKind;
   created_at: string;
 }
 
 export interface CreateSparkInput extends SparkSettings {
   name: string;
-  kind?: SparkKind;
   description: string;
   disabled: boolean;
 }
@@ -81,8 +77,6 @@ export function isSpark(value: unknown): value is Spark {
         value.capabilities.every(
           (entry: unknown) => typeof entry === "string",
         ))) &&
-    "kind" in value &&
-    value.kind === "remote" &&
     "created_at" in value &&
     typeof value.created_at === "string" &&
     Number.isFinite(Date.parse(value.created_at))
@@ -134,7 +128,7 @@ export async function createSpark(input: CreateSparkInput): Promise<Spark> {
 
 export async function updateSpark(
   id: string,
-  input: Partial<Omit<CreateSparkInput, "name" | "kind">>,
+  input: Partial<Omit<CreateSparkInput, "name">>,
 ): Promise<Spark> {
   const response = await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -171,6 +165,8 @@ export async function updateSparkClient(
 export interface SparkEnrollment {
   token: string;
   expires_at: string;
+  agent_url?: string;
+  server_ca?: string;
 }
 
 export async function createSparkEnrollment(
@@ -189,9 +185,17 @@ export async function createSparkEnrollment(
     !("token" in body) ||
     typeof body.token !== "string" ||
     !("expires_at" in body) ||
-    typeof body.expires_at !== "string"
+    typeof body.expires_at !== "string" ||
+    ("agent_url" in body && typeof body.agent_url !== "string") ||
+    ("server_ca" in body &&
+      (typeof body.server_ca !== "string" || body.server_ca.length > 65536))
   ) {
     throw new Error("Unexpected enrollment response.");
   }
-  return { token: body.token, expires_at: body.expires_at };
+  return {
+    token: body.token,
+    expires_at: body.expires_at,
+    ...("agent_url" in body ? { agent_url: body.agent_url as string } : {}),
+    ...("server_ca" in body ? { server_ca: body.server_ca as string } : {}),
+  };
 }

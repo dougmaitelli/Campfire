@@ -17,15 +17,16 @@ var (
 	ErrEmberNotFound = errors.New("ember not found")
 )
 
-// EmberStore persists immutable game definitions.
+// EmberStore persists current game definitions.
 type EmberStore interface {
 	Create(context.Context, model.Ember) error
 	List(context.Context) ([]model.Ember, error)
 	Get(context.Context, string) (model.Ember, error)
 	Delete(context.Context, string) error
+	Replace(context.Context, model.Ember) error
 }
 
-// EmberService stores immutable native definitions, including converted Egg imports.
+// EmberService stores current native definitions, including converted Egg imports.
 type EmberService struct {
 	store   EmberStore
 	Updates *EmberUpdateService
@@ -44,17 +45,20 @@ func (s *EmberService) Delete(ctx context.Context, id string) error {
 	return err
 }
 
-// Import validates a definition and assigns an immutable revision identity.
+// Import validates a definition and assigns a stable identity.
 func (s *EmberService) Import(ctx context.Context, ember model.Ember) (model.Ember, error) {
 	if err := validateEmber(&ember); err != nil {
 		return model.Ember{}, err
 	}
 
 	ember.ID = rand.Text()
+	ember.Revision = ""
 
 	if err := s.store.Create(ctx, ember); err != nil {
 		return model.Ember{}, err
 	}
+
+	ember.Revision = model.EmberHash(ember)
 
 	return ember, nil
 }
@@ -73,7 +77,14 @@ func validateEmber(ember *model.Ember) error {
 }
 
 // List returns imported definitions.
-func (s *EmberService) List(ctx context.Context) ([]model.Ember, error) { return s.store.List(ctx) }
+func (s *EmberService) List(ctx context.Context) ([]model.Ember, error) {
+	items, err := s.store.List(ctx)
+	for i := range items {
+		items[i].Revision = model.EmberHash(items[i])
+	}
+
+	return items, err
+}
 
 // Get returns a pinned definition.
 func (s *EmberService) Get(ctx context.Context, id string) (model.Ember, error) {
@@ -82,5 +93,23 @@ func (s *EmberService) Get(ctx context.Context, id string) (model.Ember, error) 
 		return model.Ember{}, ErrEmberNotFound
 	}
 
+	ember.Revision = model.EmberHash(ember)
+
 	return ember, err
+}
+
+// Replace updates the one local definition while retaining its stable identity.
+func (s *EmberService) Replace(ctx context.Context, id string, ember model.Ember) (model.Ember, error) {
+	if err := validateEmber(&ember); err != nil {
+		return model.Ember{}, err
+	}
+
+	ember.ID, ember.Revision = id, ""
+	if err := s.store.Replace(ctx, ember); err != nil {
+		return model.Ember{}, err
+	}
+
+	ember.Revision = model.EmberHash(ember)
+
+	return ember, nil
 }

@@ -88,7 +88,7 @@ func (r *AuthRepository) CreateSession(ctx context.Context, session database.Use
 			return err
 		}
 
-		if admin.Disabled || admin.Version != session.CredentialVersion {
+		if admin.Disabled || admin.CredentialVersion != session.CredentialVersion {
 			return ErrAuthentication
 		}
 
@@ -131,7 +131,7 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 			return err
 		}
 
-		if admin.Disabled || admin.Version != session.CredentialVersion {
+		if admin.Disabled || admin.CredentialVersion != session.CredentialVersion {
 			return ErrAuthentication
 		}
 
@@ -172,7 +172,7 @@ func (r *AuthRepository) ResetPasswordFor(ctx context.Context, username, encoded
 			return ErrAuthentication
 		}
 
-		result := tx.Model(&database.User{}).Where("id = ?", admin.ID).Updates(map[string]any{"password_hash": encoded, "disabled": false, "version": gorm.Expr("version + 1")})
+		result := tx.Model(&database.User{}).Where("id = ?", admin.ID).Updates(map[string]any{"password_hash": encoded, "disabled": false, "credential_version": gorm.Expr("credential_version + 1")})
 		if result.Error != nil {
 			return result.Error
 		}

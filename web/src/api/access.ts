@@ -11,6 +11,7 @@ export interface Role {
 }
 
 export interface User {
+  deleted_at?: string | null;
   id: number;
   username: string;
   name: string;
@@ -31,6 +32,8 @@ export interface UserInput {
 }
 
 export interface ServerAccess {
+  grants: AccessGrant[];
+  subject_roles: Role[];
   owner: User | null;
   members: {
     user_id: number;
@@ -39,6 +42,92 @@ export interface ServerAccess {
     role: string;
   }[];
   roles: Role[];
+}
+
+export interface AccessGrant {
+  id: number;
+  user_id: number | null;
+  username: string;
+  role_id: number | null;
+  role_name: string;
+  access_role_id: number;
+  access_role: string;
+}
+
+function isGrant(value: unknown): value is AccessGrant {
+  return (
+    object(value) &&
+    id(value.id) &&
+    (value.user_id === null || id(value.user_id)) &&
+    (value.role_id === null || id(value.role_id)) &&
+    (value.user_id === null) !== (value.role_id === null) &&
+    typeof value.username === "string" &&
+    typeof value.role_name === "string" &&
+    id(value.access_role_id) &&
+    typeof value.access_role === "string"
+  );
+}
+
+export async function readSparkAccess(
+  sparkID: string,
+  signal: AbortSignal,
+): Promise<{ grants: AccessGrant[]; subject_roles: Role[] }> {
+  const body = await readJSON(
+    await apiFetch(`/api/v1/sparks/${encodeURIComponent(sparkID)}/access`, {
+      signal,
+    }),
+  );
+  if (
+    !object(body) ||
+    !Array.isArray(body.grants) ||
+    !body.grants.every(isGrant) ||
+    !Array.isArray(body.subject_roles) ||
+    !body.subject_roles.every(isRole)
+  )
+    throw new Error("Unexpected Spark access response.");
+  return { grants: body.grants, subject_roles: body.subject_roles };
+}
+
+export async function saveAccessGrants(
+  endpoint: string,
+  grants: AccessGrant[],
+  removedIDs: number[],
+): Promise<void> {
+  const body = await readJSON(
+    await apiFetch(endpoint, { signal: AbortSignal.timeout(15000) }),
+  );
+  if (
+    !object(body) ||
+    !Array.isArray(body.grants) ||
+    !body.grants.every(isGrant)
+  )
+    throw new Error("Unexpected access response.");
+  const current = body.grants;
+  const sameSubject = (a: AccessGrant, b: AccessGrant) =>
+    a.role_id === null && b.role_id === null
+      ? a.username.toLowerCase() === b.username.toLowerCase()
+      : a.role_id !== null && a.role_id === b.role_id;
+  for (const grant of grants) {
+    if (
+      current.some(
+        (item) =>
+          sameSubject(item, grant) &&
+          item.access_role_id === grant.access_role_id,
+      )
+    )
+      continue;
+    await send(`${endpoint}/grants`, "POST", {
+      ...(grant.role_id === null
+        ? { username: grant.username }
+        : { role_id: grant.role_id }),
+      access_role_id: grant.access_role_id,
+    });
+  }
+  for (const grantID of removedIDs) {
+    const removed = current.find((item) => item.id === grantID);
+    if (removed && !grants.some((item) => sameSubject(item, removed)))
+      await send(`${endpoint}/grants/${grantID}`, "DELETE");
+  }
 }
 
 export interface ServerOptions {
@@ -64,7 +153,7 @@ function isRole(value: unknown): value is Role {
     value.permissions.every((entry: unknown) => typeof entry === "string")
   );
 }
-function isUser(value: unknown): value is User {
+export function isUser(value: unknown): value is User {
   return (
     object(value) &&
     id(value.id) &&
@@ -84,6 +173,10 @@ function isUser(value: unknown): value is User {
 function isAccess(value: unknown): value is ServerAccess {
   return (
     object(value) &&
+    Array.isArray(value.grants) &&
+    value.grants.every(isGrant) &&
+    Array.isArray(value.subject_roles) &&
+    value.subject_roles.every(isRole) &&
     (value.owner === null || isUser(value.owner)) &&
     Array.isArray(value.roles) &&
     value.roles.every(isRole) &&

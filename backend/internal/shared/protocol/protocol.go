@@ -9,10 +9,10 @@ import (
 
 // ProtocolVersion is the newest supported panel-agent wire format, independent
 // of optional features advertised by each peer.
-const ProtocolVersion = 7
+const ProtocolVersion = 1
 
 // MinimumProtocolVersion bounds wire compatibility, not feature availability.
-const MinimumProtocolVersion = 7
+const MinimumProtocolVersion = 1
 
 // CommandName identifies an explicitly supported agent operation.
 type CommandName string

@@ -217,7 +217,7 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 	}
 
 	session, raw := newUserSession(1, 1, s.now())
-	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, PasswordHash: encoded, Version: 1}, session); err != nil {
+	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, PasswordHash: encoded, CredentialVersion: 1}, session); err != nil {
 		return database.UserSession{}, "", err
 	}
 
@@ -260,7 +260,7 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 		return database.UserSession{}, "", ErrAuthentication
 	}
 
-	session, raw := newUserSession(admin.ID, admin.Version, s.now())
+	session, raw := newUserSession(admin.ID, admin.CredentialVersion, s.now())
 	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now()); err != nil {
 		return database.UserSession{}, "", err
 	}

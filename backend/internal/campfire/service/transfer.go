@@ -118,6 +118,10 @@ func (s *TransferService) Begin(ctx context.Context, serverID, targetID string, 
 		return database.ServerTransfer{}, fmt.Errorf("%w: choose a different destination Spark", ErrInvalidServer)
 	}
 
+	if server.EmberUpdateAvailable {
+		return database.ServerTransfer{}, fmt.Errorf("%w: apply the current Ember before transferring", ErrInvalidServer)
+	}
+
 	if checker, ok := s.Deployment.Remote.(interface{ CheckTransfer(string) error }); ok {
 		for _, id := range []string{server.SparkID, targetID} {
 			if err := checker.CheckTransfer(id); err != nil {

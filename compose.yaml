@@ -25,19 +25,12 @@ services:
       CAMPFIRE_APPRISE_TAGS: ${CAMPFIRE_APPRISE_TAGS:-}
       CAMPFIRE_APPRISE_URLS: ${CAMPFIRE_APPRISE_URLS:-}
       CAMPFIRE_AGENT_LISTEN: 0.0.0.0:8443
-      CAMPFIRE_AGENT_TLS_CERT: /run/campfire-tls/panel.crt
-      CAMPFIRE_AGENT_TLS_KEY: /run/campfire-tls/panel.key
+      CAMPFIRE_AGENT_PUBLIC_URL: ${CAMPFIRE_AGENT_PUBLIC_URL:-}
     ports:
       - "127.0.0.1:${CAMPFIRE_HTTP_PORT:-8080}:8080"
       - "${CAMPFIRE_AGENT_BIND:-0.0.0.0}:${CAMPFIRE_AGENT_PORT:-8443}:8443"
     volumes:
       - campfire-data:/var/lib/campfire
-      - type: bind
-        source: ${CAMPFIRE_TLS_DIR:?Set CAMPFIRE_TLS_DIR to your agent certificate directory}
-        target: /run/campfire-tls
-        read_only: true
-        bind:
-          create_host_path: false
     read_only: true
     tmpfs:
       - /tmp:mode=1777,size=64m

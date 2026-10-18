@@ -38,7 +38,7 @@ type RoleView struct {
 
 // PrincipalFromSession uses the account and permission set freshly loaded during authentication.
 func PrincipalFromSession(session database.UserSession) Principal {
-	return Principal{UserID: session.UserID, Username: session.User.Username, Name: session.User.Name, Picture: session.User.Picture, RoleID: session.User.RoleID, Role: session.User.Role.Name, Admin: session.User.RoleID == database.AdminRole, Permissions: roleActions(session.User.Role), CredentialVersion: session.User.Version}
+	return Principal{UserID: session.UserID, Username: session.User.Username, Name: session.User.Name, Picture: session.User.Picture, RoleID: session.User.RoleID, Role: session.User.Role.Name, Admin: session.User.RoleID == database.AdminRole, Permissions: roleActions(session.User.Role), CredentialVersion: session.User.CredentialVersion}
 }
 
 // Allows checks a platform action against the user's permissions and token scopes.
@@ -184,7 +184,7 @@ func (s *AccessService) CreateUser(ctx context.Context, username, password strin
 		return database.User{}, err
 	}
 
-	user := database.User{Username: username, Name: name, Email: email, PasswordHash: encoded, Version: 1, RoleID: roleID, Disabled: disabled}
+	user := database.User{Username: username, Name: name, Email: email, PasswordHash: encoded, CredentialVersion: 1, RoleID: roleID, Disabled: disabled}
 	if err := s.store.CreateUser(ctx, &user); err != nil {
 		return database.User{}, err
 	}
@@ -272,7 +272,7 @@ func (s *AccessService) Owner(ctx context.Context, id int64) (database.User, err
 }
 
 // ServerAccess returns the current owner and explicit collaborator grants.
-func (s *AccessService) ServerAccess(ctx context.Context, id string) (*database.User, []database.ServerMember, error) {
+func (s *AccessService) ServerAccess(ctx context.Context, id string) (*database.User, []database.ServerAccessGrant, error) {
 	owner, err := s.store.Owner(ctx, id)
 	if err != nil {
 		return nil, nil, err
@@ -298,7 +298,7 @@ func (s *AccessService) Share(ctx context.Context, principal Principal, id, user
 		return repository.ErrAccessInput
 	}
 
-	return s.store.SetMember(ctx, database.ServerMember{ServerID: id, UserID: user.ID, RoleID: roleID})
+	return s.store.SetMember(ctx, database.ServerAccessGrant{ServerID: id, UserID: &user.ID, AccessRoleID: roleID})
 }
 
 // RemoveMember revokes a collaborator without deleting the account.
@@ -321,17 +321,100 @@ func (s *AccessService) SetSparkRoles(ctx context.Context, id string, ids []int6
 	return s.store.SetSparkRoles(ctx, id, ids)
 }
 
-// CanProvision requires both the platform creation permission and a Spark grant.
+// CanProvision grants creation only on the Spark explicitly assigned to this subject.
 func (s *AccessService) CanProvision(ctx context.Context, principal Principal, sparkID string) (bool, error) {
 	if principal.Admin {
 		return true, nil
 	}
 
-	if !principal.Allows("servers.create") {
+	if !principal.tokenAllows("servers.create") {
 		return false, nil
 	}
 
-	roles, err := s.store.SparkRoles(ctx, sparkID)
+	return s.store.HasSparkGrant(ctx, principal.UserID, principal.RoleID, sparkID)
+}
 
-	return slices.Contains(roles, principal.RoleID), err
+// EffectivePrincipal exposes scoped creation eligibility without granting Spark management.
+func (s *AccessService) EffectivePrincipal(ctx context.Context, principal Principal) (Principal, error) {
+	if principal.Admin || slices.Contains(principal.Permissions, "servers.create") {
+		return principal, nil
+	}
+
+	allowed, err := s.store.HasSparkGrant(ctx, principal.UserID, principal.RoleID, "")
+	if err == nil && allowed {
+		principal.Permissions = append(slices.Clone(principal.Permissions), "servers.create")
+	}
+
+	return principal, err
+}
+
+// AccessGrantInput targets exactly one user or account role and specifies the access level.
+type AccessGrantInput struct {
+	Username     string `json:"username"`
+	RoleID       *int64 `json:"role_id"`
+	AccessRoleID int64  `json:"access_role_id"`
+}
+
+func (s *AccessService) grantSubject(ctx context.Context, input AccessGrantInput) (*int64, error) {
+	if (strings.TrimSpace(input.Username) == "") == (input.RoleID == nil) {
+		return nil, repository.ErrAccessInput
+	}
+
+	if input.RoleID != nil {
+		return nil, nil
+	}
+
+	user, err := s.auth.store.FindCredential(ctx, strings.ToLower(strings.TrimSpace(input.Username)))
+	if err != nil {
+		return nil, err
+	}
+
+	if user == nil || user.Disabled {
+		return nil, repository.ErrAccessInput
+	}
+
+	return &user.ID, nil
+}
+
+// GrantServer validates and saves a server access grant.
+func (s *AccessService) GrantServer(ctx context.Context, principal Principal, id string, input AccessGrantInput) error {
+	if !principal.Admin && input.AccessRoleID != database.OperatorRole {
+		return repository.ErrAccessDenied
+	}
+
+	userID, err := s.grantSubject(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	return s.store.SetMember(ctx, database.ServerAccessGrant{ServerID: id, UserID: userID, RoleID: input.RoleID, AccessRoleID: input.AccessRoleID})
+}
+
+// GrantSpark validates and saves a Spark creation grant.
+func (s *AccessService) GrantSpark(ctx context.Context, id string, input AccessGrantInput) error {
+	if input.AccessRoleID != 0 && input.AccessRoleID != database.CreatorRole {
+		return repository.ErrAccessInput
+	}
+
+	userID, err := s.grantSubject(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	return s.store.SetSparkGrant(ctx, database.SparkAccessGrant{SparkID: id, UserID: userID, RoleID: input.RoleID, AccessRoleID: database.CreatorRole})
+}
+
+// SparkGrants lists explicit Spark provisioning grants.
+func (s *AccessService) SparkGrants(ctx context.Context, id string) ([]database.SparkAccessGrant, error) {
+	return s.store.SparkGrants(ctx, id)
+}
+
+// RemoveServerGrant removes one server access grant.
+func (s *AccessService) RemoveServerGrant(ctx context.Context, id string, grantID int64) error {
+	return s.store.RemoveServerGrant(ctx, id, grantID)
+}
+
+// RemoveSparkGrant revokes one Spark provisioning grant.
+func (s *AccessService) RemoveSparkGrant(ctx context.Context, id string, grantID int64) error {
+	return s.store.RemoveSparkGrant(ctx, id, grantID)
 }

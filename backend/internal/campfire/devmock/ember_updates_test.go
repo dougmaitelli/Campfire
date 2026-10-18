@@ -72,7 +72,7 @@ func TestMockPendingUpdatesDownloadAndImportWithoutNetwork(t *testing.T) {
 	updates := service.NewEmberUpdateService(embers, checks).WithFetcher(runtime.FetchEmberUpdate)
 
 	seeded, err := checks.List(t.Context())
-	if err != nil || len(seeded) != 3 {
+	if err != nil || len(seeded) != 2 {
 		t.Fatal("missing mock update states", seeded, err)
 	}
 
@@ -86,9 +86,9 @@ func TestMockPendingUpdatesDownloadAndImportWithoutNetwork(t *testing.T) {
 		t.Fatal("current fixture incorrectly has an update", current, err)
 	}
 
-	imported, err := embers.ImportDefinition(t.Context(), []byte(preview.Definition), service.ImportOptions{SourceURL: mockPendingUpdateURL, AcknowledgeWarnings: true})
-	if err != nil || imported.ID == "mock-minecraft" || imported.UpdateURL != mockPendingUpdateURL {
-		t.Fatal("mock update did not create a new revision", imported, err)
+	imported, err := embers.ImportDefinition(t.Context(), []byte(preview.Definition), service.ImportOptions{SourceURL: mockPendingUpdateURL, AcknowledgeWarnings: true, ReplaceID: "mock-minecraft"})
+	if err != nil || imported.ID != "mock-minecraft" || imported.UpdateURL != mockPendingUpdateURL {
+		t.Fatal("mock update did not replace the local Ember", imported, err)
 	}
 
 	updated, _, err := updates.Check(t.Context(), imported.ID)
@@ -101,7 +101,7 @@ func TestMockPendingUpdatesDownloadAndImportWithoutNetwork(t *testing.T) {
 	}
 
 	items, err := embers.List(t.Context())
-	if err != nil || len(items) != 4 {
+	if err != nil || len(items) != 2 {
 		t.Fatal("mock restart changed imported revisions", items, err)
 	}
 }

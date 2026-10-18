@@ -31,6 +31,7 @@ test("installer lists every missing dependency before changing the host", () => 
     "chmod",
     "rm",
     "grep",
+    "base64",
   ]) {
     assert.ok(
       result.stderr.includes(`  - ${name}\n`),
@@ -58,20 +59,23 @@ test("installer command preserves arguments without executing shell syntax", asy
       '#!/bin/bash\nprintf "%s\\0" "$@" > "$MOCK_LOG"\n',
     );
     const ca = `/private/CA's file $(touch ${sentinel}); certificate.crt`;
-    const command = sparkInstallCommand(
-      "https://campfire.test",
-      "https://agents.test:8443",
-      "testtoken",
-      ca,
+    const execute = (command) =>
+      spawnSync("/bin/bash", ["-c", command], {
+        env: {
+          PATH: `${directory}:/usr/bin:/bin`,
+          MOCK_LOG: log,
+          MOCK_INSTALLER: mockInstaller,
+        },
+        encoding: "utf8",
+      });
+    const result = execute(
+      sparkInstallCommand(
+        "https://campfire.test",
+        "https://agents.test:8443",
+        "testtoken",
+        ca,
+      ),
     );
-    const result = spawnSync("/bin/bash", ["-c", command], {
-      env: {
-        PATH: `${directory}:/usr/bin:/bin`,
-        MOCK_LOG: log,
-        MOCK_INSTALLER: mockInstaller,
-      },
-      encoding: "utf8",
-    });
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual((await readFile(log, "utf8")).split("\0").slice(0, -1), [
       "--panel",
@@ -82,6 +86,31 @@ test("installer command preserves arguments without executing shell syntax", asy
       ca,
     ]);
     await assert.rejects(readFile(sentinel), { code: "ENOENT" });
+
+    const certificate =
+      "-----BEGIN CERTIFICATE-----\npublicCA\n-----END CERTIFICATE-----\n";
+    const generated = sparkInstallCommand(
+      "https://campfire.test",
+      "https://agents.test:8443",
+      "testtoken",
+      "",
+      certificate,
+    );
+    assert.ok(
+      !generated.includes("\n"),
+      "installer should remain one shell command",
+    );
+    const automatic = execute(generated);
+    assert.equal(automatic.status, 0, automatic.stderr);
+    const args = (await readFile(log, "utf8")).split("\0").slice(0, -1);
+    assert.deepEqual(args.slice(0, 5), [
+      "--panel",
+      "https://agents.test:8443",
+      "--token",
+      "testtoken",
+      "--ca-base64",
+    ]);
+    assert.equal(Buffer.from(args[5], "base64").toString("utf8"), certificate);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

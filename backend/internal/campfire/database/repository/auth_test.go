@@ -45,7 +45,7 @@ func TestAdministratorSetupRaceAcrossConnections(t *testing.T) {
 		go func() {
 			defer wait.Done()
 
-			results <- store.Setup(context.Background(), database.User{Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "initial", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()})
+			results <- store.Setup(context.Background(), database.User{Username: "admin", PasswordHash: "encoded", CredentialVersion: 1}, database.UserSession{Hash: "initial", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: time.Now().Add(time.Hour).Unix(), LastSeenAt: time.Now().Unix()})
 		}()
 	}
 
@@ -75,7 +75,7 @@ func TestSessionPersistenceExpiryAndPasswordResetGeneration(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	session := database.UserSession{UserID: 1, Hash: "hashed-session", CSRF: "csrf", CredentialVersion: 1, ExpiresAt: now.Add(12 * time.Hour).Unix(), LastSeenAt: now.Unix()}
 
-	if err := store.Setup(ctx, database.User{Username: "admin", PasswordHash: "encoded", Version: 1}, session); err != nil {
+	if err := store.Setup(ctx, database.User{Username: "admin", PasswordHash: "encoded", CredentialVersion: 1}, session); err != nil {
 		t.Fatal(err)
 	}
 
@@ -119,7 +119,7 @@ func TestSessionPersistenceExpiryAndPasswordResetGeneration(t *testing.T) {
 	}
 
 	admin, err := store.Credential(ctx)
-	if err != nil || admin == nil || admin.Version != 2 || admin.PasswordHash != "replacement" {
+	if err != nil || admin == nil || admin.CredentialVersion != 2 || admin.PasswordHash != "replacement" {
 		t.Fatal("reset did not preserve and increment credential generation", err)
 	}
 }
@@ -128,11 +128,11 @@ func TestConcurrentAdminDemotionKeepsOneEnabledAdministrator(t *testing.T) {
 	db, store, path := authStore(t)
 
 	ctx := context.Background()
-	if err := store.Setup(ctx, database.User{Username: "admin", PasswordHash: "encoded", Version: 1}, database.UserSession{Hash: "first", CSRF: "csrf", CredentialVersion: 1}); err != nil {
+	if err := store.Setup(ctx, database.User{Username: "admin", PasswordHash: "encoded", CredentialVersion: 1}, database.UserSession{Hash: "first", CSRF: "csrf", CredentialVersion: 1}); err != nil {
 		t.Fatal(err)
 	}
 
-	other := database.User{Username: "second-admin", PasswordHash: "encoded", Version: 1, RoleID: database.AdminRole}
+	other := database.User{Username: "second-admin", PasswordHash: "encoded", CredentialVersion: 1, RoleID: database.AdminRole}
 	if err := store.Access().CreateUser(ctx, &other); err != nil {
 		t.Fatal(err)
 	}

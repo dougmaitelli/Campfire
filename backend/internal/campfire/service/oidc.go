@@ -236,7 +236,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		return database.UserSession{}, "", err
 	}
 
-	session, rawSession := newUserSession(user.ID, user.Version, s.auth.now())
+	session, rawSession := newUserSession(user.ID, user.CredentialVersion, s.auth.now())
 	session.Provider = s.issuer
 
 	if err := s.auth.store.CreateSession(ctx, session, "", s.auth.now()); err != nil {

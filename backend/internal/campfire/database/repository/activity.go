@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"time"
 
 	"campfire/internal/campfire/database"
@@ -17,18 +18,22 @@ type ActivityRepository struct{ db *gorm.DB }
 // NewActivityRepository constructs activity storage on the panel database.
 func NewActivityRepository(db *gorm.DB) *ActivityRepository { return &ActivityRepository{db: db} }
 
+func scheduleUsers(tx *gorm.DB) *gorm.DB {
+	return tx.Model(&database.Schedule{}).Select("schedules.*, COALESCE(users.username, '') AS username").Joins("LEFT JOIN users ON users.id = schedules.run_as_user_id")
+}
+
 func visibleServers(tx *gorm.DB, userID int64) *gorm.DB {
-	return tx.Model(&database.ServerOwnership{}).Select("server_id").Where("user_id = ?", userID).
-		Or("server_id IN (?)", tx.Model(&database.ServerMember{}).Select("server_id").Where("user_id = ?", userID))
+	return tx.Model(&database.Server{}).Select("servers.id").Where("owner_user_id = ?", userID).
+		Or("servers.id IN (?)", tx.Model(&database.ServerAccessGrant{}).Select("server_id").Joins("JOIN role_permissions ON role_permissions.role_id = server_access_grants.access_role_id").Where("permission = 'server.view' AND (user_id = ? OR server_access_grants.role_id IN (SELECT role_id FROM users WHERE id = ?))", userID, userID))
 }
 
 // Schedules lists only servers currently visible to the caller.
 func (r *ActivityRepository) Schedules(ctx context.Context, userID int64, admin bool, serverID string) ([]database.Schedule, error) {
 	items := []database.Schedule{}
 
-	query := r.db.WithContext(ctx).Omit("Command").Order("created_at DESC, id DESC")
+	query := scheduleUsers(r.db.WithContext(ctx)).Order("schedules.created_at DESC, schedules.id DESC")
 	if !admin {
-		query = query.Where("server_id IN (?)", visibleServers(r.db.WithContext(ctx), userID))
+		query = query.Where("schedules.server_id IN (?)", visibleServers(r.db.WithContext(ctx), userID))
 	}
 
 	if serverID != "" {
@@ -36,6 +41,9 @@ func (r *ActivityRepository) Schedules(ctx context.Context, userID int64, admin 
 	}
 
 	err := query.Limit(500).Find(&items).Error
+	for i := range items {
+		items[i].Command = ""
+	}
 
 	return items, err
 }
@@ -44,7 +52,7 @@ func (r *ActivityRepository) Schedules(ctx context.Context, userID int64, admin 
 func (r *ActivityRepository) Schedule(ctx context.Context, id string) (database.Schedule, error) {
 	var item database.Schedule
 
-	err := r.db.WithContext(ctx).Take(&item, "id = ?", id).Error
+	err := scheduleUsers(r.db.WithContext(ctx)).Take(&item, "schedules.id = ?", id).Error
 
 	return item, accessError(err)
 }
@@ -55,8 +63,8 @@ func (r *ActivityRepository) SaveSchedule(ctx context.Context, item *database.Sc
 		return accessError(r.db.WithContext(ctx).Omit("Server").Create(item).Error)
 	}
 
-	result := r.db.WithContext(ctx).Model(&database.Schedule{}).Where("id = ? AND server_id = ? AND version = ?", item.ID, item.ServerID, item.Version-1).
-		Select("Name", "Action", "Command", "CronExpression", "TimeZone", "OnlyWhenRunning", "NextRunAt", "Enabled", "UserID", "Username", "Version").Updates(item)
+	result := r.db.WithContext(ctx).Model(&database.Schedule{}).Where("id = ? AND server_id = ?", item.ID, item.ServerID).
+		Select("Name", "Action", "Command", "CronExpression", "TimeZone", "OnlyWhenRunning", "NextRunAt", "Enabled", "RunAsUserID").Updates(item)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -73,52 +81,74 @@ func (r *ActivityRepository) DeleteSchedule(ctx context.Context, id string) erro
 	return r.db.WithContext(ctx).Delete(&database.Schedule{}, "id = ?", id).Error
 }
 
-// DisableSchedule prevents a revoked execution identity from repeatedly attempting work.
-func (r *ActivityRepository) DisableSchedule(ctx context.Context, id string, version int64) error {
-	return r.db.WithContext(ctx).Model(&database.Schedule{}).Where("id = ? AND version = ?", id, version).Update("enabled", false).Error
+// Due lists definitions eligible to start; it never creates execution records.
+func (r *ActivityRepository) Due(ctx context.Context, now time.Time) ([]database.Schedule, error) {
+	items := []database.Schedule{}
+	err := scheduleUsers(r.db.WithContext(ctx)).Where("schedules.enabled = true AND next_run_at <= ?", now.Unix()).Order("next_run_at, schedules.id").Limit(100).Find(&items).Error
+
+	return items, err
 }
 
-// EnqueueDue advances each due definition and queues at most one outstanding execution.
-// Missed intervals are coalesced, never replayed as a burst after downtime.
-func (r *ActivityRepository) EnqueueDue(ctx context.Context, now time.Time) error {
-	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		var items []database.Schedule
-		if err := tx.Where("enabled = true AND next_run_at <= ?", now.Unix()).Order("next_run_at").Limit(100).Find(&items).Error; err != nil {
+// ClaimSchedule snapshots the current definition and atomically consumes its due occurrence.
+// A non-nil actor requests an immediate attempt, including for a paused schedule.
+func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now time.Time, actor *int64) (database.ScheduleRun, error) {
+	var run database.ScheduleRun
+
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		var item database.Schedule
+		if err := scheduleUsers(tx).Take(&item, "schedules.id = ?", id).Error; err != nil {
 			return err
 		}
 
-		for _, item := range items {
-			times, err := recurrence.Next(item.CronExpression, item.TimeZone, now, 1)
+		if actor == nil && (!item.Enabled || item.NextRunAt > now.Unix()) {
+			return ErrAccessConflict
+		}
+
+		var active int64
+		if err := tx.Model(&database.ScheduleRun{}).Where("schedule_id = ? AND state IN ('dispatching','running')", id).Count(&active).Error; err != nil {
+			return err
+		}
+
+		if active != 0 {
+			return ErrAccessConflict
+		}
+
+		userID, username := item.RunAsUserID, item.Username
+
+		if actor != nil {
+			var user database.User
+			if err := tx.Where("disabled = false").Take(&user, *actor).Error; err != nil {
+				return err
+			}
+
+			userID, username = user.ID, user.Username
+		}
+
+		var server database.Server
+		if err := tx.Take(&server, "id = ?", item.ServerID).Error; err != nil {
+			return err
+		}
+
+		run = database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, OnlyWhenRunning: item.OnlyWhenRunning, Recurring: actor == nil && item.CronExpression != "", ServerID: item.ServerID, ServerName: server.Name, UserID: userID, Username: username, Action: item.Action, Content: item.Command, State: "dispatching", CreatedAt: now.Unix(), StartedAt: now.Unix()}
+		if item.CronExpression == "" {
+			if err := tx.Model(&item).Update("enabled", false).Error; err != nil {
+				return err
+			}
+		} else if actor == nil || item.NextRunAt <= now.Unix() {
+			next, err := recurrence.Next(item.CronExpression, item.TimeZone, now, 1)
 			if err != nil {
 				return err
 			}
 
-			if err := tx.Model(&item).Update("next_run_at", times[0]).Error; err != nil {
-				return err
-			}
-
-			var count int64
-			if err := tx.Model(&database.ScheduleRun{}).Where("schedule_id = ? AND state IN ('queued','dispatching','running')", item.ID).Count(&count).Error; err != nil {
-				return err
-			}
-
-			if count != 0 {
-				continue
-			}
-
-			var server database.Server
-			if err := tx.Take(&server, "id = ?", item.ServerID).Error; err != nil {
-				return err
-			}
-
-			run := database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, ScheduleVersion: item.Version, OnlyWhenRunning: item.OnlyWhenRunning, Recurring: true, ServerID: item.ServerID, ServerName: server.Name, UserID: item.UserID, Username: item.Username, Action: item.Action, Content: item.Command, State: "queued", CreatedAt: now.Unix()}
-			if err := tx.Create(&run).Error; err != nil {
+			if err := tx.Model(&item).Update("next_run_at", next[0]).Error; err != nil {
 				return err
 			}
 		}
 
-		return nil
+		return tx.Create(&run).Error
 	})
+
+	return run, accessError(err)
 }
 
 // CreateRun persists an execution before any node command is issued.
@@ -161,7 +191,7 @@ func (r *ActivityRepository) Runs(ctx context.Context, userID int64, admin bool,
 // Pending returns a bounded batch for the single panel worker.
 func (r *ActivityRepository) Pending(ctx context.Context) ([]database.ScheduleRun, error) {
 	items := []database.ScheduleRun{}
-	err := r.db.WithContext(ctx).Where("state IN ('queued','running')").Order("polled_at, created_at, id").Limit(100).Find(&items).Error
+	err := r.db.WithContext(ctx).Where("state = 'running'").Order("polled_at, created_at, id").Limit(100).Find(&items).Error
 
 	return items, err
 }
@@ -175,8 +205,6 @@ func (r *ActivityRepository) TouchRun(ctx context.Context, id string) error {
 func (r *ActivityRepository) UpdateRun(ctx context.Context, id, state, message string, now time.Time) error {
 	updates := map[string]any{"state": state, "message": message}
 	switch state {
-	case "queued":
-		updates["started_at"] = 0
 	case "running", "dispatching":
 		updates["started_at"] = now.Unix()
 	default:
@@ -184,13 +212,13 @@ func (r *ActivityRepository) UpdateRun(ctx context.Context, id, state, message s
 		updates["content"] = ""
 	}
 
-	return r.db.WithContext(ctx).Model(&database.ScheduleRun{}).Where("id = ? AND state IN ('queued','dispatching','running')", id).Updates(updates).Error
+	return r.db.WithContext(ctx).Model(&database.ScheduleRun{}).Where("id = ? AND state IN ('dispatching','running')", id).Updates(updates).Error
 }
 
 // FinishRun atomically retains a terminal result and its audit record exactly once.
 func (r *ActivityRepository) FinishRun(ctx context.Context, run database.ScheduleRun, state, message string, now time.Time) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		result := tx.Model(&database.ScheduleRun{}).Where("id = ? AND state IN ('queued','dispatching','running')", run.ID).Updates(map[string]any{"state": state, "message": message, "finished_at": now.Unix(), "content": ""})
+		result := tx.Model(&database.ScheduleRun{}).Where("id = ? AND state IN ('dispatching','running')", run.ID).Updates(map[string]any{"state": state, "message": message, "finished_at": now.Unix(), "content": ""})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -199,7 +227,18 @@ func (r *ActivityRepository) FinishRun(ctx context.Context, run database.Schedul
 			return nil
 		}
 
-		return tx.Create(&database.AuditEvent{ID: rand.Text(), UserID: run.UserID, Username: run.Username, Action: "server." + run.Action, Target: "server:" + run.ServerID, Outcome: state, CreatedAt: now.Unix()}).Error
+		var actorID *int64
+
+		var user database.User
+
+		err := tx.Unscoped().Select("id").Take(&user, run.UserID).Error
+		if err == nil {
+			actorID = &user.ID
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		return tx.Create(&database.AuditEvent{ID: rand.Text(), UserID: actorID, Username: run.Username, Action: "server." + run.Action, Target: "server:" + run.ServerID, Outcome: state, CreatedAt: now.Unix()}).Error
 	})
 }
 
@@ -234,7 +273,7 @@ func (r *ActivityRepository) FinishAudit(ctx context.Context, event database.Aud
 func (r *ActivityRepository) Audit(ctx context.Context, before, action, target string) ([]database.AuditEvent, error) {
 	items := []database.AuditEvent{}
 
-	query := r.db.WithContext(ctx).Order("created_at DESC, id DESC")
+	query := r.db.WithContext(ctx).Preload("User", func(tx *gorm.DB) *gorm.DB { return tx.Unscoped() }).Preload("User.Role").Order("created_at DESC, id DESC")
 
 	query, err := historyBefore(query, &database.AuditEvent{}, before)
 	if err != nil {

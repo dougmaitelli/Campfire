@@ -64,7 +64,7 @@ func (h *fileHandler) call(q model.FileRequest) (model.FileResult, error) {
 
 	audit := h.server.Audit != nil && q.Operation != "list" && q.Operation != "stat" && q.Operation != "read.chunk" && q.Operation != "upload.chunk"
 	if audit {
-		event = database.AuditEvent{ID: rand.Text(), UserID: principal.UserID, Username: principal.Username, APITokenID: principal.APITokenID, Action: "server.files.sftp." + q.Operation, Target: "server:" + h.id, Outcome: "pending", CreatedAt: time.Now().Unix()}
+		event = database.AuditEvent{ID: rand.Text(), UserID: &principal.UserID, Username: principal.Username, APITokenID: principal.APITokenID, Action: "server.files.sftp." + q.Operation, Target: "server:" + h.id, Outcome: "pending", CreatedAt: time.Now().Unix()}
 		if err := h.server.Audit.BeginAudit(ctx, &event); err != nil {
 			return model.FileResult{}, sftp.ErrSSHFxFailure
 		}

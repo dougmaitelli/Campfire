@@ -69,5 +69,6 @@ func (h *Hub) renew(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(struct {
 		Certificate []byte `json:"certificate"`
-	}{certificate})
+		ServerCA    []byte `json:"server_ca,omitempty"`
+	}{certificate, h.serverTrust()})
 }
