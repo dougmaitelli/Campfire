@@ -116,15 +116,6 @@
   color: var(--muted);
   font-size: 12px;
 }
-.file-row .button-icon {
-  width: 30px;
-  height: 30px;
-  min-height: 30px;
-}
-.file-row .button-icon svg {
-  width: 16px;
-  height: 16px;
-}
 .file-name:disabled {
   cursor: default;
   opacity: 0.6;

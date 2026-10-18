@@ -44,7 +44,7 @@ export function SparksTable({
           <th scope="col">Name</th>
           <th scope="col">Status</th>
           <th scope="col">Limits</th>
-          <th scope="col">Game networking</th>
+          <th scope="col">Network</th>
           <th scope="col">Added</th>
         </tr>
       </thead>
@@ -69,6 +69,7 @@ export function SparksTable({
               <SparkConnectionState
                 disabled={spark.disabled}
                 connected={spark.connected}
+                version={spark.agent_version}
               />
             </td>
             <td>

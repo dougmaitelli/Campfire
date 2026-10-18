@@ -87,7 +87,7 @@ export function Drawer({
           </div>
           <Button
             type="button"
-            className="button-icon"
+            iconOnly
             aria-label="Close"
             disabled={busy}
             onClick={onClose}

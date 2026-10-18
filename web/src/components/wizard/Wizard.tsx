@@ -1,7 +1,7 @@
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
 import { useEffect, useId, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import "./wizard.css";
 
 export interface WizardStep {
@@ -94,7 +94,19 @@ export function Wizard({
       onSubmit={advance}
       aria-busy={busy}
     >
-      <ol className="wizard-progress" aria-label="Progress">
+      <ol
+        className={`wizard-progress${steps.length === 1 ? " wizard-progress-single" : ""}`}
+        aria-label="Progress"
+        style={
+          {
+            gridTemplateColumns:
+              steps.length > 2
+                ? `minmax(0, 0.5fr) repeat(${steps.length - 2}, minmax(0, 1fr)) minmax(0, 0.5fr)`
+                : `repeat(${steps.length}, minmax(0, 1fr))`,
+            "--wizard-progress": `${steps.length > 1 ? (Math.min(steps.length - 1, completedThrough + 1) / (steps.length - 1)) * 100 : 0}%`,
+          } as CSSProperties
+        }
+      >
         {steps.map((item, position) => (
           <li
             key={item.id}

@@ -127,6 +127,7 @@ export function SparksPage() {
               <SparkConnectionState
                 disabled={details.disabled}
                 connected={details.connected}
+                version={details.agent_version}
               />
             </>
           }

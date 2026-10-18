@@ -7,6 +7,7 @@ export function Button({
   variant = "default",
   loading = false,
   loadingLabel,
+  iconOnly = false,
   disabled,
   "aria-busy": ariaBusy,
   className,
@@ -16,6 +17,7 @@ export function Button({
   variant?: ButtonVariant;
   loading?: boolean;
   loadingLabel?: ReactNode;
+  iconOnly?: boolean;
 }) {
   return (
     <button
@@ -23,6 +25,7 @@ export function Button({
       className={[
         "button",
         variant !== "default" && `button-${variant}`,
+        iconOnly && "button-icon",
         className,
       ]
         .filter(Boolean)
@@ -37,15 +40,17 @@ export function Button({
 
 export function ButtonLink({
   variant = "default",
+  iconOnly = false,
   className,
   ...props
-}: ComponentProps<"a"> & { variant?: ButtonVariant }) {
+}: ComponentProps<"a"> & { variant?: ButtonVariant; iconOnly?: boolean }) {
   return (
     <a
       {...props}
       className={[
         "button",
         variant !== "default" && `button-${variant}`,
+        iconOnly && "button-icon",
         className,
       ]
         .filter(Boolean)

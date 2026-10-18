@@ -258,6 +258,7 @@ export function DashboardPage() {
                         <SparkConnectionState
                           disabled={spark.disabled}
                           connected={spark.connected}
+                          version={spark.agent_version}
                         />
                       </td>
                       <td>

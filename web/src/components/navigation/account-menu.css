@@ -79,9 +79,6 @@
 .account-logout {
   display: grid;
   place-items: center;
-  flex: 0 0 36px;
-  height: 36px;
-  padding: 8px;
   border: 0;
   border-radius: 8px;
   background: transparent;

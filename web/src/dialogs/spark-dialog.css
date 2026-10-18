@@ -1,0 +1,47 @@
+.drawer-form .allocation-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr) minmax(0, 1fr) var(
+      --control-height
+    );
+  grid-template-areas: "ip ports protocol remove";
+  align-items: end;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.allocation-ip {
+  grid-area: ip;
+}
+.allocation-protocol {
+  grid-area: protocol;
+}
+.allocation-ports {
+  grid-area: ports;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+.allocation-range .form-field {
+  margin-bottom: 0;
+}
+.allocation-range .form-field > label {
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.allocation-range .allocation-remove {
+  grid-area: remove;
+}
+@media (max-width: 560px) {
+  .drawer-form .allocation-range {
+    grid-template-columns: minmax(0, 1fr) 100px;
+    grid-template-areas:
+      "ip protocol"
+      "ports remove";
+  }
+  .allocation-range .allocation-remove {
+    justify-self: end;
+  }
+}

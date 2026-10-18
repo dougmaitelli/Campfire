@@ -642,7 +642,7 @@ export function ServerFilesDialog({
                     <div className="row-actions">
                       {entry.kind === "file" && (
                         <Button
-                          className="button-icon"
+                          iconOnly
                           title="Download"
                           disabled={busy || entry.size > fileTransferLimit}
                           onClick={() => {
@@ -655,7 +655,7 @@ export function ServerFilesDialog({
                       )}
                       {entry.kind !== "unsupported" && (
                         <Button
-                          className="button-icon"
+                          iconOnly
                           title="Compress"
                           aria-label={`Compress ${entry.name}`}
                           disabled={busy || !canWrite}
@@ -669,7 +669,7 @@ export function ServerFilesDialog({
                       {entry.kind === "file" &&
                         /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
                           <Button
-                            className="button-icon"
+                            iconOnly
                             title="Extract"
                             aria-label={`Extract ${entry.name}`}
                             disabled={busy || !canWrite}
@@ -681,7 +681,7 @@ export function ServerFilesDialog({
                           </Button>
                         )}
                       <Button
-                        className="button-icon"
+                        iconOnly
                         title="Rename"
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
@@ -695,7 +695,7 @@ export function ServerFilesDialog({
                       </Button>
                       <Button
                         variant="danger"
-                        className="button-icon"
+                        iconOnly
                         title="Delete"
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"

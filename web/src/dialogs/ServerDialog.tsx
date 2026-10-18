@@ -6,12 +6,11 @@ import { Button } from "../components/forms/Button";
 import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { applyServerEmber, saveServer } from "../api/servers";
-import type { Server, ServerConfiguration } from "../api/servers";
+import type { Server, ServerConfiguration, ServerPort } from "../api/servers";
 import type { Spark } from "../api/sparks";
 import type { Ember } from "../api/embers";
 import { Drawer } from "../components/layout/Drawer";
 import { Wizard } from "../components/wizard/Wizard";
-import { ServerResourcesFields } from "../components/servers/ServerResourcesFields";
 import { ServerReview } from "../components/servers/ServerReview";
 import { defaultPorts, defaultVariables } from "../utils/serverDefaults";
 import {
@@ -19,7 +18,6 @@ import {
   saveBackupPolicy,
   type BackupPolicy,
 } from "../api/backups";
-import { BackupPolicyFields } from "../components/servers/BackupPolicyFields";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 
 interface ServerDialogProps {
@@ -105,6 +103,20 @@ export function ServerDialog({
   const createdServer = useRef<Server | null>(null);
   const spark = sparks.find((item) => item.id === value.spark_id);
   const ember = embers.find((item) => item.id === value.ember_id);
+  function changePort(index: number, changes: Partial<ServerPort>) {
+    setValue({
+      ...value,
+      ports: value.ports.map((port, i) =>
+        i === index ? { ...port, ...changes } : port,
+      ),
+    });
+  }
+  const allocations = spark?.port_allocations ?? [];
+  function changeBackupPolicy(next: BackupPolicy) {
+    setBackupPolicy(next);
+    setPolicyDirty(true);
+  }
+
   async function finish() {
     if (submitting.current) return;
     submitting.current = true;
@@ -358,12 +370,196 @@ export function ServerDialog({
                 ? "Map every required Ember container port and protocol."
                 : null,
           content: (
-            <ServerResourcesFields
-              disabled={runtimeRestricted}
-              value={value}
-              spark={spark}
-              onChange={setValue}
-            />
+            <fieldset disabled={runtimeRestricted}>
+              <p className="field-help">
+                Reserve capacity on {spark?.name ?? "the selected Spark"}. Set
+                the resources allocated to this server.
+              </p>
+              <FormField label="CPU cores">
+                <TextInput
+                  id="server-cpu"
+                  type="number"
+                  min={0.1}
+                  max={1024}
+                  step="any"
+                  required
+                  value={Number.isNaN(value.cpu_limit) ? "" : value.cpu_limit}
+                  onChange={(event) =>
+                    setValue({
+                      ...value,
+                      cpu_limit: event.target.valueAsNumber,
+                    })
+                  }
+                />
+              </FormField>
+              <div className="form-grid">
+                <div>
+                  <FormField label="Memory (MiB)">
+                    <TextInput
+                      id="server-memory"
+                      type="number"
+                      min={64}
+                      max={1048576}
+                      step={1}
+                      required
+                      value={
+                        Number.isNaN(value.memory_mb) ? "" : value.memory_mb
+                      }
+                      onChange={(event) =>
+                        setValue({
+                          ...value,
+                          memory_mb: event.target.valueAsNumber,
+                        })
+                      }
+                    />
+                  </FormField>
+                </div>
+                <div>
+                  <FormField label="Disk (MiB)">
+                    <TextInput
+                      id="server-disk"
+                      type="number"
+                      min={1}
+                      max={1073741824}
+                      step={1}
+                      required
+                      value={Number.isNaN(value.disk_mb) ? "" : value.disk_mb}
+                      onChange={(event) =>
+                        setValue({
+                          ...value,
+                          disk_mb: event.target.valueAsNumber,
+                        })
+                      }
+                    />
+                  </FormField>
+                </div>
+              </div>
+              <h4>Port mappings</h4>
+              <p className="field-help">
+                Host ports must belong to the Spark’s allocation ranges and be
+                available. Container ports must match the Ember requirements.
+              </p>
+              {value.ports.map((port, index) => {
+                const selected = allocations.findIndex(
+                  (allocation) =>
+                    allocation.bind_ip === port.bind_ip &&
+                    allocation.protocol === port.protocol &&
+                    port.host_port >= allocation.start &&
+                    port.host_port <= allocation.end,
+                );
+                const allocation = allocations[selected];
+                return (
+                  <fieldset className="port-mapping" key={index}>
+                    <legend>Mapping {index + 1}</legend>
+                    <FormField label="Spark allocation">
+                      <Select
+                        id={`mapping-allocation-${index}`}
+                        required
+                        value={selected >= 0 ? String(selected) : ""}
+                        onChange={(event) => {
+                          const next = allocations[Number(event.target.value)];
+                          if (next)
+                            changePort(index, {
+                              bind_ip: next.bind_ip,
+                              protocol: next.protocol,
+                              host_port: next.start,
+                            });
+                        }}
+                      >
+                        <option value="" disabled>
+                          Select allocation
+                        </option>
+                        {allocations.map((entry, i) => (
+                          <option key={i} value={i}>
+                            {entry.bind_ip} · {entry.start}–{entry.end} /{" "}
+                            {entry.protocol.toUpperCase()}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormField>
+                    <div className="form-grid">
+                      <div>
+                        <FormField label="Host port">
+                          <TextInput
+                            id={`mapping-host-${index}`}
+                            type="number"
+                            min={allocation?.start ?? 1}
+                            max={allocation?.end ?? 65535}
+                            step={1}
+                            required
+                            value={
+                              Number.isNaN(port.host_port) ? "" : port.host_port
+                            }
+                            onChange={(event) =>
+                              changePort(index, {
+                                host_port: event.target.valueAsNumber,
+                              })
+                            }
+                          />
+                        </FormField>
+                      </div>
+                      <div>
+                        <FormField label="Container port">
+                          <TextInput
+                            id={`mapping-container-${index}`}
+                            type="number"
+                            min={1}
+                            max={65535}
+                            step={1}
+                            required
+                            value={
+                              Number.isNaN(port.container_port)
+                                ? ""
+                                : port.container_port
+                            }
+                            onChange={(event) =>
+                              changePort(index, {
+                                container_port: event.target.valueAsNumber,
+                              })
+                            }
+                          />
+                        </FormField>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={() =>
+                        setValue({
+                          ...value,
+                          ports: value.ports.filter((_, i) => i !== index),
+                        })
+                      }
+                      aria-label={`Remove mapping ${index + 1}`}
+                    >
+                      Remove mapping
+                    </Button>
+                  </fieldset>
+                );
+              })}
+              <Button
+                type="button"
+                disabled={allocations.length === 0 || value.ports.length >= 32}
+                onClick={() => {
+                  const first = allocations[0];
+                  if (first)
+                    setValue({
+                      ...value,
+                      ports: [
+                        ...value.ports,
+                        {
+                          bind_ip: first.bind_ip,
+                          host_port: first.start,
+                          container_port: first.start,
+                          protocol: first.protocol,
+                        },
+                      ],
+                    });
+                }}
+              >
+                + Add mapping
+              </Button>
+            </fieldset>
           ),
         },
         ...(!applyRevision
@@ -374,14 +570,68 @@ export function ServerDialog({
                 content: policyError ? (
                   <InlineMessage role="alert">{policyError}</InlineMessage>
                 ) : backupPolicy ? (
-                  <BackupPolicyFields
-                    value={backupPolicy}
-                    s3Available={s3Available}
-                    onChange={(next) => {
-                      setBackupPolicy(next);
-                      setPolicyDirty(true);
-                    }}
-                  />
+                  <>
+                    <FormField label="Background S3 sync">
+                      <Select
+                        id="backup-storage"
+                        value={backupPolicy.storage}
+                        onChange={(event) =>
+                          changeBackupPolicy({
+                            ...backupPolicy,
+                            storage: event.target
+                              .value as BackupPolicy["storage"],
+                          })
+                        }
+                      >
+                        <option value="local">Disabled</option>
+                        <option value="s3" disabled={!s3Available}>
+                          Enabled
+                        </option>
+                      </Select>
+                    </FormField>
+                    {!s3Available && (
+                      <p className="field-help">
+                        Configure S3 on Campfire before enabling sync.
+                      </p>
+                    )}
+                    {(
+                      [
+                        ["local_keep_last", "Local copies to keep", 1000],
+                        [
+                          "local_max_age_days",
+                          "Local maximum age (days)",
+                          36500,
+                        ],
+                        ["remote_keep_last", "S3 copies to keep", 1000],
+                        ["remote_max_age_days", "S3 maximum age (days)", 36500],
+                      ] as const
+                    ).map(([key, label, max]) => (
+                      <div key={key}>
+                        <FormField label={<>{label}</>}>
+                          <TextInput
+                            id={`backup-${key}`}
+                            type="number"
+                            min={0}
+                            max={max}
+                            step={1}
+                            required
+                            value={backupPolicy[key]}
+                            onChange={(event) =>
+                              changeBackupPolicy({
+                                ...backupPolicy,
+                                [key]: Number(event.target.value),
+                              })
+                            }
+                          />
+                        </FormField>
+                      </div>
+                    ))}
+                    <p className="field-help">
+                      Zero disables a limit. Local and S3 copies expire
+                      independently. A local copy awaiting a required S3 upload
+                      is retained until sync succeeds.
+                    </p>
+                  </>
                 ) : (
                   <p role="status">Loading backup policy…</p>
                 ),

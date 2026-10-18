@@ -9,6 +9,7 @@
   --surface-hover: #282c24;
   --accent-subtle: #30291e;
   --accent-border: #59432b;
+  --control-height: 42px;
 }
 
 :focus-visible {

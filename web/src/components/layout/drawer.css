@@ -202,7 +202,7 @@
   .drawer-footer-right {
     gap: 8px;
   }
-  .drawer-footer .button {
+  .drawer-footer .button:not(.button-icon) {
     padding: 8px 10px;
     font-size: 12px;
   }

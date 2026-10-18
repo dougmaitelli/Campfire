@@ -5,17 +5,34 @@
   min-height: 0;
 }
 .wizard-progress {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 22px 24px;
+  --wizard-side-padding: 24px;
+  --wizard-top-padding: 22px;
+  position: relative;
+  display: grid;
+  padding: var(--wizard-top-padding) var(--wizard-side-padding);
   margin: 0;
   list-style: none;
   border-bottom: 1px solid var(--border);
 }
+.wizard-progress:not(.wizard-progress-single)::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--wizard-top-padding) + 13px);
+  left: calc(var(--wizard-side-padding) + 13.5px);
+  right: calc(var(--wizard-side-padding) + 13.5px);
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    var(--accent-border) var(--wizard-progress),
+    var(--border) var(--wizard-progress)
+  );
+  pointer-events: none;
+}
 .wizard-step-link {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  width: 100%;
   gap: 8px;
   color: var(--muted);
   font-size: 12px;
@@ -23,38 +40,37 @@
   border: 0;
   padding: 0;
   background: transparent;
-  text-align: left;
+  text-align: center;
+  overflow-wrap: anywhere;
   cursor: pointer;
   border-radius: 4px;
 }
 .wizard-progress > li {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 10px;
+  position: relative;
   min-width: 0;
 }
-.wizard-progress > li:last-child {
-  flex: 0 0 auto;
+.wizard-progress > li:first-child .wizard-step-link {
+  align-items: flex-start;
+  text-align: left;
 }
-.wizard-progress > li:not(:last-child)::after {
-  content: "";
-  flex: 1;
-  min-width: 12px;
-  height: 1px;
-  background: var(--border);
-}
-.wizard-progress > li.is-complete:not(:last-child)::after {
-  background: var(--accent-border);
+.wizard-progress > li:last-child:not(:first-child) .wizard-step-link {
+  align-items: flex-end;
+  text-align: right;
 }
 .wizard-step-link:disabled {
-  opacity: 0.45;
+  color: color-mix(in srgb, var(--muted) 45%, var(--surface));
   cursor: default;
+}
+.wizard-step-link:disabled .wizard-step-number {
+  border-color: color-mix(in srgb, var(--border) 45%, var(--surface));
 }
 .wizard-step-link:hover:not(:disabled) {
   color: var(--text);
 }
 .wizard-step-number {
+  position: relative;
+  background: var(--surface);
+  box-shadow: 0 0 0 6px var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -99,19 +115,10 @@
 }
 @media (max-width: 480px) {
   .wizard-progress {
-    gap: 8px;
-    padding: 18px 16px;
+    --wizard-top-padding: 18px;
+    --wizard-side-padding: 16px;
   }
   .wizard-step-link {
-    flex-direction: column;
-    align-items: flex-start;
     gap: 6px;
-  }
-  .wizard-progress > li {
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .wizard-progress > li:not(:last-child)::after {
-    margin-top: 13px;
   }
 }

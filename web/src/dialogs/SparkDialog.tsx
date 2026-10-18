@@ -2,6 +2,7 @@ import { FormField } from "../components/forms/FormField";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
 import { Button } from "../components/forms/Button";
+import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import {
   listRoles,
@@ -11,13 +12,12 @@ import {
 } from "../api/access";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { createSpark, updateSpark } from "../api/sparks";
-import type { Spark } from "../api/sparks";
-import { SparkSettingsFields } from "../components/sparks/SparkSettingsFields";
-import type { SparkSettings } from "../api/sparks";
+import type { PortAllocation, Spark, SparkSettings } from "../api/sparks";
 import { Wizard } from "../components/wizard/Wizard";
 import { SparkReview } from "../components/sparks/SparkReview";
 import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import "./spark-dialog.css";
 
 interface SparkDialogProps {
   spark: Spark | null;
@@ -76,6 +76,15 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
   }));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function changeAllocation(index: number, fields: Partial<PortAllocation>) {
+    setSettings({
+      ...settings,
+      port_allocations: settings.port_allocations.map((entry, i) =>
+        i === index ? { ...entry, ...fields } : entry,
+      ),
+    });
+  }
 
   async function submit() {
     if (submittingRef.current) return;
@@ -183,7 +192,237 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
           id: "resources",
           title: "Resources & networking",
           content: (
-            <SparkSettingsFields value={settings} onChange={setSettings} />
+            <div className="spark-settings">
+              <h3>Resource limits</h3>
+              <p className="field-help">
+                Capacity available for game servers. Set a limit to 0 for no
+                configured limit.
+              </p>
+              <div className="resource-fields">
+                <div>
+                  <FormField label="CPU cores">
+                    <TextInput
+                      id="spark-cpu"
+                      type="number"
+                      min={0}
+                      max={1024}
+                      step="any"
+                      required
+                      value={
+                        Number.isNaN(settings.cpu_limit)
+                          ? ""
+                          : settings.cpu_limit
+                      }
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          cpu_limit: event.target.valueAsNumber,
+                        })
+                      }
+                    />
+                  </FormField>
+                </div>
+                <div>
+                  <FormField label="Memory (MiB)">
+                    <TextInput
+                      id="spark-memory"
+                      type="number"
+                      min={0}
+                      max={Number.MAX_SAFE_INTEGER}
+                      step={1}
+                      required
+                      value={
+                        Number.isNaN(settings.memory_mb)
+                          ? ""
+                          : settings.memory_mb
+                      }
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          memory_mb: event.target.valueAsNumber,
+                        })
+                      }
+                    />
+                  </FormField>
+                </div>
+                <div>
+                  <FormField label="Disk (MiB)">
+                    <TextInput
+                      id="spark-disk"
+                      type="number"
+                      min={0}
+                      max={Number.MAX_SAFE_INTEGER}
+                      step={1}
+                      required
+                      value={
+                        Number.isNaN(settings.disk_mb) ? "" : settings.disk_mb
+                      }
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          disk_mb: event.target.valueAsNumber,
+                        })
+                      }
+                    />
+                  </FormField>
+                </div>
+              </div>
+              <h3>Network</h3>
+              <FormField
+                label={
+                  <>
+                    Game address <span className="field-help">(optional)</span>
+                  </>
+                }
+              >
+                <TextInput
+                  id="spark-address"
+                  value={settings.game_address}
+                  maxLength={253}
+                  placeholder="games.example.com or an IP"
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      game_address: event.target.value,
+                    })
+                  }
+                  aria-describedby="game-address-help"
+                />
+              </FormField>
+              <p id="game-address-help" className="field-help">
+                The address players use to reach game servers. Enter an IP or
+                domain without a protocol or port.
+              </p>
+              <h3>Port allocations</h3>
+              <p className="field-help">
+                Game ports available on this Spark. Use the same start and end
+                for one port; 0.0.0.0 binds all IPv4 interfaces.
+              </p>
+              {settings.port_allocations.map((allocation, index) => (
+                <fieldset className="allocation-range" key={index}>
+                  <legend className="visually-hidden">Range {index + 1}</legend>
+                  <FormField label="Bind IP" className="allocation-ip">
+                    <TextInput
+                      id={`allocation-ip-${index}`}
+                      required
+                      value={allocation.bind_ip}
+                      onChange={(event) =>
+                        changeAllocation(index, { bind_ip: event.target.value })
+                      }
+                      placeholder="0.0.0.0"
+                    />
+                  </FormField>
+                  <div className="allocation-ports">
+                    <div>
+                      <FormField label="Start port">
+                        <TextInput
+                          id={`allocation-start-${index}`}
+                          type="number"
+                          min={1}
+                          max={65535}
+                          step={1}
+                          required
+                          value={
+                            Number.isNaN(allocation.start)
+                              ? ""
+                              : allocation.start
+                          }
+                          onChange={(event) =>
+                            changeAllocation(index, {
+                              start: event.target.valueAsNumber,
+                            })
+                          }
+                        />
+                      </FormField>
+                    </div>
+                    <div>
+                      <FormField label="End port">
+                        <TextInput
+                          id={`allocation-end-${index}`}
+                          type="number"
+                          min={allocation.start}
+                          max={65535}
+                          step={1}
+                          required
+                          value={
+                            Number.isNaN(allocation.end) ? "" : allocation.end
+                          }
+                          onChange={(event) =>
+                            changeAllocation(index, {
+                              end: event.target.valueAsNumber,
+                            })
+                          }
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+                  <FormField label="Protocol" className="allocation-protocol">
+                    <Select
+                      id={`allocation-protocol-${index}`}
+                      value={allocation.protocol}
+                      onChange={(event) =>
+                        changeAllocation(index, {
+                          protocol:
+                            event.target.value === "udp" ? "udp" : "tcp",
+                        })
+                      }
+                    >
+                      <option value="tcp">TCP</option>
+                      <option value="udp">UDP</option>
+                    </Select>
+                  </FormField>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    iconOnly
+                    className="allocation-remove"
+                    aria-label={`Remove range ${index + 1}`}
+                    title={`Remove range ${index + 1}`}
+                    onClick={() =>
+                      setSettings({
+                        ...settings,
+                        port_allocations: settings.port_allocations.filter(
+                          (_, i) => i !== index,
+                        ),
+                      })
+                    }
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M6 6l12 12M18 6 6 18" />
+                    </svg>
+                  </Button>
+                </fieldset>
+              ))}
+              <Button
+                type="button"
+                disabled={settings.port_allocations.length >= 128}
+                onClick={() =>
+                  setSettings({
+                    ...settings,
+                    port_allocations: [
+                      ...settings.port_allocations,
+                      {
+                        bind_ip: "0.0.0.0",
+                        start: 25565,
+                        end: 25565,
+                        protocol: "tcp",
+                      },
+                    ],
+                  })
+                }
+              >
+                + Add port range
+              </Button>
+            </div>
           ),
         },
         {
@@ -269,7 +508,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
           title={spark ? "Edit Spark" : "Add Spark"}
           description={
             spark
-              ? "Manage this node’s capacity, game networking, and availability."
+              ? "Manage this node’s capacity, network, and availability."
               : "Register a node to host your game servers."
           }
           busy={submitting}

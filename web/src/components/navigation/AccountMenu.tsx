@@ -3,6 +3,7 @@ import { useAuthentication } from "../../hooks/useAuthentication";
 import { linkOIDC } from "../../api/auth";
 import { APITokensDialog } from "../../dialogs/APITokensDialog";
 import { NavigationIcon } from "./NavigationIcon";
+import { Button } from "../forms/Button";
 import "./account-menu.css";
 
 export function AccountMenu() {
@@ -139,9 +140,10 @@ export function AccountMenu() {
           </span>
           <NavigationIcon name="chevron" />
         </button>
-        <button
+        <Button
           type="button"
           className="account-logout"
+          iconOnly
           aria-label="Sign out"
           title="Sign out"
           disabled={busy}
@@ -150,7 +152,7 @@ export function AccountMenu() {
           }}
         >
           <NavigationIcon name="logout" />
-        </button>
+        </Button>
       </div>
       {error && (
         <p className="account-error" role="alert">
