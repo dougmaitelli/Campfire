@@ -42,6 +42,14 @@ export function ServerConsoleDialog({
           <ServerTerminal
             serverID={server.id}
             streamKey={`${status?.operation_id ?? ""}:${status?.busy ?? false}`}
+            streamMode={
+              !status || status.state === "unknown"
+                ? "waiting"
+                : status.busy ||
+                    ["running", "restarting", "starting"].includes(status.state)
+                  ? "live"
+                  : "snapshot"
+            }
             onBusyChange={setBusy}
           />
         </Suspense>

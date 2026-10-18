@@ -6,16 +6,19 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { StatusPill, type StatusTone } from "../status/StatusPill";
 import { sendConsole } from "../../api/runtime";
+import { connectConsole, type ConsoleStreamMode } from "./consoleStream";
 import "@xterm/xterm/css/xterm.css";
 import "./server-terminal.css";
 
 export function ServerTerminal({
   serverID,
   streamKey,
+  streamMode,
   onBusyChange,
 }: {
   serverID: string;
   streamKey: string;
+  streamMode: ConsoleStreamMode;
   onBusyChange: (busy: boolean) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -133,61 +136,15 @@ export function ServerTerminal({
   useEffect(() => {
     const term = terminal.current;
     if (!term) return;
-    const stream = new EventSource(
-      `/api/v1/servers/${encodeURIComponent(serverID)}/console/stream`,
-    );
-    let ended = false;
-    let replaceOutput = true;
-    stream.addEventListener("ready", () => {
-      ended = false;
-      replaceOutput = true;
-      setConnection({ label: "Connected", tone: "positive" });
+    return connectConsole({
+      url: `/api/v1/servers/${encodeURIComponent(serverID)}/console/stream`,
+      mode: streamMode,
+      onConnection: setConnection,
+      onOutput: (content, replace) => {
+        term.write(`${replace ? "\x1b[H\x1b[2J" : ""}${content}`);
+      },
     });
-    stream.addEventListener("output", (event: MessageEvent<string>) => {
-      try {
-        const value: unknown = JSON.parse(event.data);
-        if (
-          typeof value === "object" &&
-          value !== null &&
-          "content" in value &&
-          typeof value.content === "string"
-        ) {
-          if (value.content.length > 0) {
-            term.write(
-              `${replaceOutput ? "\x1b[H\x1b[2J" : ""}${value.content}`,
-            );
-            replaceOutput = false;
-          }
-        }
-      } catch {
-        setConnection({
-          label: "Invalid console output; retrying…",
-          tone: "negative",
-        });
-      }
-    });
-    stream.addEventListener("ended", () => {
-      ended = true;
-      setConnection({ label: "Waiting for server output…", tone: "neutral" });
-    });
-    stream.addEventListener("denied", () => {
-      setConnection({ label: "Console access ended.", tone: "negative" });
-      stream.close();
-    });
-    stream.onerror = () => {
-      if (ended) return;
-      setConnection({
-        label:
-          stream.readyState === EventSource.CLOSED
-            ? "Console unavailable"
-            : "Connection lost; reconnecting…",
-        tone: "pending",
-      });
-    };
-    return () => {
-      stream.close();
-    };
-  }, [serverID, streamKey]);
+  }, [serverID, streamKey, streamMode]);
   return (
     <div className="server-terminal">
       <div className="server-terminal-toolbar">
