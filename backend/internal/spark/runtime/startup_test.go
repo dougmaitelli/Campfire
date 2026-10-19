@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -64,6 +65,11 @@ func TestValheimBashStartupAndLiteralVariableValues(t *testing.T) {
 
 	if len(create) < 3 || create[len(create)-3] != "bash" || create[len(create)-2] != "-c" {
 		t.Fatal("startup shell was not passed to Docker", create)
+	}
+
+	tmpfs := slices.Index(create, "--tmpfs")
+	if tmpfs < 0 || tmpfs+1 >= len(create) || create[tmpfs+1] != "/tmp:rw,exec,nosuid,nodev,size=100m,mode=1777" {
+		t.Fatal("Valheim NSS wrapper needs a fresh writable temporary directory", create)
 	}
 
 	startup := create[len(create)-1]
