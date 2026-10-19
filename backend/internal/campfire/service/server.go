@@ -72,14 +72,38 @@ func (s *ServerService) CreateOwned(ctx context.Context, input model.ServerConfi
 
 // Update changes a configuration while preserving placement and game identity.
 func (s *ServerService) Update(ctx context.Context, id string, input model.ServerConfiguration) (model.Server, error) {
-	current, err := s.Get(ctx, id)
+	if s.runtime != nil {
+		release, err := s.runtime.BeforeEdit(ctx, id, input)
+		if err != nil {
+			return model.Server{}, err
+		}
+		defer release()
+	}
+
+	server, err := s.Get(ctx, id)
 	if err != nil {
 		return model.Server{}, err
 	}
 
-	ember, err := s.embers.Get(ctx, current.EmberID)
+	if input.SparkID != server.SparkID || input.EmberID != server.EmberID {
+		return model.Server{}, fmt.Errorf("%w: Spark and Ember cannot be changed", ErrInvalidServer)
+	}
+
+	input, err = s.preserveHiddenVariables(ctx, server, input)
 	if err != nil {
 		return model.Server{}, err
+	}
+
+	server.ServerConfiguration = input
+
+	return s.save(ctx, server, false)
+}
+
+// preserveHiddenVariables hydrates omitted values from the locked server snapshot.
+func (s *ServerService) preserveHiddenVariables(ctx context.Context, current model.Server, input model.ServerConfiguration) (model.ServerConfiguration, error) {
+	ember, err := s.embers.Get(ctx, current.EmberID)
+	if err != nil {
+		return model.ServerConfiguration{}, err
 	}
 
 	input.Variables = maps.Clone(input.Variables)
@@ -99,26 +123,7 @@ func (s *ServerService) Update(ctx context.Context, id string, input model.Serve
 		}
 	}
 
-	if s.runtime != nil {
-		release, err := s.runtime.BeforeEdit(ctx, id, input)
-		if err != nil {
-			return model.Server{}, err
-		}
-		defer release()
-	}
-
-	server, err := s.Get(ctx, id)
-	if err != nil {
-		return model.Server{}, err
-	}
-
-	if input.SparkID != server.SparkID || input.EmberID != server.EmberID {
-		return model.Server{}, fmt.Errorf("%w: Spark and Ember cannot be changed", ErrInvalidServer)
-	}
-
-	server.ServerConfiguration = input
-
-	return s.save(ctx, server, false)
+	return input, nil
 }
 
 // ApplyEmber explicitly replaces a stopped server's pinned definition. The

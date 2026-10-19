@@ -22,6 +22,12 @@ func (s *DeploymentService) BeforeEdit(ctx context.Context, id string, input mod
 		release()
 		return nil, err
 	}
+
+	input, err = s.Servers.preserveHiddenVariables(ctx, server, input)
+	if err != nil {
+		release()
+		return nil, err
+	}
 	// Names and descriptions never alter the runtime or its reservations.
 	if model.SameRuntimeConfiguration(server.ServerConfiguration, input) {
 		return release, nil
