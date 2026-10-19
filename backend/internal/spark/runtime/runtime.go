@@ -698,6 +698,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 		if shell == "" {
 			shell = "sh"
 		}
+
 		args = append(args, shell, "-c", startup)
 	}
 

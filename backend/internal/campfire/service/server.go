@@ -76,14 +76,17 @@ func (s *ServerService) Update(ctx context.Context, id string, input model.Serve
 	if err != nil {
 		return model.Server{}, err
 	}
+
 	ember, err := s.embers.Get(ctx, current.EmberID)
 	if err != nil {
 		return model.Server{}, err
 	}
+
 	input.Variables = maps.Clone(input.Variables)
 	if input.Variables == nil {
 		input.Variables = make(map[string]string)
 	}
+
 	visible := make(map[string]bool)
 	for _, variable := range ember.Variables {
 		visible[variable.Name] = !variable.Hidden
@@ -95,6 +98,7 @@ func (s *ServerService) Update(ctx context.Context, id string, input model.Serve
 			input.Variables[name] = value
 		}
 	}
+
 	if s.runtime != nil {
 		release, err := s.runtime.BeforeEdit(ctx, id, input)
 		if err != nil {
@@ -158,14 +162,17 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 	if input.Variables == nil {
 		input.Variables = make(map[string]string)
 	}
+
 	for _, variable := range latest.Variables {
 		if _, supplied := input.Variables[variable.Name]; supplied || !variable.Hidden || !variable.Editable {
 			continue
 		}
+
 		if value, exists := server.Variables[variable.Name]; exists {
 			input.Variables[variable.Name] = value
 		}
 	}
+
 	server.ServerConfiguration = input
 
 	return s.save(ctx, server, false)

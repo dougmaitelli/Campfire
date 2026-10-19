@@ -69,6 +69,7 @@ func (a *API) createServer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+
 	server, err := a.servers.CreateOwned(r.Context(), input.ServerConfiguration, ownerID)
 	if err != nil {
 		writeError(w, err)
@@ -97,6 +98,7 @@ func (a *API) updateServer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+
 	server, err := a.servers.Update(r.Context(), r.PathValue("id"), input)
 	if err != nil {
 		writeError(w, err)
@@ -125,6 +127,7 @@ func (a *API) applyServerEmber(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+
 	server, err := a.servers.ApplyEmber(r.Context(), r.PathValue("id"), input.ExpectedEmberID, input.ServerConfiguration)
 	if err != nil {
 		writeError(w, err)
@@ -156,6 +159,7 @@ func (a *API) listServers(w http.ResponseWriter, r *http.Request) {
 
 	visible := make([]model.Server, 0, len(servers))
 	definitions := make(map[string]model.Ember)
+
 	for _, server := range servers {
 		server.Permissions, err = a.access.ServerPermissions(r.Context(), currentUser(r), server.ID)
 		if err != nil {
@@ -171,8 +175,10 @@ func (a *API) listServers(w http.ResponseWriter, r *http.Request) {
 					writeError(w, err)
 					return
 				}
+
 				definitions[server.EmberID] = ember
 			}
+
 			visible = append(visible, visibleServer(server, ember))
 		}
 	}

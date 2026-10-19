@@ -37,9 +37,11 @@ func (d *accessRuntime) Console(ctx context.Context, _ string, id string, emit f
 
 func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Deployment) (model.ConfigurationReceipt, error) {
 	d.calls.Add(1)
+
 	if d.configure != nil {
 		d.configure(definition)
 	}
+
 	return model.ConfigurationReceipt{ServerID: definition.ServerID, Revision: strings.Repeat("a", 64)}, nil
 }
 func (d *accessRuntime) Action(_ context.Context, _ string, action model.RuntimeRequest) (model.RuntimeStatus, error) {

@@ -163,6 +163,7 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 
 	for index, variable := range egg.Variables {
 		path := fmt.Sprintf("variables[%d]", index)
+
 		value, err := eggScalar(variable.Default)
 		if err != nil {
 			report.fail(path+".default_value", "Variable defaults must be scalar values.")
@@ -177,6 +178,7 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 		converted.Default = value
 
 		converted.Editable = variable.Editable
+
 		converted.Hidden = variable.Viewable == nil || !*variable.Viewable
 		if !converted.Editable {
 			report.warn(path+".user_editable", "Non-editable variables are pinned to their defaults for everyone, including administrators.")
