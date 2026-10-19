@@ -60,6 +60,12 @@ func Run(ctx context.Context, config Config) error {
 		return errors.New("spark data directory is required")
 	}
 
+	if !config.EnrollOnly {
+		if err := runtime.ValidateDockerConfiguration(); err != nil {
+			return err
+		}
+	}
+
 	path := filepath.Join(config.DataDir, "identity.json")
 
 	var identity agentIdentity

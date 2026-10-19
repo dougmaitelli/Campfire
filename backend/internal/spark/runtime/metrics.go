@@ -39,17 +39,13 @@ type cpuCounters struct {
 
 // Stats reads one raw Linux Docker sample through the same Unix socket as console input.
 func (Docker) Stats(ctx context.Context, name string) (ContainerSample, error) {
-	host := os.Getenv("DOCKER_HOST")
-	if host == "" {
-		host = "unix:///var/run/docker.sock"
-	}
-
-	if !strings.HasPrefix(host, "unix://") || os.Getenv("DOCKER_CONTEXT") != "" {
-		return ContainerSample{}, errors.New("usage reporting requires the local Docker Unix socket")
+	socket, err := dockerSocket()
+	if err != nil {
+		return ContainerSample{}, err
 	}
 
 	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, "unix", strings.TrimPrefix(host, "unix://"))
+		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}, DisableKeepAlives: true}
 	defer transport.CloseIdleConnections()
 

@@ -7,26 +7,20 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 )
 
 // Input writes to game stdin without closing or replacing the game process.
 func (Docker) Input(ctx context.Context, container, text string) error {
-	host := os.Getenv("DOCKER_HOST")
-	if host == "" {
-		host = "unix:///var/run/docker.sock"
-	}
-
-	if !strings.HasPrefix(host, "unix://") || os.Getenv("DOCKER_CONTEXT") != "" {
-		return errors.New("console input requires the local Docker Unix socket")
+	socket, err := dockerSocket()
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	connection, err := (&net.Dialer{}).DialContext(ctx, "unix", strings.TrimPrefix(host, "unix://"))
+	connection, err := (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	if err != nil {
 		return errors.New("could not connect to Docker console")
 	}

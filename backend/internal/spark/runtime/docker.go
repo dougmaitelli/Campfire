@@ -4,8 +4,12 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"campfire/internal/shared/model"
 )
@@ -17,6 +21,41 @@ type Executor interface {
 
 // Docker executes the installed Docker CLI without invoking a host shell.
 type Docker struct{}
+
+// ValidateDockerConfiguration rejects transports unsupported by the node runtime.
+func ValidateDockerConfiguration() error {
+	_, err := dockerSocket()
+	return err
+}
+
+func dockerSocket() (string, error) {
+	if os.Getenv("DOCKER_CONTEXT") != "" {
+		return "", errors.New("node runtime requires a local Docker Unix socket; unset DOCKER_CONTEXT and use DOCKER_HOST=unix:///path/to/docker.sock if needed")
+	}
+
+	host := os.Getenv("DOCKER_HOST")
+	if host == "" {
+		host = "unix:///var/run/docker.sock"
+	}
+
+	socket := strings.TrimPrefix(host, "unix://")
+	if !strings.HasPrefix(host, "unix://") || !filepath.IsAbs(socket) || strings.ContainsAny(socket, "\x00?#") {
+		return "", errors.New("node runtime requires DOCKER_HOST to be a local Unix socket URL with an absolute path")
+	}
+
+	return socket, nil
+}
+
+func dockerCommand(ctx context.Context, args ...string) (*exec.Cmd, error) {
+	socket, err := dockerSocket()
+	if err != nil {
+		return nil, err
+	}
+
+	// Pin CLI operations to the same endpoint as direct console and metrics calls,
+	// regardless of the current context saved in Docker's configuration file.
+	return exec.CommandContext(ctx, "docker", append([]string{"--host", "unix://" + socket}, args...)...), nil
+}
 
 type boundedOutput struct{ bytes.Buffer }
 
@@ -40,7 +79,11 @@ func (b *boundedOutput) Write(value []byte) (int, error) {
 
 // Run captures bounded output; errors never disclose environment values or scripts.
 func (Docker) Run(ctx context.Context, input io.Reader, args ...string) (string, error) {
-	command := exec.CommandContext(ctx, "docker", args...)
+	command, err := dockerCommand(ctx, args...)
+	if err != nil {
+		return "", err
+	}
+
 	command.Stdin = input
 	output := &boundedOutput{}
 
