@@ -332,13 +332,13 @@ export function ServerDialog({
                   required
                   disabled={server !== null}
                   value={value.spark_id}
-                  onChange={(event) => {
+                  onValueChange={(selectedValue) => {
                     const selected = sparks.find(
-                      (item) => item.id === event.target.value,
+                      (item) => item.id === selectedValue,
                     );
                     setValue({
                       ...value,
-                      spark_id: event.target.value,
+                      spark_id: selectedValue,
                       ports: defaultPorts(selected, ember, servers),
                     });
                   }}
@@ -374,13 +374,13 @@ export function ServerDialog({
                   required
                   disabled={server !== null}
                   value={value.ember_id}
-                  onChange={(event) => {
+                  onValueChange={(selectedValue) => {
                     const selected = embers.find(
-                      (item) => item.id === event.target.value,
+                      (item) => item.id === selectedValue,
                     );
                     setValue({
                       ...value,
-                      ember_id: event.target.value,
+                      ember_id: selectedValue,
                       image:
                         applyRevision &&
                         selected &&
@@ -417,8 +417,8 @@ export function ServerDialog({
                   disabled={runtimeRestricted}
                   required
                   value={value.image}
-                  onChange={(event) =>
-                    setValue({ ...value, image: event.target.value })
+                  onValueChange={(selectedValue) =>
+                    setValue({ ...value, image: selectedValue })
                   }
                 >
                   {Object.entries(ember?.images ?? {}).map(([label, image]) => (
@@ -561,8 +561,8 @@ export function ServerDialog({
                         id={`mapping-allocation-${index}`}
                         required
                         value={selected >= 0 ? String(selected) : ""}
-                        onChange={(event) => {
-                          const next = allocations[Number(event.target.value)];
+                        onValueChange={(selectedValue) => {
+                          const next = allocations[Number(selectedValue)];
                           if (next)
                             changePort(index, {
                               bind_ip: next.bind_ip,
@@ -680,11 +680,10 @@ export function ServerDialog({
                       <Select
                         id="backup-storage"
                         value={backupPolicy.storage}
-                        onChange={(event) =>
+                        onValueChange={(selectedValue) =>
                           changeBackupPolicy({
                             ...backupPolicy,
-                            storage: event.target
-                              .value as BackupPolicy["storage"],
+                            storage: selectedValue as BackupPolicy["storage"],
                           })
                         }
                       >
@@ -776,8 +775,8 @@ export function ServerDialog({
                       >
                         <Select
                           value={ownerID}
-                          onChange={(event) => {
-                            setOwnerID(Number(event.target.value));
+                          onValueChange={(selectedValue) => {
+                            setOwnerID(Number(selectedValue));
                             setAccessDirty(true);
                           }}
                         >
@@ -806,6 +805,9 @@ export function ServerDialog({
                     )}
                     <h4>Access grants</h4>
                     <AccessGrantFields
+                      users={access.subject_users.filter(
+                        (user) => user.id !== ownerID,
+                      )}
                       grants={grants}
                       subjectRoles={access.subject_roles}
                       accessRoles={access.roles}

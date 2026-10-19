@@ -34,6 +34,7 @@ export interface UserInput {
 export interface ServerAccess {
   grants: AccessGrant[];
   subject_roles: Role[];
+  subject_users: AccessUser[];
   owner: User | null;
   members: {
     user_id: number;
@@ -42,6 +43,27 @@ export interface ServerAccess {
     role: string;
   }[];
   roles: Role[];
+}
+
+export interface AccessUser {
+  id: number;
+  username: string;
+  name: string;
+}
+
+function isAccessUser(value: unknown): value is AccessUser {
+  return (
+    object(value) &&
+    id(value.id) &&
+    typeof value.username === "string" &&
+    typeof value.name === "string"
+  );
+}
+
+interface SparkAccess {
+  grants: AccessGrant[];
+  subject_roles: Role[];
+  subject_users: AccessUser[];
 }
 
 export interface AccessGrant {
@@ -71,9 +93,23 @@ function isGrant(value: unknown): value is AccessGrant {
 export async function readSparkAccess(
   sparkID: string,
   signal: AbortSignal,
-): Promise<{ grants: AccessGrant[]; subject_roles: Role[] }> {
+): Promise<SparkAccess> {
+  return readSparkAccessOptions(
+    `/api/v1/sparks/${encodeURIComponent(sparkID)}/access`,
+    signal,
+  );
+}
+
+export function sparkAccessOptions(signal: AbortSignal): Promise<SparkAccess> {
+  return readSparkAccessOptions("/api/v1/sparks/access-options", signal);
+}
+
+async function readSparkAccessOptions(
+  endpoint: string,
+  signal: AbortSignal,
+): Promise<SparkAccess> {
   const body = await readJSON(
-    await apiFetch(`/api/v1/sparks/${encodeURIComponent(sparkID)}/access`, {
+    await apiFetch(endpoint, {
       signal,
     }),
   );
@@ -82,10 +118,16 @@ export async function readSparkAccess(
     !Array.isArray(body.grants) ||
     !body.grants.every(isGrant) ||
     !Array.isArray(body.subject_roles) ||
-    !body.subject_roles.every(isRole)
+    !body.subject_roles.every(isRole) ||
+    !Array.isArray(body.subject_users) ||
+    !body.subject_users.every(isAccessUser)
   )
     throw new Error("Unexpected Spark access response.");
-  return { grants: body.grants, subject_roles: body.subject_roles };
+  return {
+    grants: body.grants,
+    subject_roles: body.subject_roles,
+    subject_users: body.subject_users,
+  };
 }
 
 export async function saveAccessGrants(
@@ -177,6 +219,8 @@ function isAccess(value: unknown): value is ServerAccess {
     value.grants.every(isGrant) &&
     Array.isArray(value.subject_roles) &&
     value.subject_roles.every(isRole) &&
+    Array.isArray(value.subject_users) &&
+    value.subject_users.every(isAccessUser) &&
     (value.owner === null || isUser(value.owner)) &&
     Array.isArray(value.roles) &&
     value.roles.every(isRole) &&

@@ -171,8 +171,8 @@ export function SchedulesPage() {
           <Select
             id="schedule-filter"
             value={filter}
-            onChange={(e) => {
-              setFilter(e.target.value);
+            onValueChange={(selectedValue) => {
+              setFilter(selectedValue);
               setLoading(true);
               setPolling(true);
             }}

@@ -17,6 +17,29 @@ type accessGrantView struct {
 	AccessRole   string `json:"access_role"`
 }
 
+type accessUserView struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Name     string `json:"name"`
+}
+
+func (a *API) subjectUsers(r *http.Request) ([]accessUserView, error) {
+	users, err := a.access.Users(r.Context())
+	if err != nil {
+		return nil, err
+	}
+
+	items := []accessUserView{}
+
+	for _, user := range users {
+		if !user.Disabled && user.RoleID != database.AdminRole {
+			items = append(items, accessUserView{ID: user.ID, Username: user.Username, Name: user.Name})
+		}
+	}
+
+	return items, nil
+}
+
 func grantView(id int64, userID *int64, user *database.User, roleID *int64, role *database.Role, accessRole database.Role) accessGrantView {
 	view := accessGrantView{ID: id, UserID: userID, RoleID: roleID, AccessRoleID: accessRole.ID, AccessRole: accessRole.Name}
 	if user != nil {
@@ -73,13 +96,27 @@ func (a *API) sparkAccess(w http.ResponseWriter, r *http.Request) {
 		views = append(views, grantView(item.ID, item.UserID, item.User, item.RoleID, item.Role, item.AccessRole))
 	}
 
+	a.writeSparkAccess(w, r, views)
+}
+
+func (a *API) sparkAccessOptions(w http.ResponseWriter, r *http.Request) {
+	a.writeSparkAccess(w, r, []accessGrantView{})
+}
+
+func (a *API) writeSparkAccess(w http.ResponseWriter, r *http.Request, views []accessGrantView) {
 	subjects, err := a.subjectRoles(r)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"grants": views, "subject_roles": subjects})
+	users, err := a.subjectUsers(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"grants": views, "subject_roles": subjects, "subject_users": users})
 }
 
 func (a *API) grantSparkAccess(w http.ResponseWriter, r *http.Request) {

@@ -180,7 +180,7 @@ export function UserDialog({
           <Select
             id="user-role"
             value={roleID}
-            onChange={(event) => setRoleID(Number(event.target.value))}
+            onValueChange={(selectedValue) => setRoleID(Number(selectedValue))}
           >
             {roles
               .filter((role) => role.scope === "platform")

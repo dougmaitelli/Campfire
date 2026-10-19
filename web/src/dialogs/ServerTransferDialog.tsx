@@ -222,7 +222,7 @@ export function ServerTransferDialog({
             id="transfer-target"
             value={targetID}
             disabled={busy || active}
-            onChange={(event) => selectTarget(event.target.value)}
+            onValueChange={(selectedValue) => selectTarget(selectedValue)}
           >
             <option value="">Select a Spark</option>
             {choices.map((spark) => (
@@ -252,11 +252,11 @@ export function ServerTransferDialog({
                   <Select
                     id={`transfer-ip-${index}`}
                     value={port.bind_ip}
-                    onChange={(event) =>
+                    onValueChange={(selectedValue) =>
                       setPorts((current) =>
                         current.map((entry, i) =>
                           i === index
-                            ? { ...entry, bind_ip: event.target.value }
+                            ? { ...entry, bind_ip: selectedValue }
                             : entry,
                         ),
                       )

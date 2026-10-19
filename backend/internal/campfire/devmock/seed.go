@@ -126,6 +126,30 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 		return err
 	}
 
+	var admin database.User
+	if err := tx.First(&admin, 1).Error; err != nil {
+		return err
+	}
+
+	for _, account := range []struct {
+		username, name string
+		role           int64
+		disabled       bool
+	}{
+		{"alex", "Alex Rivera", database.CreatorRole, false},
+		{"sam", "Sam Chen", database.CreatorRole, false},
+		{"jordan", "Jordan Patel", database.UserRole, false},
+		{"morgan", "Morgan Lee", database.UserRole, false},
+		{"casey", "", database.UserRole, false},
+		{"taylor", "Taylor Brooks", database.UserRole, true},
+	} {
+		// All disposable mock accounts use the documented development password.
+		user := database.User{Username: account.username, Name: account.name, Email: account.username + "@example.test", PasswordHash: admin.PasswordHash, CredentialVersion: 1, RoleID: account.role, Disabled: account.disabled}
+		if err := tx.Create(&user).Error; err != nil {
+			return err
+		}
+	}
+
 	sparks := repository.NewSparkRepository(tx)
 
 	for _, node := range []struct{ id, name, description string }{

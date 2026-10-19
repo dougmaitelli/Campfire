@@ -95,12 +95,32 @@ func TestSeedAuthenticationAndPersistence(t *testing.T) {
 		model any
 		count int64
 	}{
-		{&database.User{}, 1}, {&database.Server{}, 5}, {&database.Spark{}, 3},
+		{&database.User{}, 7}, {&database.Server{}, 5}, {&database.Spark{}, 3},
 		{&database.Ember{}, 2}, {&database.Schedule{}, 1}, {&database.Notification{}, 2},
 	} {
 		var count int64
 		if err := db.ORM().Model(record.model).Count(&count).Error; err != nil || count != record.count {
 			t.Fatalf("mock restart duplicated fixtures for %T: %d, %v", record.model, count, err)
+		}
+	}
+}
+
+func TestMockUsersSupportAccessSelection(t *testing.T) {
+	_, _, auth, _ := fixture(t)
+
+	users, err := auth.Access().Users(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, user := range users {
+		if user.Username == Username {
+			continue
+		}
+
+		_, _, err := auth.Login(t.Context(), user.Username, Password, "")
+		if user.Disabled && err == nil || !user.Disabled && err != nil {
+			t.Fatal("mock account login does not match its state", user.Username, err)
 		}
 	}
 }

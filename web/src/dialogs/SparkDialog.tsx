@@ -5,11 +5,12 @@ import { Button } from "../components/forms/Button";
 import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import {
-  listRoles,
+  sparkAccessOptions,
   readSparkAccess,
   saveAccessGrants,
   type AccessGrant,
   type Role,
+  type AccessUser,
 } from "../api/access";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { createSpark, updateSpark } from "../api/sparks";
@@ -31,6 +32,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
   const submittingRef = useRef(false);
   const [created, setCreated] = useState<Spark | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [users, setUsers] = useState<AccessUser[]>([]);
   const [grants, setGrants] = useState<AccessGrant[]>([]);
   const [removedIDs, setRemovedIDs] = useState<number[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
@@ -38,18 +40,16 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
   const [rolesAttempt, setRolesAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    void Promise.all([
-      listRoles(controller.signal),
+    void (
       spark
         ? readSparkAccess(spark.id, controller.signal)
-        : Promise.resolve({ grants: [] }),
-    ])
-      .then(([catalog, ids]) => {
+        : sparkAccessOptions(controller.signal)
+    )
+      .then((access) => {
         if (controller.signal.aborted) return;
-        setRoles(
-          catalog.filter((role) => role.id !== 1 && role.scope === "platform"),
-        );
-        setGrants(ids.grants);
+        setRoles(access.subject_roles);
+        setUsers(access.subject_users);
+        setGrants(access.grants);
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
@@ -361,10 +361,9 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                     <Select
                       id={`allocation-protocol-${index}`}
                       value={allocation.protocol}
-                      onChange={(event) =>
+                      onValueChange={(selectedValue) =>
                         changeAllocation(index, {
-                          protocol:
-                            event.target.value === "udp" ? "udp" : "tcp",
+                          protocol: selectedValue === "udp" ? "udp" : "tcp",
                         })
                       }
                     >
@@ -458,6 +457,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 </>
               ) : (
                 <AccessGrantFields
+                  users={users}
                   grants={grants}
                   subjectRoles={roles}
                   accessRoles={[{ id: 2, name: "Create servers" }]}

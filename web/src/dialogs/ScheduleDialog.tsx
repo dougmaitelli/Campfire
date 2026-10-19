@@ -180,7 +180,7 @@ export function ScheduleDialog({
             id="schedule-server"
             value={serverID}
             disabled={schedule !== null}
-            onChange={(e) => setServerID(e.target.value)}
+            onValueChange={(selectedValue) => setServerID(selectedValue)}
           >
             {servers.map((server) => (
               <option key={server.id} value={server.id}>
@@ -193,7 +193,7 @@ export function ScheduleDialog({
           <Select
             id="schedule-action"
             value={action}
-            onChange={(e) => setAction(e.target.value)}
+            onValueChange={(selectedValue) => setAction(selectedValue)}
           >
             {["backup", "restart", "start", "stop", "kill", "command"].map(
               (value) => (
@@ -226,7 +226,7 @@ export function ScheduleDialog({
         <FormField label="Timing">
           <Select
             value={once ? "once" : "recurring"}
-            onChange={(event) => setOnce(event.target.value === "once")}
+            onValueChange={(selectedValue) => setOnce(selectedValue === "once")}
           >
             <option value="recurring">Recurring</option>
             <option value="once">Run once</option>

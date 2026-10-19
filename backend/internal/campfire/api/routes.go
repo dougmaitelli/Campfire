@@ -41,6 +41,7 @@ func (a *API) Handler() http.Handler {
 	platform("GET /api/v1/backups", "servers.manage_all", a.listBackups)
 	platform("POST /api/v1/sparks", "sparks.manage", a.createSpark)
 	platform("GET /api/v1/sparks", "sparks.manage", a.listSparks)
+	platform("GET /api/v1/sparks/access-options", "sparks.manage", a.sparkAccessOptions)
 	platform("GET /api/v1/sparks/update-status", "sparks.manage", a.sparkUpdateStatus)
 	platform("POST /api/v1/sparks/{id}/update", "sparks.manage", a.updateSparkClient)
 	platform("GET /api/v1/sparks/{id}", "sparks.manage", a.getSpark)

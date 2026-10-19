@@ -359,8 +359,8 @@ export function ImportEmberDialog({
                   <Select
                     id="egg-startup-command"
                     value={startupCommand}
-                    onChange={(event) => {
-                      setStartupCommand(event.target.value);
+                    onValueChange={(selectedValue) => {
+                      setStartupCommand(selectedValue);
                       setReviewed(false);
                       setPreview({ ...preview, ember: null });
                     }}

@@ -114,9 +114,8 @@ export function RoleDialog({
             id="role-scope"
             value={scope}
             disabled={role !== null}
-            onChange={(event) => {
-              const next =
-                event.target.value === "platform" ? "platform" : "server";
+            onValueChange={(selectedValue) => {
+              const next = selectedValue === "platform" ? "platform" : "server";
               setScope(next);
               setPermissions(next === "server" ? ["server.view"] : []);
             }}

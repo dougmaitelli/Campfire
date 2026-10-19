@@ -79,3 +79,80 @@ func TestUserAndRoleAccessGrants(t *testing.T) {
 	expectAccess(t, viewer, "GET", "/api/v1/provisioning", "", http.StatusOK)
 	expectAccess(t, viewer, "GET", "/api/v1/sparks", "", http.StatusForbidden)
 }
+
+func TestAccessUserChoicesRespectResourcePermissions(t *testing.T) {
+	f := newAccessFixture(t)
+	_, creator := f.user("picker-owner", database.CreatorRole)
+	target, _ := f.user("picker-target", database.UserRole)
+	disabled, _ := f.user("picker-disabled", database.UserRole)
+	deleted, _ := f.user("picker-deleted", database.UserRole)
+	_, outsider := f.user("picker-outsider", database.UserRole)
+	expectAccess(t, f.admin, "PUT", fmt.Sprintf("/api/v1/users/%d", target.ID), `{"role_id":3,"name":"Picker Target","email":"private@example.com"}`, http.StatusOK)
+	expectAccess(t, f.admin, "PUT", fmt.Sprintf("/api/v1/users/%d", disabled.ID), `{"role_id":3,"disabled":true}`, http.StatusOK)
+	expectAccess(t, f.admin, "DELETE", fmt.Sprintf("/api/v1/users/%d", deleted.ID), "", http.StatusNoContent)
+	node, _, input := serverFixture(t, f.admin)
+
+	expectAccess(t, f.admin, "POST", "/api/v1/sparks/"+node.ID+"/access/grants", `{"username":"picker-owner","access_role_id":2}`, http.StatusNoContent)
+
+	response := request(creator, "POST", "/api/v1/servers", configJSON(t, input))
+	if response.Code != http.StatusCreated {
+		t.Fatal(response.Code, response.Body)
+	}
+
+	var server model.Server
+	if err := json.Unmarshal(response.Body.Bytes(), &server); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, check := range []struct {
+		name     string
+		handler  http.Handler
+		endpoint string
+	}{
+		{"spark-create", f.admin, "/api/v1/sparks/access-options"},
+		{"spark-edit", f.admin, "/api/v1/sparks/" + node.ID + "/access"},
+		{"server-create", creator, "/api/v1/provisioning/access"},
+		{"server-edit", creator, "/api/v1/servers/" + server.ID + "/access"},
+	} {
+		t.Run(check.name, func(t *testing.T) {
+			response := request(check.handler, "GET", check.endpoint, "")
+			if response.Code != http.StatusOK {
+				t.Fatal(response.Code, response.Body)
+			}
+
+			var body struct {
+				Users []map[string]json.RawMessage `json:"subject_users"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+
+			found := false
+
+			for _, user := range body.Users {
+				if len(user) != 3 || user["id"] == nil || user["name"] == nil || user["username"] == nil {
+					t.Fatal("user choices exposed unrelated account fields", user)
+				}
+
+				var username string
+				if err := json.Unmarshal(user["username"], &username); err != nil {
+					t.Fatal(err)
+				}
+
+				if username == disabled.Username || username == deleted.Username || username == "admin" {
+					t.Fatal("unassignable account offered", username)
+				}
+
+				found = found || username == target.Username
+			}
+
+			if !found {
+				t.Fatal("eligible user missing from choices", response.Body)
+			}
+		})
+	}
+
+	expectAccess(t, creator, "GET", "/api/v1/users", "", http.StatusForbidden)
+	expectAccess(t, outsider, "GET", "/api/v1/sparks/access-options", "", http.StatusForbidden)
+	expectAccess(t, outsider, "GET", "/api/v1/servers/"+server.ID+"/access", "", http.StatusNotFound)
+}

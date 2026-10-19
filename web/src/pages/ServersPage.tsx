@@ -210,7 +210,7 @@ export function ServersPage() {
             <Select
               aria-label="Filter by Spark"
               value={sparkFilter}
-              onChange={(event) => setSparkFilter(event.target.value)}
+              onValueChange={(selectedValue) => setSparkFilter(selectedValue)}
             >
               <option value="">All Sparks</option>
               {[

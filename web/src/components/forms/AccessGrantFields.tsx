@@ -1,12 +1,12 @@
 import { useState } from "react";
-import type { AccessGrant, Role } from "../../api/access";
+import type { AccessGrant, AccessUser, Role } from "../../api/access";
 import { Button } from "./Button";
 import { FormField } from "./FormField";
 import { Select } from "./Select";
-import { TextInput } from "./TextInput";
 
 interface Props {
   grants: AccessGrant[];
+  users: AccessUser[];
   subjectRoles: Role[];
   accessRoles: { id: number; name: string }[];
   onChange: (grants: AccessGrant[], removedID?: number) => void;
@@ -14,12 +14,14 @@ interface Props {
 
 export function AccessGrantFields({
   grants,
+  users,
   subjectRoles,
   accessRoles,
   onChange,
 }: Props) {
   const [subject, setSubject] = useState("user");
-  const [username, setUsername] = useState("");
+  const [userID, setUserID] = useState(0);
+  const user = users.find((item) => item.id === userID);
   const [roleID, setRoleID] = useState(subjectRoles[0]?.id ?? 0);
   const [accessID, setAccessID] = useState(accessRoles[0]?.id ?? 0);
   return (
@@ -63,26 +65,33 @@ export function AccessGrantFields({
       <FormField label="Grant to">
         <Select
           value={subject}
-          onChange={(event) => setSubject(event.target.value)}
+          onValueChange={(selectedValue) => setSubject(selectedValue)}
         >
           <option value="user">User</option>
           <option value="role">Role</option>
         </Select>
       </FormField>
       {subject === "user" ? (
-        <FormField label="Existing username">
-          <TextInput
-            value={username}
-            maxLength={64}
-            autoComplete="off"
-            onChange={(event) => setUsername(event.target.value)}
-          />
+        <FormField label="User">
+          <Select
+            value={user?.id ?? 0}
+            onValueChange={(selectedValue) => setUserID(Number(selectedValue))}
+          >
+            <option value={0} disabled>
+              {users.length ? "Select a user" : "No users available"}
+            </option>
+            {users.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name ? `${item.name} (${item.username})` : item.username}
+              </option>
+            ))}
+          </Select>
         </FormField>
       ) : (
         <FormField label="Role">
           <Select
             value={roleID}
-            onChange={(event) => setRoleID(Number(event.target.value))}
+            onValueChange={(selectedValue) => setRoleID(Number(selectedValue))}
           >
             {subjectRoles.map((role) => (
               <option key={role.id} value={role.id}>
@@ -96,7 +105,9 @@ export function AccessGrantFields({
         <FormField label="Access level">
           <Select
             value={accessID}
-            onChange={(event) => setAccessID(Number(event.target.value))}
+            onValueChange={(selectedValue) =>
+              setAccessID(Number(selectedValue))
+            }
           >
             {accessRoles.map((role) => (
               <option key={role.id} value={role.id}>
@@ -108,14 +119,12 @@ export function AccessGrantFields({
       )}
       <Button
         type="button"
-        disabled={
-          !accessID || (subject === "user" ? !username.trim() : !roleID)
-        }
+        disabled={!accessID || (subject === "user" ? !user : !roleID)}
         onClick={() => {
           const level = accessRoles.find((role) => role.id === accessID);
-          if (!level) return;
+          if (!level || (subject === "user" && !user)) return;
           const targetRole = subject === "role" ? roleID : null;
-          const name = username.trim();
+          const name = user?.username ?? "";
           const previous = grants.find((grant) =>
             targetRole === null
               ? grant.role_id === null &&
@@ -124,7 +133,7 @@ export function AccessGrantFields({
           );
           const next: AccessGrant = {
             id: previous?.id ?? 0,
-            user_id: previous?.user_id ?? null,
+            user_id: targetRole === null ? (user?.id ?? null) : null,
             username: targetRole === null ? name : "",
             role_id: targetRole,
             role_name:
@@ -133,7 +142,7 @@ export function AccessGrantFields({
             access_role: level.name,
           };
           onChange([...grants.filter((grant) => grant !== previous), next]);
-          setUsername("");
+          setUserID(0);
         }}
       >
         Add access

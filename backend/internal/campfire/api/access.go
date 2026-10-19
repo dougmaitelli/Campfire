@@ -191,13 +191,20 @@ func (a *API) serverAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	users, err := a.subjectUsers(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, struct {
 		Owner        *database.User     `json:"owner"`
 		Members      []serverMember     `json:"members"`
 		Roles        []service.RoleView `json:"roles"`
 		Grants       []accessGrantView  `json:"grants"`
 		SubjectRoles []service.RoleView `json:"subject_roles"`
-	}{owner, views, allowed, serverGrantViews(members), subjects})
+		SubjectUsers []accessUserView   `json:"subject_users"`
+	}{owner, views, allowed, serverGrantViews(members), subjects, users})
 }
 
 func (a *API) assignableServerRoles(r *http.Request) ([]service.RoleView, error) {
@@ -230,7 +237,13 @@ func (a *API) serverAccessOptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"owner": nil, "members": []serverMember{}, "roles": roles, "grants": []accessGrantView{}, "subject_roles": subjects})
+	users, err := a.subjectUsers(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"owner": nil, "members": []serverMember{}, "roles": roles, "grants": []accessGrantView{}, "subject_roles": subjects, "subject_users": users})
 }
 
 func (a *API) shareServer(w http.ResponseWriter, r *http.Request) {
