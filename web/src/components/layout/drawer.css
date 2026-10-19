@@ -49,49 +49,7 @@
   font-size: 13px;
   line-height: 1.5;
 }
-.drawer-form label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.drawer-form input,
-.drawer-form select,
-.drawer-form textarea {
-  width: 100%;
-  margin-bottom: 20px;
-}
-.drawer-form textarea {
-  resize: vertical;
-}
-.drawer-form input:read-only {
-  color: var(--muted);
-}
-.drawer-form fieldset {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
-.drawer-form .port-mapping {
-  padding: 16px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.port-mapping legend {
-  padding: 0 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.drawer-form .form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.drawer-form h4 {
-  margin: 20px 0 12px;
-}
+
 .drawer-content {
   padding: 24px;
   flex: 1;
@@ -102,48 +60,6 @@
   line-height: 1.6;
 }
 
-.drawer-form .definition-editor {
-  font-family: monospace !important;
-  min-height: clamp(360px, 60dvh, 720px);
-  line-height: 1.5;
-}
-
-.import-sources {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.ember-preview-definition {
-  max-height: 24rem;
-  overflow: auto;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
-  font-family: monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.agent-command {
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
-  font-size: 12px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.import-sources [aria-pressed="true"] {
-  border-color: var(--accent-border);
-  background: var(--accent-subtle);
-  color: var(--accent);
-}
 .drawer-content-area {
   display: flex;
   flex-direction: column;
@@ -195,6 +111,8 @@
 }
 @media (max-width: 480px) {
   .drawer-footer {
+    --button-padding: 8px 10px;
+    --button-font-size: 12px;
     padding: 16px;
     gap: 8px;
   }
@@ -202,8 +120,23 @@
   .drawer-footer-right {
     gap: 8px;
   }
-  .drawer-footer .button:not(.button-icon) {
-    padding: 8px 10px;
-    font-size: 12px;
-  }
+}
+
+.drawer-panel {
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.drawer-panel .drawer-heading {
+  padding: 16px 20px;
+}
+.drawer-panel .drawer-heading h2 {
+  font-size: 16px;
+}
+.drawer-panel .drawer-content {
+  padding: 16px 20px;
+}
+.drawer-panel .drawer-footer {
+  position: static;
 }

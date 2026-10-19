@@ -52,7 +52,7 @@ export function Drawer({
   );
   if (embedded)
     return (
-      <section className="drawer-form operations-panel" aria-labelledby={id}>
+      <section className="drawer-form drawer-panel" aria-labelledby={id}>
         <header className="drawer-heading">
           <div>
             <h2 id={id} className="drawer-title">

@@ -1,4 +1,6 @@
+import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
+import "./server-dialog.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
@@ -434,7 +436,7 @@ export function ServerDialog({
               </FormField>
               {(ember?.variables ?? []).some(
                 (variable) => !variable.hidden,
-              ) && <h4>Game settings</h4>}
+              ) && <h4 className="server-dialog-heading">Game settings</h4>}
               {(ember?.variables ?? [])
                 .filter((variable) => !variable.hidden)
                 .map((variable) => (
@@ -482,7 +484,7 @@ export function ServerDialog({
                 ? "Map every required Ember container port and protocol."
                 : null,
           content: (
-            <fieldset disabled={runtimeRestricted}>
+            <Fieldset disabled={runtimeRestricted}>
               <p className="field-help">
                 Reserve capacity on {spark?.name ?? "the selected Spark"}. Set
                 the resources allocated to this server.
@@ -504,7 +506,7 @@ export function ServerDialog({
                   }
                 />
               </FormField>
-              <div className="form-grid">
+              <div className="server-form-grid">
                 <div>
                   <FormField label="Memory (MiB)">
                     <TextInput
@@ -549,7 +551,7 @@ export function ServerDialog({
                   </FormField>
                 </div>
               </div>
-              <h4>Port mappings</h4>
+              <h4 className="server-dialog-heading">Port mappings</h4>
               <p className="field-help">
                 Host ports must belong to the Spark’s allocation ranges and be
                 available. Container ports must match the Ember requirements.
@@ -564,7 +566,7 @@ export function ServerDialog({
                 );
                 const allocation = allocations[selected];
                 return (
-                  <fieldset className="port-mapping" key={index}>
+                  <Fieldset className="port-mapping" key={index}>
                     <legend>Mapping {index + 1}</legend>
                     <FormField label="Spark allocation">
                       <Select
@@ -592,7 +594,7 @@ export function ServerDialog({
                         ))}
                       </Select>
                     </FormField>
-                    <div className="form-grid">
+                    <div className="server-form-grid">
                       <div>
                         <FormField label="Host port">
                           <TextInput
@@ -649,7 +651,7 @@ export function ServerDialog({
                     >
                       Remove mapping
                     </Button>
-                  </fieldset>
+                  </Fieldset>
                 );
               })}
               <Button
@@ -674,7 +676,7 @@ export function ServerDialog({
               >
                 + Add mapping
               </Button>
-            </fieldset>
+            </Fieldset>
           ),
         },
         ...(!applyRevision
@@ -777,7 +779,7 @@ export function ServerDialog({
                   <p role="status">Loading access…</p>
                 ) : (
                   <>
-                    <h4>Owner</h4>
+                    <h4 className="server-dialog-heading">Owner</h4>
                     {admin ? (
                       <FormField
                         label="Owner"
@@ -813,7 +815,7 @@ export function ServerDialog({
                           "Administrator managed"}
                       </p>
                     )}
-                    <h4>Access grants</h4>
+                    <h4 className="server-dialog-heading">Access grants</h4>
                     <AccessGrantFields
                       users={access.subject_users.filter(
                         (user) => user.id !== ownerID,
@@ -884,7 +886,7 @@ export function ServerDialog({
               )}
               {canShare && access && (
                 <>
-                  <h4>Access</h4>
+                  <h4 className="server-dialog-heading">Access</h4>
                   <p>
                     Owner:{" "}
                     {admin

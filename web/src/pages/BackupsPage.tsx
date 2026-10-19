@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
 import { Button, ButtonLink } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -10,7 +11,6 @@ import { useCollection } from "../hooks/useCollection";
 import { Table, TableRow } from "../components/table/Table";
 import { BackupState } from "../components/servers/BackupState";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
-import "./management.css";
 
 export function BackupsPage() {
   const backups = useCollection(listAllBackups);
@@ -50,7 +50,7 @@ export function BackupsPage() {
           onChange={(event) => setSearch(event.target.value)}
         />
       </ListToolbar>
-      <div className="management-content">
+      <ContentPanel>
         <Table
           empty={filtered.length === 0}
           loading={backups.loading}
@@ -121,7 +121,7 @@ export function BackupsPage() {
             })}
           </tbody>
         </Table>
-      </div>
+      </ContentPanel>
     </section>
   );
 }

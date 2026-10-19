@@ -1,3 +1,4 @@
+import { Fieldset } from "../forms/Fieldset";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
 import { useEffect, useId, useRef, useState } from "react";
@@ -137,8 +138,7 @@ export function Wizard({
         {(validationError ?? error) && (
           <InlineMessage role="alert">{validationError ?? error}</InlineMessage>
         )}
-        <fieldset
-          className="wizard-fields"
+        <Fieldset
           disabled={busy}
           onChangeCapture={invalidateCurrentStep}
           onClickCapture={(event) => {
@@ -151,7 +151,7 @@ export function Wizard({
           }}
         >
           {step.content}
-        </fieldset>
+        </Fieldset>
       </div>
     </form>
   );

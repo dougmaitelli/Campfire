@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { ContentState } from "../components/layout/ContentState";
@@ -11,7 +12,7 @@ import {
 } from "../api/notifications";
 import { useNotifications } from "../hooks/useNotifications";
 import { StatusPill } from "../components/status/StatusPill";
-import "./management.css";
+import "./notifications.css";
 
 export function NotificationsPage() {
   const inbox = useNotifications();
@@ -138,7 +139,7 @@ export function NotificationsPage() {
         }
       />
       {error && <InlineMessage role="alert">{error}</InlineMessage>}
-      <div className="management-content">
+      <ContentPanel>
         {(loading || !items.length) && (
           <ContentState
             loading={loading}
@@ -170,6 +171,7 @@ export function NotificationsPage() {
               </p>
             </div>
             <Button
+              size="small"
               aria-label={`${item.read_at ? "Mark unread" : "Mark read"}: ${item.title}`}
               disabled={busy}
               onClick={() => {
@@ -192,7 +194,7 @@ export function NotificationsPage() {
             Load older
           </Button>
         )}
-      </div>
+      </ContentPanel>
     </section>
   );
 }

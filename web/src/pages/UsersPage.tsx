@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -9,7 +10,7 @@ import { useCollection } from "../hooks/useCollection";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { UserDialog } from "../dialogs/UserDialog";
 import { StatusPill } from "../components/status/StatusPill";
-import "./management.css";
+
 import { Table, TableRow } from "../components/table/Table";
 
 export function UsersPage() {
@@ -68,7 +69,7 @@ export function UsersPage() {
           onChange={(event) => setSearch(event.target.value)}
         />
       </ListToolbar>
-      <div className="management-content">
+      <ContentPanel>
         <Table
           empty={filtered.length === 0}
           loading={users.loading}
@@ -114,7 +115,7 @@ export function UsersPage() {
             ))}
           </tbody>
         </Table>
-      </div>
+      </ContentPanel>
       <p className="field-help">
         At least one enabled administrator must remain. Accounts that own
         servers must transfer ownership before deletion.

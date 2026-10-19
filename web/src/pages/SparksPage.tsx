@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -12,7 +13,7 @@ import { deleteSpark, listSparks, updateSparkClient } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import { useMonitoring } from "../hooks/useMonitoring";
 import "./sparks.css";
-import "./management.css";
+
 import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 
 const UPDATE_RECONNECT_TIMEOUT_MS = 120000;
@@ -164,7 +165,7 @@ export function SparksPage() {
       {(deleteError ?? (sparks.length ? error : null)) && (
         <InlineMessage role="alert">{error ?? deleteError}</InlineMessage>
       )}
-      <div className="management-content" aria-busy={loading}>
+      <ContentPanel aria-busy={loading}>
         {updateError && <InlineMessage>{updateError}</InlineMessage>}
         <SparksTable
           loading={loading}
@@ -184,7 +185,7 @@ export function SparksPage() {
           updating={updating}
           onUpdate={setConfirmUpdate}
         />
-      </div>
+      </ContentPanel>
       <p className="list-summary" role="status">
         {loading
           ? "Loading Sparks…"

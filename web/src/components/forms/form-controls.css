@@ -16,5 +16,9 @@
 .text-input[aria-invalid="true"],
 .textarea[aria-invalid="true"],
 .select[aria-invalid="true"] {
-  border-color: #f87171;
+  border-color: var(--danger-accent);
+}
+
+.text-input:read-only {
+  color: var(--muted);
 }

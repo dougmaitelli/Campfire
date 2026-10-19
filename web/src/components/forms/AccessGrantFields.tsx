@@ -3,6 +3,7 @@ import type { AccessGrant, AccessUser, Role } from "../../api/access";
 import { Button } from "./Button";
 import { FormField } from "./FormField";
 import { Select } from "./Select";
+import "./access-grant-fields.css";
 
 interface Props {
   grants: AccessGrant[];

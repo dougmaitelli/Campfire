@@ -1,5 +1,4 @@
-.checkbox-field,
-.drawer-form .checkbox-field {
+.checkbox-field {
   display: flex;
   align-items: center;
   gap: 10px;

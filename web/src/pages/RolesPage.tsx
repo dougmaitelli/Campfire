@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -5,7 +6,7 @@ import { useState } from "react";
 import { deleteRole, listRoles, type Role } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { RoleDialog } from "../dialogs/RoleDialog";
-import "./management.css";
+
 import { Table, TableRow } from "../components/table/Table";
 
 const permissionLabels: Record<string, string> = {
@@ -85,7 +86,7 @@ export function RolesPage() {
       {(error ?? (roles.items.length ? roles.error : null)) && (
         <InlineMessage role="alert">{error ?? roles.error}</InlineMessage>
       )}
-      <div className="management-content">
+      <ContentPanel>
         <Table
           empty={roles.items.length === 0}
           loading={roles.loading}
@@ -142,7 +143,7 @@ export function RolesPage() {
             ))}
           </tbody>
         </Table>
-      </div>
+      </ContentPanel>
       {open && (
         <RoleDialog
           role={editing}

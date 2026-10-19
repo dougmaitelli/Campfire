@@ -1,3 +1,5 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
+import { ActionGroup } from "../components/layout/ActionGroup";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -17,7 +19,7 @@ import {
 } from "../api/activity";
 import { useCollection } from "../hooks/useCollection";
 import { ScheduleDialog } from "../dialogs/ScheduleDialog";
-import "./management.css";
+
 import { Table, TableRow } from "../components/table/Table";
 import { ExecutionState } from "../components/schedules/ExecutionState";
 
@@ -186,7 +188,7 @@ export function SchedulesPage() {
           </Select>
         </FormField>
       </ListToolbar>
-      <div className="management-content">
+      <ContentPanel>
         <Table
           empty={
             !schedules.items.some(
@@ -265,7 +267,7 @@ export function SchedulesPage() {
                   <td>{item.username}</td>
                   <td className="table-actions">
                     {managed.some((server) => server.id === item.server_id) && (
-                      <div className="row-actions">
+                      <ActionGroup>
                         <Button
                           disabled={busy}
                           onClick={() => {
@@ -274,20 +276,20 @@ export function SchedulesPage() {
                         >
                           Run now
                         </Button>
-                      </div>
+                      </ActionGroup>
                     )}
                   </td>
                 </TableRow>
               ))}
           </tbody>
         </Table>
-      </div>
+      </ContentPanel>
       <h2>Execution history</h2>
       <p className="field-help">
         Includes manual server operations. Interrupted work may already have
         executed; inspect the server before retrying.
       </p>
-      <div className="management-content">
+      <ContentPanel>
         <Table
           empty={runs.length === 0}
           loading={loading}
@@ -377,7 +379,7 @@ export function SchedulesPage() {
             Load older executions
           </Button>
         )}
-      </div>
+      </ContentPanel>
       {open && (
         <ScheduleDialog
           schedule={editing}

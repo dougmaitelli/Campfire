@@ -1,0 +1,18 @@
+.table-row-trigger.spark-name {
+  display: block;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.row-description.spark-description {
+  max-width: 480px;
+  white-space: pre-wrap;
+}
+
+.spark-resource-summary {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}

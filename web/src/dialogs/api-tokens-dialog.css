@@ -1,0 +1,7 @@
+.api-token-heading {
+  margin: 20px 0 12px;
+}
+.text-input.api-token-secret {
+  width: 100%;
+  margin-bottom: 20px;
+}

@@ -1,5 +1,7 @@
+import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
+import "./import-ember-dialog.css";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
@@ -259,7 +261,7 @@ export function ImportEmberDialog({
       >
         <div className="drawer-content">
           {error && <InlineMessage role="alert">{error}</InlineMessage>}
-          <fieldset disabled={busy}>
+          <Fieldset disabled={busy}>
             {!ember && (
               <div
                 className="import-sources"
@@ -431,7 +433,7 @@ export function ImportEmberDialog({
                 )}
               </section>
             )}
-          </fieldset>
+          </Fieldset>
         </div>
       </form>
       {ember && confirmDelete && (

@@ -1,3 +1,5 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
+import { Fieldset } from "../components/forms/Fieldset";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PortPill } from "../components/network/PortPill";
@@ -174,7 +176,7 @@ export function ServerOperationsPage({
       {loading && <ContentState loading resource="server" />}
       {server && (
         <>
-          <div className="management-content operations-resources">
+          <ContentPanel className="operations-resources">
             <ResourceReadings
               usage={
                 monitoring.snapshot?.servers.find(
@@ -196,7 +198,7 @@ export function ServerOperationsPage({
                 />
               ))}
             </div>
-          </div>
+          </ContentPanel>
           {monitoring.error && (
             <InlineMessage tone="info" role="status">
               {monitoring.error}
@@ -311,7 +313,7 @@ export function ServerOperationsPage({
           }}
         >
           {confirmation === "reinstall" && (
-            <fieldset className="reinstall-options" disabled={acting}>
+            <Fieldset className="reinstall-options" disabled={acting}>
               <legend>Installation mode</legend>
               <label>
                 <input
@@ -342,7 +344,7 @@ export function ServerOperationsPage({
                 in-game configuration, before installing. Existing backups are
                 kept. Take a backup first.
               </p>
-            </fieldset>
+            </Fieldset>
           )}
         </ConfirmDialog>
       )}

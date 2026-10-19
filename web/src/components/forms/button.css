@@ -4,14 +4,14 @@ input[type="file"]::file-selector-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
-  padding: 8px 14px;
+  min-height: var(--button-min-height, 38px);
+  padding: var(--button-padding, 8px 14px);
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--button-font-size, 14px);
   font-weight: 500;
   cursor: pointer;
 }
@@ -24,24 +24,29 @@ input[type="file"]:not(:disabled)::file-selector-button:hover {
   background: var(--accent);
   color: var(--bg);
 }
+.button[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
 .button-primary:hover:not(:disabled) {
-  background: #f4b577;
+  background: var(--accent-hover);
 }
 .button-danger {
-  border-color: #f87171;
-  background: rgb(248 113 113 / 10%);
-  color: #f87171;
+  border-color: var(--danger-accent);
+  background: color-mix(in srgb, var(--danger-accent) 10%, transparent);
+  color: var(--danger-accent);
 }
 .button-warning {
-  border-color: #facc15;
-  background: rgb(250 204 21 / 10%);
-  color: #facc15;
+  border-color: var(--warning-accent);
+  background: color-mix(in srgb, var(--warning-accent) 10%, transparent);
+  color: var(--warning-accent);
 }
 .button-warning:hover:not(:disabled) {
-  background: rgb(250 204 21 / 20%);
+  background: color-mix(in srgb, var(--warning-accent) 20%, transparent);
 }
 .button-danger:hover:not(:disabled) {
-  background: rgb(248 113 113 / 20%);
+  background: color-mix(in srgb, var(--danger-accent) 20%, transparent);
 }
 .button:disabled,
 input[type="file"]:disabled::file-selector-button {
@@ -67,4 +72,10 @@ input[type="file"]::file-selector-button {
 .button-icon svg {
   width: 18px;
   height: 18px;
+}
+
+.button-small {
+  --button-min-height: 32px;
+  --button-padding: 6px 10px;
+  --button-font-size: 12px;
 }

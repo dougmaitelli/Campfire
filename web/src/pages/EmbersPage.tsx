@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -13,7 +14,7 @@ import {
 } from "../api/embers";
 import { useCollection } from "../hooks/useCollection";
 import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
-import "./management.css";
+
 import { Table, TableRow } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
 import { PortPill } from "../components/network/PortPill";
@@ -133,7 +134,7 @@ export function EmbersPage() {
           {actionError ?? checks.error}
         </InlineMessage>
       )}
-      <div className="management-content" aria-busy={loading}>
+      <ContentPanel aria-busy={loading}>
         <Table
           empty={items.length === 0}
           loading={loading}
@@ -250,7 +251,7 @@ export function EmbersPage() {
             })}
           </tbody>
         </Table>
-      </div>
+      </ContentPanel>
       <p className="list-summary" role="status">
         {loading
           ? "Loading…"

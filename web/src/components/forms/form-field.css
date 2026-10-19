@@ -11,9 +11,7 @@
 .form-field > .text-input,
 .form-field > .textarea,
 .form-field > .select,
-.drawer-form .form-field > input,
-.drawer-form .form-field > textarea,
-.drawer-form .form-field > select {
+.form-field > input[type="file"] {
   width: 100%;
   margin-bottom: 0;
 }
@@ -24,8 +22,5 @@
   line-height: 1.5;
 }
 .form-field-error {
-  color: #fca5a5;
-}
-.authentication-form .form-field {
-  margin: 0;
+  color: var(--danger);
 }

@@ -1,0 +1,26 @@
+.textarea.definition-editor {
+  font-family: monospace;
+  min-height: clamp(360px, 60dvh, 720px);
+  line-height: 1.5;
+}
+
+.import-sources {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.ember-preview-definition {
+  max-height: 24rem;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

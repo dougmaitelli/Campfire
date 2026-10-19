@@ -3,6 +3,7 @@ import type { SparkSettings } from "../../api/sparks";
 import { StatusPill } from "../status/StatusPill";
 import { PortPill } from "../network/PortPill";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
+import "./spark-review.css";
 
 interface SparkReviewProps {
   name: string;

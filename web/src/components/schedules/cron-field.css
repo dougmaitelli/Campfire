@@ -1,5 +1,4 @@
-.drawer-form .cron-expression {
-  margin-bottom: 10px;
+.text-input.cron-expression {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 17px;
   letter-spacing: 2px;
@@ -25,16 +24,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-.cron-presets .button {
-  min-height: 32px;
-  padding: 6px 10px;
-  font-size: 12px;
-}
-.cron-presets .button[aria-pressed="true"] {
-  border-color: var(--accent-border);
-  background: var(--accent-subtle);
-  color: var(--accent);
 }
 .cron-preview {
   padding: 12px 16px;

@@ -107,12 +107,6 @@
 .wizard-heading:focus-visible {
   outline: none;
 }
-.wizard-fields {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-}
 @media (max-width: 480px) {
   .wizard-progress {
     --wizard-top-padding: 18px;

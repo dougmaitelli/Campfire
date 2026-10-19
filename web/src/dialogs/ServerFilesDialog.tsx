@@ -1,3 +1,5 @@
+import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
+import { ActionGroup } from "../components/layout/ActionGroup";
 import { DetailsList, DetailItem } from "../components/layout/DetailsList";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
@@ -455,10 +457,10 @@ export function ServerFilesDialog({
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {!canWrite && (
-          <p className="prerequisite-note">
+          <PrerequisiteNote>
             File modifications are currently unavailable. Wait for the current
             operation to finish and ensure the Spark is connected.
-          </p>
+          </PrerequisiteNote>
         )}
         {editor ? (
           <>
@@ -639,7 +641,7 @@ export function ServerFilesDialog({
                         · {new Date(entry.modified_at).toLocaleString()}
                       </span>
                     </button>
-                    <div className="row-actions">
+                    <ActionGroup>
                       {entry.kind === "file" && (
                         <Button
                           iconOnly
@@ -708,7 +710,7 @@ export function ServerFilesDialog({
                       >
                         <NavigationIcon name="delete" />
                       </Button>
-                    </div>
+                    </ActionGroup>
                   </div>
                 ))
               )}

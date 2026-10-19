@@ -1,5 +1,6 @@
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
+import "./api-tokens-dialog.css";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { useEffect, useRef, useState } from "react";
@@ -102,6 +103,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               closing this window.
             </p>
             <TextInput
+              className="api-token-secret"
               aria-label="Token secret"
               value={secret}
               readOnly
@@ -208,7 +210,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
         )}
         {tokens.map((token) => (
           <section key={token.id} aria-label={token.name}>
-            <h4>{token.name}</h4>
+            <h4 className="api-token-heading">{token.name}</h4>
             <p>
               <code>{token.prefix}…</code> · Expires{" "}
               {new Date(token.expires_at * 1000).toLocaleDateString()}

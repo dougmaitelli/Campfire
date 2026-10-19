@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
@@ -6,7 +7,7 @@ import { TextInput } from "../components/forms/TextInput";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useState } from "react";
 import { activityCursor, listAudit, type AuditEvent } from "../api/activity";
-import "./management.css";
+
 import { Table } from "../components/table/Table";
 import { AuditOutcome } from "../components/activity/AuditOutcome";
 
@@ -113,7 +114,7 @@ export function AuditPage() {
           <Button>Filter</Button>
         </ListToolbar>
       </form>
-      <div className="management-content">
+      <ContentPanel>
         <Table
           empty={items.length === 0}
           loading={loading}
@@ -170,7 +171,7 @@ export function AuditPage() {
             Load older records
           </Button>
         )}
-      </div>
+      </ContentPanel>
     </section>
   );
 }

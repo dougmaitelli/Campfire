@@ -1,4 +1,4 @@
-.drawer-form .allocation-range {
+.fieldset.allocation-range {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 2fr) minmax(0, 1fr) var(
       --control-height
@@ -35,7 +35,7 @@
   grid-area: remove;
 }
 @media (max-width: 560px) {
-  .drawer-form .allocation-range {
+  .fieldset.allocation-range {
     grid-template-columns: minmax(0, 1fr) 100px;
     grid-template-areas:
       "ip protocol"
@@ -44,4 +44,15 @@
   .allocation-range .allocation-remove {
     justify-self: end;
   }
+}
+
+.spark-settings h3 {
+  margin: 28px 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.resource-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }

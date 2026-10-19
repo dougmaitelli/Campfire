@@ -23,7 +23,7 @@
   color: var(--muted);
 }
 .content-state[role="alert"] .content-state-icon {
-  color: #fca5a5;
+  color: var(--danger);
 }
 .content-state-icon svg {
   width: 26px;

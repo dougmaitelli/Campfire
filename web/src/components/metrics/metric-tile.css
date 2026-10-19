@@ -29,19 +29,19 @@
 }
 
 .metric-tile-warning {
-  border-color: #78602c;
-  background: #2b271b;
+  border-color: var(--attention-border);
+  background: var(--attention-surface);
 }
 
 .metric-tile-warning .metric-tile-value {
-  color: #efce67;
+  color: var(--attention);
 }
 
 .metric-tile-critical {
-  border-color: #704938;
-  background: #30221c;
+  border-color: var(--critical-border);
+  background: var(--critical-surface);
 }
 
 .metric-tile-critical .metric-tile-value {
-  color: #f3a294;
+  color: var(--critical);
 }

@@ -1,3 +1,4 @@
+import { Fieldset } from "../forms/Fieldset";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
 import { Button } from "../forms/Button";
@@ -111,7 +112,7 @@ export function CronField({
     }
   }
   return (
-    <fieldset className="cron-field" disabled={disabled}>
+    <Fieldset className="cron-field" disabled={disabled}>
       <FormField label="Cron schedule">
         <TextInput
           id={`${id}-expression`}
@@ -136,6 +137,7 @@ export function CronField({
       <div className="cron-presets" aria-label="Fill cron schedule">
         {presets.map((preset) => (
           <Button
+            size="small"
             type="button"
 
             key={preset.value}
@@ -191,6 +193,6 @@ export function CronField({
           </InlineMessage>
         )}
       </div>
-    </fieldset>
+    </Fieldset>
   );
 }

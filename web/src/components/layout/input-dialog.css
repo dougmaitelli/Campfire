@@ -4,13 +4,3 @@
   font-size: 14px;
   line-height: 1.6;
 }
-.input-dialog label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.input-dialog input {
-  box-sizing: border-box;
-  width: 100%;
-}

@@ -8,6 +8,7 @@ export function Button({
   loading = false,
   loadingLabel,
   iconOnly = false,
+  size = "default",
   disabled,
   "aria-busy": ariaBusy,
   className,
@@ -18,6 +19,7 @@ export function Button({
   loading?: boolean;
   loadingLabel?: ReactNode;
   iconOnly?: boolean;
+  size?: "default" | "small";
 }) {
   return (
     <button
@@ -26,6 +28,7 @@ export function Button({
         "button",
         variant !== "default" && `button-${variant}`,
         iconOnly && "button-icon",
+        size === "small" && "button-small",
         className,
       ]
         .filter(Boolean)

@@ -1,3 +1,4 @@
+import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
@@ -300,7 +301,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 for one port; 0.0.0.0 binds all IPv4 interfaces.
               </p>
               {settings.port_allocations.map((allocation, index) => (
-                <fieldset className="allocation-range" key={index}>
+                <Fieldset className="allocation-range" key={index}>
                   <legend className="visually-hidden">Range {index + 1}</legend>
                   <FormField label="Bind IP" className="allocation-ip">
                     <TextInput
@@ -400,7 +401,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       <path d="M6 6l12 12M18 6 6 18" />
                     </svg>
                   </Button>
-                </fieldset>
+                </Fieldset>
               ))}
               <Button
                 type="button"
@@ -433,7 +434,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               ? "Wait for server creation access to load."
               : rolesError,
           content: (
-            <fieldset>
+            <Fieldset>
               <legend>Server creation access</legend>
               <p className="field-help">
                 Choose which users or roles can create servers on this Spark.
@@ -471,7 +472,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 This does not grant Spark management access. Removing access
                 does not affect ownership of existing servers.
               </p>
-            </fieldset>
+            </Fieldset>
           ),
         },
         {

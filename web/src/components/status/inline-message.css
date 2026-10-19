@@ -7,14 +7,14 @@
   overflow-wrap: anywhere;
 }
 .inline-message.error-message {
-  border-color: #704938;
-  background: #30221c;
-  color: #f4b899;
+  border-color: var(--critical-border);
+  background: var(--critical-surface);
+  color: var(--error);
 }
 .inline-message-warning {
-  border-color: #6b572e;
-  background: #332c1d;
-  color: #f2ce77;
+  border-color: var(--warning-border);
+  background: var(--warning-surface);
+  color: var(--warning);
 }
 .inline-message-info {
   border-color: var(--accent-border);
@@ -22,7 +22,7 @@
   color: var(--text);
 }
 .inline-message-success {
-  border-color: #3d5235;
-  background: #263220;
-  color: #b5ce9c;
+  border-color: var(--success-border);
+  background: var(--success-surface);
+  color: var(--success);
 }

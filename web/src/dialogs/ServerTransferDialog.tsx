@@ -1,3 +1,5 @@
+import { Fieldset } from "../components/forms/Fieldset";
+import { ActionGroup } from "../components/layout/ActionGroup";
 import { FormField } from "../components/forms/FormField";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { Button } from "../components/forms/Button";
@@ -241,7 +243,7 @@ export function ServerTransferDialog({
               may need the new address and host ports.
             </p>
             {ports.map((port, index) => (
-              <fieldset
+              <Fieldset
                 key={`${port.container_port}-${port.protocol}-${index}`}
                 disabled={busy || active}
               >
@@ -321,7 +323,7 @@ export function ServerTransferDialog({
                     }
                   />
                 </FormField>
-              </fieldset>
+              </Fieldset>
             ))}
           </>
         )}
@@ -354,7 +356,7 @@ export function ServerTransferDialog({
               <InlineMessage role="alert">{item.error}</InlineMessage>
             )}
             {item.active && (
-              <div className="row-actions">
+              <ActionGroup>
                 {item.phase === "failed" && (
                   <Button
                     disabled={busy}
@@ -381,7 +383,7 @@ export function ServerTransferDialog({
                     failed finalization to finish the transfer.
                   </p>
                 )}
-              </div>
+              </ActionGroup>
             )}
           </section>
         ))}

@@ -9,6 +9,7 @@ import {
 import { PortPill } from "../network/PortPill";
 import { SparkResourceReadings } from "./SparkResourceReadings";
 import type { MonitoredServer } from "../../api/monitoring";
+import "./sparks-table.css";
 
 export function SparksTable({
   sparks,
@@ -73,9 +74,11 @@ export function SparksTable({
                 {spark.name}
               </button>
               {spark.description && (
-                <span className="spark-description">{spark.description}</span>
+                <span className="row-description spark-description">
+                  {spark.description}
+                </span>
               )}
-              <span className="spark-id">{spark.id}</span>
+              <span className="row-id">{spark.id}</span>
             </td>
             <td>
               <SparkConnectionState
@@ -93,7 +96,7 @@ export function SparksTable({
               />
             </td>
             <td>
-              <span className="resource-summary">
+              <span className="spark-resource-summary">
                 {formatDisplayValue(spark.game_address)}
               </span>
               <div className="pill-group">

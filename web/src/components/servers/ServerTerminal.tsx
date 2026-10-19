@@ -1,3 +1,4 @@
+import { ActionGroup } from "../layout/ActionGroup";
 import { Button } from "../forms/Button";
 import { TextInput } from "../forms/TextInput";
 import { InlineMessage } from "../status/InlineMessage";
@@ -151,8 +152,9 @@ export function ServerTerminal({
         <span role="status">
           <StatusPill tone={connection.tone}>{connection.label}</StatusPill>
         </span>
-        <div className="row-actions">
+        <ActionGroup>
           <Button
+            size="small"
             type="button"
 
             title="Download retained console output (up to 5,000 lines of scrollback)."
@@ -161,13 +163,14 @@ export function ServerTerminal({
             Download logs
           </Button>
           <Button
+            size="small"
             type="button"
 
             onClick={() => terminal.current?.clear()}
           >
             Clear
           </Button>
-        </div>
+        </ActionGroup>
       </div>
       <div className="server-terminal-window">
         <div

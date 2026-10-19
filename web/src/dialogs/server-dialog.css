@@ -1,0 +1,20 @@
+.fieldset.port-mapping {
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.port-mapping legend {
+  padding: 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.server-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.server-dialog-heading {
+  margin: 20px 0 12px;
+}

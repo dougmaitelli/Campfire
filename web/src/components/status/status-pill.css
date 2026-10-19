@@ -27,18 +27,18 @@
 }
 
 .status-pill-positive {
-  border-color: #3d5235;
-  background: #263220;
-  color: #b5ce9c;
+  border-color: var(--success-border);
+  background: var(--success-surface);
+  color: var(--success);
 }
 .status-pill-no-indicator::before {
   display: none;
 }
 
 .status-pill-negative {
-  border-color: #713a3a;
-  background: #351f1f;
-  color: #fca5a5;
+  border-color: var(--danger-border);
+  background: var(--danger-surface);
+  color: var(--danger);
 }
 
 .status-pill-pending {
@@ -48,7 +48,7 @@
 }
 
 .status-pill-warning {
-  border-color: #6b572e;
-  background: #332c1d;
-  color: #f2ce77;
+  border-color: var(--warning-border);
+  background: var(--warning-surface);
+  color: var(--warning);
 }

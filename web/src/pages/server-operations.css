@@ -35,26 +35,20 @@
   border-color: var(--accent);
   color: var(--text);
 }
-.operations-panel {
-  min-height: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.operations-panel .drawer-heading {
-  padding: 16px 20px;
-}
-.operations-panel .drawer-heading h2 {
-  font-size: 16px;
-}
-.operations-panel .drawer-content {
-  padding: 16px 20px;
-}
-.operations-panel .drawer-footer {
-  position: static;
-}
 @media (max-width: 640px) {
   .operations-resources .resource-readings {
     grid-template-columns: 1fr;
   }
+}
+
+.fieldset.reinstall-options {
+  margin: 20px 0 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.reinstall-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

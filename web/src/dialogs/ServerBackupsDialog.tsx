@@ -1,3 +1,4 @@
+import { ActionGroup } from "../components/layout/ActionGroup";
 import { Button, ButtonLink } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
@@ -232,7 +233,7 @@ export function ServerBackupsDialog({
                   <BackupState state={entry.state} />
                 </td>
                 <td className="table-actions">
-                  <div className="row-actions">
+                  <ActionGroup>
                     {!busy &&
                       entry.state !== "deleting" &&
                       (entry.remote ||
@@ -289,7 +290,7 @@ export function ServerBackupsDialog({
                         Delete S3
                       </Button>
                     )}
-                  </div>
+                  </ActionGroup>
                 </td>
               </tr>
             ))}

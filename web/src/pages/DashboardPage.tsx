@@ -1,3 +1,4 @@
+import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -11,7 +12,7 @@ import {
 } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { MetricTile, ResourceTile } from "../components/metrics/MetricTile";
-import "./management.css";
+
 import { Table, TableRow } from "../components/table/Table";
 import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
 import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
@@ -135,7 +136,7 @@ export function DashboardPage() {
           format={bytes}
         />
       </div>
-      <div className="management-content">
+      <ContentPanel>
         <Table
           className="dashboard-server-table"
           empty={servers.length === 0}
@@ -196,11 +197,11 @@ export function DashboardPage() {
             ))}
           </tbody>
         </Table>
-      </div>
+      </ContentPanel>
       {auth.session?.admin && (
         <>
           <h2 className="monitoring-heading">Sparks</h2>
-          <div className="management-content">
+          <ContentPanel>
             <Table
               className="dashboard-server-table"
               empty={!monitor.snapshot?.sparks?.length}
@@ -306,7 +307,7 @@ export function DashboardPage() {
                 })}
               </tbody>
             </Table>
-          </div>
+          </ContentPanel>
         </>
       )}
       <p className="list-summary">

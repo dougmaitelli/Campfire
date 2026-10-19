@@ -1,3 +1,19 @@
+.row-description {
+  display: block;
+  margin-top: 6px;
+  max-width: 420px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.row-id {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-family: monospace;
+  font-size: 11px;
+}
+
 .table-container {
   overflow-x: auto;
 }
@@ -45,7 +61,7 @@
   width: auto;
 }
 
-.table-actions .row-actions {
+.table-actions .action-group {
   justify-content: flex-end;
   width: max-content;
   max-width: 32rem;

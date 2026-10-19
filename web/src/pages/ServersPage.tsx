@@ -1,3 +1,6 @@
+import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
+import { ContentPanel } from "../components/layout/ContentPanel";
+import { ActionGroup } from "../components/layout/ActionGroup";
 import { SearchField } from "../components/forms/SearchField";
 import { FormField } from "../components/forms/FormField";
 import { Button, ButtonLink } from "../components/forms/Button";
@@ -13,7 +16,7 @@ import { useAuthentication } from "../hooks/useAuthentication";
 import { useCollection } from "../hooks/useCollection";
 import { ServerDialog } from "../dialogs/ServerDialog";
 import { useServerRuntime } from "../hooks/useServerRuntime";
-import "./management.css";
+import "./servers.css";
 import { Table, TableRow } from "../components/table/Table";
 import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
@@ -183,7 +186,7 @@ export function ServersPage() {
         <InlineMessage role="alert">{error}</InlineMessage>
       )}
       {!loading && canProvision && !canCreate && (
-        <p className="prerequisite-note">
+        <PrerequisiteNote>
           {auth.session?.admin ? (
             <>
               To create servers, <a href="#embers">import an Ember</a> and{" "}
@@ -195,7 +198,7 @@ export function ServersPage() {
           ) : (
             "Ask an administrator to approve a Spark for your role before creating a server."
           )}
-        </p>
+        </PrerequisiteNote>
       )}
       {servers.items.length > 0 && (
         <ListToolbar>
@@ -229,7 +232,7 @@ export function ServersPage() {
           </FormField>
         </ListToolbar>
       )}
-      <div className="management-content" aria-busy={loading}>
+      <ContentPanel aria-busy={loading}>
         <Table
           className="servers-table"
           empty={visible.length === 0}
@@ -325,7 +328,7 @@ export function ServersPage() {
                   </div>
                 </td>
                 <td className="table-actions">
-                  <div className="row-actions">
+                  <ActionGroup>
                     <ButtonLink
                       href={`#servers/${encodeURIComponent(server.id)}/console`}
                       iconOnly
@@ -334,13 +337,13 @@ export function ServersPage() {
                     >
                       <NavigationIcon name="arrow-right" />
                     </ButtonLink>
-                  </div>
+                  </ActionGroup>
                 </td>
               </TableRow>
             ))}
           </tbody>
         </Table>
-      </div>
+      </ContentPanel>
       <p className="list-summary" role="status">
         {loading
           ? "Loading…"

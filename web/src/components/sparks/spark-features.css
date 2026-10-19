@@ -21,7 +21,7 @@
   color: var(--muted);
 }
 .spark-feature-available svg {
-  color: #b5ce9c;
+  color: var(--success);
 }
 .spark-feature-state {
   margin-left: auto;
@@ -31,7 +31,7 @@
 .spark-feature-unavailable,
 .spark-feature-unavailable svg,
 .spark-feature-unavailable .spark-feature-state {
-  color: #fca5a5;
+  color: var(--danger);
 }
 @media (max-width: 700px) {
   .spark-feature-checklist {

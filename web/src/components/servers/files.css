@@ -120,7 +120,7 @@
   cursor: default;
   opacity: 0.6;
 }
-.file-editor {
+.textarea.file-editor {
   width: 100%;
   min-height: 55vh;
   font-family: monospace;
@@ -131,9 +131,6 @@
   .file-row {
     align-items: flex-start;
     flex-direction: column;
-  }
-  .file-row .row-actions {
-    flex-wrap: wrap;
   }
   .file-name {
     flex-wrap: wrap;
