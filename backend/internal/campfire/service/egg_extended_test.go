@@ -12,7 +12,7 @@ func TestExtendedEggBehaviorConversionAndRemainingBlocks(t *testing.T) {
 	}
 
 	ember := report.Ember
-	if !ember.ExtendedBehavior() || ember.Stop != "quit {{STOP_REASON}}" || ember.Readiness == nil || !ember.Readiness.StripANSI || len(ember.Readiness.Any) != 2 || !ember.Readiness.Any[1].Regex {
+	if ember.Stop != "quit {{STOP_REASON}}" || ember.Readiness == nil || !ember.Readiness.StripANSI || len(ember.Readiness.Any) != 2 || !ember.Readiness.Any[1].Regex {
 		t.Fatal("lost extended process behavior", ember)
 	}
 
@@ -79,7 +79,7 @@ func TestEggStopSignals(t *testing.T) {
 				if result.Ember != nil || len(result.Errors) == 0 {
 					t.Fatal("invalid signal accepted", result)
 				}
-			} else if result.Ember == nil || len(result.Errors) != 0 || result.Ember.Stop != stop || !result.Ember.ExtendedBehavior() {
+			} else if result.Ember == nil || len(result.Errors) != 0 || result.Ember.Stop != stop {
 				t.Fatal("signal import failed", result)
 			}
 		})

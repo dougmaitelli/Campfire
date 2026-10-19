@@ -30,10 +30,6 @@ func TestResourceBuiltinsValidateAndCannotBeOverridden(t *testing.T) {
 			t.Fatalf("builtin %s rejected: %v", name, err)
 		}
 
-		if name != "SERVER_PORT" && name != "SERVER_IP" && name != "SERVER_MEMORY" && !ember.ExtendedBehavior() {
-			t.Fatalf("resource builtin %s does not require updated Spark", name)
-		}
-
 		ember.Variables = []model.Variable{{Name: name, Editable: true}}
 		if err := validateEmber(&ember); err == nil || !strings.Contains(err.Error(), "variable") {
 			t.Fatalf("builtin override accepted for %s: %v", name, err)

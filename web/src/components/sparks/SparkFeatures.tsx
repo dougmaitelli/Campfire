@@ -3,13 +3,11 @@ import "./spark-features.css";
 
 const featureLabels: Record<string, string> = {
   "server.configure.v1": "Server configuration",
-  "server.ember.behavior.v1": "Extended Ember behavior",
   "server.lifecycle.v1": "Server controls",
   "server.files.v1": "File management",
   "server.files.transfer.v1": "File uploads and downloads",
   "server.files.archive.v1": "Archive creation and extraction",
   "server.backups.v1": "Local backups",
-  "server.backups.delete.v1": "Local backup deletion",
   "server.backups.remote.v1": "Remote backups",
   "server.metrics.v1": "Usage monitoring",
   "server.console.stream.v1": "Live console",

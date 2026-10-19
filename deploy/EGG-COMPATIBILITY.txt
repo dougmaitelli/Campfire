@@ -202,8 +202,8 @@ require an authenticated administrator and the existing CSRF checks.
 
 Native definitions and converted Eggs use Ember schema 1. Extended configuration,
 readiness and stop behavior are part of that schema and are validated on Spark
-as well as Campfire. Such definitions require the negotiated Spark capability
-server.ember.behavior.v1; older Sparks reject configuration delivery explicitly.
+as well as Campfire. These behaviors are included in the negotiated Spark
+capability server.configure.v1.
 The database schema and Spark wire protocol are unchanged by these additions.
 
 Native schema 1 uses configs[].create to opt into missing-file creation and

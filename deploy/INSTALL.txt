@@ -215,8 +215,8 @@ Keep browser/identity-provider access available for token management.
 
 Backups, off-host storage and retention
 --------------------------------------
-Backups require the negotiated server.backups.v1 capability. Local deletion
-additionally requires server.backups.delete.v1; S3 restoration requires
+Local backup creation, restoration and deletion require server.backups.v1.
+Remote restoration additionally requires
 server.backups.remote.v1. See Spark feature negotiation below.
 Archives are first completed on the Spark, whether created manually or by a
 recurring backup schedule. A Campfire background worker discovers them, uploads
@@ -351,12 +351,10 @@ capability information. This state belongs to the current authenticated session
 and is not saved as a claim about future connections.
 
 Capability                         Behavior
-server.configure.v1                Saved configuration delivery
-server.ember.behavior.v1           Extended config parsers, readiness and stop templates
+server.configure.v1                Configuration delivery, config parsers, readiness and shutdown behavior
 server.lifecycle.v1                Status, logs, console input and power actions
 server.files.v1                    Contained game-file management
-server.backups.v1                  Local backup creation, reading and restoration
-server.backups.delete.v1           Local backup deletion
+server.backups.v1                  Local backup creation, reading, restoration and deletion
 server.backups.remote.v1           Restoration from a signed off-host backup URL
 server.metrics.v1                  Measured CPU, memory and disk reporting
 server.console.stream.v1           Continuous console streaming
@@ -1091,5 +1089,5 @@ requests; accepting a mock update replaces its local definition and survives rel
 See deploy/EGG-COMPATIBILITY.txt for the format and feature support matrix,
 fixture coverage, API request examples and runtime limitations. Native definitions
 and converted Eggs both use Ember schema 1. Egg conversion does not change the
-database schema. Extended config parsers, readiness and stop templates require
-the negotiated server.ember.behavior.v1 Spark capability.
+database schema. Config parsers, readiness and stop templates are included in
+the negotiated server.configure.v1 Spark capability.

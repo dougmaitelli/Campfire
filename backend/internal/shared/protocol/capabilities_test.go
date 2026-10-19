@@ -67,15 +67,15 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 		capability string
 	}{
 		{Command{Name: ConfigureServer}, CapabilityConfigure},
-		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Readiness: &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready"}}}}}}, CapabilityEmberBehavior},
-		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Configs: []model.ConfigFile{{Parser: "json", Create: true}}}}}, CapabilityEmberBehavior},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Readiness: &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready"}}}}}}, CapabilityConfigure},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Configs: []model.ConfigFile{{Parser: "json", Create: true}}}}}, CapabilityConfigure},
 		{Command{Name: ServerFiles}, CapabilityFiles},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "upload.begin"}}, CapabilityFileTransfer},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "read.chunk"}}, CapabilityFileTransfer},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "extract"}}, CapabilityFileArchive},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "compress"}}, CapabilityFileArchive},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.read"}}, CapabilityBackups},
-		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.delete"}}, CapabilityBackupDelete},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.delete"}}, CapabilityBackups},
 		{Command{Name: ServerTransfer}, CapabilityTransfer},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "metrics"}}, CapabilityMetrics},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "update"}}, CapabilityReinstall},
