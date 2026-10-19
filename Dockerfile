@@ -30,7 +30,7 @@ RUN release_flags="-s -w -linkmode external -extldflags '-static' -X campfire/in
 FROM scratch AS binaries
 COPY --from=build /out/ /
 
-FROM alpine:3.23 AS runtime
+FROM alpine:3.24 AS runtime
 RUN apk add --no-cache ca-certificates \
     && addgroup -g 10001 campfire \
     && adduser -D -H -u 10001 -G campfire campfire \
