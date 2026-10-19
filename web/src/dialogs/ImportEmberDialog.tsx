@@ -59,7 +59,6 @@ export function ImportEmberDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const warnings =
     preview?.warnings.filter((issue) => !issue.informational) ?? [];
-  const notes = preview?.warnings.filter((issue) => issue.informational) ?? [];
   const submitting = useRef(false);
   const urlRef = useRef<HTMLInputElement>(null);
   async function loadURL() {
@@ -422,18 +421,6 @@ export function ImportEmberDialog({
                     </CheckboxField>
                   </>
                 )}
-                {notes.length > 0 && (
-                  <details>
-                    <summary>Conversion details ({notes.length})</summary>
-                    <ul>
-                      {notes.map((issue, index) => (
-                        <li key={`${issue.field}-${index}`}>
-                          <strong>{issue.field}:</strong> {issue.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
                 {preview.ember && (
                   <details>
                     <summary>Converted Ember</summary>
@@ -444,14 +431,6 @@ export function ImportEmberDialog({
                 )}
               </section>
             )}
-            <p className="field-help">
-              Supported subset: PTDL v1/v2 and PLCN v1/v2/v3, common variables
-              and validation, installers, simple properties and top-level JSON.
-              Unsupported runtime features block import. See
-              deploy/EGG-COMPATIBILITY.txt for the full support matrix. Only
-              import scripts and images you trust; they run when you install or
-              start a server.
-            </p>
           </fieldset>
         </div>
       </form>
