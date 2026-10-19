@@ -69,6 +69,8 @@ func (s *ActivityService) Start(ctx context.Context) error {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 
+		var after *database.Schedule
+
 		for {
 			runs, err := s.Store.Pending(ctx)
 			if err != nil && ctx.Err() == nil {
@@ -79,9 +81,18 @@ func (s *ActivityService) Start(ctx context.Context) error {
 				s.launch(ctx, run)
 			}
 
-			schedules, err := s.Store.Due(ctx, time.Now())
+			schedules, err := s.Store.DueAfter(ctx, time.Now(), after)
 			if err != nil && ctx.Err() == nil {
 				slog.Error("read due schedules", "error", err)
+			}
+
+			// Advance even when this page is unavailable or busy. Wrap after the
+			// final page so skipped occurrences are retried without changing them.
+			if err == nil {
+				after = nil
+				if len(schedules) > 0 {
+					after = &schedules[len(schedules)-1]
+				}
 			}
 
 			for _, item := range schedules {

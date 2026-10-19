@@ -83,8 +83,19 @@ func (r *ActivityRepository) DeleteSchedule(ctx context.Context, id string) erro
 
 // Due lists definitions eligible to start; it never creates execution records.
 func (r *ActivityRepository) Due(ctx context.Context, now time.Time) ([]database.Schedule, error) {
+	return r.DueAfter(ctx, now, nil)
+}
+
+// DueAfter pages by due time and identity without consuming pending occurrences.
+func (r *ActivityRepository) DueAfter(ctx context.Context, now time.Time, after *database.Schedule) ([]database.Schedule, error) {
 	items := []database.Schedule{}
-	err := scheduleUsers(r.db.WithContext(ctx)).Where("schedules.enabled = true AND next_run_at <= ?", now.Unix()).Order("next_run_at, schedules.id").Limit(100).Find(&items).Error
+
+	query := scheduleUsers(r.db.WithContext(ctx)).Where("schedules.enabled = true AND next_run_at <= ?", now.Unix())
+	if after != nil {
+		query = query.Where("next_run_at > ? OR (next_run_at = ? AND schedules.id > ?)", after.NextRunAt, after.NextRunAt, after.ID)
+	}
+
+	err := query.Order("next_run_at, schedules.id").Limit(100).Find(&items).Error
 
 	return items, err
 }
