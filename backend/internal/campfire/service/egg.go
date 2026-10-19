@@ -163,10 +163,6 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 
 	for index, variable := range egg.Variables {
 		path := fmt.Sprintf("variables[%d]", index)
-		if variable.Viewable == nil || !*variable.Viewable {
-			report.fail(path+".user_viewable", "Hidden variables are unsupported; values must not become visible through conversion.")
-		}
-
 		value, err := eggScalar(variable.Default)
 		if err != nil {
 			report.fail(path+".default_value", "Variable defaults must be scalar values.")
@@ -181,6 +177,7 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 		converted.Default = value
 
 		converted.Editable = variable.Editable
+		converted.Hidden = variable.Viewable == nil || !*variable.Viewable
 		if !converted.Editable {
 			report.warn(path+".user_editable", "Non-editable variables are pinned to their defaults for everyone, including administrators.")
 		}
@@ -208,12 +205,13 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 	}
 
 	ember.Startup = eggTemplate(ember.Startup, ember.Variables, "startup", report)
+	ember.StartupShell = "bash"
 
 	ember.Stop = eggTemplate(ember.Stop, ember.Variables, "config.stop", report)
 
 	convertEggProcess(egg.Config.Startup, egg.Config.Logs, &ember, report)
 	ember.Configs = convertEggFiles(egg.Config.Files, ember.Variables, report)
-	report.note("runtime", "Uses /home/container and UID 1000:1000. Startup is supplied as STARTUP and sh -c arguments; the image ENTRYPOINT remains active.")
+	report.note("runtime", "Uses /home/container and UID 1000:1000. Startup is supplied as STARTUP and bash -c arguments; the image ENTRYPOINT remains active. The runtime image must include Bash.")
 	report.warn("ports", "Configure the game's TCP/UDP ports when creating the server; Egg exports do not include port mappings.")
 
 	for _, issue := range report.Warnings {

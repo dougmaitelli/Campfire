@@ -108,12 +108,14 @@ export function ServerDialog({
           ? server.image
           : (Object.values(latest?.images ?? {})[0] ?? ""),
         variables: Object.fromEntries(
-          (latest?.variables ?? []).map((variable) => [
-            variable.name,
-            variable.editable
-              ? (server.variables[variable.name] ?? variable.default)
-              : variable.default,
-          ]),
+          (latest?.variables ?? [])
+            .filter((variable) => !variable.hidden)
+            .map((variable) => [
+              variable.name,
+              variable.editable
+                ? (server.variables[variable.name] ?? variable.default)
+                : variable.default,
+            ]),
         ),
       };
     }
@@ -389,13 +391,15 @@ export function ServerDialog({
                           : (Object.values(selected?.images ?? {})[0] ?? ""),
                       variables: applyRevision
                         ? Object.fromEntries(
-                            (selected?.variables ?? []).map((variable) => [
-                              variable.name,
-                              variable.editable
-                                ? (server?.variables[variable.name] ??
-                                  variable.default)
-                                : variable.default,
-                            ]),
+                            (selected?.variables ?? [])
+                              .filter((variable) => !variable.hidden)
+                              .map((variable) => [
+                                variable.name,
+                                variable.editable
+                                  ? (server?.variables[variable.name] ??
+                                    variable.default)
+                                  : variable.default,
+                              ]),
                           )
                         : defaultVariables(selected),
                       ports: applyRevision
@@ -428,30 +432,36 @@ export function ServerDialog({
                   ))}
                 </Select>
               </FormField>
-              {(ember?.variables ?? []).length > 0 && <h4>Game settings</h4>}
-              {(ember?.variables ?? []).map((variable) => (
-                <div key={variable.name}>
-                  <FormField label={<>{variable.name}</>}>
-                    <TextInput
-                      id={`variable-${variable.name}`}
-                      disabled={runtimeRestricted}
-                      required={variable.required}
-                      readOnly={!variable.editable}
-                      maxLength={8192}
-                      value={value.variables[variable.name] ?? variable.default}
-                      onChange={(event) =>
-                        setValue({
-                          ...value,
-                          variables: {
-                            ...value.variables,
-                            [variable.name]: event.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </FormField>
-                </div>
-              ))}
+              {(ember?.variables ?? []).some(
+                (variable) => !variable.hidden,
+              ) && <h4>Game settings</h4>}
+              {(ember?.variables ?? [])
+                .filter((variable) => !variable.hidden)
+                .map((variable) => (
+                  <div key={variable.name}>
+                    <FormField label={<>{variable.name}</>}>
+                      <TextInput
+                        id={`variable-${variable.name}`}
+                        disabled={runtimeRestricted}
+                        required={variable.required}
+                        readOnly={!variable.editable}
+                        maxLength={8192}
+                        value={
+                          value.variables[variable.name] ?? variable.default
+                        }
+                        onChange={(event) =>
+                          setValue({
+                            ...value,
+                            variables: {
+                              ...value.variables,
+                              [variable.name]: event.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </FormField>
+                  </div>
+                ))}
             </>
           ),
         },

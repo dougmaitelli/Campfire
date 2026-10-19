@@ -43,7 +43,9 @@ PLCN_v3 startup variants       A single command is automatic. Multiple commands
                               retained and a warning is shown.
 Runtime conventions           /home/container, UID:GID 1000:1000. Existing image
                               ENTRYPOINT stays active. Campfire supplies STARTUP
-                              and sh -c arguments. Image hooks and shell behavior
+                              and bash -c arguments; runtime images must include
+                              Bash. Native definitions use sh unless startup_shell
+                              selects sh, bash or ash. Image hooks and shell behavior
                               need review; this is not a Wings runtime clone.
 Installer                     Image, literal script and sh/bash/ash entrypoint
                               preserved. Shell variables are provided in the
@@ -62,8 +64,11 @@ Variables                     Environment name, scalar default, required and
                               user_editable retained. YAML boolean defaults
                               become strings true/false. Non-editable variables
                               are pinned to defaults even for administrators.
-Hidden variables              Blocked when user_viewable is false or missing;
-                              conversion must not expose hidden values.
+Hidden variables              user_viewable false or missing becomes hidden:true.
+                              Hidden values reach the node but are excluded from
+                              server forms, server responses and editor options.
+                              Ember managers retain access to full definitions
+                              and may set editable hidden values through the API.
 Validation rules              required, nullable, string, integer, numeric,
                               boolean, min, max, between, size, in and one regex.
                               Rules may be pipe-delimited strings or arrays.
@@ -225,7 +230,10 @@ Fixture scope and references
 ----------------------------
 Fixtures live in backend/internal/campfire/service/testdata/eggs. They are small,
 synthetic examples exercising export shapes and known runtime limitations, not
-redistributed upstream game installers. unsupported.json covers blocked runtime
+redistributed upstream game installers, except valheim.json, an upstream Valheim
+Egg retained for conversion and Bash startup regression coverage. Its source is
+https://raw.githubusercontent.com/pterodactyl/game-eggs/main/valheim/valheim_vanilla/egg-valheim.json
+unsupported.json covers blocked runtime
 and security features. Automated tests also cover rule bounds, aliases, malformed
 documents, URL parity, warning acknowledgement, immutable import revisions,
 administrator access, server creation and Spark-side validation. Runtime tests

@@ -694,7 +694,11 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 
 	args = append(args, d.Configuration.Image)
 	if startup != "" {
-		args = append(args, "sh", "-c", startup)
+		shell := d.Ember.StartupShell
+		if shell == "" {
+			shell = "sh"
+		}
+		args = append(args, shell, "-c", startup)
 	}
 
 	m.progress(d.ServerID, e, "Creating container")

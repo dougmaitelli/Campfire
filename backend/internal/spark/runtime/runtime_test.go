@@ -192,7 +192,7 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	}
 
 	joined := strings.Join(create, " ")
-	for _, expected := range []string{"--user 1000:1000", "--cpus 0.5", "--memory 128m", "--memory-swap 128m", "--publish 127.0.0.1:25565:25565/tcp", "--cap-drop ALL", "--env TINI_SUBREAPER=1", "sleep ${SECONDS}"} {
+	for _, expected := range []string{"--user 1000:1000", "--cpus 0.5", "--memory 128m", "--memory-swap 128m", "--publish 127.0.0.1:25565:25565/tcp", "--cap-drop ALL", "--env TINI_SUBREAPER=1", "sh -c sleep ${SECONDS}"} {
 		if !strings.Contains(joined, expected) {
 			t.Errorf("missing container setting %s", expected)
 		}

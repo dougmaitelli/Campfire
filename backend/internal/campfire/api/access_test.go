@@ -18,10 +18,11 @@ import (
 )
 
 type accessRuntime struct {
-	calls   atomic.Int64
-	files   func(model.FileRequest) (model.FileResult, error)
-	metrics func(model.RuntimeRequest) (model.RuntimeStatus, error)
-	console func(context.Context, string, func(model.ConsoleEvent) error) error
+	configure func(model.Deployment)
+	calls     atomic.Int64
+	files     func(model.FileRequest) (model.FileResult, error)
+	metrics   func(model.RuntimeRequest) (model.RuntimeStatus, error)
+	console   func(context.Context, string, func(model.ConsoleEvent) error) error
 }
 
 func (d *accessRuntime) Console(ctx context.Context, _ string, id string, emit func(model.ConsoleEvent) error) error {
@@ -36,6 +37,9 @@ func (d *accessRuntime) Console(ctx context.Context, _ string, id string, emit f
 
 func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Deployment) (model.ConfigurationReceipt, error) {
 	d.calls.Add(1)
+	if d.configure != nil {
+		d.configure(definition)
+	}
 	return model.ConfigurationReceipt{ServerID: definition.ServerID, Revision: strings.Repeat("a", 64)}, nil
 }
 func (d *accessRuntime) Action(_ context.Context, _ string, action model.RuntimeRequest) (model.RuntimeStatus, error) {

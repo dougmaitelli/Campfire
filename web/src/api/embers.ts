@@ -5,6 +5,7 @@ export interface EmberVariable {
   default: string;
   required: boolean;
   editable: boolean;
+  hidden?: boolean;
   pattern?: string;
 }
 
@@ -17,6 +18,7 @@ export interface Ember {
   updateUrl?: string;
   images: Record<string, string>;
   startup: string;
+  startup_shell?: "sh" | "bash" | "ash";
   work_dir: string;
   user: string;
   variables: EmberVariable[] | null;
@@ -51,6 +53,10 @@ export function isEmber(value: unknown): value is Ember {
     ) &&
     "startup" in value &&
     typeof value.startup === "string" &&
+    (!("startup_shell" in value) ||
+      value.startup_shell === "sh" ||
+      value.startup_shell === "bash" ||
+      value.startup_shell === "ash") &&
     "work_dir" in value &&
     typeof value.work_dir === "string" &&
     "user" in value &&
@@ -76,7 +82,8 @@ function isVariable(value: unknown): value is EmberVariable {
     "required" in value &&
     typeof value.required === "boolean" &&
     "editable" in value &&
-    typeof value.editable === "boolean"
+    typeof value.editable === "boolean" &&
+    (!("hidden" in value) || typeof value.hidden === "boolean")
   );
 }
 

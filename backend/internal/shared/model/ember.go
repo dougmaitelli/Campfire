@@ -21,6 +21,7 @@ type Variable struct {
 	Required   bool                `json:"required"`
 	Pattern    string              `json:"pattern,omitempty"`
 	Editable   bool                `json:"editable"`
+	Hidden     bool                `json:"hidden,omitempty"`
 	Validation *VariableValidation `json:"validation,omitempty"`
 }
 
@@ -68,6 +69,7 @@ type Ember struct {
 	UpdateURL     string            `json:"updateUrl,omitempty"`
 	Images        map[string]string `json:"images"`
 	Startup       string            `json:"startup"`
+	StartupShell  string            `json:"startup_shell,omitempty"`
 	WorkDir       string            `json:"work_dir"`
 	User          string            `json:"user"`
 	Variables     []Variable        `json:"variables"`
@@ -115,6 +117,10 @@ func (e Ember) Validate() error {
 
 	if e.WorkDir == "" || !strings.HasPrefix(e.WorkDir, "/") || strings.ContainsAny(e.WorkDir, ",\x00\n") {
 		return errors.New("work_dir must be an absolute container path")
+	}
+
+	if e.StartupShell != "" && e.StartupShell != "sh" && e.StartupShell != "bash" && e.StartupShell != "ash" {
+		return errors.New("startup_shell must be sh, bash, or ash")
 	}
 
 	if !userID.MatchString(e.User) {

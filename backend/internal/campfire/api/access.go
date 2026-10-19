@@ -365,7 +365,7 @@ func (a *API) provisioning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, editorOptions{allowed, embers, a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
+	writeJSON(w, http.StatusOK, editorOptions{allowed, editorEmbers(embers), a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
 }
 
 func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
@@ -396,5 +396,5 @@ func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeJSON(w, http.StatusOK, editorOptions{[]model.Spark{spark}, embers, a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
+	writeJSON(w, http.StatusOK, editorOptions{[]model.Spark{spark}, editorEmbers(embers), a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
 }

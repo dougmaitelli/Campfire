@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/netip"
 	"strings"
@@ -71,6 +72,29 @@ func (s *ServerService) CreateOwned(ctx context.Context, input model.ServerConfi
 
 // Update changes a configuration while preserving placement and game identity.
 func (s *ServerService) Update(ctx context.Context, id string, input model.ServerConfiguration) (model.Server, error) {
+	current, err := s.Get(ctx, id)
+	if err != nil {
+		return model.Server{}, err
+	}
+	ember, err := s.embers.Get(ctx, current.EmberID)
+	if err != nil {
+		return model.Server{}, err
+	}
+	input.Variables = maps.Clone(input.Variables)
+	if input.Variables == nil {
+		input.Variables = make(map[string]string)
+	}
+	visible := make(map[string]bool)
+	for _, variable := range ember.Variables {
+		visible[variable.Name] = !variable.Hidden
+	}
+	// Hidden values omitted by the editor must survive edits, including while
+	// the current Ember differs from the server's applied definition.
+	for name, value := range current.Variables {
+		if _, supplied := input.Variables[name]; !supplied && !visible[name] {
+			input.Variables[name] = value
+		}
+	}
 	if s.runtime != nil {
 		release, err := s.runtime.BeforeEdit(ctx, id, input)
 		if err != nil {
@@ -130,6 +154,18 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 
 	server.EmberHash = latest.Revision
 
+	input.Variables = maps.Clone(input.Variables)
+	if input.Variables == nil {
+		input.Variables = make(map[string]string)
+	}
+	for _, variable := range latest.Variables {
+		if _, supplied := input.Variables[variable.Name]; supplied || !variable.Hidden || !variable.Editable {
+			continue
+		}
+		if value, exists := server.Variables[variable.Name]; exists {
+			input.Variables[variable.Name] = value
+		}
+	}
 	server.ServerConfiguration = input
 
 	return s.save(ctx, server, false)

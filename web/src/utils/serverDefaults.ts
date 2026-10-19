@@ -56,9 +56,8 @@ export function defaultVariables(
   ember: Ember | undefined,
 ): Record<string, string> {
   return Object.fromEntries(
-    (ember?.variables ?? []).map((variable) => [
-      variable.name,
-      variable.default,
-    ]),
+    (ember?.variables ?? [])
+      .filter((variable) => !variable.hidden)
+      .map((variable) => [variable.name, variable.default]),
   );
 }
