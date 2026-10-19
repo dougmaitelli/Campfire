@@ -13,12 +13,13 @@
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
-}
-.spark-feature svg {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 20px;
-  color: var(--muted);
+
+  & svg {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    color: var(--muted);
+  }
 }
 .spark-feature-available svg {
   color: var(--success);

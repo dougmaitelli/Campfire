@@ -1,19 +1,21 @@
 .form-field {
   min-width: 0;
   margin-bottom: 20px;
-}
-.form-field > label {
-  display: block;
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.form-field > .text-input,
-.form-field > .textarea,
-.form-field > .select,
-.form-field > input[type="file"] {
-  width: 100%;
-  margin-bottom: 0;
+
+  & > label {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  & > .text-input,
+  & > .textarea,
+  & > .select,
+  & > input[type="file"] {
+    width: 100%;
+    margin-bottom: 0;
+  }
 }
 .form-field > .field-help,
 .form-field-error {

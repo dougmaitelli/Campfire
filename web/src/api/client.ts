@@ -2,6 +2,8 @@ import { formatErrorMessage } from "../utils/errors";
 
 let csrfToken = "";
 
+export const API_REQUEST_TIMEOUT_MS = 35000;
+
 export function setCSRFToken(token: string) {
   csrfToken = token;
 }
@@ -21,7 +23,7 @@ export async function apiFetch(
     credentials: "same-origin",
     cache: "no-store",
     headers,
-    signal: init.signal ?? AbortSignal.timeout(35000),
+    signal: init.signal ?? AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
   });
   if (response.status === 401) {
     csrfToken = "";

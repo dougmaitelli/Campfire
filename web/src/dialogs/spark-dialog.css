@@ -26,10 +26,11 @@
 }
 .allocation-range .form-field {
   margin-bottom: 0;
-}
-.allocation-range .form-field > label {
-  margin-bottom: 6px;
-  font-size: 12px;
+
+  & > label {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
 }
 .allocation-range .allocation-remove {
   grid-area: remove;

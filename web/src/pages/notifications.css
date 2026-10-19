@@ -5,31 +5,35 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
   overflow-wrap: anywhere;
-}
-.notification-message:last-of-type {
-  border-bottom: 0;
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
 }
 .notification-content {
   flex: 1;
   min-width: 0;
-}
-.notification-content h2 {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.5;
-}
-.notification-content p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.notification-content .field-help {
-  font-size: 11px;
+
+  & h2 {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  & p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  & .field-help {
+    font-size: 11px;
+  }
 }
 .notification-message > .button {
   flex-shrink: 0;

@@ -31,11 +31,11 @@
 .brand-mark {
   display: flex;
   color: var(--accent);
-}
 
-.brand-mark svg {
-  width: 28px;
-  height: 28px;
+  & svg {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 .navigation {
@@ -57,23 +57,23 @@
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
-}
 
-.navigation-link svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
+  & svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
 
-.navigation-link:hover {
-  background: var(--surface-hover);
-  color: var(--text);
-}
+  &:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
 
-.navigation-link[aria-current="page"] {
-  border-color: var(--accent-border);
-  background: var(--accent-subtle);
-  color: var(--accent);
+  &[aria-current="page"] {
+    border-color: var(--accent-border);
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
 }
 
 .sidebar-footer {
@@ -113,17 +113,17 @@
   border-radius: 8px;
   color: var(--muted);
   text-decoration: none;
-}
 
-.notification-link:hover,
-.notification-link[aria-current="page"] {
-  background: var(--surface-hover);
-  color: var(--accent);
-}
+  &:hover,
+  &[aria-current="page"] {
+    background: var(--surface-hover);
+    color: var(--accent);
+  }
 
-.notification-link svg {
-  width: 22px;
-  height: 22px;
+  & svg {
+    width: 22px;
+    height: 22px;
+  }
 }
 
 .notification-count {
@@ -151,10 +151,10 @@
   color: var(--bg);
   text-decoration: none;
   transform: translateY(-200%);
-}
 
-.skip-link:focus {
-  transform: translateY(0);
+  &:focus {
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 640px) {

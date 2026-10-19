@@ -22,43 +22,43 @@
   border-collapse: collapse;
   text-align: left;
   font-size: 14px;
-}
 
-.data-table th {
-  white-space: nowrap;
-  padding: 14px 20px;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 650;
-  border-bottom: 1px solid var(--border);
-}
+  & th {
+    white-space: nowrap;
+    padding: 14px 20px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 650;
+    border-bottom: 1px solid var(--border);
+  }
 
-.data-table td {
-  padding: 18px 20px;
-  vertical-align: middle;
-}
+  & td {
+    padding: 18px 20px;
+    vertical-align: middle;
+  }
 
-.data-table tbody tr + tr td {
-  border-top: 1px solid var(--border);
-}
+  & tbody tr + tr td {
+    border-top: 1px solid var(--border);
+  }
 
-.data-table tbody tr:hover {
-  background: var(--surface-hover);
-}
+  & tbody tr:hover {
+    background: var(--surface-hover);
+  }
 
-.data-table strong {
-  overflow-wrap: anywhere;
-}
+  & strong {
+    overflow-wrap: anywhere;
+  }
 
-.data-table .table-actions {
-  width: 1%;
-  text-align: right;
-  white-space: nowrap;
-}
+  & .table-actions {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+  }
 
-.data-table:has(tbody:empty) .table-actions,
-.data-table:has(tbody > tr:only-child > td[colspan]) .table-actions {
-  width: auto;
+  &:has(tbody:empty) .table-actions,
+  &:has(tbody > tr:only-child > td[colspan]) .table-actions {
+    width: auto;
+  }
 }
 
 .table-actions .action-group {
@@ -70,10 +70,10 @@
 
 .table-row-interactive {
   cursor: pointer;
-}
 
-.table-row-interactive:focus-within {
-  background: var(--surface-hover);
+  &:focus-within {
+    background: var(--surface-hover);
+  }
 }
 
 .table-row-trigger {
@@ -87,10 +87,10 @@
   text-align: left;
   overflow-wrap: anywhere;
   cursor: pointer;
-}
 
-.table-row-trigger:hover {
-  color: var(--accent);
+  &:hover {
+    color: var(--accent);
+  }
 }
 
 @media (max-width: 640px) {

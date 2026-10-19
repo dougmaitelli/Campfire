@@ -6,7 +6,7 @@ import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
 import { Select } from "../components/forms/Select";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   importEmber,
@@ -19,6 +19,16 @@ import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
+
+const PREVIEW_DEBOUNCE_MS = 350;
+
+interface DefinitionPreview {
+  definition: string;
+  startupCommand: string;
+  sourceURL: string | undefined;
+  preview: EmberPreview | null;
+  error: string | null;
+}
 
 export function ImportEmberDialog({
   ember,
@@ -51,18 +61,79 @@ export function ImportEmberDialog({
   const [busy, setBusy] = useState(false);
   const [loadingSource, setLoadingSource] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<EmberPreview | null>(
-    initialPreview ?? null,
-  );
   const [startupCommand, setStartupCommand] = useState(
     initialPreview?.selected_startup_command ?? "",
   );
+  const [previewResult, setPreviewResult] = useState<DefinitionPreview | null>(
+    initialPreview
+      ? {
+          definition: text,
+          startupCommand,
+          sourceURL,
+          preview: initialPreview,
+          error: null,
+        }
+      : null,
+  );
+  const sameDefinition =
+    previewResult?.definition === text && previewResult.sourceURL === sourceURL;
+  const currentResult =
+    sameDefinition && previewResult.startupCommand === startupCommand
+      ? previewResult
+      : null;
+  const preview = currentResult?.preview ?? null;
+  const previewError = currentResult?.error ?? null;
+  const checking = !!text.trim() && !loadingSource && !currentResult;
+  const startupChoices = sameDefinition
+    ? (previewResult.preview?.startup_commands ?? [])
+    : [];
   const [reviewed, setReviewed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const warnings =
     preview?.warnings.filter((issue) => !issue.informational) ?? [];
   const submitting = useRef(false);
   const urlRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!checking) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      void previewEmberDefinition(
+        text,
+        startupCommand,
+        sourceURL,
+        controller.signal,
+      )
+        .then((result) => {
+          if (!controller.signal.aborted)
+            setPreviewResult({
+              definition: text,
+              startupCommand,
+              sourceURL,
+              preview: result,
+              error: null,
+            });
+        })
+        .catch((cause: unknown) => {
+          if (!controller.signal.aborted)
+            setPreviewResult({
+              definition: text,
+              startupCommand,
+              sourceURL,
+              preview: null,
+              error:
+                cause instanceof Error
+                  ? cause.message
+                  : "Unable to check compatibility.",
+            });
+        });
+    }, PREVIEW_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [checking, text, startupCommand, sourceURL]);
+
   async function loadURL() {
     if (
       submitting.current ||
@@ -73,7 +144,7 @@ export function ImportEmberDialog({
     submitting.current = true;
     setLoadingSource(true);
     setText("");
-    setPreview(null);
+    setPreviewResult(null);
     setStartupCommand("");
     setReviewed(false);
     setBusy(true);
@@ -82,7 +153,15 @@ export function ImportEmberDialog({
       const result = await previewEmberURL(url.trim());
       setSourceURL(url.trim());
       setText(result.definition);
-      setPreview(result);
+      const selected = result.selected_startup_command ?? "";
+      setStartupCommand(selected);
+      setPreviewResult({
+        definition: result.definition,
+        startupCommand: selected,
+        sourceURL: url.trim(),
+        preview: result,
+        error: null,
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load URL.");
     } finally {
@@ -97,7 +176,7 @@ export function ImportEmberDialog({
     setSourceURL(undefined);
     if (file.size > 1024 * 1024) {
       setText("");
-      setPreview(null);
+      setPreviewResult(null);
       setReviewed(false);
       setStartupCommand("");
       setError("Definition files must be at most 1 MiB.");
@@ -107,7 +186,7 @@ export function ImportEmberDialog({
     submitting.current = true;
     setLoadingSource(true);
     setText("");
-    setPreview(null);
+    setPreviewResult(null);
     setStartupCommand("");
     setReviewed(false);
     setBusy(true);
@@ -148,26 +227,6 @@ export function ImportEmberDialog({
       setError(
         cause instanceof Error ? cause.message : "Unable to import Ember.",
       );
-    } finally {
-      submitting.current = false;
-      setBusy(false);
-    }
-  }
-  async function review() {
-    if (submitting.current || !text.trim()) return;
-    submitting.current = true;
-    setBusy(true);
-    setReviewed(false);
-    setError(null);
-    try {
-      setPreview(await previewEmberDefinition(text, startupCommand, sourceURL));
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Unable to preview definition.",
-      );
-      setPreview(null);
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -260,7 +319,9 @@ export function ImportEmberDialog({
         }}
       >
         <div className="drawer-content">
-          {error && <InlineMessage role="alert">{error}</InlineMessage>}
+          {(error ?? previewError) && (
+            <InlineMessage role="alert">{error ?? previewError}</InlineMessage>
+          )}
           <Fieldset disabled={busy}>
             {!ember && (
               <div
@@ -347,14 +408,14 @@ export function ImportEmberDialog({
                 value={text}
                 onChange={(event) => {
                   setText(event.target.value);
-                  setPreview(null);
+                  setError(null);
                   setReviewed(false);
                   setStartupCommand("");
                 }}
                 spellCheck={false}
               />
             </FormField>
-            {preview && preview.startup_commands.length > 1 && (
+            {startupChoices.length > 1 && (
               <>
                 <FormField label="Startup command to import">
                   <Select
@@ -363,11 +424,11 @@ export function ImportEmberDialog({
                     onValueChange={(selectedValue) => {
                       setStartupCommand(selectedValue);
                       setReviewed(false);
-                      setPreview({ ...preview, ember: null });
+                      setError(null);
                     }}
                   >
                     <option value="">Select a startup command</option>
-                    {preview.startup_commands.map((command) => (
+                    {startupChoices.map((command) => (
                       <option key={command} value={command}>
                         {command}
                       </option>
@@ -376,16 +437,7 @@ export function ImportEmberDialog({
                 </FormField>
               </>
             )}
-            <Button
-              type="button"
-
-              disabled={!text.trim()}
-              onClick={() => {
-                void review();
-              }}
-            >
-              Preview compatibility
-            </Button>
+            {checking && <p role="status">Checking compatibility…</p>}
             {preview && (
               <section aria-label="Compatibility preview">
                 <h3>

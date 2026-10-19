@@ -13,20 +13,21 @@
   margin: 0;
   list-style: none;
   border-bottom: 1px solid var(--border);
-}
-.wizard-progress:not(.wizard-progress-single)::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--wizard-top-padding) + 13px);
-  left: calc(var(--wizard-side-padding) + 13.5px);
-  right: calc(var(--wizard-side-padding) + 13.5px);
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    var(--accent-border) var(--wizard-progress),
-    var(--border) var(--wizard-progress)
-  );
-  pointer-events: none;
+
+  &:not(.wizard-progress-single)::before {
+    content: "";
+    position: absolute;
+    top: calc(var(--wizard-top-padding) + 13px);
+    left: calc(var(--wizard-side-padding) + 13.5px);
+    right: calc(var(--wizard-side-padding) + 13.5px);
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      var(--accent-border) var(--wizard-progress),
+      var(--border) var(--wizard-progress)
+    );
+    pointer-events: none;
+  }
 }
 .wizard-step-link {
   display: flex;
@@ -48,21 +49,24 @@
 .wizard-progress > li {
   position: relative;
   min-width: 0;
-}
-.wizard-progress > li:first-child .wizard-step-link {
-  align-items: flex-start;
-  text-align: left;
-}
-.wizard-progress > li:last-child:not(:first-child) .wizard-step-link {
-  align-items: flex-end;
-  text-align: right;
+
+  &:first-child .wizard-step-link {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  &:last-child:not(:first-child) .wizard-step-link {
+    align-items: flex-end;
+    text-align: right;
+  }
 }
 .wizard-step-link:disabled {
   color: color-mix(in srgb, var(--muted) 45%, var(--surface));
   cursor: default;
-}
-.wizard-step-link:disabled .wizard-step-number {
-  border-color: color-mix(in srgb, var(--border) 45%, var(--surface));
+
+  & .wizard-step-number {
+    border-color: color-mix(in srgb, var(--border) 45%, var(--surface));
+  }
 }
 .wizard-step-link:hover:not(:disabled) {
   color: var(--text);
@@ -82,11 +86,12 @@
 }
 .wizard-progress [aria-current="step"] {
   color: var(--accent);
-}
-.wizard-progress [aria-current="step"] .wizard-step-number {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--bg);
+
+  & .wizard-step-number {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--bg);
+  }
 }
 .wizard-progress
   .is-complete
@@ -103,9 +108,10 @@
   margin: 0 0 24px;
   font-size: 18px;
   font-weight: 600;
-}
-.wizard-heading:focus-visible {
-  outline: none;
+
+  &:focus-visible {
+    outline: none;
+  }
 }
 @media (max-width: 480px) {
   .wizard-progress {

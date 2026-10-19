@@ -4,7 +4,8 @@
   border-radius: 10px;
   background: var(--surface);
   overflow: hidden;
-}
-.content-panel + .content-panel {
-  margin-top: 24px;
+
+  & + .content-panel {
+    margin-top: 24px;
+  }
 }

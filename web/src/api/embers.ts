@@ -1,4 +1,4 @@
-import { apiFetch, readJSON } from "./client";
+import { API_REQUEST_TIMEOUT_MS, apiFetch, readJSON } from "./client";
 
 export interface EmberVariable {
   name: string;
@@ -209,10 +209,14 @@ export async function previewEmberDefinition(
   definition: string,
   startupCommand: string,
   sourceURL?: string,
+  signal?: AbortSignal,
 ): Promise<EmberPreview> {
   return readPreview(
     await apiFetch("/api/v1/embers/preview", {
       method: "POST",
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(API_REQUEST_TIMEOUT_MS)])
+        : null,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         definition,

@@ -29,21 +29,23 @@
   border-top: 1px solid var(--border);
   color: var(--accent);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-.server-terminal-command input {
-  flex: 1;
-  min-width: 0;
-  width: 100%;
-  margin: 0;
-  padding: 8px 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-}
-.server-terminal-command input:focus-visible {
-  outline-offset: 0;
+
+  & input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+    padding: 8px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+  }
+
+  & input:focus-visible {
+    outline-offset: 0;
+  }
 }
 .server-terminal-window:focus-within {
   border-color: var(--accent-border);

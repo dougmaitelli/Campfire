@@ -11,9 +11,10 @@
   border-left: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-}
-.drawer::backdrop {
-  background: rgb(0 0 0 / 55%);
+
+  &::backdrop {
+    background: rgb(0 0 0 / 55%);
+  }
 }
 .drawer-form {
   display: flex;
@@ -27,9 +28,10 @@
   gap: 16px;
   padding: 22px 24px;
   border-bottom: 1px solid var(--border);
-}
-.drawer-heading > div {
-  min-width: 0;
+
+  & > div {
+    min-width: 0;
+  }
 }
 .drawer-title {
   display: flex;
@@ -53,11 +55,12 @@
 .drawer-content {
   padding: 24px;
   flex: 1;
-}
-.drawer-content > p {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.6;
+
+  & > p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
 }
 
 .drawer-content-area {
@@ -65,11 +68,12 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
-}
-.drawer-content-area > form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+
+  & > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
 }
 .drawer-footer {
   position: sticky;
@@ -127,16 +131,20 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-}
-.drawer-panel .drawer-heading {
-  padding: 16px 20px;
-}
-.drawer-panel .drawer-heading h2 {
-  font-size: 16px;
-}
-.drawer-panel .drawer-content {
-  padding: 16px 20px;
-}
-.drawer-panel .drawer-footer {
-  position: static;
+
+  & .drawer-heading {
+    padding: 16px 20px;
+  }
+
+  & .drawer-heading h2 {
+    font-size: 16px;
+  }
+
+  & .drawer-content {
+    padding: 16px 20px;
+  }
+
+  & .drawer-footer {
+    position: static;
+  }
 }

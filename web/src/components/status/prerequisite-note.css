@@ -1,7 +1,8 @@
 .prerequisite-note {
   font-size: 14px;
   color: var(--muted);
-}
-.prerequisite-note a {
-  color: var(--accent);
+
+  & a {
+    color: var(--accent);
+  }
 }

@@ -31,17 +31,17 @@
 .metric-tile-warning {
   border-color: var(--attention-border);
   background: var(--attention-surface);
-}
 
-.metric-tile-warning .metric-tile-value {
-  color: var(--attention);
+  & .metric-tile-value {
+    color: var(--attention);
+  }
 }
 
 .metric-tile-critical {
   border-color: var(--critical-border);
   background: var(--critical-surface);
-}
 
-.metric-tile-critical .metric-tile-value {
-  color: var(--critical);
+  & .metric-tile-value {
+    color: var(--critical);
+  }
 }

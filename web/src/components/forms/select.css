@@ -9,18 +9,21 @@
   background-position: right 12px center;
   background-size: 16px;
   cursor: pointer;
-}
-.select > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.select:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-.select:dir(rtl) {
-  background-position: left 12px center;
+
+  & > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  &:dir(rtl) {
+    background-position: left 12px center;
+  }
 }
 .select-menu {
   z-index: 100;
@@ -51,19 +54,22 @@
   cursor: pointer;
   user-select: none;
   overflow-wrap: anywhere;
-}
-.select-option[data-state="checked"] {
-  background: var(--accent-subtle);
-  color: var(--accent);
-}
-.select-option[data-highlighted] {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-.select-option[data-disabled] {
-  color: var(--muted);
-  opacity: 0.55;
-  cursor: default;
+
+  &[data-state="checked"] {
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+
+  &[data-highlighted] {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+
+  &[data-disabled] {
+    color: var(--muted);
+    opacity: 0.55;
+    cursor: default;
+  }
 }
 .select-check {
   position: absolute;

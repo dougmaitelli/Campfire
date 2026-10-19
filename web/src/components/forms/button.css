@@ -41,9 +41,10 @@ input[type="file"]:not(:disabled)::file-selector-button:hover {
   border-color: var(--warning-accent);
   background: color-mix(in srgb, var(--warning-accent) 10%, transparent);
   color: var(--warning-accent);
-}
-.button-warning:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--warning-accent) 20%, transparent);
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--warning-accent) 20%, transparent);
+  }
 }
 .button-danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--danger-accent) 20%, transparent);
@@ -57,9 +58,10 @@ input[type="file"] {
   color: var(--text);
   font: inherit;
   font-size: 14px;
-}
-input[type="file"]::file-selector-button {
-  margin-inline-end: 12px;
+
+  &::file-selector-button {
+    margin-inline-end: 12px;
+  }
 }
 .button-icon {
   width: var(--control-height);
@@ -68,10 +70,11 @@ input[type="file"]::file-selector-button {
   min-height: var(--control-height);
   flex: 0 0 var(--control-height);
   padding: 0;
-}
-.button-icon svg {
-  width: 18px;
-  height: 18px;
+
+  & svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .button-small {

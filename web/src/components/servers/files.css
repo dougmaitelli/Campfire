@@ -24,18 +24,21 @@
   font-size: 14px;
   overflow-wrap: anywhere;
   cursor: pointer;
-}
-.file-breadcrumb[aria-current="location"] {
-  color: var(--text);
-  font-weight: 600;
-}
-.file-breadcrumb:hover:not(:disabled) {
-  color: var(--accent);
-  text-decoration: underline;
-}
-.file-breadcrumb:disabled {
-  cursor: default;
-  opacity: 0.55;
+
+  &[aria-current="location"] {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
 }
 .file-toolbar,
 .file-sftp {
@@ -48,28 +51,32 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
-}
-.file-sftp summary {
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.file-sftp[open] summary {
-  border-bottom: 1px solid var(--border);
+
+  & summary {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  &[open] summary {
+    border-bottom: 1px solid var(--border);
+  }
 }
 .file-sftp-content {
   padding: 16px;
   font-size: 13px;
   line-height: 1.6;
-}
-.file-sftp-content p {
-  margin: 0;
-  max-width: 75ch;
-  color: var(--muted);
-}
-.file-sftp-content .details-list {
-  margin: 16px 0;
+
+  & p {
+    margin: 0;
+    max-width: 75ch;
+    color: var(--muted);
+  }
+
+  & .details-list {
+    margin: 16px 0;
+  }
 }
 .file-list {
   display: flex;
@@ -87,9 +94,10 @@
   justify-content: space-between;
   padding: 5px 0;
   border-bottom: 1px solid var(--border);
-}
-.file-row:last-child {
-  border-bottom: 0;
+
+  &:last-child {
+    border-bottom: 0;
+  }
 }
 .file-name {
   display: flex;

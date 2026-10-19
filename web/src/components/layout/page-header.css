@@ -38,12 +38,14 @@
   gap: 10px;
   max-width: 100%;
   margin-inline-start: auto;
-}
-.page-header .page-actions .button {
-  white-space: nowrap;
-}
-@media (max-width: 640px) {
-  .page-header .page-actions {
-    width: 100%;
+
+  & .button {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    & {
+      width: 100%;
+    }
   }
 }

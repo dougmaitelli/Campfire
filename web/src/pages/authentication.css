@@ -18,11 +18,12 @@
   margin-bottom: 2rem;
   font-size: 1.4rem;
   font-weight: 650;
-}
-.authentication-brand svg {
-  width: 28px;
-  height: 28px;
-  color: var(--accent);
+
+  & svg {
+    width: 28px;
+    height: 28px;
+    color: var(--accent);
+  }
 }
 .authentication-card h1 {
   font-size: 1.5rem;
@@ -36,9 +37,10 @@
 }
 .authentication-form {
   gap: 1.25rem;
-}
-.authentication-form input {
-  width: 100%;
+
+  & input {
+    width: 100%;
+  }
 }
 .authentication-description,
 .authentication-hint {
