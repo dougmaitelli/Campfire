@@ -13,11 +13,11 @@ import (
 )
 
 func TestUnsupportedCapabilitiesReturnActionableConflict(t *testing.T) {
-	failure := protocol.Require(nil, protocol.CapabilityUpgrade)
+	failure := protocol.Require(nil, protocol.CapabilityReinstall)
 	response := httptest.NewRecorder()
 	writeError(response, errors.Join(service.ErrDeploymentUnavailable, failure))
 
-	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), protocol.CapabilityUpgrade) {
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), protocol.CapabilityReinstall) {
 		t.Fatal("capability error lost behind transport wrapper", response.Code, response.Body)
 	}
 

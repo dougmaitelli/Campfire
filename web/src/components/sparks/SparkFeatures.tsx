@@ -9,14 +9,13 @@ const featureLabels: Record<string, string> = {
   "server.files.transfer.v1": "File uploads and downloads",
   "server.files.archive.v1": "Archive creation and extraction",
   "server.backups.v1": "Local backups",
-  "server.backups.delete.v1": "Backup deletion",
-  "server.backups.remote.v1": "S3 backup restoration",
+  "server.backups.delete.v1": "Local backup deletion",
+  "server.backups.remote.v1": "Remote backups",
   "server.metrics.v1": "Usage monitoring",
   "server.console.stream.v1": "Live console",
   "server.disk-quota.v1": "Disk quotas",
   "server.transfer.v1": "Server transfers",
-  "server.upgrade.v1": "Updates and reinstalls",
-  "server.reinstall.clean.v1": "Clean reinstalls",
+  "server.reinstall.v1": "Reinstall",
   "spark.self-update.v1": "Remote Spark updates",
 };
 

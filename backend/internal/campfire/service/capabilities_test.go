@@ -23,7 +23,7 @@ func (r *limitedCapabilityRouter) Deploy(ctx context.Context, id string, deploym
 
 func (r *limitedCapabilityRouter) CheckRuntime(_ string, request model.RuntimeRequest) error {
 	if request.Action == "reinstall" {
-		return protocol.Require(nil, protocol.CapabilityUpgrade)
+		return protocol.Require(nil, protocol.CapabilityReinstall)
 	}
 
 	if request.Action == "delete" && r.denyDelete {

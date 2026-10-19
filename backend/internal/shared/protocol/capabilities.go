@@ -38,14 +38,13 @@ const (
 	CapabilityConsole       = "server.console.stream.v1"
 	CapabilityDiskQuota     = "server.disk-quota.v1"
 	CapabilityTransfer      = "server.transfer.v1"
-	CapabilityUpgrade       = "server.upgrade.v1"
-	CapabilityCleanInstall  = "server.reinstall.clean.v1"
+	CapabilityReinstall     = "server.reinstall.v1"
 	CapabilitySelfUpdate    = "spark.self-update.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityEmberBehavior, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityUpgrade, CapabilityCleanInstall, CapabilitySelfUpdate}
+	return []string{CapabilityConfigure, CapabilityEmberBehavior, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupDelete, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -172,10 +171,7 @@ func RequiredCapabilities(command Command) []string {
 				requirements = append(requirements, CapabilityBackupRemote)
 			}
 		case "update", "reinstall":
-			requirements = append(requirements, CapabilityUpgrade)
-			if command.Runtime.Action == "reinstall" && command.Runtime.Content == "clean" {
-				requirements = append(requirements, CapabilityCleanInstall)
-			}
+			requirements = append(requirements, CapabilityReinstall)
 		}
 
 		return requirements

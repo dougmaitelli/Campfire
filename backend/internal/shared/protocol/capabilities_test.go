@@ -78,9 +78,9 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.delete"}}, CapabilityBackupDelete},
 		{Command{Name: ServerTransfer}, CapabilityTransfer},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "metrics"}}, CapabilityMetrics},
-		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "update"}}, CapabilityUpgrade},
-		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall"}}, CapabilityUpgrade},
-		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall", Content: "clean"}}, CapabilityCleanInstall},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "update"}}, CapabilityReinstall},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall"}}, CapabilityReinstall},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall", Content: "clean"}}, CapabilityReinstall},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "start"}}, CapabilityLifecycle},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "restore", BackupSource: &model.BackupSource{}}}, CapabilityBackupRemote},
 	}

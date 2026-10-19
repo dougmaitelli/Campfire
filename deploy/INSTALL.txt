@@ -362,14 +362,12 @@ server.metrics.v1                  Measured CPU, memory and disk reporting
 server.console.stream.v1           Continuous console streaming
 server.disk-quota.v1               Continuous game-filesystem quota enforcement
 server.transfer.v1                 Fenced server archive transfer steps
-server.upgrade.v1                  Explicit update and reinstall workflows
-server.reinstall.clean.v1          Clean reinstall while preserving backups
+server.reinstall.v1                Reinstall keeping or clearing game files, preserving backups
 spark.self-update.v1               Verified client binary replacement and restart
 
-Operations can require several features: install/start/restart require quota
-support; updates/reinstalls additionally require upgrade support; clean reinstall
-also requires server.reinstall.clean.v1; remote restores
-require lifecycle, local backup, quota and remote backup support. Transfers check
+Operations can require several features: updates and both reinstall modes require
+lifecycle and reinstall support; remote restores require lifecycle, local backup
+and remote backup support. Disk quota support is optional. Transfers check
 both Sparks before creating a reservation. Every actual dispatch and Spark-side
 execution checks negotiated support again. Unsupported operations return a clear
 capability error (HTTP 409) while supported operations remain available on the
