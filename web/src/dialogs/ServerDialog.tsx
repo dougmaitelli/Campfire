@@ -7,6 +7,8 @@ import { Textarea } from "../components/forms/Textarea";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Button } from "../components/forms/Button";
 import { Select } from "../components/forms/Select";
+import { UserSelect } from "../components/forms/UserSelect";
+import { formatUserLabel } from "../utils/formatUserLabel";
 import { useEffect, useRef, useState } from "react";
 import { applyServerEmber, saveServer } from "../api/servers";
 import type { Server, ServerConfiguration, ServerPort } from "../api/servers";
@@ -71,6 +73,9 @@ export function ServerDialog({
   const [accessAttempt, setAccessAttempt] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [ownerID, setOwnerID] = useState(session?.user_id ?? 0);
+  const owner = admin
+    ? users.find((user) => user.id === ownerID)
+    : access?.owner;
   const [grants, setGrants] = useState<AccessGrant[]>([]);
   const [accessDirty, setAccessDirty] = useState(false);
   const [removedGrantIDs, setRemovedGrantIDs] = useState<number[]>([]);
@@ -779,42 +784,37 @@ export function ServerDialog({
                   <p role="status">Loading access…</p>
                 ) : (
                   <>
-                    <h4 className="server-dialog-heading">Owner</h4>
+                    {(admin || server) && (
+                      <h4 className="server-dialog-heading">Owner</h4>
+                    )}
                     {admin ? (
                       <FormField
                         label="Owner"
-                        description="Changing the owner removes the previous owner’s implicit access when you save."
+                        description={
+                          server
+                            ? "Changing the owner removes the previous owner’s implicit access when you save."
+                            : "Choose who will own this server."
+                        }
                       >
-                        <Select
+                        <UserSelect
+                          users={users.filter(
+                            (user) =>
+                              !user.disabled || user.id === access.owner?.id,
+                          )}
                           value={ownerID}
-                          onValueChange={(selectedValue) => {
-                            setOwnerID(Number(selectedValue));
+                          onValueChange={(selectedID) => {
+                            setOwnerID(selectedID);
                             setAccessDirty(true);
                           }}
-                        >
-                          <option value={0} disabled>
-                            Select an account
-                          </option>
-                          {users
-                            .filter(
-                              (user) =>
-                                !user.disabled || user.id === access.owner?.id,
-                            )
-                            .map((user) => (
-                              <option key={user.id} value={user.id}>
-                                {user.username}
-                                {user.disabled ? " (disabled)" : ""}
-                              </option>
-                            ))}
-                        </Select>
+                        />
                       </FormField>
-                    ) : (
+                    ) : server ? (
                       <p>
-                        {access.owner?.username ??
-                          session?.username ??
-                          "Administrator managed"}
+                        {owner
+                          ? formatUserLabel(owner)
+                          : (session?.username ?? "Administrator managed")}
                       </p>
-                    )}
+                    ) : null}
                     <h4 className="server-dialog-heading">Access grants</h4>
                     <AccessGrantFields
                       users={access.subject_users.filter(
@@ -889,10 +889,9 @@ export function ServerDialog({
                   <h4 className="server-dialog-heading">Access</h4>
                   <p>
                     Owner:{" "}
-                    {admin
-                      ? (users.find((user) => user.id === ownerID)?.username ??
-                        "Administrator managed")
-                      : (access.owner?.username ?? session?.username)}
+                    {owner
+                      ? formatUserLabel(owner)
+                      : (session?.username ?? "Administrator managed")}
                   </p>
                   {grants.length ? (
                     <ul>

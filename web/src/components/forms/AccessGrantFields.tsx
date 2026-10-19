@@ -3,6 +3,7 @@ import type { AccessGrant, AccessUser, Role } from "../../api/access";
 import { Button } from "./Button";
 import { FormField } from "./FormField";
 import { Select } from "./Select";
+import { UserSelect } from "./UserSelect";
 import "./access-grant-fields.css";
 
 interface Props {
@@ -74,19 +75,11 @@ export function AccessGrantFields({
       </FormField>
       {subject === "user" ? (
         <FormField label="User">
-          <Select
+          <UserSelect
+            users={users}
             value={user?.id ?? 0}
-            onValueChange={(selectedValue) => setUserID(Number(selectedValue))}
-          >
-            <option value={0} disabled>
-              {users.length ? "Select a user" : "No users available"}
-            </option>
-            {users.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name ? `${item.name} (${item.username})` : item.username}
-              </option>
-            ))}
-          </Select>
+            onValueChange={setUserID}
+          />
         </FormField>
       ) : (
         <FormField label="Role">
