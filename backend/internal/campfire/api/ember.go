@@ -10,14 +10,13 @@ import (
 
 func (a *API) previewEmberURL(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		URL            string `json:"url"`
-		StartupCommand string `json:"startup_command,omitempty"`
+		URL string `json:"url"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return
 	}
 
-	ember, err := service.FetchEmberURL(r.Context(), input.URL, service.ImportOptions{StartupCommand: input.StartupCommand})
+	ember, err := service.FetchEmberURL(r.Context(), input.URL, service.ImportOptions{})
 	if err != nil {
 		writeError(w, err)
 		return
@@ -72,7 +71,6 @@ func definitionRequest(w http.ResponseWriter, r *http.Request) ([]byte, service.
 
 	var input struct {
 		Definition          string `json:"definition"`
-		StartupCommand      string `json:"startup_command,omitempty"`
 		AcknowledgeWarnings bool   `json:"acknowledge_warnings,omitempty"`
 		SourceURL           string `json:"source_url,omitempty"`
 	}
@@ -85,7 +83,7 @@ func definitionRequest(w http.ResponseWriter, r *http.Request) ([]byte, service.
 		return nil, service.ImportOptions{}, false
 	}
 
-	return []byte(input.Definition), service.ImportOptions{StartupCommand: input.StartupCommand, AcknowledgeWarnings: input.AcknowledgeWarnings, SourceURL: input.SourceURL}, true
+	return []byte(input.Definition), service.ImportOptions{AcknowledgeWarnings: input.AcknowledgeWarnings, SourceURL: input.SourceURL}, true
 }
 
 func (a *API) listEmbers(w http.ResponseWriter, r *http.Request) {

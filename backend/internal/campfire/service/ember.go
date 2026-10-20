@@ -69,7 +69,7 @@ func validateEmber(ember *model.Ember) error {
 		return fmt.Errorf("%w: %w", ErrInvalidEmber, err)
 	}
 
-	if len(ember.Variables) > 128 || len(ember.Images) > 32 || len(ember.RequiredPorts) > 32 || strings.TrimSpace(ember.Startup) == "" {
+	if len(ember.Variables) > 128 || len(ember.Images) > 32 || len(ember.RequiredPorts) > 32 || strings.TrimSpace(ember.Startup) == "" && len(ember.StartupCommands) == 0 {
 		return fmt.Errorf("%w: definition exceeds limits or has no startup command", ErrInvalidEmber)
 	}
 

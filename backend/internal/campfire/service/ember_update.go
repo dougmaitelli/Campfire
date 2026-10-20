@@ -79,33 +79,6 @@ func (s *EmberUpdateService) check(ctx context.Context, id string) (model.EmberU
 	}
 
 	preview, fetchErr := s.fetch(ctx, address, ImportOptions{})
-	// Older Pelican revisions did not retain their startup selection. Match it
-	// against the available commands before comparing the converted definition.
-	if fetchErr == nil && preview.Ember == nil && len(preview.StartupCommands) > 0 {
-		var first *EmberPreview
-
-		for _, command := range preview.StartupCommands {
-			candidate := PreviewEmber([]byte(preview.Definition), ImportOptions{SourceURL: address, StartupCommand: command})
-
-			candidate.SelectedStartupCommand = command
-			if candidate.Ember == nil {
-				continue
-			}
-
-			if first == nil {
-				first = &candidate
-			}
-
-			if candidate.Ember.Startup == ember.Startup {
-				first = &candidate
-				break
-			}
-		}
-
-		if first != nil {
-			preview = *first
-		}
-	}
 
 	item := model.EmberUpdate{EmberID: id, CheckedAt: s.now().UTC().Unix()}
 	if fetchErr != nil {

@@ -624,6 +624,11 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 }
 
 func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error {
+	_, command, err := d.Ember.ResolveStartup(d.Configuration.StartupCommand)
+	if err != nil {
+		return err
+	}
+
 	if _, err := os.Lstat(filepath.Join(m.root(d.ServerID), "restore-previous")); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("previous restore data requires operator recovery before starting")
 	}
@@ -679,7 +684,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 		return err
 	}
 
-	startup := startupVariables.ReplaceAllStringFunc(d.Ember.Startup, func(value string) string { return "${" + value[2:len(value)-2] + "}" })
+	startup := startupVariables.ReplaceAllStringFunc(command, func(value string) string { return "${" + value[2:len(value)-2] + "}" })
 	env["STARTUP"] = startup
 	// Images may launch their own Tini beneath Docker's PID 1 init process.
 	env["TINI_SUBREAPER"] = "1"

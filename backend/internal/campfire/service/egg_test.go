@@ -83,16 +83,16 @@ func TestEggConsolePromptsDoNotBlockImport(t *testing.T) {
 
 func TestEggCompatibilityFixtures(t *testing.T) {
 	for _, test := range []struct {
-		file, format, startup string
+		file, format string
 	}{
-		{"native.json", "ember", ""}, {"ptdl-v1.json", "PTDL_v1", ""}, {"ptdl-v2.json", "PTDL_v2", ""},
-		{"plcn-v1.json", "PLCN_v1", ""}, {"plcn-v2.json", "PLCN_v2", ""}, {"plcn-v3.json", "PLCN_v3", "Default"}, {"plcn-v3.yaml", "PLCN_v3", ""},
-		{"extended.json", "PTDL_v2", ""}, {"valheim.json", "PTDL_v2", ""},
+		{"native.json", "ember"}, {"ptdl-v1.json", "PTDL_v1"}, {"ptdl-v2.json", "PTDL_v2"},
+		{"plcn-v1.json", "PLCN_v1"}, {"plcn-v2.json", "PLCN_v2"}, {"plcn-v3.json", "PLCN_v3"}, {"plcn-v3.yaml", "PLCN_v3"},
+		{"extended.json", "PTDL_v2"}, {"valheim.json", "PTDL_v2"},
 	} {
 		t.Run(test.file, func(t *testing.T) {
 			data := eggFixture(t, test.file)
 
-			report := PreviewEmber(data, ImportOptions{StartupCommand: test.startup})
+			report := PreviewEmber(data, ImportOptions{})
 			if len(report.Errors) > 0 || report.Ember == nil {
 				t.Fatalf("fixture conversion failed: %+v", report.Errors)
 			}
@@ -162,15 +162,10 @@ func TestEggUnsupportedFixtureAndStartupSelection(t *testing.T) {
 	}
 
 	data := eggFixture(t, "plcn-v3.json")
-	for _, selection := range []string{"", "missing"} {
-		report := PreviewEmber(data, ImportOptions{StartupCommand: selection})
-		if report.Ember != nil || len(report.Errors) == 0 || !slices.Equal(report.StartupCommands, []string{"Debug", "Default"}) {
-			t.Fatal("ambiguous startup accepted", report)
-		}
-	}
 
-	if report := PreviewEmber(data, ImportOptions{StartupCommand: "Debug"}); report.Ember == nil || report.Ember.Startup != "./server --debug" {
-		t.Fatal("explicit startup selection ignored", report)
+	report = PreviewEmber(data, ImportOptions{})
+	if report.Ember == nil || len(report.Errors) != 0 || len(report.Ember.StartupCommands) != 2 || report.Ember.StartupCommands["Debug"] != "./server --debug" || report.Ember.Startup != "" {
+		t.Fatal("named startup commands were not preserved", report)
 	}
 }
 

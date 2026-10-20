@@ -150,6 +150,10 @@ func migrate(db *gorm.DB) error {
 		}
 
 		if version == schemaVersion {
+			if !tx.Migrator().HasColumn(&Server{}, "StartupCommand") {
+				return tx.Migrator().AddColumn(&Server{}, "StartupCommand")
+			}
+
 			return nil
 		}
 

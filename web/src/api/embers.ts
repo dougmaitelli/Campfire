@@ -18,6 +18,7 @@ export interface Ember {
   updateUrl?: string;
   images: Record<string, string>;
   startup: string;
+  startup_commands?: Record<string, string>;
   startup_shell?: "sh" | "bash" | "ash";
   work_dir: string;
   user: string;
@@ -53,6 +54,13 @@ export function isEmber(value: unknown): value is Ember {
     ) &&
     "startup" in value &&
     typeof value.startup === "string" &&
+    (!("startup_commands" in value) ||
+      (typeof value.startup_commands === "object" &&
+        value.startup_commands !== null &&
+        !Array.isArray(value.startup_commands) &&
+        Object.values(value.startup_commands).every(
+          (command: unknown) => typeof command === "string",
+        ))) &&
     (!("startup_shell" in value) ||
       value.startup_shell === "sh" ||
       value.startup_shell === "bash" ||
@@ -115,7 +123,6 @@ export async function deleteEmber(id: string): Promise<void> {
 
 export async function importEmber(
   definition: string,
-  startupCommand: string,
   acknowledgeWarnings: boolean,
   sourceURL?: string,
   replaceID?: string,
@@ -130,7 +137,6 @@ export async function importEmber(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           definition,
-          startup_command: startupCommand,
           acknowledge_warnings: acknowledgeWarnings,
           source_url: sourceURL,
         }),
@@ -152,8 +158,6 @@ export interface EmberPreview {
   ember: Ember | null;
   warnings: ImportIssue[];
   errors: ImportIssue[];
-  startup_commands: string[];
-  selected_startup_command?: string | undefined;
 }
 
 function isIssue(value: unknown): value is ImportIssue {
@@ -184,10 +188,7 @@ async function readPreview(response: Response): Promise<EmberPreview> {
     !body.warnings.every(isIssue) ||
     !("errors" in body) ||
     !Array.isArray(body.errors) ||
-    !body.errors.every(isIssue) ||
-    !("startup_commands" in body) ||
-    !Array.isArray(body.startup_commands) ||
-    !body.startup_commands.every((value: unknown) => typeof value === "string")
+    !body.errors.every(isIssue)
   )
     throw new Error("Unexpected compatibility preview response.");
   return {
@@ -196,18 +197,11 @@ async function readPreview(response: Response): Promise<EmberPreview> {
     ember: body.ember,
     warnings: body.warnings,
     errors: body.errors,
-    startup_commands: body.startup_commands,
-    selected_startup_command:
-      "selected_startup_command" in body &&
-      typeof body.selected_startup_command === "string"
-        ? body.selected_startup_command
-        : undefined,
   };
 }
 
 export async function previewEmberDefinition(
   definition: string,
-  startupCommand: string,
   sourceURL?: string,
   signal?: AbortSignal,
 ): Promise<EmberPreview> {
@@ -220,7 +214,6 @@ export async function previewEmberDefinition(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         definition,
-        startup_command: startupCommand,
         source_url: sourceURL,
       }),
     }),

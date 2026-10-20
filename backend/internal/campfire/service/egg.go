@@ -64,7 +64,7 @@ type eggVariable struct {
 	Sort        int             `json:"sort"`
 }
 
-func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.Ember {
+func convertEgg(data []byte, report *EmberPreview) model.Ember {
 	var egg eggDefinition
 	if err := strictDefinition(data, &egg); err != nil {
 		report.fail("definition", err.Error())
@@ -94,24 +94,9 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 	}
 
 	if egg.Meta.Version == "PLCN_v3" {
-		keys := sortedKeys(egg.StartupCommands)
-		report.StartupCommands = keys
-
-		selected := options.StartupCommand
-		if selected == "" && len(keys) == 1 {
-			selected = keys[0]
-		}
-
-		if selected == "" {
-			report.fail("startup_command", "Select one of the exported startup commands.")
-		} else if command, ok := egg.StartupCommands[selected]; ok {
-			ember.Startup = command
-
-			if len(keys) > 1 {
-				report.warn("startup_commands", "Only the selected startup command is retained in this Ember.")
-			}
-		} else {
-			report.fail("startup_command", "The selected startup command does not exist.")
+		ember.StartupCommands = egg.StartupCommands
+		if len(ember.StartupCommands) == 0 {
+			report.fail("startup_commands", "Export at least one named startup command.")
 		}
 
 		if egg.Startup != "" {
@@ -119,8 +104,8 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 		}
 	} else {
 		ember.Startup = egg.Startup
-		if len(egg.StartupCommands) > 0 || options.StartupCommand != "" {
-			report.fail("startup_commands", "Startup selection is only supported for PLCN_v3.")
+		if len(egg.StartupCommands) > 0 {
+			report.fail("startup_commands", "Named startup commands require PLCN_v3.")
 		}
 	}
 
@@ -207,6 +192,10 @@ func convertEgg(data []byte, options ImportOptions, report *EmberPreview) model.
 	}
 
 	ember.Startup = eggTemplate(ember.Startup, ember.Variables, "startup", report)
+	for name, command := range ember.StartupCommands {
+		ember.StartupCommands[name] = eggTemplate(command, ember.Variables, "startup_commands."+name, report)
+	}
+
 	ember.StartupShell = "bash"
 
 	ember.Stop = eggTemplate(ember.Stop, ember.Variables, "config.stop", report)

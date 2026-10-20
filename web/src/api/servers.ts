@@ -13,6 +13,7 @@ export interface ServerConfiguration {
   spark_id: string;
   ember_id: string;
   image: string;
+  startup_command?: string;
   variables: Record<string, string>;
   cpu_limit: number;
   memory_mb: number;
@@ -65,6 +66,8 @@ export function isServer(value: unknown): value is Server {
     typeof value.ember_name === "string" &&
     "image" in value &&
     typeof value.image === "string" &&
+    (!("startup_command" in value) ||
+      typeof value.startup_command === "string") &&
     "cpu_limit" in value &&
     typeof value.cpu_limit === "number" &&
     Number.isFinite(value.cpu_limit) &&

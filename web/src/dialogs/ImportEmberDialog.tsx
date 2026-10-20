@@ -5,7 +5,6 @@ import "./import-ember-dialog.css";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
-import { Select } from "../components/forms/Select";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
@@ -24,7 +23,6 @@ const PREVIEW_DEBOUNCE_MS = 350;
 
 interface DefinitionPreview {
   definition: string;
-  startupCommand: string;
   sourceURL: string | undefined;
   preview: EmberPreview | null;
   error: string | null;
@@ -61,14 +59,10 @@ export function ImportEmberDialog({
   const [busy, setBusy] = useState(false);
   const [loadingSource, setLoadingSource] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [startupCommand, setStartupCommand] = useState(
-    initialPreview?.selected_startup_command ?? "",
-  );
   const [previewResult, setPreviewResult] = useState<DefinitionPreview | null>(
     initialPreview
       ? {
           definition: text,
-          startupCommand,
           sourceURL,
           preview: initialPreview,
           error: null,
@@ -77,16 +71,10 @@ export function ImportEmberDialog({
   );
   const sameDefinition =
     previewResult?.definition === text && previewResult.sourceURL === sourceURL;
-  const currentResult =
-    sameDefinition && previewResult.startupCommand === startupCommand
-      ? previewResult
-      : null;
+  const currentResult = sameDefinition ? previewResult : null;
   const preview = currentResult?.preview ?? null;
   const previewError = currentResult?.error ?? null;
   const checking = !!text.trim() && !loadingSource && !currentResult;
-  const startupChoices = sameDefinition
-    ? (previewResult.preview?.startup_commands ?? [])
-    : [];
   const [reviewed, setReviewed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const warnings =
@@ -98,17 +86,11 @@ export function ImportEmberDialog({
     if (!checking) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      void previewEmberDefinition(
-        text,
-        startupCommand,
-        sourceURL,
-        controller.signal,
-      )
+      void previewEmberDefinition(text, sourceURL, controller.signal)
         .then((result) => {
           if (!controller.signal.aborted)
             setPreviewResult({
               definition: text,
-              startupCommand,
               sourceURL,
               preview: result,
               error: null,
@@ -118,7 +100,6 @@ export function ImportEmberDialog({
           if (!controller.signal.aborted)
             setPreviewResult({
               definition: text,
-              startupCommand,
               sourceURL,
               preview: null,
               error:
@@ -132,7 +113,7 @@ export function ImportEmberDialog({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [checking, text, startupCommand, sourceURL]);
+  }, [checking, text, sourceURL]);
 
   async function loadURL() {
     if (
@@ -145,7 +126,6 @@ export function ImportEmberDialog({
     setLoadingSource(true);
     setText("");
     setPreviewResult(null);
-    setStartupCommand("");
     setReviewed(false);
     setBusy(true);
     setError(null);
@@ -153,11 +133,8 @@ export function ImportEmberDialog({
       const result = await previewEmberURL(url.trim());
       setSourceURL(url.trim());
       setText(result.definition);
-      const selected = result.selected_startup_command ?? "";
-      setStartupCommand(selected);
       setPreviewResult({
         definition: result.definition,
-        startupCommand: selected,
         sourceURL: url.trim(),
         preview: result,
         error: null,
@@ -178,7 +155,6 @@ export function ImportEmberDialog({
       setText("");
       setPreviewResult(null);
       setReviewed(false);
-      setStartupCommand("");
       setError("Definition files must be at most 1 MiB.");
       return;
     }
@@ -187,7 +163,6 @@ export function ImportEmberDialog({
     setLoadingSource(true);
     setText("");
     setPreviewResult(null);
-    setStartupCommand("");
     setReviewed(false);
     setBusy(true);
     try {
@@ -214,13 +189,7 @@ export function ImportEmberDialog({
     setBusy(true);
     setError(null);
     try {
-      const saved = await importEmber(
-        text,
-        startupCommand,
-        reviewed,
-        sourceURL,
-        ember?.id,
-      );
+      const saved = await importEmber(text, reviewed, sourceURL, ember?.id);
       onImported(saved);
       onClose();
     } catch (cause) {
@@ -410,33 +379,10 @@ export function ImportEmberDialog({
                   setText(event.target.value);
                   setError(null);
                   setReviewed(false);
-                  setStartupCommand("");
                 }}
                 spellCheck={false}
               />
             </FormField>
-            {startupChoices.length > 1 && (
-              <>
-                <FormField label="Startup command to import">
-                  <Select
-                    id="egg-startup-command"
-                    value={startupCommand}
-                    onValueChange={(selectedValue) => {
-                      setStartupCommand(selectedValue);
-                      setReviewed(false);
-                      setError(null);
-                    }}
-                  >
-                    <option value="">Select a startup command</option>
-                    {startupChoices.map((command) => (
-                      <option key={command} value={command}>
-                        {command}
-                      </option>
-                    ))}
-                  </Select>
-                </FormField>
-              </>
-            )}
             {checking && <p role="status">Checking compatibility…</p>}
             {preview && (
               <section aria-label="Compatibility preview">

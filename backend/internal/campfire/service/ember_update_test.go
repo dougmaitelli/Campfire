@@ -12,6 +12,50 @@ import (
 
 type memoryEmberUpdates struct{ items map[string]model.EmberUpdate }
 
+func TestPelicanUpdateKeepsAllNamedStartupCommands(t *testing.T) {
+	store := &importMemoryStore{}
+	embers := NewEmberService(store)
+	data := eggFixture(t, "plcn-v3.json")
+
+	ember, err := embers.ImportDefinition(t.Context(), data, ImportOptions{SourceURL: "https://example.com/game.json", AcknowledgeWarnings: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checks := &memoryEmberUpdates{items: map[string]model.EmberUpdate{}}
+	s := NewEmberUpdateService(embers, checks)
+	s.fetch = func(context.Context, string, ImportOptions) (EmberPreview, error) {
+		return PreviewEmber(data, ImportOptions{SourceURL: ember.UpdateURL}), nil
+	}
+
+	item, preview, err := s.Check(t.Context(), ember.ID)
+	if err != nil || item.Error != "" || item.Available || preview.Ember == nil || len(preview.Ember.StartupCommands) != 2 {
+		t.Fatal("update checker lost startup options", item, preview, err)
+	}
+
+	var egg map[string]any
+	if err := json.Unmarshal(data, &egg); err != nil {
+		t.Fatal(err)
+	}
+
+	commands, ok := egg["startup_commands"].(map[string]any)
+	if !ok {
+		t.Fatal("fixture has no startup commands")
+	}
+
+	commands["Debug"] = "./server --new-debug"
+
+	data, err = json.Marshal(egg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	item, preview, err = s.Check(t.Context(), ember.ID)
+	if err != nil || !item.Available || preview.Ember == nil || preview.Ember.Startup != "" || preview.Ember.StartupCommands["Debug"] != "./server --new-debug" {
+		t.Fatal("command update changed or discarded startup options", item, preview, err)
+	}
+}
+
 func (s *memoryEmberUpdates) List(context.Context) ([]model.EmberUpdate, error) {
 	items := make([]model.EmberUpdate, 0, len(s.items))
 	for _, item := range s.items {

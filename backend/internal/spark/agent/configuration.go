@@ -124,6 +124,10 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 	}
 
 	c := deployment.Configuration
+	if _, _, err := deployment.Ember.ResolveStartup(c.StartupCommand); err != nil {
+		return model.ConfigurationReceipt{}, err
+	}
+
 	allowed := false
 
 	for _, image := range deployment.Ember.Images {

@@ -83,23 +83,24 @@ func (OIDCIdentity) TableName() string { return "oidc_identities" }
 
 // Server persists server configuration with pinned Spark and Ember identities.
 type Server struct {
-	ID          string             `gorm:"type:text;primaryKey"`
-	OwnerUserID *int64             `gorm:"index"`
-	Owner       *User              `gorm:"foreignKey:OwnerUserID;constraint:OnDelete:RESTRICT"`
-	Name        string             `gorm:"type:text;not null;uniqueIndex:servers_name,expression:lower(name)"`
-	Description string             `gorm:"type:text;not null;default:''"`
-	SparkID     string             `gorm:"type:text;not null;index"`
-	Spark       Spark              `gorm:"foreignKey:SparkID;constraint:OnDelete:RESTRICT"`
-	EmberID     string             `gorm:"type:text;not null;index"`
-	Ember       Ember              `gorm:"foreignKey:EmberID;constraint:OnDelete:RESTRICT"`
-	EmberHash   string             `gorm:"type:text;not null;default:''"`
-	Image       string             `gorm:"type:text;not null"`
-	Variables   map[string]string  `gorm:"serializer:json;type:text;not null"`
-	CPULimit    float64            `gorm:"not null"`
-	MemoryMB    int64              `gorm:"not null"`
-	DiskMB      int64              `gorm:"not null"`
-	Ports       []model.ServerPort `gorm:"serializer:json;type:text;not null"`
-	CreatedAt   string             `gorm:"type:text;not null;autoCreateTime:false"`
+	ID             string             `gorm:"type:text;primaryKey"`
+	OwnerUserID    *int64             `gorm:"index"`
+	Owner          *User              `gorm:"foreignKey:OwnerUserID;constraint:OnDelete:RESTRICT"`
+	Name           string             `gorm:"type:text;not null;uniqueIndex:servers_name,expression:lower(name)"`
+	Description    string             `gorm:"type:text;not null;default:''"`
+	SparkID        string             `gorm:"type:text;not null;index"`
+	Spark          Spark              `gorm:"foreignKey:SparkID;constraint:OnDelete:RESTRICT"`
+	EmberID        string             `gorm:"type:text;not null;index"`
+	Ember          Ember              `gorm:"foreignKey:EmberID;constraint:OnDelete:RESTRICT"`
+	EmberHash      string             `gorm:"type:text;not null;default:''"`
+	Image          string             `gorm:"type:text;not null"`
+	StartupCommand string             `gorm:"type:text;not null;default:''"`
+	Variables      map[string]string  `gorm:"serializer:json;type:text;not null"`
+	CPULimit       float64            `gorm:"not null"`
+	MemoryMB       int64              `gorm:"not null"`
+	DiskMB         int64              `gorm:"not null"`
+	Ports          []model.ServerPort `gorm:"serializer:json;type:text;not null"`
+	CreatedAt      string             `gorm:"type:text;not null;autoCreateTime:false"`
 }
 
 // Ember stores the current imported game definition.

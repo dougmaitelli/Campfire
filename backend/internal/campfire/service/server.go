@@ -238,6 +238,13 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 		return model.Server{}, fmt.Errorf("%w: image is not allowed by this Ember", ErrInvalidServer)
 	}
 
+	selection, _, err := ember.ResolveStartup(server.StartupCommand)
+	if err != nil {
+		return model.Server{}, fmt.Errorf("%w: %w", ErrInvalidServer, err)
+	}
+
+	server.StartupCommand = selection
+
 	for i := range server.Ports {
 		port := &server.Ports[i]
 

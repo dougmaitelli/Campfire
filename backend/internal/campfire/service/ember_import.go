@@ -12,7 +12,6 @@ import (
 // ImportOptions controls explicit selection and acknowledgement during conversion.
 type ImportOptions struct {
 	ReplaceID           string `json:"-"`
-	StartupCommand      string `json:"startup_command,omitempty"`
 	AcknowledgeWarnings bool   `json:"acknowledge_warnings,omitempty"`
 	SourceURL           string `json:"source_url,omitempty"`
 }
@@ -26,13 +25,11 @@ type ImportIssue struct {
 
 // EmberPreview is a non-persisting conversion result shared by all import sources.
 type EmberPreview struct {
-	Format                 string        `json:"format"`
-	Definition             string        `json:"definition"`
-	Ember                  *model.Ember  `json:"ember"`
-	Warnings               []ImportIssue `json:"warnings"`
-	Errors                 []ImportIssue `json:"errors"`
-	StartupCommands        []string      `json:"startup_commands"`
-	SelectedStartupCommand string        `json:"selected_startup_command,omitempty"`
+	Format     string        `json:"format"`
+	Definition string        `json:"definition"`
+	Ember      *model.Ember  `json:"ember"`
+	Warnings   []ImportIssue `json:"warnings"`
+	Errors     []ImportIssue `json:"errors"`
 }
 
 func (p *EmberPreview) fail(field, message string) {
@@ -48,7 +45,7 @@ func (p *EmberPreview) note(field, message string) {
 
 // PreviewEmber auto-detects native Embers and supported Egg exports without executing scripts.
 func PreviewEmber(data []byte, options ImportOptions) EmberPreview {
-	report := EmberPreview{Format: "unknown", Definition: string(data), Warnings: []ImportIssue{}, Errors: []ImportIssue{}, StartupCommands: []string{}}
+	report := EmberPreview{Format: "unknown", Definition: string(data), Warnings: []ImportIssue{}, Errors: []ImportIssue{}}
 
 	normalized, err := definitionDocument(data)
 	if err != nil {
@@ -80,15 +77,11 @@ func PreviewEmber(data []byte, options ImportOptions) EmberPreview {
 			report.fail("definition", err.Error())
 			return report
 		}
-
-		if options.StartupCommand != "" {
-			report.fail("startup_command", "Startup selection is only available for Pelican v3 exports.")
-		}
 	} else {
 		report.Format = marker.Meta.Version
 		switch report.Format {
 		case "PTDL_v1", "PTDL_v2", "PLCN_v1", "PLCN_v2", "PLCN_v3":
-			ember = convertEgg(normalized, options, &report)
+			ember = convertEgg(normalized, &report)
 		default:
 			report.fail("meta.version", "Supported Egg versions are PTDL_v1/v2 and PLCN_v1/v2/v3.")
 			return report

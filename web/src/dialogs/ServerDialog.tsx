@@ -111,6 +111,11 @@ export function ServerDialog({
       const latest = embers.find((item) => item.id === server.ember_id);
       return {
         ...server,
+        startup_command: latest?.startup_commands?.[
+          server.startup_command ?? ""
+        ]
+          ? (server.startup_command ?? "")
+          : "",
         image: Object.values(latest?.images ?? {}).includes(server.image)
           ? server.image
           : (Object.values(latest?.images ?? {})[0] ?? ""),
@@ -136,6 +141,10 @@ export function ServerDialog({
       spark_id: spark?.id ?? "",
       ember_id: ember?.id ?? "",
       image: Object.values(ember?.images ?? {})[0] ?? "",
+      startup_command:
+        Object.keys(ember?.startup_commands ?? {}).length === 1
+          ? (Object.keys(ember?.startup_commands ?? {})[0] ?? "")
+          : "",
       variables: defaultVariables(ember),
       cpu_limit: 1,
       memory_mb: 1024,
@@ -215,6 +224,7 @@ export function ServerDialog({
         spark_id: value.spark_id,
         ember_id: value.ember_id,
         image: value.image,
+        startup_command: value.startup_command ?? "",
         variables: value.variables,
         cpu_limit: value.cpu_limit,
         memory_mb: value.memory_mb,
@@ -303,7 +313,13 @@ export function ServerDialog({
               ? "This server already uses the current Ember."
               : !value.name.trim() || !spark || !ember || !value.image
                 ? "Choose a name, Spark, Ember, and image."
-                : null,
+                : (!server ||
+                      applyRevision ||
+                      !server.ember_update_available) &&
+                    Object.keys(ember.startup_commands ?? {}).length > 0 &&
+                    !ember.startup_commands?.[value.startup_command ?? ""]
+                  ? "Select an available startup command."
+                  : null,
           content: (
             <>
               {runtimeRestricted && (
@@ -390,6 +406,12 @@ export function ServerDialog({
                     setValue({
                       ...value,
                       ember_id: selectedValue,
+                      startup_command:
+                        Object.keys(selected?.startup_commands ?? {}).length ===
+                        1
+                          ? (Object.keys(selected?.startup_commands ?? {})[0] ??
+                            "")
+                          : "",
                       image:
                         applyRevision &&
                         selected &&
@@ -422,6 +444,42 @@ export function ServerDialog({
                   ))}
                 </Select>
               </FormField>
+              {Object.keys(ember?.startup_commands ?? {}).length > 0 && (
+                <FormField
+                  label="Startup command"
+                  description="Choose the startup option this server will use. Changes apply on the next start."
+                >
+                  <Select
+                    id="server-startup-command"
+                    required
+                    disabled={
+                      runtimeRestricted ||
+                      (!!server?.ember_update_available && !applyRevision)
+                    }
+                    value={value.startup_command ?? ""}
+                    onValueChange={(selectedValue) =>
+                      setValue({ ...value, startup_command: selectedValue })
+                    }
+                  >
+                    <option value="">Select a startup command</option>
+                    {server &&
+                      !applyRevision &&
+                      value.startup_command &&
+                      !ember?.startup_commands?.[value.startup_command] && (
+                        <option value={value.startup_command}>
+                          {value.startup_command} (applied revision)
+                        </option>
+                      )}
+                    {Object.keys(ember?.startup_commands ?? {})
+                      .sort()
+                      .map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                  </Select>
+                </FormField>
+              )}
               <FormField label="Image">
                 <Select
                   id="server-image"
@@ -847,7 +905,11 @@ export function ServerDialog({
                     {ember?.revision?.slice(0, 12)}
                   </p>
                   <p>
-                    Startup: <code>{ember?.startup}</code>
+                    Startup:{" "}
+                    <code>
+                      {ember?.startup_commands?.[value.startup_command ?? ""] ??
+                        ember?.startup}
+                    </code>
                     <br />
                     Working directory: {ember?.work_dir}
                     <br />

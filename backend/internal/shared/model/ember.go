@@ -61,25 +61,26 @@ type RequiredPort struct {
 
 // Ember is an immutable, imported native game definition.
 type Ember struct {
-	ID            string            `json:"id"`
-	Revision      string            `json:"revision,omitempty"`
-	Schema        int               `json:"schema"`
-	Name          string            `json:"name"`
-	Description   string            `json:"description"`
-	UpdateURL     string            `json:"updateUrl,omitempty"`
-	Images        map[string]string `json:"images"`
-	Startup       string            `json:"startup"`
-	StartupShell  string            `json:"startup_shell,omitempty"`
-	WorkDir       string            `json:"work_dir"`
-	User          string            `json:"user"`
-	Variables     []Variable        `json:"variables"`
-	Installer     *Installer        `json:"installer,omitempty"`
-	Stop          string            `json:"stop,omitempty"`
-	Ready         string            `json:"ready,omitempty"`
-	Readiness     *Readiness        `json:"readiness,omitempty"`
-	Configs       []ConfigFile      `json:"configs,omitempty"`
-	RequiredPorts []RequiredPort    `json:"required_ports,omitempty"`
-	Origin        *EmberOrigin      `json:"origin,omitempty"`
+	ID              string            `json:"id"`
+	Revision        string            `json:"revision,omitempty"`
+	Schema          int               `json:"schema"`
+	Name            string            `json:"name"`
+	Description     string            `json:"description"`
+	UpdateURL       string            `json:"updateUrl,omitempty"`
+	Images          map[string]string `json:"images"`
+	Startup         string            `json:"startup"`
+	StartupCommands map[string]string `json:"startup_commands,omitempty"`
+	StartupShell    string            `json:"startup_shell,omitempty"`
+	WorkDir         string            `json:"work_dir"`
+	User            string            `json:"user"`
+	Variables       []Variable        `json:"variables"`
+	Installer       *Installer        `json:"installer,omitempty"`
+	Stop            string            `json:"stop,omitempty"`
+	Ready           string            `json:"ready,omitempty"`
+	Readiness       *Readiness        `json:"readiness,omitempty"`
+	Configs         []ConfigFile      `json:"configs,omitempty"`
+	RequiredPorts   []RequiredPort    `json:"required_ports,omitempty"`
+	Origin          *EmberOrigin      `json:"origin,omitempty"`
 }
 
 // EmberHash identifies definition content without storing historical copies.
@@ -217,6 +218,20 @@ func (e Ember) Validate() error {
 		return err
 	}
 
+	if len(e.StartupCommands) > 32 || len(e.StartupCommands) > 0 && e.Startup != "" {
+		return errors.New("use either startup or up to 32 named startup_commands")
+	}
+
+	for name, command := range e.StartupCommands {
+		if strings.TrimSpace(name) == "" || len(name) > 120 || strings.ContainsAny(name, "\r\n\x00") || strings.TrimSpace(command) == "" {
+			return errors.New("startup_commands requires nonempty names and commands")
+		}
+
+		if _, err := Startup(command, known); err != nil {
+			return fmt.Errorf("startup command %q: %w", name, err)
+		}
+	}
+
 	stop, err := Startup(e.Stop, known)
 	if err != nil {
 		return err
@@ -273,6 +288,30 @@ func SafePath(s string) bool {
 	}
 
 	return true
+}
+
+// ResolveStartup validates a server's selection and returns its stable key and command.
+func (e Ember) ResolveStartup(name string) (string, string, error) {
+	if len(e.StartupCommands) == 0 {
+		if name != "" {
+			return "", "", errors.New("this Ember has no named startup commands")
+		}
+
+		return "", e.Startup, nil
+	}
+
+	if name == "" && len(e.StartupCommands) == 1 {
+		for key := range e.StartupCommands {
+			name = key
+		}
+	}
+
+	command, ok := e.StartupCommands[name]
+	if !ok {
+		return "", "", errors.New("select an available Ember startup command")
+	}
+
+	return name, command, nil
 }
 
 // Startup validates environment placeholders in a startup command.

@@ -26,6 +26,11 @@ func mockUpdateCandidate(current bool) model.Ember {
 	if current {
 		ember.Name = "Minecraft · Current"
 		ember.UpdateURL = mockCurrentUpdateURL
+		ember.StartupCommands = map[string]string{
+			"Standard": ember.Startup,
+			"Debug":    "java -Xmx{{SERVER_MEMORY}}M -Ddebug=true -jar server.jar",
+		}
+		ember.Startup = ""
 	}
 
 	return ember

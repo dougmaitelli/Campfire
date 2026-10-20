@@ -26,6 +26,27 @@ func deploymentFixture(id, server string) model.Deployment {
 	}
 }
 
+func TestConfigurationValidatesNamedStartupSelection(t *testing.T) {
+	d := deploymentFixture("node", "game")
+	d.Ember.Startup = ""
+	d.Ember.StartupCommands = map[string]string{"Normal": "sleep 3600", "Debug": "echo debug; sleep 3600"}
+
+	store := &ConfigurationStore{Directory: t.TempDir()}
+	if _, err := store.Deploy(t.Context(), "node", d); err == nil {
+		t.Fatal("missing startup selection was accepted by the node")
+	}
+
+	d.Configuration.StartupCommand = "removed"
+	if _, err := store.Deploy(t.Context(), "node", d); err == nil {
+		t.Fatal("unknown startup selection was accepted by the node")
+	}
+
+	d.Configuration.StartupCommand = "Debug"
+	if _, err := store.Deploy(t.Context(), "node", d); err != nil {
+		t.Fatal("valid startup selection was rejected", err)
+	}
+}
+
 func TestUnnegotiatedCommandsDoNotMutateSpark(t *testing.T) {
 	directory := t.TempDir()
 	store := &ConfigurationStore{Directory: directory}

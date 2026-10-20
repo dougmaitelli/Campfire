@@ -123,3 +123,35 @@ func TestNativeStartupShellValidation(t *testing.T) {
 		t.Fatal("unsupported startup shell accepted")
 	}
 }
+
+func TestRuntimeStartsSelectedNamedCommand(t *testing.T) {
+	d := runtimeFixture()
+	d.Ember.Startup = ""
+	d.Ember.StartupCommands = map[string]string{"Normal": "sleep {{SECONDS}}", "Debug": "echo debug; sleep {{SECONDS}}"}
+	d.Configuration.StartupCommand = "Debug"
+	m := newTestManager(t.Context(), t.TempDir())
+	t.Cleanup(m.Close)
+
+	docker := &fakeDocker{states: map[string]string{}}
+	m.Docker = docker
+	m.Ownership = func(string, string) error { return nil }
+
+	if status := awaitOperation(t, m, d, "install", "install-named"); status.Error != "" {
+		t.Fatal(status)
+	}
+
+	if status := awaitOperation(t, m, d, "start", "start-named"); status.Error != "" {
+		t.Fatal(status)
+	}
+
+	docker.mu.Lock()
+	defer docker.mu.Unlock()
+
+	for _, args := range docker.calls {
+		if args[0] == "create" && args[len(args)-1] == "echo debug; sleep ${SECONDS}" && slices.Contains(args, "STARTUP=echo debug; sleep ${SECONDS}") {
+			return
+		}
+	}
+
+	t.Fatal("selected command was not used for shell arguments and STARTUP", docker.calls)
+}

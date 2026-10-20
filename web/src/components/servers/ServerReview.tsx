@@ -24,6 +24,11 @@ export function ServerReview({
         <DetailItem label="Spark">{sparkName}</DetailItem>
         <DetailItem label="Ember">{emberName}</DetailItem>
         <DetailItem label="Image">{value.image}</DetailItem>
+        {value.startup_command && (
+          <DetailItem label="Startup command">
+            {value.startup_command}
+          </DetailItem>
+        )}
         <DetailItem label="CPU">{value.cpu_limit} cores</DetailItem>
         <DetailItem label="Memory">
           {value.memory_mb.toLocaleString()} MiB
