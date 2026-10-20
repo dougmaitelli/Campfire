@@ -4,6 +4,18 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { loadWebModule } from "./helpers/load-web-module.mjs";
 
+test("development versions use short SHAs without changing release versions", async () => {
+  const { formatVersion } = await loadWebModule(
+    new URL("../web/src/utils/formatVersion.ts", import.meta.url),
+  );
+  assert.equal(
+    formatVersion("dev-e00ac7305d2a2311b8b88136c8829d8a8b3cc746"),
+    "dev-e00ac730…",
+  );
+  for (const version of ["1.0.0", "v1.0.0-rc.1", "dev", "dev-12345678"])
+    assert.equal(formatVersion(version), version);
+});
+
 test("missing-resource redirects replace history and ignore outdated requests", async (t) => {
   const replacements = [];
   const location = { hash: "#servers/deleted/console" };
