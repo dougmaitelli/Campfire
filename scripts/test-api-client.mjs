@@ -4,6 +4,56 @@ import { loadWebModule } from "./helpers/load-web-module.mjs";
 
 const sourceURL = new URL("../web/src/api/client.ts", import.meta.url);
 const { apiFetch, readJSON } = await loadWebModule(sourceURL);
+const { readResourceHistory } = await loadWebModule(
+  new URL("../web/src/api/resourceHistory.ts", import.meta.url),
+);
+
+test("history requests use bounded ranges and preserve missing measurements", async (t) => {
+  const usage = {
+    server_id: "one",
+    state: "sampled",
+    cpu_percent: null,
+    memory_bytes: 0,
+    disk_bytes: null,
+    sampled_at: 0,
+    disk_sampled_at: 0,
+    sample_age_seconds: 0,
+    disk_age_seconds: 0,
+    container_error: "",
+    disk_error: "",
+    disk_quota_enforced: false,
+    disk_quota_error: "",
+  };
+  const history = {
+    from: 100,
+    to: 400,
+    interval_seconds: 300,
+    samples: [{ collected_at: 100, usage }],
+  };
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const parsed = new URL(url, "https://panel.test");
+    assert.equal(parsed.pathname, "/api/v1/servers/one%2Ftwo/metrics/history");
+    assert.equal(parsed.searchParams.get("limit"), "240");
+    assert.equal(
+      Number(parsed.searchParams.get("to")) -
+        Number(parsed.searchParams.get("from")),
+      86400,
+    );
+    return Response.json(history);
+  });
+  const result = await readResourceHistory(
+    "one/two",
+    24,
+    new AbortController().signal,
+  );
+  assert.equal(result.samples[0].usage.cpu_percent, null);
+  assert.equal(result.samples[0].usage.memory_bytes, 0);
+  history.samples[0].usage.cpu_percent = -1;
+  await assert.rejects(
+    readResourceHistory("one/two", 24, new AbortController().signal),
+    /Unexpected resource history response/,
+  );
+});
 
 test("API client preserves JSON responses and backend error messages", async () => {
   assert.deepEqual(await readJSON(Response.json({ token: "one-time-token" })), {

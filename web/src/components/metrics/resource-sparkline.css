@@ -1,0 +1,20 @@
+.resource-sparkline {
+  display: block;
+  width: 100%;
+  height: 32px;
+
+  & path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+  }
+
+  & circle {
+    fill: transparent;
+
+    &:hover {
+      fill: var(--accent);
+    }
+  }
+}

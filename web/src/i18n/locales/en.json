@@ -1,4 +1,9 @@
 {
+  "resourceHistory": {
+    "chartLabel": "{{resource}} usage history",
+    "unexpectedResponse": "Unexpected resource history response.",
+    "loadFailed": "Unable to load resource history."
+  },
   "access": {
     "unexpectedAccessResponse": "Unexpected access response.",
     "unexpectedRoleListResponse": "Unexpected role list response.",

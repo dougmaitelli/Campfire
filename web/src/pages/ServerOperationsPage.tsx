@@ -17,6 +17,7 @@ import { useMonitoring } from "../hooks/useMonitoring";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { useResourceHistory } from "../hooks/useResourceHistory";
 import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
 import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
@@ -90,6 +91,7 @@ export function ServerOperationsPage({
   const activeTab = ["console", "files", "backups"].includes(tab)
     ? tab
     : "console";
+  const resourceHistory = useResourceHistory(server?.id);
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -216,6 +218,7 @@ export function ServerOperationsPage({
               memoryMB={server.memory_mb}
               diskMB={server.disk_mb}
               elapsed={monitoring.elapsed}
+              history={resourceHistory?.history}
             />
             <div className="operations-addresses pill-group">
               {server.ports.map((port, index) => (
@@ -227,6 +230,9 @@ export function ServerOperationsPage({
                 />
               ))}
             </div>
+            {resourceHistory?.error && (
+              <InlineMessage tone="info">{resourceHistory.error}</InlineMessage>
+            )}
           </ContentPanel>
           {monitoring.error && (
             <InlineMessage tone="info" role="status">

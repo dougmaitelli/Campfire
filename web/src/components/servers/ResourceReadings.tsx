@@ -8,6 +8,11 @@ import {
 import "./resource-readings.css";
 import { ResourceMeter } from "../metrics/ResourceMeter";
 import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
+import type { ResourceHistory } from "../../api/resourceHistory";
+import {
+  ResourceSparkline,
+  type SparklineHistory,
+} from "../metrics/ResourceSparkline";
 
 export function ResourceReading({
   label,
@@ -17,6 +22,7 @@ export function ResourceReading({
   detail,
   compact,
   format,
+  history,
 }: {
   label: string;
   value: number | null;
@@ -25,6 +31,7 @@ export function ResourceReading({
   detail: string;
   compact: boolean;
   format: (value: number) => string;
+  history?: SparklineHistory | undefined;
 }) {
   const { t } = useTranslation();
   const measured = value !== null;
@@ -45,6 +52,9 @@ export function ResourceReading({
           <span className="usage-age"> {t("resourceReadings.stale")}</span>
         )}
       </span>
+      {history && (
+        <ResourceSparkline history={history} label={label} format={format} />
+      )}
       <ResourceMeter
         label={label}
         used={fresh ? value : null}
@@ -61,6 +71,7 @@ export function ResourceReadings({
   diskMB,
   elapsed,
   layout = "stack",
+  history,
 }: {
   usage: ResourceUsage | undefined;
   cpuLimit: number;
@@ -68,15 +79,35 @@ export function ResourceReadings({
   diskMB: number;
   elapsed: number;
   layout?: "stack" | "grid" | "compact";
+  history?: ResourceHistory | undefined;
 }) {
   const { t } = useTranslation();
   const cpu = usage?.cpu_percent;
+  const series = (
+    metric: "cpu_percent" | "memory_bytes" | "disk_bytes",
+    divisor = 1,
+  ): SparklineHistory | undefined =>
+    history
+      ? {
+          from: history.from,
+          to: history.to,
+          interval: history.interval_seconds,
+          points: history.samples.map((sample) => ({
+            time: sample.collected_at,
+            value:
+              sample.usage[metric] === null
+                ? null
+                : sample.usage[metric] / divisor,
+          })),
+        }
+      : undefined;
   return (
     <div
       className={`resource-readings${layout !== "stack" ? ` resource-readings-${layout}` : ""}`}
     >
       <ResourceReading
         label={t("common.cpu")}
+        history={series("cpu_percent", 100)}
         format={(value) =>
           `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} cores`
         }
@@ -94,6 +125,7 @@ export function ResourceReadings({
       />
       <ResourceReading
         label={t("common.memory")}
+        history={series("memory_bytes")}
         format={bytes}
         compact={layout !== "stack"}
         value={usage?.memory_bytes ?? null}
@@ -109,6 +141,7 @@ export function ResourceReadings({
       />
       <ResourceReading
         label={t("resourceReadings.gameData")}
+        history={series("disk_bytes")}
         format={bytes}
         compact={layout !== "stack"}
         value={usage?.disk_bytes ?? null}
