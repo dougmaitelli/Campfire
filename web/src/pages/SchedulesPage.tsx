@@ -231,7 +231,9 @@ export function SchedulesPage() {
               <th>{t("schedulesPage.schedule")}</th>
               <th>{t("schedulesPage.nextRun")}</th>
               <th>{t("schedulesPage.runsAs")}</th>
-              <th className="table-actions">{t("common.actions")}</th>
+              <th className="table-actions">
+                <span className="visually-hidden">{t("common.actions")}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -347,7 +349,9 @@ export function SchedulesPage() {
               <th>{t("schedulesPage.actor")}</th>
               <th>{t("schedulesPage.state")}</th>
               <th>{t("schedulesPage.finished")}</th>
-              <th className="table-actions">{t("common.actions")}</th>
+              <th className="table-actions">
+                <span className="visually-hidden">{t("common.actions")}</span>
+              </th>
             </tr>
           </thead>
           <tbody>

@@ -33,6 +33,8 @@ func mockUpdateCandidate(current bool) model.Ember {
 		ember.Startup = ""
 	}
 
+	ember.Variables = mockMinecraftVariables()
+
 	return ember
 }
 

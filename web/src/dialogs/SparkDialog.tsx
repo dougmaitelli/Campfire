@@ -200,7 +200,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   maxLength={1000}
-                  placeholder={t("sparkDialog.notesAboutThisNode")}
+                  placeholder={t("common.descriptionPlaceholder")}
                 />
               </FormField>
               <CheckboxField

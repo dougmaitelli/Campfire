@@ -18,3 +18,18 @@
 .server-dialog-heading {
   margin: 20px 0 12px;
 }
+
+.server-variable-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  align-items: start;
+
+  & .form-field {
+    margin-bottom: 0;
+  }
+
+  & label {
+    overflow-wrap: anywhere;
+  }
+}

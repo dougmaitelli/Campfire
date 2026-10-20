@@ -365,6 +365,7 @@ export function ServerDialog({
               <FormField label={t("serverDialog.descriptionOptional")}>
                 <Textarea
                   id="server-description"
+                  placeholder={t("common.descriptionPlaceholder")}
                   maxLength={1000}
                   value={value.description}
                   onChange={(event) =>
@@ -544,11 +545,11 @@ export function ServerDialog({
                   {t("serverDialog.gameSettings")}
                 </h4>
               )}
-              {(ember?.variables ?? [])
-                .filter((variable) => !variable.hidden)
-                .map((variable) => (
-                  <div key={variable.name}>
-                    <FormField label={<>{variable.name}</>}>
+              <div className="server-variable-fields">
+                {(ember?.variables ?? [])
+                  .filter((variable) => !variable.hidden)
+                  .map((variable) => (
+                    <FormField key={variable.name} label={<>{variable.name}</>}>
                       <TextInput
                         id={`variable-${variable.name}`}
                         disabled={runtimeRestricted}
@@ -569,8 +570,8 @@ export function ServerDialog({
                         }
                       />
                     </FormField>
-                  </div>
-                ))}
+                  ))}
+              </div>
             </>
           ),
         },

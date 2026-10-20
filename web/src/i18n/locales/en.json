@@ -152,6 +152,7 @@
     "unableToCompleteTheRequest": "Unable to complete the request."
   },
   "common": {
+    "descriptionPlaceholder": "Optional notes",
     "actions": "Actions",
     "audit": "Audit",
     "back": "Back",
@@ -638,7 +639,7 @@
     "diskMiB": "Disk (MiB)",
     "editServer": "Edit server",
     "editServerAccess": "Edit server access",
-    "fridayMinecraft": "Friday Minecraft",
+    "fridayMinecraft": "e.g. Friday Minecraft",
     "gameSettings": "Game settings",
     "general": "General",
     "hostPort": "Host port",
@@ -931,7 +932,6 @@
     "manageThisNodeSCapacityNetworkAndAvailability": "Manage this node’s capacity, network, and availability.",
     "memoryMiB": "Memory (MiB)",
     "network": "Network",
-    "notesAboutThisNode": "Notes about this node",
     "optional": "(optional)",
     "portAllocations": "Port allocations",
     "protocol": "Protocol",
