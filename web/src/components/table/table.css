@@ -49,10 +49,19 @@
     overflow-wrap: anywhere;
   }
 
+  & .table-fit,
   & .table-actions {
     width: 1%;
-    text-align: right;
     white-space: nowrap;
+  }
+
+  & .table-actions {
+    text-align: right;
+    padding-inline-start: 8px;
+  }
+
+  & :is(th, td):has(+ .table-actions) {
+    padding-inline-end: 8px;
   }
 
   &:has(tbody:empty) .table-actions,

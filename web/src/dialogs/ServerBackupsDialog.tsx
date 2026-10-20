@@ -230,7 +230,9 @@ export function ServerBackupsDialog({
               <th>{t("serverBackupsDialog.size")}</th>
               <th>{t("serverBackupsDialog.storage")}</th>
               <th>{t("common.status")}</th>
-              <th className="table-actions">{t("common.actions")}</th>
+              <th className="table-actions">
+                <span className="visually-hidden">{t("common.actions")}</span>
+              </th>
             </tr>
           </thead>
           <tbody>

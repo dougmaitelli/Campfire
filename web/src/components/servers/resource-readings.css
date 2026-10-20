@@ -16,17 +16,20 @@
   }
 }
 .resource-readings-compact {
-  gap: 6px;
-  min-width: 340px;
+  grid-template-columns: max-content max-content minmax(64px, 1fr);
+  gap: 6px 8px;
+  min-width: 0;
 
   & .usage-reading {
-    grid-template-columns: 58px 180px minmax(80px, 1fr);
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     align-items: center;
     gap: 8px;
   }
 
   & .usage-reading > span:nth-child(2) {
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   & > .usage-age {

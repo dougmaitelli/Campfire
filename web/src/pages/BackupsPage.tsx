@@ -84,7 +84,9 @@ export function BackupsPage() {
               <th>{t("backupsPage.size")}</th>
               <th>{t("backupsPage.storage")}</th>
               <th>{t("common.status")}</th>
-              <th className="table-actions">{t("common.actions")}</th>
+              <th className="table-actions">
+                <span className="visually-hidden">{t("common.actions")}</span>
+              </th>
             </tr>
           </thead>
           <tbody>

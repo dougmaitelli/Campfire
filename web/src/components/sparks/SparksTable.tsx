@@ -58,7 +58,9 @@ export function SparksTable({
           <th scope="col">{t("common.status")}</th>
           <th scope="col">{t("sparksTable.resources")}</th>
           <th scope="col">{t("sparkReview.gameAddress")}</th>
-          <th scope="col">{t("sparksTable.allocations")}</th>
+          <th scope="col" className="table-fit">
+            {t("sparksTable.allocations")}
+          </th>
           <th scope="col" className="table-actions">
             <span className="visually-hidden">{t("common.actions")}</span>
           </th>
@@ -96,7 +98,7 @@ export function SparksTable({
               />
             </td>
             <td>{formatDisplayValue(spark.game_address)}</td>
-            <td>
+            <td className="table-fit">
               <PortGroups
                 ports={spark.port_allocations.map((allocation) => ({
                   address: allocation.bind_ip,

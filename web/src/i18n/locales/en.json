@@ -1025,7 +1025,7 @@
     "unableToRemoveSpark": "Unable to remove Spark.",
     "unableToUpdateSpark": "Unable to update Spark.",
     "update": "Update {{confirmUpdateName}}?",
-    "updateSpark": "Update Spark",
+    "updateSpark": "Update",
     "updating": "Updating…"
   },
   "sparksTable": {
@@ -1038,7 +1038,7 @@
     "sparkSelfUpdateV1": "spark.self-update.v1",
     "theLatestRelease": "the latest release",
     "thisClientNeedsAManualUpgradeBeforeItSupportsRemote": "This client needs a manual upgrade before it supports remote updates.",
-    "updateSpark": "Update Spark",
+    "updateSpark": "Update",
     "updateTo": "Update to {{sparkLatestAgent}}",
     "updating": "Updating…",
     "viewDetailsFor": "View details for {{sparkName}}"
