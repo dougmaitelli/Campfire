@@ -26,12 +26,10 @@ export function ServerLifecycleControls({
     <>
       <Button
         variant="primary"
-        disabled={blocked}
-        onClick={() =>
-          onAction(install ? "install" : running ? "stop" : "start")
-        }
+        disabled={blocked || install}
+        onClick={() => onAction(running ? "stop" : "start")}
       >
-        {install ? "Install" : running ? "Stop" : "Start"}
+        {running ? "Stop" : "Start"}
       </Button>
       <Button
         disabled={blocked || !running}
@@ -46,13 +44,13 @@ export function ServerLifecycleControls({
       >
         Kill
       </Button>
-      {canConfigure && (
+      {(install || canConfigure) && (
         <Button
-          variant="warning"
+          variant={install ? "primary" : "warning"}
           disabled={blocked || running}
-          onClick={() => onAction("reinstall")}
+          onClick={() => onAction(install ? "install" : "reinstall")}
         >
-          Reinstall
+          {install ? "Install" : "Reinstall"}
         </Button>
       )}
     </>
