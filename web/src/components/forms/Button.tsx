@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import "./button.css";
 
-type ButtonVariant = "default" | "primary" | "warning" | "danger";
+type ButtonVariant = "default" | "primary" | "success" | "warning" | "danger";
 
 export function Button({
   variant = "default",

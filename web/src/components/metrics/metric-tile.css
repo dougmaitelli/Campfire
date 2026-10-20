@@ -1,11 +1,31 @@
 .metric-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 8px 16px;
+  padding-block: 14px;
+
+  & > :not(.metric-tile-icon) {
+    grid-column: 2;
+  }
+}
+
+.metric-tile-icon {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  color: var(--text);
+
+  & svg {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+.metric-tile-allocation {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .metric-tile-label {
@@ -29,18 +49,12 @@
 }
 
 .metric-tile-warning {
-  border-color: var(--attention-border);
-  background: var(--attention-surface);
-
   & .metric-tile-value {
     color: var(--attention);
   }
 }
 
 .metric-tile-critical {
-  border-color: var(--critical-border);
-  background: var(--critical-surface);
-
   & .metric-tile-value {
     color: var(--critical);
   }

@@ -4,7 +4,6 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
 import { ContentPanel } from "../components/layout/ContentPanel";
-import { ActionGroup } from "../components/layout/ActionGroup";
 import { SearchField } from "../components/forms/SearchField";
 import { FormField } from "../components/forms/FormField";
 import { Button, ButtonLink } from "../components/forms/Button";
@@ -26,9 +25,12 @@ import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
+import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
+
+const SERVER_LIST_REFRESH_INTERVAL_MS = 10000;
 
 export function ServersPage() {
   const { t } = useTranslation();
@@ -47,7 +49,7 @@ export function ServersPage() {
   const canProvision =
     auth.session?.admin === true ||
     auth.session?.permissions?.includes("servers.create") === true;
-  const servers = useCollection(listServers);
+  const servers = useCollection(listServers, SERVER_LIST_REFRESH_INTERVAL_MS);
   const monitoring = useMonitoring();
   const [options, setOptions] = useState<ServerOptions>({
     s3_available: false,
@@ -177,16 +179,6 @@ export function ServersPage() {
         )}
         actions={
           <>
-            <Button
-              disabled={loading}
-              onClick={() => {
-                void refresh();
-              }}
-              loading={loading}
-              loadingLabel={t("serversPage.refreshing")}
-            >
-              {t("common.refresh")}
-            </Button>
             {canProvision && (
               <Button variant="primary" disabled={!canCreate} onClick={create}>
                 {t("serversPage.createServer")}
@@ -298,83 +290,116 @@ export function ServersPage() {
             </tr>
           </thead>
           <tbody>
-            {visible.map((server) => (
-              <TableRow key={server.id} onOpen={() => setDetails(server)}>
-                <td>
-                  <button
-                    type="button"
-                    className="table-row-trigger"
-                    onClick={() => setDetails(server)}
-                    aria-label={i18n.t("serversPage.viewDetailsFor", {
-                      serverName: server.name,
-                    })}
-                  >
-                    {server.name}
-                  </button>
-                  <span className="row-id">{server.id}</span>
-                </td>
-                <td>
-                  <ServerState
-                    state={runtime.statuses[server.id]?.state ?? "unknown"}
-                    ready={runtime.statuses[server.id]?.ready ?? true}
-                  />
-                  {runtime.statuses[server.id]?.busy &&
-                    runtime.statuses[server.id]?.progress && (
-                      <span className="row-description">
-                        {runtime.statuses[server.id]?.progress}
-                      </span>
-                    )}
-                </td>
-                <td>
-                  <ResourceLink href={links.spark(server.spark_id)}>
-                    {server.spark_name}
-                  </ResourceLink>
-                  <span className="row-description">
-                    <ResourceLink href={links.ember(server.ember_id)}>
-                      {server.ember_name}
-                    </ResourceLink>
-                  </span>
-                </td>
-                <td>
-                  <ResourceReadings
-                    layout="compact"
-                    usage={
-                      monitoring.snapshot?.servers.find(
-                        (item) => item.id === server.id,
-                      )?.usage
-                    }
-                    cpuLimit={server.cpu_limit}
-                    memoryMB={server.memory_mb}
-                    diskMB={server.disk_mb}
-                    elapsed={monitoring.elapsed}
-                  />
-                </td>
-                <td>
-                  <PortGroups
-                    ports={server.ports.map((port) => ({
-                      address: server.game_address || port.bind_ip,
-                      port: port.host_port,
-                      protocol: port.protocol,
-                    }))}
-                  />
-                </td>
-                <td className="table-actions">
-                  <ActionGroup>
-                    <ButtonLink
-                      variant="primary"
-                      href={`#servers/${encodeURIComponent(server.id)}/console`}
-                      iconOnly
-                      aria-label={i18n.t("serversPage.open", {
+            {visible.map((server) => {
+              const usage = monitoring.snapshot?.servers.find(
+                (item) => item.id === server.id,
+              )?.usage;
+              return (
+                <TableRow key={server.id} onOpen={() => setDetails(server)}>
+                  <td>
+                    <button
+                      type="button"
+                      className="table-row-trigger"
+                      onClick={() => setDetails(server)}
+                      aria-label={i18n.t("serversPage.viewDetailsFor", {
                         serverName: server.name,
                       })}
-                      title={i18n.t("serversPage.openServer")}
                     >
-                      <NavigationIcon name="arrow-right" />
-                    </ButtonLink>
-                  </ActionGroup>
-                </td>
-              </TableRow>
-            ))}
+                      {server.name}
+                    </button>
+                    <span className="row-id">{server.id}</span>
+                  </td>
+                  <td>
+                    <ServerState
+                      now={
+                        (monitoring.snapshot?.collected_at ?? 0) +
+                        monitoring.elapsed
+                      }
+                      state={runtime.statuses[server.id]?.state ?? "unknown"}
+                      ready={runtime.statuses[server.id]?.ready ?? true}
+                      startedAt={
+                        usage?.state === "running"
+                          ? usage.started_at
+                          : undefined
+                      }
+                      stoppedAt={
+                        usage && ["stopped", "exited"].includes(usage.state)
+                          ? usage.stopped_at
+                          : undefined
+                      }
+                    />
+                    {runtime.statuses[server.id]?.busy &&
+                      runtime.statuses[server.id]?.progress && (
+                        <span className="row-description">
+                          {runtime.statuses[server.id]?.progress}
+                        </span>
+                      )}
+                  </td>
+                  <td>
+                    <ResourceLink href={links.spark(server.spark_id)}>
+                      {server.spark_name}
+                    </ResourceLink>
+                    <span className="row-description">
+                      <ResourceLink href={links.ember(server.ember_id)}>
+                        {server.ember_name}
+                      </ResourceLink>
+                    </span>
+                  </td>
+                  <td>
+                    <ResourceReadings
+                      layout="compact"
+                      usage={
+                        monitoring.snapshot?.servers.find(
+                          (item) => item.id === server.id,
+                        )?.usage
+                      }
+                      cpuLimit={server.cpu_limit}
+                      memoryMB={server.memory_mb}
+                      diskMB={server.disk_mb}
+                      elapsed={monitoring.elapsed}
+                    />
+                  </td>
+                  <td>
+                    <PortGroups
+                      ports={server.ports.map((port) => ({
+                        address: server.game_address || port.bind_ip,
+                        port: port.host_port,
+                        protocol: port.protocol,
+                      }))}
+                    />
+                  </td>
+                  <td className="table-actions">
+                    <ServerQuickControls
+                      id={server.id}
+                      name={server.name}
+                      status={runtime.statuses[server.id]}
+                      disabled={
+                        deleting === server.id ||
+                        monitoring.snapshot?.sparks?.some(
+                          (spark) =>
+                            spark.id === server.spark_id && spark.disabled,
+                        ) === true
+                      }
+                      canOperate={server.permissions.includes("server.operate")}
+                      onStatus={runtime.upsert}
+                      onError={setActionError}
+                    >
+                      <ButtonLink
+                        variant="primary"
+                        href={`#servers/${encodeURIComponent(server.id)}/console`}
+                        iconOnly
+                        aria-label={i18n.t("serversPage.open", {
+                          serverName: server.name,
+                        })}
+                        title={i18n.t("serversPage.openServer")}
+                      >
+                        <NavigationIcon name="arrow-right" />
+                      </ButtonLink>
+                    </ServerQuickControls>
+                  </td>
+                </TableRow>
+              );
+            })}
           </tbody>
         </Table>
       </ContentPanel>

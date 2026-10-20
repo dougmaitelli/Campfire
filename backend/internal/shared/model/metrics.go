@@ -5,6 +5,8 @@ package model
 type ResourceUsage struct {
 	ServerID          string   `json:"server_id"`
 	State             string   `json:"state"`
+	StartedAt         int64    `json:"started_at,omitempty"`
+	StoppedAt         int64    `json:"stopped_at,omitempty"`
 	CPUPercent        *float64 `json:"cpu_percent"`
 	MemoryBytes       *int64   `json:"memory_bytes"`
 	DiskBytes         *int64   `json:"disk_bytes"`

@@ -1,6 +1,7 @@
 import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
 import { StatusPill, type StatusTone } from "../status/StatusPill";
+import "./server-state.css";
 
 const tones: Record<string, StatusTone> = {
   running: "positive",
@@ -95,17 +96,59 @@ const labels: Record<string, string> = {
 export function ServerState({
   state: runtimeState = "unknown",
   ready = true,
+  startedAt,
+  stoppedAt,
+  now = 0,
 }: {
   state?: string;
   ready?: boolean;
+  startedAt?: number | undefined;
+  stoppedAt?: number | undefined;
+  now?: number;
 }) {
   const { t } = useTranslation();
   const state =
     runtimeState === "running" && !ready ? "starting" : runtimeState;
   const label = labels[state] ?? t("common.unavailable");
+  const since =
+    state === "running"
+      ? startedAt
+      : ["stopped", "exited"].includes(state)
+        ? stoppedAt
+        : undefined;
+  let detail: string | undefined;
+  if (since && since > 0 && since <= now) {
+    const seconds = Math.floor(now - since);
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const duration = days
+      ? t("serverState.durationDays", { days, hours })
+      : hours
+        ? t("serverState.durationHours", { hours, minutes })
+        : minutes
+          ? t("serverState.durationMinutes", { minutes })
+          : t("serverState.durationSeconds", { seconds });
+    detail = t(
+      state === "running" ? "serverState.uptime" : "serverState.stoppedAgo",
+      { duration },
+    );
+  }
   return (
-    <StatusPill tone={labels[state] ? (tones[state] ?? "neutral") : "negative"}>
-      {label}
-    </StatusPill>
+    <span className="server-state">
+      <StatusPill
+        tone={labels[state] ? (tones[state] ?? "neutral") : "negative"}
+      >
+        {label}
+      </StatusPill>
+      {detail && (
+        <span
+          className="server-state-timing"
+          title={new Date(since! * 1000).toLocaleString()}
+        >
+          {detail}
+        </span>
+      )}
+    </span>
   );
 }

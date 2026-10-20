@@ -3,37 +3,78 @@ import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
-import { Button } from "../components/forms/Button";
+import { SectionHeading } from "../components/layout/SectionHeading";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
+import { SearchField } from "../components/forms/SearchField";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { bytes, containerFresh, diskFresh } from "../api/monitoring";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
-import {
-  ResourceReading,
-  ResourceReadings,
-} from "../components/servers/ResourceReadings";
+import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
+import { ServerQuickControls } from "../components/servers/ServerQuickControls";
+import { useServerRuntime } from "../hooks/useServerRuntime";
 import { MetricTile, ResourceTile } from "../components/metrics/MetricTile";
 
 import { Table, TableRow } from "../components/table/Table";
-import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
-import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
-import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
+import { listAllBackups } from "../api/backups";
+import { listSchedules } from "../api/activity";
+import { listServers } from "../api/servers";
+import { useCollection } from "../hooks/useCollection";
+import { BackupState } from "../components/servers/BackupState";
+import { ScheduleToggle } from "../components/schedules/ScheduleToggle";
+import { ScheduleNextRun } from "../components/schedules/ScheduleNextRun";
+import { EMPTY_VALUE } from "../utils/formatDisplayValue";
+import { cpuUsageDivisor, formatCPUUsage } from "../utils/cpuUsage";
+import "./dashboard.css";
 import "./monitoring.css";
+
+const OVERVIEW_REFRESH_INTERVAL_MS = 10000;
 
 export function DashboardPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
-  const [details, setDetails] = useState<{
-    kind: "server" | "spark";
-    id: string;
-    name: string;
-  } | null>(null);
   const monitor = useMonitoring();
   const auth = useAuthentication();
+  const canReadBackups =
+    auth.session?.permissions?.includes("servers.manage_all") === true;
+  const loadBackups = useCallback(
+    (signal: AbortSignal) =>
+      canReadBackups ? listAllBackups(signal) : Promise.resolve([]),
+    [canReadBackups],
+  );
+  const backups = useCollection(loadBackups, OVERVIEW_REFRESH_INTERVAL_MS);
+  const schedules = useCollection(listSchedules, OVERVIEW_REFRESH_INTERVAL_MS);
+  const serverInventory = useCollection(
+    listServers,
+    OVERVIEW_REFRESH_INTERVAL_MS,
+  );
+  const runtime = useServerRuntime(
+    serverInventory.items
+      .filter((server) => server.permissions.includes("server.operate"))
+      .map((server) => server.id),
+  );
+  const [serverActionError, setServerActionError] = useState<string | null>(
+    null,
+  );
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [serverSearch, setServerSearch] = useState("");
+  const failedBackups = backups.items.filter((backup) =>
+    ["failed", "error", "unavailable"].includes(backup.state),
+  ).length;
+  const recentBackups = [...backups.items]
+    .sort((a, b) => Date.parse(b.modified_at) - Date.parse(a.modified_at))
+    .slice(0, 5);
+  const upcomingSchedules = schedules.items
+    .filter((schedule) => schedule.enabled && schedule.next_run_at > 0)
+    .sort((a, b) => a.next_run_at - b.next_run_at)
+    .slice(0, 5);
   const servers = monitor.snapshot?.servers ?? [];
+  const visibleServers = servers.filter((server) =>
+    server.name.toLowerCase().includes(serverSearch.toLowerCase()),
+  );
   const cpuKnown = servers.filter(
     (server) =>
       server.usage.cpu_percent !== null &&
@@ -66,10 +107,9 @@ export function DashboardPage() {
     (sum, server) => sum + (server.usage.disk_bytes ?? 0),
     0,
   );
-  const allocatedCPU = servers.reduce(
-    (sum, server) => sum + server.cpu_limit,
-    0,
-  );
+  const allocatedCPU = servers.every((server) => server.cpu_limit > 0)
+    ? servers.reduce((sum, server) => sum + server.cpu_limit, 0)
+    : 0;
   const allocatedMemory = servers.reduce(
     (sum, server) => sum + server.memory_mb * 1048576,
     0,
@@ -80,6 +120,12 @@ export function DashboardPage() {
   );
   const formatCPU = (value: number) =>
     value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const enabledSchedules = schedules.items.filter(
+    (schedule) => schedule.enabled,
+  );
+  const nextSchedule = enabledSchedules
+    .filter((schedule) => schedule.next_run_at > 0)
+    .sort((a, b) => a.next_run_at - b.next_run_at)[0];
   return (
     <section aria-labelledby="page-title">
       <PageHeader
@@ -101,11 +147,6 @@ export function DashboardPage() {
             />
           </>
         }
-        actions={
-          <>
-            <Button onClick={monitor.refresh}>{t("common.refresh")}</Button>
-          </>
-        }
       />
       {monitor.error &&
         (servers.length > 0 || !!monitor.snapshot?.sparks?.length) && (
@@ -125,58 +166,135 @@ export function DashboardPage() {
       <div className="monitoring-cards">
         <MetricTile
           label={t("common.servers")}
+          icon={<NavigationIcon name="servers" />}
           value={monitor.loading ? "…" : servers.length}
-          detail={
-            <>
-              <Trans
-                i18nKey="dashboardPage.runningUnknown"
-                t={t}
-                components={{
-                  running: <>{running}</>,
-                  serversFilterServer: (
-                    <>
-                      {
-                        servers.filter(
-                          (server) => server.usage.state === "unknown",
-                        ).length
-                      }
-                    </>
-                  ),
-                }}
-              />
-            </>
-          }
+          detail={t("dashboardPage.runningCount", { count: running })}
         />
         <ResourceTile
-          label={t("dashboardPage.cpuInUse")}
+          label={t("common.cpu")}
+          icon={<NavigationIcon name="cpu" />}
           used={cpuKnown.length ? cpu : null}
           allocated={allocatedCPU}
           format={formatCPU}
+          formatUsed={(value) =>
+            formatCPUUsage(
+              (value * 100) / cpuUsageDivisor(allocatedCPU),
+              allocatedCPU,
+            )
+          }
           unit="cores"
         />
         <ResourceTile
-          label={t("dashboardPage.memoryInUse")}
+          label={t("common.memory")}
+          icon={<NavigationIcon name="memory" />}
           used={memoryKnown.length ? memory : null}
           allocated={allocatedMemory}
           format={bytes}
         />
         <ResourceTile
-          label={t("dashboardPage.gameDataSize")}
+          label={t("common.disk")}
+          icon={<NavigationIcon name="disk" />}
           used={diskKnown.length ? disk : null}
           allocated={allocatedDisk}
           format={bytes}
         />
+        <MetricTile
+          label={t("common.backups")}
+          icon={<NavigationIcon name="backups" />}
+          value={
+            !canReadBackups || backups.error
+              ? EMPTY_VALUE
+              : backups.loading
+                ? "…"
+                : `${backups.items.filter((backup) => backup.state === "available").length} / ${backups.items.length}`
+          }
+          detail={
+            !canReadBackups ? (
+              t("dashboardPage.restricted")
+            ) : backups.error ? (
+              t("dashboardPage.summaryUnavailable")
+            ) : backups.loading ? null : (
+              <span
+                className={`backup-summary-status${failedBackups > 0 ? " backup-summary-status-failed" : ""}`}
+              >
+                <NavigationIcon
+                  name={failedBackups > 0 ? "x-circle" : "check-circle"}
+                />
+                {failedBackups > 0
+                  ? t("dashboardPage.failedBackups", { count: failedBackups })
+                  : t("dashboardPage.successful")}
+              </span>
+            )
+          }
+        />
+        <MetricTile
+          label={t("common.schedules")}
+          icon={<NavigationIcon name="schedules" />}
+          value={
+            schedules.error
+              ? EMPTY_VALUE
+              : schedules.loading
+                ? "…"
+                : t("dashboardPage.enabledCount", {
+                    count: enabledSchedules.length,
+                  })
+          }
+          detail={
+            schedules.error ? (
+              t("dashboardPage.summaryUnavailable")
+            ) : (
+              <>
+                {nextSchedule && (
+                  <>
+                    {t("dashboardPage.nextScheduledRun", {
+                      time: new Date(
+                        nextSchedule.next_run_at * 1000,
+                      ).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      }),
+                    })}
+                  </>
+                )}
+              </>
+            )
+          }
+        />
       </div>
       <ContentPanel>
+        <SectionHeading
+          title={t("common.servers")}
+          actions={
+            <SearchField
+              label={
+                <span className="visually-hidden">
+                  {t("serversPage.searchServers")}
+                </span>
+              }
+              placeholder={t("serversPage.searchServers")}
+              value={serverSearch}
+              onChange={(event) => setServerSearch(event.target.value)}
+            />
+          }
+        />
+        {serverActionError && (
+          <InlineMessage role="alert">{serverActionError}</InlineMessage>
+        )}
         <Table
           className="dashboard-server-table"
-          empty={servers.length === 0}
+          empty={visibleServers.length === 0}
+          {...(serverSearch
+            ? { emptyMessage: t("serversPage.noMatchingServers") }
+            : {
+                emptyDescription: t(
+                  "dashboardPage.createOrAskToBeAssignedAServerToSee",
+                ),
+              })}
           loading={monitor.loading}
           error={monitor.error}
           resource={t("dashboardPage.servers")}
-          emptyDescription={t(
-            "dashboardPage.createOrAskToBeAssignedAServerToSee",
-          )}
           onRetry={monitor.refresh}
         >
           <caption className="visually-hidden">
@@ -186,11 +304,16 @@ export function DashboardPage() {
             <tr>
               <th>{t("common.server")}</th>
               <th>{t("dashboardPage.state")}</th>
-              <th>{t("dashboardPage.measuredUsageAllocation")}</th>
+              <th>{t("common.cpu")}</th>
+              <th>{t("common.memory")}</th>
+              <th>{t("common.disk")}</th>
+              <th className="table-actions">
+                <span className="visually-hidden">{t("common.actions")}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {servers.map((server) => (
+            {visibleServers.map((server) => (
               <TableRow
                 key={server.id}
                 onOpen={() => {
@@ -217,19 +340,54 @@ export function DashboardPage() {
                   </span>
                 </td>
                 <td>
-                  <ServerState state={server.usage.state} />
+                  <ServerState
+                    now={
+                      (monitor.snapshot?.collected_at ?? 0) + monitor.elapsed
+                    }
+                    state={
+                      runtime.statuses[server.id]?.state ?? server.usage.state
+                    }
+                    startedAt={
+                      server.usage.state === "running"
+                        ? server.usage.started_at
+                        : undefined
+                    }
+                    stoppedAt={
+                      ["stopped", "exited"].includes(server.usage.state)
+                        ? server.usage.stopped_at
+                        : undefined
+                    }
+                  />
                   <span className="row-description">
                     {server.usage.container_error}
                   </span>
                 </td>
-                <td>
-                  <ResourceReadings
-                    usage={server.usage}
-                    cpuLimit={server.cpu_limit}
-                    memoryMB={server.memory_mb}
-                    diskMB={server.disk_mb}
-                    elapsed={monitor.elapsed}
-                    layout="grid"
+                <ResourceReadings
+                  usage={server.usage}
+                  cpuLimit={server.cpu_limit}
+                  memoryMB={server.memory_mb}
+                  diskMB={server.disk_mb}
+                  elapsed={monitor.elapsed}
+                  layout="columns"
+                />
+                <td className="table-actions">
+                  <ServerQuickControls
+                    id={server.id}
+                    name={server.name}
+                    status={runtime.statuses[server.id]}
+                    canOperate={serverInventory.items.some(
+                      (item) =>
+                        item.id === server.id &&
+                        item.permissions.includes("server.operate"),
+                    )}
+                    disabled={
+                      monitor.snapshot?.sparks?.some(
+                        (spark) =>
+                          spark.id === server.spark_id && spark.disabled,
+                      ) === true
+                    }
+                    onStatus={runtime.upsert}
+                    onError={setServerActionError}
                   />
                 </td>
               </TableRow>
@@ -237,161 +395,153 @@ export function DashboardPage() {
           </tbody>
         </Table>
       </ContentPanel>
-      {auth.session?.admin && (
-        <>
-          <h2 className="monitoring-heading">{t("common.sparks")}</h2>
-          <ContentPanel>
-            <Table
-              className="dashboard-server-table"
-              empty={!monitor.snapshot?.sparks?.length}
-              loading={monitor.loading}
-              error={monitor.error}
-              resource={t("common.sparks")}
-              onRetry={monitor.refresh}
-            >
-              <caption className="visually-hidden">
-                {t("dashboardPage.sparkConnectionsAndConfiguredCapacity")}
-              </caption>
-              <thead>
-                <tr>
-                  <th>{t("common.spark")}</th>
-                  <th>{t("dashboardPage.connection")}</th>
-                  <th>{t("dashboardPage.serverAllocationsCapacity")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(monitor.snapshot?.sparks ?? []).map((spark) => {
-                  const hosted = servers.filter(
-                    (server) => server.spark_id === spark.id,
-                  );
-                  return (
-                    <TableRow
-                      key={spark.id}
-                      onOpen={() =>
-                        setDetails({
-                          kind: "spark",
-                          id: spark.id,
-                          name: spark.name,
-                        })
-                      }
-                    >
-                      <td>
-                        <button
-                          type="button"
-                          className="table-row-trigger"
-                          onClick={() =>
-                            setDetails({
-                              kind: "spark",
-                              id: spark.id,
-                              name: spark.name,
-                            })
-                          }
-                          aria-label={i18n.t("dashboardPage.viewDetailsFor", {
-                            sparkName: spark.name,
-                          })}
-                        >
-                          {spark.name}
-                        </button>
-                        <span className="row-description">
-                          <Trans
-                            i18nKey="dashboardPage.servers2"
-                            t={i18n.t}
-                            components={{ hostedLength: <>{hosted.length}</> }}
-                          />
-                        </span>
-                      </td>
-                      <td>
-                        <SparkConnectionState
-                          disabled={spark.disabled}
-                          connected={spark.connected}
-                          version={spark.agent_version}
-                        />
-                      </td>
-                      <td>
-                        <div className="resource-readings resource-readings-grid">
-                          <ResourceReading
-                            label={i18n.t("common.cpu")}
-                            format={(value) => `${formatCPU(value)} cores`}
-                            value={hosted.reduce(
-                              (sum, server) => sum + server.cpu_limit,
-                              0,
-                            )}
-                            allocation={spark.cpu_limit}
-                            fresh
-                            compact
-                            detail={i18n.t(
-                              "dashboardPage.cpuReservedByServersAgainstThisSparkSConfiguredCapacity",
-                            )}
-                          />
-                          <ResourceReading
-                            label={i18n.t("common.memory")}
-                            format={bytes}
-                            value={hosted.reduce(
-                              (sum, server) => sum + server.memory_mb * 1048576,
-                              0,
-                            )}
-                            allocation={spark.memory_mb * 1048576}
-                            fresh
-                            compact
-                            detail={i18n.t(
-                              "dashboardPage.memoryReservedByServersAgainstThisSparkSConfiguredCapacity",
-                            )}
-                          />
-                          <ResourceReading
-                            label={i18n.t("dashboardPage.gameData")}
-                            format={bytes}
-                            value={hosted.reduce(
-                              (sum, server) => sum + server.disk_mb * 1048576,
-                              0,
-                            )}
-                            allocation={spark.disk_mb * 1048576}
-                            fresh
-                            compact
-                            detail={i18n.t(
-                              "dashboardPage.gameDataStorageReservedByServersAgainstThisSparkS",
-                            )}
-                          />
-                        </div>
-                      </td>
-                    </TableRow>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </ContentPanel>
-        </>
-      )}
-      <p className="list-summary">
-        {t(
-          "dashboardPage.usageRefreshesAboutEverySecondCPUAndMemoryReadingsOlder",
-        )}
-      </p>
-      {details?.kind === "spark" && (
-        <SparkDetailsDialog
-          key={details.id}
-          id={details.id}
-          title={details.name}
-          onClose={() => setDetails(null)}
-        />
-      )}
-      {details?.kind === "server" && (
-        <ServerDetailsDialog
-          key={details.id}
-          id={details.id}
-          title={
+      <div className="dashboard-activity-grid">
+        <ContentPanel>
+          <SectionHeading
+            title={t("dashboardPage.recentBackups")}
+            icon={<NavigationIcon name="backups" />}
+            actions={
+              canReadBackups && (
+                <a href="#backups">
+                  {t("dashboardPage.viewAllBackups")}
+                  <NavigationIcon name="arrow-right" />
+                </a>
+              )
+            }
+          />
+          {!canReadBackups ? (
+            <p className="field-help">
+              {t("dashboardPage.backupCatalogRestricted")}
+            </p>
+          ) : (
             <>
-              <span>{details.name}</span>
-              <ServerState
-                state={
-                  servers.find((server) => server.id === details.id)?.usage
-                    .state ?? "unknown"
-                }
-              />
+              {backups.error && backups.items.length > 0 && (
+                <InlineMessage role="alert">{backups.error}</InlineMessage>
+              )}
+              <Table
+                empty={recentBackups.length === 0}
+                loading={backups.loading}
+                error={backups.error}
+                resource={t("common.backups")}
+                emptyMessage={t("backupsPage.noBackupsYet")}
+                onRetry={() => void backups.refresh()}
+              >
+                <caption className="visually-hidden">
+                  {t("dashboardPage.recentBackups")}
+                </caption>
+                <thead>
+                  <tr>
+                    <th>{t("common.server")}</th>
+                    <th>{t("backupsPage.created")}</th>
+                    <th>{t("backupsPage.size")}</th>
+                    <th>{t("common.status")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentBackups.map((backup) => (
+                    <tr key={backup.id}>
+                      <td>
+                        <ResourceLink
+                          href={links.server(backup.server_id, "backups")}
+                        >
+                          {backup.server_name}
+                        </ResourceLink>
+                      </td>
+                      <td>
+                        <time dateTime={backup.modified_at}>
+                          {new Date(backup.modified_at).toLocaleString()}
+                        </time>
+                      </td>
+                      <td>{bytes(backup.size)}</td>
+                      <td>
+                        <BackupState state={backup.state} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
             </>
-          }
-          onClose={() => setDetails(null)}
-        />
-      )}
+          )}
+        </ContentPanel>
+        <ContentPanel>
+          <SectionHeading
+            title={t("dashboardPage.upcomingSchedules")}
+            icon={<NavigationIcon name="schedules" />}
+            actions={
+              <a href="#schedules">
+                {t("dashboardPage.viewAllSchedules")}
+                <NavigationIcon name="arrow-right" />
+              </a>
+            }
+          />
+          {scheduleError && (
+            <InlineMessage role="alert">{scheduleError}</InlineMessage>
+          )}
+          {schedules.error && schedules.items.length > 0 && (
+            <InlineMessage role="alert">{schedules.error}</InlineMessage>
+          )}
+          <Table
+            empty={upcomingSchedules.length === 0}
+            loading={schedules.loading}
+            error={schedules.error}
+            resource={t("common.schedules")}
+            emptyMessage={t("dashboardPage.noUpcomingSchedules")}
+            onRetry={() => void schedules.refresh()}
+          >
+            <caption className="visually-hidden">
+              {t("dashboardPage.upcomingSchedules")}
+            </caption>
+            <thead>
+              <tr>
+                <th>{t("schedulesPage.schedule")}</th>
+                <th>{t("common.server")}</th>
+                <th>{t("schedulesPage.nextRun")}</th>
+                <th>{t("common.enabled")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcomingSchedules.map((schedule) => (
+                <tr key={schedule.id}>
+                  <td>
+                    <ResourceLink href={links.schedule(schedule.id)}>
+                      {schedule.name}
+                    </ResourceLink>
+                  </td>
+                  <td>
+                    <ResourceLink href={links.server(schedule.server_id)}>
+                      {servers.find(
+                        (server) => server.id === schedule.server_id,
+                      )?.name ?? EMPTY_VALUE}
+                    </ResourceLink>
+                  </td>
+                  <td>
+                    <ScheduleNextRun
+                      at={schedule.next_run_at}
+                      enabled={schedule.enabled}
+                    />
+                  </td>
+                  <td>
+                    <ScheduleToggle
+                      schedule={schedule}
+                      disabled={
+                        !auth.session?.admin &&
+                        !serverInventory.items.some(
+                          (server) =>
+                            server.id === schedule.server_id &&
+                            server.permissions.includes("server.configure") &&
+                            server.permissions.includes("server.operate"),
+                        )
+                      }
+                      onSaved={schedules.upsert}
+                      onError={setScheduleError}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </ContentPanel>
+      </div>
     </section>
   );
 }

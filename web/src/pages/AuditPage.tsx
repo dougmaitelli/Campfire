@@ -9,11 +9,13 @@ import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { PageHeader } from "../components/layout/PageHeader";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { activityCursor, listAudit, type AuditEvent } from "../api/activity";
 
 import { Table } from "../components/table/Table";
 import { AuditOutcome } from "../components/activity/AuditOutcome";
+
+const AUDIT_REFRESH_INTERVAL_MS = 10000;
 
 export function AuditPage() {
   const { t } = useTranslation();
@@ -27,31 +29,67 @@ export function AuditPage() {
   const [older, setOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const pending = useRef(false);
+  const generation = useRef(0);
+  const paged = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
-    void listAudit(controller.signal, "", filters.action, filters.target)
-      .then((next) => {
-        if (!controller.signal.aborted) {
-          setItems(next);
-          setOlder(next.length === 100);
-          setError(null);
-        }
-      })
-      .catch((cause: unknown) => {
-        if (!controller.signal.aborted)
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : i18n.t("auditPage.unableToLoadAuditRecords"),
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
+    const current = ++generation.current;
+    paged.current = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function poll() {
+      if (pending.current) {
+        timer = setTimeout(() => void poll(), AUDIT_REFRESH_INTERVAL_MS);
+        return;
+      }
+      await listAudit(
+        AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+        "",
+        filters.action,
+        filters.target,
+      )
+        .then((next) => {
+          if (!controller.signal.aborted) {
+            setItems((previous) =>
+              paged.current
+                ? [
+                    ...new Map(
+                      [...previous, ...next].map((item) => [item.id, item]),
+                    ).values(),
+                  ].sort(
+                    (a, b) =>
+                      b.created_at - a.created_at || b.id.localeCompare(a.id),
+                  )
+                : next,
+            );
+            if (!paged.current) setOlder(next.length === 100);
+            setError(null);
+          }
+        })
+        .catch((cause: unknown) => {
+          if (!controller.signal.aborted)
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : i18n.t("auditPage.unableToLoadAuditRecords"),
+            );
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+      if (!controller.signal.aborted && current === generation.current)
+        timer = setTimeout(() => void poll(), AUDIT_REFRESH_INTERVAL_MS);
+    }
+    void poll();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [filters, version]);
   async function more() {
-    if (busy || !items.length) return;
+    if (pending.current || !items.length) return;
+    pending.current = true;
+    const current = generation.current;
     setBusy(true);
     try {
       const next = await listAudit(
@@ -60,8 +98,15 @@ export function AuditPage() {
         filters.action,
         filters.target,
       );
-      setItems((current) => [...current, ...next]);
-      setOlder(next.length === 100);
+      if (current === generation.current) {
+        paged.current = true;
+        setItems((previous) => [
+          ...new Map(
+            [...previous, ...next].map((item) => [item.id, item]),
+          ).values(),
+        ]);
+        setOlder(next.length === 100);
+      }
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -69,6 +114,7 @@ export function AuditPage() {
           : i18n.t("auditPage.unableToLoadAuditRecords"),
       );
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -79,18 +125,6 @@ export function AuditPage() {
         description={t(
           "auditPage.administrativeChangesAuthenticationAttemptsAndServerOperations",
         )}
-        actions={
-          <>
-            <Button
-              onClick={() => {
-                setLoading(true);
-                setVersion((v) => v + 1);
-              }}
-            >
-              {t("common.refresh")}
-            </Button>
-          </>
-        }
       />
       {error && items.length > 0 && (
         <InlineMessage role="alert">{error}</InlineMessage>

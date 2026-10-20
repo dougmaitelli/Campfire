@@ -1,0 +1,21 @@
+.search-input {
+  position: relative;
+  width: 100%;
+
+  & > svg {
+    position: absolute;
+    inset-inline-start: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  & > .text-input {
+    width: 100%;
+    margin-bottom: 0;
+    padding-inline-start: 38px;
+  }
+}

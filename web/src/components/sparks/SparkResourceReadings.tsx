@@ -8,6 +8,7 @@ import {
 } from "../../api/monitoring";
 import type { Spark } from "../../api/sparks";
 import { ResourceReading } from "../servers/ResourceReadings";
+import { cpuUsageDivisor, formatCPUUsage } from "../../utils/cpuUsage";
 
 export function SparkResourceReadings({
   spark,
@@ -24,10 +25,10 @@ export function SparkResourceReadings({
     {
       label: t("common.cpu"),
       key: "cpu_percent" as const,
-      allocation: spark.cpu_limit,
-      scale: 0.01,
-      format: (value: number) =>
-        `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} cores`,
+      allocation: spark.cpu_limit > 0 ? 100 : 0,
+      showAllocation: spark.cpu_limit <= 0,
+      scale: 1 / cpuUsageDivisor(spark.cpu_limit),
+      format: (value: number) => formatCPUUsage(value, spark.cpu_limit),
       fresh: containerFresh,
     },
     {
@@ -67,6 +68,7 @@ export function SparkResourceReadings({
             label={reading.label}
             value={value}
             allocation={reading.allocation}
+            showAllocation={reading.showAllocation ?? true}
             fresh={
               measured &&
               hosted.every((server) => reading.fresh(server.usage, elapsed))

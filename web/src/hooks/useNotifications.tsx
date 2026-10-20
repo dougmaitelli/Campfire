@@ -6,7 +6,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { unreadNotifications } from "../api/notifications";
+import {
+  unreadNotifications,
+  NOTIFICATIONS_REFRESH_INTERVAL_MS,
+} from "../api/notifications";
 
 const Context = createContext<{ unread: number | null; refresh: () => void }>({
   unread: null,
@@ -32,7 +35,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (!controller.signal.aborted)
         timer = setTimeout(() => {
           void load();
-        }, 15000);
+        }, NOTIFICATIONS_REFRESH_INTERVAL_MS);
     }
     void load();
     return () => {

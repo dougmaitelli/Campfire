@@ -1,6 +1,8 @@
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
+export const NOTIFICATIONS_REFRESH_INTERVAL_MS = 5000;
+
 export interface Notification {
   id: number;
   target_type: string;

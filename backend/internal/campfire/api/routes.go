@@ -33,6 +33,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/schedules", a.activityEnabled(a.saveSchedule))
 	mux.HandleFunc("POST /api/v1/schedules/preview", a.activityEnabled(a.previewSchedule))
 	mux.HandleFunc("PUT /api/v1/schedules/{scheduleID}", a.activityEnabled(a.saveSchedule))
+	mux.HandleFunc("PATCH /api/v1/schedules/{scheduleID}", a.activityEnabled(a.setScheduleEnabled))
 	mux.HandleFunc("DELETE /api/v1/schedules/{scheduleID}", a.activityEnabled(a.deleteSchedule))
 	mux.HandleFunc("POST /api/v1/schedules/{scheduleID}/run", a.activityEnabled(a.runSchedule))
 	mux.HandleFunc("GET /api/v1/schedules/executions", a.activityEnabled(a.listExecutions))

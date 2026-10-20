@@ -209,6 +209,20 @@ export async function saveSchedule(
 export async function deleteSchedule(id: string) {
   await send(`/api/v1/schedules/${encodeURIComponent(id)}`, "DELETE");
 }
+
+export async function setScheduleEnabled(
+  id: string,
+  enabled: boolean,
+): Promise<Schedule> {
+  const body = await send(
+    `/api/v1/schedules/${encodeURIComponent(id)}`,
+    "PATCH",
+    { enabled },
+  );
+  if (!isSchedule(body))
+    throw new Error(i18n.t("activity.unexpectedScheduleResponse"));
+  return body;
+}
 export async function runSchedule(id: string) {
   await send(`/api/v1/schedules/${encodeURIComponent(id)}/run`, "POST");
 }

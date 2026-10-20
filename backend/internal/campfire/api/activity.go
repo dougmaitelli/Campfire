@@ -226,6 +226,29 @@ func (a *API) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *API) setScheduleEnabled(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	if input.Enabled == nil {
+		writeError(w, repository.ErrAccessInput)
+		return
+	}
+
+	item, err := a.activity.SetEnabled(r.Context(), currentUser(r), r.PathValue("scheduleID"), *input.Enabled)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	auditDetail(r, "schedule.toggle", "schedule:"+item.ID)
+	writeJSON(w, http.StatusOK, item)
+}
+
 func (a *API) runSchedule(w http.ResponseWriter, r *http.Request) {
 	run, err := a.activity.RunNow(r.Context(), currentUser(r), r.PathValue("scheduleID"))
 	if err != nil {

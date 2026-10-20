@@ -140,6 +140,21 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 
 	expectAccess(t, operatorHandler, "POST", "/api/v1/schedules", body, http.StatusForbidden)
 	expectAccess(t, operatorHandler, "PUT", "/api/v1/schedules/"+schedule.ID, body, http.StatusForbidden)
+	expectAccess(t, operatorHandler, "PATCH", "/api/v1/schedules/"+schedule.ID, `{"enabled":false}`, http.StatusForbidden)
+	expectAccess(t, ownerHandler, "PATCH", "/api/v1/schedules/"+schedule.ID, `{}`, http.StatusBadRequest)
+
+	for _, enabled := range []bool{false, true} {
+		response = request(ownerHandler, "PATCH", "/api/v1/schedules/"+schedule.ID, fmt.Sprintf(`{"enabled":%t}`, enabled))
+		if response.Code != http.StatusOK || strings.Contains(response.Body.String(), command) {
+			t.Fatal("toggle failed or exposed the command", response.Code, response.Body)
+		}
+
+		saved, err := activity.Store.Schedule(ctx, schedule.ID)
+		if err != nil || saved.Enabled != enabled || saved.Command != command || saved.Name != schedule.Name || saved.CronExpression != schedule.CronExpression || saved.OnlyWhenRunning != schedule.OnlyWhenRunning || saved.TimeZone != schedule.TimeZone {
+			t.Fatal("toggle modified unrelated schedule settings", saved, err)
+		}
+	}
+
 	expectAccess(t, operatorHandler, "POST", "/api/v1/schedules/"+schedule.ID+"/run", "", http.StatusForbidden)
 	expectAccess(t, operatorHandler, "GET", "/api/v1/audit", "", http.StatusForbidden)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/schedules/"+schedule.ID+"/run", "", http.StatusAccepted)

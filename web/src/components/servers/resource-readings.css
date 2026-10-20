@@ -44,8 +44,14 @@
 }
 .usage-reading {
   display: grid;
-  gap: 3px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+
+  & > span:nth-child(2) {
+    white-space: nowrap;
+  }
 }
 .usage-label {
   color: var(--muted);
@@ -53,6 +59,8 @@
 }
 .usage-allocation {
   color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 .usage-age {
   color: var(--accent);

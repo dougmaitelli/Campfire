@@ -17,6 +17,7 @@ export function MetricTile({
   title,
   announcement,
   children,
+  icon,
 }: {
   label: string;
   value: ReactNode;
@@ -25,9 +26,11 @@ export function MetricTile({
   title?: string;
   announcement?: ReactNode;
   children?: ReactNode;
+  icon?: ReactNode;
 }) {
   return (
     <article className={`metric-tile metric-tile-${tone}`} title={title}>
+      {icon && <span className="metric-tile-icon">{icon}</span>}
       <span className="metric-tile-label">{label}</span>
       <strong className="metric-tile-value">{value}</strong>
       {detail && <small className="metric-tile-detail">{detail}</small>}
@@ -43,6 +46,8 @@ export function ResourceTile({
   allocated,
   format,
   unit,
+  icon,
+  formatUsed = format,
   warningAt = utilizationThresholds.warning,
   criticalAt = utilizationThresholds.critical,
 }: {
@@ -51,6 +56,8 @@ export function ResourceTile({
   allocated: number;
   format: (value: number) => string;
   unit?: string;
+  icon?: ReactNode;
+  formatUsed?: (value: number) => string;
   warningAt?: number;
   criticalAt?: number;
 }) {
@@ -64,20 +71,18 @@ export function ResourceTile({
   return (
     <MetricTile
       label={label}
+      icon={icon}
       tone={tone}
       title={title}
       announcement={tone !== "neutral" ? title : undefined}
-      detail={
-        ratio === null
-          ? t("utilization.utilizationUnavailable")
-          : t("metricTile.allocatedCapacity", {
-              percent: Math.round(ratio * 100),
-            })
-      }
       value={
         <>
-          {used === null ? EMPTY_VALUE : format(used)} / {format(allocated)}
-          {unit && ` ${unit}`}
+          {used === null ? EMPTY_VALUE : formatUsed(used)}
+          <span className="metric-tile-allocation">
+            {" / "}
+            {allocated > 0 ? format(allocated) : t("resourceReadings.noLimit")}
+            {allocated > 0 && unit && ` ${unit}`}
+          </span>
         </>
       }
     >

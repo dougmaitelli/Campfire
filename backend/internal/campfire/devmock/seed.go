@@ -201,6 +201,11 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 
 		record := newRecord(fixture.node, model.Deployment{ServerID: server.ID, Configuration: configuration, Ember: ember})
 		record.State = fixture.state
+		record.StartedAt = time.Now().Add(-time.Duration(index+1) * 24 * time.Hour).Unix()
+
+		if fixture.state == "stopped" {
+			record.StoppedAt = time.Now().Add(-2 * time.Hour).Unix()
+		}
 
 		if fixture.state == "running" {
 			record.Logs += "[Server] Done! Mock server ready for commands.\n"

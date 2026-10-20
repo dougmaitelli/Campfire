@@ -147,15 +147,37 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 		entry.usage.CPUPercent, entry.usage.MemoryBytes = nil, nil
 		entry.usage.ContainerError = ""
 		entry.usage.SampledAt = 0
+		entry.usage.StartedAt, entry.usage.StoppedAt = 0, 0
 
 		name := container(d.ServerID)
 		if busy && operation == "install" {
 			name += "-install"
 		}
 
-		out, inspectErr := m.Docker.Run(ctx, nil, "inspect", "--format", "{{.State.Status}}", name)
+		out, inspectErr := m.Docker.Run(ctx, nil, "inspect", "--format", "{{json .State}}", name)
 
-		actual := strings.TrimSpace(out)
+		var dockerState struct {
+			Status     string
+			StartedAt  time.Time
+			FinishedAt time.Time
+		}
+
+		actual := "unknown"
+
+		if inspectErr == nil {
+			inspectErr = json.Unmarshal([]byte(out), &dockerState)
+			if inspectErr == nil {
+				actual = dockerState.Status
+				if dockerState.StartedAt.Unix() > 0 {
+					entry.usage.StartedAt = dockerState.StartedAt.Unix()
+				}
+
+				if dockerState.FinishedAt.Unix() > 0 {
+					entry.usage.StoppedAt = dockerState.FinishedAt.Unix()
+				}
+			}
+		}
+
 		if inspectErr != nil && (strings.Contains(strings.ToLower(out), "no such object") || strings.Contains(strings.ToLower(out), "no such container")) {
 			actual = "missing"
 			inspectErr = nil

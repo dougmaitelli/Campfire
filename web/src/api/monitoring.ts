@@ -7,6 +7,8 @@ export interface ResourceUsage {
   fresh_for_seconds?: number;
   server_id: string;
   state: string;
+  started_at?: number;
+  stopped_at?: number;
   cpu_percent: number | null;
   memory_bytes: number | null;
   disk_bytes: number | null;
@@ -54,6 +56,8 @@ export function isResourceUsage(value: unknown): value is ResourceUsage {
     object(value) &&
     typeof value.server_id === "string" &&
     typeof value.state === "string" &&
+    (value.started_at === undefined || integer(value.started_at)) &&
+    (value.stopped_at === undefined || integer(value.stopped_at)) &&
     nullable(value.cpu_percent) &&
     (value.memory_bytes === null || integer(value.memory_bytes)) &&
     (value.disk_bytes === null || integer(value.disk_bytes)) &&

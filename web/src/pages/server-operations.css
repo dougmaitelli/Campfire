@@ -17,9 +17,6 @@
     grid-column: 1 / -1;
   }
 }
-.operations-addresses {
-  margin-top: 12px;
-}
 .operations-tabs {
   display: flex;
   gap: 24px;

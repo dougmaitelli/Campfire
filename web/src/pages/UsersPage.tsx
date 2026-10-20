@@ -48,14 +48,6 @@ export function UsersPage() {
         actions={
           <>
             <Button
-              onClick={() => {
-                void users.refresh();
-                void roles.refresh();
-              }}
-            >
-              {t("common.refresh")}
-            </Button>
-            <Button
               variant="primary"
               disabled={roles.loading || !!roles.error}
               onClick={() => {
@@ -138,9 +130,6 @@ export function UsersPage() {
           </tbody>
         </Table>
       </ContentPanel>
-      <p className="field-help">
-        {t("usersPage.atLeastOneEnabledAdministratorMustRemainAccountsThatOwn")}
-      </p>
       {(open || editing) && (
         <UserDialog
           key={editing?.id ?? "new"}

@@ -100,13 +100,6 @@ export function RolesPage() {
         actions={
           <>
             <Button
-              onClick={() => {
-                void roles.refresh();
-              }}
-            >
-              {t("common.refresh")}
-            </Button>
-            <Button
               variant="primary"
               onClick={() => {
                 setEditing(null);

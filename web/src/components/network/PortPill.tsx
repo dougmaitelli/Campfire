@@ -1,4 +1,3 @@
-import { StatusPill } from "../status/StatusPill";
 import "./port-pill.css";
 
 export function PortPill({
@@ -10,9 +9,7 @@ export function PortPill({
 }) {
   return (
     <span className="port-pill">
-      <StatusPill indicator={false}>
-        {port} {protocol.toUpperCase()}
-      </StatusPill>
+      {port} {protocol.toUpperCase()}
     </span>
   );
 }

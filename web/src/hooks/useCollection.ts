@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useCollection<T extends { id: string | number }>(
   list: (signal: AbortSignal) => Promise<T[]>,
+  refreshIntervalMs?: number,
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +13,10 @@ export function useCollection<T extends { id: string | number }>(
     (controller: AbortController) =>
       list(controller.signal)
         .then((result) => {
-          if (!controller.signal.aborted) setItems(result);
+          if (!controller.signal.aborted) {
+            setItems(result);
+            setError(null);
+          }
         })
         .catch((cause: unknown) => {
           if (!controller.signal.aborted)
@@ -24,6 +28,7 @@ export function useCollection<T extends { id: string | number }>(
         })
         .finally(() => {
           if (!controller.signal.aborted) setLoading(false);
+          if (active.current === controller) active.current = null;
         }),
     [list],
   );
@@ -36,11 +41,27 @@ export function useCollection<T extends { id: string | number }>(
     await load(controller);
   }, [load]);
   useEffect(() => {
-    const controller = new AbortController();
-    active.current = controller;
-    void load(controller);
-    return () => active.current?.abort();
-  }, [load]);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function poll() {
+      if (active.current && !active.current.signal.aborted) {
+        if (refreshIntervalMs && refreshIntervalMs > 0)
+          timer = setTimeout(() => void poll(), refreshIntervalMs);
+        return;
+      }
+      const controller = new AbortController();
+      active.current = controller;
+      await load(controller);
+      if (!stopped && refreshIntervalMs && refreshIntervalMs > 0)
+        timer = setTimeout(() => void poll(), refreshIntervalMs);
+    }
+    void poll();
+    return () => {
+      stopped = true;
+      active.current?.abort();
+      clearTimeout(timer);
+    };
+  }, [load, refreshIntervalMs]);
   const upsert = useCallback((item: T) => {
     active.current?.abort();
     setItems((current) =>

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
 import type { RuntimeStatus, ServerAction } from "../../api/runtime";
+import { lifecycleControlState } from "./lifecycleControlState";
 
 export function ServerLifecycleControls({
   status,
@@ -14,20 +15,8 @@ export function ServerLifecycleControls({
   onAction: (action: ServerAction) => void;
 }) {
   const { t } = useTranslation();
-  const installing =
-    status?.busy === true &&
-    ["install", "reinstall", "update"].includes(status.operation ?? "");
-  const canInterrupt = !disabled && installing;
-  const blocked =
-    disabled ||
-    !status ||
-    status.busy ||
-    !["running", "restarting", "stopped", "not_installed", "deleted"].includes(
-      status.state,
-    );
-  const running = status?.state === "running" || status?.state === "restarting";
-  const install =
-    status?.state === "not_installed" || status?.state === "deleted";
+  const { installing, canInterrupt, blocked, running, install } =
+    lifecycleControlState(status, disabled);
   return (
     <>
       <Button

@@ -1,9 +1,6 @@
 .content-panel {
-  padding: clamp(16px, 3vw, 24px);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  overflow: hidden;
+  padding-block: 24px;
+  min-width: 0;
 
   & + .content-panel {
     margin-top: 24px;

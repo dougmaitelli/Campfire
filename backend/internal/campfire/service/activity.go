@@ -290,6 +290,20 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 	return item, nil
 }
 
+// SetEnabled changes a schedule's enabled state with the same authority as editing it.
+func (s *ActivityService) SetEnabled(ctx context.Context, principal Principal, id string, enabled bool) (database.Schedule, error) {
+	item, err := s.Store.Schedule(ctx, id)
+	if err != nil {
+		return database.Schedule{}, err
+	}
+
+	if err := s.authorize(ctx, principal, item.ServerID, true); err != nil {
+		return database.Schedule{}, err
+	}
+
+	return s.Store.SetScheduleEnabled(ctx, id, item.ServerID, enabled, principal.UserID)
+}
+
 // Remove stops future recurrences while retaining execution and audit history.
 func (s *ActivityService) Remove(ctx context.Context, principal Principal, id string) error {
 	item, err := s.Store.Schedule(ctx, id)

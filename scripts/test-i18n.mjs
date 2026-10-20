@@ -52,6 +52,129 @@ test("English fallback, interpolation, and plural forms", async () => {
   await i18n.changeLanguage("en");
 });
 
+test("resource columns display CPU percentages and preserve allocation ratios", async () => {
+  const { ResourceReadings } = await loadWebModule(
+    new URL("components/servers/ResourceReadings.tsx", root),
+  );
+  const markup = renderToStaticMarkup(
+    React.createElement(
+      "table",
+      null,
+      React.createElement(
+        "tbody",
+        null,
+        React.createElement(
+          "tr",
+          null,
+          React.createElement(ResourceReadings, {
+            usage: {
+              cpu_percent: 150,
+              memory_bytes: 1048576,
+              disk_bytes: 2097152,
+              sampled_at: 100,
+              disk_sampled_at: 100,
+              sample_age_seconds: 0,
+              disk_age_seconds: 0,
+              container_error: "",
+              disk_error: "",
+            },
+            cpuLimit: 2,
+            memoryMB: 4,
+            diskMB: 8,
+            elapsed: 0,
+            layout: "columns",
+          }),
+        ),
+      ),
+    ),
+  );
+  const cells = [...markup.matchAll(/<td>([\s\S]*?)<\/td>/g)].map(
+    (match) => match[1],
+  );
+  assert.equal(cells.length, 3);
+  assert.match(cells[0], /75%/);
+  assert.match(cells[0], /value="0.75"/);
+  assert.ok(!cells[0].includes("usage-allocation"));
+  assert.match(cells[1], /1 MiB/);
+  assert.match(cells[1], /4 MiB/);
+  assert.ok(cells.every((cell) => cell.includes("usage-reading")));
+  assert.ok(cells.every((cell) => cell.includes("visually-hidden")));
+});
+
+test("server status timing uses real start and stop timestamps", async () => {
+  const { ServerState } = await loadWebModule(
+    new URL("components/servers/ServerState.tsx", root),
+  );
+  const render = (props) =>
+    renderToStaticMarkup(
+      React.createElement(ServerState, { now: 200000, ...props }),
+    );
+  assert.match(render({ state: "running", startedAt: 192740 }), /Uptime 2h 1m/);
+  assert.match(
+    render({ state: "stopped", stoppedAt: 199400 }),
+    /Stopped 10m ago/,
+  );
+  assert.ok(!render({ state: "running" }).includes("server-state-timing"));
+  assert.ok(
+    !render({ state: "unknown", stoppedAt: 199400 }).includes(
+      "server-state-timing",
+    ),
+  );
+  assert.ok(
+    !render({ state: "running", startedAt: 300000 }).includes(
+      "server-state-timing",
+    ),
+  );
+});
+
+test("dashboard quick controls respect server state and permissions", async () => {
+  const { ServerQuickControls } = await loadWebModule(
+    new URL("components/servers/ServerQuickControls.tsx", root),
+  );
+  for (const [
+    state,
+    busy,
+    operation,
+    canOperate,
+    startDisabled,
+    stopDisabled,
+  ] of [
+    ["running", false, undefined, true, true, false],
+    ["stopped", false, undefined, true, false, true],
+    ["restarting", false, undefined, true, true, false],
+    ["installing", true, "install", true, true, false],
+    ["stopped", false, undefined, false, true, true],
+    ["not_installed", false, undefined, true, true, true],
+    ["unknown", false, undefined, true, true, true],
+  ]) {
+    const markup = renderToStaticMarkup(
+      React.createElement(ServerQuickControls, {
+        id: "server/one",
+        name: "Test world",
+        status: { state, busy, operation },
+        disabled: false,
+        canOperate,
+        onStatus: () => {},
+        onError: () => {},
+      }),
+    );
+    const buttons = [...markup.matchAll(/<button\b[^>]*>/g)].map(
+      (match) => match[0],
+    );
+    assert.equal(buttons.length, 2);
+    assert.equal(
+      buttons[0].includes("disabled="),
+      startDisabled,
+      `${state}: start`,
+    );
+    assert.equal(
+      buttons[1].includes("disabled="),
+      stopDisabled,
+      `${state}: stop`,
+    );
+  }
+});
+
 test("UI components render the selected language without changing protocol values", async () => {
   const { ServerLifecycleControls } = await loadWebModule(
     new URL("components/servers/ServerLifecycleControls.tsx", root),

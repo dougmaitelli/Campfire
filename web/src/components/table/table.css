@@ -24,6 +24,7 @@
   font-size: 14px;
 
   & th {
+    text-transform: uppercase;
     white-space: nowrap;
     padding: 14px 20px;
     color: var(--muted);
@@ -39,6 +40,10 @@
 
   & tbody tr + tr td {
     border-top: 1px solid var(--border);
+  }
+
+  & tbody tr:last-child td {
+    border-bottom: 1px solid var(--border);
   }
 
   & tbody tr:hover {
@@ -57,11 +62,11 @@
 
   & .table-actions {
     text-align: right;
-    padding-inline-start: 8px;
+    padding-inline-start: 20px;
   }
 
   & :is(th, td):has(+ .table-actions) {
-    padding-inline-end: 8px;
+    padding-inline-end: 20px;
   }
 
   &:has(tbody:empty) .table-actions,
@@ -79,6 +84,24 @@
 
 .table-row-interactive {
   cursor: pointer;
+
+  & > td:last-child {
+    position: relative;
+    padding-inline-end: 56px;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset-inline-end: 24px;
+      top: 50%;
+      width: 7px;
+      height: 7px;
+      border-inline-end: 1.6px solid var(--text);
+      border-bottom: 1.6px solid var(--text);
+      transform: translateY(-50%) rotate(-45deg);
+      pointer-events: none;
+    }
+  }
 
   &:focus-within {
     background: var(--surface-hover);

@@ -1,14 +1,11 @@
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-hover);
+  gap: 10px;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
   white-space: nowrap;
 }
 .pill-group {
@@ -19,16 +16,18 @@
 
 .status-pill::before {
   content: "";
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
   border-radius: 50%;
   background: currentColor;
 }
 
+.status-pill:not(.status-pill-neutral)::before {
+  box-shadow: 0 0 7px color-mix(in srgb, currentColor 45%, transparent);
+}
+
 .status-pill-positive {
-  border-color: var(--success-border);
-  background: var(--success-surface);
   color: var(--success);
 }
 .status-pill-no-indicator::before {
@@ -36,19 +35,13 @@
 }
 
 .status-pill-negative {
-  border-color: var(--danger-border);
-  background: var(--danger-surface);
   color: var(--danger);
 }
 
 .status-pill-pending {
-  border-color: #375875;
-  background: #1c2b3a;
   color: #93c5fd;
 }
 
 .status-pill-warning {
-  border-color: var(--warning-border);
-  background: var(--warning-surface);
   color: var(--warning);
 }

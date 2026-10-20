@@ -31,6 +31,8 @@ type runtimeRecord struct {
 	SparkID            string
 	Deployment         model.Deployment `gorm:"serializer:json"`
 	State              string
+	StartedAt          int64 `gorm:"not null;default:0"`
+	StoppedAt          int64 `gorm:"not null;default:0"`
 	OperationID        string
 	Operation          string
 	Logs               string
@@ -153,7 +155,12 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		}
 
 		record.State = "running"
+		record.StartedAt, record.StoppedAt = time.Now().Unix(), 0
 	case "stop", "kill":
+		if record.State == "running" {
+			record.StoppedAt = time.Now().Unix()
+		}
+
 		record.State = "stopped"
 	case "backup", "restore":
 		if err := r.backupAction(ctx, &record, request); err != nil {
@@ -217,7 +224,7 @@ func metrics(record runtimeRecord) *model.ResourceUsage {
 		memory = record.Deployment.Configuration.MemoryMB * (1 << 20) / 3
 	}
 
-	return &model.ResourceUsage{ServerID: record.ServerID, State: record.State, CPUPercent: &cpu, MemoryBytes: &memory, DiskBytes: &disk, SampledAt: now, DiskSampledAt: now, DiskQuotaEnforced: quotaEnforced(record)}
+	return &model.ResourceUsage{ServerID: record.ServerID, State: record.State, StartedAt: record.StartedAt, StoppedAt: record.StoppedAt, CPUPercent: &cpu, MemoryBytes: &memory, DiskBytes: &disk, SampledAt: now, DiskSampledAt: now, DiskQuotaEnforced: quotaEnforced(record)}
 }
 
 func quotaEnforced(record runtimeRecord) bool {

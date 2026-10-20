@@ -1,0 +1,37 @@
+.toggle-switch {
+  appearance: none;
+  display: inline-block;
+  width: 36px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-hover);
+  vertical-align: middle;
+  cursor: pointer;
+
+  &::before {
+    content: "";
+    display: block;
+    width: 14px;
+    height: 14px;
+    margin: 3px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  &:checked {
+    border-color: var(--success-border);
+    background: var(--success-surface);
+  }
+
+  &:checked::before {
+    transform: translateX(14px);
+    background: var(--success);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}

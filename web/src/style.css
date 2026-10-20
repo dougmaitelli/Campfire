@@ -1,21 +1,22 @@
 :root {
   color-scheme: dark;
-  --bg: #141512;
-  --surface: #1e211b;
-  --border: #34392e;
+  --bg: #1c1c1b;
+  --sidebar-bg: #222120;
+  --surface: #242322;
+  --border: #3a3835;
   --text: #eeeadd;
   --muted: #b0b5a3;
-  --accent: #efa45b;
-  --surface-hover: #282c24;
-  --accent-subtle: #30291e;
-  --accent-border: #59432b;
-  --accent-hover: #f4b577;
+  --accent: #ff913f;
+  --surface-hover: #2d2b29;
+  --accent-subtle: #35271e;
+  --accent-border: #754724;
+  --accent-hover: #ffa65f;
   --danger-accent: #f87171;
   --warning-accent: #facc15;
-  --danger: #fca5a5;
+  --danger: #f87171;
   --danger-border: #713a3a;
   --danger-surface: #351f1f;
-  --success: #b5ce9c;
+  --success: #7ed37b;
   --success-border: #3d5235;
   --success-surface: #263220;
   --warning: #f2ce77;
@@ -38,19 +39,15 @@
 
 :where(a:any-link) {
   color: var(--accent);
-  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+  text-decoration: none;
 }
 
 :where(a:any-link:hover) {
   color: var(--accent-hover);
-  text-decoration-color: currentColor;
 }
 
 :where(a:any-link:focus-visible) {
   border-radius: 2px;
-  text-decoration-color: currentColor;
 }
 
 input[type="checkbox"],

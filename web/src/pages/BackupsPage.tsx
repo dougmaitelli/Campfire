@@ -4,7 +4,7 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
-import { Button, ButtonLink } from "../components/forms/Button";
+import { ButtonLink } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -34,18 +34,6 @@ export function BackupsPage() {
         description={t(
           "backupsPage.backupArchivesAcrossAllServersIncludingLocalAndS3Copies",
         )}
-        actions={
-          <>
-            <Button
-              disabled={backups.loading}
-              onClick={() => {
-                void backups.refresh();
-              }}
-            >
-              {t("common.refresh")}
-            </Button>
-          </>
-        }
       />
       {backups.error && backups.items.length > 0 && (
         <InlineMessage role="alert">{backups.error}</InlineMessage>

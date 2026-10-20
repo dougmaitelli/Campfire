@@ -1,19 +1,11 @@
 .resource-meter {
-  --meter-color: var(--success);
+  --meter-color: var(--accent);
   width: 100%;
-  height: 5px;
+  height: 8px;
   border: 0;
   background: var(--border);
   border-radius: 4px;
   appearance: none;
-}
-
-.resource-meter-warning {
-  --meter-color: var(--attention);
-}
-
-.resource-meter-critical {
-  --meter-color: var(--critical);
 }
 
 .resource-meter::-webkit-meter-bar {

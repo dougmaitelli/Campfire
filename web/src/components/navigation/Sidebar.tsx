@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { navigation } from "../../routing/navigation";
 import type { NavigationItem } from "../../routing/navigation";
 import { NavigationIcon } from "./NavigationIcon";
+import { CampfireMark } from "./CampfireMark";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { AccountMenu } from "./AccountMenu";
 
@@ -16,7 +17,7 @@ export function Sidebar({ page }: { page: NavigationItem }) {
         aria-label={t("sidebar.campfireDashboard")}
       >
         <span className="brand-mark">
-          <NavigationIcon name="campfire" />
+          <CampfireMark />
         </span>
         <span>{t("sidebar.campfire")}</span>
       </a>

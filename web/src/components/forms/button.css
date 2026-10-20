@@ -32,6 +32,15 @@ input[type="file"]:not(:disabled)::file-selector-button:hover {
 .button-primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
+.button-success {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--bg);
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--success) 85%, white);
+  }
+}
 .button-danger {
   border-color: var(--danger-accent);
   background: color-mix(in srgb, var(--danger-accent) 10%, transparent);
@@ -51,7 +60,9 @@ input[type="file"]:not(:disabled)::file-selector-button:hover {
 }
 .button:disabled,
 input[type="file"]:disabled::file-selector-button {
-  opacity: 0.55;
+  border-color: var(--border);
+  background: var(--surface-hover);
+  color: var(--muted);
   cursor: default;
 }
 input[type="file"] {

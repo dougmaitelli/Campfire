@@ -2,9 +2,9 @@ import type { NavigationIcon as IconName } from "../../routing/navigation";
 
 type NavigationIconName =
   | IconName
-  | "campfire"
   | "logout"
   | "chevron"
+  | "close"
   | "key"
   | "link"
   | "loading"
@@ -15,9 +15,27 @@ type NavigationIconName =
   | "delete"
   | "warning"
   | "table"
-  | "arrow-right";
+  | "arrow-right"
+  | "play"
+  | "stop"
+  | "cpu"
+  | "memory"
+  | "disk"
+  | "search"
+  | "check-circle"
+  | "x-circle";
 
 const paths: Record<NavigationIconName, string> = {
+  close: "M6 6l12 12M18 6 6 18",
+  "check-circle": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z m-13 0 3 3 5-6",
+  "x-circle": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z M9 9l6 6 M15 9l-6 6",
+  search: "M16 10a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z m-2 4 6 6",
+  cpu: "M6 6h12v12H6z M9 9h6v6H9z M9 2v4 M15 2v4 M9 18v4 M15 18v4 M2 9h4 M2 15h4 M18 9h4 M18 15h4",
+  memory:
+    "M3 6h18v12H3z M7 9v5 M12 9v5 M17 9v5 M6 18v3 M10 18v3 M14 18v3 M18 18v3",
+  disk: "M6 3h12l3 12v6H3v-6L6 3Z M3 15h18 M16 18h2",
+  play: "m8 5 11 7-11 7V5Z",
+  stop: "M6 6h12v12H6z",
   "arrow-right": "M4 12h16 m-6-6 6 6-6 6",
   backups: "M3 3h18v5H3z M5 8v13h14V8 M9 12h6",
   download: "M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5",
@@ -44,16 +62,20 @@ const paths: Record<NavigationIconName, string> = {
   servers:
     "M4 3h16v7H4z M4 14h16v7H4z M7 6.5h.01 M7 17.5h.01 M11 6.5h6 M11 17.5h6",
   schedules: "M9 4H5v17h14V4h-4 M9 2h6v4H9z M8 11l2 2 5-5 M8 17h8",
-  campfire:
-    "M12 2c1 4 6 6 6 10a6 6 0 0 1-12 0c0-2 1-4 3-6 0 3 2 4 3 4 1-2 1-5 0-8Z M4 19l16 3 M20 19 4 22",
 };
 
-export function NavigationIcon({ name }: { name: NavigationIconName }) {
+export function NavigationIcon({
+  name,
+  filled = false,
+}: {
+  name: NavigationIconName;
+  filled?: boolean;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
+      fill={filled ? "currentColor" : "none"}
+      stroke={filled ? "none" : "currentColor"}
       strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"

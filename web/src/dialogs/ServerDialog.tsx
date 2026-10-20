@@ -4,6 +4,7 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
+import { AllocationRow } from "../components/forms/AllocationRow";
 import "./server-dialog.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
@@ -688,11 +689,19 @@ export function ServerDialog({
                 );
                 const allocation = allocations[selected];
                 return (
-                  <Fieldset className="port-mapping" key={index}>
-                    <legend>
-                      {i18n.t("serverDialog.mapping")}
-                      {index + 1}
-                    </legend>
+                  <AllocationRow
+                    key={index}
+                    label={`${t("serverDialog.mapping")} ${index + 1}`}
+                    removeLabel={t("serverDialog.removeMapping", {
+                      index1: index + 1,
+                    })}
+                    onRemove={() =>
+                      setValue({
+                        ...value,
+                        ports: value.ports.filter((_, i) => i !== index),
+                      })
+                    }
+                  >
                     <FormField label={i18n.t("serverDialog.sparkAllocation")}>
                       <Select
                         id={`mapping-allocation-${index}`}
@@ -719,66 +728,45 @@ export function ServerDialog({
                         ))}
                       </Select>
                     </FormField>
-                    <div className="server-form-grid">
-                      <div>
-                        <FormField label={i18n.t("serverDialog.hostPort")}>
-                          <TextInput
-                            id={`mapping-host-${index}`}
-                            type="number"
-                            min={allocation?.start ?? 1}
-                            max={allocation?.end ?? 65535}
-                            step={1}
-                            required
-                            value={
-                              Number.isNaN(port.host_port) ? "" : port.host_port
-                            }
-                            onChange={(event) =>
-                              changePort(index, {
-                                host_port: event.target.valueAsNumber,
-                              })
-                            }
-                          />
-                        </FormField>
-                      </div>
-                      <div>
-                        <FormField label={i18n.t("serverDialog.containerPort")}>
-                          <TextInput
-                            id={`mapping-container-${index}`}
-                            type="number"
-                            min={1}
-                            max={65535}
-                            step={1}
-                            required
-                            value={
-                              Number.isNaN(port.container_port)
-                                ? ""
-                                : port.container_port
-                            }
-                            onChange={(event) =>
-                              changePort(index, {
-                                container_port: event.target.valueAsNumber,
-                              })
-                            }
-                          />
-                        </FormField>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="danger"
-                      onClick={() =>
-                        setValue({
-                          ...value,
-                          ports: value.ports.filter((_, i) => i !== index),
-                        })
-                      }
-                      aria-label={i18n.t("serverDialog.removeMapping", {
-                        index1: index + 1,
-                      })}
-                    >
-                      {i18n.t("serverDialog.removeMapping2")}
-                    </Button>
-                  </Fieldset>
+                    <FormField label={i18n.t("serverDialog.hostPort")}>
+                      <TextInput
+                        id={`mapping-host-${index}`}
+                        type="number"
+                        min={allocation?.start ?? 1}
+                        max={allocation?.end ?? 65535}
+                        step={1}
+                        required
+                        value={
+                          Number.isNaN(port.host_port) ? "" : port.host_port
+                        }
+                        onChange={(event) =>
+                          changePort(index, {
+                            host_port: event.target.valueAsNumber,
+                          })
+                        }
+                      />
+                    </FormField>
+                    <FormField label={i18n.t("serverDialog.containerPort")}>
+                      <TextInput
+                        id={`mapping-container-${index}`}
+                        type="number"
+                        min={1}
+                        max={65535}
+                        step={1}
+                        required
+                        value={
+                          Number.isNaN(port.container_port)
+                            ? ""
+                            : port.container_port
+                        }
+                        onChange={(event) =>
+                          changePort(index, {
+                            container_port: event.target.valueAsNumber,
+                          })
+                        }
+                      />
+                    </FormField>
+                  </AllocationRow>
                 );
               })}
               <Button

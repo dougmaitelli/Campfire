@@ -76,6 +76,46 @@ func (r *ActivityRepository) SaveSchedule(ctx context.Context, item *database.Sc
 	return nil
 }
 
+// SetScheduleEnabled changes only scheduling state and execution ownership.
+func (r *ActivityRepository) SetScheduleEnabled(ctx context.Context, id, serverID string, enabled bool, userID int64) (database.Schedule, error) {
+	var item database.Schedule
+
+	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		if err := scheduleUsers(tx).Take(&item, "schedules.id = ? AND schedules.server_id = ?", id, serverID).Error; err != nil {
+			return accessError(err)
+		}
+
+		if item.Enabled == enabled {
+			return nil
+		}
+
+		if enabled {
+			if item.CronExpression == "" {
+				if item.NextRunAt <= time.Now().Unix() {
+					return ErrAccessInput
+				}
+			} else {
+				next, err := recurrence.Next(item.CronExpression, item.TimeZone, time.Now(), 1)
+				if err != nil {
+					return ErrAccessInput
+				}
+
+				item.NextRunAt = next[0]
+			}
+		}
+
+		item.Enabled, item.RunAsUserID = enabled, userID
+
+		return tx.Model(&database.Schedule{}).Where("id = ? AND server_id = ?", id, serverID).
+			Select("Enabled", "NextRunAt", "RunAsUserID").Updates(&item).Error
+	})
+	if err != nil {
+		return database.Schedule{}, err
+	}
+
+	return r.Schedule(ctx, id)
+}
+
 // DeleteSchedule removes a recurring definition, preserving all execution records.
 func (r *ActivityRepository) DeleteSchedule(ctx context.Context, id string) error {
 	return r.db.WithContext(ctx).Delete(&database.Schedule{}, "id = ?", id).Error

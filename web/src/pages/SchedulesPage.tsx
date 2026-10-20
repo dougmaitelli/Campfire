@@ -25,12 +25,16 @@ import { ScheduleDialog } from "../dialogs/ScheduleDialog";
 
 import { Table, TableRow } from "../components/table/Table";
 import { ExecutionState } from "../components/schedules/ExecutionState";
+import { ScheduleToggle } from "../components/schedules/ScheduleToggle";
+import { ScheduleNextRun } from "../components/schedules/ScheduleNextRun";
 import { operationLabel } from "../components/servers/operationMessage";
 import { useResourceSelection } from "../routing/useResourceSelection";
 
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
 }
+const SCHEDULE_REFRESH_INTERVAL_MS = 10000;
+
 export function SchedulesPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
@@ -48,7 +52,8 @@ export function SchedulesPage() {
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [older, setOlder] = useState(false);
-  const [polling, setPolling] = useState(true);
+  const paged = useRef(false);
+  const pending = useRef(false);
   const [revision, setRevision] = useState(0);
   const generation = useRef(0);
   const managed = servers.items.filter(
@@ -58,20 +63,35 @@ export function SchedulesPage() {
   );
   const replaceSchedules = schedules.replace;
   useEffect(() => {
-    if (!polling) return;
     const controller = new AbortController();
+    generation.current++;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const version = ++generation.current;
     async function poll() {
+      if (pending.current) {
+        timer = setTimeout(() => void poll(), SCHEDULE_REFRESH_INTERVAL_MS);
+        return;
+      }
+      const version = ++generation.current;
       try {
         const [items, recurring] = await Promise.all([
           listExecutions(controller.signal, "", filter),
           listSchedules(controller.signal),
         ]);
         if (!controller.signal.aborted && version === generation.current) {
-          setRuns(items);
+          setRuns((previous) =>
+            paged.current
+              ? [
+                  ...new Map(
+                    [...previous, ...items].map((item) => [item.id, item]),
+                  ).values(),
+                ].sort(
+                  (a, b) =>
+                    b.created_at - a.created_at || b.id.localeCompare(a.id),
+                )
+              : items,
+          );
           replaceSchedules(recurring);
-          setOlder(items.length === 100);
+          if (!paged.current) setOlder(items.length === 100);
           setLoadError(null);
         }
       } catch (cause) {
@@ -87,19 +107,20 @@ export function SchedulesPage() {
       if (!controller.signal.aborted)
         timer = setTimeout(() => {
           void poll();
-        }, 5000);
+        }, SCHEDULE_REFRESH_INTERVAL_MS);
     }
     void poll();
     return () => {
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [filter, polling, replaceSchedules, revision]);
+  }, [filter, replaceSchedules, revision]);
   async function perform(work: () => Promise<void>) {
-    if (busy) return;
+    if (pending.current) return;
+    pending.current = true;
     setBusy(true);
     setError(null);
-    setPolling(true);
+    paged.current = false;
     const version = generation.current;
     try {
       await work();
@@ -120,13 +141,15 @@ export function SchedulesPage() {
           : i18n.t("schedulesPage.unableToChangeSchedule"),
       );
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
   async function more() {
-    if (busy || !runs.length) return;
+    if (pending.current || !runs.length) return;
+    pending.current = true;
     const version = ++generation.current;
-    setPolling(false);
+    paged.current = true;
     setBusy(true);
     try {
       const items = await listExecutions(
@@ -135,7 +158,11 @@ export function SchedulesPage() {
         filter,
       );
       if (version === generation.current) {
-        setRuns((current) => [...current, ...items]);
+        setRuns((current) => [
+          ...new Map(
+            [...current, ...items].map((item) => [item.id, item]),
+          ).values(),
+        ]);
         setOlder(items.length === 100);
       }
     } catch (cause) {
@@ -145,6 +172,7 @@ export function SchedulesPage() {
           : i18n.t("schedulesPage.unableToLoadHistory"),
       );
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -157,13 +185,6 @@ export function SchedulesPage() {
         )}
         actions={
           <>
-            <Button
-              onClick={() => {
-                void perform(async () => {});
-              }}
-            >
-              {t("common.refresh")}
-            </Button>
             <Button
               variant="primary"
               disabled={!managed.length}
@@ -192,7 +213,7 @@ export function SchedulesPage() {
             onValueChange={(selectedValue) => {
               setFilter(selectedValue);
               setLoading(true);
-              setPolling(true);
+              paged.current = false;
             }}
           >
             <option value="">{t("schedulesPage.allAccessibleServers")}</option>
@@ -231,6 +252,7 @@ export function SchedulesPage() {
               <th>{t("schedulesPage.schedule")}</th>
               <th>{t("schedulesPage.nextRun")}</th>
               <th>{t("schedulesPage.runsAs")}</th>
+              <th>{t("common.enabled")}</th>
               <th className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
               </th>
@@ -292,14 +314,26 @@ export function SchedulesPage() {
                     )}
                   </td>
                   <td>
-                    {item.enabled
-                      ? when(item.next_run_at)
-                      : i18n.t("schedulesPage.inactive")}
+                    <ScheduleNextRun
+                      at={item.next_run_at}
+                      enabled={item.enabled}
+                    />
                   </td>
                   <td>
                     <ResourceLink href={links.user(item.run_as_user_id)}>
                       {item.username}
                     </ResourceLink>
+                  </td>
+                  <td>
+                    <ScheduleToggle
+                      schedule={item}
+                      disabled={
+                        busy ||
+                        !managed.some((server) => server.id === item.server_id)
+                      }
+                      onSaved={schedules.upsert}
+                      onError={setError}
+                    />
                   </td>
                   <td className="table-actions">
                     {managed.some((server) => server.id === item.server_id) && (
@@ -335,7 +369,7 @@ export function SchedulesPage() {
           emptyMessage={t("schedulesPage.noExecutionsRecorded")}
           onRetry={() => {
             setLoading(true);
-            setPolling(true);
+            paged.current = false;
             setRevision((value) => value + 1);
           }}
         >

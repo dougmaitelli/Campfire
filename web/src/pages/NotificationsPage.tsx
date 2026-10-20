@@ -10,6 +10,7 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useRef, useState } from "react";
 import {
   listNotifications,
+  NOTIFICATIONS_REFRESH_INTERVAL_MS,
   markNotificationRead,
   markAllNotificationsRead,
   type Notification,
@@ -34,22 +35,36 @@ export function NotificationsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
-  const [paged, setPaged] = useState(false);
+  const paged = useRef(false);
   const pending = useRef(false);
   const generation = useRef(0);
   useEffect(() => {
-    if (paged) return;
     const controller = new AbortController();
-    const current = ++generation.current;
     let timer: ReturnType<typeof setTimeout> | undefined;
     async function load() {
+      if (pending.current) {
+        timer = setTimeout(
+          () => void load(),
+          NOTIFICATIONS_REFRESH_INTERVAL_MS,
+        );
+        return;
+      }
+      const current = ++generation.current;
       try {
         const next = await listNotifications(
           AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
         );
         if (!controller.signal.aborted && current === generation.current) {
-          setItems(next);
-          setOlder(next.length === 100);
+          setItems((previous) =>
+            paged.current
+              ? [
+                  ...new Map(
+                    [...previous, ...next].map((item) => [item.id, item]),
+                  ).values(),
+                ].sort((a, b) => b.id - a.id)
+              : next,
+          );
+          if (!paged.current) setOlder(next.length === 100);
           setError(null);
         }
       } catch (cause) {
@@ -63,20 +78,20 @@ export function NotificationsPage() {
         if (!controller.signal.aborted && current === generation.current)
           setLoading(false);
       }
-      if (!controller.signal.aborted && !paged)
+      if (!controller.signal.aborted)
         timer = setTimeout(() => {
           void load();
-        }, 15000);
+        }, NOTIFICATIONS_REFRESH_INTERVAL_MS);
     }
     void load();
     return () => {
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [version, paged]);
+  }, [version]);
 
   function refresh() {
-    setPaged(false);
+    paged.current = false;
     setVersion((value) => value + 1);
     inbox.refresh();
   }
@@ -103,7 +118,7 @@ export function NotificationsPage() {
     if (pending.current || !items.length) return;
     pending.current = true;
     setBusy(true);
-    setPaged(true);
+    paged.current = true;
     const current = ++generation.current;
     try {
       const next = await listNotifications(
@@ -134,9 +149,6 @@ export function NotificationsPage() {
         )}
         actions={
           <>
-            <Button disabled={busy} onClick={refresh}>
-              {t("common.refresh")}
-            </Button>
             <Button
               disabled={busy || !items.length}
               onClick={() => {

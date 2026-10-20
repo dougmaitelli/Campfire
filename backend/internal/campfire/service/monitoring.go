@@ -35,6 +35,10 @@ func unknownUsage(id string) model.ResourceUsage {
 }
 
 func validUsage(usage model.ResourceUsage) bool {
+	if usage.StartedAt < 0 || usage.StoppedAt < 0 {
+		return false
+	}
+
 	if usage.CPUPercent != nil && (math.IsNaN(*usage.CPUPercent) || math.IsInf(*usage.CPUPercent, 0) || *usage.CPUPercent < 0) {
 		return false
 	}

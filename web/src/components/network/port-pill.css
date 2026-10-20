@@ -1,9 +1,15 @@
 .port-pill {
   display: inline-flex;
+  align-items: center;
   min-width: 0;
   max-width: 100%;
 
-  & .status-pill {
-    white-space: nowrap;
-  }
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }

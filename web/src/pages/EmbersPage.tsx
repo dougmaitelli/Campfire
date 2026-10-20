@@ -5,7 +5,7 @@ import { Button } from "../components/forms/Button";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   listEmbers,
   listEmberUpdates,
@@ -40,12 +40,6 @@ export function EmbersPage() {
     url: string;
   } | null>(null);
   const refreshChecks = checks.refresh;
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void refreshChecks();
-    }, 60000);
-    return () => window.clearInterval(timer);
-  }, [refreshChecks]);
   async function checkAll() {
     if (busy || checking) return;
     setChecking(true);
@@ -101,17 +95,6 @@ export function EmbersPage() {
         description={t("embersPage.gameDefinitionsUsedToConfigureYourServers")}
         actions={
           <>
-            <Button
-              disabled={loading}
-              onClick={() => {
-                void refresh();
-                void refreshChecks();
-              }}
-              loading={loading}
-              loadingLabel={t("embersPage.refreshing")}
-            >
-              {t("common.refresh")}
-            </Button>
             <Button variant="primary" onClick={() => setImporting(true)}>
               {t("embersPage.importEmber")}
             </Button>

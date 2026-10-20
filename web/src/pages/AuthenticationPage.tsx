@@ -5,7 +5,7 @@ import { InlineMessage } from "../components/status/InlineMessage";
 import { Button, ButtonLink } from "../components/forms/Button";
 import { TextInput } from "../components/forms/TextInput";
 import { useRef, useState } from "react";
-import { NavigationIcon } from "../components/navigation/NavigationIcon";
+import { CampfireMark } from "../components/navigation/CampfireMark";
 import { useAuthentication } from "../hooks/useAuthentication";
 import "./authentication.css";
 
@@ -56,7 +56,7 @@ export function AuthenticationPage() {
     <main className="authentication-page">
       <section className="authentication-card" aria-labelledby="auth-title">
         <div className="authentication-brand">
-          <NavigationIcon name="campfire" />
+          <CampfireMark />
           <span>{t("authenticationPage.campfire")}</span>
         </div>
         <h1 id="auth-title">

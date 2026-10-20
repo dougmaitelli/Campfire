@@ -1,0 +1,12 @@
+.schedule-next-run {
+  display: inline-grid;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+
+  & > * {
+    grid-area: 1 / 1;
+  }
+}
+.schedule-next-run-hidden {
+  visibility: hidden;
+}

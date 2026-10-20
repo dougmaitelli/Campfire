@@ -36,6 +36,53 @@ type metricsDocker struct {
 	samples []ContainerSample
 	calls   int
 	fail    bool
+	started time.Time
+	stopped time.Time
+}
+
+func (d *metricsDocker) Run(ctx context.Context, input io.Reader, args ...string) (string, error) {
+	out, err := d.fakeDocker.Run(ctx, input, args...)
+	if err != nil || len(args) < 3 || args[2] != "{{json .State}}" {
+		return out, err
+	}
+
+	var state map[string]any
+	if err := json.Unmarshal([]byte(out), &state); err != nil {
+		return "", err
+	}
+
+	state["StartedAt"], state["FinishedAt"] = d.started, d.stopped
+	data, err := json.Marshal(state)
+
+	return string(data), err
+}
+
+func TestMetricsPreserveDockerLifecycleTimes(t *testing.T) {
+	for _, state := range []string{"running", "exited"} {
+		t.Run(state, func(t *testing.T) {
+			m := newTestManager(t.Context(), t.TempDir())
+			defer m.Close()
+
+			d := runtimeFixture()
+			started := time.Now().Add(-3 * time.Hour).Truncate(time.Second)
+			stopped := time.Time{}
+
+			if state == "exited" {
+				stopped = time.Now().Add(-time.Hour).Truncate(time.Second)
+			}
+
+			m.Docker = &metricsDocker{fakeDocker: &fakeDocker{states: map[string]string{container(d.ServerID): state}}, samples: []ContainerSample{sample(t, "a", 100, 1000)}, started: started, stopped: stopped}
+			usage, err := m.Measure(t.Context(), d)
+
+			if err != nil || usage.StartedAt != started.Unix() {
+				t.Fatal("lost Docker start time", usage, err)
+			}
+
+			if state == "running" && usage.StoppedAt != 0 || state == "exited" && usage.StoppedAt != stopped.Unix() {
+				t.Fatal("incorrect Docker stop time", usage)
+			}
+		})
+	}
 }
 
 func (d *metricsDocker) Stats(context.Context, string) (ContainerSample, error) {

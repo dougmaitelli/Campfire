@@ -1,0 +1,27 @@
+.fieldset.allocation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-height);
+  align-items: end;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.allocation-row-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr));
+  align-items: end;
+  gap: 10px;
+  min-width: 0;
+
+  & .form-field {
+    margin-bottom: 0;
+  }
+
+  & .form-field > label {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+}

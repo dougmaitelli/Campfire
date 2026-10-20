@@ -184,16 +184,6 @@ export function SparksPage() {
         description={t("sparksPage.theNodesThatHostYourGameServers")}
         actions={
           <>
-            <Button
-              disabled={loading}
-              onClick={() => {
-                void refresh();
-              }}
-              loading={loading}
-              loadingLabel={t("sparksPage.refreshing")}
-            >
-              {t("common.refresh")}
-            </Button>
             <Button variant="primary" onClick={openAdd}>
               {t("sparksPage.addSpark")}
             </Button>

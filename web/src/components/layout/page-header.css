@@ -19,8 +19,9 @@
 }
 .page-header h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: 36px;
   font-weight: 600;
+  line-height: 1.2;
   letter-spacing: -0.7px;
   overflow-wrap: anywhere;
 }

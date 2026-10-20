@@ -1,0 +1,11 @@
+.server-state {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.server-state-timing {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}

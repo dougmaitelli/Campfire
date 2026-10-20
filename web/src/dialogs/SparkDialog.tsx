@@ -2,6 +2,7 @@ import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
+import { AllocationRow } from "../components/forms/AllocationRow";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
 import { Button } from "../components/forms/Button";
@@ -334,15 +335,22 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 {t("sparkDialog.gamePortsAvailableOnThisSparkUseTheSameStart")}
               </p>
               {settings.port_allocations.map((allocation, index) => (
-                <Fieldset className="allocation-range" key={index}>
-                  <legend className="visually-hidden">
-                    {i18n.t("sparkDialog.range")}
-                    {index + 1}
-                  </legend>
-                  <FormField
-                    label={i18n.t("sparkDialog.bindIP")}
-                    className="allocation-ip"
-                  >
+                <AllocationRow
+                  key={index}
+                  label={`${t("sparkDialog.range")} ${index + 1}`}
+                  removeLabel={t("sparkDialog.removeRange", {
+                    index1: index + 1,
+                  })}
+                  onRemove={() =>
+                    setSettings({
+                      ...settings,
+                      port_allocations: settings.port_allocations.filter(
+                        (_, i) => i !== index,
+                      ),
+                    })
+                  }
+                >
+                  <FormField label={i18n.t("sparkDialog.bindIP")}>
                     <TextInput
                       id={`allocation-ip-${index}`}
                       required
@@ -353,54 +361,41 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       placeholder="0.0.0.0"
                     />
                   </FormField>
-                  <div className="allocation-ports">
-                    <div>
-                      <FormField label={i18n.t("sparkDialog.startPort")}>
-                        <TextInput
-                          id={`allocation-start-${index}`}
-                          type="number"
-                          min={1}
-                          max={65535}
-                          step={1}
-                          required
-                          value={
-                            Number.isNaN(allocation.start)
-                              ? ""
-                              : allocation.start
-                          }
-                          onChange={(event) =>
-                            changeAllocation(index, {
-                              start: event.target.valueAsNumber,
-                            })
-                          }
-                        />
-                      </FormField>
-                    </div>
-                    <div>
-                      <FormField label={i18n.t("sparkDialog.endPort")}>
-                        <TextInput
-                          id={`allocation-end-${index}`}
-                          type="number"
-                          min={allocation.start}
-                          max={65535}
-                          step={1}
-                          required
-                          value={
-                            Number.isNaN(allocation.end) ? "" : allocation.end
-                          }
-                          onChange={(event) =>
-                            changeAllocation(index, {
-                              end: event.target.valueAsNumber,
-                            })
-                          }
-                        />
-                      </FormField>
-                    </div>
-                  </div>
-                  <FormField
-                    label={i18n.t("sparkDialog.protocol")}
-                    className="allocation-protocol"
-                  >
+                  <FormField label={i18n.t("sparkDialog.startPort")}>
+                    <TextInput
+                      id={`allocation-start-${index}`}
+                      type="number"
+                      min={1}
+                      max={65535}
+                      step={1}
+                      required
+                      value={
+                        Number.isNaN(allocation.start) ? "" : allocation.start
+                      }
+                      onChange={(event) =>
+                        changeAllocation(index, {
+                          start: event.target.valueAsNumber,
+                        })
+                      }
+                    />
+                  </FormField>
+                  <FormField label={i18n.t("sparkDialog.endPort")}>
+                    <TextInput
+                      id={`allocation-end-${index}`}
+                      type="number"
+                      min={allocation.start}
+                      max={65535}
+                      step={1}
+                      required
+                      value={Number.isNaN(allocation.end) ? "" : allocation.end}
+                      onChange={(event) =>
+                        changeAllocation(index, {
+                          end: event.target.valueAsNumber,
+                        })
+                      }
+                    />
+                  </FormField>
+                  <FormField label={i18n.t("sparkDialog.protocol")}>
                     <Select
                       id={`allocation-protocol-${index}`}
                       value={allocation.protocol}
@@ -414,40 +409,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       <option value="udp">{i18n.t("sparkDialog.udp")}</option>
                     </Select>
                   </FormField>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    iconOnly
-                    className="allocation-remove"
-                    aria-label={i18n.t("sparkDialog.removeRange", {
-                      index1: index + 1,
-                    })}
-                    title={i18n.t("sparkDialog.removeRange", {
-                      index1: index + 1,
-                    })}
-                    onClick={() =>
-                      setSettings({
-                        ...settings,
-                        port_allocations: settings.port_allocations.filter(
-                          (_, i) => i !== index,
-                        ),
-                      })
-                    }
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M6 6l12 12M18 6 6 18" />
-                    </svg>
-                  </Button>
-                </Fieldset>
+                </AllocationRow>
               ))}
               <Button
                 type="button"
