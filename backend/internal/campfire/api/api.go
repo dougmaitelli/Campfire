@@ -86,6 +86,10 @@ func writeError(w http.ResponseWriter, err error) {
 	var commandError *protocol.CommandError
 
 	switch {
+	case errors.Is(err, service.ErrSparkPrune):
+		status, message = http.StatusConflict, "Spark must be connected and enabled before pruning."
+	case errors.As(err, &commandError) && commandError.Code == "spark_prune_failed":
+		status, message = http.StatusConflict, commandError.Message
 	case errors.Is(err, service.ErrSparkUpdate):
 		status, message = http.StatusConflict, err.Error()
 	case errors.As(err, &commandError) && commandError.Code == "spark_update_failed":

@@ -11,7 +11,12 @@ import { SparkConnectionState } from "../components/sparks/SparkConnectionState"
 import { SparkDialog } from "../dialogs/SparkDialog";
 import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
 import type { Spark } from "../api/sparks";
-import { deleteSpark, listSparks, updateSparkClient } from "../api/sparks";
+import {
+  deleteSpark,
+  listSparks,
+  updateSparkClient,
+  pruneSpark,
+} from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import { useMonitoring } from "../hooks/useMonitoring";
 import "./sparks.css";
@@ -50,6 +55,10 @@ export function SparksPage() {
   const [confirmUpdate, setConfirmUpdate] = useState<Spark | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [confirmPrune, setConfirmPrune] = useState<Spark | null>(null);
+  const [pruning, setPruning] = useState(false);
+  const [pruneError, setPruneError] = useState<string | null>(null);
+  const [pruneResult, setPruneResult] = useState<string | null>(null);
   const [waiting, setWaiting] = useState<{
     id: string;
     version: string;
@@ -120,6 +129,23 @@ export function SparksPage() {
           : i18n.t("sparksPage.unableToUpdateSpark"),
       );
       setUpdating(null);
+    }
+  }
+  async function prune(spark: Spark) {
+    if (pruning) return;
+    setPruning(true);
+    setPruneError(null);
+    setPruneResult(null);
+    try {
+      const result = await pruneSpark(spark.id);
+      setPruneResult(t("sparksPage.pruneResult", { ...result }));
+      void refresh();
+    } catch (cause) {
+      setPruneError(
+        cause instanceof Error ? cause.message : t("sparksPage.pruneFailed"),
+      );
+    } finally {
+      setPruning(false);
     }
   }
   async function remove(spark: Spark) {
@@ -256,6 +282,24 @@ export function SparksPage() {
           actionError={updateError ?? deleteError}
           actions={
             <>
+              <Button
+                variant="warning"
+                disabled={
+                  !details.connected ||
+                  details.disabled ||
+                  pruning ||
+                  deleting !== null ||
+                  updating !== null ||
+                  !details.capabilities?.includes("spark.prune.v1")
+                }
+                onClick={() => {
+                  setPruneError(null);
+                  setPruneResult(null);
+                  setConfirmPrune(details);
+                }}
+              >
+                {t("sparksPage.prune")}
+              </Button>
               {details.agent_update_available && (
                 <Button
                   variant="warning"
@@ -292,6 +336,27 @@ export function SparksPage() {
           }}
           editDisabled={deleting !== null}
         />
+      )}
+      {confirmPrune && (
+        <ConfirmDialog
+          title={t("sparksPage.pruneTitle", { name: confirmPrune.name })}
+          description={t("sparksPage.pruneDescription")}
+          confirmLabel={t(pruneResult ? "common.close" : "sparksPage.prune")}
+          warning
+          busy={pruning}
+          error={pruneError}
+          onClose={() => {
+            if (!pruning) setConfirmPrune(null);
+          }}
+          onConfirm={() => {
+            if (pruneResult) setConfirmPrune(null);
+            else void prune(confirmPrune);
+          }}
+        >
+          {pruneResult && (
+            <InlineMessage tone="success">{pruneResult}</InlineMessage>
+          )}
+        </ConfirmDialog>
       )}
       {confirmEnrollment && (
         <ConfirmDialog

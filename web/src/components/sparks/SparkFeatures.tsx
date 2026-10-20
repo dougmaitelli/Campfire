@@ -4,6 +4,9 @@ import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
 const featureLabels: Record<string, string> = {
+  get "spark.prune.v1"() {
+    return i18n.t("sparkFeatures.resourceCleanup");
+  },
   get "server.configure.v1"() {
     return i18n.t("sparkFeatures.serverConfiguration");
   },

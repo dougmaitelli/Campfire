@@ -32,6 +32,9 @@ const ServerTransfer CommandName = "server.transfer"
 // UpdateSpark replaces the agent executable with the verified panel build.
 const UpdateSpark CommandName = "spark.update"
 
+// PruneSpark removes unused Campfire Docker resources on a node.
+const PruneSpark CommandName = "spark.prune"
+
 // SparkUpdateInfo lets the running agent verify a staged binary's compatibility.
 type SparkUpdateInfo struct {
 	Version         string `json:"version"`
@@ -61,6 +64,7 @@ func (e *CommandError) Error() string { return e.Code + ": " + e.Message }
 
 // CommandResponse completes exactly one request on the originating session.
 type CommandResponse struct {
+	Prune        *model.PruneResult          `json:"prune,omitempty"`
 	ID           string                      `json:"id"`
 	Receipt      *model.ConfigurationReceipt `json:"receipt,omitempty"`
 	Error        *CommandError               `json:"error,omitempty"`

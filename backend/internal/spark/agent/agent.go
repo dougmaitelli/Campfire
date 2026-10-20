@@ -514,7 +514,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			}
 
 			var response protocol.CommandResponse
-			if message.Command.Name == protocol.UpdateSpark {
+			if message.Command.Name == protocol.UpdateSpark || message.Command.Name == protocol.PruneSpark {
 				response = updateWithHeartbeats(ctx, func() protocol.CommandResponse {
 					return configurations.executeNegotiated(ctx, id, *message.Command, welcome.Capabilities)
 				}, send)

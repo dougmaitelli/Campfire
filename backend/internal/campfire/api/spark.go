@@ -38,6 +38,27 @@ func (a *API) sparkUpdateStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, a.sparks.Updates.Status())
 }
 
+func (a *API) pruneSpark(w http.ResponseWriter, r *http.Request) {
+	var input struct{}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	if err := http.NewResponseController(w).SetWriteDeadline(time.Now().Add(protocol.SparkPruneTimeout + 10*time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		writeError(w, err)
+		return
+	}
+
+	result, err := a.sparks.Prune(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	auditDetail(r, "spark.prune", "spark:"+r.PathValue("id"))
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (a *API) updateSparkClient(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Version string `json:"version"`

@@ -44,6 +44,12 @@ func (s *ConfigurationStore) capabilities() []string {
 		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilitySelfUpdate })
 	}
 
+	if _, ok := s.Runtime.(interface {
+		Prune(context.Context) (model.PruneResult, error)
+	}); !ok {
+		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityPrune })
+	}
+
 	return offered
 }
 
@@ -192,6 +198,28 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 	result := protocol.CommandResponse{ID: command.ID}
 	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(protocol.CommandTimeout(command)+time.Second)) {
 		result.Error = &protocol.CommandError{Code: "invalid_deadline", Message: "command deadline is invalid or expired"}
+		return result
+	}
+
+	if command.Name == protocol.PruneSpark {
+		pruner, ok := s.Runtime.(interface {
+			Prune(context.Context) (model.PruneResult, error)
+		})
+		if !ok {
+			result.Error = &protocol.CommandError{Code: "unsupported_capability", Message: "Docker cleanup is unavailable on this node."}
+			return result
+		}
+
+		ctx, cancel := context.WithDeadline(ctx, command.Deadline)
+		defer cancel()
+
+		pruned, err := pruner.Prune(ctx)
+		if err != nil {
+			result.Error = &protocol.CommandError{Code: "spark_prune_failed", Message: err.Error()}
+		} else {
+			result.Prune = &pruned
+		}
+
 		return result
 	}
 

@@ -70,6 +70,11 @@ func (m *Manager) taskRunning(id string, cancel bool) bool {
 // Transfer manages durable, fenced archive movement. Export/import run under the
 // Spark lifetime; reconnecting panels can safely repeat every request.
 func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.TransferRequest) (model.TransferResult, error) {
+	if !m.maintenance.TryRLock() {
+		return model.TransferResult{}, errors.New("node cleanup is in progress; retry after it finishes")
+	}
+	defer m.maintenance.RUnlock()
+
 	if err := ctx.Err(); err != nil {
 		return model.TransferResult{}, err
 	}
@@ -381,7 +386,10 @@ func (m *Manager) launchTransfer(d model.Deployment, e *entry, t *localTransfer,
 
 	work := *t
 
+	m.maintenance.RLock()
+
 	go func() {
+		defer m.maintenance.RUnlock()
 		defer m.wg.Done()
 		defer cancel()
 

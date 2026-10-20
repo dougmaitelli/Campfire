@@ -947,6 +947,7 @@
     "waitForServerCreationAccessToLoad": "Wait for server creation access to load."
   },
   "sparkFeatures": {
+    "resourceCleanup": "Unused resource cleanup",
     "archiveCreationAndExtraction": "Archive creation and extraction",
     "available": "Available",
     "connectThisSparkToCheckFeatureAvailability": "Connect this Spark to check feature availability.",
@@ -991,6 +992,12 @@
     "unexpectedResponseWhileUpdatingTheSpark": "Unexpected response while updating the Spark."
   },
   "sparksPage": {
+    "prune": "Prune",
+    "pruneTitle": "Prune {{name}}?",
+    "pruneDescription": "Remove leftover Campfire installer containers, containers for deleted servers, unused images tracked by Campfire, and unused volumes labeled for Campfire. Running and stopped game servers, game files, backups, and other applications’ resources are preserved. Finish active server operations and transfers first.",
+    "pruneResult": "Cleanup complete. Containers removed: {{containers}}. Images removed: {{images}}. Volumes removed: {{volumes}}.",
+    "pruneFailed": "Unable to prune Spark resources.",
+    "invalidPruneResult": "Unexpected Spark cleanup response.",
     "addSpark": "+ Add Spark",
     "continueToReEnrollment": "Continue to re-enrollment",
     "count_one": "{{count}} Spark",

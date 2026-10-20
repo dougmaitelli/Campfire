@@ -34,6 +34,7 @@ type Manager struct {
 	entries          map[string]*entry
 	wg               sync.WaitGroup
 	closed           bool
+	maintenance      sync.RWMutex
 	metricsMu        sync.Mutex
 	metrics          map[string]*metricsEntry
 	transferTasks    map[string]context.CancelFunc
@@ -45,6 +46,7 @@ type entry struct {
 	interrupted bool
 	uploads     map[string]*fileUpload
 	Installed   bool                `json:"installed"`
+	Images      []string            `json:"images,omitempty"`
 	Revision    string              `json:"revision"`
 	Status      model.RuntimeStatus `json:"status"`
 }
@@ -118,6 +120,17 @@ func (m *Manager) persist(id string, e *entry) error {
 
 // Execute starts a bounded asynchronous operation, or returns current Docker state.
 func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.RuntimeRequest) (model.RuntimeStatus, error) {
+	if !m.maintenance.TryRLock() {
+		return model.RuntimeStatus{}, errors.New("node cleanup is in progress; retry after it finishes")
+	}
+
+	release := true
+	defer func() {
+		if release {
+			m.maintenance.RUnlock()
+		}
+	}()
+
 	if err := ctx.Err(); err != nil {
 		return model.RuntimeStatus{}, err
 	}
@@ -319,6 +332,8 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	e.cancel = cancel
 
 	e.interrupted = false
+	release = false
+
 	go m.run(operationCtx, cancel, d, q, e)
 
 	return e.Status, nil
@@ -332,6 +347,7 @@ func (m *Manager) progress(_ string, e *entry, text string) {
 }
 
 func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.Deployment, q model.RuntimeRequest, e *entry) {
+	defer m.maintenance.RUnlock()
 	defer m.wg.Done()
 	defer cancel()
 
@@ -606,6 +622,7 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		args = append(args, installer.Image, "-e", "-s")
 		script := strings.ReplaceAll(installer.Script, "\r\n", "\n")
 		output, runErr := m.Docker.Run(ctx, strings.NewReader(script), args...)
+		m.rememberImage(d.ServerID, installer.Image, e)
 
 		err = runErr
 		if runErr != nil {
@@ -753,6 +770,8 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	if _, err := m.Docker.Run(ctx, nil, args...); err != nil {
 		return err
 	}
+
+	m.rememberImage(d.ServerID, d.Configuration.Image, e)
 
 	_, err = m.Docker.Run(ctx, nil, "start", container(d.ServerID))
 

@@ -2,7 +2,39 @@
 
 package devmock
 
-import "testing"
+import (
+	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
+	"campfire/internal/shared/protocol"
+	"slices"
+	"testing"
+)
+
+func TestMockSparkPrune(t *testing.T) {
+	runtime, db, _, _ := fixture(t)
+
+	_, _, capabilities := runtime.SparkFeatures("mock-europe")
+	if !slices.Contains(capabilities, protocol.CapabilityPrune) {
+		t.Fatal("mock cleanup is not available through negotiated features")
+	}
+
+	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), runtime)
+
+	if _, err := sparks.Prune(t.Context(), "mock-offline"); err == nil {
+		t.Fatal("offline node accepted cleanup")
+	}
+
+	result, err := sparks.Prune(t.Context(), "mock-europe")
+	if err != nil || result.Containers != 2 || result.Images != 3 || result.Volumes != 1 {
+		t.Fatal("mock cleanup failed", result, err)
+	}
+
+	result, err = sparks.Prune(t.Context(), "mock-europe")
+	if err != nil || result != (model.PruneResult{}) {
+		t.Fatal("repeated cleanup removed the same resources", result, err)
+	}
+}
 
 func TestMockSparkUpdateIsAvailableAndSurvivesWatcherRestart(t *testing.T) {
 	runtime, db, auth, _ := fixture(t)

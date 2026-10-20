@@ -2,6 +2,7 @@ import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 const SPARK_UPDATE_REQUEST_TIMEOUT_MS = 330000;
+const SPARK_PRUNE_REQUEST_TIMEOUT_MS = 330000;
 
 export interface PortAllocation {
   bind_ip: string;
@@ -147,6 +148,35 @@ export async function deleteSpark(id: string): Promise<void> {
     method: "DELETE",
   });
   if (!response.ok) await readResponse(response);
+}
+
+export interface SparkPruneResult {
+  containers: number;
+  images: number;
+  volumes: number;
+}
+
+export async function pruneSpark(id: string): Promise<SparkPruneResult> {
+  const result = await readJSON(
+    await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}/prune`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(SPARK_PRUNE_REQUEST_TIMEOUT_MS),
+    }),
+  );
+  if (
+    !result ||
+    typeof result !== "object" ||
+    !["containers", "images", "volumes"].every(
+      (key) =>
+        key in result &&
+        Number.isSafeInteger(result[key as keyof typeof result]) &&
+        Number(result[key as keyof typeof result]) >= 0,
+    )
+  )
+    throw new Error(i18n.t("sparksPage.invalidPruneResult"));
+  return result as SparkPruneResult;
 }
 
 export async function updateSparkClient(

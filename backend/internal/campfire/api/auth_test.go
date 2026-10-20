@@ -105,6 +105,7 @@ func TestAuthenticationBoundarySetupAndCSRF(t *testing.T) {
 	for _, endpoint := range []struct{ method, path string }{
 		{"GET", "/api/v1/sparks"}, {"POST", "/api/v1/sparks"},
 		{"GET", "/api/v1/sparks/update-status"}, {"POST", "/api/v1/sparks/id/update"},
+		{"POST", "/api/v1/sparks/id/prune"},
 		{"GET", "/api/v1/embers"}, {"POST", "/api/v1/embers/preview-url"},
 		{"GET", "/api/v1/servers"}, {"POST", "/api/v1/servers"},
 		{"GET", "/api/v1/provisioning/access"},

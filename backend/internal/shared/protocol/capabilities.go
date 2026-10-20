@@ -10,8 +10,15 @@ import (
 // SparkUpdateTimeout bounds panel-hosted binary download and verification.
 const SparkUpdateTimeout = 5 * time.Minute
 
+// SparkPruneTimeout bounds explicit node cleanup.
+const SparkPruneTimeout = 5 * time.Minute
+
 // CommandTimeout permits bounded archive work without enlarging other RPC budgets.
 func CommandTimeout(command Command) time.Duration {
+	if command.Name == PruneSpark {
+		return SparkPruneTimeout
+	}
+
 	if command.Name == UpdateSpark {
 		return SparkUpdateTimeout
 	}
@@ -38,11 +45,12 @@ const (
 	CapabilityTransfer     = "server.transfer.v1"
 	CapabilityReinstall    = "server.reinstall.v1"
 	CapabilitySelfUpdate   = "spark.self-update.v1"
+	CapabilityPrune        = "spark.prune.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -123,6 +131,8 @@ func Require(negotiated []string, required ...string) error {
 // RequiredCapabilities covers every command extension at both dispatch boundaries.
 func RequiredCapabilities(command Command) []string {
 	switch command.Name {
+	case PruneSpark:
+		return []string{CapabilityPrune}
 	case UpdateSpark:
 		return []string{CapabilitySelfUpdate}
 	case ConfigureServer:

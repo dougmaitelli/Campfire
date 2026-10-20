@@ -15,6 +15,10 @@ var ErrDisconnected = errors.New("spark disconnected")
 
 func validResponse(response protocol.CommandResponse) bool {
 	count := 0
+	if response.Prune != nil {
+		count++
+	}
+
 	if response.SparkVersion != "" {
 		count++
 	}
@@ -40,6 +44,20 @@ func validResponse(response protocol.CommandResponse) bool {
 	}
 
 	return count == 1
+}
+
+// PruneSpark requests bounded cleanup of unused Campfire Docker resources.
+func (h *Hub) PruneSpark(ctx context.Context, id string) (model.PruneResult, error) {
+	response, err := h.Execute(ctx, id, protocol.Command{Name: protocol.PruneSpark})
+	if err != nil {
+		return model.PruneResult{}, err
+	}
+
+	if response.Prune == nil || response.Prune.Containers < 0 || response.Prune.Images < 0 || response.Prune.Volumes < 0 {
+		return model.PruneResult{}, errors.New("invalid Spark prune acknowledgement")
+	}
+
+	return *response.Prune, nil
 }
 
 // UpdateSpark requests a verified client replacement; reconnection confirms the running version.

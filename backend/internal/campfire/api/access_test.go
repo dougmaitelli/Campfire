@@ -405,6 +405,7 @@ func TestPlatformRoleBoundariesAndLiveServerRoleChanges(t *testing.T) {
 	user, handler := f.user("member", database.UserRole)
 	for _, check := range []struct{ method, path string }{
 		{"GET", "/sparks/update-status"}, {"POST", "/sparks/node/update"},
+		{"POST", "/sparks/node/prune"},
 		{"GET", "/sparks"}, {"POST", "/sparks"}, {"GET", "/sparks/node"}, {"PATCH", "/sparks/node"}, {"POST", "/sparks/node/enrollment"}, {"GET", "/sparks/node/roles"}, {"PUT", "/sparks/node/roles"},
 		{"GET", "/users"}, {"POST", "/users"}, {"PUT", "/users/1"}, {"DELETE", "/users/1"},
 		{"GET", "/roles"}, {"POST", "/roles"}, {"PUT", "/roles/1"}, {"DELETE", "/roles/1"},
