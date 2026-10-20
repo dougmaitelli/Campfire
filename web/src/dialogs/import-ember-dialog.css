@@ -6,9 +6,14 @@
 
 .import-sources {
   display: flex;
+  align-items: end;
   gap: 8px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+
+  & > .form-field {
+    flex: 1 1 240px;
+  }
 }
 
 .ember-preview-definition {

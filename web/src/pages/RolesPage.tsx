@@ -11,8 +11,6 @@ import { RoleDialog } from "../dialogs/RoleDialog";
 
 import { Table, TableRow } from "../components/table/Table";
 import { useResourceSelection } from "../routing/useResourceSelection";
-import { ResourceLink } from "../components/navigation/ResourceLink";
-import { useResourceLinks } from "../routing/useResourceLinks";
 
 const permissionLabels: Record<string, string> = {
   get "users.manage"() {
@@ -52,7 +50,6 @@ const permissionLabels: Record<string, string> = {
 
 export function RolesPage() {
   const { t } = useTranslation();
-  const links = useResourceLinks();
   const roles = useCollection(listRoles);
   const {
     selected: editing,
@@ -153,9 +150,7 @@ export function RolesPage() {
               >
                 <td>
                   {role.builtin ? (
-                    <ResourceLink href={links.role(role.id)}>
-                      {role.name}
-                    </ResourceLink>
+                    role.name
                   ) : (
                     <button
                       type="button"

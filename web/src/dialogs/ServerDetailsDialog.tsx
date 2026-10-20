@@ -49,11 +49,7 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
         <>
           <ServerReview
             value={server}
-            name={
-              <ResourceLink href={links.server(server.id)}>
-                {server.name}
-              </ResourceLink>
-            }
+            name={server.name}
             sparkName={
               <ResourceLink href={links.spark(server.spark_id)}>
                 {server.spark_name}

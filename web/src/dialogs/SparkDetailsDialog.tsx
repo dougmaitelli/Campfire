@@ -5,8 +5,6 @@ import { apiFetch, readJSON } from "../api/client";
 import { isSpark, type Spark } from "../api/sparks";
 import { SparkReview } from "../components/sparks/SparkReview";
 import { SparkFeatures } from "../components/sparks/SparkFeatures";
-import { ResourceLink } from "../components/navigation/ResourceLink";
-import { useResourceLinks } from "../routing/useResourceLinks";
 import {
   ResourceDetailsDialog,
   type ResourceDetailsDialogProps,
@@ -23,7 +21,6 @@ export function SparkDetailsDialog({
   ...props
 }: Props) {
   const { t } = useTranslation();
-  const links = useResourceLinks();
   const loadDetails = useCallback(
     async (signal: AbortSignal) => {
       const value = await readJSON(
@@ -49,11 +46,7 @@ export function SparkDetailsDialog({
         return (
           <>
             <SparkReview
-              name={
-                <ResourceLink href={links.spark(spark.id)}>
-                  {spark.name}
-                </ResourceLink>
-              }
+              name={spark.name}
               description={spark.description}
               disabled={spark.disabled}
               settings={spark}

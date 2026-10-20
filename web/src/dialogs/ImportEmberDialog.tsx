@@ -52,9 +52,6 @@ export function ImportEmberDialog({
       (ember ? JSON.stringify(ember, null, 2) : ""),
   );
   const formID = useId();
-  const [source, setSource] = useState<"file" | "url" | "paste">(
-    ember || initialPreview ? "paste" : "file",
-  );
   const [url, setURL] = useState("");
   const [sourceURL, setSourceURL] = useState<string | undefined>(
     initialSourceURL,
@@ -84,6 +81,7 @@ export function ImportEmberDialog({
     preview?.warnings.filter((issue) => !issue.informational) ?? [];
   const submitting = useRef(false);
   const urlRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!checking) return;
@@ -156,7 +154,9 @@ export function ImportEmberDialog({
   }
   async function readFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
+    if (submitting.current) return;
     setSourceURL(undefined);
     if (file.size > 1024 * 1024) {
       setText("");
@@ -165,7 +165,6 @@ export function ImportEmberDialog({
       setError(i18n.t("importEmberDialog.definitionFilesMustBeAtMost1MiB"));
       return;
     }
-    if (submitting.current) return;
     submitting.current = true;
     setLoadingSource(true);
     setText("");
@@ -308,77 +307,57 @@ export function ImportEmberDialog({
           )}
           <Fieldset disabled={busy}>
             {!ember && (
-              <div
-                className="import-sources"
-                role="group"
-                aria-label={t("importEmberDialog.definitionSource")}
-              >
-                {(["file", "url", "paste"] as const).map((option) => (
+              <input
+                ref={fileRef}
+                type="file"
+                hidden
+                accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
+                onChange={(event) => {
+                  void readFile(event);
+                }}
+              />
+            )}
+            {!ember && (
+              <>
+                <div className="import-sources">
+                  <FormField label={t("importEmberDialog.definitionURL")}>
+                    <TextInput
+                      ref={urlRef}
+                      id="ember-url"
+                      type="url"
+                      form=""
+                      value={url}
+                      onChange={(event) => setURL(event.target.value)}
+                      placeholder={t(
+                        "importEmberDialog.httpsExampleComGameEmberJson",
+                      )}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void loadURL();
+                        }
+                      }}
+                    />
+                  </FormField>
                   <Button
-                    key={option}
                     type="button"
 
-                    aria-pressed={source === option}
+                    disabled={url.trim() === ""}
                     onClick={() => {
-                      setSource(option);
-                      setError(null);
+                      void loadURL();
                     }}
+                    loading={busy}
+                    loadingLabel={t("common.loading")}
                   >
-                    {option === "file"
-                      ? i18n.t("importEmberDialog.uploadFile")
-                      : option === "url"
-                        ? i18n.t("importEmberDialog.fromURL")
-                        : i18n.t("importEmberDialog.pasteDefinition")}
+                    {t("importEmberDialog.loadDefinition")}
                   </Button>
-                ))}
-              </div>
-            )}
-            {source === "file" && (
-              <>
-                <FormField label={t("importEmberDialog.jsonOrYAMLFile")}>
-                  <input
-                    id="ember-file"
-                    type="file"
-                    accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
-                    onChange={(event) => {
-                      void readFile(event);
-                    }}
-                  />
-                </FormField>
-              </>
-            )}
-            {source === "url" && (
-              <>
-                <FormField label={t("importEmberDialog.definitionURL")}>
-                  <TextInput
-                    ref={urlRef}
-                    id="ember-url"
-                    type="url"
-                    value={url}
-                    onChange={(event) => setURL(event.target.value)}
-                    placeholder={t(
-                      "importEmberDialog.httpsExampleComGameEmberJson",
-                    )}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void loadURL();
-                      }
-                    }}
-                  />
-                </FormField>
-                <Button
-                  type="button"
-
-                  disabled={url.trim() === ""}
-                  onClick={() => {
-                    void loadURL();
-                  }}
-                  loading={busy}
-                  loadingLabel={t("common.loading")}
-                >
-                  {t("importEmberDialog.loadDefinition")}
-                </Button>
+                  <Button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {t("importEmberDialog.uploadFile")}
+                  </Button>
+                </div>
                 <p className="field-help">
                   {t("importEmberDialog.useAPublicHTTPSLinkToTheRawJSONOr")}
                 </p>

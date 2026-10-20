@@ -1048,13 +1048,6 @@ export function ServerDialog({
               {!accessOnly && (
                 <ServerReview
                   value={value}
-                  name={
-                    server ? (
-                      <ResourceLink href={links.server(server.id)}>
-                        {value.name}
-                      </ResourceLink>
-                    ) : undefined
-                  }
                   sparkName={
                     <ResourceLink href={links.spark(value.spark_id)}>
                       {spark?.name ?? ""}
