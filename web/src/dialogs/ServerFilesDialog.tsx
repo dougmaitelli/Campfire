@@ -578,6 +578,44 @@ export function ServerFilesDialog({
                 </p>
               </div>
             </details>
+            <nav
+              className="file-breadcrumbs"
+              aria-label={t("serverFilesDialog.fileDirectory")}
+            >
+              <button
+                className="file-breadcrumb"
+                disabled={busy}
+                aria-current={directory === "." ? "location" : undefined}
+                onClick={() => {
+                  void perform(() => load("."));
+                }}
+              >
+                {t("serverFilesDialog.root")}
+              </button>
+              {directory !== "." &&
+                directory.split("/").map((part, index, parts) => (
+                  <span
+                    className="file-breadcrumb-segment"
+                    key={parts.slice(0, index + 1).join("/")}
+                  >
+                    <span aria-hidden="true">/</span>
+                    <button
+                      className="file-breadcrumb"
+                      disabled={busy}
+                      aria-current={
+                        index === parts.length - 1 ? "location" : undefined
+                      }
+                      onClick={() => {
+                        void perform(() =>
+                          load(parts.slice(0, index + 1).join("/")),
+                        );
+                      }}
+                    >
+                      {part}
+                    </button>
+                  </span>
+                ))}
+            </nav>
             <div className="file-toolbar">
               <Button
                 disabled={busy || loading || !canWrite}
@@ -628,44 +666,6 @@ export function ServerFilesDialog({
                 }}
               />
             </div>
-            <nav
-              className="file-breadcrumbs"
-              aria-label={t("serverFilesDialog.fileDirectory")}
-            >
-              <button
-                className="file-breadcrumb"
-                disabled={busy}
-                aria-current={directory === "." ? "location" : undefined}
-                onClick={() => {
-                  void perform(() => load("."));
-                }}
-              >
-                {t("serverFilesDialog.root")}
-              </button>
-              {directory !== "." &&
-                directory.split("/").map((part, index, parts) => (
-                  <span
-                    className="file-breadcrumb-segment"
-                    key={parts.slice(0, index + 1).join("/")}
-                  >
-                    <span aria-hidden="true">/</span>
-                    <button
-                      className="file-breadcrumb"
-                      disabled={busy}
-                      aria-current={
-                        index === parts.length - 1 ? "location" : undefined
-                      }
-                      onClick={() => {
-                        void perform(() =>
-                          load(parts.slice(0, index + 1).join("/")),
-                        );
-                      }}
-                    >
-                      {part}
-                    </button>
-                  </span>
-                ))}
-            </nav>
             <div className="file-list">
               {directory !== "." && (
                 <div className="file-row">
