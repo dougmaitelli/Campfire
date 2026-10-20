@@ -36,6 +36,23 @@
   outline-offset: 4px;
 }
 
+:where(a:any-link) {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+:where(a:any-link:hover) {
+  color: var(--accent-hover);
+  text-decoration-color: currentColor;
+}
+
+:where(a:any-link:focus-visible) {
+  border-radius: 2px;
+  text-decoration-color: currentColor;
+}
+
 input[type="checkbox"],
 input[type="radio"] {
   accent-color: var(--accent);

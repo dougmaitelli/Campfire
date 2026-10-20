@@ -207,6 +207,24 @@ export function ServerOperationsPage({
       )}
       {server && (
         <>
+          {monitoring.snapshot?.sparks?.some(
+            (spark) =>
+              spark.id === server.spark_id && spark.agent_update_available,
+          ) && (
+            <InlineMessage tone="warning">
+              <Trans
+                i18nKey="serverOperationsPage.thisServerSSparkNodeIsNotRunningTheLatest"
+                t={t}
+                components={{
+                  a: (
+                    <a href="#sparks">
+                      {t("serverOperationsPage.goToSparksToUpdateIt")}
+                    </a>
+                  ),
+                }}
+              />
+            </InlineMessage>
+          )}
           <ContentPanel className="operations-resources">
             <ResourceReadings
               usage={
@@ -239,31 +257,6 @@ export function ServerOperationsPage({
               {monitoring.error}
             </InlineMessage>
           )}
-          {activeTab === "console" &&
-            monitoring.snapshot?.sparks?.some(
-              (spark) =>
-                spark.id === server.spark_id && spark.agent_update_available,
-            ) && (
-              <InlineMessage tone="warning">
-                <Trans
-                  i18nKey="serverOperationsPage.thisServerSSparkNodeIsNotRunningTheLatest"
-                  t={t}
-                  components={{
-                    a: (
-                      <a href="#sparks">
-                        {t("serverOperationsPage.goToSparksToUpdateIt")}
-                      </a>
-                    ),
-                  }}
-                />
-              </InlineMessage>
-            )}
-          {message && (
-            <InlineMessage tone={message.tone}>
-              <strong>{message.title}</strong>
-              {message.detail && <>{message.detail}</>}
-            </InlineMessage>
-          )}
           {server.permissions.includes("server.operate") ? (
             <>
               <nav
@@ -287,12 +280,20 @@ export function ServerOperationsPage({
                 ))}
               </nav>
               {activeTab === "console" && (
-                <ServerConsoleDialog
-                  embedded
-                  server={server}
-                  status={status}
-                  onClose={back}
-                />
+                <>
+                  {message && (
+                    <InlineMessage tone={message.tone}>
+                      <strong>{message.title}</strong>
+                      {message.detail && <>{message.detail}</>}
+                    </InlineMessage>
+                  )}
+                  <ServerConsoleDialog
+                    embedded
+                    server={server}
+                    status={status}
+                    onClose={back}
+                  />
+                </>
               )}
               {activeTab === "files" && (
                 <ServerFilesDialog
