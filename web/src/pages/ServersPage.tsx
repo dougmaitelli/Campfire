@@ -364,6 +364,7 @@ export function ServersPage() {
                 <td className="table-actions">
                   <ActionGroup>
                     <ButtonLink
+                      variant="primary"
                       href={`#servers/${encodeURIComponent(server.id)}/console`}
                       iconOnly
                       aria-label={i18n.t("serversPage.open", {
