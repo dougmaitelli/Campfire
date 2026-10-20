@@ -51,11 +51,10 @@ const permissionLabels: Record<string, string> = {
 export function RolesPage() {
   const { t } = useTranslation();
   const roles = useCollection(listRoles);
-  const {
-    selected: editing,
-    select: setEditing,
-    missing,
-  } = useResourceSelection(roles.items);
+  const { selected: editing, select: setEditing } = useResourceSelection(
+    roles.items,
+    !roles.loading && !roles.error,
+  );
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -188,11 +187,6 @@ export function RolesPage() {
           </tbody>
         </Table>
       </ContentPanel>
-      {!roles.loading && !roles.error && missing && (
-        <InlineMessage>
-          {t("rolesPage.thisRoleIsUnavailableOrNoLongerExists")}
-        </InlineMessage>
-      )}
       {(open || editing) && (
         <RoleDialog
           key={editing?.id ?? "new"}

@@ -30,11 +30,10 @@ export function UsersPage() {
       value.toLowerCase().includes(query),
     ),
   );
-  const {
-    selected: editing,
-    select: setEditing,
-    missing,
-  } = useResourceSelection(users.items);
+  const { selected: editing, select: setEditing } = useResourceSelection(
+    users.items,
+    !users.loading && !users.error,
+  );
   const links = useResourceLinks();
   const [open, setOpen] = useState(false);
   function edit(user: User) {
@@ -142,11 +141,6 @@ export function UsersPage() {
       <p className="field-help">
         {t("usersPage.atLeastOneEnabledAdministratorMustRemainAccountsThatOwn")}
       </p>
-      {!users.loading && !users.error && missing && (
-        <InlineMessage>
-          {t("usersPage.thisUserIsUnavailableOrNoLongerExists")}
-        </InlineMessage>
-      )}
       {(open || editing) && (
         <UserDialog
           key={editing?.id ?? "new"}

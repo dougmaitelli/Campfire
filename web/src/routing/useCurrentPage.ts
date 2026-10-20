@@ -28,6 +28,17 @@ function subscribe(onChange: () => void) {
   };
 }
 
+// Replace stale destinations so Back does not reopen the missing record.
+export function replaceCurrentRoute(route: string, expectedRoute?: string) {
+  if (
+    expectedRoute !== undefined &&
+    window.location.hash.slice(1) !== expectedRoute
+  )
+    return;
+  window.history.replaceState(null, "", `#${route}`);
+  navigate();
+}
+
 export function addNavigationGuard(guard: () => boolean) {
   guards.add(guard);
   return () => {

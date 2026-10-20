@@ -5,6 +5,16 @@ let csrfToken = "";
 
 export const API_REQUEST_TIMEOUT_MS = 35000;
 
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "APIError";
+  }
+}
+
 export function setCSRFToken(token: string) {
   csrfToken = token;
 }
@@ -63,7 +73,7 @@ export async function readJSON(response: Response): Promise<unknown> {
       typeof body.error === "string"
         ? body.error
         : i18n.t("client.unableToCompleteTheRequest");
-    throw new Error(formatErrorMessage(message));
+    throw new APIError(formatErrorMessage(message), response.status);
   }
   return body;
 }

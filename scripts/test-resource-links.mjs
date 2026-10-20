@@ -2,6 +2,36 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { loadWebModule } from "./helpers/load-web-module.mjs";
+
+test("missing-resource redirects replace history and ignore outdated requests", async (t) => {
+  const replacements = [];
+  const location = { hash: "#servers/deleted/console" };
+  const original = Object.getOwnPropertyDescriptor(globalThis, "window");
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, "window", original);
+    else delete globalThis.window;
+  });
+  globalThis.window = {
+    location,
+    history: {
+      replaceState(_state, _title, hash) {
+        replacements.push(hash);
+        location.hash = hash;
+      },
+    },
+  };
+  const { replaceCurrentRoute } = await loadWebModule(
+    new URL("../web/src/routing/useCurrentPage.ts", import.meta.url),
+  );
+  replaceCurrentRoute("servers", "servers/deleted/console");
+  assert.equal(location.hash, "#servers");
+  assert.deepEqual(replacements, ["#servers"]);
+  location.hash = "#sparks/another";
+  replaceCurrentRoute("servers", "servers/deleted/console");
+  assert.equal(location.hash, "#sparks/another");
+  assert.equal(replacements.length, 1);
+});
 
 const source = stripTypeScriptTypes(
   await readFile(

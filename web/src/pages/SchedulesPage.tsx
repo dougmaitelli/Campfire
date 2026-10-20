@@ -37,11 +37,10 @@ export function SchedulesPage() {
   const servers = useCollection(listServers);
   const schedules = useCollection(listSchedules);
   const [runs, setRuns] = useState<Execution[]>([]);
-  const {
-    selected: editing,
-    select: setEditing,
-    missing,
-  } = useResourceSelection(schedules.items);
+  const { selected: editing, select: setEditing } = useResourceSelection(
+    schedules.items,
+    !schedules.loading && !schedules.error,
+  );
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -435,11 +434,6 @@ export function SchedulesPage() {
           </Button>
         )}
       </ContentPanel>
-      {!schedules.loading && !schedules.error && missing && (
-        <InlineMessage>
-          {t("schedulesPage.thisScheduleIsUnavailableOrNoLongerExists")}
-        </InlineMessage>
-      )}
       {editing &&
         !managed.some((server) => server.id === editing.server_id) && (
           <InlineMessage>

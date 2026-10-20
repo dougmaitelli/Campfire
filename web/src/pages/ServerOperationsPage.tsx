@@ -9,7 +9,8 @@ import { InlineMessage } from "../components/status/InlineMessage";
 import { PortPill } from "../components/network/PortPill";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useRef, useState } from "react";
-import { apiFetch, readJSON } from "../api/client";
+import { APIError, apiFetch, readJSON } from "../api/client";
+import { replaceCurrentRoute } from "../routing/useCurrentPage";
 import { isServer, type Server } from "../api/servers";
 import { serverAction, type ServerAction } from "../api/runtime";
 import { useServerRuntime } from "../hooks/useServerRuntime";
@@ -94,6 +95,7 @@ export function ServerOperationsPage({
   const resourceHistory = useResourceHistory(server?.id);
   useEffect(() => {
     const controller = new AbortController();
+    const requestedRoute = window.location.hash.slice(1);
     async function load() {
       try {
         const value = await readJSON(
@@ -110,6 +112,20 @@ export function ServerOperationsPage({
           );
         if (!controller.signal.aborted) setServer(value);
       } catch (cause) {
+        if (
+          !controller.signal.aborted &&
+          cause instanceof APIError &&
+          cause.status === 404
+        ) {
+          const currentRoute = window.location.hash.slice(1);
+          if (
+            currentRoute.split("/").slice(0, 2).join("/") ===
+            requestedRoute.split("/").slice(0, 2).join("/")
+          ) {
+            replaceCurrentRoute("servers", currentRoute);
+          }
+          return;
+        }
         if (!controller.signal.aborted)
           setError(
             cause instanceof Error

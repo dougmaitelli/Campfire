@@ -27,11 +27,10 @@ export function EmbersPage() {
   const { t } = useTranslation();
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
   const [importing, setImporting] = useState(false);
-  const {
-    selected: editing,
-    select: setEditing,
-    missing,
-  } = useResourceSelection(items);
+  const { selected: editing, select: setEditing } = useResourceSelection(
+    items,
+    !loading && !error,
+  );
   const checks = useCollection(listEmberUpdates);
   const [busy, setBusy] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -304,11 +303,6 @@ export function EmbersPage() {
             void refresh();
           }}
         />
-      )}
-      {!loading && !error && missing && (
-        <InlineMessage>
-          {t("embersPage.thisEmberIsUnavailableOrNoLongerExists")}
-        </InlineMessage>
       )}
     </section>
   );

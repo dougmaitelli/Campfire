@@ -3,10 +3,19 @@ import test from "node:test";
 import { loadWebModule } from "./helpers/load-web-module.mjs";
 
 const sourceURL = new URL("../web/src/api/client.ts", import.meta.url);
-const { apiFetch, readJSON } = await loadWebModule(sourceURL);
+const { apiFetch, readJSON, APIError } = await loadWebModule(sourceURL);
 const { readResourceHistory } = await loadWebModule(
   new URL("../web/src/api/resourceHistory.ts", import.meta.url),
 );
+
+test("API failures preserve HTTP status for missing-resource navigation", async () => {
+  for (const status of [404, 403, 500]) {
+    await assert.rejects(
+      readJSON(Response.json({ error: "Resource unavailable" }, { status })),
+      (error) => error instanceof APIError && error.status === status,
+    );
+  }
+});
 
 test("history requests use bounded ranges and preserve missing measurements", async (t) => {
   const usage = {

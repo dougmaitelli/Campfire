@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/forms/Button";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
+import { APIError } from "../api/client";
 import type { ReactNode } from "react";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
@@ -26,6 +27,7 @@ export function ResourceDetailsDialog<T>({
   const { t } = useTranslation();
   const [details, setDetails] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const closeMissing = useEffectEvent(() => onClose());
   useEffect(() => {
     const controller = new AbortController();
     void loadDetails(
@@ -35,6 +37,14 @@ export function ResourceDetailsDialog<T>({
         if (!controller.signal.aborted) setDetails(value);
       })
       .catch((cause: unknown) => {
+        if (
+          !controller.signal.aborted &&
+          cause instanceof APIError &&
+          cause.status === 404
+        ) {
+          closeMissing();
+          return;
+        }
         if (!controller.signal.aborted)
           setError(
             cause instanceof Error

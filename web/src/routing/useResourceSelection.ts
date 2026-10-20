@@ -1,10 +1,11 @@
-import { useCallback } from "react";
-import { useCurrentRoute } from "./useCurrentPage";
+import { useCallback, useEffect } from "react";
+import { useCurrentRoute, replaceCurrentRoute } from "./useCurrentPage";
 import { resourceHref } from "./resourceLinks";
 
 // Resource drawers share their selection with the URL, including browser history.
 export function useResourceSelection<T extends { id: string | number }>(
   items: T[],
+  loaded: boolean,
 ) {
   const route = useCurrentRoute();
   const [page, encodedID = ""] = route.split("/");
@@ -16,6 +17,9 @@ export function useResourceSelection<T extends { id: string | number }>(
     id = encodedID;
   }
   const selected = items.find((item) => String(item.id) === id) ?? null;
+  useEffect(() => {
+    if (loaded && id && !selected) replaceCurrentRoute(page ?? "", route);
+  }, [loaded, id, selected, page, route]);
   const select = useCallback(
     (next: T | null) => {
       window.location.hash = next

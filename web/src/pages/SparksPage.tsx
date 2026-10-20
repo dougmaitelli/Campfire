@@ -31,11 +31,8 @@ const UPDATE_STATUS_REQUEST_TIMEOUT_MS = 10000;
 export function SparksPage() {
   const { t } = useTranslation();
   const { sparks, loading, error, refresh, addSpark } = useSparks();
-  const {
-    selected: selectedDetails,
-    select: setDetails,
-    missing,
-  } = useResourceSelection(sparks);
+  const { selected: selectedDetails, select: setDetails } =
+    useResourceSelection(sparks, !loading && !error);
   const monitoring = useMonitoring();
   const details = selectedDetails
     ? (sparks.find((spark) => spark.id === selectedDetails.id) ??
@@ -205,11 +202,6 @@ export function SparksPage() {
       />
       {(deleteError ?? (sparks.length ? error : null)) && (
         <InlineMessage role="alert">{error ?? deleteError}</InlineMessage>
-      )}
-      {!loading && !error && missing && (
-        <InlineMessage>
-          {t("sparksPage.thisSparkIsUnavailableOrNoLongerExists")}
-        </InlineMessage>
       )}
       <ContentPanel aria-busy={loading}>
         {updateError && <InlineMessage>{updateError}</InlineMessage>}
