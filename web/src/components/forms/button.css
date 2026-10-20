@@ -64,20 +64,22 @@ input[type="file"] {
   }
 }
 .button-icon {
-  width: var(--control-height);
-  height: var(--control-height);
-  min-width: var(--control-height);
-  min-height: var(--control-height);
-  flex: 0 0 var(--control-height);
+  width: var(--button-icon-size, var(--control-height));
+  height: var(--button-icon-size, var(--control-height));
+  min-width: var(--button-icon-size, var(--control-height));
+  min-height: var(--button-icon-size, var(--control-height));
+  flex: 0 0 var(--button-icon-size, var(--control-height));
   padding: 0;
 
   & svg {
-    width: 18px;
-    height: 18px;
+    width: var(--button-icon-glyph-size, 18px);
+    height: var(--button-icon-glyph-size, 18px);
   }
 }
 
 .button-small {
+  --button-icon-size: 32px;
+  --button-icon-glyph-size: 16px;
   --button-min-height: 32px;
   --button-padding: 6px 10px;
   --button-font-size: 12px;

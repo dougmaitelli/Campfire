@@ -727,6 +727,7 @@ export function ServerFilesDialog({
                       {entry.kind === "file" && (
                         <Button
                           iconOnly
+                          size="small"
                           title={i18n.t("serverFilesDialog.download")}
                           disabled={busy || entry.size > fileTransferLimit}
                           onClick={() => {
@@ -742,6 +743,7 @@ export function ServerFilesDialog({
                       {entry.kind !== "unsupported" && (
                         <Button
                           iconOnly
+                          size="small"
                           title={i18n.t("serverFilesDialog.compress2")}
                           aria-label={i18n.t("serverFilesDialog.compress3", {
                             entryName: entry.name,
@@ -758,6 +760,7 @@ export function ServerFilesDialog({
                         /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
                           <Button
                             iconOnly
+                            size="small"
                             title={i18n.t("serverFilesDialog.extract")}
                             aria-label={i18n.t("serverFilesDialog.extract2", {
                               entryName: entry.name,
@@ -772,6 +775,7 @@ export function ServerFilesDialog({
                         )}
                       <Button
                         iconOnly
+                        size="small"
                         title={i18n.t("serverFilesDialog.rename2")}
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
@@ -788,6 +792,7 @@ export function ServerFilesDialog({
                       <Button
                         variant="danger"
                         iconOnly
+                        size="small"
                         title={i18n.t("common.delete")}
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"

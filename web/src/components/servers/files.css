@@ -89,10 +89,10 @@
 }
 .file-row {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 0;
+  padding: 3px 0;
   border-bottom: 1px solid var(--border);
 
   &:last-child {
