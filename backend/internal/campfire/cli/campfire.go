@@ -239,6 +239,19 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	transfers.Start(ctx)
 	defer transfers.Close()
 
+	resources := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
+
+	resources.Interval, resources.Retention, err = resourceHistoryConfig()
+	if err != nil {
+		return err
+	}
+
+	deployment.History = resources
+	if err := resources.Start(ctx); err != nil {
+		return fmt.Errorf("start resource history: %w", err)
+	}
+	defer resources.Close()
+
 	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
 	activity.Retention = retention
 

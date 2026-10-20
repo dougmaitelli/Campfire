@@ -86,6 +86,10 @@ func writeError(w http.ResponseWriter, err error) {
 	var commandError *protocol.CommandError
 
 	switch {
+	case errors.Is(err, repository.ErrResourceHistoryPending):
+		status, message = http.StatusServiceUnavailable, err.Error()
+	case errors.Is(err, service.ErrResourceHistoryInput):
+		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, service.ErrSparkPrune):
 		status, message = http.StatusConflict, "Spark must be connected and enabled before pruning."
 	case errors.As(err, &commandError) && commandError.Code == "spark_prune_failed":

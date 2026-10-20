@@ -85,6 +85,10 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	service.Config.Duration = 0
 
 	ctx := context.Background()
+	if err := deployment.History.Collect(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := service.scan(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +113,11 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	restarted := NewNotificationService(service.Store, deployment, activity.auth)
 
 	restarted.Config = service.Config
+
+	if err := deployment.History.Collect(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := restarted.scan(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -121,6 +130,10 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	runtime.usage.CPUPercent = nil
 	runtime.usage.MemoryBytes = nil
 	runtime.usage.DiskBytes = nil
+
+	if err := deployment.History.Collect(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := restarted.scan(ctx); err != nil {
 		t.Fatal(err)
@@ -135,6 +148,10 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	runtime.usage.MemoryBytes = new(int64(1))
 	runtime.usage.DiskBytes = new(int64(1))
 
+	if err := deployment.History.Collect(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := restarted.scan(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -145,6 +162,10 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	}
 
 	online.online.Store(false)
+
+	if err := deployment.History.Collect(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := restarted.scan(ctx); err != nil {
 		t.Fatal(err)

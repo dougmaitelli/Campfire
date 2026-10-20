@@ -177,7 +177,7 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 					entry.usage.ContainerError = "Docker usage sample unavailable."
 				} else {
 					previous := sample.PreviousCPU
-					if previous.System == 0 && entry.previous.ID == sample.ID && now.Sub(entry.previousAt) <= 30*time.Second {
+					if previous.System == 0 && entry.previous.ID == sample.ID && now.Sub(entry.previousAt) <= 10*time.Minute {
 						previous = entry.previous.CPU
 					}
 

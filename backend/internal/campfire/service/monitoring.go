@@ -2,16 +2,13 @@ package service
 
 import (
 	"context"
-	"errors"
 	"math"
-	"slices"
-	"sync"
 	"time"
 
 	"campfire/internal/shared/model"
 )
 
-// MonitoredServer combines authorized server metadata and measured usage.
+// MonitoredServer combines authorized metadata and the latest persisted usage.
 type MonitoredServer struct {
 	ID         string              `json:"id"`
 	Name       string              `json:"name"`
@@ -24,12 +21,13 @@ type MonitoredServer struct {
 	ReceivedAt int64               `json:"received_at"`
 }
 
-// MonitoringSnapshot omits node inventory entirely for non-administrators.
+// MonitoringSnapshot omits node inventory for non-administrators.
 type MonitoringSnapshot struct {
-	CollectedAt int64             `json:"collected_at"`
-	Servers     []MonitoredServer `json:"servers"`
-	Sparks      []model.Spark     `json:"sparks,omitempty"`
-	Incomplete  bool              `json:"incomplete"`
+	CollectedAt           int64             `json:"collected_at"`
+	SampleIntervalSeconds int64             `json:"sample_interval_seconds"`
+	Servers               []MonitoredServer `json:"servers"`
+	Sparks                []model.Spark     `json:"sparks,omitempty"`
+	Incomplete            bool              `json:"incomplete"`
 }
 
 func unknownUsage(id string) model.ResourceUsage {
@@ -52,128 +50,57 @@ func validUsage(usage model.ResourceUsage) bool {
 	return true
 }
 
-// Metrics reads only the saved server placement and never installs or delivers configuration.
+// Metrics reads stored measurements; HTTP reads never trigger node sampling.
 func (s *DeploymentService) Metrics(ctx context.Context, id string) (model.ResourceUsage, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	s.mu.Lock()
-	if s.metricSlots == nil {
-		s.metricSlots = make(chan struct{}, 6)
-	}
-
-	slots := s.metricSlots
-	s.mu.Unlock()
-
-	select {
-	case slots <- struct{}{}:
-		defer func() { <-slots }()
-	case <-ctx.Done():
-		return model.ResourceUsage{}, ctx.Err()
-	}
-
-	server, err := s.Servers.Get(ctx, id)
-	if err != nil {
-		return model.ResourceUsage{}, err
-	}
-
-	node, err := s.Sparks.Get(ctx, server.SparkID)
-	if err != nil {
-		return model.ResourceUsage{}, err
-	}
-
-	if node.Disabled {
+	if s.History == nil {
 		return model.ResourceUsage{}, ErrDeploymentUnavailable
 	}
 
-	dispatch, ok := s.Remote.(RuntimeDispatcher)
-	if !ok {
-		return model.ResourceUsage{}, ErrDeploymentUnavailable
-	}
-
-	status, err := dispatch.Action(ctx, node.ID, model.RuntimeRequest{ServerID: id, Action: "metrics"})
-	if err != nil {
-		return model.ResourceUsage{}, errors.Join(ErrDeploymentUnavailable, err)
-	}
-
-	if status.ServerID != id || status.Metrics == nil || status.Metrics.ServerID != id || !validUsage(*status.Metrics) {
-		return model.ResourceUsage{}, ErrDeploymentUnavailable
-	}
-
-	return *status.Metrics, nil
+	return s.History.latestUsage(ctx, id)
 }
 
-// Monitoring filters access before contacting Sparks and bounds concurrent node requests.
-func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal, access *AccessService) (MonitoringSnapshot, error) {
-	servers, err := s.Servers.List(ctx)
-	if err != nil {
-		return MonitoringSnapshot{}, err
+// Monitoring authorizes inventory in one query and loads its latest stored samples.
+func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal) (MonitoringSnapshot, error) {
+	if s.History == nil {
+		return MonitoringSnapshot{}, ErrDeploymentUnavailable
 	}
 
-	snapshot := MonitoringSnapshot{CollectedAt: time.Now().Unix(), Servers: []MonitoredServer{}}
+	history := s.History
 
-	for _, server := range servers {
-		permissions, err := access.ServerPermissions(ctx, principal, server.ID)
+	snapshot := MonitoringSnapshot{CollectedAt: time.Now().Unix(), SampleIntervalSeconds: int64(history.Interval.Seconds()), Servers: []MonitoredServer{}}
+	if principal.tokenAllows("server.view") {
+		targets, err := history.Store.Targets(ctx, principal.UserID, principal.Admin)
 		if err != nil {
-			return MonitoringSnapshot{}, err
+			return snapshot, err
 		}
 
-		if !slices.Contains(permissions, "server.view") {
-			continue
+		ids := make([]string, 0, len(targets))
+		for _, target := range targets {
+			ids = append(ids, target.ID)
 		}
 
-		snapshot.Servers = append(snapshot.Servers, MonitoredServer{ID: server.ID, Name: server.Name, SparkID: server.SparkID, SparkName: server.SparkName, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Usage: unknownUsage(server.ID)})
+		samples, err := history.Store.Latest(ctx, ids)
+		if err != nil {
+			return snapshot, err
+		}
+
+		for _, target := range targets {
+			current := MonitoredServer{ID: target.ID, Name: target.Name, SparkID: target.SparkID, SparkName: target.SparkName, CPULimit: target.CPULimit, MemoryMB: target.MemoryMB, DiskMB: target.DiskMB, Usage: unknownUsage(target.ID)}
+			if sample, ok := samples[target.ID]; ok && sample.SparkID == target.SparkID {
+				current.Usage = ageResourceUsage(sample.Usage, sample.ReceivedAt, snapshot.CollectedAt)
+				current.ReceivedAt = sample.ReceivedAt
+			}
+
+			snapshot.Servers = append(snapshot.Servers, current)
+		}
 	}
 
 	if principal.Admin && principal.Allows("sparks.manage") {
+		var err error
+
 		snapshot.Sparks, err = s.Sparks.List(ctx)
 		if err != nil {
-			return MonitoringSnapshot{}, err
-		}
-	}
-
-	var wg sync.WaitGroup
-
-	jobs := make(chan int)
-
-	for range min(6, len(snapshot.Servers)) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for index := range jobs {
-				usage, err := s.Metrics(ctx, snapshot.Servers[index].ID)
-				if err == nil {
-					snapshot.Servers[index].Usage = usage
-					snapshot.Servers[index].ReceivedAt = time.Now().Unix()
-				}
-			}
-		}()
-	}
-
-queueLoop:
-	for index := range snapshot.Servers {
-		select {
-		case jobs <- index:
-		case <-ctx.Done():
-			snapshot.Incomplete = true
-			break queueLoop
-		}
-	}
-
-	close(jobs)
-	wg.Wait()
-
-	if ctx.Err() != nil {
-		snapshot.Incomplete = true
-	}
-
-	snapshot.CollectedAt = time.Now().Unix()
-	for index := range snapshot.Servers {
-		if snapshot.Servers[index].ReceivedAt != 0 {
-			delay := snapshot.CollectedAt - snapshot.Servers[index].ReceivedAt
-			snapshot.Servers[index].Usage.SampleAgeSeconds += delay
-			snapshot.Servers[index].Usage.DiskAgeSeconds += delay
+			return snapshot, err
 		}
 	}
 

@@ -85,6 +85,7 @@ func activityFixture(t *testing.T) (*ActivityService, *database.Database, *activ
 	embers := NewEmberService(repository.NewEmberRepository(db.ORM()))
 	runtime := &activityRuntime{status: model.RuntimeStatus{ServerID: "game", State: "stopped"}}
 	deployment := &DeploymentService{Servers: NewServerService(repository.NewServerRepository(db.ORM()), embers), Sparks: NewSparkService(repository.NewSparkRepository(db.ORM()), nil), Embers: embers, Remote: runtime}
+	deployment.History = NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 	activity := NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
 	deployment.Activity = activity
 

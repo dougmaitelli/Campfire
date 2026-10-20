@@ -2,6 +2,8 @@ import i18n from "../i18n";
 import { useCallback, useEffect, useState } from "react";
 import { readMonitoring, type MonitoringSnapshot } from "../api/monitoring";
 
+const DEFAULT_MONITORING_INTERVAL_SECONDS = 10;
+
 export function useMonitoring() {
   const [snapshot, setSnapshot] = useState<MonitoringSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -16,12 +18,14 @@ export function useMonitoring() {
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let intervalSeconds = DEFAULT_MONITORING_INTERVAL_SECONDS;
     async function poll() {
       try {
         const value = await readMonitoring(
           AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
         );
         if (!controller.signal.aborted) {
+          intervalSeconds = value.sample_interval_seconds;
           setSnapshot(value);
           setReceived(Date.now());
           setNow(Date.now());
@@ -40,7 +44,7 @@ export function useMonitoring() {
       if (!controller.signal.aborted)
         timer = setTimeout(() => {
           void poll();
-        }, 1000);
+        }, intervalSeconds * 1000);
     }
     void poll();
     return () => {

@@ -28,11 +28,11 @@ type DeploymentService struct {
 	Activity       *ActivityService
 	Transfers      *TransferService
 	Backups        *BackupService
+	History        *ResourceHistoryService
 	mu             sync.Mutex
 	locks          map[string]*deliveryLock
 	statuses       map[string]model.RuntimeStatus
 	observed       map[string]time.Time
-	metricSlots    chan struct{}
 }
 
 type deliveryLock struct {

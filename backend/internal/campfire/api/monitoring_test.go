@@ -11,7 +11,7 @@ import (
 	"campfire/internal/shared/model"
 )
 
-func TestMonitoringFiltersBeforeSamplingAndRevokesAccess(t *testing.T) {
+func TestMonitoringReadsStoredSamplesAndRevokesAccess(t *testing.T) {
 	f := newAccessFixture(t)
 	user, member := f.user("monitor", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
@@ -27,6 +27,7 @@ func TestMonitoringFiltersBeforeSamplingAndRevokesAccess(t *testing.T) {
 	}
 
 	endpoint := "/api/v1/servers/" + server.ID
+
 	f.runtime.metrics = func(q model.RuntimeRequest) (model.RuntimeStatus, error) {
 		if q.Action != "metrics" || q.OperationID != "" {
 			t.Fatal("metrics became a lifecycle operation", q)
@@ -34,6 +35,10 @@ func TestMonitoringFiltersBeforeSamplingAndRevokesAccess(t *testing.T) {
 
 		return model.RuntimeStatus{ServerID: q.ServerID, Metrics: &model.ResourceUsage{ServerID: q.ServerID, State: "running", CPUPercent: new(float64(125)), MemoryBytes: new(int64(1024)), DiskBytes: new(int64(4096)), SampledAt: 1, DiskSampledAt: 1}}, nil
 	}
+	if err := f.history.Collect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	before := f.runtime.calls.Load()
 
 	expectAccess(t, member, "GET", endpoint+"/metrics", "", http.StatusNotFound)
@@ -62,6 +67,20 @@ func TestMonitoringFiltersBeforeSamplingAndRevokesAccess(t *testing.T) {
 	}
 
 	expectAccess(t, member, "GET", endpoint+"/metrics", "", http.StatusOK)
+	expectAccess(t, member, "GET", endpoint+"/metrics/history", "", http.StatusOK)
+	expectAccess(t, member, "GET", endpoint+"/metrics/history?limit=1001", "", http.StatusBadRequest)
+	expectAccess(t, member, "GET", "/api/v1/sparks/"+server.SparkID+"/metrics/history", "", http.StatusForbidden)
+	response = request(f.admin, "GET", "/api/v1/sparks/"+server.SparkID+"/metrics/history", "")
+
+	var history model.ResourceHistory
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &history) != nil || len(history.Samples) != 1 || history.Samples[0].Usage.CPUPercent == nil || *history.Samples[0].Usage.CPUPercent != 125 {
+		t.Fatal("Spark aggregate history missing", response.Code, response.Body)
+	}
+
+	if f.runtime.calls.Load() != before {
+		t.Fatal("authorized metrics and history reads sampled the node")
+	}
+
 	expectAccess(t, f.admin, "DELETE", endpoint+"/members/"+fmt.Sprint(user.ID), "", http.StatusNoContent)
 	before = f.runtime.calls.Load()
 
@@ -72,7 +91,12 @@ func TestMonitoringFiltersBeforeSamplingAndRevokesAccess(t *testing.T) {
 		t.Fatal("revoked member reached Spark")
 	}
 
+	expectAccess(t, member, "GET", endpoint+"/metrics/history", "", http.StatusNotFound)
+
 	f.runtime.metrics = nil
+	if err := f.history.Collect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 
 	response = request(f.admin, "GET", "/api/v1/monitoring", "")
 	if err := json.Unmarshal(response.Body.Bytes(), &snapshot); err != nil {
@@ -83,5 +107,5 @@ func TestMonitoringFiltersBeforeSamplingAndRevokesAccess(t *testing.T) {
 		t.Fatal("unsupported Spark fabricated usage", response.Body)
 	}
 
-	expectAccess(t, f.admin, "GET", endpoint+"/metrics", "", http.StatusServiceUnavailable)
+	expectAccess(t, f.admin, "GET", endpoint+"/metrics", "", http.StatusOK)
 }

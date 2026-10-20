@@ -45,3 +45,34 @@ func TestExistingBaselineAddsStartupSelectionColumn(t *testing.T) {
 		}
 	}
 }
+
+func TestExistingBaselineAddsResourceHistoryTables(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "panel.db")
+
+	db, err := database.Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tables := []any{&database.ServerResourceBucket{}, &database.SparkResourceBucket{}, &database.ServerResourceSample{}, &database.SparkResourceSample{}}
+	if err := db.ORM().Migrator().DropTable(tables...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err = database.Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = db.Close() })
+
+	for _, table := range tables {
+		if !db.ORM().Migrator().HasTable(table) {
+			t.Fatalf("history table missing on upgrade: %T", table)
+		}
+	}
+}

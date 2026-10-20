@@ -273,12 +273,13 @@ func (s *NotificationService) observe(ctx context.Context, targetType, id, name,
 }
 
 func (s *NotificationService) scan(ctx context.Context) error {
-	snapshot, err := s.deployment.Monitoring(ctx, Principal{Admin: true}, s.auth.Access())
+	snapshot, err := s.deployment.Monitoring(ctx, Principal{Admin: true})
 	if err != nil {
 		return err
 	}
 
 	now := time.Now()
+	freshFor := max(int64(30), 3*snapshot.SampleIntervalSeconds)
 
 	nodes := make(map[string]model.Spark, len(snapshot.Sparks))
 	for _, node := range snapshot.Sparks {
@@ -317,6 +318,8 @@ func (s *NotificationService) scan(ctx context.Context) error {
 				condition = -1
 			} else if !node.Connected || usage.State == "unknown" || usage.State == "dead" || usage.State == "failed" || usage.State == "error" || usage.ContainerError != "" && !expectedIdle {
 				condition = 1
+			} else if !expectedIdle && (usage.SampledAt == 0 || usage.SampleAgeSeconds > freshFor) {
+				condition = -1
 			}
 
 			if err := s.observe(ctx, "server", server.ID, server.Name, "health", condition, "Server health or monitoring is unavailable. Check its Spark, Docker runtime and server status.", now); err != nil {
@@ -324,7 +327,7 @@ func (s *NotificationService) scan(ctx context.Context) error {
 			}
 
 			condition = -1
-			if usage.State == "running" && usage.SampledAt > 0 && usage.SampleAgeSeconds <= 30 {
+			if usage.State == "running" && usage.SampledAt > 0 && usage.SampleAgeSeconds <= freshFor {
 				condition = 0
 				if !usage.DiskQuotaEnforced && usage.DiskQuotaError != "" {
 					condition = 1
@@ -344,7 +347,7 @@ func (s *NotificationService) scan(ctx context.Context) error {
 
 		cpu, memory, disk := -1.0, -1.0, -1.0
 
-		if supported && node.Connected && usage.SampledAt > 0 && usage.SampleAgeSeconds <= 30 && usage.ContainerError == "" {
+		if supported && node.Connected && usage.SampledAt > 0 && usage.SampleAgeSeconds <= freshFor && usage.ContainerError == "" {
 			if usage.CPUPercent != nil && server.CPULimit > 0 {
 				cpu = *usage.CPUPercent / server.CPULimit
 			}
@@ -354,7 +357,7 @@ func (s *NotificationService) scan(ctx context.Context) error {
 			}
 		}
 
-		if supported && node.Connected && usage.DiskSampledAt > 0 && usage.DiskAgeSeconds <= 120 && usage.DiskError == "" && usage.DiskBytes != nil && server.DiskMB > 0 {
+		if supported && node.Connected && usage.DiskSampledAt > 0 && usage.DiskAgeSeconds <= max(int64(120), freshFor) && usage.DiskError == "" && usage.DiskBytes != nil && server.DiskMB > 0 {
 			disk = float64(*usage.DiskBytes) / float64(server.DiskMB*1048576) * 100
 		}
 

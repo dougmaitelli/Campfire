@@ -25,6 +25,8 @@ type accessRuntime struct {
 	console   func(context.Context, string, func(model.ConsoleEvent) error) error
 }
 
+func (*accessRuntime) Connected(string) bool { return true }
+
 func (d *accessRuntime) Console(ctx context.Context, _ string, id string, emit func(model.ConsoleEvent) error) error {
 	d.calls.Add(1)
 
@@ -69,6 +71,7 @@ type accessFixture struct {
 	admin   http.Handler
 	panel   http.Handler
 	runtime *accessRuntime
+	history *service.ResourceHistoryService
 }
 
 func newAccessFixture(t *testing.T) *accessFixture {
@@ -81,16 +84,18 @@ func newAccessFixture(t *testing.T) *accessFixture {
 
 	t.Cleanup(func() { _ = db.Close() })
 
-	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), nil)
+	dispatch := &accessRuntime{}
+	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), dispatch)
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
-	dispatch := &accessRuntime{}
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: dispatch}
+	history := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
+	deployment.History = history
 	deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
 	panel := api.New(sparks, embers, servers).WithDeployment(deployment)
 	admin := authenticatedTestAPI(t, db, panel)
 
-	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch}
+	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history}
 }
 
 func (f *accessFixture) user(name string, role int64) (database.User, http.Handler) {

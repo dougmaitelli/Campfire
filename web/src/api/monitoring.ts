@@ -3,6 +3,8 @@ import { apiFetch, readJSON } from "./client";
 import { isSpark, type Spark } from "./sparks";
 
 export interface ResourceUsage {
+  // Presentation lifetime supplied by the shared collector's cadence.
+  fresh_for_seconds?: number;
   server_id: string;
   state: string;
   cpu_percent: number | null;
@@ -29,6 +31,7 @@ export interface MonitoredServer {
   usage: ResourceUsage;
 }
 export interface MonitoringSnapshot {
+  sample_interval_seconds: number;
   collected_at: number;
   incomplete: boolean;
   servers: MonitoredServer[];
@@ -40,7 +43,7 @@ function object(value: unknown): value is Record<string, unknown> {
 function nonnegative(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
-function integer(value: unknown) {
+function integer(value: unknown): value is number {
   return nonnegative(value) && Number.isSafeInteger(value);
 }
 function nullable(value: unknown) {
@@ -89,6 +92,8 @@ export async function readMonitoring(
   if (
     !object(value) ||
     !integer(value.collected_at) ||
+    !integer(value.sample_interval_seconds) ||
+    value.sample_interval_seconds < 1 ||
     typeof value.incomplete !== "boolean" ||
     !Array.isArray(value.servers) ||
     !value.servers.every(isMonitoredServer) ||
@@ -96,7 +101,17 @@ export async function readMonitoring(
       (!Array.isArray(value.sparks) || !value.sparks.every(isSpark)))
   )
     throw new Error(i18n.t("monitoring.unexpectedMonitoringResponse"));
-  return value as unknown as MonitoringSnapshot;
+  const snapshot = value as unknown as MonitoringSnapshot;
+  return {
+    ...snapshot,
+    servers: snapshot.servers.map((server) => ({
+      ...server,
+      usage: {
+        ...server.usage,
+        fresh_for_seconds: Math.max(15, snapshot.sample_interval_seconds * 3),
+      },
+    })),
+  };
 }
 
 export function containerFresh(
@@ -106,7 +121,7 @@ export function containerFresh(
   return (
     usage !== undefined &&
     usage.sampled_at > 0 &&
-    usage.sample_age_seconds + elapsed <= 15 &&
+    usage.sample_age_seconds + elapsed <= (usage.fresh_for_seconds ?? 15) &&
     !usage.container_error
   );
 }
@@ -114,7 +129,8 @@ export function diskFresh(usage: ResourceUsage | undefined, elapsed: number) {
   return (
     usage !== undefined &&
     usage.disk_sampled_at > 0 &&
-    usage.disk_age_seconds + elapsed <= 90 &&
+    usage.disk_age_seconds + elapsed <=
+      Math.max(90, usage.fresh_for_seconds ?? 0) &&
     !usage.disk_error
   );
 }
