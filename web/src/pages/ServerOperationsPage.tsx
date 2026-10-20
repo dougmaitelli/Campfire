@@ -201,6 +201,16 @@ export function ServerOperationsPage({
               {monitoring.error}
             </InlineMessage>
           )}
+          {activeTab === "console" &&
+            monitoring.snapshot?.sparks?.some(
+              (spark) =>
+                spark.id === server.spark_id && spark.agent_update_available,
+            ) && (
+              <InlineMessage tone="warning">
+                This server’s Spark node is not running the latest version.{" "}
+                <a href="#sparks">Go to Sparks to update it.</a>
+              </InlineMessage>
+            )}
           {message && (
             <InlineMessage tone={message.tone}>
               <strong>{message.title}</strong>
