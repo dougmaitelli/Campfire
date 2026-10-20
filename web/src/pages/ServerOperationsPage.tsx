@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Fieldset } from "../components/forms/Fieldset";
 import { ContentState } from "../components/layout/ContentState";
@@ -42,6 +44,7 @@ export function ServerOperationsPage({
   tab: string;
 }) {
   const [server, setServer] = useState<Server | null>(null);
+  const links = useResourceLinks();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -146,7 +149,14 @@ export function ServerOperationsPage({
             />
           )
         }
-        description={server && (server.description || server.ember_name)}
+        description={
+          server &&
+          (server.description || (
+            <ResourceLink href={links.ember(server.ember_id)}>
+              {server.ember_name}
+            </ResourceLink>
+          ))
+        }
         actions={
           server?.permissions.includes("server.operate") && (
             <ServerLifecycleControls

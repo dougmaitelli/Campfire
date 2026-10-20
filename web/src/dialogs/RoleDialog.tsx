@@ -41,7 +41,7 @@ export function RoleDialog({
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
   async function submit() {
-    if (pending.current) return;
+    if (pending.current || role?.builtin) return;
     pending.current = true;
     setBusy(true);
     setError(null);
@@ -66,7 +66,7 @@ export function RoleDialog({
         ] as const);
   return (
     <Drawer
-      title={role ? "Edit role" : "Create role"}
+      title={role?.builtin ? "View role" : role ? "Edit role" : "Create role"}
       description="Roles grant panel capabilities; server roles apply only to assigned servers."
       busy={busy || deleting}
       onClose={onClose}
@@ -82,17 +82,19 @@ export function RoleDialog({
             disabled={busy}
             deleting={deleting}
           />
-          <Button
-            variant="primary"
-            disabled={busy || deleting || !name.trim()}
-            onClick={() => {
-              void submit();
-            }}
-            loading={busy}
-            loadingLabel={"Saving…"}
-          >
-            {"Save role"}
-          </Button>
+          {!role?.builtin && (
+            <Button
+              variant="primary"
+              disabled={busy || deleting || !name.trim()}
+              onClick={() => {
+                void submit();
+              }}
+              loading={busy}
+              loadingLabel={"Saving…"}
+            >
+              {"Save role"}
+            </Button>
+          )}
         </>
       }
     >
@@ -104,6 +106,7 @@ export function RoleDialog({
         <FormField label="Name">
           <TextInput
             id="role-name"
+            readOnly={role?.builtin}
             value={name}
             maxLength={64}
             onChange={(event) => setName(event.target.value)}
@@ -129,7 +132,12 @@ export function RoleDialog({
           <CheckboxField
             key={permission}
             checked={permissions.includes(permission)}
-            disabled={busy || deleting || permission === "server.view"}
+            disabled={
+              busy ||
+              deleting ||
+              role?.builtin === true ||
+              permission === "server.view"
+            }
             onChange={(event) =>
               setPermissions(
                 event.target.checked

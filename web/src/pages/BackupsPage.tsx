@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
 import { Button, ButtonLink } from "../components/forms/Button";
@@ -13,6 +15,7 @@ import { BackupState } from "../components/servers/BackupState";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 
 export function BackupsPage() {
+  const links = useResourceLinks();
   const backups = useCollection(listAllBackups);
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
@@ -91,7 +94,13 @@ export function BackupsPage() {
                       <span className="row-description">{item.error}</span>
                     )}
                   </td>
-                  <td>{item.server_name}</td>
+                  <td>
+                    <ResourceLink
+                      href={links.server(item.server_id, "backups")}
+                    >
+                      {item.server_name}
+                    </ResourceLink>
+                  </td>
                   <td>{new Date(item.modified_at).toLocaleString()}</td>
                   <td>{bytes(item.size)}</td>
                   <td>

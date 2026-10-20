@@ -2,22 +2,25 @@ import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
 import { PortPill } from "../network/PortPill";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
+import type { ReactNode } from "react";
 
 export function ServerReview({
   value,
+  name,
   sparkName,
   emberName,
   notice = "Saving reserves these resources and ports. The server will remain Not installed.",
 }: {
   value: ServerConfiguration;
-  sparkName: string;
-  emberName: string;
+  name?: ReactNode;
+  sparkName: ReactNode;
+  emberName: ReactNode;
   notice?: string | undefined;
 }) {
   return (
     <>
       <DetailsList>
-        <DetailItem label="Name">{value.name.trim()}</DetailItem>
+        <DetailItem label="Name">{name ?? value.name}</DetailItem>
         <DetailItem label="Description">
           {formatDisplayValue(value.description)}
         </DetailItem>

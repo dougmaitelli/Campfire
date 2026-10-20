@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { ActionGroup } from "../components/layout/ActionGroup";
 import { FormField } from "../components/forms/FormField";
@@ -15,22 +17,27 @@ import {
   retryExecution,
   runSchedule,
   type Execution,
-  type Schedule,
 } from "../api/activity";
 import { useCollection } from "../hooks/useCollection";
 import { ScheduleDialog } from "../dialogs/ScheduleDialog";
 
 import { Table, TableRow } from "../components/table/Table";
 import { ExecutionState } from "../components/schedules/ExecutionState";
+import { useResourceSelection } from "../routing/useResourceSelection";
 
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
 }
 export function SchedulesPage() {
+  const links = useResourceLinks();
   const servers = useCollection(listServers);
   const schedules = useCollection(listSchedules);
   const [runs, setRuns] = useState<Execution[]>([]);
-  const [editing, setEditing] = useState<Schedule | null>(null);
+  const {
+    selected: editing,
+    select: setEditing,
+    missing,
+  } = useResourceSelection(schedules.items);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -225,7 +232,7 @@ export function SchedulesPage() {
                     managed.some((server) => server.id === item.server_id)
                       ? () => {
                           setEditing(item);
-                          setOpen(true);
+                          setOpen(false);
                         }
                       : undefined
                   }
@@ -239,7 +246,7 @@ export function SchedulesPage() {
                         aria-label={`Edit schedule ${item.name}`}
                         onClick={() => {
                           setEditing(item);
-                          setOpen(true);
+                          setOpen(false);
                         }}
                       >
                         {item.name}
@@ -248,9 +255,11 @@ export function SchedulesPage() {
                       <strong>{item.name}</strong>
                     )}
                     <span className="row-description">
-                      {servers.items.find(
-                        (server) => server.id === item.server_id,
-                      )?.name ?? item.server_id}
+                      <ResourceLink href={links.server(item.server_id)}>
+                        {servers.items.find(
+                          (server) => server.id === item.server_id,
+                        )?.name ?? item.server_id}
+                      </ResourceLink>
                     </span>
                   </td>
                   <td>{item.action}</td>
@@ -264,7 +273,11 @@ export function SchedulesPage() {
                     )}
                   </td>
                   <td>{item.enabled ? when(item.next_run_at) : "Inactive"}</td>
-                  <td>{item.username}</td>
+                  <td>
+                    <ResourceLink href={links.user(item.run_as_user_id)}>
+                      {item.username}
+                    </ResourceLink>
+                  </td>
                   <td className="table-actions">
                     {managed.some((server) => server.id === item.server_id) && (
                       <ActionGroup>
@@ -318,18 +331,33 @@ export function SchedulesPage() {
               <tr key={run.id}>
                 <td>{when(run.created_at)}</td>
                 <td>
-                  <strong>{run.server_name}</strong>
+                  <ResourceLink href={links.server(run.server_id)}>
+                    {run.server_name}
+                  </ResourceLink>
                   <span className="row-description">
                     {run.action} ·{" "}
-                    {run.recurring
-                      ? "Recurring"
-                      : run.schedule_id
-                        ? "One-off"
-                        : "Manual"}
+                    <ResourceLink
+                      href={
+                        run.schedule_id &&
+                        managed.some((server) => server.id === run.server_id)
+                          ? links.schedule(run.schedule_id)
+                          : undefined
+                      }
+                    >
+                      {run.recurring
+                        ? "Recurring"
+                        : run.schedule_id
+                          ? "One-off"
+                          : "Manual"}
+                    </ResourceLink>
                     {run.retry_of ? " · Retry" : ""}
                   </span>
                 </td>
-                <td>{run.username}</td>
+                <td>
+                  <ResourceLink href={links.user(run.user_id)}>
+                    {run.username}
+                  </ResourceLink>
+                </td>
                 <td>
                   <ExecutionState state={run.state} />
                   <span className="row-description">{run.message}</span>
@@ -380,11 +408,28 @@ export function SchedulesPage() {
           </Button>
         )}
       </ContentPanel>
-      {open && (
+      {!schedules.loading && !schedules.error && missing && (
+        <InlineMessage>
+          This schedule is unavailable or no longer exists.
+        </InlineMessage>
+      )}
+      {editing &&
+        !managed.some((server) => server.id === editing.server_id) && (
+          <InlineMessage>
+            You do not have permission to edit this schedule.
+          </InlineMessage>
+        )}
+      {(open ||
+        (editing &&
+          managed.some((server) => server.id === editing.server_id))) && (
         <ScheduleDialog
+          key={editing?.id ?? "new"}
           schedule={editing}
           servers={managed}
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+            setEditing(null);
+          }}
           onSaved={() => {
             void schedules.refresh();
           }}

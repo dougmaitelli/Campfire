@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { FormField } from "../components/forms/FormField";
@@ -12,6 +14,7 @@ import { Table } from "../components/table/Table";
 import { AuditOutcome } from "../components/activity/AuditOutcome";
 
 export function AuditPage() {
+  const links = useResourceLinks();
   const [items, setItems] = useState<AuditEvent[]>([]);
   const [action, setAction] = useState("");
   const [target, setTarget] = useState("");
@@ -141,7 +144,15 @@ export function AuditPage() {
               <tr key={item.id}>
                 <td>{new Date(item.created_at * 1000).toLocaleString()}</td>
                 <td>
-                  {item.username || "Unauthenticated"}
+                  <ResourceLink
+                    href={
+                      item.user_id && !item.user?.deleted_at
+                        ? links.user(item.user_id)
+                        : undefined
+                    }
+                  >
+                    {item.username || "Unauthenticated"}
+                  </ResourceLink>
                   {item.api_token_id
                     ? ` (API token #${item.api_token_id})`
                     : ""}
@@ -153,7 +164,11 @@ export function AuditPage() {
                   )}
                 </td>
                 <td>{item.action}</td>
-                <td>{item.target}</td>
+                <td>
+                  <ResourceLink href={links.target(item.target)}>
+                    {item.target}
+                  </ResourceLink>
+                </td>
                 <td>
                   <AuditOutcome outcome={item.outcome} />
                 </td>

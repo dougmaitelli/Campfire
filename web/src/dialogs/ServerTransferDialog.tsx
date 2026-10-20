@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
 import { ActionGroup } from "../components/layout/ActionGroup";
 import { FormField } from "../components/forms/FormField";
@@ -41,6 +43,7 @@ export function ServerTransferDialog({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const links = useResourceLinks();
   const [sparks, setSparks] = useState<Spark[]>([]);
   const [items, setItems] = useState<ServerTransfer[]>([]);
   const [status, setStatus] = useState<RuntimeStatus>();
@@ -210,8 +213,11 @@ export function ServerTransferDialog({
           <InlineMessage role="alert">{error ?? loadError}</InlineMessage>
         )}
         <p>
-          Current Spark: <strong>{server.spark_name}</strong>. Ownership,
-          access, and schedules stay with the server.
+          Current Spark:{" "}
+          <ResourceLink href={links.spark(server.spark_id)}>
+            {server.spark_name}
+          </ResourceLink>
+          . Ownership, access, and schedules stay with the server.
         </p>
         {status !== undefined &&
           !["stopped", "not_installed"].includes(status.state) && (
@@ -334,11 +340,15 @@ export function ServerTransferDialog({
           <section key={item.id} aria-label={`Transfer ${item.id}`}>
             <p>
               <strong>{phases[item.phase] ?? item.phase}</strong>:{" "}
-              {sparks.find((spark) => spark.id === item.source_spark_id)
-                ?.name ?? item.source_spark_id}{" "}
+              <ResourceLink href={links.spark(item.source_spark_id)}>
+                {sparks.find((spark) => spark.id === item.source_spark_id)
+                  ?.name ?? item.source_spark_id}
+              </ResourceLink>{" "}
               →{" "}
-              {sparks.find((spark) => spark.id === item.target_spark_id)
-                ?.name ?? item.target_spark_id}
+              <ResourceLink href={links.spark(item.target_spark_id)}>
+                {sparks.find((spark) => spark.id === item.target_spark_id)
+                  ?.name ?? item.target_spark_id}
+              </ResourceLink>
             </p>
             {item.total_bytes > 0 && (
               <>

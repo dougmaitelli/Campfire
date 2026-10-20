@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -212,6 +213,9 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 	if err := conn.ReadJSON(&hello); err != nil || hello.Type != "hello" || hello.SparkID != id || len(hello.Hostname) > 253 || len(hello.Version) > 128 {
 		return
 	}
+
+	hello.Hostname = strings.TrimSpace(hello.Hostname)
+	hello.Version = strings.TrimSpace(hello.Version)
 
 	version, capabilities, err := protocol.Negotiate(hello)
 	if err != nil {

@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -20,6 +22,7 @@ import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 import "./monitoring.css";
 
 export function DashboardPage() {
+  const links = useResourceLinks();
   const [details, setDetails] = useState<{
     kind: "server" | "spark";
     id: string;
@@ -175,7 +178,11 @@ export function DashboardPage() {
                   >
                     {server.name}
                   </button>
-                  <span className="row-description">{server.spark_name}</span>
+                  <span className="row-description">
+                    <ResourceLink href={links.spark(server.spark_id)}>
+                      {server.spark_name}
+                    </ResourceLink>
+                  </span>
                 </td>
                 <td>
                   <ServerState state={server.usage.state} />

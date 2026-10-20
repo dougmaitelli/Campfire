@@ -16,7 +16,7 @@ export function AccountMenu() {
   const trigger = useRef<HTMLButtonElement>(null);
   const panelID = useId();
   const username = auth.session?.username ?? "Account";
-  const displayName = auth.session?.name?.trim() ?? "";
+  const displayName = auth.session?.name ?? "";
   const name = displayName === "" ? username : displayName;
   const initials = name
     .split(/\s+/)

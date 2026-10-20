@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -15,6 +17,7 @@ import { StatusPill } from "../components/status/StatusPill";
 import "./notifications.css";
 
 export function NotificationsPage() {
+  const links = useResourceLinks();
   const inbox = useNotifications();
   const [items, setItems] = useState<Notification[]>([]);
   const [older, setOlder] = useState(false);
@@ -157,7 +160,11 @@ export function NotificationsPage() {
           >
             <div className="notification-content">
               <h2>
-                <span>{item.title}</span>
+                <ResourceLink
+                  href={links.target(`${item.target_type}:${item.target_id}`)}
+                >
+                  {item.title}
+                </ResourceLink>
                 {!item.read_at && (
                   <StatusPill tone="warning">Unread</StatusPill>
                 )}

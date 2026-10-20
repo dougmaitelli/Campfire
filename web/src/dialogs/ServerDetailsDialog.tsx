@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { useCallback } from "react";
 import { apiFetch, readJSON } from "../api/client";
 import { isServer, type Server } from "../api/servers";
@@ -18,6 +20,7 @@ type Props = Omit<
 > & { id: string };
 
 export function ServerDetailsDialog({ id, ...props }: Props) {
+  const links = useResourceLinks();
   const loadDetails = useCallback(
     async (signal: AbortSignal) => {
       const value = await readJSON(
@@ -41,8 +44,21 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
         <>
           <ServerReview
             value={server}
-            sparkName={server.spark_name}
-            emberName={server.ember_name}
+            name={
+              <ResourceLink href={links.server(server.id)}>
+                {server.name}
+              </ResourceLink>
+            }
+            sparkName={
+              <ResourceLink href={links.spark(server.spark_id)}>
+                {server.spark_name}
+              </ResourceLink>
+            }
+            emberName={
+              <ResourceLink href={links.ember(server.ember_id)}>
+                {server.ember_name}
+              </ResourceLink>
+            }
             notice=""
           />
           {server.runtime?.disk_quota_error_code && (

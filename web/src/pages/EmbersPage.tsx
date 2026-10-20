@@ -19,11 +19,16 @@ import { Table, TableRow } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
 import { PortPill } from "../components/network/PortPill";
 import { EMPTY_VALUE } from "../utils/formatDisplayValue";
+import { useResourceSelection } from "../routing/useResourceSelection";
 
 export function EmbersPage() {
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
   const [importing, setImporting] = useState(false);
-  const [editing, setEditing] = useState<Ember | null>(null);
+  const {
+    selected: editing,
+    select: setEditing,
+    missing,
+  } = useResourceSelection(items);
   const checks = useCollection(listEmberUpdates);
   const [busy, setBusy] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -259,6 +264,7 @@ export function EmbersPage() {
       </p>
       {(importing || editing) && (
         <ImportEmberDialog
+          key={editing?.id ?? "new"}
           ember={editing}
           initialPreview={update?.preview}
           initialSourceURL={update?.url}
@@ -276,6 +282,11 @@ export function EmbersPage() {
             void refresh();
           }}
         />
+      )}
+      {!loading && !error && missing && (
+        <InlineMessage>
+          This Ember is unavailable or no longer exists.
+        </InlineMessage>
       )}
     </section>
   );

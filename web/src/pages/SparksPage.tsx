@@ -15,14 +15,19 @@ import { useMonitoring } from "../hooks/useMonitoring";
 import "./sparks.css";
 
 import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
+import { useResourceSelection } from "../routing/useResourceSelection";
 
 const UPDATE_RECONNECT_TIMEOUT_MS = 120000;
 const UPDATE_STATUS_POLL_INTERVAL_MS = 2000;
 const UPDATE_STATUS_REQUEST_TIMEOUT_MS = 10000;
 
 export function SparksPage() {
-  const [selectedDetails, setDetails] = useState<Spark | null>(null);
   const { sparks, loading, error, refresh, addSpark } = useSparks();
+  const {
+    selected: selectedDetails,
+    select: setDetails,
+    missing,
+  } = useResourceSelection(sparks);
   const monitoring = useMonitoring();
   const details = selectedDetails
     ? (sparks.find((spark) => spark.id === selectedDetails.id) ??
@@ -65,9 +70,6 @@ export function SparksPage() {
           const updated = items.find((item) => item.id === waiting.id);
           if (updated?.connected && updated.agent_version === waiting.version) {
             addSpark(updated);
-            setDetails((previous) =>
-              previous?.id === updated.id ? updated : previous,
-            );
             setWaiting(null);
             setUpdating(null);
           } else if (Date.now() > deadline) {
@@ -164,6 +166,11 @@ export function SparksPage() {
       />
       {(deleteError ?? (sparks.length ? error : null)) && (
         <InlineMessage role="alert">{error ?? deleteError}</InlineMessage>
+      )}
+      {!loading && !error && missing && (
+        <InlineMessage>
+          This Spark is unavailable or no longer exists.
+        </InlineMessage>
       )}
       <ContentPanel aria-busy={loading}>
         {updateError && <InlineMessage>{updateError}</InlineMessage>}

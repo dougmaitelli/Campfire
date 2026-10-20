@@ -28,7 +28,7 @@ export function SparkConnectionState({
         : disabled
           ? "Disabled"
           : connected
-            ? `Connected${version?.trim() ? ` - ${version.trim()}` : ""}`
+            ? `Connected${version ? ` - ${version}` : ""}`
             : "Disconnected"}
     </StatusPill>
   );

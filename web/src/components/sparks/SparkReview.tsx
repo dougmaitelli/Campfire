@@ -4,14 +4,15 @@ import { StatusPill } from "../status/StatusPill";
 import { PortPill } from "../network/PortPill";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import "./spark-review.css";
+import type { ReactNode } from "react";
 
 interface SparkReviewProps {
-  name: string;
+  name: ReactNode;
   description: string;
   disabled: boolean;
   settings: SparkSettings;
   notice?: string;
-  serverCreationRoles?: string;
+  serverCreationRoles?: ReactNode;
 }
 
 export function SparkReview({
@@ -25,7 +26,7 @@ export function SparkReview({
   return (
     <div className="spark-review">
       <DetailsList>
-        <DetailItem label="Name">{name.trim()}</DetailItem>
+        <DetailItem label="Name">{name}</DetailItem>
         <DetailItem label="Description" valueClassName="review-description">
           {formatDisplayValue(description)}
         </DetailItem>
@@ -55,7 +56,7 @@ export function SparkReview({
             : `${settings.disk_mb.toLocaleString()} MiB`}
         </DetailItem>
         <DetailItem label="Game address">
-          {settings.game_address.trim() || "Not set"}
+          {formatDisplayValue(settings.game_address)}
         </DetailItem>
       </DetailsList>
       <h4>Port allocations</h4>

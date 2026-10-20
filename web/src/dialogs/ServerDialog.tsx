@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import "./server-dialog.css";
@@ -37,6 +39,7 @@ import {
 } from "../api/access";
 
 import { AccessGrantFields } from "../components/forms/AccessGrantFields";
+import { AccessGrantLabel } from "../components/forms/AccessGrantLabel";
 
 interface ServerDialogProps {
   s3Configured: boolean;
@@ -63,6 +66,7 @@ export function ServerDialog({
   onClose,
   onSaved,
 }: ServerDialogProps) {
+  const links = useResourceLinks();
   const session = useAuthentication().session;
   const admin = session?.admin === true;
   const canShare =
@@ -387,8 +391,13 @@ export function ServerDialog({
                 description={
                   applyRevision && (
                     <>
-                      The latest definition for {server?.ember_name} will be
-                      applied. Review variables, images, required ports,
+                      The latest definition for{" "}
+                      <ResourceLink
+                        href={server ? links.ember(server.ember_id) : undefined}
+                      >
+                        {server?.ember_name}
+                      </ResourceLink>{" "}
+                      will be applied. Review variables, images, required ports,
                       startup, and ownership before applying.
                     </>
                   )
@@ -868,9 +877,13 @@ export function ServerDialog({
                       </FormField>
                     ) : server ? (
                       <p>
-                        {owner
-                          ? formatUserLabel(owner)
-                          : (session?.username ?? "Administrator managed")}
+                        <ResourceLink
+                          href={owner ? links.user(owner.id) : undefined}
+                        >
+                          {owner
+                            ? formatUserLabel(owner)
+                            : (session?.username ?? "Administrator managed")}
+                        </ResourceLink>
                       </p>
                     ) : null}
                     <h4 className="server-dialog-heading">Access grants</h4>
@@ -935,8 +948,23 @@ export function ServerDialog({
               {!accessOnly && (
                 <ServerReview
                   value={value}
-                  sparkName={spark?.name ?? ""}
-                  emberName={ember?.name ?? ""}
+                  name={
+                    server ? (
+                      <ResourceLink href={links.server(server.id)}>
+                        {value.name}
+                      </ResourceLink>
+                    ) : undefined
+                  }
+                  sparkName={
+                    <ResourceLink href={links.spark(value.spark_id)}>
+                      {spark?.name ?? ""}
+                    </ResourceLink>
+                  }
+                  emberName={
+                    <ResourceLink href={links.ember(value.ember_id)}>
+                      {ember?.name ?? ""}
+                    </ResourceLink>
+                  }
                   notice={
                     applyRevision
                       ? "Applying updates the server’s Ember revision and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
@@ -951,9 +979,13 @@ export function ServerDialog({
                   <h4 className="server-dialog-heading">Access</h4>
                   <p>
                     Owner:{" "}
-                    {owner
-                      ? formatUserLabel(owner)
-                      : (session?.username ?? "Administrator managed")}
+                    <ResourceLink
+                      href={owner ? links.user(owner.id) : undefined}
+                    >
+                      {owner
+                        ? formatUserLabel(owner)
+                        : (session?.username ?? "Administrator managed")}
+                    </ResourceLink>
                   </p>
                   {grants.length ? (
                     <ul>
@@ -965,10 +997,7 @@ export function ServerDialog({
                               : `role:${grant.role_id}`
                           }
                         >
-                          {grant.role_id === null
-                            ? grant.username
-                            : `Role: ${grant.role_name}`}{" "}
-                          · {grant.access_role}
+                          <AccessGrantLabel grant={grant} />
                         </li>
                       ))}
                     </ul>

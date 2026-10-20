@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
 import { Button } from "../components/forms/Button";
@@ -12,6 +14,7 @@ import { UserDialog } from "../dialogs/UserDialog";
 import { StatusPill } from "../components/status/StatusPill";
 
 import { Table, TableRow } from "../components/table/Table";
+import { useResourceSelection } from "../routing/useResourceSelection";
 
 export function UsersPage() {
   const users = useCollection(listUsers);
@@ -24,11 +27,16 @@ export function UsersPage() {
       value.toLowerCase().includes(query),
     ),
   );
-  const [editing, setEditing] = useState<User | null>(null);
+  const {
+    selected: editing,
+    select: setEditing,
+    missing,
+  } = useResourceSelection(users.items);
+  const links = useResourceLinks();
   const [open, setOpen] = useState(false);
   function edit(user: User) {
     setEditing(user);
-    setOpen(true);
+    setOpen(false);
   }
   return (
     <section aria-labelledby="page-title">
@@ -105,7 +113,11 @@ export function UsersPage() {
                     <span className="row-description">{user.username}</span>
                   )}
                 </td>
-                <td>{user.role.name}</td>
+                <td>
+                  <ResourceLink href={links.role(user.role_id)}>
+                    {user.role.name}
+                  </ResourceLink>
+                </td>
                 <td>
                   <StatusPill tone={user.disabled ? "warning" : "positive"}>
                     {user.disabled ? "Disabled" : "Enabled"}
@@ -120,11 +132,20 @@ export function UsersPage() {
         At least one enabled administrator must remain. Accounts that own
         servers must transfer ownership before deletion.
       </p>
-      {open && (
+      {!users.loading && !users.error && missing && (
+        <InlineMessage>
+          This user is unavailable or no longer exists.
+        </InlineMessage>
+      )}
+      {(open || editing) && (
         <UserDialog
+          key={editing?.id ?? "new"}
           user={editing}
           roles={roles.items}
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+            setEditing(null);
+          }}
           onSaved={(user) => {
             users.upsert(user);
             if (user.id === auth.session?.user_id) void auth.reload();

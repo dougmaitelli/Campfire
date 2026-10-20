@@ -22,6 +22,7 @@ import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import "./spark-dialog.css";
 import { AccessGrantFields } from "../components/forms/AccessGrantFields";
+import { AccessGrantLabel } from "../components/forms/AccessGrantLabel";
 
 interface SparkDialogProps {
   spark: Spark | null;
@@ -484,14 +485,23 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               description={description}
               disabled={disabled}
               settings={settings}
-              serverCreationRoles={[
-                "Administrators",
-                ...grants.map((grant) =>
-                  grant.role_id === null
-                    ? grant.username
-                    : `Role: ${grant.role_name}`,
-                ),
-              ].join(", ")}
+              serverCreationRoles={
+                <>
+                  Administrators
+                  {grants.map((grant) => (
+                    <span
+                      key={
+                        grant.user_id !== null
+                          ? `user:${grant.user_id}`
+                          : `role:${grant.role_id}`
+                      }
+                    >
+                      ,{" "}
+                      <AccessGrantLabel grant={grant} showAccessRole={false} />
+                    </span>
+                  ))}
+                </>
+              }
             />
           ),
         },

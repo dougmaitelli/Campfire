@@ -5,6 +5,7 @@ import { FormField } from "./FormField";
 import { Select } from "./Select";
 import { UserSelect } from "./UserSelect";
 import "./access-grant-fields.css";
+import { AccessGrantLabel } from "./AccessGrantLabel";
 
 interface Props {
   grants: AccessGrant[];
@@ -45,10 +46,7 @@ export function AccessGrantFields({
           }
         >
           <span>
-            {grant.role_id === null
-              ? grant.username
-              : `Role: ${grant.role_name}`}{" "}
-            · {grant.access_role}
+            <AccessGrantLabel grant={grant} />
           </span>
           <Button
             type="button"

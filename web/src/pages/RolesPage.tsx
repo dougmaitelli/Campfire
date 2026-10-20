@@ -8,6 +8,9 @@ import { useCollection } from "../hooks/useCollection";
 import { RoleDialog } from "../dialogs/RoleDialog";
 
 import { Table, TableRow } from "../components/table/Table";
+import { useResourceSelection } from "../routing/useResourceSelection";
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 
 const permissionLabels: Record<string, string> = {
   "users.manage": "Manage users",
@@ -24,8 +27,13 @@ const permissionLabels: Record<string, string> = {
 };
 
 export function RolesPage() {
+  const links = useResourceLinks();
   const roles = useCollection(listRoles);
-  const [editing, setEditing] = useState<Role | null>(null);
+  const {
+    selected: editing,
+    select: setEditing,
+    missing,
+  } = useResourceSelection(roles.items);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,7 +41,7 @@ export function RolesPage() {
     if (role.builtin || busy) return;
     setError(null);
     setEditing(role);
-    setOpen(true);
+    setOpen(false);
   }
   async function remove(role: Role) {
     if (
@@ -48,6 +56,7 @@ export function RolesPage() {
     try {
       await deleteRole(role.id);
       setOpen(false);
+      setEditing(null);
       await roles.refresh();
     } catch (cause) {
       setError(
@@ -112,7 +121,9 @@ export function RolesPage() {
               >
                 <td>
                   {role.builtin ? (
-                    <strong>{role.name}</strong>
+                    <ResourceLink href={links.role(role.id)}>
+                      {role.name}
+                    </ResourceLink>
                   ) : (
                     <button
                       type="button"
@@ -144,10 +155,19 @@ export function RolesPage() {
           </tbody>
         </Table>
       </ContentPanel>
-      {open && (
+      {!roles.loading && !roles.error && missing && (
+        <InlineMessage>
+          This role is unavailable or no longer exists.
+        </InlineMessage>
+      )}
+      {(open || editing) && (
         <RoleDialog
+          key={editing?.id ?? "new"}
           role={editing}
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+            setEditing(null);
+          }}
           onSaved={roles.upsert}
           onDelete={
             editing && !editing.builtin

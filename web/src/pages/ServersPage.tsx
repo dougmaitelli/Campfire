@@ -1,3 +1,5 @@
+import { ResourceLink } from "../components/navigation/ResourceLink";
+import { useResourceLinks } from "../routing/useResourceLinks";
 import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { ActionGroup } from "../components/layout/ActionGroup";
@@ -27,6 +29,7 @@ import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
+  const links = useResourceLinks();
   const [details, setDetails] = useState<Server | null>(null);
   const auth = useAuthentication();
   const canApplyRevision =
@@ -298,8 +301,14 @@ export function ServersPage() {
                     )}
                 </td>
                 <td>
-                  <span>{server.spark_name}</span>
-                  <span className="row-description">{server.ember_name}</span>
+                  <ResourceLink href={links.spark(server.spark_id)}>
+                    {server.spark_name}
+                  </ResourceLink>
+                  <span className="row-description">
+                    <ResourceLink href={links.ember(server.ember_id)}>
+                      {server.ember_name}
+                    </ResourceLink>
+                  </span>
                 </td>
                 <td>
                   <ResourceReadings
