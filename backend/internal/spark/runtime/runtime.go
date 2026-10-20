@@ -40,11 +40,13 @@ type Manager struct {
 }
 
 type entry struct {
-	mu        sync.Mutex
-	uploads   map[string]*fileUpload
-	Installed bool                `json:"installed"`
-	Revision  string              `json:"revision"`
-	Status    model.RuntimeStatus `json:"status"`
+	mu          sync.Mutex
+	cancel      context.CancelFunc
+	interrupted bool
+	uploads     map[string]*fileUpload
+	Installed   bool                `json:"installed"`
+	Revision    string              `json:"revision"`
+	Status      model.RuntimeStatus `json:"status"`
 }
 
 // New constructs a manager whose background operations follow the process lifetime.
@@ -250,6 +252,25 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	if e.Status.Busy {
+		if (q.Action == "stop" || q.Action == "kill") && (e.Status.Operation == "install" || e.Status.Operation == "reinstall" || e.Status.Operation == "update") {
+			e.interrupted = true
+			cancel := e.cancel
+			e.mu.Unlock()
+
+			args := []string{"stop", "--time", "10", container(d.ServerID) + "-install"}
+			if q.Action == "kill" {
+				args = []string{"stop", "--signal", "SIGKILL", "--time", "0", container(d.ServerID) + "-install"}
+			}
+			// Cleanup removes the container even if stopping fails or preparation
+			// has not created it yet. Keep it until then to preserve its output.
+			_, _ = m.Docker.Run(ctx, nil, args...)
+
+			cancel()
+			e.mu.Lock()
+
+			return e.Status, nil
+		}
+
 		return model.RuntimeStatus{}, errors.New("another server operation is in progress")
 	}
 
@@ -294,7 +315,11 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	m.wg.Add(1)
 
 	m.mu.Unlock()
-	go m.run(d, q, e)
+	operationCtx, cancel := context.WithTimeout(m.ctx, 45*time.Minute)
+	e.cancel = cancel
+
+	e.interrupted = false
+	go m.run(operationCtx, cancel, d, q, e)
 
 	return e.Status, nil
 }
@@ -306,10 +331,8 @@ func (m *Manager) progress(_ string, e *entry, text string) {
 	e.mu.Unlock()
 }
 
-func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
+func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.Deployment, q model.RuntimeRequest, e *entry) {
 	defer m.wg.Done()
-
-	ctx, cancel := context.WithTimeout(m.ctx, 45*time.Minute)
 	defer cancel()
 
 	var err error
@@ -351,7 +374,17 @@ func (m *Manager) run(d model.Deployment, q model.RuntimeRequest, e *entry) {
 		e.Status.OperationState = model.OperationFailed
 	}
 
-	status, observeErr := m.observe(ctx, d, e)
+	if e.interrupted {
+		e.Status.Error = "Installation interrupted by request."
+		e.Status.ErrorCode = model.RuntimeOperationInterrupted
+		e.Status.OperationState = model.OperationInterrupted
+		e.Status.Progress = "Interrupted"
+	}
+
+	observeCtx, observeCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer observeCancel()
+
+	status, observeErr := m.observe(observeCtx, d, e)
 	if observeErr == nil {
 		e.Status.State, e.Status.Ready = status.State, status.Ready
 
@@ -617,6 +650,11 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 	}
 
 	e.mu.Lock()
+	if e.interrupted || ctx.Err() != nil {
+		e.mu.Unlock()
+		return context.Canceled
+	}
+
 	e.Installed = true
 	e.mu.Unlock()
 

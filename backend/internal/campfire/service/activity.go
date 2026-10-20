@@ -475,6 +475,10 @@ func (s *ActivityService) observe(ctx context.Context, run database.ScheduleRun,
 		return s.finish(ctx, run, "interrupted", "The node reports a different operation; verify server state before retrying.")
 	}
 
+	if !status.Busy && status.ErrorCode == model.RuntimeOperationInterrupted {
+		return s.finish(ctx, run, "interrupted", "Node operation was interrupted.")
+	}
+
 	if status.Error != "" {
 		return s.finish(ctx, run, "failed", "Node operation failed; inspect server status and logs.")
 	}

@@ -40,6 +40,14 @@ func (d *activityRuntime) Action(_ context.Context, _ string, input model.Runtim
 
 	if input.Action != "status" {
 		d.calls++
+		if d.status.Busy && d.status.Operation == "install" && (input.Action == "stop" || input.Action == "kill") {
+			d.status.Busy = false
+			d.status.ErrorCode = model.RuntimeOperationInterrupted
+			d.status.Error = "Installation interrupted by request."
+
+			return d.status, nil
+		}
+
 		d.status = model.RuntimeStatus{ServerID: input.ServerID, OperationID: input.OperationID, Operation: input.Action, State: "stopped", Busy: input.Action != "command"}
 	}
 
@@ -86,6 +94,37 @@ func activityFixture(t *testing.T) (*ActivityService, *database.Database, *activ
 	}
 
 	return activity, db, runtime, principal
+}
+
+func TestStopInstallationRecordsInterruption(t *testing.T) {
+	s, db, runtime, owner := activityFixture(t)
+	ctx := context.WithValue(t.Context(), actorKey{}, owner)
+
+	run, err := s.BeginManual(ctx, "game", "install", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Store.UpdateRun(ctx, run.ID, "running", "", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	runtime.status = model.RuntimeStatus{ServerID: "game", OperationID: run.ID, Operation: "install", State: "installing", Busy: true}
+
+	status, err := s.deployment.Action(ctx, "game", "stop")
+	if err != nil || status.OperationID != run.ID || status.Busy {
+		t.Fatalf("stop installation: %+v, %v", status, err)
+	}
+
+	saved, err := s.Store.Run(ctx, run.ID)
+	if err != nil || saved.State != "interrupted" {
+		t.Fatalf("installation history: %+v, %v", saved, err)
+	}
+
+	var count int64
+	if err := db.ORM().Model(&database.ScheduleRun{}).Count(&count).Error; err != nil || count != 1 {
+		t.Fatalf("stop should interrupt the existing execution: %d, %v", count, err)
+	}
 }
 
 func savedSchedule(t *testing.T, s *ActivityService, p Principal, action string) database.Schedule {

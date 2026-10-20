@@ -58,6 +58,31 @@ test("UI components render the selected language without changing protocol value
   await i18n.changeLanguage("en");
 });
 
+test("installer controls allow stop and kill while keeping other mutations disabled", async () => {
+  const { ServerLifecycleControls } = await loadWebModule(
+    new URL("components/servers/ServerLifecycleControls.tsx", root),
+  );
+  for (const operation of ["install", "reinstall", "update"]) {
+    const output = renderToStaticMarkup(
+      React.createElement(ServerLifecycleControls, {
+        status: { state: "installing", operation, busy: true },
+        disabled: false,
+        canConfigure: true,
+        onAction: () => {},
+      }),
+    );
+    const buttons = [...output.matchAll(/<button\b([^>]*)>(.*?)<\/button>/g)];
+    for (const [, attributes, label] of buttons) {
+      assert.equal(
+        attributes.includes("disabled"),
+        !["Stop", "Kill"].includes(label),
+      );
+    }
+    assert.ok(buttons.some(([, , label]) => label === "Stop"));
+    assert.ok(buttons.some(([, , label]) => label === "Kill"));
+  }
+});
+
 test("translated interpolation remains escaped by React", () => {
   const value = i18n.t("users.displayLabel", {
     name: '<img src=x onerror="alert(1)">',

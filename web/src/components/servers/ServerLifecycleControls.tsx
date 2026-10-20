@@ -14,6 +14,10 @@ export function ServerLifecycleControls({
   onAction: (action: ServerAction) => void;
 }) {
   const { t } = useTranslation();
+  const installing =
+    status?.busy === true &&
+    ["install", "reinstall", "update"].includes(status.operation ?? "");
+  const canInterrupt = !disabled && installing;
   const blocked =
     disabled ||
     !status ||
@@ -28,10 +32,10 @@ export function ServerLifecycleControls({
     <>
       <Button
         variant="primary"
-        disabled={blocked || install}
-        onClick={() => onAction(running ? "stop" : "start")}
+        disabled={!canInterrupt && (blocked || install)}
+        onClick={() => onAction(running || installing ? "stop" : "start")}
       >
-        {running ? t("common.stop") : t("common.start")}
+        {running || installing ? t("common.stop") : t("common.start")}
       </Button>
       <Button
         disabled={blocked || !running}
@@ -41,7 +45,7 @@ export function ServerLifecycleControls({
       </Button>
       <Button
         variant="danger"
-        disabled={blocked || !running}
+        disabled={!canInterrupt && (blocked || !running)}
         onClick={() => onAction("kill")}
       >
         {t("common.kill")}

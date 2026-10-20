@@ -91,6 +91,15 @@ func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, c
 		if err := s.recordObservation(ctx, id, status); err != nil {
 			return model.RuntimeStatus{}, err
 		}
+
+		if status.Busy && (action == "stop" || action == "kill") && (status.Operation == "install" || status.Operation == "reinstall" || status.Operation == "update") {
+			status, err := s.dispatchAction(ctx, id, action, content, "")
+			if err == nil {
+				err = s.recordObservation(ctx, id, status)
+			}
+
+			return status, err
+		}
 	}
 
 	run, err := s.Activity.BeginManual(ctx, id, action, content)
@@ -226,7 +235,7 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		return model.RuntimeStatus{}, fmt.Errorf("%w: apply the current Ember before installing game files", ErrInvalidServer)
 	}
 
-	if !server.EmberUpdateAvailable && action != "status" && action != "logs" && action != "command" {
+	if !server.EmberUpdateAvailable && action != "status" && action != "logs" && action != "command" && action != "stop" && action != "kill" {
 		if _, err := s.sync(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}

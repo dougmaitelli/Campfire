@@ -17,14 +17,15 @@ import (
 )
 
 type fakeDocker struct {
-	mu              sync.Mutex
-	states          map[string]string
-	calls           [][]string
-	failInstaller   bool
-	block           <-chan struct{}
-	input           string
-	installerScript string
-	inputError      error
+	mu               sync.Mutex
+	states           map[string]string
+	calls            [][]string
+	failInstaller    bool
+	block            <-chan struct{}
+	installerStarted chan<- struct{}
+	input            string
+	installerScript  string
+	inputError       error
 }
 
 type fakeQuota struct{ err error }
@@ -41,6 +42,10 @@ func newTestManager(ctx context.Context, directory string) *Manager {
 
 func (f *fakeDocker) Run(ctx context.Context, input io.Reader, args ...string) (string, error) {
 	if args[0] == "run" && f.block != nil {
+		if f.installerStarted != nil {
+			f.installerStarted <- struct{}{}
+		}
+
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
@@ -327,6 +332,61 @@ func TestInstallerStopsOnFailureBeforeSuccessMessage(t *testing.T) {
 	output, err = os.ReadFile(filepath.Join(m.root(d.ServerID), "installer.log"))
 	if err != nil || string(output) != "Retry succeeded\n" {
 		t.Fatal("installer retry retained old logs", string(output), err)
+	}
+}
+
+func TestInterruptInstaller(t *testing.T) {
+	for _, action := range []string{"stop", "kill"} {
+		t.Run(action, func(t *testing.T) {
+			d := runtimeFixture()
+			blocked := make(chan struct{})
+			started := make(chan struct{}, 1)
+			docker := &fakeDocker{states: make(map[string]string), block: blocked, installerStarted: started}
+			m := newTestManager(context.Background(), t.TempDir())
+			m.Docker = docker
+			m.Ownership = func(string, string) error { return nil }
+			t.Cleanup(m.Close)
+
+			request := model.RuntimeRequest{ServerID: d.ServerID, Action: "install", OperationID: "installation"}
+			if _, err := m.Execute(context.Background(), d, request); err != nil {
+				t.Fatal(err)
+			}
+
+			select {
+			case <-started:
+			case <-time.After(time.Second):
+				t.Fatal("installer did not start")
+			}
+
+			if _, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: "interrupt"}); err != nil {
+				t.Fatal(err)
+			}
+
+			status := awaitRequest(t, m, d, request)
+			if status.State != "not_installed" || status.OperationState != model.OperationInterrupted || status.ErrorCode != model.RuntimeOperationInterrupted {
+				t.Fatalf("interrupted installer: %+v", status)
+			}
+
+			docker.mu.Lock()
+			calls := append([][]string(nil), docker.calls...)
+			docker.mu.Unlock()
+
+			want := []string{"stop", "--time", "10", container(d.ServerID) + "-install"}
+			if action == "kill" {
+				want = []string{"stop", "--signal", "SIGKILL", "--time", "0", container(d.ServerID) + "-install"}
+			}
+
+			if !slices.ContainsFunc(calls, func(args []string) bool { return slices.Equal(args, want) }) {
+				t.Fatalf("did not target the installer: %v", calls)
+			}
+
+			close(blocked)
+
+			status = awaitOperation(t, m, d, "install", "retry")
+			if status.OperationState != model.OperationSucceeded || status.State != "stopped" {
+				t.Fatalf("retry after interruption: %+v", status)
+			}
+		})
 	}
 }
 
