@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -22,6 +24,7 @@ export function ScheduleDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [serverID, setServerID] = useState(
     schedule?.server_id ?? servers[0]?.id ?? "",
   );
@@ -60,7 +63,9 @@ export function ScheduleDialog({
       !schedule ||
       pending.current ||
       !window.confirm(
-        `Delete schedule "${schedule.name}"? History will be retained.`,
+        i18n.t("scheduleDialog.deleteScheduleHistoryWillBeRetained", {
+          scheduleName: schedule.name,
+        }),
       )
     )
       return;
@@ -74,7 +79,9 @@ export function ScheduleDialog({
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to delete schedule.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("scheduleDialog.unableToDeleteSchedule"),
       );
     } finally {
       pending.current = false;
@@ -85,7 +92,7 @@ export function ScheduleDialog({
   async function submit() {
     if (pending.current) return;
     if (once && enabled && new Date(runAt).getTime() <= Date.now()) {
-      setError("Choose a future date and time for this one-off schedule.");
+      setError(i18n.t("scheduleDialog.chooseAFutureDateAndTimeForThisOneOff"));
       return;
     }
     pending.current = true;
@@ -110,7 +117,9 @@ export function ScheduleDialog({
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to save schedule.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("scheduleDialog.unableToSaveSchedule"),
       );
     } finally {
       pending.current = false;
@@ -119,13 +128,19 @@ export function ScheduleDialog({
   }
   return (
     <Drawer
-      title={schedule ? "Edit schedule" : "Create schedule"}
-      description="One-off and recurring operations run with your current permissions."
+      title={
+        schedule
+          ? t("scheduleDialog.editSchedule")
+          : t("scheduleDialog.createSchedule")
+      }
+      description={t(
+        "scheduleDialog.oneOffAndRecurringOperationsRunWithYourCurrentPermissions",
+      )}
       busy={busy}
       onClose={onClose}
       footerLeft={
         <Button disabled={busy} onClick={onClose}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       }
       footerRight={
@@ -158,16 +173,16 @@ export function ScheduleDialog({
               void submit();
             }}
             loading={busy && !deleting}
-            loadingLabel={"Saving…"}
+            loadingLabel={t("scheduleDialog.saving")}
           >
-            {"Save schedule"}
+            {t("scheduleDialog.saveSchedule")}
           </Button>
         </>
       }
     >
       <div className="drawer-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
-        <FormField label="Name">
+        <FormField label={t("common.name")}>
           <TextInput
             id="schedule-name"
             maxLength={100}
@@ -175,7 +190,7 @@ export function ScheduleDialog({
             onChange={(e) => setName(e.target.value)}
           />
         </FormField>
-        <FormField label="Server">
+        <FormField label={t("common.server")}>
           <Select
             id="schedule-server"
             value={serverID}
@@ -189,7 +204,7 @@ export function ScheduleDialog({
             ))}
           </Select>
         </FormField>
-        <FormField label="Action">
+        <FormField label={t("scheduleDialog.action")}>
           <Select
             id="schedule-action"
             value={action}
@@ -199,7 +214,7 @@ export function ScheduleDialog({
               (value) => (
                 <option key={value} value={value}>
                   {value === "command"
-                    ? "Console command"
+                    ? i18n.t("scheduleDialog.consoleCommand")
                     : value.charAt(0).toUpperCase() + value.slice(1)}
                 </option>
               ),
@@ -209,8 +224,10 @@ export function ScheduleDialog({
         {action === "command" && (
           <>
             <FormField
-              label="Console command"
-              description="Commands are stored privately for execution. When editing a command schedule, leave this blank to keep its stored command."
+              label={t("scheduleDialog.consoleCommand")}
+              description={t(
+                "scheduleDialog.commandsAreStoredPrivatelyForExecutionWhenEditingACommand",
+              )}
             >
               <TextInput
                 id="schedule-command"
@@ -223,19 +240,21 @@ export function ScheduleDialog({
             </FormField>
           </>
         )}
-        <FormField label="Timing">
+        <FormField label={t("scheduleDialog.timing")}>
           <Select
             value={once ? "once" : "recurring"}
             onValueChange={(selectedValue) => setOnce(selectedValue === "once")}
           >
-            <option value="recurring">Recurring</option>
-            <option value="once">Run once</option>
+            <option value="recurring">{t("scheduleDialog.recurring")}</option>
+            <option value="once">{t("scheduleDialog.runOnce")}</option>
           </Select>
         </FormField>
         {once ? (
           <FormField
-            label="Run at"
-            description="Date and time in your browser’s local time zone."
+            label={t("scheduleDialog.runAt")}
+            description={t(
+              "scheduleDialog.dateAndTimeInYourBrowserSLocalTimeZone",
+            )}
           >
             <TextInput
               type="datetime-local"
@@ -259,24 +278,22 @@ export function ScheduleDialog({
           disabled={busy}
           onChange={(event) => setOnlyWhenRunning(event.target.checked)}
         >
-          Only run when the server is running
+          {t("scheduleDialog.onlyRunWhenTheServerIsRunning")}
         </CheckboxField>
         <p className="field-help">
-          Skip this run if the server is stopped. Otherwise, attempt the
-          scheduled action regardless of server state; each action still has its
-          normal requirements.
+          {t("scheduleDialog.skipThisRunIfTheServerIsStoppedOtherwiseAttempt")}
         </p>
         <CheckboxField
           checked={enabled}
           disabled={busy}
           onChange={(e) => setEnabled(e.target.checked)}
         >
-          Enabled
+          {t("common.enabled")}
         </CheckboxField>
         <p className="field-help">
-          Work stays pending while its Spark is offline. Missed recurring times
-          produce one attempt after reconnection. Backups require a stopped
-          server. Editing makes you the execution owner.
+          {t(
+            "scheduleDialog.workStaysPendingWhileItsSparkIsOfflineMissedRecurring",
+          )}
         </p>
       </div>
     </Drawer>

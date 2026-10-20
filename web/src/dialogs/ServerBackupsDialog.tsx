@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ActionGroup } from "../components/layout/ActionGroup";
 import { Button, ButtonLink } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -21,6 +23,7 @@ export function ServerBackupsDialog({
   onClose: () => void;
   embedded?: boolean;
 }) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<Backup[]>([]);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const canConfigure = server.permissions.includes("server.configure");
@@ -60,7 +63,9 @@ export function ServerBackupsDialog({
           setRuntimeError(
             observed.status === "fulfilled"
               ? null
-              : "Spark is unavailable. Off-host backups can still be downloaded.",
+              : i18n.t(
+                  "serverBackupsDialog.sparkIsUnavailableOffHostBackupsCanStillBeDownloaded",
+                ),
           );
           setLoadError(null);
           setEntries(backups.entries);
@@ -68,7 +73,9 @@ export function ServerBackupsDialog({
       } catch (cause) {
         if (!controller.signal.aborted)
           setLoadError(
-            cause instanceof Error ? cause.message : "Unable to load backups.",
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("serverBackupsDialog.unableToLoadBackups"),
           );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -90,7 +97,13 @@ export function ServerBackupsDialog({
     if (
       pending.current ||
       !window.confirm(
-        `Permanently delete the ${location === "local" ? "local" : "S3"} copy of ${entry.name}? Other copies are kept. Deleting an S3 copy disables background resync for that archive.`,
+        i18n.t(
+          "serverBackupsDialog.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
+          {
+            locationLocalLocal: location === "local" ? "local" : "S3",
+            entryName: entry.name,
+          },
+        ),
       )
     )
       return;
@@ -103,7 +116,9 @@ export function ServerBackupsDialog({
     } catch (cause) {
       if (mounted.current)
         setError(
-          cause instanceof Error ? cause.message : "Unable to delete backup.",
+          cause instanceof Error
+            ? cause.message
+            : i18n.t("serverBackupsDialog.unableToDeleteBackup"),
         );
     } finally {
       pending.current = false;
@@ -115,7 +130,10 @@ export function ServerBackupsDialog({
     if (
       action === "restore" &&
       !window.confirm(
-        `Restore this backup of "${server.name}"? This replaces its current game files.`,
+        i18n.t(
+          "serverBackupsDialog.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
+          { serverName: server.name },
+        ),
       )
     )
       return;
@@ -133,7 +151,7 @@ export function ServerBackupsDialog({
         setError(
           cause instanceof Error
             ? cause.message
-            : "Unable to submit operation.",
+            : i18n.t("serverBackupsDialog.unableToSubmitOperation"),
         );
     } finally {
       pending.current = false;
@@ -143,14 +161,16 @@ export function ServerBackupsDialog({
   return (
     <Drawer
       embedded={embedded}
-      title={`${server.name} backups`}
-      description="Stop the server to create or restore a backup. Completed archives sync to S3 in the background when enabled."
+      title={t("serverBackupsDialog.backups", { serverName: server.name })}
+      description={t(
+        "serverBackupsDialog.stopTheServerToCreateOrRestoreABackupCompleted",
+      )}
       busy={busy}
       onClose={onClose}
       footerLeft={
         embedded ? null : (
           <Button disabled={busy} onClick={onClose}>
-            Close
+            {t("common.close")}
           </Button>
         )
       }
@@ -162,7 +182,7 @@ export function ServerBackupsDialog({
             void submit("backup");
           }}
         >
-          Create backup
+          {t("serverBackupsDialog.createBackup")}
         </Button>
       }
     >
@@ -186,29 +206,31 @@ export function ServerBackupsDialog({
             status?.operation === "restore") && (
             <InlineMessage tone="success">
               {status.operation === "backup"
-                ? "Backup created."
-                : "Backup restored. The server is stopped."}
+                ? t("serverBackupsDialog.backupCreated")
+                : t("serverBackupsDialog.backupRestoredTheServerIsStopped")}
             </InlineMessage>
           )}
         <Table
           empty={entries.length === 0}
           loading={loading}
           error={loadError}
-          resource="backups"
+          resource={t("serverBackupsDialog.backups2")}
           onRetry={() => {
             setLoading(true);
             setRefresh((value) => value + 1);
           }}
         >
-          <caption className="visually-hidden">Server backups</caption>
+          <caption className="visually-hidden">
+            {t("serverBackupsDialog.serverBackups")}
+          </caption>
           <thead>
             <tr>
-              <th>Archive</th>
-              <th>Created</th>
-              <th>Size</th>
-              <th>Storage</th>
-              <th>Status</th>
-              <th className="table-actions">Actions</th>
+              <th>{t("serverBackupsDialog.archive")}</th>
+              <th>{t("serverBackupsDialog.created")}</th>
+              <th>{t("serverBackupsDialog.size")}</th>
+              <th>{t("serverBackupsDialog.storage")}</th>
+              <th>{t("common.status")}</th>
+              <th className="table-actions">{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -225,7 +247,10 @@ export function ServerBackupsDialog({
                 <td>{new Date(entry.modified_at).toLocaleString()}</td>
                 <td>{bytes(entry.size)}</td>
                 <td>
-                  {[entry.local ? "Local" : null, entry.remote ? "S3" : null]
+                  {[
+                    entry.local ? i18n.t("serverBackupsDialog.local") : null,
+                    entry.remote ? "S3" : null,
+                  ]
                     .filter(Boolean)
                     .join(" · ") || "—"}
                 </td>
@@ -242,8 +267,10 @@ export function ServerBackupsDialog({
                           href={`/api/v1/servers/${encodeURIComponent(server.id)}/backups/${encodeURIComponent(entry.name)}`}
                           download
                           iconOnly
-                          aria-label={`Download ${entry.name}`}
-                          title="Download backup"
+                          aria-label={i18n.t("serverBackupsDialog.download", {
+                            entryName: entry.name,
+                          })}
+                          title={i18n.t("serverBackupsDialog.downloadBackup")}
                         >
                           <NavigationIcon name="download" />
                         </ButtonLink>
@@ -258,7 +285,7 @@ export function ServerBackupsDialog({
                         void submit("restore", entry.name);
                       }}
                     >
-                      Restore
+                      {i18n.t("serverBackupsDialog.restore")}
                     </Button>
                     {canConfigure && entry.local && (
                       <Button
@@ -272,7 +299,7 @@ export function ServerBackupsDialog({
                           void remove(entry, "local");
                         }}
                       >
-                        Delete local
+                        {i18n.t("serverBackupsDialog.deleteLocal")}
                       </Button>
                     )}
                     {canConfigure && entry.remote && (
@@ -287,7 +314,7 @@ export function ServerBackupsDialog({
                           void remove(entry, "s3");
                         }}
                       >
-                        Delete S3
+                        {i18n.t("serverBackupsDialog.deleteS3")}
                       </Button>
                     )}
                   </ActionGroup>
@@ -297,9 +324,9 @@ export function ServerBackupsDialog({
           </tbody>
         </Table>
         <p>
-          Backups exclude links and special files and are limited to 100 GiB and
-          100,000 entries. Manual and scheduled backups use this policy.
-          Deleting the server also deletes its local and S3 backups.
+          {t(
+            "serverBackupsDialog.backupsExcludeLinksAndSpecialFilesAndAreLimitedTo",
+          )}
         </p>
       </div>
     </Drawer>

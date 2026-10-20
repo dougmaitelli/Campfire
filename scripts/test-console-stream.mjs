@@ -1,16 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { loadWebModule } from "./helpers/load-web-module.mjs";
 
-const source = stripTypeScriptTypes(
-  await readFile(
-    new URL("../web/src/components/servers/consoleStream.ts", import.meta.url),
-    "utf8",
-  ),
-);
-const { connectConsole } = await import(
-  `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
+const { connectConsole } = await loadWebModule(
+  new URL("../web/src/components/servers/consoleStream.ts", import.meta.url),
 );
 
 class FakeEventSource extends EventTarget {

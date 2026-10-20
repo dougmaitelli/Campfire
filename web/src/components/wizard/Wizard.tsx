@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import { Fieldset } from "../forms/Fieldset";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
@@ -31,6 +33,7 @@ export function Wizard({
   onFinish,
   children,
 }: WizardProps) {
+  const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const [completedThrough, setCompletedThrough] = useState(() =>
     allowAllSteps ? steps.length - 1 : -1,
@@ -46,7 +49,7 @@ export function Wizard({
     headingRef.current?.focus();
   }, [index]);
 
-  if (!step) throw new Error("A wizard must contain at least one step.");
+  if (!step) throw new Error(t("wizard.aWizardMustContainAtLeastOneStep"));
 
   function validateCurrentStep() {
     if (busy || !formRef.current?.reportValidity()) return false;
@@ -79,7 +82,9 @@ export function Wizard({
     if (finalStep) {
       void onFinish().catch((cause: unknown) => {
         setValidationError(
-          cause instanceof Error ? cause.message : "Unable to save. Try again.",
+          cause instanceof Error
+            ? cause.message
+            : i18n.t("wizard.unableToSaveTryAgain"),
         );
       });
     } else {
@@ -97,7 +102,7 @@ export function Wizard({
     >
       <ol
         className={`wizard-progress${steps.length === 1 ? " wizard-progress-single" : ""}`}
-        aria-label="Progress"
+        aria-label={t("wizard.progress")}
         style={
           {
             gridTemplateColumns:
@@ -167,7 +172,7 @@ export function Wizard({
             goToStep(index - 1);
           }}
         >
-          Back
+          {t("common.back")}
         </Button>
       )}
       <Button
@@ -176,9 +181,11 @@ export function Wizard({
         variant="primary"
         disabled={busy}
         loading={busy}
-        loadingLabel={"Saving…"}
+        loadingLabel={t("wizard.saving")}
       >
-        {finalStep ? finishLabel : `Next: ${steps[index + 1]?.title ?? ""}`}
+        {finalStep
+          ? finishLabel
+          : t("wizard.next", { stepsIndex1: steps[index + 1]?.title ?? "" })}
       </Button>
     </>
   );

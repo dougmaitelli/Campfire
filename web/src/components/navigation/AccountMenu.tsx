@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { useEffect, useId, useRef, useState } from "react";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { linkOIDC } from "../../api/auth";
@@ -7,6 +9,7 @@ import { Button } from "../forms/Button";
 import "./account-menu.css";
 
 export function AccountMenu() {
+  const { t } = useTranslation();
   const auth = useAuthentication();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -15,7 +18,7 @@ export function AccountMenu() {
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panelID = useId();
-  const username = auth.session?.username ?? "Account";
+  const username = auth.session?.username ?? t("accountMenu.account");
   const displayName = auth.session?.name ?? "";
   const name = displayName === "" ? username : displayName;
   const initials = name
@@ -66,7 +69,9 @@ export function AccountMenu() {
       await action();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to update account.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("accountMenu.unableToUpdateAccount"),
       );
     } finally {
       setBusy(false);
@@ -85,7 +90,7 @@ export function AccountMenu() {
         <div
           id={panelID}
           className="account-dropdown"
-          aria-label="Account options"
+          aria-label={t("accountMenu.accountOptions")}
         >
           <button
             type="button"
@@ -94,8 +99,11 @@ export function AccountMenu() {
               setTokensOpen(true);
             }}
           >
-            <NavigationIcon name="key" />
-            API tokens
+            <Trans
+              i18nKey="accountMenu.apiTokens"
+              t={t}
+              components={{ navigationIcon: <NavigationIcon name="key" /> }}
+            />
           </button>
           {auth.session?.oidc_enabled && (
             <button
@@ -104,8 +112,11 @@ export function AccountMenu() {
                 void perform(linkOIDC);
               }}
             >
-              <NavigationIcon name="link" />
-              Link OpenID Connect
+              <Trans
+                i18nKey="accountMenu.linkOpenIDConnect"
+                t={t}
+                components={{ navigationIcon: <NavigationIcon name="link" /> }}
+              />
             </button>
           )}
         </div>
@@ -115,7 +126,7 @@ export function AccountMenu() {
           type="button"
           className="account-trigger"
           ref={trigger}
-          aria-label={`Account options for ${name}`}
+          aria-label={t("accountMenu.accountOptionsFor", { name: name })}
           aria-expanded={open}
           aria-controls={open ? panelID : undefined}
           disabled={busy}
@@ -144,8 +155,8 @@ export function AccountMenu() {
           type="button"
           className="account-logout"
           iconOnly
-          aria-label="Sign out"
-          title="Sign out"
+          aria-label={t("accountMenu.signOut")}
+          title={t("accountMenu.signOut")}
           disabled={busy}
           onClick={() => {
             void perform(auth.signOut);
@@ -161,8 +172,9 @@ export function AccountMenu() {
       )}
       {oidcError && (
         <p className="account-error" role="alert">
-          OpenID Connect failed. The identity may already belong to another
-          account. Try again or contact your administrator.
+          {t(
+            "accountMenu.openidConnectFailedTheIdentityMayAlreadyBelongToAnother",
+          )}
         </p>
       )}
       {tokensOpen && <APITokensDialog onClose={() => setTokensOpen(false)} />}

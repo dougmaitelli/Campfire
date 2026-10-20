@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { useCallback, useEffect, useState } from "react";
 import { readMonitoring, type MonitoringSnapshot } from "../api/monitoring";
 
@@ -29,7 +30,9 @@ export function useMonitoring() {
       } catch (cause) {
         if (!controller.signal.aborted)
           setError(
-            cause instanceof Error ? cause.message : "Unable to refresh usage.",
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("useMonitoring.unableToRefreshUsage"),
           );
       } finally {
         if (!controller.signal.aborted) setLoading(false);

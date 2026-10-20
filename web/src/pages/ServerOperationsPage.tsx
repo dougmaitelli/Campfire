@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -24,14 +26,24 @@ import "./server-operations.css";
 
 const confirmations = {
   kill: {
-    label: "Kill server",
-    description:
-      "Force the server to stop immediately. Unsaved game data may be lost.",
+    get label() {
+      return i18n.t("serverOperationsPage.killServer");
+    },
+    get description() {
+      return i18n.t(
+        "serverOperationsPage.forceTheServerToStopImmediatelyUnsavedGameDataMay",
+      );
+    },
   },
   reinstall: {
-    label: "Reinstall server",
-    description:
-      "Pull current images and run the pinned Ember’s installer. Choose whether to keep existing game files or start clean. Backups and saved server settings are kept in either case. The server stays stopped.",
+    get label() {
+      return i18n.t("serverOperationsPage.reinstallServer");
+    },
+    get description() {
+      return i18n.t(
+        "serverOperationsPage.pullCurrentImagesAndRunThePinnedEmberSInstaller",
+      );
+    },
   },
 };
 type ConfirmedAction = keyof typeof confirmations;
@@ -43,6 +55,7 @@ export function ServerOperationsPage({
   serverID: string;
   tab: string;
 }) {
+  const { t } = useTranslation();
   const [server, setServer] = useState<Server | null>(null);
   const links = useResourceLinks();
   const [error, setError] = useState<string | null>(null);
@@ -89,12 +102,17 @@ export function ServerOperationsPage({
             ]),
           }),
         );
-        if (!isServer(value)) throw new Error("Unexpected server response.");
+        if (!isServer(value))
+          throw new Error(
+            i18n.t("serverOperationsPage.unexpectedServerResponse"),
+          );
         if (!controller.signal.aborted) setServer(value);
       } catch (cause) {
         if (!controller.signal.aborted)
           setError(
-            cause instanceof Error ? cause.message : "Unable to load server.",
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("serverOperationsPage.unableToLoadServer"),
           );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -122,7 +140,9 @@ export function ServerOperationsPage({
       setConfirmation(null);
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to run server action.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("serverOperationsPage.unableToRunServerAction"),
       );
     } finally {
       pending.current = false;
@@ -135,10 +155,10 @@ export function ServerOperationsPage({
   return (
     <section className="server-operations" aria-labelledby="page-title">
       <PageHeader
-        title={server?.name ?? "Server"}
+        title={server?.name ?? t("common.server")}
         leading={
           <a className="operations-back" href="#servers">
-            ← Servers
+            {t("serverOperationsPage.servers")}
           </a>
         }
         badge={
@@ -180,7 +200,9 @@ export function ServerOperationsPage({
         }
       />
       {error && !server && <InlineMessage role="alert">{error}</InlineMessage>}
-      {loading && <ContentState loading resource="server" />}
+      {loading && (
+        <ContentState loading resource={t("serverOperationsPage.server")} />
+      )}
       {server && (
         <>
           <ContentPanel className="operations-resources">
@@ -217,26 +239,44 @@ export function ServerOperationsPage({
                 spark.id === server.spark_id && spark.agent_update_available,
             ) && (
               <InlineMessage tone="warning">
-                This server’s Spark node is not running the latest version.{" "}
-                <a href="#sparks">Go to Sparks to update it.</a>
+                <Trans
+                  i18nKey="serverOperationsPage.thisServerSSparkNodeIsNotRunningTheLatest"
+                  t={t}
+                  components={{
+                    a: (
+                      <a href="#sparks">
+                        {t("serverOperationsPage.goToSparksToUpdateIt")}
+                      </a>
+                    ),
+                  }}
+                />
               </InlineMessage>
             )}
           {message && (
             <InlineMessage tone={message.tone}>
               <strong>{message.title}</strong>
-              {message.detail && <> {message.detail}</>}
+              {message.detail && <>{message.detail}</>}
             </InlineMessage>
           )}
           {server.permissions.includes("server.operate") ? (
             <>
-              <nav className="operations-tabs" aria-label="Server operations">
-                {["console", "files", "backups"].map((item) => (
+              <nav
+                className="operations-tabs"
+                aria-label={t("serverOperationsPage.serverOperations")}
+              >
+                {(
+                  [
+                    ["console", t("serverOperationsPage.consoleTab")],
+                    ["files", t("serverOperationsPage.filesTab")],
+                    ["backups", t("common.backups")],
+                  ] as const
+                ).map(([item, label]) => (
                   <a
                     key={item}
                     href={`#servers/${encodeURIComponent(server.id)}/${item}`}
                     aria-current={activeTab === item ? "page" : undefined}
                   >
-                    {item.charAt(0).toUpperCase() + item.slice(1)}
+                    {label}
                   </a>
                 ))}
               </nav>
@@ -266,19 +306,23 @@ export function ServerOperationsPage({
             </>
           ) : (
             <p className="field-help">
-              You have read-only access to this server. Console, files, and
-              backups require permission to operate it.
+              {t(
+                "serverOperationsPage.youHaveReadOnlyAccessToThisServerConsoleFiles",
+              )}
             </p>
           )}
         </>
       )}
       {server && confirmation && (
         <ConfirmDialog
-          title={`${confirmations[confirmation].label}: ${server.name}`}
+          title={t("common.resourceActionTitle", {
+            action: confirmations[confirmation].label,
+            name: server.name,
+          })}
           description={confirmations[confirmation].description}
           confirmLabel={
             confirmation === "reinstall" && reinstallMode === "clean"
-              ? "Delete game files and reinstall"
+              ? t("serverOperationsPage.deleteGameFilesAndReinstall")
               : confirmations[confirmation].label
           }
           danger={confirmation === "kill" || reinstallMode === "clean"}
@@ -307,35 +351,50 @@ export function ServerOperationsPage({
         >
           {confirmation === "reinstall" && (
             <Fieldset className="reinstall-options" disabled={acting}>
-              <legend>Installation mode</legend>
+              <legend>{t("serverOperationsPage.installationMode")}</legend>
               <label>
-                <input
-                  type="radio"
-                  name="reinstall-mode"
-                  value="keep"
-                  checked={reinstallMode === "keep"}
-                  onChange={() => setReinstallMode("keep")}
+                <Trans
+                  i18nKey="serverOperationsPage.reinstallKeepingFiles"
+                  t={t}
+                  components={{
+                    input: (
+                      <input
+                        type="radio"
+                        name="reinstall-mode"
+                        value="keep"
+                        checked={reinstallMode === "keep"}
+                        onChange={() => setReinstallMode("keep")}
+                      />
+                    ),
+                  }}
                 />
-                Reinstall keeping files
               </label>
               <p className="field-help">
-                Keeps existing game files, worlds and configuration. The
-                installer may overwrite files. Take a backup first.
+                {t(
+                  "serverOperationsPage.keepsExistingGameFilesWorldsAndConfigurationTheInstallerMay",
+                )}
               </p>
               <label>
-                <input
-                  type="radio"
-                  name="reinstall-mode"
-                  value="clean"
-                  checked={reinstallMode === "clean"}
-                  onChange={() => setReinstallMode("clean")}
+                <Trans
+                  i18nKey="serverOperationsPage.cleanInstall"
+                  t={t}
+                  components={{
+                    input: (
+                      <input
+                        type="radio"
+                        name="reinstall-mode"
+                        value="clean"
+                        checked={reinstallMode === "clean"}
+                        onChange={() => setReinstallMode("clean")}
+                      />
+                    ),
+                  }}
                 />
-                Clean install
               </label>
               <p className="field-help">
-                Permanently deletes all game files, including worlds, mods and
-                in-game configuration, before installing. Existing backups are
-                kept. Take a backup first.
+                {t(
+                  "serverOperationsPage.permanentlyDeletesAllGameFilesIncludingWorldsModsAndIn",
+                )}
               </p>
             </Fieldset>
           )}

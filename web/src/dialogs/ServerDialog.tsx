@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
@@ -66,6 +68,7 @@ export function ServerDialog({
   onClose,
   onSaved,
 }: ServerDialogProps) {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const session = useAuthentication().session;
   const admin = session?.admin === true;
@@ -104,7 +107,7 @@ export function ServerDialog({
           setAccessError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load server access.",
+              : i18n.t("serverDialog.unableToLoadServerAccess"),
           );
       });
     return () => controller.abort();
@@ -188,7 +191,7 @@ export function ServerDialog({
           setPolicyError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load backup policy.",
+              : i18n.t("serverDialog.unableToLoadBackupPolicy"),
           );
       });
     return () => controller.abort();
@@ -214,7 +217,7 @@ export function ServerDialog({
   async function finish() {
     if (submitting.current) return;
     if (canShare && accessDirty && (!access || accessError)) {
-      setError(accessError ?? "Wait for server access to load.");
+      setError(accessError ?? i18n.t("serverDialog.waitForServerAccessToLoad"));
       return;
     }
     submitting.current = true;
@@ -250,7 +253,13 @@ export function ServerDialog({
         } catch (cause) {
           onSaved(saved);
           throw new Error(
-            `Server saved, but backup settings failed. Retry saving to apply them to the same server. ${cause instanceof Error ? cause.message : ""}`,
+            i18n.t(
+              "serverDialog.serverSavedButBackupSettingsFailedRetrySavingToApply",
+              {
+                causeInstanceofError:
+                  cause instanceof Error ? cause.message : "",
+              },
+            ),
             { cause },
           );
         }
@@ -268,7 +277,13 @@ export function ServerDialog({
         } catch (cause) {
           onSaved(saved);
           throw new Error(
-            `Server saved, but access changes could not be fully saved. Retry to finish saving the same server. ${cause instanceof Error ? cause.message : ""}`,
+            i18n.t(
+              "serverDialog.serverSavedButAccessChangesCouldNotBeFullySaved",
+              {
+                causeInstanceofError:
+                  cause instanceof Error ? cause.message : "",
+              },
+            ),
             { cause },
           );
         }
@@ -277,7 +292,9 @@ export function ServerDialog({
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to save server.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("serverDialog.unableToSaveServer"),
       );
     } finally {
       submitting.current = false;
@@ -291,12 +308,12 @@ export function ServerDialog({
       error={error}
       finishLabel={
         accessOnly
-          ? "Save access"
+          ? t("serverDialog.saveAccess")
           : applyRevision
-            ? "Update Ember"
+            ? t("serverDialog.updateEmber")
             : server
-              ? "Save changes"
-              : "Create server"
+              ? t("common.saveChanges")
+              : t("serverDialog.createServer")
       }
       onFinish={async () => {
         if (
@@ -311,29 +328,29 @@ export function ServerDialog({
       steps={[
         {
           id: "basics",
-          title: "General",
+          title: t("serverDialog.general"),
           validate: () =>
             applyRevision && !server?.ember_update_available
-              ? "This server already uses the current Ember."
+              ? i18n.t("serverDialog.thisServerAlreadyUsesTheCurrentEmber")
               : !value.name.trim() || !spark || !ember || !value.image
-                ? "Choose a name, Spark, Ember, and image."
+                ? i18n.t("serverDialog.chooseANameSparkEmberAndImage")
                 : (!server ||
                       applyRevision ||
                       !server.ember_update_available) &&
                     Object.keys(ember.startup_commands ?? {}).length > 0 &&
                     !ember.startup_commands?.[value.startup_command ?? ""]
-                  ? "Select an available startup command."
+                  ? i18n.t("serverDialog.selectAnAvailableStartupCommand")
                   : null,
           content: (
             <>
               {runtimeRestricted && (
                 <p className="field-help">
-                  You can edit the name and description during an operation.
-                  Game settings, resources and ports are locked until it
-                  finishes.
+                  {t(
+                    "serverDialog.youCanEditTheNameAndDescriptionDuringAnOperation",
+                  )}
                 </p>
               )}
-              <FormField label="Server name">
+              <FormField label={t("serverDialog.serverName")}>
                 <TextInput
                   id="server-name"
                   required
@@ -342,10 +359,10 @@ export function ServerDialog({
                   onChange={(event) =>
                     setValue({ ...value, name: event.target.value })
                   }
-                  placeholder="Friday Minecraft"
+                  placeholder={t("serverDialog.fridayMinecraft")}
                 />
               </FormField>
-              <FormField label="Description (optional)">
+              <FormField label={t("serverDialog.descriptionOptional")}>
                 <Textarea
                   id="server-description"
                   maxLength={1000}
@@ -355,7 +372,7 @@ export function ServerDialog({
                   }
                 />
               </FormField>
-              <FormField label="Spark">
+              <FormField label={t("common.spark")}>
                 <Select
                   id="server-spark"
                   required
@@ -387,18 +404,27 @@ export function ServerDialog({
                 </Select>
               </FormField>
               <FormField
-                label="Ember"
+                label={t("common.ember")}
                 description={
                   applyRevision && (
                     <>
-                      The latest definition for{" "}
-                      <ResourceLink
-                        href={server ? links.ember(server.ember_id) : undefined}
-                      >
-                        {server?.ember_name}
-                      </ResourceLink>{" "}
-                      will be applied. Review variables, images, required ports,
-                      startup, and ownership before applying.
+                      <Trans
+                        i18nKey="serverDialog.theLatestDefinitionForWillBeAppliedReviewVariablesImages"
+                        t={t}
+                        components={{
+                          resourceLink: (
+                            <ResourceLink
+                              href={
+                                server
+                                  ? links.ember(server.ember_id)
+                                  : undefined
+                              }
+                            >
+                              {server?.ember_name}
+                            </ResourceLink>
+                          ),
+                        }}
+                      />
                     </>
                   )
                 }
@@ -455,8 +481,10 @@ export function ServerDialog({
               </FormField>
               {Object.keys(ember?.startup_commands ?? {}).length > 0 && (
                 <FormField
-                  label="Startup command"
-                  description="Choose the startup option this server will use. Changes apply on the next start."
+                  label={t("serverDialog.startupCommand")}
+                  description={t(
+                    "serverDialog.chooseTheStartupOptionThisServerWillUseChangesApply",
+                  )}
                 >
                   <Select
                     id="server-startup-command"
@@ -470,13 +498,16 @@ export function ServerDialog({
                       setValue({ ...value, startup_command: selectedValue })
                     }
                   >
-                    <option value="">Select a startup command</option>
+                    <option value="">
+                      {t("serverDialog.selectAStartupCommand")}
+                    </option>
                     {server &&
                       !applyRevision &&
                       value.startup_command &&
                       !ember?.startup_commands?.[value.startup_command] && (
                         <option value={value.startup_command}>
-                          {value.startup_command} (applied revision)
+                          {value.startup_command}{" "}
+                          {t("serverDialog.appliedRevision")}
                         </option>
                       )}
                     {Object.keys(ember?.startup_commands ?? {})
@@ -489,7 +520,7 @@ export function ServerDialog({
                   </Select>
                 </FormField>
               )}
-              <FormField label="Image">
+              <FormField label={t("serverDialog.image")}>
                 <Select
                   id="server-image"
                   disabled={runtimeRestricted}
@@ -508,7 +539,11 @@ export function ServerDialog({
               </FormField>
               {(ember?.variables ?? []).some(
                 (variable) => !variable.hidden,
-              ) && <h4 className="server-dialog-heading">Game settings</h4>}
+              ) && (
+                <h4 className="server-dialog-heading">
+                  {t("serverDialog.gameSettings")}
+                </h4>
+              )}
               {(ember?.variables ?? [])
                 .filter((variable) => !variable.hidden)
                 .map((variable) => (
@@ -541,10 +576,10 @@ export function ServerDialog({
         },
         {
           id: "resources",
-          title: "Resources & ports",
+          title: t("serverDialog.resourcesPorts"),
           validate: () =>
             value.ports.length === 0
-              ? "Add at least one port mapping."
+              ? i18n.t("serverDialog.addAtLeastOnePortMapping")
               : (ember?.required_ports ?? []).some(
                     (required) =>
                       !value.ports.some(
@@ -553,15 +588,24 @@ export function ServerDialog({
                           port.protocol === required.protocol,
                       ),
                   )
-                ? "Map every required Ember container port and protocol."
+                ? i18n.t(
+                    "serverDialog.mapEveryRequiredEmberContainerPortAndProtocol",
+                  )
                 : null,
           content: (
             <Fieldset disabled={runtimeRestricted}>
               <p className="field-help">
-                Reserve capacity on {spark?.name ?? "the selected Spark"}. Set
-                the resources allocated to this server.
+                <Trans
+                  i18nKey="serverDialog.reserveCapacityOnSetTheResourcesAllocatedToThisServer"
+                  t={t}
+                  components={{
+                    sparkNameThe: (
+                      <>{spark?.name ?? t("serverDialog.theSelectedSpark")}</>
+                    ),
+                  }}
+                />
               </p>
-              <FormField label="CPU cores">
+              <FormField label={t("serverDialog.cpuCores")}>
                 <TextInput
                   id="server-cpu"
                   type="number"
@@ -580,7 +624,7 @@ export function ServerDialog({
               </FormField>
               <div className="server-form-grid">
                 <div>
-                  <FormField label="Memory (MiB)">
+                  <FormField label={t("serverDialog.memoryMiB")}>
                     <TextInput
                       id="server-memory"
                       type="number"
@@ -602,8 +646,10 @@ export function ServerDialog({
                 </div>
                 <div>
                   <FormField
-                    label="Disk (MiB)"
-                    description="Use 0 for unlimited. Hard limits require disk quota support on the Spark."
+                    label={t("serverDialog.diskMiB")}
+                    description={t(
+                      "serverDialog.use0ForUnlimitedHardLimitsRequireDiskQuotaSupport",
+                    )}
                   >
                     <TextInput
                       id="server-disk"
@@ -623,10 +669,13 @@ export function ServerDialog({
                   </FormField>
                 </div>
               </div>
-              <h4 className="server-dialog-heading">Port mappings</h4>
+              <h4 className="server-dialog-heading">
+                {t("serverDialog.portMappings")}
+              </h4>
               <p className="field-help">
-                Host ports must belong to the Spark’s allocation ranges and be
-                available. Container ports must match the Ember requirements.
+                {t(
+                  "serverDialog.hostPortsMustBelongToTheSparkSAllocationRanges",
+                )}
               </p>
               {value.ports.map((port, index) => {
                 const selected = allocations.findIndex(
@@ -639,8 +688,11 @@ export function ServerDialog({
                 const allocation = allocations[selected];
                 return (
                   <Fieldset className="port-mapping" key={index}>
-                    <legend>Mapping {index + 1}</legend>
-                    <FormField label="Spark allocation">
+                    <legend>
+                      {i18n.t("serverDialog.mapping")}
+                      {index + 1}
+                    </legend>
+                    <FormField label={i18n.t("serverDialog.sparkAllocation")}>
                       <Select
                         id={`mapping-allocation-${index}`}
                         required
@@ -656,7 +708,7 @@ export function ServerDialog({
                         }}
                       >
                         <option value="" disabled>
-                          Select allocation
+                          {i18n.t("serverDialog.selectAllocation")}
                         </option>
                         {allocations.map((entry, i) => (
                           <option key={i} value={i}>
@@ -668,7 +720,7 @@ export function ServerDialog({
                     </FormField>
                     <div className="server-form-grid">
                       <div>
-                        <FormField label="Host port">
+                        <FormField label={i18n.t("serverDialog.hostPort")}>
                           <TextInput
                             id={`mapping-host-${index}`}
                             type="number"
@@ -688,7 +740,7 @@ export function ServerDialog({
                         </FormField>
                       </div>
                       <div>
-                        <FormField label="Container port">
+                        <FormField label={i18n.t("serverDialog.containerPort")}>
                           <TextInput
                             id={`mapping-container-${index}`}
                             type="number"
@@ -719,9 +771,11 @@ export function ServerDialog({
                           ports: value.ports.filter((_, i) => i !== index),
                         })
                       }
-                      aria-label={`Remove mapping ${index + 1}`}
+                      aria-label={i18n.t("serverDialog.removeMapping", {
+                        index1: index + 1,
+                      })}
                     >
-                      Remove mapping
+                      {i18n.t("serverDialog.removeMapping2")}
                     </Button>
                   </Fieldset>
                 );
@@ -746,7 +800,7 @@ export function ServerDialog({
                     });
                 }}
               >
-                + Add mapping
+                {t("serverDialog.addMapping")}
               </Button>
             </Fieldset>
           ),
@@ -755,12 +809,12 @@ export function ServerDialog({
           ? [
               {
                 id: "backups",
-                title: "Backups",
+                title: t("common.backups"),
                 content: policyError ? (
                   <InlineMessage role="alert">{policyError}</InlineMessage>
                 ) : backupPolicy ? (
                   <>
-                    <FormField label="Background S3 sync">
+                    <FormField label={t("serverDialog.backgroundS3Sync")}>
                       <Select
                         id="backup-storage"
                         value={backupPolicy.storage}
@@ -771,27 +825,41 @@ export function ServerDialog({
                           })
                         }
                       >
-                        <option value="local">Disabled</option>
+                        <option value="local">{t("common.disabled")}</option>
                         <option value="s3" disabled={!s3Available}>
-                          Enabled
+                          {t("common.enabled")}
                         </option>
                       </Select>
                     </FormField>
                     {!s3Available && (
                       <p className="field-help">
-                        Configure S3 on Campfire before enabling sync.
+                        {t(
+                          "serverDialog.configureS3OnCampfireBeforeEnablingSync",
+                        )}
                       </p>
                     )}
                     {(
                       [
-                        ["local_keep_last", "Local copies to keep", 1000],
+                        [
+                          "local_keep_last",
+                          t("serverDialog.localCopiesToKeep"),
+                          1000,
+                        ],
                         [
                           "local_max_age_days",
-                          "Local maximum age (days)",
+                          t("serverDialog.localMaximumAgeDays"),
                           36500,
                         ],
-                        ["remote_keep_last", "S3 copies to keep", 1000],
-                        ["remote_max_age_days", "S3 maximum age (days)", 36500],
+                        [
+                          "remote_keep_last",
+                          t("serverDialog.s3CopiesToKeep"),
+                          1000,
+                        ],
+                        [
+                          "remote_max_age_days",
+                          t("serverDialog.s3MaximumAgeDays"),
+                          36500,
+                        ],
                       ] as const
                     ).map(([key, label, max]) => (
                       <div key={key}>
@@ -815,13 +883,13 @@ export function ServerDialog({
                       </div>
                     ))}
                     <p className="field-help">
-                      Zero disables a limit. Local and S3 copies expire
-                      independently. A local copy awaiting a required S3 upload
-                      is retained until sync succeeds.
+                      {t(
+                        "serverDialog.zeroDisablesALimitLocalAndS3CopiesExpireIndependently",
+                      )}
                     </p>
                   </>
                 ) : (
-                  <p role="status">Loading backup policy…</p>
+                  <p role="status">{t("serverDialog.loadingBackupPolicy")}</p>
                 ),
               },
             ]
@@ -830,10 +898,12 @@ export function ServerDialog({
           ? [
               {
                 id: "access",
-                title: "Access",
+                title: t("serverDialog.access"),
                 validate: () =>
                   accessError ??
-                  (!access ? "Wait for server access to load." : null),
+                  (!access
+                    ? i18n.t("serverDialog.waitForServerAccessToLoad")
+                    : null),
                 content: accessError ? (
                   <>
                     <InlineMessage>{accessError}</InlineMessage>
@@ -844,23 +914,27 @@ export function ServerDialog({
                         setAccessAttempt((attempt) => attempt + 1);
                       }}
                     >
-                      Retry
+                      {t("serverDialog.retry")}
                     </Button>
                   </>
                 ) : !access ? (
-                  <p role="status">Loading access…</p>
+                  <p role="status">{t("serverDialog.loadingAccess")}</p>
                 ) : (
                   <>
                     {(admin || server) && (
-                      <h4 className="server-dialog-heading">Owner</h4>
+                      <h4 className="server-dialog-heading">
+                        {t("serverDialog.owner")}
+                      </h4>
                     )}
                     {admin ? (
                       <FormField
-                        label="Owner"
+                        label={t("serverDialog.owner")}
                         description={
                           server
-                            ? "Changing the owner removes the previous owner’s implicit access when you save."
-                            : "Choose who will own this server."
+                            ? t(
+                                "serverDialog.changingTheOwnerRemovesThePreviousOwnerSImplicitAccess",
+                              )
+                            : t("serverDialog.chooseWhoWillOwnThisServer")
                         }
                       >
                         <UserSelect
@@ -882,11 +956,14 @@ export function ServerDialog({
                         >
                           {owner
                             ? formatUserLabel(owner)
-                            : (session?.username ?? "Administrator managed")}
+                            : (session?.username ??
+                              t("serverDialog.administratorManaged"))}
                         </ResourceLink>
                       </p>
                     ) : null}
-                    <h4 className="server-dialog-heading">Access grants</h4>
+                    <h4 className="server-dialog-heading">
+                      {t("serverDialog.accessGrants")}
+                    </h4>
                     <AccessGrantFields
                       users={access.subject_users.filter(
                         (user) => user.id !== ownerID,
@@ -908,40 +985,63 @@ export function ServerDialog({
           : []),
         {
           id: "review",
-          title: "Review",
+          title: t("common.review"),
           content: (
             <>
               {applyRevision && (
                 <>
                   <p>
-                    Revision: {server?.ember_hash.slice(0, 12)} →{" "}
-                    {ember?.revision?.slice(0, 12)}
+                    <Trans
+                      i18nKey="serverDialog.revision"
+                      t={t}
+                      components={{
+                        serverEmberHash: <>{server?.ember_hash.slice(0, 12)}</>,
+                        emberRevisionSlice: (
+                          <>{ember?.revision?.slice(0, 12)}</>
+                        ),
+                      }}
+                    />
                   </p>
                   <p>
-                    Startup:{" "}
-                    <code>
-                      {ember?.startup_commands?.[value.startup_command ?? ""] ??
-                        ember?.startup}
-                    </code>
-                    <br />
-                    Working directory: {ember?.work_dir}
-                    <br />
-                    Runtime user: {ember?.user}
+                    <Trans
+                      i18nKey="serverDialog.startupWorkingDirectoryRuntimeUser"
+                      t={t}
+                      components={{
+                        code: (
+                          <code>
+                            {ember?.startup_commands?.[
+                              value.startup_command ?? ""
+                            ] ?? ember?.startup}
+                          </code>
+                        ),
+                        br: <br />,
+                        emberWorkDir: <>{ember?.work_dir}</>,
+                        br2: <br />,
+                        emberUser: <>{ember?.user}</>,
+                      }}
+                    />
                   </p>
                   <p>
-                    Removed settings:{" "}
-                    {formatDisplayValue(
-                      Object.keys(server?.variables ?? {})
-                        .filter(
-                          (name) =>
-                            !(ember?.variables ?? []).some(
-                              (variable) => variable.name === name,
-                            ),
-                        )
-                        .join(", "),
-                    )}
-                    . Shared editable settings are retained; new and locked
-                    settings use the current definition’s defaults.
+                    <Trans
+                      i18nKey="serverDialog.removedSettingsSharedEditableSettingsAreRetainedNewAndLocked"
+                      t={t}
+                      components={{
+                        formatDisplayValueObjectKeys: (
+                          <>
+                            {formatDisplayValue(
+                              Object.keys(server?.variables ?? {})
+                                .filter(
+                                  (name) =>
+                                    !(ember?.variables ?? []).some(
+                                      (variable) => variable.name === name,
+                                    ),
+                                )
+                                .join(", "),
+                            )}
+                          </>
+                        ),
+                      }}
+                    />
                   </p>
                 </>
               )}
@@ -967,25 +1067,39 @@ export function ServerDialog({
                   }
                   notice={
                     applyRevision
-                      ? "Applying updates the server’s Ember revision and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files."
+                      ? t(
+                          "serverDialog.applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration",
+                        )
                       : server
-                        ? "Saving keeps the server in its current state, including when unavailable. Game configuration changes apply on the next restart. Reducing resources or removing reserved host ports requires confirming the server is stopped."
+                        ? t(
+                            "serverDialog.savingKeepsTheServerInItsCurrentStateIncludingWhen",
+                          )
                         : undefined
                   }
                 />
               )}
               {canShare && access && (
                 <>
-                  <h4 className="server-dialog-heading">Access</h4>
+                  <h4 className="server-dialog-heading">
+                    {t("serverDialog.access")}
+                  </h4>
                   <p>
-                    Owner:{" "}
-                    <ResourceLink
-                      href={owner ? links.user(owner.id) : undefined}
-                    >
-                      {owner
-                        ? formatUserLabel(owner)
-                        : (session?.username ?? "Administrator managed")}
-                    </ResourceLink>
+                    <Trans
+                      i18nKey="serverDialog.owner2"
+                      t={t}
+                      components={{
+                        resourceLink: (
+                          <ResourceLink
+                            href={owner ? links.user(owner.id) : undefined}
+                          >
+                            {owner
+                              ? formatUserLabel(owner)
+                              : (session?.username ??
+                                t("serverDialog.administratorManaged"))}
+                          </ResourceLink>
+                        ),
+                      }}
+                    />
                   </p>
                   {grants.length ? (
                     <ul>
@@ -1002,7 +1116,9 @@ export function ServerDialog({
                       ))}
                     </ul>
                   ) : (
-                    <p className="field-help">No access grants assigned.</p>
+                    <p className="field-help">
+                      {t("serverDialog.noAccessGrantsAssigned")}
+                    </p>
                   )}
                 </>
               )}
@@ -1017,17 +1133,17 @@ export function ServerDialog({
         <Drawer
           title={
             accessOnly
-              ? "Edit server access"
+              ? i18n.t("serverDialog.editServerAccess")
               : applyRevision
-                ? "Update Ember"
+                ? i18n.t("serverDialog.updateEmber")
                 : server
-                  ? "Edit server"
-                  : "Create server"
+                  ? i18n.t("serverDialog.editServer")
+                  : i18n.t("serverDialog.createServer")
           }
           description={
             accessOnly
-              ? "Manage ownership and collaborators."
-              : "Choose where it runs, what it hosts, and who has access."
+              ? i18n.t("serverDialog.manageOwnershipAndCollaborators")
+              : i18n.t("serverDialog.chooseWhereItRunsWhatItHostsAndWhoHas")
           }
           busy={busy}
           onClose={onClose}
@@ -1038,7 +1154,7 @@ export function ServerDialog({
               disabled={busy}
               onClick={onClose}
             >
-              Cancel
+              {i18n.t("common.cancel")}
             </Button>
           }
           footerRight={actions}
@@ -1046,13 +1162,17 @@ export function ServerDialog({
           {content}
           {confirmPolicy && (
             <ConfirmDialog
-              title="Save server changes?"
+              title={i18n.t("serverDialog.saveServerChanges")}
               description={
                 policyDirty
-                  ? "Retention runs in the background and permanently deletes expired copies independently from local and S3 storage. Zero disables a limit."
-                  : "Changing ownership removes the previous owner’s implicit access to this server."
+                  ? i18n.t(
+                      "serverDialog.retentionRunsInTheBackgroundAndPermanentlyDeletesExpiredCopies",
+                    )
+                  : i18n.t(
+                      "serverDialog.changingOwnershipRemovesThePreviousOwnerSImplicitAccessTo",
+                    )
               }
-              confirmLabel="Save changes"
+              confirmLabel={i18n.t("common.saveChanges")}
               busy={busy}
               error={error}
               onClose={() => setConfirmPolicy(false)}
@@ -1066,8 +1186,9 @@ export function ServerDialog({
                 ownerID !==
                   (access?.owner?.id ?? (server ? 0 : session.user_id)) && (
                   <p>
-                    Changing ownership also removes the previous owner’s
-                    implicit access to this server.
+                    {i18n.t(
+                      "serverDialog.changingOwnershipAlsoRemovesThePreviousOwnerSImplicitAccess",
+                    )}
                   </p>
                 )}
             </ConfirmDialog>

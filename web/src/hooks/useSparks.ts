@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listSparks } from "../api/sparks";
 import type { Spark } from "../api/sparks";
@@ -27,7 +28,9 @@ export function useSparks() {
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {
           setError(
-            cause instanceof Error ? cause.message : "Unable to load Sparks.",
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("useSparks.unableToLoadSparks"),
           );
         }
       })

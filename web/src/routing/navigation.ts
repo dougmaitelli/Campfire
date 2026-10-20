@@ -1,14 +1,75 @@
+import i18n from "../i18n";
 export const navigation = [
-  { id: "dashboard", label: "Dashboard", icon: "dashboard" },
-  { id: "sparks", label: "Sparks", icon: "sparks" },
-  { id: "embers", label: "Embers", icon: "embers" },
-  { id: "servers", label: "Servers", icon: "servers" },
-  { id: "backups", label: "Backups", icon: "backups" },
-  { id: "users", label: "Users", icon: "users" },
-  { id: "roles", label: "Roles", icon: "roles" },
-  { id: "schedules", label: "Schedules", icon: "schedules" },
-  { id: "notifications", label: "Notifications", icon: "notifications" },
-  { id: "audit", label: "Audit", icon: "audit" },
+  {
+    id: "dashboard",
+    get label() {
+      return i18n.t("common.dashboard");
+    },
+    icon: "dashboard",
+  },
+  {
+    id: "sparks",
+    get label() {
+      return i18n.t("common.sparks");
+    },
+    icon: "sparks",
+  },
+  {
+    id: "embers",
+    get label() {
+      return i18n.t("common.embers");
+    },
+    icon: "embers",
+  },
+  {
+    id: "servers",
+    get label() {
+      return i18n.t("common.servers");
+    },
+    icon: "servers",
+  },
+  {
+    id: "backups",
+    get label() {
+      return i18n.t("common.backups");
+    },
+    icon: "backups",
+  },
+  {
+    id: "users",
+    get label() {
+      return i18n.t("common.users");
+    },
+    icon: "users",
+  },
+  {
+    id: "roles",
+    get label() {
+      return i18n.t("common.roles");
+    },
+    icon: "roles",
+  },
+  {
+    id: "schedules",
+    get label() {
+      return i18n.t("common.schedules");
+    },
+    icon: "schedules",
+  },
+  {
+    id: "notifications",
+    get label() {
+      return i18n.t("common.notifications");
+    },
+    icon: "notifications",
+  },
+  {
+    id: "audit",
+    get label() {
+      return i18n.t("common.audit");
+    },
+    icon: "audit",
+  },
 ] as const;
 
 export type NavigationItem = (typeof navigation)[number];

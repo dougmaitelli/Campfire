@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { Button } from "../forms/Button";
@@ -6,7 +8,7 @@ import "./content-state.css";
 export function ContentState({
   loading = false,
   error,
-  resource = "records",
+  resource = i18n.t("contentState.records"),
   emptyMessage,
   emptyDescription,
   emptyAction,
@@ -22,6 +24,7 @@ export function ContentState({
   onRetry?: (() => void) | undefined;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={[
@@ -41,10 +44,10 @@ export function ContentState({
       </span>
       <h2>
         {loading
-          ? `Loading ${resource}…`
+          ? t("contentState.loading", { resource: resource })
           : error
-            ? `Unable to load ${resource}`
-            : (emptyMessage ?? `No ${resource} yet`)}
+            ? t("contentState.unableToLoad", { resource: resource })
+            : (emptyMessage ?? t("contentState.noYet", { resource: resource }))}
       </h2>
       {!loading &&
         (error ? (
@@ -52,7 +55,7 @@ export function ContentState({
             <p>{error}</p>
             {onRetry && (
               <Button type="button" onClick={onRetry}>
-                Try again
+                {t("common.tryAgain")}
               </Button>
             )}
           </>

@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 export interface ServerPort {
@@ -115,7 +116,7 @@ function isServerPort(value: unknown): value is ServerPort {
 export async function listServers(signal: AbortSignal): Promise<Server[]> {
   const body = await readJSON(await apiFetch("/api/v1/servers", { signal }));
   if (!Array.isArray(body) || !body.every(isServer))
-    throw new Error("Unexpected server list response.");
+    throw new Error(i18n.t("servers.unexpectedServerListResponse"));
   return body;
 }
 
@@ -133,7 +134,8 @@ export async function saveServer(
       },
     ),
   );
-  if (!isServer(body)) throw new Error("Unexpected server response.");
+  if (!isServer(body))
+    throw new Error(i18n.t("servers.unexpectedServerResponse"));
   return body;
 }
 
@@ -157,6 +159,7 @@ export async function applyServerEmber(
       signal: AbortSignal.timeout(35000),
     }),
   );
-  if (!isServer(body)) throw new Error("Unexpected server response.");
+  if (!isServer(body))
+    throw new Error(i18n.t("servers.unexpectedServerResponse"));
   return body;
 }

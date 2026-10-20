@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 export interface Notification {
@@ -48,7 +49,7 @@ export async function listNotifications(
     await apiFetch(`/api/v1/notifications?${query}`, { signal }),
   );
   if (!Array.isArray(body) || !body.every(isNotification))
-    throw new Error("Unexpected notification response.");
+    throw new Error(i18n.t("notifications.unexpectedNotificationResponse"));
   return body;
 }
 export async function unreadNotifications(
@@ -62,7 +63,7 @@ export async function unreadNotifications(
     typeof body.unread !== "number" ||
     !Number.isSafeInteger(body.unread)
   )
-    throw new Error("Unexpected unread count.");
+    throw new Error(i18n.t("notifications.unexpectedUnreadCount"));
   return body.unread;
 }
 export async function markNotificationRead(id: number, read: boolean) {
@@ -103,7 +104,7 @@ export async function notificationStatus(
       (key) => typeof body[key] === "number" && Number.isFinite(body[key]),
     )
   )
-    throw new Error("Unexpected notification status.");
+    throw new Error(i18n.t("notifications.unexpectedNotificationStatus"));
   return body as unknown as NotificationStatus;
 }
 export async function testNotification() {

@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import {
   createContext,
   useCallback,
@@ -27,6 +29,7 @@ interface Authentication {
 const AuthenticationContext = createContext<Authentication | null>(null);
 
 export function AuthenticationProvider({ children }: { children: ReactNode }) {
+  useTranslation();
   const [session, setSession] = useState<AuthState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
@@ -54,10 +57,12 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
           if ((!signal.aborted || timedOut) && current === generation.current)
             setError(
               timedOut
-                ? "The connection timed out. Retry to connect to Campfire."
+                ? i18n.t(
+                    "useAuthentication.theConnectionTimedOutRetryToConnectToCampfire",
+                  )
                 : cause instanceof Error
                   ? cause.message
-                  : "Unable to connect to Campfire.",
+                  : i18n.t("useAuthentication.unableToConnectToCampfire"),
             );
         });
     },
@@ -99,6 +104,9 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
 
 export function useAuthentication(): Authentication {
   const value = useContext(AuthenticationContext);
-  if (!value) throw new Error("Authentication provider is missing.");
+  if (!value)
+    throw new Error(
+      i18n.t("useAuthentication.authenticationProviderIsMissing"),
+    );
   return value;
 }

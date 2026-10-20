@@ -7,6 +7,7 @@ import {
 } from "./utilization";
 import "./metric-tile.css";
 import { ResourceMeter } from "./ResourceMeter";
+import { useTranslation } from "react-i18next";
 
 export function MetricTile({
   label,
@@ -53,6 +54,7 @@ export function ResourceTile({
   warningAt?: number;
   criticalAt?: number;
 }) {
+  const { t } = useTranslation();
   const { ratio, tone, title } = resourceUtilization(
     used,
     allocated,
@@ -67,8 +69,10 @@ export function ResourceTile({
       announcement={tone !== "neutral" ? title : undefined}
       detail={
         ratio === null
-          ? "Utilization unavailable"
-          : `${Math.round(ratio * 100)}% of allocated capacity`
+          ? t("utilization.utilizationUnavailable")
+          : t("metricTile.allocatedCapacity", {
+              percent: Math.round(ratio * 100),
+            })
       }
       value={
         <>

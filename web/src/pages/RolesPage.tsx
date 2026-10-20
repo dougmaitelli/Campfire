@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -13,20 +15,43 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 
 const permissionLabels: Record<string, string> = {
-  "users.manage": "Manage users",
-  "roles.manage": "Manage roles",
-  "sparks.manage": "Manage Sparks",
-  "embers.manage": "Manage Embers",
-  "servers.create": "Create servers",
-  "servers.manage_all": "Manage all servers",
-  "server.view": "View server",
-  "server.operate": "Operate server",
-  "server.configure": "Configure server",
-  "server.delete": "Delete server",
-  "server.share": "Share server",
+  get "users.manage"() {
+    return i18n.t("rolesPage.manageUsers");
+  },
+  get "roles.manage"() {
+    return i18n.t("rolesPage.manageRoles");
+  },
+  get "sparks.manage"() {
+    return i18n.t("rolesPage.manageSparks");
+  },
+  get "embers.manage"() {
+    return i18n.t("rolesPage.manageEmbers");
+  },
+  get "servers.create"() {
+    return i18n.t("rolesPage.createServers");
+  },
+  get "servers.manage_all"() {
+    return i18n.t("rolesPage.manageAllServers");
+  },
+  get "server.view"() {
+    return i18n.t("rolesPage.viewServer");
+  },
+  get "server.operate"() {
+    return i18n.t("rolesPage.operateServer");
+  },
+  get "server.configure"() {
+    return i18n.t("rolesPage.configureServer");
+  },
+  get "server.delete"() {
+    return i18n.t("rolesPage.deleteServer");
+  },
+  get "server.share"() {
+    return i18n.t("rolesPage.shareServer");
+  },
 };
 
 export function RolesPage() {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const roles = useCollection(listRoles);
   const {
@@ -47,7 +72,10 @@ export function RolesPage() {
     if (
       busy ||
       !window.confirm(
-        `Delete role "${role.name}"? Roles assigned to users or server members cannot be deleted.`,
+        i18n.t(
+          "rolesPage.deleteRoleRolesAssignedToUsersOrServerMembersCannot",
+          { roleName: role.name },
+        ),
       )
     )
       return;
@@ -60,7 +88,9 @@ export function RolesPage() {
       await roles.refresh();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to delete role.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("rolesPage.unableToDeleteRole"),
       );
     } finally {
       setBusy(false);
@@ -69,8 +99,8 @@ export function RolesPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Roles"
-        description="Platform capabilities and server-scoped access."
+        title={t("common.roles")}
+        description={t("rolesPage.platformCapabilitiesAndServerScopedAccess")}
         actions={
           <>
             <Button
@@ -78,7 +108,7 @@ export function RolesPage() {
                 void roles.refresh();
               }}
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
             <Button
               variant="primary"
@@ -87,7 +117,7 @@ export function RolesPage() {
                 setOpen(true);
               }}
             >
-              + Create role
+              {t("rolesPage.createRole")}
             </Button>
           </>
         }
@@ -100,17 +130,19 @@ export function RolesPage() {
           empty={roles.items.length === 0}
           loading={roles.loading}
           error={roles.error}
-          resource="roles"
+          resource={t("rolesPage.roles")}
           onRetry={() => {
             void roles.refresh();
           }}
         >
-          <caption className="visually-hidden">Access roles</caption>
+          <caption className="visually-hidden">
+            {t("rolesPage.accessRoles")}
+          </caption>
           <thead>
             <tr>
-              <th>Role</th>
-              <th>Scope</th>
-              <th>Permissions</th>
+              <th>{t("common.role")}</th>
+              <th>{t("rolesPage.scope")}</th>
+              <th>{t("rolesPage.permissions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -129,14 +161,18 @@ export function RolesPage() {
                       type="button"
                       className="table-row-trigger"
                       disabled={busy}
-                      aria-label={`Edit role ${role.name}`}
+                      aria-label={i18n.t("rolesPage.editRole", {
+                        roleName: role.name,
+                      })}
                       onClick={() => edit(role)}
                     >
                       {role.name}
                     </button>
                   )}
                   {role.builtin && (
-                    <span className="row-description">Built-in</span>
+                    <span className="row-description">
+                      {i18n.t("rolesPage.builtIn")}
+                    </span>
                   )}
                 </td>
                 <td>{role.scope}</td>
@@ -148,7 +184,9 @@ export function RolesPage() {
                             permissionLabels[permission] ?? permission,
                         )
                         .join(", ")
-                    : "Access through server ownership or membership"}
+                    : i18n.t(
+                        "rolesPage.accessThroughServerOwnershipOrMembership",
+                      )}
                 </td>
               </TableRow>
             ))}
@@ -157,7 +195,7 @@ export function RolesPage() {
       </ContentPanel>
       {!roles.loading && !roles.error && missing && (
         <InlineMessage>
-          This role is unavailable or no longer exists.
+          {t("rolesPage.thisRoleIsUnavailableOrNoLongerExists")}
         </InlineMessage>
       )}
       {(open || editing) && (

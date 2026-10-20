@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { navigation } from "../../routing/navigation";
 import type { NavigationItem } from "../../routing/navigation";
 import { NavigationIcon } from "./NavigationIcon";
@@ -5,16 +6,21 @@ import { useAuthentication } from "../../hooks/useAuthentication";
 import { AccountMenu } from "./AccountMenu";
 
 export function Sidebar({ page }: { page: NavigationItem }) {
+  const { t } = useTranslation();
   const auth = useAuthentication();
   return (
     <aside className="sidebar">
-      <a className="brand" href="#dashboard" aria-label="Campfire dashboard">
+      <a
+        className="brand"
+        href="#dashboard"
+        aria-label={t("sidebar.campfireDashboard")}
+      >
         <span className="brand-mark">
           <NavigationIcon name="campfire" />
         </span>
-        <span>Campfire</span>
+        <span>{t("sidebar.campfire")}</span>
       </a>
-      <nav className="navigation" aria-label="Main navigation">
+      <nav className="navigation" aria-label={t("sidebar.mainNavigation")}>
         {navigation
           .filter(
             (item) =>

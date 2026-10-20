@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import type { ComponentProps, ReactNode } from "react";
 import { ContentState } from "../layout/ContentState";
 import "./table.css";
@@ -8,7 +10,7 @@ export function Table({
   empty = false,
   loading = false,
   error,
-  resource = "records",
+  resource = i18n.t("table.records"),
   emptyMessage,
   emptyDescription,
   emptyAction,
@@ -24,6 +26,7 @@ export function Table({
   emptyAction?: ReactNode;
   onRetry?: () => void;
 }) {
+  useTranslation();
   if (empty)
     return (
       <ContentState
@@ -54,6 +57,7 @@ export function TableRow({
   children,
   ...props
 }: ComponentProps<"tr"> & { onOpen?: (() => void) | undefined }) {
+  useTranslation();
   return (
     <tr
       {...props}

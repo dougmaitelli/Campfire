@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
@@ -22,16 +24,38 @@ import { bytes } from "../api/monitoring";
 import { Drawer } from "../components/layout/Drawer";
 
 const phases: Record<string, string> = {
-  queued: "Preparing",
-  exporting: "Preparing source archive",
-  copying: "Copying archive",
-  importing: "Validating and importing",
-  committing: "Changing placement",
-  cleanup: "Activating destination and cleaning source",
-  complete: "Complete",
-  cancelling: "Cancelling",
-  cancelled: "Cancelled",
-  failed: "Paused after an error",
+  get queued() {
+    return i18n.t("serverTransferDialog.preparing");
+  },
+  get exporting() {
+    return i18n.t("serverTransferDialog.preparingSourceArchive");
+  },
+  get copying() {
+    return i18n.t("serverTransferDialog.copyingArchive");
+  },
+  get importing() {
+    return i18n.t("serverTransferDialog.validatingAndImporting");
+  },
+  get committing() {
+    return i18n.t("serverTransferDialog.changingPlacement");
+  },
+  get cleanup() {
+    return i18n.t(
+      "serverTransferDialog.activatingDestinationAndCleaningSource",
+    );
+  },
+  get complete() {
+    return i18n.t("serverTransferDialog.complete");
+  },
+  get cancelling() {
+    return i18n.t("serverTransferDialog.cancelling");
+  },
+  get cancelled() {
+    return i18n.t("serverTransferDialog.cancelled");
+  },
+  get failed() {
+    return i18n.t("serverTransferDialog.pausedAfterAnError");
+  },
 };
 
 export function ServerTransferDialog({
@@ -43,6 +67,7 @@ export function ServerTransferDialog({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const [sparks, setSparks] = useState<Spark[]>([]);
   const [items, setItems] = useState<ServerTransfer[]>([]);
@@ -63,7 +88,9 @@ export function ServerTransferDialog({
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
           setError(
-            cause instanceof Error ? cause.message : "Unable to load Sparks.",
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("serverTransferDialog.unableToLoadSparks"),
           );
       });
     return () => controller.abort();
@@ -99,7 +126,7 @@ export function ServerTransferDialog({
           setLoadError(
             cause instanceof Error
               ? cause.message
-              : "Unable to read transfer status.",
+              : i18n.t("serverTransferDialog.unableToReadTransferStatus"),
           );
           setLoading(false);
         }
@@ -178,7 +205,9 @@ export function ServerTransferDialog({
       setRevision((value) => value + 1);
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to update transfer.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("serverTransferDialog.unableToUpdateTransfer"),
       );
     } finally {
       pending.current = false;
@@ -187,13 +216,15 @@ export function ServerTransferDialog({
   }
   return (
     <Drawer
-      title={`Transfer ${server.name}`}
-      description="Move game data and completed backups to another Spark. The server stays stopped throughout the transfer."
+      title={t("serverTransferDialog.transfer", { serverName: server.name })}
+      description={t(
+        "serverTransferDialog.moveGameDataAndCompletedBackupsToAnotherSparkThe",
+      )}
       busy={busy}
       onClose={onClose}
       footerLeft={
         <Button disabled={busy} onClick={onClose}>
-          Close
+          {t("common.close")}
         </Button>
       }
       footerRight={
@@ -204,7 +235,7 @@ export function ServerTransferDialog({
             void submit("begin");
           }}
         >
-          Transfer server
+          {t("serverTransferDialog.transferServer")}
         </Button>
       }
     >
@@ -213,26 +244,32 @@ export function ServerTransferDialog({
           <InlineMessage role="alert">{error ?? loadError}</InlineMessage>
         )}
         <p>
-          Current Spark:{" "}
-          <ResourceLink href={links.spark(server.spark_id)}>
-            {server.spark_name}
-          </ResourceLink>
-          . Ownership, access, and schedules stay with the server.
+          <Trans
+            i18nKey="serverTransferDialog.currentSparkOwnershipAccessAndSchedulesStayWithTheServer"
+            t={t}
+            components={{
+              resourceLink: (
+                <ResourceLink href={links.spark(server.spark_id)}>
+                  {server.spark_name}
+                </ResourceLink>
+              ),
+            }}
+          />
         </p>
         {status !== undefined &&
           !["stopped", "not_installed"].includes(status.state) && (
             <p className="field-help">
-              Stop the server before beginning a transfer.
+              {t("serverTransferDialog.stopTheServerBeforeBeginningATransfer")}
             </p>
           )}
-        <FormField label="Destination Spark">
+        <FormField label={t("serverTransferDialog.destinationSpark")}>
           <Select
             id="transfer-target"
             value={targetID}
             disabled={busy || active}
             onValueChange={(selectedValue) => selectTarget(selectedValue)}
           >
-            <option value="">Select a Spark</option>
+            <option value="">{t("serverTransferDialog.selectASpark")}</option>
             {choices.map((spark) => (
               <option key={spark.id} value={spark.id}>
                 {spark.name}
@@ -244,9 +281,15 @@ export function ServerTransferDialog({
         {target && (
           <>
             <p className="field-help">
-              Game address after transfer:{" "}
-              {target.game_address || "Not configured"}. Existing game clients
-              may need the new address and host ports.
+              <Trans
+                i18nKey="serverTransferDialog.gameAddressAfterTransferExistingGameClientsMayNeedThe"
+                t={t}
+                components={{
+                  targetGameAddress: (
+                    <>{target.game_address || t("common.notConfigured")}</>
+                  ),
+                }}
+              />
             </p>
             {ports.map((port, index) => (
               <Fieldset
@@ -254,9 +297,12 @@ export function ServerTransferDialog({
                 disabled={busy || active}
               >
                 <legend>
-                  Container port {port.container_port}/{port.protocol}
+                  {i18n.t("serverTransferDialog.containerPort")}
+                  {port.container_port}/{port.protocol}
                 </legend>
-                <FormField label="Destination interface">
+                <FormField
+                  label={i18n.t("serverTransferDialog.destinationInterface")}
+                >
                   <Select
                     id={`transfer-ip-${index}`}
                     value={port.bind_ip}
@@ -270,7 +316,9 @@ export function ServerTransferDialog({
                       )
                     }
                   >
-                    <option value="">Select an interface</option>
+                    <option value="">
+                      {i18n.t("serverTransferDialog.selectAnInterface")}
+                    </option>
                     {[
                       ...new Set(
                         target.port_allocations
@@ -288,23 +336,32 @@ export function ServerTransferDialog({
                   </Select>
                 </FormField>
                 <FormField
-                  label="Destination host port"
+                  label={i18n.t("serverTransferDialog.destinationHostPort")}
                   description={
                     <>
-                      Allowed ranges:{" "}
-                      {formatDisplayValue(
-                        target.port_allocations
-                          .filter(
-                            (allocation) =>
-                              allocation.protocol === port.protocol &&
-                              allocation.bind_ip === port.bind_ip,
-                          )
-                          .map(
-                            (allocation) =>
-                              `${allocation.start}–${allocation.end}`,
-                          )
-                          .join(", "),
-                      )}
+                      <Trans
+                        i18nKey="serverTransferDialog.allowedRanges"
+                        t={i18n.t}
+                        components={{
+                          formatDisplayValueTargetPort: (
+                            <>
+                              {formatDisplayValue(
+                                target.port_allocations
+                                  .filter(
+                                    (allocation) =>
+                                      allocation.protocol === port.protocol &&
+                                      allocation.bind_ip === port.bind_ip,
+                                  )
+                                  .map(
+                                    (allocation) =>
+                                      `${allocation.start}–${allocation.end}`,
+                                  )
+                                  .join(", "),
+                              )}
+                            </>
+                          ),
+                        }}
+                      />
                     </>
                   }
                 >
@@ -333,11 +390,18 @@ export function ServerTransferDialog({
             ))}
           </>
         )}
-        <h3>Transfer history</h3>
-        {loading && <p role="status">Loading…</p>}
-        {!loading && items.length === 0 && <p>No transfers yet.</p>}
+        <h3>{t("serverTransferDialog.transferHistory")}</h3>
+        {loading && <p role="status">{t("common.loading")}</p>}
+        {!loading && items.length === 0 && (
+          <p>{t("serverTransferDialog.noTransfersYet")}</p>
+        )}
         {items.map((item) => (
-          <section key={item.id} aria-label={`Transfer ${item.id}`}>
+          <section
+            key={item.id}
+            aria-label={i18n.t("serverTransferDialog.transfer2", {
+              itemId: item.id,
+            })}
+          >
             <p>
               <strong>{phases[item.phase] ?? item.phase}</strong>:{" "}
               <ResourceLink href={links.spark(item.source_spark_id)}>
@@ -353,7 +417,7 @@ export function ServerTransferDialog({
             {item.total_bytes > 0 && (
               <>
                 <progress
-                  aria-label="Archive bytes copied"
+                  aria-label={i18n.t("serverTransferDialog.archiveBytesCopied")}
                   max={item.total_bytes}
                   value={item.transferred_bytes}
                 />
@@ -374,7 +438,7 @@ export function ServerTransferDialog({
                       void submit("retry", item);
                     }}
                   >
-                    Retry transfer
+                    {i18n.t("serverTransferDialog.retryTransfer")}
                   </Button>
                 )}
                 {item.can_cancel && (
@@ -384,13 +448,14 @@ export function ServerTransferDialog({
                       void submit("cancel", item);
                     }}
                   >
-                    Cancel transfer
+                    {i18n.t("serverTransferDialog.cancelTransfer")}
                   </Button>
                 )}
                 {!item.can_cancel && item.phase !== "cancelling" && (
                   <p className="field-help">
-                    Placement is being committed or has changed. Retry any
-                    failed finalization to finish the transfer.
+                    {i18n.t(
+                      "serverTransferDialog.placementIsBeingCommittedOrHasChangedRetryAnyFailed",
+                    )}
                   </p>
                 )}
               </ActionGroup>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
 import { useEffect, useId, useRef, type ReactNode } from "react";
@@ -28,6 +29,7 @@ export function ConfirmDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const id = useId();
@@ -60,7 +62,7 @@ export function ConfirmDialog({
           disabled={busy}
           onClick={onClose}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button
           type="button"
@@ -68,7 +70,7 @@ export function ConfirmDialog({
           disabled={busy || disabled}
           onClick={onConfirm}
           loading={busy}
-          loadingLabel={"Working…"}
+          loadingLabel={t("confirmDialog.working")}
         >
           {confirmLabel}
         </Button>

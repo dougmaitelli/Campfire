@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -17,6 +19,13 @@ import { StatusPill } from "../components/status/StatusPill";
 import "./notifications.css";
 
 export function NotificationsPage() {
+  const { t } = useTranslation();
+  const severityLabels: Record<string, string> = {
+    info: t("notificationsPage.severityInfo"),
+    warning: t("notificationsPage.severityWarning"),
+    critical: t("notificationsPage.severityCritical"),
+    error: t("notificationsPage.severityError"),
+  };
   const links = useResourceLinks();
   const inbox = useNotifications();
   const [items, setItems] = useState<Notification[]>([]);
@@ -48,7 +57,7 @@ export function NotificationsPage() {
           setError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load notifications.",
+              : i18n.t("notificationsPage.unableToLoadNotifications"),
           );
       } finally {
         if (!controller.signal.aborted && current === generation.current)
@@ -83,7 +92,7 @@ export function NotificationsPage() {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Unable to update notifications.",
+          : i18n.t("notificationsPage.unableToUpdateNotifications"),
       );
     } finally {
       pending.current = false;
@@ -109,7 +118,7 @@ export function NotificationsPage() {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Unable to load older notifications.",
+          : i18n.t("notificationsPage.unableToLoadOlderNotifications"),
       );
     } finally {
       pending.current = false;
@@ -119,12 +128,14 @@ export function NotificationsPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Notifications"
-        description="Health and resource alerts, recoveries, and messages for your account."
+        title={t("common.notifications")}
+        description={t(
+          "notificationsPage.healthAndResourceAlertsRecoveriesAndMessagesForYourAccount",
+        )}
         actions={
           <>
             <Button disabled={busy} onClick={refresh}>
-              Refresh
+              {t("common.refresh")}
             </Button>
             <Button
               disabled={busy || !items.length}
@@ -136,7 +147,7 @@ export function NotificationsPage() {
                 );
               }}
             >
-              Mark all read
+              {t("notificationsPage.markAllRead")}
             </Button>
           </>
         }
@@ -147,8 +158,8 @@ export function NotificationsPage() {
           <ContentState
             loading={loading}
             error={error}
-            resource="notifications"
-            emptyMessage="No notifications."
+            resource={t("notificationsPage.notifications")}
+            emptyMessage={t("notificationsPage.noNotifications")}
             onRetry={refresh}
           />
         )}
@@ -166,7 +177,9 @@ export function NotificationsPage() {
                   {item.title}
                 </ResourceLink>
                 {!item.read_at && (
-                  <StatusPill tone="warning">Unread</StatusPill>
+                  <StatusPill tone="warning">
+                    {i18n.t("notificationsPage.unread")}
+                  </StatusPill>
                 )}
               </h2>
               <p>{item.body}</p>
@@ -174,12 +187,17 @@ export function NotificationsPage() {
                 <time dateTime={new Date(item.created_at * 1000).toISOString()}>
                   {new Date(item.created_at * 1000).toLocaleString()}
                 </time>{" "}
-                · {item.severity} · {item.kind}
+                · {severityLabels[item.severity] ?? item.severity} · {item.kind}
               </p>
             </div>
             <Button
               size="small"
-              aria-label={`${item.read_at ? "Mark unread" : "Mark read"}: ${item.title}`}
+              aria-label={i18n.t(
+                item.read_at
+                  ? "notificationsPage.markUnreadTitle"
+                  : "notificationsPage.markReadTitle",
+                { title: item.title },
+              )}
               disabled={busy}
               onClick={() => {
                 void perform(() =>
@@ -187,7 +205,9 @@ export function NotificationsPage() {
                 );
               }}
             >
-              {item.read_at ? "Mark unread" : "Mark read"}
+              {item.read_at
+                ? i18n.t("notificationsPage.markUnread")
+                : i18n.t("notificationsPage.markRead")}
             </Button>
           </article>
         ))}
@@ -198,7 +218,7 @@ export function NotificationsPage() {
               void more();
             }}
           >
-            Load older
+            {t("notificationsPage.loadOlder")}
           </Button>
         )}
       </ContentPanel>

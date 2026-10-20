@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -22,6 +24,7 @@ export function EnrollSparkDialog({
   onClose: () => void;
   reEnrollment?: boolean;
 }) {
+  const { t } = useTranslation();
   const [enrollment, setEnrollment] = useState<SparkEnrollment | null>(null);
   const [busy, setBusy] = useState(!spark.disabled);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export function EnrollSparkDialog({
         setError(
           cause instanceof Error
             ? cause.message
-            : "Unable to create enrollment token.",
+            : i18n.t("enrollSparkDialog.unableToCreateEnrollmentToken"),
         ),
       )
       .finally(() => {
@@ -79,7 +82,7 @@ export function EnrollSparkDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : "Unable to create enrollment token.",
+          : i18n.t("enrollSparkDialog.unableToCreateEnrollmentToken"),
       );
     } finally {
       pending.current = false;
@@ -90,7 +93,14 @@ export function EnrollSparkDialog({
     <Drawer
       title={
         <>
-          <span>{`${reEnrollment ? "Re-enroll Spark" : "Install Spark"} · ${spark.name}`}</span>
+          <span>
+            {t(
+              reEnrollment
+                ? "enrollSparkDialog.reEnrollTitle"
+                : "enrollSparkDialog.installTitle",
+              { name: spark.name },
+            )}
+          </span>
           <SparkConnectionState
             disabled={spark.disabled}
             connected={spark.connected}
@@ -98,7 +108,9 @@ export function EnrollSparkDialog({
           />
         </>
       }
-      description="Run one command on the game host to install and enroll Spark."
+      description={t(
+        "enrollSparkDialog.runOneCommandOnTheGameHostToInstallAnd",
+      )}
       busy={busy}
       onClose={onClose}
       footerLeft={
@@ -108,7 +120,7 @@ export function EnrollSparkDialog({
           disabled={busy}
           onClick={onClose}
         >
-          Close
+          {t("common.close")}
         </Button>
       }
       footerRight={
@@ -120,36 +132,36 @@ export function EnrollSparkDialog({
             void generate();
           }}
           loading={busy}
-          loadingLabel={"Generating…"}
+          loadingLabel={t("enrollSparkDialog.generating")}
         >
-          {enrollment ? "Generate new command" : "Generate command"}
+          {enrollment
+            ? t("enrollSparkDialog.generateNewCommand")
+            : t("enrollSparkDialog.generateCommand")}
         </Button>
       }
     >
       <div className="drawer-content">
         {reEnrollment && (
           <InlineMessage tone="warning">
-            Running this command replaces the existing Spark credentials and
-            briefly restarts its service. Agents using the old credentials will
-            no longer be able to reconnect. Server files and configuration are
-            preserved. Credentials change only after successful enrollment.
+            {t(
+              "enrollSparkDialog.runningThisCommandReplacesTheExistingSparkCredentialsAndBriefly",
+            )}
           </InlineMessage>
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {spark.disabled && (
           <InlineMessage tone="info">
-            Enable this Spark before generating an installation command.
+            {t(
+              "enrollSparkDialog.enableThisSparkBeforeGeneratingAnInstallationCommand",
+            )}
           </InlineMessage>
         )}
-        <p>
-          Run this on a Linux amd64 or arm64 host with Docker running, curl,
-          systemd, and sudo access. It downloads this panel’s matching Spark
-          build, verifies its checksum, installs Spark, enrolls it, and starts
-          the service.
-        </p>
+        <p>{t("enrollSparkDialog.runThisOnALinuxAmd64OrArm64HostWith")}</p>
         <FormField
-          label="Agent HTTPS address"
-          description="Use Campfire’s dedicated agent listener, which may have a different address or port from this page."
+          label={t("enrollSparkDialog.agentHTTPSAddress")}
+          description={t(
+            "enrollSparkDialog.useCampfireSDedicatedAgentListenerWhichMayHaveA",
+          )}
         >
           <TextInput
             type="url"
@@ -164,8 +176,10 @@ export function EnrollSparkDialog({
         </FormField>
         {!busy && !enrollment?.server_ca && (
           <FormField
-            label="Private CA file (optional)"
-            description="For a private HTTPS certificate, enter the absolute path to its CA certificate on the Spark host."
+            label={t("enrollSparkDialog.privateCAFileOptional")}
+            description={t(
+              "enrollSparkDialog.forAPrivateHTTPSCertificateEnterTheAbsolutePathTo",
+            )}
           >
             <TextInput
               value={caFile}
@@ -173,14 +187,18 @@ export function EnrollSparkDialog({
                 setCAFile(event.target.value);
                 setCopied(false);
               }}
-              placeholder="/etc/campfire/panel-ca.crt"
+              placeholder={t("enrollSparkDialog.etcCampfirePanelCaCrt")}
             />
           </FormField>
         )}
-        {busy && <p role="status">Generating installation command…</p>}
+        {busy && (
+          <p role="status">
+            {t("enrollSparkDialog.generatingInstallationCommand")}
+          </p>
+        )}
         {enrollment && (
           <>
-            <FormField label="Installation command">
+            <FormField label={t("enrollSparkDialog.installationCommand")}>
               <Textarea
                 id="spark-install-command"
                 readOnly
@@ -197,24 +215,40 @@ export function EnrollSparkDialog({
                   .then(() => setCopied(true))
                   .catch(() =>
                     setError(
-                      "Unable to copy. Select and copy the command above.",
+                      i18n.t(
+                        "enrollSparkDialog.unableToCopySelectAndCopyTheCommandAbove",
+                      ),
                     ),
                   );
               }}
             >
-              {copied ? "Copied" : "Copy command"}
+              {copied
+                ? t("enrollSparkDialog.copied")
+                : t("enrollSparkDialog.copyCommand")}
             </Button>
             {!validPanel && (
               <InlineMessage>
-                Enter a valid HTTPS agent address without a path.
+                {t(
+                  "enrollSparkDialog.enterAValidHTTPSAgentAddressWithoutAPath",
+                )}
               </InlineMessage>
             )}
             <p>
-              This command contains a one-time enrollment token and expires{" "}
-              {new Date(enrollment.expires_at).toLocaleString()}. Generating a
-              new command replaces the previous unused token.
+              <Trans
+                i18nKey="enrollSparkDialog.thisCommandContainsAOneTimeEnrollmentTokenAndExpires"
+                t={t}
+                components={{
+                  newDateEnrollment: (
+                    <>{new Date(enrollment.expires_at).toLocaleString()}</>
+                  ),
+                }}
+              />
             </p>
-            <p>Refresh the Sparks page to see the connection status.</p>
+            <p>
+              {t(
+                "enrollSparkDialog.refreshTheSparksPageToSeeTheConnectionStatus",
+              )}
+            </p>
           </>
         )}
       </div>

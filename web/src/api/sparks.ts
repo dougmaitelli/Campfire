@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 const SPARK_UPDATE_REQUEST_TIMEOUT_MS = 330000;
@@ -108,7 +109,7 @@ export async function listSparks(signal: AbortSignal): Promise<Spark[]> {
   const response = await apiFetch("/api/v1/sparks", { signal });
   const body = await readResponse(response);
   if (!Array.isArray(body) || !body.every(isSpark)) {
-    throw new Error("Unexpected response while loading Sparks.");
+    throw new Error(i18n.t("sparks.unexpectedResponseWhileLoadingSparks"));
   }
   return body;
 }
@@ -121,7 +122,7 @@ export async function createSpark(input: CreateSparkInput): Promise<Spark> {
   });
   const body = await readResponse(response);
   if (!isSpark(body)) {
-    throw new Error("Unexpected response while adding the Spark.");
+    throw new Error(i18n.t("sparks.unexpectedResponseWhileAddingTheSpark"));
   }
   return body;
 }
@@ -137,7 +138,7 @@ export async function updateSpark(
   });
   const body = await readResponse(response);
   if (!isSpark(body))
-    throw new Error("Unexpected response while updating the Spark.");
+    throw new Error(i18n.t("sparks.unexpectedResponseWhileUpdatingTheSpark"));
   return body;
 }
 
@@ -190,7 +191,7 @@ export async function createSparkEnrollment(
     ("server_ca" in body &&
       (typeof body.server_ca !== "string" || body.server_ca.length > 65536))
   ) {
-    throw new Error("Unexpected enrollment response.");
+    throw new Error(i18n.t("sparks.unexpectedEnrollmentResponse"));
   }
   return {
     token: body.token,

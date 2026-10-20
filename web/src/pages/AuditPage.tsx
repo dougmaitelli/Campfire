@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -14,6 +16,7 @@ import { Table } from "../components/table/Table";
 import { AuditOutcome } from "../components/activity/AuditOutcome";
 
 export function AuditPage() {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const [items, setItems] = useState<AuditEvent[]>([]);
   const [action, setAction] = useState("");
@@ -39,7 +42,7 @@ export function AuditPage() {
           setError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load audit records.",
+              : i18n.t("auditPage.unableToLoadAuditRecords"),
           );
       })
       .finally(() => {
@@ -63,7 +66,7 @@ export function AuditPage() {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Unable to load audit records.",
+          : i18n.t("auditPage.unableToLoadAuditRecords"),
       );
     } finally {
       setBusy(false);
@@ -72,8 +75,10 @@ export function AuditPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Audit"
-        description="Administrative changes, authentication attempts, and server operations."
+        title={t("common.audit")}
+        description={t(
+          "auditPage.administrativeChangesAuthenticationAttemptsAndServerOperations",
+        )}
         actions={
           <>
             <Button
@@ -82,7 +87,7 @@ export function AuditPage() {
                 setVersion((v) => v + 1);
               }}
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
           </>
         }
@@ -98,23 +103,23 @@ export function AuditPage() {
         }}
       >
         <ListToolbar>
-          <FormField label="Action">
+          <FormField label={t("auditPage.action")}>
             <TextInput
               value={action}
               maxLength={100}
-              placeholder="server.restart"
+              placeholder={t("auditPage.serverRestart")}
               onChange={(e) => setAction(e.target.value)}
             />
           </FormField>
-          <FormField label="Target">
+          <FormField label={t("auditPage.target")}>
             <TextInput
               value={target}
               maxLength={150}
-              placeholder="server:ID"
+              placeholder={t("auditPage.serverID")}
               onChange={(e) => setTarget(e.target.value)}
             />
           </FormField>
-          <Button>Filter</Button>
+          <Button>{t("auditPage.filter")}</Button>
         </ListToolbar>
       </form>
       <ContentPanel>
@@ -122,21 +127,23 @@ export function AuditPage() {
           empty={items.length === 0}
           loading={loading}
           error={error}
-          resource="audit records"
-          emptyMessage="No audit records"
+          resource={t("auditPage.auditRecords")}
+          emptyMessage={t("auditPage.noAuditRecords")}
           onRetry={() => {
             setLoading(true);
             setVersion((value) => value + 1);
           }}
         >
-          <caption className="visually-hidden">Audit records</caption>
+          <caption className="visually-hidden">
+            {t("auditPage.auditRecords2")}
+          </caption>
           <thead>
             <tr>
-              <th>Time</th>
-              <th>Actor</th>
-              <th>Action</th>
-              <th>Target</th>
-              <th>Outcome</th>
+              <th>{t("auditPage.time")}</th>
+              <th>{t("auditPage.actor")}</th>
+              <th>{t("auditPage.action")}</th>
+              <th>{t("auditPage.target")}</th>
+              <th>{t("auditPage.outcome")}</th>
             </tr>
           </thead>
           <tbody>
@@ -151,16 +158,20 @@ export function AuditPage() {
                         : undefined
                     }
                   >
-                    {item.username || "Unauthenticated"}
+                    {item.username || i18n.t("auditPage.unauthenticated")}
                   </ResourceLink>
                   {item.api_token_id
-                    ? ` (API token #${item.api_token_id})`
+                    ? t("auditPage.apiTokenReference", {
+                        id: item.api_token_id,
+                      })
                     : ""}
                   {item.user?.email && (
                     <div className="field-help">{item.user.email}</div>
                   )}
                   {item.user?.deleted_at && (
-                    <div className="field-help">Deleted account</div>
+                    <div className="field-help">
+                      {i18n.t("auditPage.deletedAccount")}
+                    </div>
                   )}
                 </td>
                 <td>{item.action}</td>
@@ -183,7 +194,7 @@ export function AuditPage() {
               void more();
             }}
           >
-            Load older records
+            {t("auditPage.loadOlderRecords")}
           </Button>
         )}
       </ContentPanel>

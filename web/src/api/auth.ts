@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 export interface AuthState {
@@ -73,7 +74,7 @@ export async function readSession(signal: AbortSignal): Promise<AuthState> {
     }),
   );
   if (!isAuthState(body))
-    throw new Error("Unexpected authentication response.");
+    throw new Error(i18n.t("auth.unexpectedAuthenticationResponse"));
   return body;
 }
 
@@ -92,7 +93,7 @@ export async function authenticate(
     }),
   );
   if (!isAuthState(body) || !body.authenticated)
-    throw new Error("Unexpected authentication response.");
+    throw new Error(i18n.t("auth.unexpectedAuthenticationResponse"));
   return body;
 }
 
@@ -112,6 +113,6 @@ export async function linkOIDC(): Promise<void> {
     !("url" in body) ||
     typeof body.url !== "string"
   )
-    throw new Error("Unexpected OpenID Connect response.");
+    throw new Error(i18n.t("auth.unexpectedOpenIDConnectResponse"));
   window.location.assign(body.url);
 }

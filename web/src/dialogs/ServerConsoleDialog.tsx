@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "../components/forms/Button";
 import { lazy, Suspense, useState } from "react";
 import type { Server } from "../api/servers";
@@ -20,25 +21,30 @@ export function ServerConsoleDialog({
   embedded?: boolean;
   status?: RuntimeStatus | undefined;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   return (
     <Drawer
       embedded={embedded}
-      title="Console"
-      description="Live server output and commands."
+      title={t("serverConsoleDialog.console")}
+      description={t("serverConsoleDialog.liveServerOutputAndCommands")}
       busy={busy}
       onClose={onClose}
       footerLeft={
         embedded ? null : (
           <Button disabled={busy} onClick={onClose}>
-            Close
+            {t("common.close")}
           </Button>
         )
       }
       footerRight={null}
     >
       <div className="drawer-content">
-        <Suspense fallback={<p role="status">Loading console…</p>}>
+        <Suspense
+          fallback={
+            <p role="status">{t("serverConsoleDialog.loadingConsole")}</p>
+          }
+        >
           <ServerTerminal
             serverID={server.id}
             streamKey={`${status?.operation_id ?? ""}:${status?.busy ?? false}`}

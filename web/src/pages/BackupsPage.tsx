@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -15,6 +17,7 @@ import { BackupState } from "../components/servers/BackupState";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 
 export function BackupsPage() {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const backups = useCollection(listAllBackups);
   const [search, setSearch] = useState("");
@@ -27,8 +30,10 @@ export function BackupsPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Backups"
-        description="Backup archives across all servers, including local and S3 copies."
+        title={t("common.backups")}
+        description={t(
+          "backupsPage.backupArchivesAcrossAllServersIncludingLocalAndS3Copies",
+        )}
         actions={
           <>
             <Button
@@ -37,7 +42,7 @@ export function BackupsPage() {
                 void backups.refresh();
               }}
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
           </>
         }
@@ -47,8 +52,8 @@ export function BackupsPage() {
       )}
       <ListToolbar>
         <SearchField
-          label="Search"
-          placeholder="Search backups by archive or server…"
+          label={t("common.search")}
+          placeholder={t("backupsPage.searchBackupsByArchiveOrServer")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
@@ -58,22 +63,28 @@ export function BackupsPage() {
           empty={filtered.length === 0}
           loading={backups.loading}
           error={backups.error}
-          resource="backups"
-          emptyMessage={query ? "No matching backups" : "No backups yet"}
+          resource={t("backupsPage.backups")}
+          emptyMessage={
+            query
+              ? t("backupsPage.noMatchingBackups")
+              : t("backupsPage.noBackupsYet")
+          }
           onRetry={() => {
             void backups.refresh();
           }}
         >
-          <caption className="visually-hidden">All server backups</caption>
+          <caption className="visually-hidden">
+            {t("backupsPage.allServerBackups")}
+          </caption>
           <thead>
             <tr>
-              <th>Archive</th>
-              <th>Server</th>
-              <th>Created</th>
-              <th>Size</th>
-              <th>Storage</th>
-              <th>Status</th>
-              <th className="table-actions">Actions</th>
+              <th>{t("backupsPage.archive")}</th>
+              <th>{t("common.server")}</th>
+              <th>{t("backupsPage.created")}</th>
+              <th>{t("backupsPage.size")}</th>
+              <th>{t("backupsPage.storage")}</th>
+              <th>{t("common.status")}</th>
+              <th className="table-actions">{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -104,7 +115,10 @@ export function BackupsPage() {
                   <td>{new Date(item.modified_at).toLocaleString()}</td>
                   <td>{bytes(item.size)}</td>
                   <td>
-                    {[item.local ? "Local" : null, item.remote ? "S3" : null]
+                    {[
+                      item.local ? i18n.t("backupsPage.local") : null,
+                      item.remote ? "S3" : null,
+                    ]
                       .filter(Boolean)
                       .join(" · ") || "—"}
                   </td>
@@ -118,8 +132,10 @@ export function BackupsPage() {
                           href={`/api/v1/servers/${encodeURIComponent(item.server_id)}/backups/${encodeURIComponent(item.name)}`}
                           download
                           iconOnly
-                          aria-label={`Download ${item.name}`}
-                          title="Download backup"
+                          aria-label={i18n.t("backupsPage.download", {
+                            itemName: item.name,
+                          })}
+                          title={i18n.t("backupsPage.downloadBackup")}
                         >
                           <NavigationIcon name="download" />
                         </ButtonLink>

@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 import type { StatusTone } from "../status/StatusPill";
 
 export type ConsoleStreamMode = "waiting" | "snapshot" | "live";
@@ -17,12 +18,17 @@ export function connectConsole(
   createStream: (url: string) => EventSource = (url) => new EventSource(url),
 ): () => void {
   if (mode === "waiting") {
-    onConnection({ label: "Waiting for server status…", tone: "neutral" });
+    onConnection({
+      label: i18n.t("consoleStream.waitingForServerStatus"),
+      tone: "neutral",
+    });
     return () => {};
   }
   const live = mode === "live";
   onConnection({
-    label: live ? "Connecting…" : "Loading logs…",
+    label: live
+      ? i18n.t("consoleStream.connecting")
+      : i18n.t("consoleStream.loadingLogs"),
     tone: "pending",
   });
   const stream = createStream(url);
@@ -67,14 +73,17 @@ export function connectConsole(
     if (ended) return;
     if (!live) {
       stream.close();
-      onConnection({ label: "Logs unavailable", tone: "negative" });
+      onConnection({
+        label: i18n.t("consoleStream.logsUnavailable"),
+        tone: "negative",
+      });
       return;
     }
     onConnection({
       label:
         stream.readyState === stream.CLOSED
-          ? "Console unavailable"
-          : "Connection lost; reconnecting…",
+          ? i18n.t("consoleStream.consoleUnavailable")
+          : i18n.t("consoleStream.connectionLostReconnecting"),
       tone: "pending",
     });
   };

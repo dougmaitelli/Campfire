@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import type { NavigationItem } from "../../routing/navigation";
 import { Sidebar } from "../navigation/Sidebar";
@@ -11,11 +12,12 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ page, children }: DashboardLayoutProps) {
+  const { t } = useTranslation();
   const inbox = useNotifications();
   return (
     <div className="dashboard-layout">
       <a className="skip-link" href="#main-content">
-        Skip to content
+        {t("dashboardLayout.skipToContent")}
       </a>
       <Sidebar page={page} />
       <main id="main-content" className="main-content" tabIndex={-1}>
@@ -23,7 +25,7 @@ export function DashboardLayout({ page, children }: DashboardLayoutProps) {
           {import.meta.env.DEV &&
             import.meta.env.VITE_CAMPFIRE_MOCK === "true" && (
               <span className="mock-mode-notice" role="status">
-                Mock mode · Simulated Sparks
+                {t("dashboardLayout.mockModeSimulatedSparks")}
               </span>
             )}
           <a
@@ -31,11 +33,13 @@ export function DashboardLayout({ page, children }: DashboardLayoutProps) {
             href="#notifications"
             aria-label={
               inbox.unread === null
-                ? "Notifications"
-                : `Notifications, ${inbox.unread} unread`
+                ? t("common.notifications")
+                : t("dashboardLayout.notificationsUnread", {
+                    inboxUnread: inbox.unread,
+                  })
             }
             aria-current={page.id === "notifications" ? "page" : undefined}
-            title="Notifications"
+            title={t("common.notifications")}
           >
             <NavigationIcon name="notifications" />
             {inbox.unread !== null && inbox.unread > 0 && (

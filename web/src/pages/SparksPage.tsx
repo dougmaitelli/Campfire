@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -22,6 +24,7 @@ const UPDATE_STATUS_POLL_INTERVAL_MS = 2000;
 const UPDATE_STATUS_REQUEST_TIMEOUT_MS = 10000;
 
 export function SparksPage() {
+  const { t } = useTranslation();
   const { sparks, loading, error, refresh, addSpark } = useSparks();
   const {
     selected: selectedDetails,
@@ -74,7 +77,9 @@ export function SparksPage() {
             setUpdating(null);
           } else if (Date.now() > deadline) {
             setUpdateError(
-              "The update was accepted, but Spark has not reconnected with the new version yet. Refresh to check its status.",
+              i18n.t(
+                "sparksPage.theUpdateWasAcceptedButSparkHasNotReconnectedWith",
+              ),
             );
             setWaiting(null);
             setUpdating(null);
@@ -83,7 +88,9 @@ export function SparksPage() {
         .catch(() => {
           if (!controller.signal.aborted && Date.now() > deadline) {
             setUpdateError(
-              "Unable to confirm the updated Spark connection. Refresh to check its status.",
+              i18n.t(
+                "sparksPage.unableToConfirmTheUpdatedSparkConnectionRefreshToCheck",
+              ),
             );
             setWaiting(null);
             setUpdating(null);
@@ -108,7 +115,9 @@ export function SparksPage() {
       setWaiting({ id: spark.id, version: spark.latest_agent_version });
     } catch (cause) {
       setUpdateError(
-        cause instanceof Error ? cause.message : "Unable to update Spark.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("sparksPage.unableToUpdateSpark"),
       );
       setUpdating(null);
     }
@@ -117,7 +126,9 @@ export function SparksPage() {
     if (
       deleting !== null ||
       !window.confirm(
-        `Remove "${spark.name}" and revoke its credentials? Move or delete all its servers and finish transfers first.`,
+        i18n.t("sparksPage.removeAndRevokeItsCredentialsMoveOrDeleteAllIts", {
+          sparkName: spark.name,
+        }),
       )
     )
       return;
@@ -129,7 +140,9 @@ export function SparksPage() {
       await refresh();
     } catch (cause) {
       setDeleteError(
-        cause instanceof Error ? cause.message : "Unable to remove Spark.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("sparksPage.unableToRemoveSpark"),
       );
     } finally {
       setDeleting(null);
@@ -144,8 +157,8 @@ export function SparksPage() {
   return (
     <section className="page" aria-labelledby="page-title">
       <PageHeader
-        title="Sparks"
-        description="The nodes that host your game servers."
+        title={t("common.sparks")}
+        description={t("sparksPage.theNodesThatHostYourGameServers")}
         actions={
           <>
             <Button
@@ -154,12 +167,12 @@ export function SparksPage() {
                 void refresh();
               }}
               loading={loading}
-              loadingLabel={"Refreshing…"}
+              loadingLabel={t("sparksPage.refreshing")}
             >
-              {"Refresh"}
+              {t("common.refresh")}
             </Button>
             <Button variant="primary" onClick={openAdd}>
-              + Add Spark
+              {t("sparksPage.addSpark")}
             </Button>
           </>
         }
@@ -169,7 +182,7 @@ export function SparksPage() {
       )}
       {!loading && !error && missing && (
         <InlineMessage>
-          This Spark is unavailable or no longer exists.
+          {t("sparksPage.thisSparkIsUnavailableOrNoLongerExists")}
         </InlineMessage>
       )}
       <ContentPanel aria-busy={loading}>
@@ -195,8 +208,8 @@ export function SparksPage() {
       </ContentPanel>
       <p className="list-summary" role="status">
         {loading
-          ? "Loading Sparks…"
-          : `${sparks.length} ${sparks.length === 1 ? "Spark" : "Sparks"}`}
+          ? t("sparksPage.loadingSparks")
+          : t("sparksPage.count", { count: sparks.length })}
       </p>
       {adding && (
         <SparkDialog
@@ -252,9 +265,9 @@ export function SparksPage() {
                   }
                   onClick={() => setConfirmUpdate(details)}
                   loading={updating === details.id}
-                  loadingLabel="Updating…"
+                  loadingLabel={t("sparksPage.updating")}
                 >
-                  Update Spark
+                  {t("sparksPage.updateSpark")}
                 </Button>
               )}
               <Button
@@ -267,7 +280,7 @@ export function SparksPage() {
                   setConfirmEnrollment(details);
                 }}
               >
-                Re-enroll
+                {t("sparksPage.reEnroll")}
               </Button>
             </>
           }
@@ -282,9 +295,13 @@ export function SparksPage() {
       )}
       {confirmEnrollment && (
         <ConfirmDialog
-          title={`Re-enroll ${confirmEnrollment.name}?`}
-          description="Running the re-enrollment command will replace this Spark’s existing credentials. Agents using the old credentials will no longer be able to reconnect. The installer briefly stops and restarts the Spark service, interrupting its connection to Campfire. Server files and configuration are preserved."
-          confirmLabel="Continue to re-enrollment"
+          title={t("sparksPage.reEnroll2", {
+            confirmEnrollmentName: confirmEnrollment.name,
+          })}
+          description={t(
+            "sparksPage.runningTheReEnrollmentCommandWillReplaceThisSparkS",
+          )}
+          confirmLabel={t("sparksPage.continueToReEnrollment")}
           warning
           busy={false}
           error={null}
@@ -296,17 +313,24 @@ export function SparksPage() {
           }}
         >
           <p>
-            Opening the helper or generating a command does not reset
-            credentials. They are replaced when the command successfully enrolls
-            the agent.
+            {t("sparksPage.openingTheHelperOrGeneratingACommandDoesNotReset")}
           </p>
         </ConfirmDialog>
       )}
       {confirmUpdate && (
         <ConfirmDialog
-          title={`Update ${confirmUpdate.name}?`}
-          description={`Install Spark ${confirmUpdate.latest_agent_version ?? "matching this panel"} from this Campfire panel. The node briefly disconnects and restarts; game containers keep running. Finish active server operations, uploads, and transfers first.`}
-          confirmLabel="Update Spark"
+          title={t("sparksPage.update", {
+            confirmUpdateName: confirmUpdate.name,
+          })}
+          description={t(
+            "sparksPage.installSparkFromThisCampfirePanelTheNodeBrieflyDisconnects",
+            {
+              confirmUpdateLatestAgent:
+                confirmUpdate.latest_agent_version ??
+                t("sparksPage.matchingThisPanel"),
+            },
+          )}
+          confirmLabel={t("sparksPage.updateSpark")}
           warning
           busy={false}
           error={null}

@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { serverStatus } from "../api/runtime";
 import type { RuntimeStatus } from "../api/runtime";
@@ -43,7 +44,7 @@ export function useServerRuntime(ids: string[]) {
                   ready: false,
                   busy: false,
                   disk_quota_enforced: false,
-                  progress: "Spark or Docker unavailable",
+                  progress: i18n.t("useServerRuntime.sparkOrDockerUnavailable"),
                 },
               ]);
             }

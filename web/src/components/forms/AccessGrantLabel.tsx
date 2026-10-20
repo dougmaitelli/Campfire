@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../navigation/ResourceLink";
 import { useResourceLinks } from "../../routing/useResourceLinks";
 import type { AccessGrant } from "../../api/access";
@@ -9,6 +10,7 @@ export function AccessGrantLabel({
   grant: AccessGrant;
   showAccessRole?: boolean;
 }) {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   return (
     <>
@@ -19,7 +21,9 @@ export function AccessGrantLabel({
             : links.role(grant.role_id)
         }
       >
-        {grant.role_id === null ? grant.username : `Role: ${grant.role_name}`}
+        {grant.role_id === null
+          ? grant.username
+          : t("accessGrantLabel.role", { grantRoleName: grant.role_name })}
       </ResourceLink>
       {showAccessRole && (
         <>

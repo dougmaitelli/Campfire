@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useCollection<T extends { id: string | number }>(
@@ -16,7 +17,9 @@ export function useCollection<T extends { id: string | number }>(
         .catch((cause: unknown) => {
           if (!controller.signal.aborted)
             setError(
-              cause instanceof Error ? cause.message : "Unable to load data.",
+              cause instanceof Error
+                ? cause.message
+                : i18n.t("useCollection.unableToLoadData"),
             );
         })
         .finally(() => {

@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
 import { PortPill } from "../network/PortPill";
@@ -9,7 +11,9 @@ export function ServerReview({
   name,
   sparkName,
   emberName,
-  notice = "Saving reserves these resources and ports. The server will remain Not installed.",
+  notice = i18n.t(
+    "serverReview.savingReservesTheseResourcesAndPortsTheServerWillRemain",
+  ),
 }: {
   value: ServerConfiguration;
   name?: ReactNode;
@@ -17,31 +21,46 @@ export function ServerReview({
   emberName: ReactNode;
   notice?: string | undefined;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <DetailsList>
-        <DetailItem label="Name">{name ?? value.name}</DetailItem>
-        <DetailItem label="Description">
+        <DetailItem label={t("common.name")}>{name ?? value.name}</DetailItem>
+        <DetailItem label={t("common.description")}>
           {formatDisplayValue(value.description)}
         </DetailItem>
-        <DetailItem label="Spark">{sparkName}</DetailItem>
-        <DetailItem label="Ember">{emberName}</DetailItem>
-        <DetailItem label="Image">{value.image}</DetailItem>
+        <DetailItem label={t("common.spark")}>{sparkName}</DetailItem>
+        <DetailItem label={t("common.ember")}>{emberName}</DetailItem>
+        <DetailItem label={t("serverReview.image")}>{value.image}</DetailItem>
         {value.startup_command && (
-          <DetailItem label="Startup command">
+          <DetailItem label={t("serverReview.startupCommand")}>
             {value.startup_command}
           </DetailItem>
         )}
-        <DetailItem label="CPU">{value.cpu_limit} cores</DetailItem>
-        <DetailItem label="Memory">
-          {value.memory_mb.toLocaleString()} MiB
+        <DetailItem label={t("common.cpu")}>
+          <Trans
+            i18nKey="serverReview.cores"
+            t={t}
+            components={{ valueCpuLimit: <>{value.cpu_limit}</> }}
+          />
         </DetailItem>
-        <DetailItem label="Disk">
+        <DetailItem label={t("common.memory")}>
+          <Trans
+            i18nKey="serverReview.mib"
+            t={t}
+            components={{
+              valueMemoryMb: <>{value.memory_mb.toLocaleString()}</>,
+            }}
+          />
+        </DetailItem>
+        <DetailItem label={t("common.disk")}>
           {value.disk_mb === 0
-            ? "Unlimited"
-            : `${value.disk_mb.toLocaleString()} MiB`}
+            ? t("common.unlimited")
+            : t("serverReview.mib2", {
+                valueDiskMb: value.disk_mb.toLocaleString(),
+              })}
         </DetailItem>
-        <DetailItem label="Ports">
+        <DetailItem label={t("common.ports")}>
           <div className="pill-group">
             {value.ports.map((port, index) => (
               <PortPill

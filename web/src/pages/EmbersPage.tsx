@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { ListToolbar } from "../components/layout/ListToolbar";
@@ -22,6 +24,7 @@ import { EMPTY_VALUE } from "../utils/formatDisplayValue";
 import { useResourceSelection } from "../routing/useResourceSelection";
 
 export function EmbersPage() {
+  const { t } = useTranslation();
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
   const [importing, setImporting] = useState(false);
   const {
@@ -59,7 +62,11 @@ export function EmbersPage() {
         }
       }
       if (failed.length > 0) {
-        setActionError(`Unable to check updates for: ${failed.join(", ")}.`);
+        setActionError(
+          i18n.t("embersPage.unableToCheckUpdatesFor", {
+            failedJoin: failed.join(", "),
+          }),
+        );
       }
     } finally {
       setChecking(false);
@@ -80,7 +87,9 @@ export function EmbersPage() {
       await refreshChecks();
     } catch (cause) {
       setActionError(
-        cause instanceof Error ? cause.message : "Unable to download update.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("embersPage.unableToDownloadUpdate"),
       );
     } finally {
       setBusy(null);
@@ -89,8 +98,8 @@ export function EmbersPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Embers"
-        description="Game definitions used to configure your servers."
+        title={t("common.embers")}
+        description={t("embersPage.gameDefinitionsUsedToConfigureYourServers")}
         actions={
           <>
             <Button
@@ -100,12 +109,12 @@ export function EmbersPage() {
                 void refreshChecks();
               }}
               loading={loading}
-              loadingLabel={"Refreshing…"}
+              loadingLabel={t("embersPage.refreshing")}
             >
-              {"Refresh"}
+              {t("common.refresh")}
             </Button>
             <Button variant="primary" onClick={() => setImporting(true)}>
-              + Import Ember
+              {t("embersPage.importEmber")}
             </Button>
           </>
         }
@@ -122,13 +131,14 @@ export function EmbersPage() {
             void checkAll();
           }}
           loading={checking}
-          loadingLabel={"Checking updates…"}
+          loadingLabel={t("embersPage.checkingUpdates")}
         >
-          {"Check updates"}
+          {t("embersPage.checkUpdates")}
         </Button>
         <span className="field-help">
-          Updates are checked daily. Review updates before replacing the local
-          Ember.
+          {t(
+            "embersPage.updatesAreCheckedDailyReviewUpdatesBeforeReplacingTheLocal",
+          )}
         </span>
       </ListToolbar>
       {error && items.length > 0 && (
@@ -144,24 +154,28 @@ export function EmbersPage() {
           empty={items.length === 0}
           loading={loading}
           error={error}
-          resource="Embers"
-          emptyDescription="Import a game definition before creating servers."
+          resource={t("common.embers")}
+          emptyDescription={t(
+            "embersPage.importAGameDefinitionBeforeCreatingServers",
+          )}
           emptyAction={
             <Button variant="primary" onClick={() => setImporting(true)}>
-              Import Ember
+              {t("embersPage.importEmber2")}
             </Button>
           }
           onRetry={() => {
             void refresh();
           }}
         >
-          <caption className="visually-hidden">Imported Embers</caption>
+          <caption className="visually-hidden">
+            {t("embersPage.importedEmbers")}
+          </caption>
           <thead>
             <tr>
-              <th scope="col">Game definition</th>
-              <th scope="col">Images</th>
-              <th scope="col">Required ports</th>
-              <th scope="col">Updates</th>
+              <th scope="col">{t("embersPage.gameDefinition")}</th>
+              <th scope="col">{t("embersPage.images")}</th>
+              <th scope="col">{t("embersPage.requiredPorts")}</th>
+              <th scope="col">{t("embersPage.updates")}</th>
             </tr>
           </thead>
           <tbody>
@@ -176,14 +190,22 @@ export function EmbersPage() {
                     <button
                       type="button"
                       className="table-row-trigger"
-                      aria-label={`Edit Ember ${ember.name}`}
+                      aria-label={i18n.t("embersPage.editEmber", {
+                        emberName: ember.name,
+                      })}
                       onClick={() => setEditing(ember)}
                     >
                       {ember.name}
                     </button>
                     {ember.origin && (
                       <span className="row-description">
-                        Imported from {ember.origin.format}
+                        <Trans
+                          i18nKey="embersPage.importedFrom"
+                          t={i18n.t}
+                          components={{
+                            emberOriginFormat: <>{ember.origin.format}</>,
+                          }}
+                        />
                       </span>
                     )}
                     {ember.description && (
@@ -219,9 +241,9 @@ export function EmbersPage() {
                             void download(ember);
                           }}
                           loading={busy === ember.id}
-                          loadingLabel={"Downloading…"}
+                          loadingLabel={i18n.t("embersPage.downloading")}
                         >
-                          {"Update"}
+                          {i18n.t("common.update")}
                         </Button>
                       ) : (
                         <>
@@ -235,10 +257,10 @@ export function EmbersPage() {
                             }
                           >
                             {status?.error
-                              ? "Check failed"
+                              ? i18n.t("embersPage.checkFailed")
                               : status
-                                ? "Up to date"
-                                : "Not checked yet"}
+                                ? i18n.t("embersPage.upToDate")
+                                : i18n.t("embersPage.notCheckedYet")}
                           </StatusPill>
                           {status?.error && (
                             <span className="row-description">
@@ -248,7 +270,7 @@ export function EmbersPage() {
                         </>
                       )
                     ) : (
-                      "No update URL"
+                      i18n.t("embersPage.noUpdateURL")
                     )}
                   </td>
                 </TableRow>
@@ -259,8 +281,8 @@ export function EmbersPage() {
       </ContentPanel>
       <p className="list-summary" role="status">
         {loading
-          ? "Loading…"
-          : `${items.length} ${items.length === 1 ? "Ember" : "Embers"}`}
+          ? t("common.loading")
+          : t("embersPage.count", { count: items.length })}
       </p>
       {(importing || editing) && (
         <ImportEmberDialog
@@ -285,7 +307,7 @@ export function EmbersPage() {
       )}
       {!loading && !error && missing && (
         <InlineMessage>
-          This Ember is unavailable or no longer exists.
+          {t("embersPage.thisEmberIsUnavailableOrNoLongerExists")}
         </InlineMessage>
       )}
     </section>

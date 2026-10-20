@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import "./api-tokens-dialog.css";
@@ -14,6 +16,7 @@ import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
 
 export function APITokensDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [tokens, setTokens] = useState<APIToken[]>([]);
   const [choices, setChoices] = useState<string[]>([]);
   const [scopes, setScopes] = useState<string[]>(["*"]);
@@ -39,7 +42,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
           setError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load API tokens.",
+              : i18n.t("apiTokensDialog.unableToLoadAPITokens"),
           );
       })
       .finally(() => {
@@ -57,7 +60,9 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
       await action();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to update API tokens.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("apiTokensDialog.unableToUpdateAPITokens"),
       );
     } finally {
       pending.current = false;
@@ -82,13 +87,15 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
   }
   return (
     <Drawer
-      title="API tokens"
-      description="Tokens act as your user. Scopes can restrict your permissions but never grant additional access."
+      title={t("apiTokensDialog.apiTokens")}
+      description={t(
+        "apiTokensDialog.tokensActAsYourUserScopesCanRestrictYourPermissions",
+      )}
       busy={busy}
       onClose={onClose}
       footerLeft={
         <Button disabled={busy} onClick={onClose}>
-          Close
+          {t("common.close")}
         </Button>
       }
       footerRight={null}
@@ -96,15 +103,16 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
       <div className="drawer-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {secret && (
-          <section aria-label="New token secret">
-            <h3>Save your token</h3>
+          <section aria-label={t("apiTokensDialog.newTokenSecret")}>
+            <h3>{t("apiTokensDialog.saveYourToken")}</h3>
             <p>
-              This secret is shown only once. Store it somewhere safe before
-              closing this window.
+              {t(
+                "apiTokensDialog.thisSecretIsShownOnlyOnceStoreItSomewhereSafe",
+              )}
             </p>
             <TextInput
               className="api-token-secret"
-              aria-label="Token secret"
+              aria-label={t("apiTokensDialog.tokenSecret")}
               value={secret}
               readOnly
               spellCheck={false}
@@ -119,11 +127,13 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 });
               }}
             >
-              {copied ? "Copied" : "Copy token"}
+              {copied
+                ? t("apiTokensDialog.copied")
+                : t("apiTokensDialog.copyToken")}
             </Button>
           </section>
         )}
-        <h3>Create a token</h3>
+        <h3>{t("apiTokensDialog.createAToken")}</h3>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -136,7 +146,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             });
           }}
         >
-          <FormField label="Name">
+          <FormField label={t("common.name")}>
             <TextInput
               id="token-name"
               required
@@ -146,7 +156,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               onChange={(event) => setName(event.target.value)}
             />
           </FormField>
-          <FormField label="Expires in days">
+          <FormField label={t("apiTokensDialog.expiresInDays")}>
             <TextInput
               id="token-expiry"
               type="number"
@@ -165,7 +175,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               setScopes(event.target.checked ? ["*"] : ["server.view"])
             }
           >
-            All my current permissions
+            {t("apiTokensDialog.allMyCurrentPermissions")}
           </CheckboxField>
           {!scopes.includes("*") &&
             choices
@@ -181,9 +191,9 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 </CheckboxField>
               ))}
           <p className="field-help">
-            Server access follows your ownership and assignments. Account
-            password, role, or disabled-state changes invalidate existing
-            tokens.
+            {t(
+              "apiTokensDialog.serverAccessFollowsYourOwnershipAndAssignmentsAccountPasswordRole",
+            )}
           </p>
           <Button
             variant="primary"
@@ -196,36 +206,68 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               !!secret
             }
           >
-            Create token
+            {t("apiTokensDialog.createToken")}
           </Button>
           {secret && (
-            <p>Close and reopen this window to create another token.</p>
+            <p>
+              {t(
+                "apiTokensDialog.closeAndReopenThisWindowToCreateAnotherToken",
+              )}
+            </p>
           )}
         </form>
-        <h3>Active tokens</h3>
+        <h3>{t("apiTokensDialog.activeTokens")}</h3>
         {loading ? (
-          <p>Loading…</p>
+          <p>{t("common.loading")}</p>
         ) : (
-          !tokens.length && <p>No active API tokens.</p>
+          !tokens.length && <p>{t("apiTokensDialog.noActiveAPITokens")}</p>
         )}
         {tokens.map((token) => (
           <section key={token.id} aria-label={token.name}>
             <h4 className="api-token-heading">{token.name}</h4>
             <p>
-              <code>{token.prefix}…</code> · Expires{" "}
-              {new Date(token.expires_at * 1000).toLocaleDateString()}
+              <Trans
+                i18nKey="apiTokensDialog.expires"
+                t={i18n.t}
+                components={{
+                  code: <code>{token.prefix}…</code>,
+                  newDateToken: (
+                    <>
+                      {new Date(token.expires_at * 1000).toLocaleDateString()}
+                    </>
+                  ),
+                }}
+              />
             </p>
             <p>
-              Last used:{" "}
-              {token.last_used_at
-                ? new Date(token.last_used_at * 1000).toLocaleString()
-                : "Never"}
+              <Trans
+                i18nKey="apiTokensDialog.lastUsed"
+                t={i18n.t}
+                components={{
+                  tokenLastUsed: (
+                    <>
+                      {token.last_used_at
+                        ? new Date(token.last_used_at * 1000).toLocaleString()
+                        : i18n.t("apiTokensDialog.never")}
+                    </>
+                  ),
+                }}
+              />
             </p>
             <p>
-              Scopes:{" "}
-              {token.scopes.includes("*")
-                ? "All my current permissions"
-                : token.scopes.join(", ")}
+              <Trans
+                i18nKey="apiTokensDialog.scopes"
+                t={i18n.t}
+                components={{
+                  tokenScopesIncludes: (
+                    <>
+                      {token.scopes.includes("*")
+                        ? i18n.t("apiTokensDialog.allMyCurrentPermissions")
+                        : token.scopes.join(", ")}
+                    </>
+                  ),
+                }}
+              />
             </p>
             <Button
               variant="danger"
@@ -233,7 +275,10 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               onClick={() => {
                 if (
                   !window.confirm(
-                    `Revoke “${token.name}”? Applications using it will lose access immediately.`,
+                    i18n.t(
+                      "apiTokensDialog.revokeApplicationsUsingItWillLoseAccessImmediately",
+                      { tokenName: token.name },
+                    ),
                   )
                 )
                   return;
@@ -245,7 +290,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 });
               }}
             >
-              Revoke
+              {i18n.t("apiTokensDialog.revoke")}
             </Button>
           </section>
         ))}

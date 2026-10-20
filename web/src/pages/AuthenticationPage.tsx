@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Button, ButtonLink } from "../components/forms/Button";
@@ -8,6 +10,7 @@ import { useAuthentication } from "../hooks/useAuthentication";
 import "./authentication.css";
 
 export function AuthenticationPage() {
+  const { t } = useTranslation();
   const auth = useAuthentication();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
@@ -24,7 +27,7 @@ export function AuthenticationPage() {
   async function submit() {
     if (pending.current) return;
     if (setup && password !== confirmation) {
-      setError("The passwords do not match.");
+      setError(i18n.t("authenticationPage.thePasswordsDoNotMatch"));
       return;
     }
     pending.current = true;
@@ -39,7 +42,11 @@ export function AuthenticationPage() {
       setConfirmation("");
       setToken("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to sign in.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("authenticationPage.unableToSignIn"),
+      );
     } finally {
       pending.current = false;
       setBusy(false);
@@ -50,14 +57,14 @@ export function AuthenticationPage() {
       <section className="authentication-card" aria-labelledby="auth-title">
         <div className="authentication-brand">
           <NavigationIcon name="campfire" />
-          <span>Campfire</span>
+          <span>{t("authenticationPage.campfire")}</span>
         </div>
         <h1 id="auth-title">
           {!auth.session
-            ? "Welcome to Campfire"
+            ? t("authenticationPage.welcomeToCampfire")
             : setup
-              ? "Set up your administrator"
-              : "Sign in"}
+              ? t("authenticationPage.setUpYourAdministrator")
+              : t("authenticationPage.signIn")}
         </h1>
         {auth.error ? (
           <>
@@ -67,11 +74,11 @@ export function AuthenticationPage() {
                 void auth.reload();
               }}
             >
-              Retry
+              {t("authenticationPage.retry")}
             </Button>
           </>
         ) : !auth.session ? (
-          <p role="status">Connecting…</p>
+          <p role="status">{t("authenticationPage.connecting")}</p>
         ) : (
           <form
             className="authentication-form"
@@ -82,33 +89,38 @@ export function AuthenticationPage() {
           >
             <p className="authentication-description">
               {setup
-                ? "Create the administrator account to manage your game servers."
-                : "Sign in to access your game servers."}
+                ? t(
+                    "authenticationPage.createTheAdministratorAccountToManageYourGameServers",
+                  )
+                : t("authenticationPage.signInToAccessYourGameServers")}
             </p>
             {(error !== null || oidcError) && (
               <InlineMessage role="alert">
                 {error ??
-                  "OpenID Connect sign-in failed. Please try again or contact your administrator."}
+                  t(
+                    "authenticationPage.openidConnectSignInFailedPleaseTryAgainOrContact",
+                  )}
               </InlineMessage>
             )}
             {!setup && auth.session.oidc_enabled && (
               <ButtonLink variant="primary" href="/api/v1/auth/oidc/start">
-                Sign in with OpenID Connect
+                {t("authenticationPage.signInWithOpenIDConnect")}
               </ButtonLink>
             )}
             {localLogin && (
               <>
                 {setup && (
                   <FormField
-                    label="Setup token"
+                    label={t("authenticationPage.setupToken")}
                     description={
                       <>
                         <span
                           id="setup-token-help"
                           className="authentication-hint"
                         >
-                          Copy the one-time setup token from Campfire’s startup
-                          console output or container logs.
+                          {t(
+                            "authenticationPage.copyTheOneTimeSetupTokenFromCampfireSStartup",
+                          )}
                         </span>
                       </>
                     }
@@ -125,7 +137,7 @@ export function AuthenticationPage() {
                     />
                   </FormField>
                 )}
-                <FormField label="Username">
+                <FormField label={t("authenticationPage.username")}>
                   <TextInput
                     autoComplete="username"
                     name="username"
@@ -139,7 +151,7 @@ export function AuthenticationPage() {
                     onChange={(event) => setUsername(event.target.value)}
                   />
                 </FormField>
-                <FormField label="Password">
+                <FormField label={t("authenticationPage.password")}>
                   <TextInput
                     type="password"
                     autoComplete={setup ? "new-password" : "current-password"}
@@ -154,12 +166,13 @@ export function AuthenticationPage() {
                 </FormField>
                 {setup && (
                   <FormField
-                    label="Confirm password"
+                    label={t("authenticationPage.confirmPassword")}
                     description={
                       <>
                         <span className="authentication-hint">
-                          Use at least 15 characters. Spaces and passphrases are
-                          welcome.
+                          {t(
+                            "authenticationPage.useAtLeast15CharactersSpacesAndPassphrasesAreWelcome",
+                          )}
                         </span>
                       </>
                     }
@@ -181,14 +194,17 @@ export function AuthenticationPage() {
                   variant="primary"
                   disabled={busy}
                   loading={busy}
-                  loadingLabel={"Please wait…"}
+                  loadingLabel={t("authenticationPage.pleaseWait")}
                 >
-                  {setup ? "Create administrator" : "Sign in"}
+                  {setup
+                    ? t("authenticationPage.createAdministrator")
+                    : t("authenticationPage.signIn")}
                 </Button>
                 {!setup && (
                   <p className="authentication-hint">
-                    Forgot your password? Use the reset-password command on your
-                    Campfire host.
+                    {t(
+                      "authenticationPage.forgotYourPasswordUseTheResetPasswordCommandOnYour",
+                    )}
                   </p>
                 )}
               </>

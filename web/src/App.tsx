@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { EmptyPage } from "./pages/EmptyPage";
 import { SparksPage } from "./pages/SparksPage";
@@ -20,6 +21,7 @@ import {
 } from "./hooks/useAuthentication";
 
 export function App() {
+  useTranslation();
   return (
     <AuthenticationProvider>
       <AuthenticatedApp />
@@ -28,6 +30,7 @@ export function App() {
 }
 
 function AuthenticatedApp() {
+  useTranslation();
   const auth = useAuthentication();
   return auth.session?.authenticated ? (
     <ManagementApp />
@@ -37,6 +40,7 @@ function AuthenticatedApp() {
 }
 
 function ManagementApp() {
+  const { t } = useTranslation();
   const page = useCurrentPage();
   const route = useCurrentRoute().split("/");
   let serverID = "";
@@ -57,7 +61,7 @@ function ManagementApp() {
     <NotificationsProvider key={auth.session?.user_id}>
       <DashboardLayout page={page}>
         {!allowed ? (
-          <EmptyPage title="You do not have access to this page" />
+          <EmptyPage title={t("app.youDoNotHaveAccessToThisPage")} />
         ) : page.id === "dashboard" ? (
           <DashboardPage />
         ) : page.id === "schedules" ? (

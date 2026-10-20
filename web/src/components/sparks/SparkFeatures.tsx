@@ -1,23 +1,52 @@
+import i18n from "../../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
 const featureLabels: Record<string, string> = {
-  "server.configure.v1": "Server configuration",
-  "server.lifecycle.v1": "Server controls",
-  "server.files.v1": "File management",
-  "server.files.transfer.v1": "File uploads and downloads",
-  "server.files.archive.v1": "Archive creation and extraction",
-  "server.backups.v1": "Local backups",
-  "server.backups.remote.v1": "Remote backups",
-  "server.metrics.v1": "Usage monitoring",
-  "server.console.stream.v1": "Live console",
-  "server.disk-quota.v1": "Disk quotas",
-  "server.transfer.v1": "Server transfers",
-  "server.reinstall.v1": "Reinstall",
-  "spark.self-update.v1": "Remote Spark updates",
+  get "server.configure.v1"() {
+    return i18n.t("sparkFeatures.serverConfiguration");
+  },
+  get "server.lifecycle.v1"() {
+    return i18n.t("sparkFeatures.serverControls");
+  },
+  get "server.files.v1"() {
+    return i18n.t("sparkFeatures.fileManagement");
+  },
+  get "server.files.transfer.v1"() {
+    return i18n.t("sparkFeatures.fileUploadsAndDownloads");
+  },
+  get "server.files.archive.v1"() {
+    return i18n.t("sparkFeatures.archiveCreationAndExtraction");
+  },
+  get "server.backups.v1"() {
+    return i18n.t("sparkFeatures.localBackups");
+  },
+  get "server.backups.remote.v1"() {
+    return i18n.t("sparkFeatures.remoteBackups");
+  },
+  get "server.metrics.v1"() {
+    return i18n.t("sparkFeatures.usageMonitoring");
+  },
+  get "server.console.stream.v1"() {
+    return i18n.t("sparkFeatures.liveConsole");
+  },
+  get "server.disk-quota.v1"() {
+    return i18n.t("sparkFeatures.diskQuotas");
+  },
+  get "server.transfer.v1"() {
+    return i18n.t("sparkFeatures.serverTransfers");
+  },
+  get "server.reinstall.v1"() {
+    return i18n.t("common.reinstall");
+  },
+  get "spark.self-update.v1"() {
+    return i18n.t("sparkFeatures.remoteSparkUpdates");
+  },
 };
 
 export function SparkFeatures({ spark }: { spark: Spark }) {
+  const { t } = useTranslation();
   const available = new Set(spark.capabilities ?? []);
   const features = [
     ...Object.entries(featureLabels),
@@ -26,15 +55,33 @@ export function SparkFeatures({ spark }: { spark: Spark }) {
       .map((feature): [string, string] => [feature, feature]),
   ];
   return (
-    <section className="spark-features" aria-label="Spark features">
+    <section
+      className="spark-features"
+      aria-label={t("sparkFeatures.sparkFeatures")}
+    >
       <h3>
-        Features
-        {spark.connected ? ` (${available.size}/${features.length})` : ""}
+        <Trans
+          i18nKey="sparkFeatures.features"
+          t={t}
+          components={{
+            sparkConnectedAvailable: (
+              <>
+                {spark.connected
+                  ? ` (${available.size}/${features.length})`
+                  : ""}
+              </>
+            ),
+          }}
+        />
       </h3>
       <p className="field-help">
         {spark.connected
-          ? `Spark ${spark.agent_version ?? "unknown version"} · Wire protocol ${spark.protocol ?? "unknown"}`
-          : "Connect this Spark to check feature availability."}
+          ? t("sparkFeatures.sparkWireProtocol", {
+              sparkAgentVersion:
+                spark.agent_version ?? t("sparkFeatures.unknownVersion"),
+              sparkProtocol: spark.protocol ?? t("common.unknown"),
+            })
+          : t("sparkFeatures.connectThisSparkToCheckFeatureAvailability")}
       </p>
       <ul className="spark-feature-checklist">
         {features.map(([feature, label]) => {
@@ -69,10 +116,10 @@ export function SparkFeatures({ spark }: { spark: Spark }) {
               <span>{label}</span>
               <span className="spark-feature-state">
                 {!spark.connected
-                  ? "Unknown"
+                  ? i18n.t("common.unknown")
                   : supported
-                    ? "Available"
-                    : "Unavailable"}
+                    ? i18n.t("sparkFeatures.available")
+                    : i18n.t("common.unavailable")}
               </span>
             </li>
           );

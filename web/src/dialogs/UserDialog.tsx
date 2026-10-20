@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -22,6 +24,7 @@ export function UserDialog({
   onSaved: (user: User) => void;
   onDeleted: () => void;
 }) {
+  const { t } = useTranslation();
   const [username, setUsername] = useState(user?.username ?? "");
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -38,7 +41,10 @@ export function UserDialog({
       !user ||
       pending.current ||
       !window.confirm(
-        `Delete "${user.username}"? Transfer their owned servers first. Their access and credentials will be revoked. Their profile will be retained for audit history.`,
+        i18n.t(
+          "userDialog.deleteTransferTheirOwnedServersFirstTheirAccessAndCredentials",
+          { userUsername: user.username },
+        ),
       )
     )
       return;
@@ -52,7 +58,9 @@ export function UserDialog({
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to delete user.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("userDialog.unableToDeleteUser"),
       );
     } finally {
       pending.current = false;
@@ -64,7 +72,7 @@ export function UserDialog({
     if (pending.current) return;
     if (emailInput.current && !emailInput.current.reportValidity()) return;
     if ((!user && !password) || (password && [...password].length < 15)) {
-      setError("Use a password of at least 15 characters.");
+      setError(i18n.t("userDialog.useAPasswordOfAtLeast15Characters"));
       return;
     }
     pending.current = true;
@@ -79,7 +87,11 @@ export function UserDialog({
       );
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to save user.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("userDialog.unableToSaveUser"),
+      );
     } finally {
       pending.current = false;
       setBusy(false);
@@ -87,13 +99,13 @@ export function UserDialog({
   }
   return (
     <Drawer
-      title={user ? "Edit user" : "Create user"}
-      description="Manage this account's role and sign-in access."
+      title={user ? t("userDialog.editUser") : t("userDialog.createUser")}
+      description={t("userDialog.manageThisAccountSRoleAndSignInAccess")}
       busy={busy}
       onClose={onClose}
       footerLeft={
         <Button disabled={busy} onClick={onClose}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       }
       footerRight={
@@ -116,9 +128,9 @@ export function UserDialog({
               void submit();
             }}
             loading={busy && !deleting}
-            loadingLabel={"Saving…"}
+            loadingLabel={t("userDialog.saving")}
           >
-            {"Save user"}
+            {t("userDialog.saveUser")}
           </Button>
         </>
       }
@@ -127,10 +139,14 @@ export function UserDialog({
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {user && (
           <p className="field-help">
-            User ID: <code>{user.id}</code>
+            <Trans
+              i18nKey="userDialog.userID"
+              t={t}
+              components={{ code: <code>{user.id}</code> }}
+            />
           </p>
         )}
-        <FormField label="Username">
+        <FormField label={t("userDialog.username")}>
           <TextInput
             id="user-name"
             value={username}
@@ -141,11 +157,11 @@ export function UserDialog({
           />
         </FormField>
         <FormField
-          label="Name (optional)"
+          label={t("userDialog.nameOptional")}
           description={
             user?.oidc_name_managed
-              ? "Managed by your identity provider."
-              : "Shown in the account menu. Defaults to the username."
+              ? t("userDialog.managedByYourIdentityProvider")
+              : t("userDialog.shownInTheAccountMenuDefaultsToTheUsername")
           }
         >
           <TextInput
@@ -158,10 +174,10 @@ export function UserDialog({
           />
         </FormField>
         <FormField
-          label="Email (optional)"
+          label={t("userDialog.emailOptional")}
           description={
             user?.oidc_email_managed
-              ? "Managed by your identity provider."
+              ? t("userDialog.managedByYourIdentityProvider")
               : undefined
           }
         >
@@ -177,8 +193,16 @@ export function UserDialog({
           />
         </FormField>
         <FormField
-          label={<>{user ? "New password (optional)" : "Password"}</>}
-          description="At least 15 characters. Password, role, and access changes revoke this user's existing sessions."
+          label={
+            <>
+              {user
+                ? t("userDialog.newPasswordOptional")
+                : t("userDialog.password")}
+            </>
+          }
+          description={t(
+            "userDialog.atLeast15CharactersPasswordRoleAndAccessChangesRevoke",
+          )}
         >
           <TextInput
             id="user-password"
@@ -189,7 +213,7 @@ export function UserDialog({
             onChange={(event) => setPassword(event.target.value)}
           />
         </FormField>
-        <FormField label="Role">
+        <FormField label={t("common.role")}>
           <Select
             id="user-role"
             value={roleID}
@@ -209,11 +233,10 @@ export function UserDialog({
           disabled={busy}
           onChange={(event) => setDisabled(event.target.checked)}
         >
-          Disabled
+          {t("common.disabled")}
         </CheckboxField>
         <p className="field-help">
-          Users access servers through ownership or a server role. Only
-          administrators manage Sparks.
+          {t("userDialog.usersAccessServersThroughOwnershipOrAServerRoleOnly")}
         </p>
       </div>
     </Drawer>

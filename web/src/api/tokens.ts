@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 export interface APIToken {
@@ -38,7 +39,7 @@ export async function listTokens(signal: AbortSignal) {
     !body.tokens.every(isToken) ||
     !strings(body.scopes)
   )
-    throw new Error("Unexpected API token response.");
+    throw new Error(i18n.t("tokens.unexpectedAPITokenResponse"));
   return { tokens: body.tokens, scopes: body.scopes };
 }
 export async function createToken(
@@ -54,7 +55,7 @@ export async function createToken(
     }),
   );
   if (!object(body) || !isToken(body.token) || typeof body.secret !== "string")
-    throw new Error("Unexpected API token response.");
+    throw new Error(i18n.t("tokens.unexpectedAPITokenResponse"));
   return { token: body.token, secret: body.secret };
 }
 export async function revokeToken(id: number) {

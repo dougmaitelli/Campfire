@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
 import { ActionGroup } from "../components/layout/ActionGroup";
 import { DetailsList, DetailItem } from "../components/layout/DetailsList";
@@ -46,7 +48,7 @@ function entryName(value: string | null): string | null {
     Array.from(name).some((char) => char.charCodeAt(0) < 32)
   )
     throw new Error(
-      "Enter a file or folder name without slashes or control characters.",
+      i18n.t("serverFilesDialog.enterAFileOrFolderNameWithoutSlashesOrControl"),
     );
   return name;
 }
@@ -62,6 +64,7 @@ export function ServerFilesDialog({
   onClose: () => void;
   embedded?: boolean;
 }) {
+  const { t } = useTranslation();
   const [directory, setDirectory] = useState(".");
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -116,7 +119,9 @@ export function ServerFilesDialog({
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
           setError(
-            cause instanceof Error ? cause.message : "Unable to load files.",
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("serverFilesDialog.unableToLoadFiles"),
           );
       })
       .finally(() => {
@@ -137,7 +142,9 @@ export function ServerFilesDialog({
     } catch (cause) {
       if (alive.current)
         setError(
-          cause instanceof Error ? cause.message : "File operation failed.",
+          cause instanceof Error
+            ? cause.message
+            : i18n.t("serverFilesDialog.fileOperationFailed"),
         );
     } finally {
       pending.current = false;
@@ -148,7 +155,7 @@ export function ServerFilesDialog({
     if (
       editor &&
       editor.text !== editor.initial &&
-      !window.confirm("Discard unsaved file changes?")
+      !window.confirm(i18n.t("serverFilesDialog.discardUnsavedFileChanges"))
     )
       return;
     onClose();
@@ -160,7 +167,7 @@ export function ServerFilesDialog({
     }
     if (entry.size > fileLimit)
       throw new Error(
-        "Text editing is limited to 1 MiB. Download this file to edit it locally.",
+        i18n.t("serverFilesDialog.textEditingIsLimitedTo1MiBDownloadThisFile"),
       );
     const result = await manageFiles(server.id, {
       operation: "read",
@@ -173,9 +180,12 @@ export function ServerFilesDialog({
       );
       if (text.includes("\u0000")) throw new Error("binary");
     } catch {
-      throw new Error("This file is binary. Use Download instead of editing.");
+      throw new Error(
+        i18n.t("serverFilesDialog.thisFileIsBinaryUseDownloadInsteadOfEditing"),
+      );
     }
-    if (!result.revision) throw new Error("File revision is missing.");
+    if (!result.revision)
+      throw new Error(i18n.t("serverFilesDialog.fileRevisionIsMissing"));
     setEditor({
       path: result.path,
       text,
@@ -185,7 +195,7 @@ export function ServerFilesDialog({
   }
   function download(entry: FileEntry) {
     if (entry.size > fileTransferLimit)
-      throw new Error("Downloads are limited to 100 GiB.");
+      throw new Error(i18n.t("serverFilesDialog.downloadsAreLimitedTo100GiB"));
     const anchor = document.createElement("a");
     anchor.href = `/api/v1/servers/${encodeURIComponent(server.id)}/files/download?${new URLSearchParams({ path: join(directory, entry.name) })}`;
     anchor.download = entry.name;
@@ -199,7 +209,8 @@ export function ServerFilesDialog({
       data: encodeBytes(new TextEncoder().encode(editor.text)),
       revision: editor.revision,
     });
-    if (!result.revision) throw new Error("File revision is missing.");
+    if (!result.revision)
+      throw new Error(i18n.t("serverFilesDialog.fileRevisionIsMissing"));
     setEditor({ ...editor, initial: editor.text, revision: result.revision });
   }
   async function create(folder: boolean, value: string) {
@@ -244,7 +255,9 @@ export function ServerFilesDialog({
       setDeleting(null);
     } catch (cause) {
       setDeleteError(
-        cause instanceof Error ? cause.message : "Unable to delete this entry.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("serverFilesDialog.unableToDeleteThisEntry"),
       );
     } finally {
       pending.current = false;
@@ -254,11 +267,15 @@ export function ServerFilesDialog({
   async function upload(file: File) {
     if (maxUploadBytes === null)
       throw new Error(
-        "Upload limit is unavailable. Reopen Files to try again.",
+        i18n.t(
+          "serverFilesDialog.uploadLimitIsUnavailableReopenFilesToTryAgain",
+        ),
       );
     if (file.size > maxUploadBytes)
       throw new Error(
-        `Uploads are limited to ${(maxUploadBytes / 1024 ** 2).toLocaleString()} MiB per file.`,
+        i18n.t("serverFilesDialog.uploadsAreLimitedToMiBPerFile", {
+          toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
+        }),
       );
     const name = entryName(file.name);
     if (name === null) return;
@@ -279,11 +296,15 @@ export function ServerFilesDialog({
         controller.signal,
       );
       uploadID = started.upload_id;
-      if (!uploadID) throw new Error("Upload session is missing.");
+      if (!uploadID)
+        throw new Error(i18n.t("serverFilesDialog.uploadSessionIsMissing"));
       for (let offset = 0; offset < file.size; offset += fileLimit) {
         if (alive.current)
           setProgress(
-            `Uploading ${file.name}: ${Math.floor((offset / file.size) * 100)}%`,
+            i18n.t("serverFilesDialog.uploading", {
+              fileName: file.name,
+              MathFloor100: Math.floor((offset / file.size) * 100),
+            }),
           );
         const data = encodeBytes(
           new Uint8Array(
@@ -339,8 +360,18 @@ export function ServerFilesDialog({
     <Drawer
       embedded={embedded}
       unsavedChanges={editor !== null && editor.text !== editor.initial}
-      title={`${server.name} files`}
-      description={`Browse game files. ${maxUploadBytes === null ? "Loading upload limit." : `Uploads support up to ${(maxUploadBytes / 1024 ** 2).toLocaleString()} MiB per file.`} Text editing supports 1 MiB.`}
+      title={t("serverFilesDialog.files", { serverName: server.name })}
+      description={t(
+        "serverFilesDialog.browseGameFilesTextEditingSupports1MiB",
+        {
+          maxUploadBytesNullLoading:
+            maxUploadBytes === null
+              ? t("serverFilesDialog.loadingUploadLimit")
+              : t("serverFilesDialog.uploadsSupportUpToMiBPerFile", {
+                  toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
+                }),
+        },
+      )}
       busy={busy}
       onClose={close}
       footerLeft={
@@ -351,7 +382,9 @@ export function ServerFilesDialog({
               if (editor) {
                 if (
                   editor.text !== editor.initial &&
-                  !window.confirm("Discard unsaved file changes?")
+                  !window.confirm(
+                    i18n.t("serverFilesDialog.discardUnsavedFileChanges"),
+                  )
                 )
                   return;
                 setEditor(null);
@@ -359,7 +392,7 @@ export function ServerFilesDialog({
               } else close();
             }}
           >
-            {editor ? "Back to files" : "Close"}
+            {editor ? t("serverFilesDialog.backToFiles") : t("common.close")}
           </Button>
         )
       }
@@ -372,9 +405,9 @@ export function ServerFilesDialog({
               void perform(save);
             }}
             loading={busy}
-            loadingLabel={"Saving…"}
+            loadingLabel={t("serverFilesDialog.saving")}
           >
-            {"Save file"}
+            {t("serverFilesDialog.saveFile")}
           </Button>
         ) : null
       }
@@ -384,25 +417,31 @@ export function ServerFilesDialog({
           <InputDialog
             title={
               fileAction.kind === "rename"
-                ? "Rename"
+                ? t("serverFilesDialog.rename2")
                 : fileAction.kind === "compress"
-                  ? "Compress"
-                  : "Extract archive"
+                  ? t("serverFilesDialog.compress2")
+                  : t("serverFilesDialog.extractArchive")
             }
             label={
               fileAction.kind === "rename"
-                ? "New name"
+                ? t("serverFilesDialog.newName")
                 : fileAction.kind === "compress"
-                  ? "Archive name"
-                  : "New folder name"
+                  ? t("serverFilesDialog.archiveName")
+                  : t("serverFilesDialog.newFolderName")
             }
-            description={`${fileAction.entry.name} in ${directory === "." ? "the root folder" : directory}.`}
+            description={t("serverFilesDialog.in", {
+              fileActionEntryName: fileAction.entry.name,
+              directoryTheRoot:
+                directory === "."
+                  ? t("serverFilesDialog.theRootFolder")
+                  : directory,
+            })}
             submitLabel={
               fileAction.kind === "rename"
-                ? "Rename"
+                ? t("serverFilesDialog.rename2")
                 : fileAction.kind === "compress"
-                  ? "Compress"
-                  : "Extract"
+                  ? t("serverFilesDialog.compress2")
+                  : t("serverFilesDialog.extract")
             }
             initialValue={
               fileAction.kind === "rename"
@@ -422,10 +461,21 @@ export function ServerFilesDialog({
         {deleting && (
           <ConfirmDialog
             title={
-              deleting.kind === "directory" ? "Delete folder?" : "Delete file?"
+              deleting.kind === "directory"
+                ? t("serverFilesDialog.deleteFolder")
+                : t("serverFilesDialog.deleteFile")
             }
-            description={`Permanently delete "${deleting.name}"? This cannot be undone.${deleting.kind === "directory" ? " The folder must be empty." : ""}`}
-            confirmLabel="Delete"
+            description={t(
+              "serverFilesDialog.permanentlyDeleteThisCannotBeUndone",
+              {
+                deletingName: deleting.name,
+                deletingKindDirectory:
+                  deleting.kind === "directory"
+                    ? t("serverFilesDialog.theFolderMustBeEmpty")
+                    : "",
+              },
+            )}
+            confirmLabel={t("common.delete")}
             danger
             busy={busy}
             error={deleteError}
@@ -437,11 +487,22 @@ export function ServerFilesDialog({
         )}
         {creating && (
           <InputDialog
-            title={creating === "folder" ? "New folder" : "New file"}
-            label="Name"
-            description={`Create in ${directory === "." ? "the root folder" : directory}.`}
+            title={
+              creating === "folder"
+                ? t("serverFilesDialog.newFolder")
+                : t("serverFilesDialog.newFile")
+            }
+            label={t("common.name")}
+            description={t("serverFilesDialog.createIn", {
+              directoryTheRoot:
+                directory === "."
+                  ? t("serverFilesDialog.theRootFolder")
+                  : directory,
+            })}
             submitLabel={
-              creating === "folder" ? "Create folder" : "Create file"
+              creating === "folder"
+                ? t("serverFilesDialog.createFolder")
+                : t("serverFilesDialog.createFile")
             }
             onClose={() => setCreating(null)}
             onSubmit={(name) => create(creating === "folder", name)}
@@ -451,15 +512,16 @@ export function ServerFilesDialog({
           <p role="status">
             {progress}{" "}
             <Button onClick={() => transfer.current?.abort()}>
-              Cancel upload
+              {t("serverFilesDialog.cancelUpload")}
             </Button>
           </p>
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {!canWrite && (
           <PrerequisiteNote>
-            File modifications are currently unavailable. Wait for the current
-            operation to finish and ensure the Spark is connected.
+            {t(
+              "serverFilesDialog.fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation",
+            )}
           </PrerequisiteNote>
         )}
         {editor ? (
@@ -479,31 +541,40 @@ export function ServerFilesDialog({
             </FormField>
             {editor.text !== editor.initial && (
               <p className="list-summary" role="status">
-                Unsaved changes
+                {t("serverFilesDialog.unsavedChanges")}
               </p>
             )}
           </>
         ) : (
           <>
             <details className="file-sftp">
-              <summary>SFTP access</summary>
+              <summary>{t("serverFilesDialog.sftpAccess")}</summary>
               <div className="file-sftp-content">
                 <p>
-                  Connect with an SFTP client using the address and port
-                  provided by your administrator. SFTP must be enabled first.
+                  {t(
+                    "serverFilesDialog.connectWithAnSFTPClientUsingTheAddressAndPort",
+                  )}
                 </p>
                 <DetailsList>
-                  <DetailItem label="Username">
+                  <DetailItem label={t("serverFilesDialog.username")}>
                     <code>{server.id}</code>
                   </DetailItem>
-                  <DetailItem label="Password">
-                    Your personal API token
+                  <DetailItem label={t("serverFilesDialog.password")}>
+                    {t("serverFilesDialog.yourPersonalAPIToken")}
                   </DetailItem>
                 </DetailsList>
                 <p>
-                  Create a token from <strong>API keys</strong> in your account
-                  menu, with <code>server.view</code> and{" "}
-                  <code>server.operate</code> permissions.
+                  <Trans
+                    i18nKey="serverFilesDialog.createATokenFromInYourAccountMenuWithAnd"
+                    t={t}
+                    components={{
+                      strong: <strong>{t("serverFilesDialog.apiKeys")}</strong>,
+                      code: <code>{t("serverFilesDialog.serverView")}</code>,
+                      code2: (
+                        <code>{t("serverFilesDialog.serverOperate")}</code>
+                      ),
+                    }}
+                  />
                 </p>
               </div>
             </details>
@@ -514,7 +585,7 @@ export function ServerFilesDialog({
                   setCreating("file");
                 }}
               >
-                New file
+                {t("serverFilesDialog.newFile")}
               </Button>
               <Button
                 disabled={busy || loading || !canWrite}
@@ -522,7 +593,7 @@ export function ServerFilesDialog({
                   setCreating("folder");
                 }}
               >
-                New folder
+                {t("serverFilesDialog.newFolder")}
               </Button>
               <Button
                 type="button"
@@ -531,7 +602,7 @@ export function ServerFilesDialog({
                 }
                 onClick={() => uploadInput.current?.click()}
               >
-                Upload file
+                {t("serverFilesDialog.uploadFile")}
               </Button>
               <Button
                 className="file-refresh"
@@ -540,7 +611,7 @@ export function ServerFilesDialog({
                   void perform(() => load(directory));
                 }}
               >
-                Refresh
+                {t("common.refresh")}
               </Button>
               <input
                 ref={uploadInput}
@@ -549,7 +620,7 @@ export function ServerFilesDialog({
                 disabled={
                   busy || loading || !canWrite || maxUploadBytes === null
                 }
-                aria-label="Upload file"
+                aria-label={t("serverFilesDialog.uploadFile")}
                 onChange={(event) => {
                   const file = event.target.files?.item(0);
                   event.target.value = "";
@@ -557,7 +628,10 @@ export function ServerFilesDialog({
                 }}
               />
             </div>
-            <nav className="file-breadcrumbs" aria-label="File directory">
+            <nav
+              className="file-breadcrumbs"
+              aria-label={t("serverFilesDialog.fileDirectory")}
+            >
               <button
                 className="file-breadcrumb"
                 disabled={busy}
@@ -566,7 +640,7 @@ export function ServerFilesDialog({
                   void perform(() => load("."));
                 }}
               >
-                Root
+                {t("serverFilesDialog.root")}
               </button>
               {directory !== "." &&
                 directory.split("/").map((part, index, parts) => (
@@ -598,7 +672,7 @@ export function ServerFilesDialog({
                   <button
                     type="button"
                     className="file-name"
-                    aria-label="Go to parent folder"
+                    aria-label={t("serverFilesDialog.goToParentFolder")}
                     disabled={busy || loading}
                     onClick={() => {
                       const parent = directory
@@ -609,16 +683,22 @@ export function ServerFilesDialog({
                     }}
                   >
                     <span className="file-entry-name">../</span>
-                    <span className="file-entry-meta">Parent folder</span>
+                    <span className="file-entry-meta">
+                      {t("serverFilesDialog.parentFolder")}
+                    </span>
                   </button>
                 </div>
               )}
               {loading ? (
-                <ContentState loading resource="files" compact />
+                <ContentState
+                  loading
+                  resource={t("serverFilesDialog.files2")}
+                  compact
+                />
               ) : entries.length === 0 ? (
                 <ContentState
-                  resource="files"
-                  emptyMessage="This folder is empty."
+                  resource={t("serverFilesDialog.files2")}
+                  emptyMessage={t("serverFilesDialog.thisFolderIsEmpty")}
                   compact
                 />
               ) : (
@@ -634,9 +714,11 @@ export function ServerFilesDialog({
                       <span className="file-entry-name">{entry.name}</span>
                       <span className="file-entry-meta">
                         {entry.kind === "directory"
-                          ? "Folder"
+                          ? i18n.t("serverFilesDialog.folder2")
                           : entry.kind === "unsupported"
-                            ? "Symbolic link or special file"
+                            ? i18n.t(
+                                "serverFilesDialog.symbolicLinkOrSpecialFile",
+                              )
                             : `${entry.size.toLocaleString()} bytes`}{" "}
                         · {new Date(entry.modified_at).toLocaleString()}
                       </span>
@@ -645,12 +727,14 @@ export function ServerFilesDialog({
                       {entry.kind === "file" && (
                         <Button
                           iconOnly
-                          title="Download"
+                          title={i18n.t("serverFilesDialog.download")}
                           disabled={busy || entry.size > fileTransferLimit}
                           onClick={() => {
                             void perform(() => download(entry));
                           }}
-                          aria-label={`Download ${entry.name}`}
+                          aria-label={i18n.t("serverFilesDialog.download2", {
+                            entryName: entry.name,
+                          })}
                         >
                           <NavigationIcon name="download" />
                         </Button>
@@ -658,8 +742,10 @@ export function ServerFilesDialog({
                       {entry.kind !== "unsupported" && (
                         <Button
                           iconOnly
-                          title="Compress"
-                          aria-label={`Compress ${entry.name}`}
+                          title={i18n.t("serverFilesDialog.compress2")}
+                          aria-label={i18n.t("serverFilesDialog.compress3", {
+                            entryName: entry.name,
+                          })}
                           disabled={busy || !canWrite}
                           onClick={() => {
                             setFileAction({ kind: "compress", entry });
@@ -672,8 +758,10 @@ export function ServerFilesDialog({
                         /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
                           <Button
                             iconOnly
-                            title="Extract"
-                            aria-label={`Extract ${entry.name}`}
+                            title={i18n.t("serverFilesDialog.extract")}
+                            aria-label={i18n.t("serverFilesDialog.extract2", {
+                              entryName: entry.name,
+                            })}
                             disabled={busy || !canWrite}
                             onClick={() => {
                               setFileAction({ kind: "extract", entry });
@@ -684,21 +772,23 @@ export function ServerFilesDialog({
                         )}
                       <Button
                         iconOnly
-                        title="Rename"
+                        title={i18n.t("serverFilesDialog.rename2")}
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
                         }
                         onClick={() => {
                           setFileAction({ kind: "rename", entry });
                         }}
-                        aria-label={`Rename ${entry.name}`}
+                        aria-label={i18n.t("serverFilesDialog.rename3", {
+                          entryName: entry.name,
+                        })}
                       >
                         <NavigationIcon name="rename" />
                       </Button>
                       <Button
                         variant="danger"
                         iconOnly
-                        title="Delete"
+                        title={i18n.t("common.delete")}
                         disabled={
                           busy || !canWrite || entry.kind === "unsupported"
                         }
@@ -706,7 +796,9 @@ export function ServerFilesDialog({
                           setDeleteError(null);
                           setDeleting(entry);
                         }}
-                        aria-label={`Delete ${entry.name}`}
+                        aria-label={i18n.t("serverFilesDialog.delete", {
+                          entryName: entry.name,
+                        })}
                       >
                         <NavigationIcon name="delete" />
                       </Button>

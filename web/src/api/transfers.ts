@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 import type { ServerPort } from "./servers";
 
@@ -51,7 +52,7 @@ export async function listTransfers(
     ),
   );
   if (!Array.isArray(result) || !result.every(isTransfer))
-    throw new Error("Unexpected transfer history response.");
+    throw new Error(i18n.t("transfers.unexpectedTransferHistoryResponse"));
   return result;
 }
 
@@ -71,7 +72,8 @@ export async function beginTransfer(
       },
     ),
   );
-  if (!isTransfer(result)) throw new Error("Unexpected transfer response.");
+  if (!isTransfer(result))
+    throw new Error(i18n.t("transfers.unexpectedTransferResponse"));
   return result;
 }
 
@@ -87,6 +89,7 @@ export async function changeTransfer(
       signal: AbortSignal.timeout(15000),
     }),
   );
-  if (!isTransfer(result)) throw new Error("Unexpected transfer response.");
+  if (!isTransfer(result))
+    throw new Error(i18n.t("transfers.unexpectedTransferResponse"));
   return result;
 }

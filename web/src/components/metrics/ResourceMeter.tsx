@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { resourceUtilization, utilizationThresholds } from "./utilization";
 import "./resource-meter.css";
 
@@ -14,6 +15,7 @@ export function ResourceMeter({
   warningAt?: number;
   criticalAt?: number;
 }) {
+  const { t } = useTranslation();
   const { ratio, tone, title } = resourceUtilization(
     used,
     allocated,
@@ -30,7 +32,7 @@ export function ResourceMeter({
       high={criticalAt}
       optimum={0}
       value={Math.min(ratio, 1)}
-      aria-label={`${label} usage against allocation`}
+      aria-label={t("resourceMeter.usageAgainstAllocation", { label: label })}
       aria-valuetext={title}
       title={title}
     />

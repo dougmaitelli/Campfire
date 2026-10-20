@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import { TextInput } from "../components/forms/TextInput";
@@ -31,6 +33,7 @@ interface SparkDialogProps {
 }
 
 export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
+  const { t } = useTranslation();
   const submittingRef = useRef(false);
   const [created, setCreated] = useState<Spark | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -58,7 +61,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
           setRolesError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load server creation access.",
+              : i18n.t("sparkDialog.unableToLoadServerCreationAccess"),
           );
       })
       .finally(() => {
@@ -91,7 +94,9 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
   async function submit() {
     if (submittingRef.current) return;
     if (rolesLoading || rolesError) {
-      setError(rolesError ?? "Wait for server creation access to load.");
+      setError(
+        rolesError ?? i18n.t("sparkDialog.waitForServerCreationAccessToLoad"),
+      );
       return;
     }
     submittingRef.current = true;
@@ -116,7 +121,12 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
         );
       } catch (cause) {
         throw new Error(
-          `Spark saved, but server creation access could not be saved. Retry to finish saving. ${cause instanceof Error ? cause.message : ""}`,
+          i18n.t(
+            "sparkDialog.sparkSavedButServerCreationAccessCouldNotBeSaved",
+            {
+              causeInstanceofError: cause instanceof Error ? cause.message : "",
+            },
+          ),
           { cause },
         );
       }
@@ -124,7 +134,9 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to add the Spark.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("sparkDialog.unableToAddTheSpark"),
       );
     } finally {
       submittingRef.current = false;
@@ -137,18 +149,21 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
       allowAllSteps={spark !== null}
       busy={submitting}
       error={error}
-      finishLabel={spark ? "Save changes" : "Add Spark"}
+      finishLabel={spark ? t("common.saveChanges") : t("sparkDialog.addSpark")}
       onFinish={submit}
       steps={[
         {
           id: "basics",
-          title: "General",
-          validate: () => (name.trim() === "" ? "Enter a Spark name." : null),
+          title: t("sparkDialog.general"),
+          validate: () =>
+            name.trim() === "" ? i18n.t("sparkDialog.enterASparkName") : null,
           content: (
             <>
               <FormField
-                label="Name"
-                description="Run the Spark agent on this host or another machine, then enroll it with Campfire."
+                label={t("common.name")}
+                description={t(
+                  "sparkDialog.runTheSparkAgentOnThisHostOrAnotherMachine",
+                )}
               >
                 <TextInput
                   id="spark-name"
@@ -157,7 +172,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   onChange={(event) => setName(event.target.value)}
                   required
                   maxLength={100}
-                  placeholder="e.g. Home server"
+                  placeholder={t("sparkDialog.eGHomeServer")}
                   autoComplete="off"
                   readOnly={spark !== null || created !== null}
                 />
@@ -165,7 +180,17 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               <FormField
                 label={
                   <>
-                    Description <span className="field-help">(optional)</span>
+                    <Trans
+                      i18nKey="sparkDialog.description"
+                      t={t}
+                      components={{
+                        span: (
+                          <span className="field-help">
+                            {t("sparkDialog.optional")}
+                          </span>
+                        ),
+                      }}
+                    />
                   </>
                 }
               >
@@ -175,7 +200,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   maxLength={1000}
-                  placeholder="Notes about this node"
+                  placeholder={t("sparkDialog.notesAboutThisNode")}
                 />
               </FormField>
               <CheckboxField
@@ -183,27 +208,26 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 checked={disabled}
                 onChange={(event) => setDisabled(event.target.checked)}
               >
-                Disabled
+                {t("common.disabled")}
               </CheckboxField>
               <p className="field-help">
-                Keep this Spark unavailable for hosting game servers.
+                {t("sparkDialog.keepThisSparkUnavailableForHostingGameServers")}
               </p>
             </>
           ),
         },
         {
           id: "resources",
-          title: "Resources & networking",
+          title: t("sparkDialog.resourcesNetworking"),
           content: (
             <div className="spark-settings">
-              <h3>Resource limits</h3>
+              <h3>{t("sparkDialog.resourceLimits")}</h3>
               <p className="field-help">
-                Capacity available for game servers. Set a limit to 0 for no
-                configured limit.
+                {t("sparkDialog.capacityAvailableForGameServersSetALimitTo0")}
               </p>
               <div className="resource-fields">
                 <div>
-                  <FormField label="CPU cores">
+                  <FormField label={t("sparkDialog.cpuCores")}>
                     <TextInput
                       id="spark-cpu"
                       type="number"
@@ -226,7 +250,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   </FormField>
                 </div>
                 <div>
-                  <FormField label="Memory (MiB)">
+                  <FormField label={t("sparkDialog.memoryMiB")}>
                     <TextInput
                       id="spark-memory"
                       type="number"
@@ -249,7 +273,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   </FormField>
                 </div>
                 <div>
-                  <FormField label="Disk (MiB)">
+                  <FormField label={t("sparkDialog.diskMiB")}>
                     <TextInput
                       id="spark-disk"
                       type="number"
@@ -270,11 +294,21 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   </FormField>
                 </div>
               </div>
-              <h3>Network</h3>
+              <h3>{t("sparkDialog.network")}</h3>
               <FormField
                 label={
                   <>
-                    Game address <span className="field-help">(optional)</span>
+                    <Trans
+                      i18nKey="sparkDialog.gameAddress"
+                      t={t}
+                      components={{
+                        span: (
+                          <span className="field-help">
+                            {t("sparkDialog.optional")}
+                          </span>
+                        ),
+                      }}
+                    />
                   </>
                 }
               >
@@ -282,7 +316,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   id="spark-address"
                   value={settings.game_address}
                   maxLength={253}
-                  placeholder="games.example.com or an IP"
+                  placeholder={t("sparkDialog.gamesExampleComOrAnIP")}
                   onChange={(event) =>
                     setSettings({
                       ...settings,
@@ -293,18 +327,22 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 />
               </FormField>
               <p id="game-address-help" className="field-help">
-                The address players use to reach game servers. Enter an IP or
-                domain without a protocol or port.
+                {t("sparkDialog.theAddressPlayersUseToReachGameServersEnterAn")}
               </p>
-              <h3>Port allocations</h3>
+              <h3>{t("sparkDialog.portAllocations")}</h3>
               <p className="field-help">
-                Game ports available on this Spark. Use the same start and end
-                for one port; 0.0.0.0 binds all IPv4 interfaces.
+                {t("sparkDialog.gamePortsAvailableOnThisSparkUseTheSameStart")}
               </p>
               {settings.port_allocations.map((allocation, index) => (
                 <Fieldset className="allocation-range" key={index}>
-                  <legend className="visually-hidden">Range {index + 1}</legend>
-                  <FormField label="Bind IP" className="allocation-ip">
+                  <legend className="visually-hidden">
+                    {i18n.t("sparkDialog.range")}
+                    {index + 1}
+                  </legend>
+                  <FormField
+                    label={i18n.t("sparkDialog.bindIP")}
+                    className="allocation-ip"
+                  >
                     <TextInput
                       id={`allocation-ip-${index}`}
                       required
@@ -317,7 +355,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   </FormField>
                   <div className="allocation-ports">
                     <div>
-                      <FormField label="Start port">
+                      <FormField label={i18n.t("sparkDialog.startPort")}>
                         <TextInput
                           id={`allocation-start-${index}`}
                           type="number"
@@ -339,7 +377,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       </FormField>
                     </div>
                     <div>
-                      <FormField label="End port">
+                      <FormField label={i18n.t("sparkDialog.endPort")}>
                         <TextInput
                           id={`allocation-end-${index}`}
                           type="number"
@@ -359,7 +397,10 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       </FormField>
                     </div>
                   </div>
-                  <FormField label="Protocol" className="allocation-protocol">
+                  <FormField
+                    label={i18n.t("sparkDialog.protocol")}
+                    className="allocation-protocol"
+                  >
                     <Select
                       id={`allocation-protocol-${index}`}
                       value={allocation.protocol}
@@ -369,8 +410,8 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                         })
                       }
                     >
-                      <option value="tcp">TCP</option>
-                      <option value="udp">UDP</option>
+                      <option value="tcp">{i18n.t("sparkDialog.tcp")}</option>
+                      <option value="udp">{i18n.t("sparkDialog.udp")}</option>
                     </Select>
                   </FormField>
                   <Button
@@ -378,8 +419,12 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                     variant="danger"
                     iconOnly
                     className="allocation-remove"
-                    aria-label={`Remove range ${index + 1}`}
-                    title={`Remove range ${index + 1}`}
+                    aria-label={i18n.t("sparkDialog.removeRange", {
+                      index1: index + 1,
+                    })}
+                    title={i18n.t("sparkDialog.removeRange", {
+                      index1: index + 1,
+                    })}
                     onClick={() =>
                       setSettings({
                         ...settings,
@@ -422,27 +467,26 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   })
                 }
               >
-                + Add port range
+                {t("sparkDialog.addPortRange")}
               </Button>
             </div>
           ),
         },
         {
           id: "access",
-          title: "Access",
+          title: t("sparkDialog.access"),
           validate: () =>
             rolesLoading
-              ? "Wait for server creation access to load."
+              ? i18n.t("sparkDialog.waitForServerCreationAccessToLoad")
               : rolesError,
           content: (
             <Fieldset>
-              <legend>Server creation access</legend>
+              <legend>{t("sparkDialog.serverCreationAccess")}</legend>
               <p className="field-help">
-                Choose which users or roles can create servers on this Spark.
-                Administrators always have access.
+                {t("sparkDialog.chooseWhichUsersOrRolesCanCreateServersOnThis")}
               </p>
               {rolesLoading ? (
-                <p role="status">Loading roles…</p>
+                <p role="status">{t("sparkDialog.loadingRoles")}</p>
               ) : rolesError ? (
                 <>
                   <InlineMessage>{rolesError}</InlineMessage>
@@ -454,7 +498,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       setRolesAttempt((attempt) => attempt + 1);
                     }}
                   >
-                    Retry
+                    {t("sparkDialog.retry")}
                   </Button>
                 </>
               ) : (
@@ -462,7 +506,9 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   users={users}
                   grants={grants}
                   subjectRoles={roles}
-                  accessRoles={[{ id: 2, name: "Create servers" }]}
+                  accessRoles={[
+                    { id: 2, name: t("sparkDialog.createServers") },
+                  ]}
                   onChange={(next, removedID) => {
                     setGrants(next);
                     if (removedID) setRemovedIDs([...removedIDs, removedID]);
@@ -470,15 +516,16 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 />
               )}
               <p className="field-help">
-                This does not grant Spark management access. Removing access
-                does not affect ownership of existing servers.
+                {t(
+                  "sparkDialog.thisDoesNotGrantSparkManagementAccessRemovingAccessDoes",
+                )}
               </p>
             </Fieldset>
           ),
         },
         {
           id: "review",
-          title: "Review",
+          title: t("common.review"),
           content: (
             <SparkReview
               name={name}
@@ -487,19 +534,31 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               settings={settings}
               serverCreationRoles={
                 <>
-                  Administrators
-                  {grants.map((grant) => (
-                    <span
-                      key={
-                        grant.user_id !== null
-                          ? `user:${grant.user_id}`
-                          : `role:${grant.role_id}`
-                      }
-                    >
-                      ,{" "}
-                      <AccessGrantLabel grant={grant} showAccessRole={false} />
-                    </span>
-                  ))}
+                  <Trans
+                    i18nKey="sparkDialog.administrators"
+                    t={t}
+                    components={{
+                      grantsMapGrant: (
+                        <>
+                          {grants.map((grant) => (
+                            <span
+                              key={
+                                grant.user_id !== null
+                                  ? `user:${grant.user_id}`
+                                  : `role:${grant.role_id}`
+                              }
+                            >
+                              ,{" "}
+                              <AccessGrantLabel
+                                grant={grant}
+                                showAccessRole={false}
+                              />
+                            </span>
+                          ))}
+                        </>
+                      ),
+                    }}
+                  />
                 </>
               }
             />
@@ -509,11 +568,17 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
     >
       {(content, actions) => (
         <Drawer
-          title={spark ? "Edit Spark" : "Add Spark"}
+          title={
+            spark
+              ? i18n.t("sparkDialog.editSpark")
+              : i18n.t("sparkDialog.addSpark")
+          }
           description={
             spark
-              ? "Manage this node’s capacity, network, and availability."
-              : "Register a node to host your game servers."
+              ? i18n.t(
+                  "sparkDialog.manageThisNodeSCapacityNetworkAndAvailability",
+                )
+              : i18n.t("sparkDialog.registerANodeToHostYourGameServers")
           }
           busy={submitting}
           onClose={onClose}
@@ -524,7 +589,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               disabled={submitting}
               onClick={onClose}
             >
-              Cancel
+              {i18n.t("common.cancel")}
             </Button>
           }
           footerRight={actions}

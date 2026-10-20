@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -23,12 +25,14 @@ import { ScheduleDialog } from "../dialogs/ScheduleDialog";
 
 import { Table, TableRow } from "../components/table/Table";
 import { ExecutionState } from "../components/schedules/ExecutionState";
+import { operationLabel } from "../components/servers/operationMessage";
 import { useResourceSelection } from "../routing/useResourceSelection";
 
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
 }
 export function SchedulesPage() {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const servers = useCollection(listServers);
   const schedules = useCollection(listSchedules);
@@ -76,7 +80,7 @@ export function SchedulesPage() {
           setLoadError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load executions.",
+              : i18n.t("schedulesPage.unableToLoadExecutions"),
           );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -112,7 +116,9 @@ export function SchedulesPage() {
       }
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to change schedule.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("schedulesPage.unableToChangeSchedule"),
       );
     } finally {
       setBusy(false);
@@ -135,7 +141,9 @@ export function SchedulesPage() {
       }
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to load history.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("schedulesPage.unableToLoadHistory"),
       );
     } finally {
       setBusy(false);
@@ -144,8 +152,10 @@ export function SchedulesPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Schedules"
-        description="One-off and recurring operations with execution history."
+        title={t("common.schedules")}
+        description={t(
+          "schedulesPage.oneOffAndRecurringOperationsWithExecutionHistory",
+        )}
         actions={
           <>
             <Button
@@ -153,7 +163,7 @@ export function SchedulesPage() {
                 void perform(async () => {});
               }}
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
             <Button
               variant="primary"
@@ -163,7 +173,7 @@ export function SchedulesPage() {
                 setOpen(true);
               }}
             >
-              + Create schedule
+              {t("schedulesPage.createSchedule")}
             </Button>
           </>
         }
@@ -176,7 +186,7 @@ export function SchedulesPage() {
         </InlineMessage>
       )}
       <ListToolbar>
-        <FormField label="Server">
+        <FormField label={t("common.server")}>
           <Select
             id="schedule-filter"
             value={filter}
@@ -186,7 +196,7 @@ export function SchedulesPage() {
               setPolling(true);
             }}
           >
-            <option value="">All accessible servers</option>
+            <option value="">{t("schedulesPage.allAccessibleServers")}</option>
             {servers.items.map((server) => (
               <option key={server.id} value={server.id}>
                 {server.name}
@@ -204,21 +214,25 @@ export function SchedulesPage() {
           }
           loading={schedules.loading}
           error={schedules.error}
-          resource="schedules"
-          emptyMessage={filter ? "No matching schedules" : "No schedules yet"}
+          resource={t("schedulesPage.schedules")}
+          emptyMessage={
+            filter
+              ? t("schedulesPage.noMatchingSchedules")
+              : t("schedulesPage.noSchedulesYet")
+          }
           onRetry={() => {
             void schedules.refresh();
           }}
         >
-          <caption className="visually-hidden">Schedules</caption>
+          <caption className="visually-hidden">{t("common.schedules")}</caption>
           <thead>
             <tr>
-              <th>Name / server</th>
-              <th>Action</th>
-              <th>Schedule</th>
-              <th>Next run</th>
-              <th>Runs as</th>
-              <th className="table-actions">Actions</th>
+              <th>{t("schedulesPage.nameServer")}</th>
+              <th>{t("schedulesPage.action")}</th>
+              <th>{t("schedulesPage.schedule")}</th>
+              <th>{t("schedulesPage.nextRun")}</th>
+              <th>{t("schedulesPage.runsAs")}</th>
+              <th className="table-actions">{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -243,7 +257,9 @@ export function SchedulesPage() {
                         type="button"
                         className="table-row-trigger"
                         disabled={busy}
-                        aria-label={`Edit schedule ${item.name}`}
+                        aria-label={i18n.t("schedulesPage.editSchedule", {
+                          itemName: item.name,
+                        })}
                         onClick={() => {
                           setEditing(item);
                           setOpen(false);
@@ -262,17 +278,23 @@ export function SchedulesPage() {
                       </ResourceLink>
                     </span>
                   </td>
-                  <td>{item.action}</td>
+                  <td>{operationLabel(item.action)}</td>
                   <td>
-                    <code>{item.cron_expression || "Run once"}</code>
+                    <code>
+                      {item.cron_expression || i18n.t("schedulesPage.runOnce")}
+                    </code>
                     <span className="row-description">{item.time_zone}</span>
                     {item.only_when_running && (
                       <span className="row-description">
-                        Only while running
+                        {i18n.t("schedulesPage.onlyWhileRunning")}
                       </span>
                     )}
                   </td>
-                  <td>{item.enabled ? when(item.next_run_at) : "Inactive"}</td>
+                  <td>
+                    {item.enabled
+                      ? when(item.next_run_at)
+                      : i18n.t("schedulesPage.inactive")}
+                  </td>
                   <td>
                     <ResourceLink href={links.user(item.run_as_user_id)}>
                       {item.username}
@@ -287,7 +309,7 @@ export function SchedulesPage() {
                             void perform(() => runSchedule(item.id));
                           }}
                         >
-                          Run now
+                          {i18n.t("schedulesPage.runNow")}
                         </Button>
                       </ActionGroup>
                     )}
@@ -297,33 +319,36 @@ export function SchedulesPage() {
           </tbody>
         </Table>
       </ContentPanel>
-      <h2>Execution history</h2>
+      <h2>{t("schedulesPage.executionHistory")}</h2>
       <p className="field-help">
-        Includes manual server operations. Interrupted work may already have
-        executed; inspect the server before retrying.
+        {t(
+          "schedulesPage.includesManualServerOperationsInterruptedWorkMayAlreadyHaveExecuted",
+        )}
       </p>
       <ContentPanel>
         <Table
           empty={runs.length === 0}
           loading={loading}
           error={loadError}
-          resource="executions"
-          emptyMessage="No executions recorded"
+          resource={t("schedulesPage.executions")}
+          emptyMessage={t("schedulesPage.noExecutionsRecorded")}
           onRetry={() => {
             setLoading(true);
             setPolling(true);
             setRevision((value) => value + 1);
           }}
         >
-          <caption className="visually-hidden">Execution history</caption>
+          <caption className="visually-hidden">
+            {t("schedulesPage.executionHistory")}
+          </caption>
           <thead>
             <tr>
-              <th>Created</th>
-              <th>Server / action</th>
-              <th>Actor</th>
-              <th>State</th>
-              <th>Finished</th>
-              <th className="table-actions">Actions</th>
+              <th>{t("schedulesPage.created")}</th>
+              <th>{t("schedulesPage.serverAction")}</th>
+              <th>{t("schedulesPage.actor")}</th>
+              <th>{t("schedulesPage.state")}</th>
+              <th>{t("schedulesPage.finished")}</th>
+              <th className="table-actions">{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -335,7 +360,7 @@ export function SchedulesPage() {
                     {run.server_name}
                   </ResourceLink>
                   <span className="row-description">
-                    {run.action} ·{" "}
+                    {operationLabel(run.action)} ·{" "}
                     <ResourceLink
                       href={
                         run.schedule_id &&
@@ -345,12 +370,12 @@ export function SchedulesPage() {
                       }
                     >
                       {run.recurring
-                        ? "Recurring"
+                        ? i18n.t("schedulesPage.recurring")
                         : run.schedule_id
-                          ? "One-off"
-                          : "Manual"}
+                          ? i18n.t("schedulesPage.oneOff")
+                          : i18n.t("schedulesPage.manual")}
                     </ResourceLink>
-                    {run.retry_of ? " · Retry" : ""}
+                    {run.retry_of ? i18n.t("schedulesPage.retry") : ""}
                   </span>
                 </td>
                 <td>
@@ -383,13 +408,15 @@ export function SchedulesPage() {
                         onClick={() => {
                           if (
                             window.confirm(
-                              "Retry this operation? Verify the current server state first; an interrupted operation may already have executed.",
+                              i18n.t(
+                                "schedulesPage.retryThisOperationVerifyTheCurrentServerStateFirstAn",
+                              ),
                             )
                           )
                             void perform(() => retryExecution(run.id));
                         }}
                       >
-                        Retry
+                        {i18n.t("schedulesPage.retry2")}
                       </Button>
                     )}
                 </td>
@@ -404,19 +431,19 @@ export function SchedulesPage() {
               void more();
             }}
           >
-            Load older executions
+            {t("schedulesPage.loadOlderExecutions")}
           </Button>
         )}
       </ContentPanel>
       {!schedules.loading && !schedules.error && missing && (
         <InlineMessage>
-          This schedule is unavailable or no longer exists.
+          {t("schedulesPage.thisScheduleIsUnavailableOrNoLongerExists")}
         </InlineMessage>
       )}
       {editing &&
         !managed.some((server) => server.id === editing.server_id) && (
           <InlineMessage>
-            You do not have permission to edit this schedule.
+            {t("schedulesPage.youDoNotHavePermissionToEditThisSchedule")}
           </InlineMessage>
         )}
       {(open ||

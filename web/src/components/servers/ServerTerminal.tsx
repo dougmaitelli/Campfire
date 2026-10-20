@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import { ActionGroup } from "../layout/ActionGroup";
 import { Button } from "../forms/Button";
 import { TextInput } from "../forms/TextInput";
@@ -22,12 +24,13 @@ export function ServerTerminal({
   streamMode: ConsoleStreamMode;
   onBusyChange: (busy: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const terminal = useRef<Terminal | null>(null);
   const [connection, setConnection] = useState<{
     label: string;
     tone: StatusTone;
-  }>({ label: "Connecting…", tone: "pending" });
+  }>({ label: t("serverTerminal.connecting"), tone: "pending" });
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +77,9 @@ export function ServerTerminal({
       terminal.current?.scrollToBottom();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to send command.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("serverTerminal.unableToSendCommand"),
       );
     } finally {
       pending.current = false;
@@ -91,7 +96,9 @@ export function ServerTerminal({
       cursorBlink: false,
       cursorInactiveStyle: "none",
       fontSize: 13,
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      fontFamily: i18n.t(
+        "serverTerminal.uiMonospaceSFMonoRegularMenloConsolasMonospace",
+      ),
       scrollback: 5000,
       screenReaderMode: true,
       theme: {
@@ -157,10 +164,12 @@ export function ServerTerminal({
             size="small"
             type="button"
 
-            title="Download retained console output (up to 5,000 lines of scrollback)."
+            title={t(
+              "serverTerminal.downloadRetainedConsoleOutputUpTo5000LinesOf",
+            )}
             onClick={downloadLogs}
           >
-            Download logs
+            {t("serverTerminal.downloadLogs")}
           </Button>
           <Button
             size="small"
@@ -168,7 +177,7 @@ export function ServerTerminal({
 
             onClick={() => terminal.current?.clear()}
           >
-            Clear
+            {t("serverTerminal.clear")}
           </Button>
         </ActionGroup>
       </div>
@@ -177,7 +186,7 @@ export function ServerTerminal({
           ref={container}
           className="server-terminal-screen"
           role="region"
-          aria-label="Console output"
+          aria-label={t("serverTerminal.consoleOutput")}
         />
         <form
           className="server-terminal-command"
@@ -186,13 +195,17 @@ export function ServerTerminal({
             void send();
           }}
         >
-          <span aria-hidden="true">&gt;</span>
+          <span aria-hidden="true">{t("serverTerminal.gt")}</span>
           <TextInput
-            aria-label="Command"
+            aria-label={t("serverTerminal.command")}
             value={command}
             readOnly={busy}
             maxLength={4096}
-            placeholder={busy ? "Sending…" : "Type a command and press Enter"}
+            placeholder={
+              busy
+                ? t("serverTerminal.sending")
+                : t("serverTerminal.typeACommandAndPressEnter")
+            }
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}

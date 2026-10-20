@@ -1,20 +1,12 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { loadWebModule } from "./helpers/load-web-module.mjs";
 
 const sourceURL = new URL(
   "../web/src/components/servers/operationMessage.ts",
   import.meta.url,
 );
-const errorsURL = new URL("../web/src/utils/errors.ts", import.meta.url);
-const source = stripTypeScriptTypes(await readFile(sourceURL, "utf8")).replace(
-  '"../../utils/errors"',
-  JSON.stringify(errorsURL.href),
-);
-const { operationMessage } = await import(
-  `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
-);
+const { operationMessage } = await loadWebModule(sourceURL);
 
 test("operation failures have context and formatted details", () => {
   assert.deepEqual(

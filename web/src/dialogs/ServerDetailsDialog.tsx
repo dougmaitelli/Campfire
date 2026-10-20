@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { useCallback } from "react";
@@ -20,6 +22,7 @@ type Props = Omit<
 > & { id: string };
 
 export function ServerDetailsDialog({ id, ...props }: Props) {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const loadDetails = useCallback(
     async (signal: AbortSignal) => {
@@ -27,7 +30,9 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
         await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}`, { signal }),
       );
       if (!isServer(value))
-        throw new Error("Unexpected server details response.");
+        throw new Error(
+          i18n.t("serverDetailsDialog.unexpectedServerDetailsResponse"),
+        );
       const runtime = await serverStatus(id, signal).catch(() => undefined);
       return { ...value, runtime };
     },
@@ -36,8 +41,8 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
   return (
     <ResourceDetailsDialog
       {...props}
-      description="Server details and configuration."
-      editLabel="Edit server"
+      description={t("serverDetailsDialog.serverDetailsAndConfiguration")}
+      editLabel={t("serverDetailsDialog.editServer")}
       loadDetails={loadDetails}
     >
       {(server) => (
@@ -65,7 +70,9 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
             <InlineMessage tone="info">
               {formatErrorMessage(
                 server.runtime.disk_quota_error ??
-                  "Disk quota enforcement is unavailable on this Spark.",
+                  i18n.t(
+                    "serverDetailsDialog.diskQuotaEnforcementIsUnavailableOnThisSpark",
+                  ),
               )}
             </InlineMessage>
           )}

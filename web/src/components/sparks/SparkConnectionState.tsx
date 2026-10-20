@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { StatusPill } from "../status/StatusPill";
 
 export function SparkConnectionState({
@@ -11,6 +12,7 @@ export function SparkConnectionState({
   version?: string | undefined;
   updating?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <StatusPill
       tone={
@@ -24,12 +26,14 @@ export function SparkConnectionState({
       }
     >
       {updating
-        ? "Updating…"
+        ? t("sparkConnectionState.updating")
         : disabled
-          ? "Disabled"
+          ? t("common.disabled")
           : connected
-            ? `Connected${version ? ` - ${version}` : ""}`
-            : "Disconnected"}
+            ? version
+              ? t("sparkConnectionState.connectedVersion", { version })
+              : t("sparkConnectionState.connected")
+            : t("sparkConnectionState.disconnected")}
     </StatusPill>
   );
 }

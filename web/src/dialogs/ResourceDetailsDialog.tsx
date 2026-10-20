@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { Button } from "../components/forms/Button";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -9,7 +11,7 @@ import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 export function ResourceDetailsDialog<T>({
   title,
   description,
-  editLabel = "Edit",
+  editLabel = i18n.t("common.edit"),
   loadDetails,
   children,
   onClose,
@@ -21,6 +23,7 @@ export function ResourceDetailsDialog<T>({
   actionError,
   actions,
 }: ResourceDetailsDialogProps<T>) {
+  const { t } = useTranslation();
   const [details, setDetails] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -34,7 +37,9 @@ export function ResourceDetailsDialog<T>({
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
           setError(
-            cause instanceof Error ? cause.message : "Unable to load details.",
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("resourceDetailsDialog.unableToLoadDetails"),
           );
       });
     return () => controller.abort();
@@ -48,7 +53,7 @@ export function ResourceDetailsDialog<T>({
       actions={actions}
       footerLeft={
         <Button type="button" disabled={deleting} onClick={onClose}>
-          Close
+          {t("common.close")}
         </Button>
       }
       footerRight={
@@ -77,7 +82,11 @@ export function ResourceDetailsDialog<T>({
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {!details && !error && (
-          <ContentState loading resource="details" compact />
+          <ContentState
+            loading
+            resource={t("resourceDetailsDialog.details")}
+            compact
+          />
         )}
         {details && children(details)}
       </div>

@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import {
   bytes,
   containerFresh,
@@ -16,10 +18,11 @@ export function SparkResourceReadings({
   servers: MonitoredServer[] | undefined;
   elapsed: number;
 }) {
+  const { t } = useTranslation();
   const hosted = servers?.filter((server) => server.spark_id === spark.id);
   const readings = [
     {
-      label: "CPU",
+      label: t("common.cpu"),
       key: "cpu_percent" as const,
       allocation: spark.cpu_limit,
       scale: 0.01,
@@ -28,7 +31,7 @@ export function SparkResourceReadings({
       fresh: containerFresh,
     },
     {
-      label: "Memory",
+      label: t("common.memory"),
       key: "memory_bytes" as const,
       allocation: spark.memory_mb * 1048576,
       scale: 1,
@@ -36,7 +39,7 @@ export function SparkResourceReadings({
       fresh: containerFresh,
     },
     {
-      label: "Game data",
+      label: t("sparkResourceReadings.gameData"),
       key: "disk_bytes" as const,
       allocation: spark.disk_mb * 1048576,
       scale: 1,
@@ -68,7 +71,9 @@ export function SparkResourceReadings({
               measured &&
               hosted.every((server) => reading.fresh(server.usage, elapsed))
             }
-            detail="Combined game-server usage against this Spark's configured limit. Excludes host processes, backups, and container images."
+            detail={i18n.t(
+              "sparkResourceReadings.combinedGameServerUsageAgainstThisSparkSConfiguredLimit",
+            )}
             compact
             format={reading.format}
           />

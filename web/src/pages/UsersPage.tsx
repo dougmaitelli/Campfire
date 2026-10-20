@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -17,6 +19,7 @@ import { Table, TableRow } from "../components/table/Table";
 import { useResourceSelection } from "../routing/useResourceSelection";
 
 export function UsersPage() {
+  const { t } = useTranslation();
   const users = useCollection(listUsers);
   const roles = useCollection(listRoles);
   const auth = useAuthentication();
@@ -41,8 +44,8 @@ export function UsersPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Users"
-        description="Accounts, roles, and sign-in access."
+        title={t("common.users")}
+        description={t("usersPage.accountsRolesAndSignInAccess")}
         actions={
           <>
             <Button
@@ -51,7 +54,7 @@ export function UsersPage() {
                 void roles.refresh();
               }}
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
             <Button
               variant="primary"
@@ -61,7 +64,7 @@ export function UsersPage() {
                 setOpen(true);
               }}
             >
-              + Create user
+              {t("usersPage.createUser")}
             </Button>
           </>
         }
@@ -71,8 +74,8 @@ export function UsersPage() {
       )}
       <ListToolbar>
         <SearchField
-          label="Search"
-          placeholder="Search users by name, username, or email…"
+          label={t("common.search")}
+          placeholder={t("usersPage.searchUsersByNameUsernameOrEmail")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
@@ -82,18 +85,22 @@ export function UsersPage() {
           empty={filtered.length === 0}
           loading={users.loading}
           error={users.error}
-          resource="users"
-          emptyMessage={query ? "No matching users" : "No users yet"}
+          resource={t("usersPage.users")}
+          emptyMessage={
+            query ? t("usersPage.noMatchingUsers") : t("usersPage.noUsersYet")
+          }
           onRetry={() => {
             void users.refresh();
           }}
         >
-          <caption className="visually-hidden">Panel users</caption>
+          <caption className="visually-hidden">
+            {t("usersPage.panelUsers")}
+          </caption>
           <thead>
             <tr>
-              <th>User</th>
-              <th>Role</th>
-              <th>Status</th>
+              <th>{t("common.user")}</th>
+              <th>{t("common.role")}</th>
+              <th>{t("common.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -104,7 +111,9 @@ export function UsersPage() {
                     type="button"
                     className="table-row-trigger"
                     onClick={() => edit(user)}
-                    aria-label={`Edit user ${user.name || user.username}`}
+                    aria-label={i18n.t("usersPage.editUser", {
+                      userNameUser: user.name || user.username,
+                    })}
                   >
                     {user.name || user.username}
                     {user.id === auth.session?.user_id && " (you)"}
@@ -120,7 +129,9 @@ export function UsersPage() {
                 </td>
                 <td>
                   <StatusPill tone={user.disabled ? "warning" : "positive"}>
-                    {user.disabled ? "Disabled" : "Enabled"}
+                    {user.disabled
+                      ? i18n.t("common.disabled")
+                      : i18n.t("common.enabled")}
                   </StatusPill>
                 </td>
               </TableRow>
@@ -129,12 +140,11 @@ export function UsersPage() {
         </Table>
       </ContentPanel>
       <p className="field-help">
-        At least one enabled administrator must remain. Accounts that own
-        servers must transfer ownership before deletion.
+        {t("usersPage.atLeastOneEnabledAdministratorMustRemainAccountsThatOwn")}
       </p>
       {!users.loading && !users.error && missing && (
         <InlineMessage>
-          This user is unavailable or no longer exists.
+          {t("usersPage.thisUserIsUnavailableOrNoLongerExists")}
         </InlineMessage>
       )}
       {(open || editing) && (

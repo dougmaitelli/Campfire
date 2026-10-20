@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
 import { InlineMessage } from "../status/InlineMessage";
@@ -24,6 +26,7 @@ export function InputDialog({
   onClose: () => void;
   onSubmit: (value: string) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const pending = useRef(false);
@@ -52,7 +55,7 @@ export function InputDialog({
         formatErrorMessage(
           cause instanceof Error
             ? cause.message
-            : "Unable to complete the request.",
+            : i18n.t("inputDialog.unableToCompleteTheRequest"),
         ),
       );
     } finally {
@@ -98,14 +101,14 @@ export function InputDialog({
             disabled={busy}
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             type="submit"
             variant="primary"
             disabled={busy || !value.trim()}
             loading={busy}
-            loadingLabel={"Working…"}
+            loadingLabel={t("inputDialog.working")}
           >
             {submitLabel}
           </Button>

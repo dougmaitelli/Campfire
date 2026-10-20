@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 import { isUser, type User } from "./access";
 
@@ -127,7 +128,7 @@ async function collection<T>(
 ): Promise<T[]> {
   const body = await readJSON(await apiFetch(url, { signal }));
   if (!Array.isArray(body) || !body.every(validate))
-    throw new Error("Unexpected activity response.");
+    throw new Error(i18n.t("activity.unexpectedActivityResponse"));
   return body;
 }
 export function listSchedules(signal: AbortSignal) {
@@ -188,7 +189,7 @@ export async function previewSchedule(
         typeof value === "number" && Number.isSafeInteger(value) && value > 0,
     )
   )
-    throw new Error("Unexpected schedule preview response.");
+    throw new Error(i18n.t("activity.unexpectedSchedulePreviewResponse"));
   return body.next_runs as number[];
 }
 
@@ -201,7 +202,8 @@ export async function saveSchedule(
     id ? "PUT" : "POST",
     input,
   );
-  if (!isSchedule(body)) throw new Error("Unexpected schedule response.");
+  if (!isSchedule(body))
+    throw new Error(i18n.t("activity.unexpectedScheduleResponse"));
   return body;
 }
 export async function deleteSchedule(id: string) {

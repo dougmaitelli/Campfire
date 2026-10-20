@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { useCallback } from "react";
 import { apiFetch, readJSON } from "../api/client";
 import { isSpark, type Spark } from "../api/sparks";
@@ -20,6 +22,7 @@ export function SparkDetailsDialog({
   spark: currentSpark,
   ...props
 }: Props) {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const loadDetails = useCallback(
     async (signal: AbortSignal) => {
@@ -27,7 +30,9 @@ export function SparkDetailsDialog({
         await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}`, { signal }),
       );
       if (!isSpark(value))
-        throw new Error("Unexpected Spark details response.");
+        throw new Error(
+          i18n.t("sparkDetailsDialog.unexpectedSparkDetailsResponse"),
+        );
       return value;
     },
     [id],
@@ -35,8 +40,8 @@ export function SparkDetailsDialog({
   return (
     <ResourceDetailsDialog
       {...props}
-      description="Spark details and configured capacity."
-      editLabel="Edit Spark"
+      description={t("sparkDetailsDialog.sparkDetailsAndConfiguredCapacity")}
+      editLabel={t("sparkDetailsDialog.editSpark")}
       loadDetails={loadDetails}
     >
       {(loadedSpark) => {

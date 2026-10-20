@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 import { isSpark, type Spark } from "./sparks";
 import { isEmber, type Ember } from "./embers";
@@ -124,7 +125,7 @@ async function readSparkAccessOptions(
     !Array.isArray(body.subject_users) ||
     !body.subject_users.every(isAccessUser)
   )
-    throw new Error("Unexpected Spark access response.");
+    throw new Error(i18n.t("access.unexpectedSparkAccessResponse"));
   return {
     grants: body.grants,
     subject_roles: body.subject_roles,
@@ -145,7 +146,7 @@ export async function saveAccessGrants(
     !Array.isArray(body.grants) ||
     !body.grants.every(isGrant)
   )
-    throw new Error("Unexpected access response.");
+    throw new Error(i18n.t("access.unexpectedAccessResponse"));
   const current = body.grants;
   const sameSubject = (a: AccessGrant, b: AccessGrant) =>
     a.role_id === null && b.role_id === null
@@ -262,7 +263,7 @@ async function send(
 export async function listUsers(signal: AbortSignal): Promise<User[]> {
   const body = await readJSON(await apiFetch("/api/v1/users", { signal }));
   if (!Array.isArray(body) || !body.every(isUser))
-    throw new Error("Unexpected user list response.");
+    throw new Error(i18n.t("access.unexpectedUserListResponse"));
   return body;
 }
 export async function saveUser(
@@ -282,7 +283,7 @@ export async function saveUser(
         }
       : input,
   );
-  if (!isUser(body)) throw new Error("Unexpected user response.");
+  if (!isUser(body)) throw new Error(i18n.t("access.unexpectedUserResponse"));
   return body;
 }
 export async function deleteUser(userID: number): Promise<void> {
@@ -292,7 +293,7 @@ export async function deleteUser(userID: number): Promise<void> {
 export async function listRoles(signal: AbortSignal): Promise<Role[]> {
   const body = await readJSON(await apiFetch("/api/v1/roles", { signal }));
   if (!Array.isArray(body) || !body.every(isRole))
-    throw new Error("Unexpected role list response.");
+    throw new Error(i18n.t("access.unexpectedRoleListResponse"));
   return body;
 }
 export async function saveRole(
@@ -304,7 +305,7 @@ export async function saveRole(
     roleID ? "PUT" : "POST",
     input,
   );
-  if (!isRole(body)) throw new Error("Unexpected role response.");
+  if (!isRole(body)) throw new Error(i18n.t("access.unexpectedRoleResponse"));
   return body;
 }
 export async function deleteRole(roleID: number): Promise<void> {
@@ -331,7 +332,7 @@ export async function serverOptions(
     !body.embers.every(isEmber) ||
     typeof body.s3_available !== "boolean"
   )
-    throw new Error("Unexpected server options response.");
+    throw new Error(i18n.t("access.unexpectedServerOptionsResponse"));
   return {
     sparks: body.sparks,
     embers: body.embers,
@@ -347,7 +348,8 @@ export async function readServerAccess(
       signal,
     }),
   );
-  if (!isAccess(body)) throw new Error("Unexpected server access response.");
+  if (!isAccess(body))
+    throw new Error(i18n.t("access.unexpectedServerAccessResponse"));
   return body;
 }
 export async function serverAccessOptions(
@@ -357,7 +359,7 @@ export async function serverAccessOptions(
     await apiFetch("/api/v1/provisioning/access", { signal }),
   );
   if (!isAccess(body))
-    throw new Error("Unexpected server access options response.");
+    throw new Error(i18n.t("access.unexpectedServerAccessOptionsResponse"));
   return body;
 }
 
@@ -435,7 +437,7 @@ export async function readSparkRoles(
     !Array.isArray(body.role_ids) ||
     !body.role_ids.every(id)
   )
-    throw new Error("Unexpected Spark role response.");
+    throw new Error(i18n.t("access.unexpectedSparkRoleResponse"));
   return body.role_ids;
 }
 export async function setSparkRoles(

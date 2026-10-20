@@ -1,17 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
+import { loadWebModule } from "./helpers/load-web-module.mjs";
 
 const sourceURL = new URL("../web/src/api/client.ts", import.meta.url);
-const errorsURL = new URL("../web/src/utils/errors.ts", import.meta.url);
-const source = stripTypeScriptTypes(await readFile(sourceURL, "utf8")).replace(
-  '"../utils/errors"',
-  JSON.stringify(errorsURL.href),
-);
-const { apiFetch, readJSON } = await import(
-  `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
-);
+const { apiFetch, readJSON } = await loadWebModule(sourceURL);
 
 test("API client preserves JSON responses and backend error messages", async () => {
   assert.deepEqual(await readJSON(Response.json({ token: "one-time-token" })), {

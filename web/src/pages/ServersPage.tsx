@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
@@ -29,6 +31,7 @@ import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
 export function ServersPage() {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const [details, setDetails] = useState<Server | null>(null);
   const auth = useAuthentication();
@@ -72,7 +75,7 @@ export function ServersPage() {
           setOptionsError(
             cause instanceof Error
               ? cause.message
-              : "Unable to load creation options.",
+              : i18n.t("serversPage.unableToLoadCreationOptions"),
           );
       })
       .finally(() => {
@@ -113,7 +116,10 @@ export function ServersPage() {
     if (
       deleting ||
       !window.confirm(
-        `Permanently delete "${server.name}", its container, game files and backups, and release its resources and ports?`,
+        i18n.t(
+          "serversPage.permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease",
+          { serverName: server.name },
+        ),
       )
     )
       return;
@@ -125,7 +131,9 @@ export function ServersPage() {
       await servers.refresh();
     } catch (cause) {
       setActionError(
-        cause instanceof Error ? cause.message : "Unable to delete server.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("serversPage.unableToDeleteServer"),
       );
     } finally {
       setDeleting(null);
@@ -154,7 +162,7 @@ export function ServersPage() {
       setActionError(
         cause instanceof Error
           ? cause.message
-          : "Unable to load server editor.",
+          : i18n.t("serversPage.unableToLoadServerEditor"),
       );
     } finally {
       editorPending.current = false;
@@ -163,8 +171,10 @@ export function ServersPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Servers"
-        description="Server configuration, access, and allocated resources."
+        title={t("common.servers")}
+        description={t(
+          "serversPage.serverConfigurationAccessAndAllocatedResources",
+        )}
         actions={
           <>
             <Button
@@ -173,13 +183,13 @@ export function ServersPage() {
                 void refresh();
               }}
               loading={loading}
-              loadingLabel={"Refreshing…"}
+              loadingLabel={t("serversPage.refreshing")}
             >
-              {"Refresh"}
+              {t("common.refresh")}
             </Button>
             {canProvision && (
               <Button variant="primary" disabled={!canCreate} onClick={create}>
-                + Create server
+                {t("serversPage.createServer")}
               </Button>
             )}
           </>
@@ -192,33 +202,42 @@ export function ServersPage() {
         <PrerequisiteNote>
           {auth.session?.admin ? (
             <>
-              To create servers, <a href="#embers">import an Ember</a> and{" "}
-              <a href="#sparks">
-                configure an enabled Spark with port allocations
-              </a>
-              .
+              <Trans
+                i18nKey="serversPage.toCreateServersAnd"
+                t={t}
+                components={{
+                  a: <a href="#embers">{t("serversPage.importAnEmber")}</a>,
+                  a2: (
+                    <a href="#sparks">
+                      {t(
+                        "serversPage.configureAnEnabledSparkWithPortAllocations",
+                      )}
+                    </a>
+                  ),
+                }}
+              />
             </>
           ) : (
-            "Ask an administrator to approve a Spark for your role before creating a server."
+            t("serversPage.askAnAdministratorToApproveASparkForYourRole")
           )}
         </PrerequisiteNote>
       )}
       {servers.items.length > 0 && (
         <ListToolbar>
           <SearchField
-            label="Search"
-            aria-label="Search servers"
-            placeholder="Search servers"
+            label={t("common.search")}
+            aria-label={t("serversPage.searchServers")}
+            placeholder={t("serversPage.searchServers")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <FormField label="Spark">
+          <FormField label={t("common.spark")}>
             <Select
-              aria-label="Filter by Spark"
+              aria-label={t("serversPage.filterBySpark")}
               value={sparkFilter}
               onValueChange={(selectedValue) => setSparkFilter(selectedValue)}
             >
-              <option value="">All Sparks</option>
+              <option value="">{t("serversPage.allSparks")}</option>
               {[
                 ...new Map(
                   servers.items.map((server) => [
@@ -241,19 +260,21 @@ export function ServersPage() {
           empty={visible.length === 0}
           loading={servers.loading}
           error={servers.error}
-          resource="servers"
+          resource={t("serversPage.servers")}
           emptyMessage={
-            servers.items.length ? "No matching servers" : "No servers yet"
+            servers.items.length
+              ? t("serversPage.noMatchingServers")
+              : t("serversPage.noServersYet")
           }
           emptyDescription={
             servers.items.length
-              ? "Try a different search or Spark filter."
-              : "Create your first server from an Ember."
+              ? t("serversPage.tryADifferentSearchOrSparkFilter")
+              : t("serversPage.createYourFirstServerFromAnEmber")
           }
           emptyAction={
             canCreate && servers.items.length === 0 ? (
               <Button variant="primary" onClick={create}>
-                Create server
+                {t("serversPage.createServer2")}
               </Button>
             ) : null
           }
@@ -261,16 +282,18 @@ export function ServersPage() {
             void refresh();
           }}
         >
-          <caption className="visually-hidden">Game servers</caption>
+          <caption className="visually-hidden">
+            {t("serversPage.gameServers")}
+          </caption>
           <thead>
             <tr>
-              <th scope="col">Server</th>
-              <th scope="col">State</th>
-              <th scope="col">Spark / Ember</th>
-              <th scope="col">Resources</th>
-              <th scope="col">Ports</th>
+              <th scope="col">{t("common.server")}</th>
+              <th scope="col">{t("serversPage.state")}</th>
+              <th scope="col">{t("serversPage.sparkEmber")}</th>
+              <th scope="col">{t("serversPage.resources")}</th>
+              <th scope="col">{t("common.ports")}</th>
               <th scope="col" className="table-actions">
-                <span className="visually-hidden">Actions</span>
+                <span className="visually-hidden">{t("common.actions")}</span>
               </th>
             </tr>
           </thead>
@@ -282,7 +305,9 @@ export function ServersPage() {
                     type="button"
                     className="table-row-trigger"
                     onClick={() => setDetails(server)}
-                    aria-label={`View details for ${server.name}`}
+                    aria-label={i18n.t("serversPage.viewDetailsFor", {
+                      serverName: server.name,
+                    })}
                   >
                     {server.name}
                   </button>
@@ -341,8 +366,10 @@ export function ServersPage() {
                     <ButtonLink
                       href={`#servers/${encodeURIComponent(server.id)}/console`}
                       iconOnly
-                      aria-label={`Open ${server.name}`}
-                      title="Open server"
+                      aria-label={i18n.t("serversPage.open", {
+                        serverName: server.name,
+                      })}
+                      title={i18n.t("serversPage.openServer")}
                     >
                       <NavigationIcon name="arrow-right" />
                     </ButtonLink>
@@ -355,8 +382,11 @@ export function ServersPage() {
       </ContentPanel>
       <p className="list-summary" role="status">
         {loading
-          ? "Loading…"
-          : `${visible.length} of ${servers.items.length} servers`}
+          ? t("common.loading")
+          : t("serversPage.count", {
+              count: servers.items.length,
+              visible: visible.length,
+            })}
       </p>
       {open && (
         <ServerDialog
@@ -433,7 +463,7 @@ export function ServersPage() {
                     void edit(details, true);
                   }}
                 >
-                  Update Ember
+                  {t("serversPage.updateEmber")}
                 </Button>
               )}
               {canTransfer && (
@@ -445,7 +475,7 @@ export function ServersPage() {
                     setTransferServer(details);
                   }}
                 >
-                  Transfer
+                  {t("serversPage.transfer")}
                 </Button>
               )}
             </>

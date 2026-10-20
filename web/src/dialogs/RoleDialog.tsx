@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -10,11 +12,17 @@ import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CheckboxField } from "../components/forms/CheckboxField";
 
 const serverPermissions = [
-  ["server.view", "View the server and runtime status"],
-  ["server.operate", "Lifecycle controls, console, files, and backups"],
-  ["server.configure", "Edit server configuration and resource reservations"],
-  ["server.delete", "Delete the server and game data"],
-  ["server.share", "Share access with operators"],
+  ["server.view", i18n.t("roleDialog.viewTheServerAndRuntimeStatus")],
+  [
+    "server.operate",
+    i18n.t("roleDialog.lifecycleControlsConsoleFilesAndBackups"),
+  ],
+  [
+    "server.configure",
+    i18n.t("roleDialog.editServerConfigurationAndResourceReservations"),
+  ],
+  ["server.delete", i18n.t("roleDialog.deleteTheServerAndGameData")],
+  ["server.share", i18n.t("roleDialog.shareAccessWithOperators")],
 ] as const;
 
 export function RoleDialog({
@@ -32,6 +40,7 @@ export function RoleDialog({
   deleting: boolean;
   deleteError: string | null;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(role?.name ?? "");
   const [scope, setScope] = useState<Role["scope"]>(role?.scope ?? "server");
   const [permissions, setPermissions] = useState(
@@ -49,7 +58,11 @@ export function RoleDialog({
       onSaved(await saveRole({ name, scope, permissions }, role?.id));
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to save role.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("roleDialog.unableToSaveRole"),
+      );
     } finally {
       pending.current = false;
       setBusy(false);
@@ -61,18 +74,26 @@ export function RoleDialog({
       : ([
           [
             "servers.create",
-            "Create servers on Sparks approved by an administrator",
+            t("roleDialog.createServersOnSparksApprovedByAnAdministrator"),
           ],
         ] as const);
   return (
     <Drawer
-      title={role?.builtin ? "View role" : role ? "Edit role" : "Create role"}
-      description="Roles grant panel capabilities; server roles apply only to assigned servers."
+      title={
+        role?.builtin
+          ? t("roleDialog.viewRole")
+          : role
+            ? t("roleDialog.editRole")
+            : t("roleDialog.createRole")
+      }
+      description={t(
+        "roleDialog.rolesGrantPanelCapabilitiesServerRolesApplyOnlyToAssigned",
+      )}
       busy={busy || deleting}
       onClose={onClose}
       footerLeft={
         <Button disabled={busy || deleting} onClick={onClose}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       }
       footerRight={
@@ -90,9 +111,9 @@ export function RoleDialog({
                 void submit();
               }}
               loading={busy}
-              loadingLabel={"Saving…"}
+              loadingLabel={t("roleDialog.saving")}
             >
-              {"Save role"}
+              {t("roleDialog.saveRole")}
             </Button>
           )}
         </>
@@ -103,7 +124,7 @@ export function RoleDialog({
           <InlineMessage role="alert">{deleteError}</InlineMessage>
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
-        <FormField label="Name">
+        <FormField label={t("common.name")}>
           <TextInput
             id="role-name"
             readOnly={role?.builtin}
@@ -112,7 +133,7 @@ export function RoleDialog({
             onChange={(event) => setName(event.target.value)}
           />
         </FormField>
-        <FormField label="Scope">
+        <FormField label={t("roleDialog.scope")}>
           <Select
             id="role-scope"
             value={scope}
@@ -123,11 +144,11 @@ export function RoleDialog({
               setPermissions(next === "server" ? ["server.view"] : []);
             }}
           >
-            <option value="server">Server</option>
-            <option value="platform">Platform</option>
+            <option value="server">{t("common.server")}</option>
+            <option value="platform">{t("roleDialog.platform")}</option>
           </Select>
         </FormField>
-        <h3>Permissions</h3>
+        <h3>{t("roleDialog.permissions")}</h3>
         {choices.map(([permission, label]) => (
           <CheckboxField
             key={permission}
@@ -150,9 +171,9 @@ export function RoleDialog({
           </CheckboxField>
         ))}
         <p className="field-help">
-          Server permissions never grant access to unassigned servers. Spark,
-          user, and role administration remain exclusive to the built-in Admin
-          role.
+          {t(
+            "roleDialog.serverPermissionsNeverGrantAccessToUnassignedServersSparkUser",
+          )}
         </p>
       </div>
     </Drawer>

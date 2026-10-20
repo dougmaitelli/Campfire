@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { API_REQUEST_TIMEOUT_MS, apiFetch, readJSON } from "./client";
 
 export interface EmberVariable {
@@ -110,7 +111,7 @@ function isRequiredPort(value: unknown): boolean {
 export async function listEmbers(signal: AbortSignal): Promise<Ember[]> {
   const body = await readJSON(await apiFetch("/api/v1/embers", { signal }));
   if (!Array.isArray(body) || !body.every(isEmber))
-    throw new Error("Unexpected Ember list response.");
+    throw new Error(i18n.t("embers.unexpectedEmberListResponse"));
   return body;
 }
 
@@ -143,7 +144,8 @@ export async function importEmber(
       },
     ),
   );
-  if (!isEmber(body)) throw new Error("Unexpected Ember import response.");
+  if (!isEmber(body))
+    throw new Error(i18n.t("embers.unexpectedEmberImportResponse"));
   return body;
 }
 
@@ -190,7 +192,7 @@ async function readPreview(response: Response): Promise<EmberPreview> {
     !Array.isArray(body.errors) ||
     !body.errors.every(isIssue)
   )
-    throw new Error("Unexpected compatibility preview response.");
+    throw new Error(i18n.t("embers.unexpectedCompatibilityPreviewResponse"));
   return {
     format: body.format,
     definition: body.definition,
@@ -250,7 +252,7 @@ function readEmberUpdate(value: unknown): EmberUpdate {
     typeof value.available !== "boolean" ||
     ("error" in value && typeof value.error !== "string")
   )
-    throw new Error("Unexpected Ember update response.");
+    throw new Error(i18n.t("embers.unexpectedEmberUpdateResponse"));
   return {
     id: value.ember_id,
     ember_id: value.ember_id,
@@ -267,7 +269,7 @@ export async function listEmberUpdates(
     await apiFetch("/api/v1/embers/updates", { signal }),
   );
   if (!Array.isArray(body))
-    throw new Error("Unexpected Ember updates response.");
+    throw new Error(i18n.t("embers.unexpectedEmberUpdatesResponse"));
   return body.map(readEmberUpdate);
 }
 

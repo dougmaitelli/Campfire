@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import type { AccessGrant, AccessUser, Role } from "../../api/access";
 import { Button } from "./Button";
@@ -22,6 +24,7 @@ export function AccessGrantFields({
   accessRoles,
   onChange,
 }: Props) {
+  const { t } = useTranslation();
   const [subject, setSubject] = useState("user");
   const [userID, setUserID] = useState(0);
   const user = users.find((item) => item.id === userID);
@@ -30,11 +33,12 @@ export function AccessGrantFields({
   return (
     <>
       <p className="field-help">
-        Grant access to individual users or everyone with a role. Changes apply
-        when you save. Administrators always have access.
+        {t("accessGrantFields.grantAccessToIndividualUsersOrEveryoneWithARole")}
       </p>
       {grants.length === 0 && (
-        <p className="field-help">No access grants assigned.</p>
+        <p className="field-help">
+          {t("accessGrantFields.noAccessGrantsAssigned")}
+        </p>
       )}
       {grants.map((grant) => (
         <div
@@ -58,21 +62,21 @@ export function AccessGrantFields({
               )
             }
           >
-            Remove
+            {i18n.t("common.remove")}
           </Button>
         </div>
       ))}
-      <FormField label="Grant to">
+      <FormField label={t("accessGrantFields.grantTo")}>
         <Select
           value={subject}
           onValueChange={(selectedValue) => setSubject(selectedValue)}
         >
-          <option value="user">User</option>
-          <option value="role">Role</option>
+          <option value="user">{t("common.user")}</option>
+          <option value="role">{t("common.role")}</option>
         </Select>
       </FormField>
       {subject === "user" ? (
-        <FormField label="User">
+        <FormField label={t("common.user")}>
           <UserSelect
             users={users}
             value={user?.id ?? 0}
@@ -80,7 +84,7 @@ export function AccessGrantFields({
           />
         </FormField>
       ) : (
-        <FormField label="Role">
+        <FormField label={t("common.role")}>
           <Select
             value={roleID}
             onValueChange={(selectedValue) => setRoleID(Number(selectedValue))}
@@ -94,7 +98,7 @@ export function AccessGrantFields({
         </FormField>
       )}
       {accessRoles.length > 1 && (
-        <FormField label="Access level">
+        <FormField label={t("accessGrantFields.accessLevel")}>
           <Select
             value={accessID}
             onValueChange={(selectedValue) =>
@@ -137,7 +141,7 @@ export function AccessGrantFields({
           setUserID(0);
         }}
       >
-        Add access
+        {t("accessGrantFields.addAccess")}
       </Button>
     </>
   );

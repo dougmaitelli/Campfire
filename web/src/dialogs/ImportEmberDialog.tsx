@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation } from "react-i18next";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
@@ -43,6 +45,7 @@ export function ImportEmberDialog({
   onImported: (ember: Ember) => void;
   onDeleted?: () => void;
 }) {
+  const { t } = useTranslation();
   const [text, setText] = useState(
     () =>
       initialPreview?.definition ??
@@ -105,7 +108,7 @@ export function ImportEmberDialog({
               error:
                 cause instanceof Error
                   ? cause.message
-                  : "Unable to check compatibility.",
+                  : i18n.t("importEmberDialog.unableToCheckCompatibility"),
             });
         });
     }, PREVIEW_DEBOUNCE_MS);
@@ -140,7 +143,11 @@ export function ImportEmberDialog({
         error: null,
       });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load URL.");
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("importEmberDialog.unableToLoadURL"),
+      );
     } finally {
       submitting.current = false;
       setLoadingSource(false);
@@ -155,7 +162,7 @@ export function ImportEmberDialog({
       setText("");
       setPreviewResult(null);
       setReviewed(false);
-      setError("Definition files must be at most 1 MiB.");
+      setError(i18n.t("importEmberDialog.definitionFilesMustBeAtMost1MiB"));
       return;
     }
     if (submitting.current) return;
@@ -169,7 +176,7 @@ export function ImportEmberDialog({
       setText(await file.text());
       setError(null);
     } catch {
-      setError("Unable to read this file.");
+      setError(i18n.t("importEmberDialog.unableToReadThisFile"));
     } finally {
       submitting.current = false;
       setLoadingSource(false);
@@ -194,7 +201,9 @@ export function ImportEmberDialog({
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to import Ember.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("importEmberDialog.unableToImportEmber"),
       );
     } finally {
       submitting.current = false;
@@ -212,7 +221,9 @@ export function ImportEmberDialog({
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to delete Ember.",
+        cause instanceof Error
+          ? cause.message
+          : i18n.t("importEmberDialog.unableToDeleteEmber"),
       );
     } finally {
       submitting.current = false;
@@ -223,15 +234,19 @@ export function ImportEmberDialog({
     <Drawer
       title={
         ember
-          ? "Edit Ember"
+          ? t("importEmberDialog.editEmber")
           : initialPreview
-            ? "Review Ember update"
-            : "Import Ember"
+            ? t("importEmberDialog.reviewEmberUpdate")
+            : t("importEmberDialog.importEmber")
       }
       description={
         ember || initialPreview
-          ? "Review the definition before replacing this Ember. Existing servers show an update until you apply it."
-          : "Import a native Ember or Pterodactyl/Pelican Egg from JSON or YAML. Review compatibility before importing."
+          ? t(
+              "importEmberDialog.reviewTheDefinitionBeforeReplacingThisEmberExistingServersShow",
+            )
+          : t(
+              "importEmberDialog.importANativeEmberOrPterodactylPelicanEggFromJSON",
+            )
       }
       busy={busy}
       onClose={onClose}
@@ -242,7 +257,7 @@ export function ImportEmberDialog({
           disabled={busy}
           onClick={onClose}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
       }
       footerRight={
@@ -270,13 +285,13 @@ export function ImportEmberDialog({
           >
             {busy
               ? loadingSource
-                ? "Loading…"
+                ? t("common.loading")
                 : ember
-                  ? "Saving…"
-                  : "Importing…"
+                  ? t("importEmberDialog.saving")
+                  : t("importEmberDialog.importing")
               : ember
-                ? "Save Ember"
-                : "Import Ember"}
+                ? t("importEmberDialog.saveEmber")
+                : t("importEmberDialog.importEmber")}
           </Button>
         </>
       }
@@ -296,7 +311,7 @@ export function ImportEmberDialog({
               <div
                 className="import-sources"
                 role="group"
-                aria-label="Definition source"
+                aria-label={t("importEmberDialog.definitionSource")}
               >
                 {(["file", "url", "paste"] as const).map((option) => (
                   <Button
@@ -310,17 +325,17 @@ export function ImportEmberDialog({
                     }}
                   >
                     {option === "file"
-                      ? "Upload file"
+                      ? i18n.t("importEmberDialog.uploadFile")
                       : option === "url"
-                        ? "From URL"
-                        : "Paste definition"}
+                        ? i18n.t("importEmberDialog.fromURL")
+                        : i18n.t("importEmberDialog.pasteDefinition")}
                   </Button>
                 ))}
               </div>
             )}
             {source === "file" && (
               <>
-                <FormField label="JSON or YAML file">
+                <FormField label={t("importEmberDialog.jsonOrYAMLFile")}>
                   <input
                     id="ember-file"
                     type="file"
@@ -334,14 +349,16 @@ export function ImportEmberDialog({
             )}
             {source === "url" && (
               <>
-                <FormField label="Definition URL">
+                <FormField label={t("importEmberDialog.definitionURL")}>
                   <TextInput
                     ref={urlRef}
                     id="ember-url"
                     type="url"
                     value={url}
                     onChange={(event) => setURL(event.target.value)}
-                    placeholder="https://example.com/game.ember.json"
+                    placeholder={t(
+                      "importEmberDialog.httpsExampleComGameEmberJson",
+                    )}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
@@ -358,17 +375,16 @@ export function ImportEmberDialog({
                     void loadURL();
                   }}
                   loading={busy}
-                  loadingLabel={"Loading…"}
+                  loadingLabel={t("common.loading")}
                 >
-                  {"Load definition"}
+                  {t("importEmberDialog.loadDefinition")}
                 </Button>
                 <p className="field-help">
-                  Use a public HTTPS link to the raw JSON or YAML file, then
-                  review the definition below.
+                  {t("importEmberDialog.useAPublicHTTPSLinkToTheRawJSONOr")}
                 </p>
               </>
             )}
-            <FormField label="Definition">
+            <FormField label={t("importEmberDialog.definition")}>
               <Textarea
                 id="ember-definition"
                 className="definition-editor"
@@ -383,18 +399,26 @@ export function ImportEmberDialog({
                 spellCheck={false}
               />
             </FormField>
-            {checking && <p role="status">Checking compatibility…</p>}
+            {checking && (
+              <p role="status">
+                {t("importEmberDialog.checkingCompatibility")}
+              </p>
+            )}
             {preview && (
-              <section aria-label="Compatibility preview">
+              <section aria-label={t("importEmberDialog.compatibilityPreview")}>
                 <h3>
                   {preview.errors.length > 0
-                    ? "Changes needed before import"
-                    : `${preview.ember?.name ?? "Definition"} is ready to import`}
+                    ? t("importEmberDialog.changesNeededBeforeImport")
+                    : t("importEmberDialog.isReadyToImport", {
+                        previewEmber:
+                          preview.ember?.name ??
+                          t("importEmberDialog.definition"),
+                      })}
                 </h3>
                 {preview.errors.length > 0 && (
                   <>
                     <InlineMessage role="alert">
-                      This definition cannot be imported yet.
+                      {t("importEmberDialog.thisDefinitionCannotBeImportedYet")}
                     </InlineMessage>
                     <ul>
                       {preview.errors.map((issue, index) => (
@@ -407,7 +431,9 @@ export function ImportEmberDialog({
                 )}
                 {warnings.length > 0 && (
                   <>
-                    <p>Before running a server with this Ember:</p>
+                    <p>
+                      {t("importEmberDialog.beforeRunningAServerWithThisEmber")}
+                    </p>
                     <ul>
                       {warnings.map((issue, index) => (
                         <li key={`${issue.field}-${index}`}>{issue.message}</li>
@@ -417,13 +443,13 @@ export function ImportEmberDialog({
                       checked={reviewed}
                       onChange={(event) => setReviewed(event.target.checked)}
                     >
-                      I understand these setup requirements.
+                      {t("importEmberDialog.iUnderstandTheseSetupRequirements")}
                     </CheckboxField>
                   </>
                 )}
                 {preview.ember && (
                   <details>
-                    <summary>Converted Ember</summary>
+                    <summary>{t("importEmberDialog.convertedEmber")}</summary>
                     <pre className="ember-preview-definition">
                       {JSON.stringify(preview.ember, null, 2)}
                     </pre>
@@ -436,9 +462,12 @@ export function ImportEmberDialog({
       </form>
       {ember && confirmDelete && (
         <ConfirmDialog
-          title="Delete Ember?"
-          description={`Permanently delete "${ember.name}"? This Ember cannot be deleted while servers reference it.`}
-          confirmLabel="Delete"
+          title={t("importEmberDialog.deleteEmber")}
+          description={t(
+            "importEmberDialog.permanentlyDeleteThisEmberCannotBeDeletedWhileServersReference",
+            { emberName: ember.name },
+          )}
+          confirmLabel={t("common.delete")}
           danger
           busy={busy}
           error={error}

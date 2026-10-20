@@ -4,10 +4,11 @@ import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import {
-  sparkInstallCommand,
-  validAgentAddress,
-} from "../web/src/components/sparks/installCommand.ts";
+import { loadWebModule } from "./helpers/load-web-module.mjs";
+
+const { sparkInstallCommand, validAgentAddress } = await loadWebModule(
+  new URL("../web/src/components/sparks/installCommand.ts", import.meta.url),
+);
 
 const installer = resolve("web/public/install-spark.sh");
 

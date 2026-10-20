@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
 export function DrawerDeleteButton({
   onDelete,
@@ -8,6 +9,7 @@ export function DrawerDeleteButton({
   disabled?: boolean;
   deleting?: boolean;
 }) {
+  const { t } = useTranslation();
   if (!onDelete) return null;
   return (
     <Button
@@ -16,9 +18,9 @@ export function DrawerDeleteButton({
       disabled={disabled || deleting}
       onClick={onDelete}
       loading={deleting}
-      loadingLabel={"Deleting…"}
+      loadingLabel={t("drawerDeleteButton.deleting")}
     >
-      {"Delete"}
+      {t("common.delete")}
     </Button>
   );
 }

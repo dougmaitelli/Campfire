@@ -1,4 +1,5 @@
 import { StatusPill, type StatusTone } from "../status/StatusPill";
+import { useStatusLabel } from "../status/useStatusLabel";
 
 const tones: Record<string, StatusTone> = {
   pending: "pending",
@@ -13,11 +14,6 @@ const tones: Record<string, StatusTone> = {
 };
 
 export function ExecutionState({ state }: { state: string }) {
-  return (
-    <StatusPill tone={tones[state] ?? "neutral"}>
-      {state
-        .replaceAll("_", " ")
-        .replace(/^./, (letter) => letter.toUpperCase())}
-    </StatusPill>
-  );
+  const label = useStatusLabel(state);
+  return <StatusPill tone={tones[state] ?? "neutral"}>{label}</StatusPill>;
 }

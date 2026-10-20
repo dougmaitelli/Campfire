@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { formatErrorMessage } from "../utils/errors";
 
 let csrfToken = "";
@@ -41,9 +42,16 @@ export async function readJSON(response: Response): Promise<unknown> {
     const path = response.url ? new URL(response.url).pathname : "the API";
     const contentType =
       response.headers.get("Content-Type")?.split(";")[0] ??
-      "missing Content-Type";
+      i18n.t("client.missingContentType");
     throw new Error(
-      `Expected JSON from ${path}, but received an unexpected response (HTTP ${response.status}, ${contentType}). Check the deployed backend and reverse proxy.`,
+      i18n.t(
+        "client.expectedJSONFromButReceivedAnUnexpectedResponseHTTPCheck",
+        {
+          path: path,
+          responseStatus: response.status,
+          contentType: contentType,
+        },
+      ),
       { cause },
     );
   }
@@ -54,7 +62,7 @@ export async function readJSON(response: Response): Promise<unknown> {
       "error" in body &&
       typeof body.error === "string"
         ? body.error
-        : "Unable to complete the request.";
+        : i18n.t("client.unableToCompleteTheRequest");
     throw new Error(formatErrorMessage(message));
   }
   return body;

@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 export type ServerAction =
@@ -65,7 +66,7 @@ async function readStatus(
 ): Promise<RuntimeStatus> {
   const result = await readJSON(response);
   if (!isRuntimeStatus(result) || result.server_id !== id)
-    throw new Error("Unexpected runtime response.");
+    throw new Error(i18n.t("runtime.unexpectedRuntimeResponse"));
   return result;
 }
 

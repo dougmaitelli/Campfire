@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -22,6 +24,7 @@ import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 import "./monitoring.css";
 
 export function DashboardPage() {
+  const { t } = useTranslation();
   const links = useResourceLinks();
   const [details, setDetails] = useState<{
     kind: "server" | "spark";
@@ -80,60 +83,85 @@ export function DashboardPage() {
   return (
     <section aria-labelledby="page-title">
       <PageHeader
-        title="Dashboard"
+        title={t("common.dashboard")}
         description={
           <>
-            Live usage for{" "}
-            {auth.session?.admin ? "all servers" : "your accessible servers"}.
+            <Trans
+              i18nKey="dashboardPage.liveUsageFor"
+              t={t}
+              components={{
+                authSessionAdmin: (
+                  <>
+                    {auth.session?.admin
+                      ? t("dashboardPage.allServers")
+                      : t("dashboardPage.yourAccessibleServers")}
+                  </>
+                ),
+              }}
+            />
           </>
         }
         actions={
           <>
-            <Button onClick={monitor.refresh}>Refresh</Button>
+            <Button onClick={monitor.refresh}>{t("common.refresh")}</Button>
           </>
         }
       />
       {monitor.error &&
         (servers.length > 0 || !!monitor.snapshot?.sparks?.length) && (
           <InlineMessage role="alert">
-            {monitor.error} Previous readings may be stale.
+            <Trans
+              i18nKey="dashboardPage.previousReadingsMayBeStale"
+              t={t}
+              components={{ monitorError: <>{monitor.error}</> }}
+            />
           </InlineMessage>
         )}
       {monitor.snapshot?.incomplete && (
         <InlineMessage tone="info" role="status">
-          Some servers are not reporting resource usage.
+          {t("dashboardPage.someServersAreNotReportingResourceUsage")}
         </InlineMessage>
       )}
       <div className="monitoring-cards">
         <MetricTile
-          label="Servers"
+          label={t("common.servers")}
           value={monitor.loading ? "…" : servers.length}
           detail={
             <>
-              {running} running ·{" "}
-              {
-                servers.filter((server) => server.usage.state === "unknown")
-                  .length
-              }{" "}
-              unknown
+              <Trans
+                i18nKey="dashboardPage.runningUnknown"
+                t={t}
+                components={{
+                  running: <>{running}</>,
+                  serversFilterServer: (
+                    <>
+                      {
+                        servers.filter(
+                          (server) => server.usage.state === "unknown",
+                        ).length
+                      }
+                    </>
+                  ),
+                }}
+              />
             </>
           }
         />
         <ResourceTile
-          label="CPU in use"
+          label={t("dashboardPage.cpuInUse")}
           used={cpuKnown.length ? cpu : null}
           allocated={allocatedCPU}
           format={formatCPU}
           unit="cores"
         />
         <ResourceTile
-          label="Memory in use"
+          label={t("dashboardPage.memoryInUse")}
           used={memoryKnown.length ? memory : null}
           allocated={allocatedMemory}
           format={bytes}
         />
         <ResourceTile
-          label="Game-data size"
+          label={t("dashboardPage.gameDataSize")}
           used={diskKnown.length ? disk : null}
           allocated={allocatedDisk}
           format={bytes}
@@ -145,18 +173,20 @@ export function DashboardPage() {
           empty={servers.length === 0}
           loading={monitor.loading}
           error={monitor.error}
-          resource="servers"
-          emptyDescription="Create or ask to be assigned a server to see its usage."
+          resource={t("dashboardPage.servers")}
+          emptyDescription={t(
+            "dashboardPage.createOrAskToBeAssignedAServerToSee",
+          )}
           onRetry={monitor.refresh}
         >
           <caption className="visually-hidden">
-            Measured server resources
+            {t("dashboardPage.measuredServerResources")}
           </caption>
           <thead>
             <tr>
-              <th>Server</th>
-              <th>State</th>
-              <th>Measured usage / allocation</th>
+              <th>{t("common.server")}</th>
+              <th>{t("dashboardPage.state")}</th>
+              <th>{t("dashboardPage.measuredUsageAllocation")}</th>
             </tr>
           </thead>
           <tbody>
@@ -174,7 +204,9 @@ export function DashboardPage() {
                     onClick={() => {
                       window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
                     }}
-                    aria-label={`Open ${server.name}`}
+                    aria-label={i18n.t("dashboardPage.open", {
+                      serverName: server.name,
+                    })}
                   >
                     {server.name}
                   </button>
@@ -207,24 +239,24 @@ export function DashboardPage() {
       </ContentPanel>
       {auth.session?.admin && (
         <>
-          <h2 className="monitoring-heading">Sparks</h2>
+          <h2 className="monitoring-heading">{t("common.sparks")}</h2>
           <ContentPanel>
             <Table
               className="dashboard-server-table"
               empty={!monitor.snapshot?.sparks?.length}
               loading={monitor.loading}
               error={monitor.error}
-              resource="Sparks"
+              resource={t("common.sparks")}
               onRetry={monitor.refresh}
             >
               <caption className="visually-hidden">
-                Spark connections and configured capacity
+                {t("dashboardPage.sparkConnectionsAndConfiguredCapacity")}
               </caption>
               <thead>
                 <tr>
-                  <th>Spark</th>
-                  <th>Connection</th>
-                  <th>Server allocations / capacity</th>
+                  <th>{t("common.spark")}</th>
+                  <th>{t("dashboardPage.connection")}</th>
+                  <th>{t("dashboardPage.serverAllocationsCapacity")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -254,12 +286,18 @@ export function DashboardPage() {
                               name: spark.name,
                             })
                           }
-                          aria-label={`View details for ${spark.name}`}
+                          aria-label={i18n.t("dashboardPage.viewDetailsFor", {
+                            sparkName: spark.name,
+                          })}
                         >
                           {spark.name}
                         </button>
                         <span className="row-description">
-                          {hosted.length} servers
+                          <Trans
+                            i18nKey="dashboardPage.servers2"
+                            t={i18n.t}
+                            components={{ hostedLength: <>{hosted.length}</> }}
+                          />
                         </span>
                       </td>
                       <td>
@@ -272,7 +310,7 @@ export function DashboardPage() {
                       <td>
                         <div className="resource-readings resource-readings-grid">
                           <ResourceReading
-                            label="CPU"
+                            label={i18n.t("common.cpu")}
                             format={(value) => `${formatCPU(value)} cores`}
                             value={hosted.reduce(
                               (sum, server) => sum + server.cpu_limit,
@@ -281,10 +319,12 @@ export function DashboardPage() {
                             allocation={spark.cpu_limit}
                             fresh
                             compact
-                            detail="CPU reserved by servers against this Spark's configured capacity."
+                            detail={i18n.t(
+                              "dashboardPage.cpuReservedByServersAgainstThisSparkSConfiguredCapacity",
+                            )}
                           />
                           <ResourceReading
-                            label="Memory"
+                            label={i18n.t("common.memory")}
                             format={bytes}
                             value={hosted.reduce(
                               (sum, server) => sum + server.memory_mb * 1048576,
@@ -293,10 +333,12 @@ export function DashboardPage() {
                             allocation={spark.memory_mb * 1048576}
                             fresh
                             compact
-                            detail="Memory reserved by servers against this Spark's configured capacity."
+                            detail={i18n.t(
+                              "dashboardPage.memoryReservedByServersAgainstThisSparkSConfiguredCapacity",
+                            )}
                           />
                           <ResourceReading
-                            label="Game data"
+                            label={i18n.t("dashboardPage.gameData")}
                             format={bytes}
                             value={hosted.reduce(
                               (sum, server) => sum + server.disk_mb * 1048576,
@@ -305,7 +347,9 @@ export function DashboardPage() {
                             allocation={spark.disk_mb * 1048576}
                             fresh
                             compact
-                            detail="Game-data storage reserved by servers against this Spark's configured capacity."
+                            detail={i18n.t(
+                              "dashboardPage.gameDataStorageReservedByServersAgainstThisSparkS",
+                            )}
                           />
                         </div>
                       </td>
@@ -318,11 +362,9 @@ export function DashboardPage() {
         </>
       )}
       <p className="list-summary">
-        Usage refreshes about every second. CPU and memory readings older than
-        15 seconds are stale; game-data scans refresh every 30 seconds.
-        Game-data size excludes backups and container images. Filesystem quotas
-        limit allocated game-data blocks; reported logical file sizes can
-        differ.
+        {t(
+          "dashboardPage.usageRefreshesAboutEverySecondCPUAndMemoryReadingsOlder",
+        )}
       </p>
       {details?.kind === "spark" && (
         <SparkDetailsDialog

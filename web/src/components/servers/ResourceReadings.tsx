@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   bytes,
   containerFresh,
@@ -25,6 +26,7 @@ export function ResourceReading({
   compact: boolean;
   format: (value: number) => string;
 }) {
+  const { t } = useTranslation();
   const measured = value !== null;
   return (
     <div
@@ -36,10 +38,12 @@ export function ResourceReading({
         {measured ? format(value) : EMPTY_VALUE}
         <span className="usage-allocation">
           {measured ? " / " : "/"}
-          {allocation > 0 ? format(allocation) : "No limit"}
+          {allocation > 0 ? format(allocation) : t("resourceReadings.noLimit")}
           {compact || allocation <= 0 ? "" : " allocated"}
         </span>
-        {measured && !fresh && <span className="usage-age"> · stale</span>}
+        {measured && !fresh && (
+          <span className="usage-age"> {t("resourceReadings.stale")}</span>
+        )}
       </span>
       <ResourceMeter
         label={label}
@@ -65,13 +69,14 @@ export function ResourceReadings({
   elapsed: number;
   layout?: "stack" | "grid" | "compact";
 }) {
+  const { t } = useTranslation();
   const cpu = usage?.cpu_percent;
   return (
     <div
       className={`resource-readings${layout !== "stack" ? ` resource-readings-${layout}` : ""}`}
     >
       <ResourceReading
-        label="CPU"
+        label={t("common.cpu")}
         format={(value) =>
           `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} cores`
         }
@@ -83,12 +88,12 @@ export function ResourceReadings({
           usage !== undefined && usage.container_error.length > 0
             ? usage.container_error
             : cpu === null
-              ? "Waiting for a CPU sample."
-              : "Measured CPU use; one fully used core is 100%."
+              ? t("resourceReadings.waitingForACPUSample")
+              : t("resourceReadings.measuredCPUUseOneFullyUsedCoreIs100")
         }
       />
       <ResourceReading
-        label="Memory"
+        label={t("common.memory")}
         format={bytes}
         compact={layout !== "stack"}
         value={usage?.memory_bytes ?? null}
@@ -97,11 +102,13 @@ export function ResourceReadings({
         detail={
           usage !== undefined && usage.container_error.length > 0
             ? usage.container_error
-            : "Container memory use, excluding reclaimable file cache."
+            : t(
+                "resourceReadings.containerMemoryUseExcludingReclaimableFileCache",
+              )
         }
       />
       <ResourceReading
-        label="Game data"
+        label={t("resourceReadings.gameData")}
         format={bytes}
         compact={layout !== "stack"}
         value={usage?.disk_bytes ?? null}
@@ -111,8 +118,12 @@ export function ResourceReadings({
           usage !== undefined && usage.disk_error.length > 0
             ? usage.disk_error
             : usage?.disk_sampled_at
-              ? `Sampled ${new Date(usage.disk_sampled_at * 1000).toLocaleString()}. Backups and images excluded.`
-              : "Waiting for a game-data size sample."
+              ? t("resourceReadings.sampledBackupsAndImagesExcluded", {
+                  newDateToLocaleString: new Date(
+                    usage.disk_sampled_at * 1000,
+                  ).toLocaleString(),
+                })
+              : t("resourceReadings.waitingForAGameDataSizeSample")
         }
       />
     </div>

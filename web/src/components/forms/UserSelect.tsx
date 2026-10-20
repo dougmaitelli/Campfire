@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ComponentProps } from "react";
 import type { AccessUser } from "../../api/access";
 import { formatUserLabel } from "../../utils/formatUserLabel";
@@ -13,6 +14,7 @@ type Props = Omit<
 };
 
 export function UserSelect({ users, value, onValueChange, ...props }: Props) {
+  const { t } = useTranslation();
   return (
     <Select
       {...props}
@@ -20,7 +22,9 @@ export function UserSelect({ users, value, onValueChange, ...props }: Props) {
       onValueChange={(selected) => onValueChange(Number(selected))}
     >
       <option value={0} disabled>
-        {users.length ? "Select a user" : "No users available"}
+        {users.length
+          ? t("userSelect.selectAUser")
+          : t("userSelect.noUsersAvailable")}
       </option>
       {users.map((user) => (
         <option key={user.id} value={user.id}>

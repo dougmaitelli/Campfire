@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
 import type { Spark } from "../../api/sparks";
 import { Table, TableRow } from "../table/Table";
@@ -34,30 +36,33 @@ export function SparksTable({
   servers: MonitoredServer[] | undefined;
   elapsed: number;
 }) {
+  const { t } = useTranslation();
   return (
     <Table
       className="sparks-table"
       empty={sparks.length === 0}
       loading={loading}
       error={error}
-      resource="Sparks"
-      emptyDescription="Add your first node to get started."
+      resource={t("common.sparks")}
+      emptyDescription={t("sparksTable.addYourFirstNodeToGetStarted")}
       emptyAction={
         <Button variant="primary" onClick={onAdd}>
-          Add Spark
+          {t("sparksTable.addSpark")}
         </Button>
       }
       onRetry={onRetry}
     >
-      <caption className="visually-hidden">Registered Sparks</caption>
+      <caption className="visually-hidden">
+        {t("sparksTable.registeredSparks")}
+      </caption>
       <thead>
         <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Status</th>
-          <th scope="col">Resources</th>
-          <th scope="col">Network</th>
+          <th scope="col">{t("common.name")}</th>
+          <th scope="col">{t("common.status")}</th>
+          <th scope="col">{t("sparksTable.resources")}</th>
+          <th scope="col">{t("sparksTable.network")}</th>
           <th scope="col" className="table-actions">
-            <span className="visually-hidden">Actions</span>
+            <span className="visually-hidden">{t("common.actions")}</span>
           </th>
         </tr>
       </thead>
@@ -69,7 +74,9 @@ export function SparksTable({
                 type="button"
                 className="table-row-trigger spark-name"
                 onClick={() => onDetails(spark)}
-                aria-label={`View details for ${spark.name}`}
+                aria-label={i18n.t("sparksTable.viewDetailsFor", {
+                  sparkName: spark.name,
+                })}
               >
                 {spark.name}
               </button>
@@ -125,14 +132,22 @@ export function SparksTable({
                   }
                   onClick={() => onUpdate(spark)}
                   title={
-                    spark.capabilities?.includes("spark.self-update.v1")
-                      ? `Update to ${spark.latest_agent_version ?? "the latest release"}`
-                      : "This client needs a manual upgrade before it supports remote updates."
+                    spark.capabilities?.includes(
+                      i18n.t("sparksTable.sparkSelfUpdateV1"),
+                    )
+                      ? i18n.t("sparksTable.updateTo", {
+                          sparkLatestAgent:
+                            spark.latest_agent_version ??
+                            i18n.t("sparksTable.theLatestRelease"),
+                        })
+                      : i18n.t(
+                          "sparksTable.thisClientNeedsAManualUpgradeBeforeItSupportsRemote",
+                        )
                   }
                   loading={updating === spark.id}
-                  loadingLabel="Updating…"
+                  loadingLabel={i18n.t("sparksTable.updating")}
                 >
-                  Update Spark
+                  {i18n.t("sparksTable.updateSpark")}
                 </Button>
               )}
             </td>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
@@ -29,6 +30,7 @@ export function Drawer({
   embedded = false,
   unsavedChanges = false,
 }: DrawerProps) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   useNavigationGuard(embedded, busy, unsavedChanges);
@@ -40,7 +42,11 @@ export function Drawer({
     return () => dialog?.close();
   }, [embedded]);
   const actionBar = actions != null && (
-    <div className="drawer-actions" role="group" aria-label="Actions">
+    <div
+      className="drawer-actions"
+      role="group"
+      aria-label={t("common.actions")}
+    >
       {actions}
     </div>
   );
@@ -88,7 +94,7 @@ export function Drawer({
           <Button
             type="button"
             iconOnly
-            aria-label="Close"
+            aria-label={t("common.close")}
             disabled={busy}
             onClick={onClose}
           >

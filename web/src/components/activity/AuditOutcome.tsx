@@ -1,4 +1,5 @@
 import { StatusPill, type StatusTone } from "../status/StatusPill";
+import { useStatusLabel } from "../status/useStatusLabel";
 
 const tones: Record<string, StatusTone> = {
   success: "positive",
@@ -16,11 +17,6 @@ const tones: Record<string, StatusTone> = {
 };
 
 export function AuditOutcome({ outcome }: { outcome: string }) {
-  return (
-    <StatusPill tone={tones[outcome] ?? "neutral"}>
-      {outcome
-        .replaceAll("_", " ")
-        .replace(/^./, (letter) => letter.toUpperCase())}
-    </StatusPill>
-  );
+  const label = useStatusLabel(outcome);
+  return <StatusPill tone={tones[outcome] ?? "neutral"}>{label}</StatusPill>;
 }

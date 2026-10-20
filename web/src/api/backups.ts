@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 export interface Backup {
@@ -29,7 +30,7 @@ export async function listAllBackups(
 ): Promise<CatalogBackup[]> {
   const body = await readJSON(await apiFetch("/api/v1/backups", { signal }));
   if (!Array.isArray(body))
-    throw new Error("Unexpected backup catalog response.");
+    throw new Error(i18n.t("backups.unexpectedBackupCatalogResponse"));
   return body.map((value: unknown) => {
     if (
       !isBackup(value) ||
@@ -37,7 +38,7 @@ export async function listAllBackups(
       typeof value.server_id !== "string" ||
       typeof value.server_name !== "string"
     )
-      throw new Error("Unexpected backup catalog entry.");
+      throw new Error(i18n.t("backups.unexpectedBackupCatalogEntry"));
     return {
       ...value,
       server_id: value.server_id,
@@ -61,7 +62,7 @@ export async function getBackupPolicy(
     !isPolicy(body.policy) ||
     typeof body.s3_available !== "boolean"
   )
-    throw new Error("Unexpected backup policy response.");
+    throw new Error(i18n.t("backups.unexpectedBackupPolicyResponse"));
   return { policy: body.policy, s3_available: body.s3_available };
 }
 
@@ -127,7 +128,7 @@ export async function listBackups(
     !isPolicy(body.policy) ||
     typeof body.s3_available !== "boolean"
   )
-    throw new Error("Unexpected backup response.");
+    throw new Error(i18n.t("backups.unexpectedBackupResponse"));
   return {
     entries: body.entries,
     policy: body.policy,
@@ -147,7 +148,8 @@ export async function saveBackupPolicy(
       signal: AbortSignal.timeout(15000),
     }),
   );
-  if (!isPolicy(body)) throw new Error("Unexpected backup policy response.");
+  if (!isPolicy(body))
+    throw new Error(i18n.t("backups.unexpectedBackupPolicyResponse"));
   return body;
 }
 

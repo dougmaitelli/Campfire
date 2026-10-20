@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
 import type { RuntimeStatus, ServerAction } from "../../api/runtime";
 
@@ -12,6 +13,7 @@ export function ServerLifecycleControls({
   canConfigure: boolean;
   onAction: (action: ServerAction) => void;
 }) {
+  const { t } = useTranslation();
   const blocked =
     disabled ||
     !status ||
@@ -29,20 +31,20 @@ export function ServerLifecycleControls({
         disabled={blocked || install}
         onClick={() => onAction(running ? "stop" : "start")}
       >
-        {running ? "Stop" : "Start"}
+        {running ? t("common.stop") : t("common.start")}
       </Button>
       <Button
         disabled={blocked || !running}
         onClick={() => onAction("restart")}
       >
-        Restart
+        {t("common.restart")}
       </Button>
       <Button
         variant="danger"
         disabled={blocked || !running}
         onClick={() => onAction("kill")}
       >
-        Kill
+        {t("common.kill")}
       </Button>
       {(install || canConfigure) && (
         <Button
@@ -50,7 +52,7 @@ export function ServerLifecycleControls({
           disabled={blocked || running}
           onClick={() => onAction(install ? "install" : "reinstall")}
         >
-          {install ? "Install" : "Reinstall"}
+          {install ? t("common.install") : t("common.reinstall")}
         </Button>
       )}
     </>

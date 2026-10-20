@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { SparkSettings } from "../../api/sparks";
 import { StatusPill } from "../status/StatusPill";
@@ -21,47 +23,55 @@ export function SparkReview({
   disabled,
   settings,
   serverCreationRoles,
-  notice = "Review these settings before saving.",
+  notice = i18n.t("sparkReview.reviewTheseSettingsBeforeSaving"),
 }: SparkReviewProps) {
+  const { t } = useTranslation();
   return (
     <div className="spark-review">
       <DetailsList>
-        <DetailItem label="Name">{name}</DetailItem>
-        <DetailItem label="Description" valueClassName="review-description">
+        <DetailItem label={t("common.name")}>{name}</DetailItem>
+        <DetailItem
+          label={t("common.description")}
+          valueClassName="review-description"
+        >
           {formatDisplayValue(description)}
         </DetailItem>
-        <DetailItem label="Availability">
+        <DetailItem label={t("sparkReview.availability")}>
           <StatusPill tone={disabled ? "warning" : "positive"}>
-            {disabled ? "Disabled" : "Enabled"}
+            {disabled ? t("common.disabled") : t("common.enabled")}
           </StatusPill>
         </DetailItem>
         {serverCreationRoles && (
-          <DetailItem label="Server creation access">
+          <DetailItem label={t("sparkReview.serverCreationAccess")}>
             {serverCreationRoles}
           </DetailItem>
         )}
-        <DetailItem label="CPU limit">
+        <DetailItem label={t("sparkReview.cpuLimit")}>
           {settings.cpu_limit === 0
-            ? "No limit"
+            ? t("sparkReview.noLimit")
             : `${settings.cpu_limit} cores`}
         </DetailItem>
-        <DetailItem label="Memory limit">
+        <DetailItem label={t("sparkReview.memoryLimit")}>
           {settings.memory_mb === 0
-            ? "No limit"
-            : `${settings.memory_mb.toLocaleString()} MiB`}
+            ? t("sparkReview.noLimit")
+            : t("sparkReview.mib", {
+                settingsMemoryMb: settings.memory_mb.toLocaleString(),
+              })}
         </DetailItem>
-        <DetailItem label="Disk limit">
+        <DetailItem label={t("sparkReview.diskLimit")}>
           {settings.disk_mb === 0
-            ? "No limit"
-            : `${settings.disk_mb.toLocaleString()} MiB`}
+            ? t("sparkReview.noLimit")
+            : t("sparkReview.mib2", {
+                settingsDiskMb: settings.disk_mb.toLocaleString(),
+              })}
         </DetailItem>
-        <DetailItem label="Game address">
+        <DetailItem label={t("sparkReview.gameAddress")}>
           {formatDisplayValue(settings.game_address)}
         </DetailItem>
       </DetailsList>
-      <h4>Port allocations</h4>
+      <h4>{t("sparkReview.portAllocations")}</h4>
       {settings.port_allocations.length === 0 ? (
-        <p className="field-help">No ports allocated.</p>
+        <p className="field-help">{t("sparkReview.noPortsAllocated")}</p>
       ) : (
         <div className="pill-group">
           {settings.port_allocations.map((allocation, index) => (

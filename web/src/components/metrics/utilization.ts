@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 export type UtilizationTone = "neutral" | "warning" | "critical";
 
 export const utilizationThresholds = { warning: 0.8, critical: 0.9 } as const;
@@ -26,7 +27,14 @@ export function resourceUtilization(
           : "neutral";
   const title =
     ratio === null
-      ? "Utilization unavailable"
-      : `${Math.round(ratio * 100)}% of allocated capacity${tone === "critical" ? " · Critical utilization" : tone === "warning" ? " · High utilization" : ""}`;
+      ? i18n.t("utilization.utilizationUnavailable")
+      : i18n.t(
+          tone === "critical"
+            ? "utilization.capacityCritical"
+            : tone === "warning"
+              ? "utilization.capacityHigh"
+              : "utilization.capacity",
+          { percent: Math.round(ratio * 100) },
+        );
   return { ratio, tone, title };
 }

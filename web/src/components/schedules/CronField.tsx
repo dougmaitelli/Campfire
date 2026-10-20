@@ -1,3 +1,5 @@
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 import { Fieldset } from "../forms/Fieldset";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
@@ -9,29 +11,67 @@ import "./cron-field.css";
 
 const presets = [
   {
-    label: "Every 15 minutes",
+    get label() {
+      return i18n.t("cronField.every15Minutes");
+    },
     value: "*/15 * * * *",
-    description: "Every 15 minutes",
+    get description() {
+      return i18n.t("cronField.every15Minutes");
+    },
   },
   {
-    label: "Hourly",
+    get label() {
+      return i18n.t("cronField.hourly");
+    },
     value: "0 * * * *",
-    description: "Every hour, on the hour",
+    get description() {
+      return i18n.t("cronField.everyHourOnTheHour");
+    },
   },
-  { label: "Daily", value: "0 3 * * *", description: "Every day at 03:00" },
   {
-    label: "Weekdays",
+    get label() {
+      return i18n.t("cronField.daily");
+    },
+    value: "0 3 * * *",
+    get description() {
+      return i18n.t("cronField.everyDayAt0300");
+    },
+  },
+  {
+    get label() {
+      return i18n.t("cronField.weekdays");
+    },
     value: "0 3 * * 1-5",
-    description: "Monday through Friday at 03:00",
+    get description() {
+      return i18n.t("cronField.mondayThroughFridayAt0300");
+    },
   },
-  { label: "Weekly", value: "0 3 * * 0", description: "Every Sunday at 03:00" },
   {
-    label: "Monthly",
+    get label() {
+      return i18n.t("cronField.weekly");
+    },
+    value: "0 3 * * 0",
+    get description() {
+      return i18n.t("cronField.everySundayAt0300");
+    },
+  },
+  {
+    get label() {
+      return i18n.t("cronField.monthly");
+    },
     value: "0 3 1 * *",
-    description: "On the first day of each month at 03:00",
+    get description() {
+      return i18n.t("cronField.onTheFirstDayOfEachMonthAt0300");
+    },
   },
 ];
-const fields = ["Minute", "Hour", "Day", "Month", "Weekday"];
+const fields = [
+  i18n.t("cronField.minute"),
+  i18n.t("cronField.hour"),
+  i18n.t("cronField.day"),
+  i18n.t("cronField.month"),
+  i18n.t("cronField.weekday"),
+];
 
 export function CronField({
   expression,
@@ -48,6 +88,7 @@ export function CronField({
   onValidated: (key: string) => void;
   disabled: boolean;
 }) {
+  const { t } = useTranslation();
   const id = useId();
   const normalized = expression.trim().replace(/\s+/g, " ");
   const key = `${normalized}\n${timeZone}`;
@@ -78,7 +119,7 @@ export function CronField({
               error:
                 cause instanceof Error
                   ? cause.message
-                  : "Unable to preview schedule.",
+                  : i18n.t("cronField.unableToPreviewSchedule"),
             });
         });
     }, 300);
@@ -113,7 +154,7 @@ export function CronField({
   }
   return (
     <Fieldset className="cron-field" disabled={disabled}>
-      <FormField label="Cron schedule">
+      <FormField label={t("cronField.cronSchedule")}>
         <TextInput
           id={`${id}-expression`}
           className="cron-expression"
@@ -126,7 +167,7 @@ export function CronField({
           onChange={(event) => onChange(event.target.value)}
         />
       </FormField>
-      <dl className="cron-fields" aria-label="Cron fields">
+      <dl className="cron-fields" aria-label={t("cronField.cronFields")}>
         {fields.map((field, index) => (
           <div key={field}>
             <dt>{field}</dt>
@@ -134,7 +175,10 @@ export function CronField({
           </div>
         ))}
       </dl>
-      <div className="cron-presets" aria-label="Fill cron schedule">
+      <div
+        className="cron-presets"
+        aria-label={t("cronField.fillCronSchedule")}
+      >
         {presets.map((preset) => (
           <Button
             size="small"
@@ -149,10 +193,9 @@ export function CronField({
         ))}
       </div>
       <p id={`${id}-help`} className="field-help">
-        Use * for any value, commas for lists, - for ranges, and / for steps.
-        Sunday is 0. Day and weekday restrictions match either field.
+        {t("cronField.useForAnyValueCommasForListsForRangesAnd")}
       </p>
-      <FormField label="Time zone">
+      <FormField label={t("cronField.timeZone")}>
         <TextInput
           id={`${id}-zone`}
           list={`${id}-zones`}
@@ -170,13 +213,13 @@ export function CronField({
       <div id={`${id}-preview`} className="cron-preview" aria-live="polite">
         <p>
           {presets.find((preset) => preset.value === normalized)?.description ??
-            "Custom cron schedule"}
+            t("cronField.customCronSchedule")}
         </p>
         {current?.error ? (
           <InlineMessage role="alert">{current.error}</InlineMessage>
         ) : current ? (
           <>
-            <span className="field-help">Next runs</span>
+            <span className="field-help">{t("cronField.nextRuns")}</span>
             <ul>
               {current.next.map((timestamp) => (
                 <li key={timestamp}>
@@ -189,7 +232,7 @@ export function CronField({
           </>
         ) : (
           <InlineMessage tone="info" role="status">
-            Checking schedule…
+            {t("cronField.checkingSchedule")}
           </InlineMessage>
         )}
       </div>

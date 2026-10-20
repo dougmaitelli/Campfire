@@ -1,3 +1,4 @@
+import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
 export const fileLimit = 1024 * 1024;
@@ -21,7 +22,7 @@ export async function uploadLimit(
     body.max_upload_bytes < fileLimit ||
     body.max_upload_bytes > fileTransferLimit
   )
-    throw new Error("Unexpected upload limit response.");
+    throw new Error(i18n.t("files.unexpectedUploadLimitResponse"));
   return body.max_upload_bytes;
 }
 
@@ -115,14 +116,14 @@ export async function manageFiles(
     }),
   );
   if (!isResult(body) || body.server_id !== id)
-    throw new Error("Unexpected file response.");
+    throw new Error(i18n.t("files.unexpectedFileResponse"));
   return body;
 }
 
 export function encodeBytes(bytes: Uint8Array): string {
   if (bytes.length > fileLimit)
     throw new Error(
-      "Text edits and individual upload chunks are limited to 1 MiB.",
+      i18n.t("files.textEditsAndIndividualUploadChunksAreLimitedTo1"),
     );
   let binary = "";
   for (let index = 0; index < bytes.length; index += 8192)
