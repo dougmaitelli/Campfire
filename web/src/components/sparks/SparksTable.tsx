@@ -4,11 +4,8 @@ import { Button } from "../forms/Button";
 import type { Spark } from "../../api/sparks";
 import { Table, TableRow } from "../table/Table";
 import { SparkConnectionState } from "./SparkConnectionState";
-import {
-  EMPTY_VALUE,
-  formatDisplayValue,
-} from "../../utils/formatDisplayValue";
-import { PortPill } from "../network/PortPill";
+import { PortGroups } from "../network/PortGroups";
+import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import { SparkResourceReadings } from "./SparkResourceReadings";
 import type { MonitoredServer } from "../../api/monitoring";
 import "./sparks-table.css";
@@ -60,7 +57,8 @@ export function SparksTable({
           <th scope="col">{t("common.name")}</th>
           <th scope="col">{t("common.status")}</th>
           <th scope="col">{t("sparksTable.resources")}</th>
-          <th scope="col">{t("sparksTable.network")}</th>
+          <th scope="col">{t("sparkReview.gameAddress")}</th>
+          <th scope="col">{t("sparksTable.allocations")}</th>
           <th scope="col" className="table-actions">
             <span className="visually-hidden">{t("common.actions")}</span>
           </th>
@@ -80,11 +78,6 @@ export function SparksTable({
               >
                 {spark.name}
               </button>
-              {spark.description && (
-                <span className="row-description spark-description">
-                  {spark.description}
-                </span>
-              )}
               <span className="row-id">{spark.id}</span>
             </td>
             <td>
@@ -102,25 +95,18 @@ export function SparksTable({
                 elapsed={elapsed}
               />
             </td>
+            <td>{formatDisplayValue(spark.game_address)}</td>
             <td>
-              <span className="spark-resource-summary">
-                {formatDisplayValue(spark.game_address)}
-              </span>
-              <div className="pill-group">
-                {spark.port_allocations.map((allocation, index) => (
-                  <PortPill
-                    key={index}
-                    address={allocation.bind_ip}
-                    port={
-                      allocation.start === allocation.end
-                        ? allocation.start
-                        : `${allocation.start}–${allocation.end}`
-                    }
-                    protocol={allocation.protocol}
-                  />
-                ))}
-                {spark.port_allocations.length === 0 && EMPTY_VALUE}
-              </div>
+              <PortGroups
+                ports={spark.port_allocations.map((allocation) => ({
+                  address: allocation.bind_ip,
+                  port:
+                    allocation.start === allocation.end
+                      ? allocation.start
+                      : `${allocation.start}–${allocation.end}`,
+                  protocol: allocation.protocol,
+                }))}
+              />
             </td>
             <td className="table-actions">
               {spark.agent_update_available && (

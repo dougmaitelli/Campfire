@@ -1,4 +1,7 @@
 {
+  "portGroups": {
+    "containerPort": "→ {{port}} in container"
+  },
   "resourceHistory": {
     "chartLabel": "{{resource}} usage history",
     "unexpectedResponse": "Unexpected resource history response.",
@@ -1026,6 +1029,7 @@
     "updating": "Updating…"
   },
   "sparksTable": {
+    "allocations": "Allocations",
     "addSpark": "Add Spark",
     "addYourFirstNodeToGetStarted": "Add your first node to get started.",
     "network": "Network",

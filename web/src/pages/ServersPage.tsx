@@ -26,7 +26,7 @@ import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
-import { PortPill } from "../components/network/PortPill";
+import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
 
@@ -350,16 +350,13 @@ export function ServersPage() {
                   />
                 </td>
                 <td>
-                  <div className="pill-group">
-                    {server.ports.map((port, index) => (
-                      <PortPill
-                        key={index}
-                        address={server.game_address || port.bind_ip}
-                        port={port.host_port}
-                        protocol={port.protocol}
-                      />
-                    ))}
-                  </div>
+                  <PortGroups
+                    ports={server.ports.map((port) => ({
+                      address: server.game_address || port.bind_ip,
+                      port: port.host_port,
+                      protocol: port.protocol,
+                    }))}
+                  />
                 </td>
                 <td className="table-actions">
                   <ActionGroup>

@@ -1,0 +1,21 @@
+.port-groups {
+  display: grid;
+  gap: 8px;
+}
+.port-group-address {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.port-group-entry {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.port-group-target {
+  color: var(--muted);
+  font-size: 11px;
+}

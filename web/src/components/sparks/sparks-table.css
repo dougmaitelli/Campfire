@@ -4,11 +4,6 @@
   overflow-wrap: anywhere;
 }
 
-.row-description.spark-description {
-  max-width: 480px;
-  white-space: pre-wrap;
-}
-
 .spark-resource-summary {
   display: block;
   color: var(--muted);

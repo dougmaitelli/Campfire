@@ -2,7 +2,7 @@ import i18n from "../../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
-import { PortPill } from "../network/PortPill";
+import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import type { ReactNode } from "react";
 
@@ -61,17 +61,14 @@ export function ServerReview({
               })}
         </DetailItem>
         <DetailItem label={t("common.ports")}>
-          <div className="pill-group">
-            {value.ports.map((port, index) => (
-              <PortPill
-                key={index}
-                address={port.bind_ip}
-                port={port.host_port}
-                targetPort={port.container_port}
-                protocol={port.protocol}
-              />
-            ))}
-          </div>
+          <PortGroups
+            ports={value.ports.map((port) => ({
+              address: port.bind_ip,
+              port: port.host_port,
+              targetPort: port.container_port,
+              protocol: port.protocol,
+            }))}
+          />
         </DetailItem>
         {Object.entries(value.variables).map(([name, content]) => (
           <DetailItem key={name} label={<>{name}</>}>

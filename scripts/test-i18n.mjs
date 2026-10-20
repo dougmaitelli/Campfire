@@ -14,6 +14,31 @@ const en = JSON.parse(
   await readFile(new URL("i18n/locales/en.json", root), "utf8"),
 );
 
+test("network groups keep addresses outside pills and preserve port mappings", async () => {
+  const { PortGroups } = await loadWebModule(
+    new URL("components/network/PortGroups.tsx", root),
+  );
+  const markup = renderToStaticMarkup(
+    React.createElement(PortGroups, {
+      ports: [
+        { address: "::1", port: 2456, protocol: "udp", targetPort: 3000 },
+        { address: "::1", port: "2457–2458", protocol: "udp" },
+        { address: "127.0.0.1", port: 8080, protocol: "tcp" },
+      ],
+    }),
+  );
+  assert.equal((markup.match(/class="port-group-address"/g) ?? []).length, 2);
+  assert.equal((markup.match(/::1/g) ?? []).length, 1);
+  assert.match(markup, /2456 UDP/);
+  assert.match(markup, /2457–2458 UDP/);
+  assert.match(markup, /3000 in container/);
+  assert.ok(!markup.includes("::1:2456"));
+  assert.equal(
+    renderToStaticMarkup(React.createElement(PortGroups, { ports: [] })),
+    "-",
+  );
+});
+
 test("English fallback, interpolation, and plural forms", async () => {
   await i18n.changeLanguage("unsupported");
   assert.equal(i18n.t("common.cancel"), "Cancel");

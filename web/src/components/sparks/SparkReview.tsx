@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { SparkSettings } from "../../api/sparks";
 import { StatusPill } from "../status/StatusPill";
-import { PortPill } from "../network/PortPill";
+import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import "./spark-review.css";
 import type { ReactNode } from "react";
@@ -73,20 +73,16 @@ export function SparkReview({
       {settings.port_allocations.length === 0 ? (
         <p className="field-help">{t("sparkReview.noPortsAllocated")}</p>
       ) : (
-        <div className="pill-group">
-          {settings.port_allocations.map((allocation, index) => (
-            <PortPill
-              key={index}
-              address={allocation.bind_ip}
-              port={
-                allocation.start === allocation.end
-                  ? allocation.start
-                  : `${allocation.start}–${allocation.end}`
-              }
-              protocol={allocation.protocol}
-            />
-          ))}
-        </div>
+        <PortGroups
+          ports={settings.port_allocations.map((allocation) => ({
+            address: allocation.bind_ip,
+            port:
+              allocation.start === allocation.end
+                ? allocation.start
+                : `${allocation.start}–${allocation.end}`,
+            protocol: allocation.protocol,
+          }))}
+        />
       )}
       {notice && <p className="field-help">{notice}</p>}
     </div>

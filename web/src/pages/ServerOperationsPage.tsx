@@ -6,7 +6,7 @@ import { ContentPanel } from "../components/layout/ContentPanel";
 import { Fieldset } from "../components/forms/Fieldset";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
-import { PortPill } from "../components/network/PortPill";
+import { PortGroups } from "../components/network/PortGroups";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useRef, useState } from "react";
 import { APIError, apiFetch, readJSON } from "../api/client";
@@ -254,15 +254,14 @@ export function ServerOperationsPage({
               elapsed={monitoring.elapsed}
               history={resourceHistory?.history}
             />
-            <div className="operations-addresses pill-group">
-              {server.ports.map((port, index) => (
-                <PortPill
-                  key={index}
-                  address={server.game_address || port.bind_ip}
-                  port={port.host_port}
-                  protocol={port.protocol}
-                />
-              ))}
+            <div className="operations-addresses">
+              <PortGroups
+                ports={server.ports.map((port) => ({
+                  address: server.game_address || port.bind_ip,
+                  port: port.host_port,
+                  protocol: port.protocol,
+                }))}
+              />
             </div>
             {resourceHistory?.error && (
               <InlineMessage tone="info">{resourceHistory.error}</InlineMessage>

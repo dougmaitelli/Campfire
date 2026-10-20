@@ -4,7 +4,6 @@
   max-width: 100%;
 
   & .status-pill {
-    white-space: normal;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
   }
 }
