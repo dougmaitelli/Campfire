@@ -294,7 +294,7 @@ export function SparksPage() {
               </Button>
               {details.agent_update_available && (
                 <Button
-                  variant="warning"
+                  variant="primary"
                   disabled={
                     updating !== null ||
                     !details.capabilities?.includes("spark.self-update.v1")
@@ -388,7 +388,6 @@ export function SparksPage() {
             },
           )}
           confirmLabel={t("sparksPage.updateSpark")}
-          warning
           busy={false}
           error={null}
           onClose={() => setConfirmUpdate(null)}

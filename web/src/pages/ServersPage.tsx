@@ -451,7 +451,7 @@ export function ServersPage() {
             <>
               {canApplyRevision && details.ember_update_available && (
                 <Button
-                  variant="warning"
+                  variant="primary"
                   disabled={
                     deleting !== null ||
                     runtime.statuses[details.id]?.busy === true ||

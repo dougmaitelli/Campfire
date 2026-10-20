@@ -125,7 +125,7 @@ export function SparksTable({
             <td className="table-actions">
               {spark.agent_update_available && (
                 <Button
-                  variant="warning"
+                  variant="primary"
                   disabled={
                     updating !== null ||
                     !spark.capabilities?.includes("spark.self-update.v1")
