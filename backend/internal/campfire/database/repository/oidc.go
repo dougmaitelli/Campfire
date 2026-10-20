@@ -12,7 +12,7 @@ import (
 
 // OIDCAccount finds or provisions an identity, or links it to an authenticated account.
 // Names and email claims never select an existing account.
-func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, username string, linkID, version int64, linkHash, name, picture string) (database.User, error) {
+func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, username string, linkID, version int64, linkHash, name, email, picture string) (database.User, error) {
 	var user database.User
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -74,11 +74,17 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 			return ErrAuthentication
 		}
 
-		updates := map[string]any{}
+		user.OIDCNameManaged, user.OIDCEmailManaged = name != "", email != ""
+		updates := map[string]any{"oidc_name_managed": user.OIDCNameManaged, "oidc_email_managed": user.OIDCEmailManaged}
 
-		if user.Name == "" && name != "" {
+		if name != "" {
 			user.Name = name
 			updates["name"] = name
+		}
+
+		if email != "" {
+			user.Email = email
+			updates["email"] = email
 		}
 
 		if picture != "" {
@@ -86,11 +92,7 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 			updates["picture"] = picture
 		}
 
-		if len(updates) > 0 {
-			return tx.Model(&user).Updates(updates).Error
-		}
-
-		return nil
+		return tx.Model(&user).Updates(updates).Error
 	})
 
 	return user, accessError(err)

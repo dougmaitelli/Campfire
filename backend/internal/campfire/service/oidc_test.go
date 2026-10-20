@@ -27,6 +27,7 @@ type testOIDCProvider struct {
 	server      *httptest.Server
 	mu          sync.Mutex
 	claims      map[string]any
+	profile     map[string]any
 	challenge   string
 	signer      jose.Signer
 	beforeToken func()
@@ -51,7 +52,22 @@ func newTestOIDCProvider(t *testing.T) *testOIDCProvider {
 
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
-			_ = json.NewEncoder(w).Encode(map[string]any{"issuer": p.server.URL, "authorization_endpoint": p.server.URL + "/authorize", "token_endpoint": p.server.URL + "/token", "jwks_uri": p.server.URL + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"issuer": p.server.URL, "authorization_endpoint": p.server.URL + "/authorize", "token_endpoint": p.server.URL + "/token", "jwks_uri": p.server.URL + "/keys", "userinfo_endpoint": p.server.URL + "/userinfo", "id_token_signing_alg_values_supported": []string{"RS256"}})
+		case "/userinfo":
+			p.mu.Lock()
+			defer p.mu.Unlock()
+
+			if r.Header.Get("Authorization") != "Bearer unused" {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			profile := map[string]any{"sub": p.claims["sub"]}
+			for key, value := range p.profile {
+				profile[key] = value
+			}
+
+			_ = json.NewEncoder(w).Encode(profile)
 		case "/keys":
 			_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "test", Algorithm: "RS256", Use: "sig"}}})
 		case "/token":

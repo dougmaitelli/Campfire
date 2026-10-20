@@ -11,6 +11,8 @@ export interface Role {
 }
 
 export interface User {
+  oidc_name_managed?: boolean;
+  oidc_email_managed?: boolean;
   deleted_at?: string | null;
   id: number;
   username: string;
@@ -202,6 +204,10 @@ export function isUser(value: unknown): value is User {
     typeof value.username === "string" &&
     typeof value.name === "string" &&
     typeof value.email === "string" &&
+    (value.oidc_name_managed === undefined ||
+      typeof value.oidc_name_managed === "boolean") &&
+    (value.oidc_email_managed === undefined ||
+      typeof value.oidc_email_managed === "boolean") &&
     id(value.role_id) &&
     object(value.role) &&
     id(value.role.id) &&

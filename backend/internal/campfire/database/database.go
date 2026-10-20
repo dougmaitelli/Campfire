@@ -151,7 +151,17 @@ func migrate(db *gorm.DB) error {
 
 		if version == schemaVersion {
 			if !tx.Migrator().HasColumn(&Server{}, "StartupCommand") {
-				return tx.Migrator().AddColumn(&Server{}, "StartupCommand")
+				if err := tx.Migrator().AddColumn(&Server{}, "StartupCommand"); err != nil {
+					return err
+				}
+			}
+
+			for _, field := range []string{"OIDCNameManaged", "OIDCEmailManaged"} {
+				if !tx.Migrator().HasColumn(&User{}, field) {
+					if err := tx.Migrator().AddColumn(&User{}, field); err != nil {
+						return err
+					}
+				}
 			}
 
 			return nil

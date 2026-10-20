@@ -142,20 +142,33 @@ export function UserDialog({
         </FormField>
         <FormField
           label="Name (optional)"
-          description="Shown in the account menu. Defaults to the username."
+          description={
+            user?.oidc_name_managed
+              ? "Managed by your identity provider."
+              : "Shown in the account menu. Defaults to the username."
+          }
         >
           <TextInput
             id="user-display-name"
+            readOnly={user?.oidc_name_managed}
             value={name}
             maxLength={100}
             autoComplete="name"
             onChange={(event) => setName(event.target.value)}
           />
         </FormField>
-        <FormField label="Email (optional)">
+        <FormField
+          label="Email (optional)"
+          description={
+            user?.oidc_email_managed
+              ? "Managed by your identity provider."
+              : undefined
+          }
+        >
           <TextInput
             ref={emailInput}
             id="user-email"
+            readOnly={user?.oidc_email_managed}
             type="email"
             value={email}
             maxLength={254}

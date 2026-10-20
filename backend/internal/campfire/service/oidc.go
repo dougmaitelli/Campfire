@@ -39,6 +39,8 @@ type OIDCService struct {
 	issuer   string
 	oauth    oauth2.Config
 	verifier *oidc.IDTokenVerifier
+	provider *oidc.Provider
+	userInfo bool
 	client   *http.Client
 	mu       sync.Mutex
 	attempts map[string]oidcAttempt
@@ -84,7 +86,8 @@ func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (
 	endpoint := provider.Endpoint()
 
 	var metadata struct {
-		KeysURL string `json:"jwks_uri"`
+		KeysURL     string `json:"jwks_uri"`
+		UserInfoURL string `json:"userinfo_endpoint"`
 	}
 	if err := provider.Claims(&metadata); err != nil {
 		return nil, errors.New("invalid OIDC provider metadata")
@@ -94,6 +97,13 @@ func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (
 		parsed, err := url.Parse(value)
 		if err != nil || !oidcURL(parsed) {
 			return nil, errors.New("OIDC provider endpoints must use HTTPS (HTTP is allowed on loopback)")
+		}
+	}
+
+	if metadata.UserInfoURL != "" {
+		parsed, err := url.Parse(metadata.UserInfoURL)
+		if err != nil || !oidcURL(parsed) {
+			return nil, errors.New("OIDC UserInfo endpoint must use HTTPS (HTTP is allowed on loopback)")
 		}
 	}
 
@@ -115,10 +125,10 @@ func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (
 	auth.loginProvider = config.Issuer
 	auth.disableLocal = config.DisableLocal
 
-	return &OIDCService{auth: auth, issuer: config.Issuer, client: client, attempts: make(map[string]oidcAttempt), verifier: provider.Verifier(&oidc.Config{ClientID: config.ClientID}), oauth: oauth2.Config{
+	return &OIDCService{auth: auth, issuer: config.Issuer, client: client, provider: provider, userInfo: metadata.UserInfoURL != "", attempts: make(map[string]oidcAttempt), verifier: provider.Verifier(&oidc.Config{ClientID: config.ClientID}), oauth: oauth2.Config{
 		ClientID: config.ClientID, ClientSecret: config.ClientSecret, Endpoint: endpoint,
 		RedirectURL: strings.TrimRight(config.PublicURL, "/") + "/api/v1/auth/oidc/callback",
-		Scopes:      []string{oidc.ScopeOpenID, "profile"},
+		Scopes:      []string{oidc.ScopeOpenID, "profile", "email"},
 	}}, nil
 }
 
@@ -198,10 +208,39 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		AuthorizedParty string `json:"azp"`
 		Username        string `json:"preferred_username"`
 		Name            string `json:"name"`
+		Email           string `json:"email"`
 		Picture         string `json:"picture"`
 	}
 	if err := id.Claims(&claims); err != nil || claims.AuthorizedParty != "" && claims.AuthorizedParty != s.oauth.ClientID || len(id.Audience) > 1 && claims.AuthorizedParty != s.oauth.ClientID {
 		return database.UserSession{}, "", ErrAuthentication
+	}
+
+	if s.userInfo {
+		info, err := s.provider.UserInfo(ctx, oauth2.StaticTokenSource(token))
+		if err != nil || info.Subject != id.Subject {
+			return database.UserSession{}, "", ErrAuthentication
+		}
+
+		var profile struct {
+			Name    string `json:"name"`
+			Email   string `json:"email"`
+			Picture string `json:"picture"`
+		}
+		if err := info.Claims(&profile); err != nil {
+			return database.UserSession{}, "", ErrAuthentication
+		}
+
+		if profile.Name != "" {
+			claims.Name = profile.Name
+		}
+
+		if profile.Email != "" {
+			claims.Email = profile.Email
+		}
+
+		if profile.Picture != "" {
+			claims.Picture = profile.Picture
+		}
 	}
 
 	// A suffix prevents a claim from selecting an existing local account.
@@ -226,12 +265,17 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		displayName = ""
 	}
 
+	email := strings.TrimSpace(claims.Email)
+	if !validEmail(email) {
+		email = ""
+	}
+
 	picture := ""
 	if parsed, err := url.Parse(claims.Picture); err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && len(claims.Picture) <= 2048 {
 		picture = claims.Picture
 	}
 
-	user, err := s.auth.store.OIDCAccount(ctx, s.issuer, id.Subject, name+"-"+tokenHash(authToken())[:12], attempt.userID, attempt.version, attempt.sessionHash, displayName, picture)
+	user, err := s.auth.store.OIDCAccount(ctx, s.issuer, id.Subject, name+"-"+tokenHash(authToken())[:12], attempt.userID, attempt.version, attempt.sessionHash, displayName, email, picture)
 	if err != nil {
 		return database.UserSession{}, "", err
 	}

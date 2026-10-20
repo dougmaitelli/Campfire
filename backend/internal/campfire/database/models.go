@@ -49,6 +49,8 @@ type User struct {
 	Name              string         `gorm:"type:text;not null;default:''" json:"name"`
 	Email             string         `gorm:"type:text;not null;default:''" json:"email"`
 	Picture           string         `gorm:"type:text;not null;default:''" json:"picture"`
+	OIDCNameManaged   bool           `gorm:"column:oidc_name_managed;not null;default:false" json:"oidc_name_managed"`
+	OIDCEmailManaged  bool           `gorm:"column:oidc_email_managed;not null;default:false" json:"oidc_email_managed"`
 	PasswordHash      string         `gorm:"type:text;not null" json:"-"`
 	CredentialVersion int64          `gorm:"not null" json:"-"`
 	RoleID            int64          `gorm:"not null;index" json:"role_id"`

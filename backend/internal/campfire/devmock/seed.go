@@ -145,8 +145,18 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 	} {
 		// All disposable mock accounts use the documented development password.
 		user := database.User{Username: account.username, Name: account.name, Email: account.username + "@example.test", PasswordHash: admin.PasswordHash, CredentialVersion: 1, RoleID: account.role, Disabled: account.disabled}
+		if account.username == "sam" {
+			user.OIDCNameManaged, user.OIDCEmailManaged = true, true
+		}
+
 		if err := tx.Create(&user).Error; err != nil {
 			return err
+		}
+
+		if account.username == "sam" {
+			if err := tx.Create(&database.OIDCIdentity{Issuer: "https://identity.example.test", Subject: "mock-sam", UserID: user.ID}).Error; err != nil {
+				return err
+			}
 		}
 	}
 

@@ -69,7 +69,7 @@ func TestDeletedUserRetainsAuditProfileAndRevokesAccess(t *testing.T) {
 		t.Fatal("API token survived deletion", err)
 	}
 
-	if _, err := auth.OIDCAccount(t.Context(), "issuer", "subject", "newname", 0, 0, "", "", ""); err == nil {
+	if _, err := auth.OIDCAccount(t.Context(), "issuer", "subject", "newname", 0, 0, "", "", "", ""); err == nil {
 		t.Fatal("deleted OIDC identity was reprovisioned")
 	}
 
