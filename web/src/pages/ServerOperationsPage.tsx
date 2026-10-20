@@ -17,8 +17,6 @@ import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
 import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
-import { Button } from "../components/forms/Button";
-import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
 
@@ -50,7 +48,6 @@ export function ServerOperationsPage({
   const [currentOperationID, setCurrentOperationID] = useState<string | null>(
     null,
   );
-  const [showDetails, setShowDetails] = useState(false);
   const [requestedAction, setRequestedAction] = useState<ServerAction | null>(
     null,
   );
@@ -208,31 +205,7 @@ export function ServerOperationsPage({
             <InlineMessage tone={message.tone}>
               <strong>{message.title}</strong>
               {message.detail && <> {message.detail}</>}
-              {status?.disk_quota_error_code &&
-                status.operation_state === "failed" && (
-                  <>
-                    {" "}
-                    <Button onClick={() => setShowDetails(true)}>
-                      View server details
-                    </Button>
-                  </>
-                )}
             </InlineMessage>
-          )}
-          {showDetails && (
-            <ServerDetailsDialog
-              id={server.id}
-              title={
-                <>
-                  <span>{server.name}</span>
-                  <ServerState
-                    state={status?.state ?? "unknown"}
-                    ready={status?.ready ?? true}
-                  />
-                </>
-              }
-              onClose={() => setShowDetails(false)}
-            />
           )}
           {server.permissions.includes("server.operate") ? (
             <>
