@@ -842,7 +842,6 @@
     "consoleOutput": "Console output",
     "downloadLogs": "Download logs",
     "downloadRetainedConsoleOutputUpTo5000LinesOf": "Download retained console output (up to 5,000 lines of scrollback).",
-    "gt": "&gt;",
     "sending": "Sending…",
     "typeACommandAndPressEnter": "Type a command and press Enter",
     "uiMonospaceSFMonoRegularMenloConsolasMonospace": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",

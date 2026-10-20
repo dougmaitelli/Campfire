@@ -195,7 +195,7 @@ export function ServerTerminal({
             void send();
           }}
         >
-          <span aria-hidden="true">{t("serverTerminal.gt")}</span>
+          <span aria-hidden="true">{">"}</span>
           <TextInput
             aria-label={t("serverTerminal.command")}
             value={command}
