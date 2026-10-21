@@ -8,6 +8,8 @@ import { setTimeout as delay } from "node:timers/promises";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const mock = process.argv.includes("--mock");
 const backendDirectory = join(root, "backend");
+const database =
+  process.env.CAMPFIRE_DATABASE ?? join(root, "data", "panel.db");
 const binary = join(root, "bin", mock ? "campfire-mock" : "campfire-dev");
 const children = new Set();
 let backend;
@@ -106,10 +108,7 @@ async function rebuild() {
       if (stopping) return;
       if (dirty) continue;
       console.log("[dev] Starting backend at http://127.0.0.1:8080");
-      const running = start(
-        binary,
-        mock ? [] : ["--database", join(root, "data", "panel.db")],
-      );
+      const running = start(binary, mock ? [] : ["--database", database]);
       backend = running;
       void completed(running).then((exitCode) => {
         if (!stopping && backend === running) {

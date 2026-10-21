@@ -78,22 +78,30 @@ export function ResourceTile({
       value={
         <>
           {used === null ? EMPTY_VALUE : formatUsed(used)}
-          <span className="metric-tile-allocation">
-            {" / "}
-            {allocated > 0 ? format(allocated) : t("resourceReadings.noLimit")}
-            {allocated > 0 && unit && ` ${unit}`}
-          </span>
+          {used !== null && (
+            <span className="metric-tile-allocation">
+              {" / "}
+              {allocated > 0
+                ? format(allocated)
+                : t("resourceReadings.noLimit")}
+              {allocated > 0 && unit && ` ${unit}`}
+            </span>
+          )}
         </>
       }
     >
-      {ratio !== null && (
-        <ResourceMeter
-          label={label}
-          used={used}
-          allocated={allocated}
-          warningAt={warningAt}
-          criticalAt={criticalAt}
-        />
+      {used === null ? (
+        <div className="resource-meter-placeholder" aria-hidden="true" />
+      ) : (
+        ratio !== null && (
+          <ResourceMeter
+            label={label}
+            used={used}
+            allocated={allocated}
+            warningAt={warningAt}
+            criticalAt={criticalAt}
+          />
+        )
       )}
     </MetricTile>
   );

@@ -1,4 +1,18 @@
 {
+  "overviewEmptyState": {
+    "title": "Start your campfire",
+    "description": "Connect a Spark and import an Ember to create your first server.",
+    "askAdministrator": "Ask an administrator to prepare a Spark and an Ember, or give you access to an existing server.",
+    "connectSpark": "Connect a Spark",
+    "sparkDescription": "Add a node to host your games.",
+    "sparkReady": "A Spark has been added to your campfire.",
+    "addSpark": "Add Spark",
+    "viewSparks": "View Sparks",
+    "importEmber": "Import an Ember",
+    "emberDescription": "Choose a game definition.",
+    "complete": "Complete",
+    "goToServers": "Go to servers"
+  },
   "serverQuickControls": {
     "start": "Start {{name}}",
     "stop": "Stop {{name}}",

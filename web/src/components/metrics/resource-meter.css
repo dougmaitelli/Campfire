@@ -25,3 +25,8 @@
   background: var(--meter-color);
   border-radius: 4px;
 }
+.resource-meter-placeholder {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+}

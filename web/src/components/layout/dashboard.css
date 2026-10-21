@@ -93,6 +93,8 @@
 }
 
 .main-content {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   padding: 28px 32px;
 }

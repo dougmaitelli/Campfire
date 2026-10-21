@@ -1,0 +1,13 @@
+.arrow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+
+  & svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    transform: translateY(1px);
+  }
+}

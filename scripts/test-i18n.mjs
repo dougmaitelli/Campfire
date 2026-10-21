@@ -101,6 +101,40 @@ test("resource columns display CPU percentages and preserve allocation ratios", 
   assert.ok(cells.every((cell) => cell.includes("visually-hidden")));
 });
 
+test("Overview setup marks existing Sparks complete and respects management access", async () => {
+  const { OverviewEmptyState } = await loadWebModule(
+    new URL("components/overview/OverviewEmptyState.tsx", root),
+  );
+  const render = (sparkCount, permissions = {}) =>
+    renderToStaticMarkup(
+      React.createElement(OverviewEmptyState, {
+        sparkCount,
+        canManageSparks: true,
+        canManageEmbers: true,
+        canCreateServers: true,
+        ...permissions,
+      }),
+    );
+  const fresh = render(0);
+  assert.match(fresh, /Start your campfire/);
+  assert.match(fresh, /Add Spark/);
+  assert.match(fresh, /href="#embers"/);
+  assert.ok(!fresh.includes("overview-setup-complete"));
+  const ready = render(1);
+  assert.match(ready, /overview-setup-complete/);
+  assert.match(ready, /Complete/);
+  assert.match(ready, /View Sparks/);
+  assert.ok(!ready.includes("Add Spark"));
+  const restricted = render(undefined, {
+    canManageSparks: false,
+    canManageEmbers: false,
+    canCreateServers: false,
+  });
+  assert.match(restricted, /Ask an administrator/);
+  assert.ok(!restricted.includes('href="#sparks"'));
+  assert.ok(!restricted.includes('href="#embers"'));
+});
+
 test("server status timing uses real start and stop timestamps", async () => {
   const { ServerState } = await loadWebModule(
     new URL("components/servers/ServerState.tsx", root),

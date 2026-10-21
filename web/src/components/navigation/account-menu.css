@@ -66,8 +66,8 @@
 }
 
 .account-trigger > svg {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   color: var(--muted);
 }

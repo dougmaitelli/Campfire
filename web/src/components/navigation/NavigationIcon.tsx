@@ -5,6 +5,7 @@ type NavigationIconName =
   | "logout"
   | "chevron"
   | "close"
+  | "check"
   | "key"
   | "link"
   | "loading"
@@ -26,6 +27,7 @@ type NavigationIconName =
   | "x-circle";
 
 const paths: Record<NavigationIconName, string> = {
+  check: "m5 12 4 4L19 6",
   close: "M6 6l12 12M18 6 6 18",
   "check-circle": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z m-13 0 3 3 5-6",
   "x-circle": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z M9 9l6 6 M15 9l-6 6",
@@ -47,7 +49,7 @@ const paths: Record<NavigationIconName, string> = {
   warning: "M12 3 2 21h20L12 3Z M12 9v5 M12 17h.01",
   table: "M3 5h18v14H3z M3 10h18 M9 10v9",
   logout: "M10 17l5-5-5-5 M15 12H3 M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4",
-  chevron: "m9 14 3-3 3 3",
+  chevron: "m7.5 14.25 4.5-4.5 4.5 4.5",
   key: "M10 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z M10 12h11 M17 12v4 M21 12v4",
   link: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2",
   notifications: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4",
