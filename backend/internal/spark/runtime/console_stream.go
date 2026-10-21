@@ -19,7 +19,7 @@ const consoleInspectTimeout = 3 * time.Second
 
 // Follow relays Docker's demultiplexed stdout and stderr with bounded chunks.
 func (Docker) Follow(ctx context.Context, name string, emit func(string) error) error {
-	command, err := dockerCommand(ctx, "logs", "--follow", "--tail", "200", name)
+	command, err := dockerCommand(ctx, "logs", "--timestamps", "--follow", "--tail", "200", name)
 	if err != nil {
 		return err
 	}

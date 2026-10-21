@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { NavigationIcon } from "../navigation/NavigationIcon";
 import {
   bytes,
   containerFresh,
@@ -6,74 +7,11 @@ import {
   type ResourceUsage,
 } from "../../api/monitoring";
 import "./resource-readings.css";
-import { ResourceMeter } from "../metrics/ResourceMeter";
-import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
 import { cpuUsageDivisor, formatCPUUsage } from "../../utils/cpuUsage";
 import type { ResourceHistory } from "../../api/resourceHistory";
-import {
-  ResourceSparkline,
-  type SparklineHistory,
-} from "../metrics/ResourceSparkline";
-
-export function ResourceReading({
-  label,
-  value,
-  allocation,
-  fresh,
-  detail,
-  compact,
-  format,
-  history,
-  showLabel = true,
-  showAllocation = true,
-}: {
-  label: string;
-  value: number | null;
-  allocation: number;
-  fresh: boolean;
-  detail: string;
-  compact: boolean;
-  format: (value: number) => string;
-  history?: SparklineHistory | undefined;
-  showLabel?: boolean;
-  showAllocation?: boolean;
-}) {
-  const { t } = useTranslation();
-  const measured = value !== null;
-  return (
-    <div
-      className={`usage-reading${measured && !fresh ? " usage-stale" : ""}`}
-      title={detail}
-    >
-      <span className={showLabel ? "usage-label" : "visually-hidden"}>
-        {label}
-      </span>
-      <span>
-        {measured ? format(value) : EMPTY_VALUE}
-        {showAllocation && (
-          <span className="usage-allocation">
-            {measured ? " / " : "/"}
-            {allocation > 0
-              ? format(allocation)
-              : t("resourceReadings.noLimit")}
-            {compact || allocation <= 0 ? "" : " allocated"}
-          </span>
-        )}
-        {measured && !fresh && (
-          <span className="usage-age"> {t("resourceReadings.stale")}</span>
-        )}
-      </span>
-      {history && (
-        <ResourceSparkline history={history} label={label} format={format} />
-      )}
-      <ResourceMeter
-        label={label}
-        used={fresh ? value : null}
-        allocated={allocation}
-      />
-    </div>
-  );
-}
+import type { SparklineHistory } from "../metrics/ResourceSparkline";
+import { ResourceReading } from "../metrics/ResourceReading";
+import { MetricTiles } from "../metrics/MetricTiles";
 
 export function ResourceReadings({
   usage,
@@ -115,12 +53,14 @@ export function ResourceReadings({
   const readings = [
     <ResourceReading
       key="cpu"
+      icon={layout === "stack" ? <NavigationIcon name="cpu" /> : undefined}
       showLabel={layout !== "columns"}
-      showAllocation={cpuLimit <= 0}
+      showAllocation={layout === "stack" || cpuLimit <= 0}
       label={t("common.cpu")}
       history={series("cpu_percent", cpuUsageDivisor(cpuLimit))}
       format={(value) => formatCPUUsage(value, cpuLimit)}
-      compact={layout !== "stack"}
+      formatAllocation={() => cpuLimit.toLocaleString()}
+      unit="cores"
       value={
         cpu === undefined || cpu === null
           ? null
@@ -142,11 +82,11 @@ export function ResourceReadings({
     />,
     <ResourceReading
       key="memory"
+      icon={layout === "stack" ? <NavigationIcon name="memory" /> : undefined}
       showLabel={layout !== "columns"}
       label={t("common.memory")}
       history={series("memory_bytes")}
       format={bytes}
-      compact={layout !== "stack"}
       value={usage?.memory_bytes ?? null}
       allocation={memoryMB * 1048576}
       fresh={containerFresh(usage, elapsed)}
@@ -160,11 +100,11 @@ export function ResourceReadings({
     />,
     <ResourceReading
       key="disk"
+      icon={layout === "stack" ? <NavigationIcon name="disk" /> : undefined}
       showLabel={layout !== "columns"}
       label={t("resourceReadings.gameData")}
       history={series("disk_bytes")}
       format={bytes}
-      compact={layout !== "stack"}
       value={usage?.disk_bytes ?? null}
       allocation={diskMB * 1048576}
       fresh={diskFresh(usage, elapsed)}
@@ -189,10 +129,9 @@ export function ResourceReadings({
         ))}
       </>
     );
+  if (layout === "stack") return <MetricTiles>{readings}</MetricTiles>;
   return (
-    <div
-      className={`resource-readings${layout !== "stack" ? ` resource-readings-${layout}` : ""}`}
-    >
+    <div className={`resource-readings resource-readings-${layout}`}>
       {readings}
     </div>
   );

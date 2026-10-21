@@ -201,7 +201,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 				return result, nil
 			}
 
-			output, err := m.Docker.Run(ctx, nil, "logs", "--tail", "200", container(d.ServerID)+"-install")
+			output, err := m.Docker.Run(ctx, nil, "logs", "--timestamps", "--tail", "200", container(d.ServerID)+"-install")
 			if err != nil {
 				output = "Installer output is not available yet."
 			}
@@ -211,7 +211,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 			return result, nil
 		}
 
-		output, err := m.Docker.Run(ctx, nil, "logs", "--tail", "200", container(d.ServerID))
+		output, err := m.Docker.Run(ctx, nil, "logs", "--timestamps", "--tail", "200", container(d.ServerID))
 		if err != nil {
 			return model.RuntimeStatus{}, err
 		}
@@ -627,6 +627,17 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		err = runErr
 		if runErr != nil {
 			err = &runtimeFailure{code: model.RuntimeInstallerFailed, cause: runErr, message: "The installer script failed. Review the installer output for details."}
+		}
+
+		if logs, ok := m.Docker.(interface {
+			TimestampedLogs(context.Context, string) (string, error)
+		}); ok {
+			capture, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if timestamped, captureErr := logs.TimestampedLogs(capture, container(d.ServerID)+"-install"); captureErr == nil {
+				output = timestamped
+			}
+
+			cancel()
 		}
 
 		logErr := writeAtomic(filepath.Join(m.root(d.ServerID), "installer.log"), []byte(output), 0600)

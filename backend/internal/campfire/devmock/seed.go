@@ -208,7 +208,7 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 		}
 
 		if fixture.state == "running" {
-			record.Logs += "[Server] Done! Mock server ready for commands.\n"
+			record.Logs += timestampLog("[Server] Done! Mock server ready for commands.\n")
 		}
 
 		if err := tx.Create(&record).Error; err != nil {

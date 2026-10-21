@@ -119,6 +119,7 @@ func TestConsoleShowsCompletedInstallerBeforeFirstStart(t *testing.T) {
 	}{
 		{false, model.OperationFailed, "First attempt failed\n"},
 		{true, model.OperationSucceeded, "Second attempt installed successfully\n"},
+		{true, model.OperationSucceeded, "2026-10-20T18:14:12.123456789Z Installer completed\n"},
 	} {
 		state.Installed = attempt.installed
 		state.Status.Operation = "install"

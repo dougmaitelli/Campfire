@@ -5,6 +5,9 @@
   gap: 5px;
 }
 .server-state-timing {
+  padding-inline-start: calc(
+    var(--status-indicator-size) + var(--status-indicator-gap)
+  );
   color: var(--muted);
   font-size: 11px;
   white-space: nowrap;

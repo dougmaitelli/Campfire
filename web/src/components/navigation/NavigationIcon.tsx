@@ -19,6 +19,9 @@ type NavigationIconName =
   | "arrow-right"
   | "play"
   | "stop"
+  | "restart"
+  | "kill"
+  | "send"
   | "cpu"
   | "memory"
   | "disk"
@@ -27,6 +30,9 @@ type NavigationIconName =
   | "x-circle";
 
 const paths: Record<NavigationIconName, string> = {
+  restart: "M21 12a9 9 0 1 1-2.64-6.36L21 8 M21 3v5h-5",
+  kill: "M3 3h18v18H3V3Z M8 8l8 8 M16 8l-8 8",
+  send: "m3 3 19 9-19 9 4-9-4-9Z",
   check: "m5 12 4 4L19 6",
   close: "M6 6l12 12M18 6 6 18",
   "check-circle": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z m-13 0 3 3 5-6",

@@ -7,7 +7,7 @@ import {
   type MonitoredServer,
 } from "../../api/monitoring";
 import type { Spark } from "../../api/sparks";
-import { ResourceReading } from "../servers/ResourceReadings";
+import { ResourceReading } from "../metrics/ResourceReading";
 import { cpuUsageDivisor, formatCPUUsage } from "../../utils/cpuUsage";
 
 export function SparkResourceReadings({
@@ -76,7 +76,6 @@ export function SparkResourceReadings({
             detail={i18n.t(
               "sparkResourceReadings.combinedGameServerUsageAgainstThisSparkSConfiguredLimit",
             )}
-            compact
             format={reading.format}
           />
         );

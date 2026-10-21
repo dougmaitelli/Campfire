@@ -22,6 +22,11 @@ type Executor interface {
 // Docker executes the installed Docker CLI without invoking a host shell.
 type Docker struct{}
 
+// TimestampedLogs captures original Docker log timestamps for saved installer output.
+func (d Docker) TimestampedLogs(ctx context.Context, name string) (string, error) {
+	return d.Run(ctx, nil, "logs", "--timestamps", name)
+}
+
 // ValidateDockerConfiguration rejects transports unsupported by the node runtime.
 func ValidateDockerConfiguration() error {
 	_, err := dockerSocket()

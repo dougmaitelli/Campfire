@@ -1,5 +1,6 @@
 import i18n from "../../i18n";
 import type { StatusTone } from "../status/StatusPill";
+import { ConsoleTimestamps } from "./consoleTimestamps";
 
 export type ConsoleStreamMode = "waiting" | "snapshot" | "live";
 
@@ -34,10 +35,16 @@ export function connectConsole(
   const stream = createStream(url);
   let ended = false;
   let replaceOutput = true;
+  const timestamps = new ConsoleTimestamps();
+  const flush = () => {
+    const pending = timestamps.flush();
+    if (pending) onOutput(pending, false);
+  };
   stream.addEventListener("ready", () => {
     ended = false;
     replaceOutput = true;
-    if (live) onConnection({ label: "Connected", tone: "positive" });
+    if (live)
+      onConnection({ label: i18n.t("consoleStream.live"), tone: "positive" });
   });
   stream.addEventListener("output", (event: MessageEvent<string>) => {
     try {
@@ -49,7 +56,8 @@ export function connectConsole(
         typeof value.content === "string" &&
         value.content.length > 0
       ) {
-        onOutput(value.content, replaceOutput);
+        if (replaceOutput) timestamps.reset();
+        onOutput(timestamps.format(value.content), replaceOutput);
         replaceOutput = false;
       }
     } catch {
@@ -57,6 +65,7 @@ export function connectConsole(
     }
   });
   stream.addEventListener("ended", () => {
+    flush();
     ended = true;
     if (!live) stream.close();
     onConnection({
@@ -65,11 +74,13 @@ export function connectConsole(
     });
   });
   stream.addEventListener("denied", () => {
+    flush();
     ended = true;
     stream.close();
     onConnection({ label: "Console access ended.", tone: "negative" });
   });
   stream.onerror = () => {
+    flush();
     if (ended) return;
     if (!live) {
       stream.close();

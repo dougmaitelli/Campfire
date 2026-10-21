@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,7 +42,12 @@ type runtimeRecord struct {
 }
 
 func newRecord(spark string, deployment model.Deployment) runtimeRecord {
-	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: "not_installed", Logs: "[Mock Spark] Configuration received. No Docker containers are used.\n", FileFixtureVersion: 1, Files: mockFiles()}
+	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: "not_installed", Logs: timestampLog("[Mock Spark] Configuration received. No Docker containers are used.\n"), FileFixtureVersion: 1, Files: mockFiles()}
+}
+
+func timestampLog(content string) string {
+	prefix := time.Now().UTC().Format(time.RFC3339Nano) + " "
+	return prefix + strings.ReplaceAll(strings.TrimSuffix(content, "\n"), "\n", "\n"+prefix) + "\n"
 }
 
 func mockFiles() map[string]string {
@@ -173,7 +179,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 			return model.RuntimeStatus{}, errors.New("mock server is not running")
 		}
 
-		record.Logs += fmt.Sprintf("[Console] > %s\n[Mock server] Command received.\n", request.Content)
+		record.Logs += timestampLog(fmt.Sprintf("[Console] > %s\n[Mock server] Command received.\n", request.Content))
 	default:
 		return model.RuntimeStatus{}, fmt.Errorf("%s is not simulated in mock mode", request.Action)
 	}
@@ -181,7 +187,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 	if request.Action != "status" && request.Action != "logs" && request.Action != "metrics" {
 		record.OperationID, record.Operation = request.OperationID, request.Action
 
-		record.Logs += fmt.Sprintf("[Mock Spark] %s completed; state=%s\n", request.Action, record.State)
+		record.Logs += timestampLog(fmt.Sprintf("[Mock Spark] %s completed; state=%s\n", request.Action, record.State))
 		if len(record.Logs) > 32000 {
 			record.Logs = record.Logs[len(record.Logs)-16000:]
 		}

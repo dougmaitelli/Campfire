@@ -285,7 +285,7 @@ test("UI components render the selected language without changing protocol value
     React.createElement(ServerLifecycleControls, props),
   );
   assert.match(output, />Installer</);
-  assert.match(output, />Démarrer</);
+  assert.match(output, /aria-label="Démarrer"/);
   assert.equal(props.status.state, "not_installed");
   await i18n.changeLanguage("en");
 });
@@ -305,13 +305,23 @@ test("installer controls allow stop and kill while keeping other mutations disab
     );
     const buttons = [...output.matchAll(/<button\b([^>]*)>(.*?)<\/button>/g)];
     for (const [, attributes, label] of buttons) {
+      const accessibleLabel =
+        /aria-label="([^"]+)"/.exec(attributes)?.[1] ?? label;
       assert.equal(
         attributes.includes("disabled"),
-        !["Stop", "Kill"].includes(label),
+        !["Stop", "Kill"].includes(accessibleLabel),
       );
     }
-    assert.ok(buttons.some(([, , label]) => label === "Stop"));
-    assert.ok(buttons.some(([, , label]) => label === "Kill"));
+    assert.ok(
+      buttons.some(([, attributes]) =>
+        attributes.includes('aria-label="Stop"'),
+      ),
+    );
+    assert.ok(
+      buttons.some(([, attributes]) =>
+        attributes.includes('aria-label="Kill"'),
+      ),
+    );
   }
 });
 

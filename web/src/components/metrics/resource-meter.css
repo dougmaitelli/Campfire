@@ -1,32 +1,34 @@
 .resource-meter {
   --meter-color: var(--accent);
+  display: block;
   width: 100%;
-  height: 8px;
+  height: 10px;
   border: 0;
   background: var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   appearance: none;
 }
 
 .resource-meter::-webkit-meter-bar {
+  height: 100%;
   background: var(--border);
   border: 0;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .resource-meter::-webkit-meter-optimum-value,
 .resource-meter::-webkit-meter-suboptimum-value,
 .resource-meter::-webkit-meter-even-less-good-value {
   background: var(--meter-color);
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .resource-meter::-moz-meter-bar {
   background: var(--meter-color);
-  border-radius: 4px;
+  border-radius: 5px;
 }
 .resource-meter-placeholder {
-  height: 8px;
+  height: 10px;
   background: var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
 }

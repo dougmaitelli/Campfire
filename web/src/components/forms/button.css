@@ -43,8 +43,8 @@ input[type="file"]:not(:disabled)::file-selector-button:hover {
 }
 .button-danger {
   border-color: var(--danger-accent);
-  background: color-mix(in srgb, var(--danger-accent) 10%, transparent);
-  color: var(--danger-accent);
+  background: var(--danger-accent);
+  color: var(--bg);
 }
 .button-warning {
   border-color: var(--warning-accent);
@@ -56,7 +56,7 @@ input[type="file"]:not(:disabled)::file-selector-button:hover {
   }
 }
 .button-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--danger-accent) 20%, transparent);
+  background: color-mix(in srgb, var(--danger-accent) 85%, white);
 }
 .button:disabled,
 input[type="file"]:disabled::file-selector-button {

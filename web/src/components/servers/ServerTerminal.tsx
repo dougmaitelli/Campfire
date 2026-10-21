@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ActionGroup } from "../layout/ActionGroup";
 import { Button } from "../forms/Button";
 import { TextInput } from "../forms/TextInput";
+import { NavigationIcon } from "../navigation/NavigationIcon";
 import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
@@ -95,25 +96,28 @@ export function ServerTerminal({
       convertEol: true,
       cursorBlink: false,
       cursorInactiveStyle: "none",
-      fontSize: 13,
+      fontSize: 14,
+      lineHeight: 1.5,
       fontFamily: i18n.t(
         "serverTerminal.uiMonospaceSFMonoRegularMenloConsolasMonospace",
       ),
       scrollback: 5000,
       screenReaderMode: true,
       theme: {
-        background: colors.getPropertyValue("--bg").trim(),
+        background: colors.getPropertyValue("--console-bg").trim(),
         foreground: colors.getPropertyValue("--text").trim(),
-        selectionBackground: "#efa45b40",
-        black: "#282c24",
-        red: "#f87171",
-        green: "#86c98a",
-        yellow: "#e8c66b",
+        selectionBackground: colors
+          .getPropertyValue("--console-selection")
+          .trim(),
+        black: colors.getPropertyValue("--surface-hover").trim(),
+        red: colors.getPropertyValue("--danger").trim(),
+        green: colors.getPropertyValue("--success").trim(),
+        yellow: colors.getPropertyValue("--warning").trim(),
         blue: "#7ab7ed",
         magenta: "#c49be8",
         cyan: "#80d4ce",
-        white: "#eeeadd",
-        brightBlack: "#b0b5a3",
+        white: colors.getPropertyValue("--text").trim(),
+        brightBlack: colors.getPropertyValue("--muted").trim(),
         brightRed: "#fca5a5",
         brightGreen: "#a7dfab",
         brightYellow: "#f4da92",
@@ -155,33 +159,36 @@ export function ServerTerminal({
   }, [serverID, streamKey, streamMode]);
   return (
     <div className="server-terminal">
-      <div className="server-terminal-toolbar">
-        <span role="status">
-          <StatusPill tone={connection.tone}>{connection.label}</StatusPill>
-        </span>
-        <ActionGroup>
-          <Button
-            size="small"
-            type="button"
-
-            title={t(
-              "serverTerminal.downloadRetainedConsoleOutputUpTo5000LinesOf",
-            )}
-            onClick={downloadLogs}
-          >
-            {t("serverTerminal.downloadLogs")}
-          </Button>
-          <Button
-            size="small"
-            type="button"
-
-            onClick={() => terminal.current?.clear()}
-          >
-            {t("serverTerminal.clear")}
-          </Button>
-        </ActionGroup>
-      </div>
       <div className="server-terminal-window">
+        <div className="server-terminal-toolbar">
+          <span role="status">
+            <StatusPill tone={connection.tone}>{connection.label}</StatusPill>
+          </span>
+          <ActionGroup>
+            <Button
+              size="small"
+              type="button"
+              iconOnly
+              aria-label={t("serverTerminal.downloadLogs")}
+              title={t(
+                "serverTerminal.downloadRetainedConsoleOutputUpTo5000LinesOf",
+              )}
+              onClick={downloadLogs}
+            >
+              <NavigationIcon name="download" />
+            </Button>
+            <Button
+              size="small"
+              type="button"
+              iconOnly
+              aria-label={t("serverTerminal.clear")}
+              title={t("serverTerminal.clear")}
+              onClick={() => terminal.current?.clear()}
+            >
+              <NavigationIcon name="delete" />
+            </Button>
+          </ActionGroup>
+        </div>
         <div
           ref={container}
           className="server-terminal-screen"
@@ -195,46 +202,59 @@ export function ServerTerminal({
             void send();
           }}
         >
-          <span aria-hidden="true">{">"}</span>
-          <TextInput
-            aria-label={t("serverTerminal.command")}
-            value={command}
-            readOnly={busy}
-            maxLength={4096}
-            placeholder={
-              busy
-                ? t("serverTerminal.sending")
-                : t("serverTerminal.typeACommandAndPressEnter")
-            }
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            onChange={(event) => {
-              setCommand(event.target.value);
-              historyIndex.current = history.current.length;
-              draft.current = event.target.value;
-            }}
-            onKeyDown={(event) => {
-              if (
-                busy ||
-                (event.key !== "ArrowUp" && event.key !== "ArrowDown")
-              )
-                return;
-              event.preventDefault();
-              if (historyIndex.current === history.current.length)
-                draft.current = command;
-              historyIndex.current = Math.max(
-                0,
-                Math.min(
-                  history.current.length,
-                  historyIndex.current + (event.key === "ArrowUp" ? -1 : 1),
-                ),
-              );
-              setCommand(
-                history.current[historyIndex.current] ?? draft.current,
-              );
-            }}
-          />
+          <div className="server-terminal-input">
+            <span aria-hidden="true">{">"}</span>
+            <TextInput
+              aria-label={t("serverTerminal.command")}
+              value={command}
+              readOnly={busy}
+              maxLength={4096}
+              placeholder={
+                busy
+                  ? t("serverTerminal.sending")
+                  : t("serverTerminal.sendCommandPlaceholder")
+              }
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              onChange={(event) => {
+                setCommand(event.target.value);
+                historyIndex.current = history.current.length;
+                draft.current = event.target.value;
+              }}
+              onKeyDown={(event) => {
+                if (
+                  busy ||
+                  (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+                )
+                  return;
+                event.preventDefault();
+                if (historyIndex.current === history.current.length)
+                  draft.current = command;
+                historyIndex.current = Math.max(
+                  0,
+                  Math.min(
+                    history.current.length,
+                    historyIndex.current + (event.key === "ArrowUp" ? -1 : 1),
+                  ),
+                );
+                setCommand(
+                  history.current[historyIndex.current] ?? draft.current,
+                );
+              }}
+            />
+          </div>
+          <Button
+            type="submit"
+            iconOnly
+            variant="primary"
+            disabled={busy || !command.trim()}
+            loading={busy}
+            aria-label={t("serverTerminal.sendCommand")}
+            title={t("serverTerminal.sendCommand")}
+          >
+            <NavigationIcon name={busy ? "loading" : "send"} filled={!busy} />
+          </Button>
         </form>
       </div>
       {error && <InlineMessage role="alert">{error}</InlineMessage>}

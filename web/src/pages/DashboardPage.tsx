@@ -19,7 +19,9 @@ import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { useServerRuntime } from "../hooks/useServerRuntime";
-import { MetricTile, ResourceTile } from "../components/metrics/MetricTile";
+import { MetricTile } from "../components/metrics/MetricTile";
+import { MetricTiles } from "../components/metrics/MetricTiles";
+import { ResourceReading } from "../components/metrics/ResourceReading";
 
 import { Table, TableRow } from "../components/table/Table";
 import { listAllBackups } from "../api/backups";
@@ -188,18 +190,18 @@ export function DashboardPage() {
         </InlineMessage>
       )}
       {hasServers && (
-        <div className="monitoring-cards">
+        <MetricTiles>
           <MetricTile
             label={t("common.servers")}
             icon={<NavigationIcon name="servers" />}
             value={monitor.loading ? "…" : servers.length}
             detail={t("dashboardPage.runningCount", { count: running })}
           />
-          <ResourceTile
+          <ResourceReading
             label={t("common.cpu")}
             icon={<NavigationIcon name="cpu" />}
-            used={cpuKnown.length ? cpu : null}
-            allocated={allocatedCPU}
+            value={cpuKnown.length ? cpu : null}
+            allocation={allocatedCPU}
             format={formatCPU}
             formatUsed={(value) =>
               formatCPUUsage(
@@ -209,18 +211,18 @@ export function DashboardPage() {
             }
             unit="cores"
           />
-          <ResourceTile
+          <ResourceReading
             label={t("common.memory")}
             icon={<NavigationIcon name="memory" />}
-            used={memoryKnown.length ? memory : null}
-            allocated={allocatedMemory}
+            value={memoryKnown.length ? memory : null}
+            allocation={allocatedMemory}
             format={bytes}
           />
-          <ResourceTile
+          <ResourceReading
             label={t("common.disk")}
             icon={<NavigationIcon name="disk" />}
-            used={diskKnown.length ? disk : null}
-            allocated={allocatedDisk}
+            value={diskKnown.length ? disk : null}
+            allocation={allocatedDisk}
             format={bytes}
           />
           <MetricTile
@@ -294,7 +296,7 @@ export function DashboardPage() {
               )
             }
           />
-        </div>
+        </MetricTiles>
       )}
       {!hasServers ? (
         <ContentState

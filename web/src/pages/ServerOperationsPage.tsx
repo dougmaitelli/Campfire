@@ -1,8 +1,8 @@
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { useResourceLinks } from "../routing/useResourceLinks";
-import { ContentPanel } from "../components/layout/ContentPanel";
 import { Fieldset } from "../components/forms/Fieldset";
 import { RadioField } from "../components/forms/RadioField";
 import { ContentState } from "../components/layout/ContentState";
@@ -77,6 +77,9 @@ export function ServerOperationsPage({
   const runtime = useServerRuntime(server ? [server.id] : []);
   const monitoring = useMonitoring();
   const status = runtime.statuses[serverID];
+  const usage = monitoring.snapshot?.servers.find(
+    (item) => item.id === serverID,
+  )?.usage;
   const message = operationMessage(
     error && server
       ? {
@@ -175,25 +178,46 @@ export function ServerOperationsPage({
       <PageHeader
         title={server?.name ?? t("common.server")}
         leading={
-          <a className="operations-back" href="#servers">
-            {t("serverOperationsPage.servers")}
-          </a>
+          <nav className="operations-breadcrumbs">
+            <a href="#servers">{t("common.servers")}</a>
+            <span aria-hidden="true">›</span>
+            <span aria-current="page">
+              {server?.name ?? t("common.server")}
+            </span>
+          </nav>
         }
         badge={
           server && (
             <ServerState
               state={status?.state ?? "unknown"}
               ready={status?.ready ?? true}
+              now={
+                (monitoring.snapshot?.collected_at ?? 0) + monitoring.elapsed
+              }
+              startedAt={
+                usage?.state === "running" ? usage.started_at : undefined
+              }
+              stoppedAt={
+                usage && ["stopped", "exited"].includes(usage.state)
+                  ? usage.stopped_at
+                  : undefined
+              }
             />
           )
         }
         description={
-          server &&
-          (server.description || (
-            <ResourceLink href={links.ember(server.ember_id)}>
-              {server.ember_name}
-            </ResourceLink>
-          ))
+          server && (
+            <span className="operations-references">
+              <NavigationIcon name="servers" />
+              <ResourceLink href={links.spark(server.spark_id)}>
+                {server.spark_name}
+              </ResourceLink>
+              <span aria-hidden="true">·</span>
+              <ResourceLink href={links.ember(server.ember_id)}>
+                {server.ember_name}
+              </ResourceLink>
+            </span>
+          )
         }
         actions={
           server?.permissions.includes("server.operate") && (
@@ -241,13 +265,9 @@ export function ServerOperationsPage({
               />
             </InlineMessage>
           )}
-          <ContentPanel className="operations-resources">
+          <div className="operations-resources">
             <ResourceReadings
-              usage={
-                monitoring.snapshot?.servers.find(
-                  (item) => item.id === server.id,
-                )?.usage
-              }
+              usage={usage}
               cpuLimit={server.cpu_limit}
               memoryMB={server.memory_mb}
               diskMB={server.disk_mb}
@@ -257,7 +277,7 @@ export function ServerOperationsPage({
             {resourceHistory?.error && (
               <InlineMessage tone="info">{resourceHistory.error}</InlineMessage>
             )}
-          </ContentPanel>
+          </div>
           {monitoring.error && (
             <InlineMessage tone="info" role="status">
               {monitoring.error}

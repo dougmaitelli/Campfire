@@ -22,12 +22,6 @@
   }
 }
 
-.metric-tile-allocation {
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 400;
-}
-
 .metric-tile-label {
   color: var(--muted);
   font-size: 13px;

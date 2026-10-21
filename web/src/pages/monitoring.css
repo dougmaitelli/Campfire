@@ -1,18 +1,3 @@
-.monitoring-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
-  gap: 32px;
-  margin-bottom: 8px;
-  overflow: hidden;
-
-  & > .metric-tile::before {
-    content: "";
-    position: absolute;
-    inset-block: 0;
-    inset-inline-start: -16px;
-    border-inline-start: 1px solid var(--border);
-  }
-}
 .monitoring-heading {
   margin-top: 28px;
   font-size: 18px;

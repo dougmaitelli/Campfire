@@ -90,7 +90,7 @@ test("a new operation can open a live stream after stopped logs finish", () => {
   const active = subscribe("live");
   active.stream.emit("ready");
   active.stream.emit("output", { content: "Installing again\n" });
-  assert.equal(active.connections.at(-1).label, "Connected");
+  assert.equal(active.connections.at(-1).label, "Live");
   assert.deepEqual(active.output, [
     { content: "Installing again\n", replace: true },
   ]);

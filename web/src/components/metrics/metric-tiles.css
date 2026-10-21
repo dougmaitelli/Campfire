@@ -1,0 +1,19 @@
+.metric-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 32px;
+  margin-bottom: 8px;
+  overflow: hidden;
+
+  & > * {
+    position: relative;
+  }
+
+  & > *::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -16px;
+    border-inline-start: 1px solid var(--border);
+  }
+}

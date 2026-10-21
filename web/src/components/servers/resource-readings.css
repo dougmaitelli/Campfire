@@ -27,7 +27,7 @@
     gap: 8px;
   }
 
-  & .usage-reading > span:nth-child(2) {
+  & .usage-value {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
@@ -41,30 +41,4 @@
   .resource-readings-grid {
     grid-template-columns: repeat(2, minmax(150px, max-content));
   }
-}
-.usage-reading {
-  display: grid;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-
-  & > span:nth-child(2) {
-    white-space: nowrap;
-  }
-}
-.usage-label {
-  color: var(--muted);
-  font-size: 11px;
-}
-.usage-allocation {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-}
-.usage-age {
-  color: var(--accent);
-}
-.usage-stale {
-  opacity: 0.75;
 }

@@ -1,7 +1,12 @@
+:root {
+  --status-indicator-size: 10px;
+  --status-indicator-gap: 10px;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--status-indicator-gap);
   color: var(--muted);
   font-size: 14px;
   font-weight: 400;
@@ -16,8 +21,8 @@
 
 .status-pill::before {
   content: "";
-  width: 10px;
-  height: 10px;
+  width: var(--status-indicator-size);
+  height: var(--status-indicator-size);
   flex-shrink: 0;
   border-radius: 50%;
   background: currentColor;
