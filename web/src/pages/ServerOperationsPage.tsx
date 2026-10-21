@@ -4,6 +4,7 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Fieldset } from "../components/forms/Fieldset";
+import { RadioField } from "../components/forms/RadioField";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -363,51 +364,32 @@ export function ServerOperationsPage({
         >
           {confirmation === "reinstall" && (
             <Fieldset className="reinstall-options" disabled={acting}>
-              <legend>{t("serverOperationsPage.installationMode")}</legend>
-              <label>
-                <Trans
-                  i18nKey="serverOperationsPage.reinstallKeepingFiles"
-                  t={t}
-                  components={{
-                    input: (
-                      <input
-                        type="radio"
-                        name="reinstall-mode"
-                        value="keep"
-                        checked={reinstallMode === "keep"}
-                        onChange={() => setReinstallMode("keep")}
-                      />
-                    ),
-                  }}
-                />
-              </label>
-              <p className="field-help">
-                {t(
+              <legend className="visually-hidden">
+                {t("serverOperationsPage.installationMode")}
+              </legend>
+              <RadioField
+                name="reinstall-mode"
+                value="keep"
+                checked={reinstallMode === "keep"}
+                onChange={() => setReinstallMode("keep")}
+                description={t(
                   "serverOperationsPage.keepsExistingGameFilesWorldsAndConfigurationTheInstallerMay",
                 )}
-              </p>
-              <label>
-                <Trans
-                  i18nKey="serverOperationsPage.cleanInstall"
-                  t={t}
-                  components={{
-                    input: (
-                      <input
-                        type="radio"
-                        name="reinstall-mode"
-                        value="clean"
-                        checked={reinstallMode === "clean"}
-                        onChange={() => setReinstallMode("clean")}
-                      />
-                    ),
-                  }}
-                />
-              </label>
-              <p className="field-help">
-                {t(
+              >
+                {t("serverOperationsPage.reinstallKeepingFiles")}
+              </RadioField>
+              <RadioField
+                name="reinstall-mode"
+                value="clean"
+                checked={reinstallMode === "clean"}
+                onChange={() => setReinstallMode("clean")}
+                tone="danger"
+                description={t(
                   "serverOperationsPage.permanentlyDeletesAllGameFilesIncludingWorldsModsAndIn",
                 )}
-              </p>
+              >
+                {t("serverOperationsPage.cleanInstall")}
+              </RadioField>
             </Fieldset>
           )}
         </ConfirmDialog>

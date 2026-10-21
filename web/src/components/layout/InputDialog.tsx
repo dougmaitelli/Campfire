@@ -4,6 +4,7 @@ import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
+import { NavigationIcon } from "../navigation/NavigationIcon";
 import { useEffect, useId, useRef, useState } from "react";
 import { formatErrorMessage } from "../../utils/errors";
 import "./confirm-dialog.css";
@@ -81,7 +82,19 @@ export function InputDialog({
           void submit();
         }}
       >
-        <h2 id={`${id}-title`}>{title}</h2>
+        <div className="confirm-dialog-header">
+          <h2 id={`${id}-title`}>{title}</h2>
+          <Button
+            type="button"
+            iconOnly
+            className="confirm-dialog-close"
+            aria-label={t("common.close")}
+            disabled={busy}
+            onClick={onClose}
+          >
+            <NavigationIcon name="close" />
+          </Button>
+        </div>
         <p id={`${id}-description`}>{description}</p>
         <FormField label={<>{label}</>}>
           <TextInput

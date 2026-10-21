@@ -1,0 +1,35 @@
+.radio-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+
+  & input {
+    margin-top: 2px;
+  }
+
+  &:has(input:disabled) {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+.radio-field-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.radio-field-label {
+  font-weight: 500;
+}
+
+.radio-field-description {
+  color: var(--muted);
+}
+
+.radio-field-danger .radio-field-description {
+  color: var(--danger);
+}

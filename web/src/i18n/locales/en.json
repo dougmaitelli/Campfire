@@ -799,7 +799,7 @@
     "yourPersonalAPIToken": "Your personal API token"
   },
   "serverOperationsPage": {
-    "cleanInstall": "<input/>Clean install",
+    "cleanInstall": "Clean install",
     "consoleTab": "Console",
     "deleteGameFilesAndReinstall": "Delete game files and reinstall",
     "filesTab": "Files",
@@ -810,7 +810,7 @@
     "killServer": "Kill server",
     "permanentlyDeletesAllGameFilesIncludingWorldsModsAndIn": "Permanently deletes all game files, including worlds, mods and in-game configuration, before installing. Existing backups are kept. Take a backup first.",
     "pullCurrentImagesAndRunThePinnedEmberSInstaller": "Pull current images and run the pinned Ember’s installer. Choose whether to keep existing game files or start clean. Backups and saved server settings are kept in either case. The server stays stopped.",
-    "reinstallKeepingFiles": "<input/>Reinstall keeping files",
+    "reinstallKeepingFiles": "Keep existing files",
     "reinstallServer": "Reinstall server",
     "server": "server",
     "serverOperations": "Server operations",

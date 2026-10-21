@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
+import { NavigationIcon } from "../navigation/NavigationIcon";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import "./confirm-dialog.css";
 
@@ -50,8 +51,29 @@ export function ConfirmDialog({
         if (!busy) onClose();
       }}
     >
-      <h2 id={`${id}-title`}>{title}</h2>
-      <p id={`${id}-description`}>{description}</p>
+      <div className="confirm-dialog-header">
+        <h2 id={`${id}-title`}>{title}</h2>
+        <Button
+          type="button"
+          iconOnly
+          className="confirm-dialog-close"
+          aria-label={t("common.close")}
+          disabled={busy}
+          onClick={onClose}
+        >
+          <NavigationIcon name="close" />
+        </Button>
+      </div>
+      <div className="confirm-dialog-description">
+        {(danger || warning) && (
+          <span
+            className={`confirm-dialog-indicator${danger ? " confirm-dialog-indicator-danger" : ""}`}
+          >
+            <NavigationIcon name="warning" />
+          </span>
+        )}
+        <p id={`${id}-description`}>{description}</p>
+      </div>
       {children}
       {error && <InlineMessage role="alert">{error}</InlineMessage>}
       <div className="confirm-dialog-actions">
@@ -66,7 +88,7 @@ export function ConfirmDialog({
         </Button>
         <Button
           type="button"
-          variant={danger ? "danger" : warning ? "warning" : "primary"}
+          variant={danger ? "danger" : "primary"}
           disabled={busy || disabled}
           onClick={onConfirm}
           loading={busy}

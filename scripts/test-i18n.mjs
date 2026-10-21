@@ -135,6 +135,56 @@ test("Overview setup marks existing Sparks complete and respects management acce
   assert.ok(!restricted.includes('href="#embers"'));
 });
 
+test("warning confirmations use the primary action and lock all dismissal controls while busy", async () => {
+  const { ConfirmDialog } = await loadWebModule(
+    new URL("components/layout/ConfirmDialog.tsx", root),
+  );
+  const render = (overrides = {}) =>
+    renderToStaticMarkup(
+      React.createElement(ConfirmDialog, {
+        title: "Reinstall server",
+        description: "Choose how to reinstall this server.",
+        confirmLabel: "Reinstall",
+        warning: true,
+        busy: false,
+        error: null,
+        onClose: () => {},
+        onConfirm: () => {},
+        ...overrides,
+      }),
+    );
+  assert.match(render(), /button-primary/);
+  assert.ok(!render().includes("button-warning"));
+  assert.match(render({ danger: true }), /button-danger/);
+  const busy = render({ busy: true });
+  const buttons = [...busy.matchAll(/<button\b[^>]*>/g)];
+  assert.equal(buttons.length, 3);
+  assert.ok(buttons.every(([button]) => button.includes("disabled=")));
+});
+
+test("radio fields retain native grouping, selected state, and descriptive labels", async () => {
+  const { RadioField } = await loadWebModule(
+    new URL("components/forms/RadioField.tsx", root),
+  );
+  const markup = renderToStaticMarkup(
+    React.createElement(RadioField, {
+      name: "install-mode",
+      value: "keep",
+      checked: true,
+      disabled: true,
+      onChange: () => {},
+      description: "Preserve game files.",
+      children: "Keep existing files",
+    }),
+  );
+  assert.match(markup, /type="radio"/);
+  assert.match(markup, /name="install-mode"/);
+  assert.match(markup, /checked=""/);
+  assert.match(markup, /disabled=""/);
+  assert.match(markup, /Keep existing files/);
+  assert.match(markup, /Preserve game files/);
+});
+
 test("server status timing uses real start and stop timestamps", async () => {
   const { ServerState } = await loadWebModule(
     new URL("components/servers/ServerState.tsx", root),

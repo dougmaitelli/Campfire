@@ -1,5 +1,5 @@
 .input-dialog form > p:not(.error-message) {
-  margin: 16px 0;
+  margin: 24px 0 20px;
   color: var(--muted);
   font-size: 14px;
   line-height: 1.6;
