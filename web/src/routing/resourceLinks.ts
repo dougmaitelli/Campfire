@@ -1,3 +1,5 @@
+import { getResourceRoute } from "./routeRegistry";
+
 export function resourceHref(page: string, id: string | number) {
   return id ? `#${page}/${encodeURIComponent(id)}` : undefined;
 }
@@ -5,40 +7,31 @@ export function resourceHref(page: string, id: string | number) {
 export function createResourceLinks(
   canManage: (permission: string) => boolean,
 ) {
-  const management = (page: string, permission: string, id: string | number) =>
-    canManage(permission) ? resourceHref(page, id) : undefined;
-  const links = {
-    server: (id: string, tab = "console") => {
-      const href = resourceHref("servers", id);
-      return href ? `${href}/${tab}` : undefined;
-    },
-    spark: (id: string) => management("sparks", "sparks.manage", id),
-    ember: (id: string) => management("embers", "embers.manage", id),
-    user: (id: number) => management("users", "users.manage", id),
-    role: (id: number) => management("roles", "roles.manage", id),
-    schedule: (id: string) => resourceHref("schedules", id),
-  };
+  function link(kind: string, id: string | number, tab?: string) {
+    const match = getResourceRoute(kind);
+    if (!match) return undefined;
+    const [page, route] = match;
+    const resource = route.resource!;
+    if (resource.permission && !canManage(resource.permission))
+      return undefined;
+    if (resource.numericID) {
+      if (!/^\d+$/.test(String(id))) return undefined;
+      id = Number(id);
+    }
+    const href = resourceHref(page, id);
+    const activeTab = tab ?? resource.defaultTab;
+    return href && activeTab ? `${href}/${activeTab}` : href;
+  }
   return {
-    ...links,
+    server: (id: string, tab?: string) => link("server", id, tab),
+    spark: (id: string) => link("spark", id),
+    ember: (id: string) => link("ember", id),
+    user: (id: number) => link("user", id),
+    role: (id: number) => link("role", id),
+    schedule: (id: string) => link("schedule", id),
     target: (target: string) => {
       const [kind, id, extra] = target.split(":");
-      if (!id || extra !== undefined) return undefined;
-      switch (kind) {
-        case "server":
-          return links.server(id);
-        case "spark":
-          return links.spark(id);
-        case "ember":
-          return links.ember(id);
-        case "user":
-          return /^\d+$/.test(id) ? links.user(Number(id)) : undefined;
-        case "role":
-          return /^\d+$/.test(id) ? links.role(Number(id)) : undefined;
-        case "schedule":
-          return links.schedule(id);
-        default:
-          return undefined;
-      }
+      return kind && id && extra === undefined ? link(kind, id) : undefined;
     },
   };
 }

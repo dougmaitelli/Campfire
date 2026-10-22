@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { loadWebModule } from "./helpers/load-web-module.mjs";
 
@@ -45,15 +43,43 @@ test("missing-resource redirects replace history and ignore outdated requests", 
   assert.equal(replacements.length, 1);
 });
 
-const source = stripTypeScriptTypes(
-  await readFile(
-    new URL("../web/src/routing/resourceLinks.ts", import.meta.url),
-    "utf8",
-  ),
+const { createResourceLinks } = await loadWebModule(
+  new URL("../web/src/routing/resourceLinks.ts", import.meta.url),
 );
-const { createResourceLinks } = await import(
-  `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`
+
+const { getRoute, getResourceRoute, parseResourceRoute } = await loadWebModule(
+  new URL("../web/src/routing/routeRegistry.ts", import.meta.url),
 );
+
+test("registry resolves page access and resource inspection destinations", () => {
+  assert.equal(getRoute("dashboard").adminOnly, false);
+  assert.equal(getRoute("users").adminOnly, true);
+  assert.equal(getResourceRoute("user")[0], "users");
+  assert.equal(getResourceRoute("user")[1].resource.permission, "users.manage");
+  assert.ok(getResourceRoute("server")[1].resource.Drawer);
+  for (const unknown of ["missing", "constructor", "toString", "__proto__"]) {
+    assert.equal(getRoute(unknown), undefined);
+    assert.equal(getResourceRoute(unknown), undefined);
+  }
+});
+
+test("resource routes decode IDs and tolerate malformed URLs", () => {
+  assert.deepEqual(parseResourceRoute("#servers/server%20%2F%231/backups"), {
+    page: "servers",
+    id: "server /#1",
+    tab: "backups",
+  });
+  assert.deepEqual(parseResourceRoute("servers/%zz/console"), {
+    page: "servers",
+    id: "",
+    tab: "console",
+  });
+  assert.deepEqual(parseResourceRoute("dashboard"), {
+    page: "dashboard",
+    id: "",
+    tab: undefined,
+  });
+});
 
 test("resource links target specific records and encode resource IDs", () => {
   const links = createResourceLinks(() => true);

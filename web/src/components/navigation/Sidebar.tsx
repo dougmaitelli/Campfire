@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { navigation } from "../../routing/navigation";
+import { routeRegistry } from "../../routing/routeRegistry";
 import type { NavigationItem } from "../../routing/navigation";
 import { NavigationIcon } from "./NavigationIcon";
 import { CampfireMark } from "./CampfireMark";
@@ -27,9 +28,7 @@ export function Sidebar({ page }: { page: NavigationItem }) {
             (item) =>
               item.id !== "notifications" &&
               (auth.session?.admin === true ||
-                item.id === "servers" ||
-                item.id === "dashboard" ||
-                item.id === "schedules"),
+                !routeRegistry[item.id].adminOnly),
           )
           .map((item) => (
             <a
