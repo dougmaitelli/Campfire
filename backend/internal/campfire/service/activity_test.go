@@ -476,7 +476,7 @@ func TestAttemptRecoveryRetryAndPermissionChecks(t *testing.T) {
 	runtime.status.Busy = false
 
 	retry, err := s.Retry(t.Context(), owner, run.ID)
-	if err != nil || retry.ID == run.ID || retry.RetryOf != run.ID || retry.State != "running" || runtime.calls != 2 {
+	if err != nil || retry.ID == run.ID || retry.ScheduleID != item.ID || retry.RetryOf != run.ID || retry.State != "running" || runtime.calls != 2 {
 		t.Fatal("explicit retry failed", retry, err)
 	}
 

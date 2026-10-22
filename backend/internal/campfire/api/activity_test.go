@@ -191,6 +191,17 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	if response.Code != http.StatusAccepted {
 		t.Fatal("tracked manual action failed", response.Code, response.Body)
 	}
+	response = request(ownerHandler, "GET", "/api/v1/schedules/executions", "")
+	var scheduleRuns []database.ScheduleRun
+	if response.Code != http.StatusOK {
+		t.Fatal(response.Code, response.Body)
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &scheduleRuns); err != nil {
+		t.Fatal(err)
+	}
+	if len(scheduleRuns) != 1 || scheduleRuns[0].ScheduleID != schedule.ID {
+		t.Fatal("schedule history included a direct operation", response.Body)
+	}
 
 	const password = "private-password-for-new-account"
 	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","password":"`+password+`","role_id":3}`, http.StatusCreated)

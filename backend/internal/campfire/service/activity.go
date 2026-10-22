@@ -350,7 +350,7 @@ func (s *ActivityService) attempt(ctx context.Context, principal Principal, old 
 
 	now := time.Now().Unix()
 
-	run := database.ScheduleRun{ID: rand.Text(), RetryOf: old.ID, ServerID: server.ID, ServerName: server.Name, Action: old.Action, UserID: principal.UserID, Username: principal.Username, State: "dispatching", CreatedAt: now, StartedAt: now}
+	run := database.ScheduleRun{ID: rand.Text(), ScheduleID: old.ScheduleID, RetryOf: old.ID, ServerID: server.ID, ServerName: server.Name, Action: old.Action, UserID: principal.UserID, Username: principal.Username, State: "dispatching", CreatedAt: now, StartedAt: now}
 	if err := s.Store.CreateRun(ctx, &run); err != nil {
 		return database.ScheduleRun{}, err
 	}

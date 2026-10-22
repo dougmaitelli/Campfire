@@ -23,6 +23,50 @@ func historyStore(t *testing.T) (*database.Database, *repository.ActivityReposit
 	return db, repository.NewActivityRepository(db.ORM())
 }
 
+func TestScheduleHistoryExcludesDirectOperationsBeforePagination(t *testing.T) {
+	_, store := historyStore(t)
+	ctx := t.Context()
+	for i := range 252 {
+		run := database.ScheduleRun{ID: fmt.Sprintf("run-%03d", i), ServerID: "game", State: "succeeded", CreatedAt: int64(i + 1), Content: "private-command"}
+		if i < 102 {
+			// The original definition need not exist for its history to remain visible.
+			run.ScheduleID = "deleted-schedule"
+			run.Recurring = i%2 == 0
+			if i == 101 {
+				run.RetryOf = "run-100"
+			}
+		}
+		if err := store.CreateRun(ctx, &run); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.CreateRun(ctx, &database.ScheduleRun{ID: "other-server", ScheduleID: "other-schedule", ServerID: "other", CreatedAt: 300}); err != nil {
+		t.Fatal(err)
+	}
+	first, err := store.ScheduleRuns(ctx, 1, true, "game", "")
+	if err != nil || len(first) != 100 || first[0].ID != "run-101" || first[0].RetryOf != "run-100" {
+		t.Fatal("schedule pagination lost scheduled attempts", len(first), err)
+	}
+	for _, run := range first {
+		if run.ScheduleID == "" || run.Content != "" || run.ServerID != "game" {
+			t.Fatal("schedule history leaked a direct operation, command, or server", run)
+		}
+	}
+	last := first[len(first)-1]
+	second, err := store.ScheduleRuns(ctx, 1, true, "game", fmt.Sprintf("%d:%s", last.CreatedAt, last.ID))
+	if err != nil || len(second) != 2 || second[0].ID != "run-001" || second[1].ID != "run-000" {
+		t.Fatal("schedule history cursor skipped attempts", second, err)
+	}
+	visible, err := store.ScheduleRuns(ctx, 999, false, "", "")
+	if err != nil || len(visible) != 0 {
+		t.Fatal("schedule history bypassed server visibility", visible, err)
+	}
+	operations, err := store.Runs(ctx, 1, true, "game", "")
+	if err != nil || len(operations) != 100 || operations[0].ScheduleID != "" {
+		t.Fatal("direct operation history was removed", len(operations), err)
+	}
+}
+
 func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 	db, store := historyStore(t)
 	ctx := context.Background()
