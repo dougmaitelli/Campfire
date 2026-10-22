@@ -8,6 +8,7 @@ interface PortEntry {
   port: number | string;
   protocol: string;
   targetPort?: number;
+  description?: string | undefined;
 }
 
 // Callers supply display addresses; this component does not infer resource types.
@@ -29,7 +30,11 @@ export function PortGroups({ ports }: { ports: PortEntry[] }) {
           <div className="pill-group">
             {entries.map((entry, index) => (
               <span className="port-group-entry" key={index}>
-                <PortPill port={entry.port} protocol={entry.protocol} />
+                <PortPill
+                  port={entry.port}
+                  protocol={entry.protocol}
+                  description={entry.description}
+                />
                 {entry.targetPort !== undefined &&
                   entry.targetPort !== entry.port && (
                     <span className="port-group-target">

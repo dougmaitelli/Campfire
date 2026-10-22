@@ -176,7 +176,7 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 		}
 	}
 
-	ember := model.Ember{Schema: 1, ID: "mock-minecraft", Name: "Minecraft · Mock", Description: "Development fixture. No image is pulled and no game process runs.", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp"}}}
+	ember := model.Ember{Schema: 1, ID: "mock-minecraft", Name: "Minecraft · Mock", Description: "Development fixture. No image is pulled and no game process runs.", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp", Description: "Main"}}}
 	ember.Variables = mockMinecraftVariables()
 	embers := service.NewEmberService(repository.NewEmberRepository(tx))
 

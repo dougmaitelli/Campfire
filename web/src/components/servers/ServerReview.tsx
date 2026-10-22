@@ -11,6 +11,7 @@ export function ServerReview({
   name,
   sparkName,
   emberName,
+  portDescriptions,
   notice = i18n.t(
     "serverReview.savingReservesTheseResourcesAndPortsTheServerWillRemain",
   ),
@@ -19,6 +20,7 @@ export function ServerReview({
   name?: ReactNode;
   sparkName: ReactNode;
   emberName: ReactNode;
+  portDescriptions?: Record<string, string> | undefined;
   notice?: string | undefined;
 }) {
   const { t } = useTranslation();
@@ -67,6 +69,8 @@ export function ServerReview({
               port: port.host_port,
               targetPort: port.container_port,
               protocol: port.protocol,
+              description:
+                portDescriptions?.[`${port.container_port}/${port.protocol}`],
             }))}
           />
         </DetailItem>

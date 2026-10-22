@@ -206,6 +206,7 @@ export function EmbersPage() {
                             key={`${port.container}/${port.protocol}`}
                             port={port.container}
                             protocol={port.protocol}
+                            description={port.description}
                           />
                         ))}
                       </div>

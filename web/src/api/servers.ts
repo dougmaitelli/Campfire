@@ -31,6 +31,7 @@ export interface Server extends ServerConfiguration {
   spark_name: string;
   ember_name: string;
   game_address: string;
+  port_descriptions?: Record<string, string>;
   status: string;
   created_at: string;
 }
@@ -57,6 +58,13 @@ export function isServer(value: unknown): value is Server {
     typeof value.description === "string" &&
     "game_address" in value &&
     typeof value.game_address === "string" &&
+    (!("port_descriptions" in value) ||
+      (typeof value.port_descriptions === "object" &&
+        value.port_descriptions !== null &&
+        !Array.isArray(value.port_descriptions) &&
+        Object.values(value.port_descriptions).every(
+          (description: unknown) => typeof description === "string",
+        ))) &&
     "spark_id" in value &&
     typeof value.spark_id === "string" &&
     "spark_name" in value &&

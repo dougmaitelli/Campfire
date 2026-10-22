@@ -24,7 +24,13 @@ export interface Ember {
   work_dir: string;
   user: string;
   variables: EmberVariable[] | null;
-  required_ports?: { container: number; protocol: "tcp" | "udp" }[] | null;
+  required_ports?:
+    | {
+        container: number;
+        protocol: "tcp" | "udp";
+        description?: string;
+      }[]
+    | null;
   origin?: {
     format: string;
     author: string;
@@ -104,7 +110,8 @@ function isRequiredPort(value: unknown): boolean {
     typeof value.container === "number" &&
     Number.isInteger(value.container) &&
     "protocol" in value &&
-    (value.protocol === "tcp" || value.protocol === "udp")
+    (value.protocol === "tcp" || value.protocol === "udp") &&
+    (!("description" in value) || typeof value.description === "string")
   );
 }
 

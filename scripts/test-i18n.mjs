@@ -21,7 +21,13 @@ test("network groups keep addresses outside pills and preserve port mappings", a
   const markup = renderToStaticMarkup(
     React.createElement(PortGroups, {
       ports: [
-        { address: "::1", port: 2456, protocol: "udp", targetPort: 3000 },
+        {
+          address: "::1",
+          port: 2456,
+          protocol: "udp",
+          targetPort: 3000,
+          description: "Query",
+        },
         { address: "::1", port: "2457–2458", protocol: "udp" },
         { address: "127.0.0.1", port: 8080, protocol: "tcp" },
       ],
@@ -30,6 +36,7 @@ test("network groups keep addresses outside pills and preserve port mappings", a
   assert.equal((markup.match(/class="port-group-address"/g) ?? []).length, 2);
   assert.equal((markup.match(/::1/g) ?? []).length, 1);
   assert.match(markup, /2456 UDP/);
+  assert.match(markup, /\(Query\)/);
   assert.match(markup, /2457–2458 UDP/);
   assert.match(markup, /3000 in container/);
   assert.ok(!markup.includes("::1:2456"));

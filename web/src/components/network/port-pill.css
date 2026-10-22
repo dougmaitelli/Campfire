@@ -1,6 +1,7 @@
 .port-pill {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-width: 0;
   max-width: 100%;
 
@@ -12,4 +13,7 @@
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
+}
+.port-pill-description {
+  font-weight: 400;
 }

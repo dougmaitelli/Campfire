@@ -1037,6 +1037,12 @@ export function ServerDialog({
               {!accessOnly && (
                 <ServerReview
                   value={value}
+                  portDescriptions={Object.fromEntries(
+                    (ember?.required_ports ?? []).map((port) => [
+                      `${port.container}/${port.protocol}`,
+                      port.description ?? "",
+                    ]),
+                  )}
                   sparkName={
                     <ResourceLink href={links.spark(value.spark_id)}>
                       {spark?.name ?? ""}

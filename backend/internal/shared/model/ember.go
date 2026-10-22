@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 var envName = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
@@ -55,8 +56,22 @@ type Readiness struct {
 
 // RequiredPort identifies a container port required by a game.
 type RequiredPort struct {
-	Container int    `json:"container"`
-	Protocol  string `json:"protocol"`
+	Container   int    `json:"container"`
+	Protocol    string `json:"protocol"`
+	Description string `json:"description,omitempty"`
+}
+
+// PortDescriptions returns display metadata keyed by container port and protocol.
+func (e Ember) PortDescriptions() map[string]string {
+	labels := make(map[string]string)
+
+	for _, port := range e.RequiredPorts {
+		if port.Description != "" {
+			labels[fmt.Sprintf("%d/%s", port.Container, port.Protocol)] = port.Description
+		}
+	}
+
+	return labels
 }
 
 // Ember is an immutable, imported native game definition.
@@ -167,6 +182,10 @@ func (e Ember) Validate() error {
 	for _, p := range e.RequiredPorts {
 		if p.Container < 1 || p.Container > 65535 || (p.Protocol != "tcp" && p.Protocol != "udp") {
 			return errors.New("invalid Ember required port")
+		}
+
+		if len(p.Description) > 80 || strings.ContainsFunc(p.Description, unicode.IsControl) {
+			return errors.New("port descriptions must be at most 80 characters without control characters")
 		}
 	}
 

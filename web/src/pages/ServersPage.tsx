@@ -365,6 +365,10 @@ export function ServersPage() {
                         address: server.game_address || port.bind_ip,
                         port: port.host_port,
                         protocol: port.protocol,
+                        description:
+                          server.port_descriptions?.[
+                            `${port.container_port}/${port.protocol}`
+                          ],
                       }))}
                     />
                   </td>
