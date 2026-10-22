@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { ResourceInspectionProvider } from "./routing/ResourceInspection";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { EmptyPage } from "./pages/EmptyPage";
 import { SparksPage } from "./pages/SparksPage";
@@ -59,39 +60,41 @@ function ManagementApp() {
 
   return (
     <NotificationsProvider key={auth.session?.user_id}>
-      <DashboardLayout page={page}>
-        {!allowed ? (
-          <EmptyPage title={t("app.youDoNotHaveAccessToThisPage")} />
-        ) : page.id === "dashboard" ? (
-          <DashboardPage />
-        ) : page.id === "schedules" ? (
-          <SchedulesPage />
-        ) : page.id === "notifications" ? (
-          <NotificationsPage />
-        ) : page.id === "audit" ? (
-          <AuditPage />
-        ) : page.id === "backups" ? (
-          <BackupsPage />
-        ) : page.id === "users" ? (
-          <UsersPage />
-        ) : page.id === "roles" ? (
-          <RolesPage />
-        ) : page.id === "sparks" ? (
-          <SparksPage />
-        ) : page.id === "servers" ? (
-          serverID ? (
-            <ServerOperationsPage
-              key={serverID}
-              serverID={serverID}
-              tab={route[2] ?? "console"}
-            />
+      <ResourceInspectionProvider key={page.id}>
+        <DashboardLayout page={page}>
+          {!allowed ? (
+            <EmptyPage title={t("app.youDoNotHaveAccessToThisPage")} />
+          ) : page.id === "dashboard" ? (
+            <DashboardPage />
+          ) : page.id === "schedules" ? (
+            <SchedulesPage />
+          ) : page.id === "notifications" ? (
+            <NotificationsPage />
+          ) : page.id === "audit" ? (
+            <AuditPage />
+          ) : page.id === "backups" ? (
+            <BackupsPage />
+          ) : page.id === "users" ? (
+            <UsersPage />
+          ) : page.id === "roles" ? (
+            <RolesPage />
+          ) : page.id === "sparks" ? (
+            <SparksPage />
+          ) : page.id === "servers" ? (
+            serverID ? (
+              <ServerOperationsPage
+                key={serverID}
+                serverID={serverID}
+                tab={route[2] ?? "console"}
+              />
+            ) : (
+              <ServersPage />
+            )
           ) : (
-            <ServersPage />
-          )
-        ) : (
-          <EmbersPage />
-        )}
-      </DashboardLayout>
+            <EmbersPage />
+          )}
+        </DashboardLayout>
+      </ResourceInspectionProvider>
     </NotificationsProvider>
   );
 }
