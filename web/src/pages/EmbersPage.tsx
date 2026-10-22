@@ -20,12 +20,14 @@ import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
 import { Table, TableRow } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
 import { PortPill } from "../components/network/PortPill";
+import { GameArt } from "../components/media/GameArt";
 import { EMPTY_VALUE } from "../utils/formatDisplayValue";
 import { useResourceSelection } from "../routing/useResourceSelection";
 
 export function EmbersPage() {
   const { t } = useTranslation();
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
+  const hasGameArt = items.some((ember) => ember.artUrl);
   const [importing, setImporting] = useState(false);
   const { selected: editing, select: setEditing } = useResourceSelection(
     items,
@@ -154,7 +156,13 @@ export function EmbersPage() {
           </caption>
           <thead>
             <tr>
-              <th scope="col">{t("embersPage.gameDefinition")}</th>
+              {hasGameArt && <th className="game-art-cell" />}
+              <th
+                scope="col"
+                className={hasGameArt ? "game-art-name" : undefined}
+              >
+                {t("embersPage.gameDefinition")}
+              </th>
               <th scope="col">{t("embersPage.images")}</th>
               <th scope="col">{t("embersPage.requiredPorts")}</th>
               <th scope="col">{t("embersPage.updates")}</th>
@@ -168,7 +176,12 @@ export function EmbersPage() {
               const updateURL = ember.updateUrl ?? ember.origin?.update_url;
               return (
                 <TableRow key={ember.id} onOpen={() => setEditing(ember)}>
-                  <td>
+                  {hasGameArt && (
+                    <td className="game-art-cell">
+                      <GameArt src={ember.artUrl} />
+                    </td>
+                  )}
+                  <td className={hasGameArt ? "game-art-name" : undefined}>
                     <button
                       type="button"
                       className="table-row-trigger"

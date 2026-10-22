@@ -65,6 +65,8 @@ func (s *EmberService) Import(ctx context.Context, ember model.Ember) (model.Emb
 
 func validateEmber(ember *model.Ember) error {
 	ember.Name = strings.TrimSpace(ember.Name)
+	ember.ArtURL = strings.TrimSpace(ember.ArtURL)
+
 	for index := range ember.RequiredPorts {
 		ember.RequiredPorts[index].Description = strings.TrimSpace(ember.RequiredPorts[index].Description)
 	}

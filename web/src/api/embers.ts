@@ -16,6 +16,7 @@ export interface Ember {
   schema: number;
   name: string;
   description: string;
+  artUrl?: string;
   updateUrl?: string;
   images: Record<string, string>;
   startup: string;
@@ -51,6 +52,7 @@ export function isEmber(value: unknown): value is Ember {
     typeof value.name === "string" &&
     "description" in value &&
     typeof value.description === "string" &&
+    (!("artUrl" in value) || typeof value.artUrl === "string") &&
     (!("updateUrl" in value) || typeof value.updateUrl === "string") &&
     "images" in value &&
     typeof value.images === "object" &&

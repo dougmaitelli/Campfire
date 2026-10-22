@@ -30,6 +30,7 @@ export interface Server extends ServerConfiguration {
   permissions: string[];
   spark_name: string;
   ember_name: string;
+  ember_art_url?: string;
   game_address: string;
   port_descriptions?: Record<string, string>;
   status: string;
@@ -73,6 +74,7 @@ export function isServer(value: unknown): value is Server {
     typeof value.ember_id === "string" &&
     "ember_name" in value &&
     typeof value.ember_name === "string" &&
+    (!("ember_art_url" in value) || typeof value.ember_art_url === "string") &&
     "image" in value &&
     typeof value.image === "string" &&
     (!("startup_command" in value) ||

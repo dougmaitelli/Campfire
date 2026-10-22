@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"unicode"
@@ -81,6 +82,7 @@ type Ember struct {
 	Schema          int               `json:"schema"`
 	Name            string            `json:"name"`
 	Description     string            `json:"description"`
+	ArtURL          string            `json:"artUrl,omitempty"`
 	UpdateURL       string            `json:"updateUrl,omitempty"`
 	Images          map[string]string `json:"images"`
 	Startup         string            `json:"startup"`
@@ -119,6 +121,10 @@ type EmberOrigin struct {
 func (e Ember) Validate() error {
 	if e.Schema != 1 || strings.TrimSpace(e.Name) == "" || len(e.Name) > 120 {
 		return errors.New("Ember requires schema 1 and a name of 1–120 characters")
+	}
+
+	if err := ValidateArtURL(e.ArtURL); err != nil {
+		return err
 	}
 
 	if len(e.Images) == 0 {
@@ -280,6 +286,27 @@ func (e Ember) Validate() error {
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+// ValidateArtURL accepts HTTPS artwork or an asset hosted by this panel.
+func ValidateArtURL(value string) error {
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := url.Parse(value)
+	if err != nil || len(value) > 2048 || strings.ContainsFunc(value, unicode.IsSpace) || strings.ContainsFunc(value, unicode.IsControl) {
+		return errors.New("artUrl must be an HTTPS URL or a panel asset path of at most 2048 characters")
+	}
+
+	external := parsed.Scheme == "https" && parsed.Hostname() != ""
+
+	local := parsed.Scheme == "" && parsed.Host == "" && strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") && !strings.Contains(value, "\\")
+	if parsed.User != nil || (!external && !local) {
+		return errors.New("artUrl must be an HTTPS URL or a panel asset path")
 	}
 
 	return nil

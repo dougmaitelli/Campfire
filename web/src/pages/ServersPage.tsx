@@ -25,6 +25,7 @@ import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
+import { GameArt } from "../components/media/GameArt";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
@@ -86,6 +87,7 @@ export function ServersPage() {
     return () => controller.abort();
   }, [canProvision, optionsRevision]);
   const runtime = useServerRuntime(servers.items.map((server) => server.id));
+  const hasGameArt = servers.items.some((server) => server.ember_art_url);
   const [editing, setEditing] = useState<Server | null>(null);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -279,7 +281,13 @@ export function ServersPage() {
           </caption>
           <thead>
             <tr>
-              <th scope="col">{t("common.server")}</th>
+              {hasGameArt && <th className="game-art-cell" />}
+              <th
+                scope="col"
+                className={hasGameArt ? "game-art-name" : undefined}
+              >
+                {t("common.server")}
+              </th>
               <th scope="col">{t("serversPage.state")}</th>
               <th scope="col">{t("serversPage.sparkEmber")}</th>
               <th scope="col">{t("serversPage.resources")}</th>
@@ -296,7 +304,12 @@ export function ServersPage() {
               )?.usage;
               return (
                 <TableRow key={server.id} onOpen={() => setDetails(server)}>
-                  <td>
+                  {hasGameArt && (
+                    <td className="game-art-cell">
+                      <GameArt src={server.ember_art_url} />
+                    </td>
+                  )}
+                  <td className={hasGameArt ? "game-art-name" : undefined}>
                     <button
                       type="button"
                       className="table-row-trigger"

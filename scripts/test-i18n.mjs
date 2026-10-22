@@ -46,6 +46,24 @@ test("network groups keep addresses outside pills and preserve port mappings", a
   );
 });
 
+test("game art renders optionally without an empty placeholder", async () => {
+  const { GameArt } = await loadWebModule(
+    new URL("components/media/GameArt.tsx", root),
+  );
+  const plain = renderToStaticMarkup(React.createElement(GameArt));
+  assert.ok(!plain.includes("<img"));
+  assert.equal(plain, "");
+  const artwork = renderToStaticMarkup(
+    React.createElement(GameArt, {
+      src: "https://cdn.example.test/game.png",
+    }),
+  );
+  assert.match(artwork, /src="https:\/\/cdn.example.test\/game.png"/);
+  assert.match(artwork, /alt=""/);
+  assert.match(artwork, /loading="lazy"/);
+  assert.match(artwork, /referrerPolicy="no-referrer"/i);
+});
+
 test("English fallback, interpolation, and plural forms", async () => {
   await i18n.changeLanguage("unsupported");
   assert.equal(i18n.t("common.cancel"), "Cancel");

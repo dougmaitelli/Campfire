@@ -19,6 +19,10 @@ func TestServerPortDescriptionsComeFromEmberWithoutDuplicatingConfiguration(t *t
 		t.Fatal("mock port description missing", server.PortDescriptions)
 	}
 
+	if server.EmberArtURL != "/game-art/mock-block.svg" {
+		t.Fatal("mock game art missing", server.EmberArtURL)
+	}
+
 	embers := repository.NewEmberRepository(db.ORM())
 
 	ember, err := embers.Get(t.Context(), server.EmberID)
@@ -27,6 +31,8 @@ func TestServerPortDescriptionsComeFromEmberWithoutDuplicatingConfiguration(t *t
 	}
 
 	ember.RequiredPorts[0].Description = "Game traffic"
+
+	ember.ArtURL = "https://cdn.example.test/new-art.png"
 	if err := embers.Replace(t.Context(), ember); err != nil {
 		t.Fatal(err)
 	}
@@ -36,8 +42,12 @@ func TestServerPortDescriptionsComeFromEmberWithoutDuplicatingConfiguration(t *t
 		t.Fatal("server used a stale copy of its port descriptions", updated.PortDescriptions, err)
 	}
 
+	if updated.EmberArtURL != ember.ArtURL {
+		t.Fatal("server used stale game art", updated.EmberArtURL)
+	}
+
 	configuration, err := json.Marshal(updated.ServerConfiguration)
-	if err != nil || strings.Contains(string(configuration), "Game traffic") {
+	if err != nil || strings.Contains(string(configuration), "Game traffic") || strings.Contains(string(configuration), ember.ArtURL) {
 		t.Fatal("display descriptions leaked into saved server configuration", string(configuration), err)
 	}
 }

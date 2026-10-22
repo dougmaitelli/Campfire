@@ -1,0 +1,14 @@
+.game-art {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+.data-table .game-art-cell {
+  width: 1%;
+  padding-inline-end: 0;
+}
+.data-table .game-art-name {
+  padding-inline-start: 12px;
+}

@@ -21,6 +21,7 @@ type Server struct {
 	ServerConfiguration
 	SparkName            string            `json:"spark_name"`
 	EmberName            string            `json:"ember_name"`
+	EmberArtURL          string            `json:"ember_art_url,omitempty"`
 	EmberHash            string            `json:"ember_hash"`
 	EmberUpdateAvailable bool              `json:"ember_update_available"`
 	GameAddress          string            `json:"game_address"`

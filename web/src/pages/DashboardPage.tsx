@@ -17,6 +17,7 @@ import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { ServerState } from "../components/servers/ServerState";
+import { GameArt } from "../components/media/GameArt";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import { MetricTile } from "../components/metrics/MetricTile";
@@ -77,6 +78,10 @@ export function DashboardPage() {
     .sort((a, b) => a.next_run_at - b.next_run_at)
     .slice(0, 5);
   const servers = monitor.snapshot?.servers ?? [];
+  const serverArtURLs = new Map(
+    serverInventory.items.map((server) => [server.id, server.ember_art_url]),
+  );
+  const hasGameArt = servers.some((server) => serverArtURLs.get(server.id));
   const hasServers = servers.length > 0 || serverInventory.items.length > 0;
   const inventoryReady = !serverInventory.loading && !serverInventory.error;
   const visibleServers = servers.filter((server) =>
@@ -346,7 +351,10 @@ export function DashboardPage() {
               </caption>
               <thead>
                 <tr>
-                  <th>{t("common.server")}</th>
+                  {hasGameArt && <th className="game-art-cell" />}
+                  <th className={hasGameArt ? "game-art-name" : undefined}>
+                    {t("common.server")}
+                  </th>
                   <th>{t("dashboardPage.state")}</th>
                   <th>{t("common.cpu")}</th>
                   <th>{t("common.memory")}</th>
@@ -366,7 +374,12 @@ export function DashboardPage() {
                       window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
                     }}
                   >
-                    <td>
+                    {hasGameArt && (
+                      <td className="game-art-cell">
+                        <GameArt src={serverArtURLs.get(server.id)} />
+                      </td>
+                    )}
+                    <td className={hasGameArt ? "game-art-name" : undefined}>
                       <button
                         type="button"
                         className="table-row-trigger"
