@@ -13,11 +13,37 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      app: ${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.app == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name != 'workflow_dispatch' && github.ref_type != 'tag'
+        with:
+          predicate-quantifier: every
+          filters: |
+            app:
+              - '**'
+              - '!docs/**'
+              - '!screenshots/**'
+              - '!*.md'
+              - '!LICENSE'
+
   validate:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     name: Validate application
     runs-on: ubuntu-latest
     services:
@@ -61,9 +87,22 @@ jobs:
 
   publish:
     name: Publish images and tagged releases
-    needs: validate
-    if: github.event_name == 'push'
+    needs: [changes, ci-result]
+    if: >-
+      always() && github.event_name == 'push' &&
+      needs.ci-result.result == 'success' && needs.changes.outputs.app == 'true'
     permissions:
       contents: write
       packages: write
     uses: ./.github/workflows/package.yml
+
+  ci-result:
+    name: CI result
+    if: always()
+    needs: [changes, validate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require selected checks to pass
+        env:
+          FAILED: ${{ needs.changes.result != 'success' || contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: test "$FAILED" = false
