@@ -55,6 +55,7 @@ export interface FileRequest {
     | "compress"
     | "extract";
   path: string;
+  paths?: string[];
   destination?: string;
   data?: string;
   revision?: string;

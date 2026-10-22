@@ -7,13 +7,14 @@ import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 
 interface DrawerProps {
   title: ReactNode;
-  description: string;
+  description?: string;
   busy: boolean;
   onClose: () => void;
   children: ReactNode;
   footerLeft: ReactNode;
   footerRight: ReactNode;
   actions?: ReactNode;
+  leading?: ReactNode;
   embedded?: boolean;
   unsavedChanges?: boolean;
 }
@@ -27,6 +28,7 @@ export function Drawer({
   footerLeft,
   footerRight,
   actions,
+  leading,
   embedded = false,
   unsavedChanges = false,
 }: DrawerProps) {
@@ -59,15 +61,16 @@ export function Drawer({
   if (embedded)
     return (
       <section className="drawer-form drawer-panel" aria-labelledby={id}>
+        {leading && <div className="drawer-leading">{leading}</div>}
         <header className="drawer-heading">
           <div>
             <h2 id={id} className="drawer-title">
               {title}
             </h2>
-            <p>{description}</p>
+            {description && <p>{description}</p>}
           </div>
+          {actionBar}
         </header>
-        {actionBar}
         <div className="drawer-content-area">{children}</div>
         {footer}
       </section>
@@ -77,19 +80,20 @@ export function Drawer({
       ref={ref}
       className="drawer"
       aria-labelledby={id}
-      aria-describedby={`${id}-description`}
+      aria-describedby={description ? `${id}-description` : undefined}
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) onClose();
       }}
     >
       <div className="drawer-form">
+        {leading && <div className="drawer-leading">{leading}</div>}
         <header className="drawer-heading">
           <div>
             <h2 id={id} className="drawer-title">
               {title}
             </h2>
-            <p id={`${id}-description`}>{description}</p>
+            {description && <p id={`${id}-description`}>{description}</p>}
           </div>
           <Button
             type="button"

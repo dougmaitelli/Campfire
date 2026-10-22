@@ -38,6 +38,10 @@
     vertical-align: middle;
   }
 
+  & .checkbox-field {
+    margin: 0;
+  }
+
   & tbody tr + tr td {
     border-top: 1px solid var(--border);
   }

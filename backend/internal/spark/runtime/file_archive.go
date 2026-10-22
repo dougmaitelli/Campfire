@@ -19,7 +19,36 @@ import (
 
 func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os.Root, volume string, q model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Destination}
-	if !filePath(q.Destination, false) || q.Path == q.Destination || strings.HasPrefix(q.Destination, q.Path+"/") {
+
+	sources := []string{q.Path}
+	if len(q.Paths) > 0 {
+		if q.Operation != "compress" || len(q.Paths) > 1000 {
+			return result, fileFailure("invalid_file", "Select at most 1,000 archive items.")
+		}
+
+		sources = q.Paths
+
+		seen := make(map[string]bool, len(sources))
+		for _, source := range sources {
+			if !filePath(source, false) || path.Dir(source) != q.Path || seen[source] {
+				return result, fileFailure("invalid_file", "Select distinct items from the current directory.")
+			}
+
+			seen[source] = true
+		}
+	}
+
+	for _, source := range sources {
+		if source == q.Destination || strings.HasPrefix(q.Destination, source+"/") {
+			return result, fileFailure("invalid_file", "Choose a destination outside the selected items.")
+		}
+
+		if err := containedPath(root, source, false); err != nil {
+			return result, err
+		}
+	}
+
+	if !filePath(q.Destination, false) {
 		return result, fileFailure("invalid_file", "Choose a new destination outside the source directory.")
 	}
 
@@ -45,7 +74,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 			return result, fileFailure("invalid_file", "Compressed archives must end in .tar.gz.")
 		}
 
-		err = m.compressFiles(ctx, d, root, q.Path, temporary)
+		err = m.compressFiles(ctx, d, root, sources, temporary)
 	} else {
 		err = root.Mkdir(temporary, 0700)
 		if err == nil {
@@ -77,7 +106,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 	return result, nil
 }
 
-func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *os.Root, source, temporary string) error {
+func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *os.Root, sources []string, temporary string) error {
 	file, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
@@ -91,80 +120,87 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 	var total int64
 
 	count := 0
-	err = fs.WalkDir(root.FS(), source, func(name string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
 
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		if reservedFilePath(name) {
-			if entry.IsDir() {
-				return fs.SkipDir
+	for _, source := range sources {
+		err = fs.WalkDir(root.FS(), source, func(name string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
 
-			return nil
-		}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 
-		if name == "." {
-			return nil
-		}
+			if reservedFilePath(name) {
+				if entry.IsDir() {
+					return fs.SkipDir
+				}
 
-		count++
-		if count > backupEntries || !filePath(name, false) {
-			return fileFailure("file_limit", "Archives are limited to 100,000 entries.")
-		}
+				return nil
+			}
 
-		if err := containedPath(root, name, false); err != nil {
+			if name == "." {
+				return nil
+			}
+
+			count++
+			if count > backupEntries || !filePath(name, false) {
+				return fileFailure("file_limit", "Archives are limited to 100,000 entries.")
+			}
+
+			if err := containedPath(root, name, false); err != nil {
+				return err
+			}
+
+			input, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
+			if err != nil {
+				return err
+			}
+
+			defer func() { _ = input.Close() }()
+
+			info, err := input.Stat()
+			if err != nil {
+				return err
+			}
+
+			if !info.IsDir() && !info.Mode().IsRegular() {
+				return fileFailure("invalid_file", "Archives cannot contain links or special files.")
+			}
+
+			total += info.Size()
+			if total > model.FileTransferLimit {
+				return fileFailure("file_limit", "Archive contents exceed 100 GiB.")
+			}
+
+			header, err := tar.FileInfoHeader(info, "")
+			if err != nil {
+				return err
+			}
+
+			header.Name = name
+			if source != "." {
+				header.Name = strings.TrimPrefix(name, path.Dir(source)+"/")
+			}
+
+			header.Mode = header.Mode & 0777
+
+			header.Uid, header.Gid, header.Uname, header.Gname = 0, 0, "", ""
+			if err := archive.WriteHeader(header); err != nil {
+				return err
+			}
+
+			if info.Mode().IsRegular() {
+				_, err = io.CopyN(archive, backupReader{ctx, input}, info.Size())
+			}
+
 			return err
-		}
-
-		input, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
+		})
 		if err != nil {
-			return err
+			break
 		}
+	}
 
-		defer func() { _ = input.Close() }()
-
-		info, err := input.Stat()
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() && !info.Mode().IsRegular() {
-			return fileFailure("invalid_file", "Archives cannot contain links or special files.")
-		}
-
-		total += info.Size()
-		if total > model.FileTransferLimit {
-			return fileFailure("file_limit", "Archive contents exceed 100 GiB.")
-		}
-
-		header, err := tar.FileInfoHeader(info, "")
-		if err != nil {
-			return err
-		}
-
-		header.Name = name
-		if source != "." {
-			header.Name = strings.TrimPrefix(name, path.Dir(source)+"/")
-		}
-
-		header.Mode = header.Mode & 0777
-
-		header.Uid, header.Gid, header.Uname, header.Gname = 0, 0, "", ""
-		if err := archive.WriteHeader(header); err != nil {
-			return err
-		}
-
-		if info.Mode().IsRegular() {
-			_, err = io.CopyN(archive, backupReader{ctx, input}, info.Size())
-		}
-
-		return err
-	})
 	closeArchive, closeZip := archive.Close(), zipped.Close()
 
 	if err != nil {

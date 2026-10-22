@@ -13,16 +13,17 @@ const DefaultUploadLimit int64 = 1 << 30
 
 // FileRequest describes contained game file access or immutable backup list/read access.
 type FileRequest struct {
-	ServerID    string `json:"server_id"`
-	Operation   string `json:"operation"`
-	Path        string `json:"path"`
-	Destination string `json:"destination,omitempty"`
-	Data        []byte `json:"data,omitempty"`
-	Revision    string `json:"revision,omitempty"`
-	Offset      int64  `json:"offset,omitempty"`
-	Size        int64  `json:"size,omitempty"`
-	UploadID    string `json:"upload_id,omitempty"`
-	UploadLimit int64  `json:"upload_limit,omitempty"`
+	ServerID    string   `json:"server_id"`
+	Operation   string   `json:"operation"`
+	Path        string   `json:"path"`
+	Paths       []string `json:"paths,omitempty"`
+	Destination string   `json:"destination,omitempty"`
+	Data        []byte   `json:"data,omitempty"`
+	Revision    string   `json:"revision,omitempty"`
+	Offset      int64    `json:"offset,omitempty"`
+	Size        int64    `json:"size,omitempty"`
+	UploadID    string   `json:"upload_id,omitempty"`
+	UploadLimit int64    `json:"upload_limit,omitempty"`
 }
 
 // FileEntry describes a directory child without following symbolic links.

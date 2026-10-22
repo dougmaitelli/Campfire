@@ -5,6 +5,7 @@ package devmock
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"path"
 	"sort"
@@ -21,6 +22,17 @@ func fileError(code, message string) error {
 func revision(data string) string {
 	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:])
+}
+
+func mockFileContent(data string) string {
+	if encoded, ok := strings.CutPrefix(data, "\x00archive:"); ok {
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		if err == nil {
+			return string(decoded)
+		}
+	}
+
+	return data
 }
 
 func cleanPath(value string) (string, error) {
@@ -73,7 +85,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 				continue
 			}
 
-			entry := model.FileEntry{Name: path.Base(key), Kind: "file", Size: int64(len(value)), ModifiedAt: time.Unix(1700000000, 0).UTC()}
+			entry := model.FileEntry{Name: path.Base(key), Kind: "file", Size: int64(len(mockFileContent(value))), ModifiedAt: time.Unix(1700000000, 0).UTC()}
 			if strings.HasSuffix(key, "/") {
 				entry.Kind = "directory"
 			}
@@ -85,6 +97,8 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 
 		return result, nil
 	case "read", "stat", "read.chunk":
+		data = mockFileContent(data)
+
 		if !exists {
 			return result, fileError("file_not_found", "File not found.")
 		}
@@ -166,8 +180,12 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			return result, err
 		}
 
-		if !exists || directory {
-			return result, fileError("unsupported_capability", "Mock mode supports renaming files only.")
+		if (!exists && !directory) || name == "." {
+			return result, fileError("file_not_found", "File or folder not found.")
+		}
+
+		if destination == name || strings.HasPrefix(destination, name+"/") {
+			return result, fileError("invalid_file", "Choose a destination outside the source folder.")
 		}
 
 		if _, ok := record.Files[destination]; ok || destination == "." {
@@ -184,8 +202,27 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			}
 		}
 
-		record.Files[destination] = data
-		delete(record.Files, name)
+		if directory {
+			moved := make(map[string]string)
+
+			for key, value := range record.Files {
+				if strings.HasPrefix(key, name+"/") {
+					moved[destination+strings.TrimPrefix(key, name)] = value
+					delete(record.Files, key)
+				}
+			}
+
+			for key, value := range moved {
+				record.Files[key] = value
+			}
+		} else {
+			record.Files[destination] = data
+			delete(record.Files, name)
+		}
+	case "compress":
+		if err := mockCompress(&record, request); err != nil {
+			return result, err
+		}
 	default:
 		return result, fileError("unsupported_capability", "This file operation is not simulated in mock mode. Use the text editor for small files.")
 	}

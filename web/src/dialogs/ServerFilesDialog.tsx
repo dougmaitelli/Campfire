@@ -5,6 +5,7 @@ import { ActionGroup } from "../components/layout/ActionGroup";
 import { DetailsList, DetailItem } from "../components/layout/DetailsList";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
+import { CheckboxField } from "../components/forms/CheckboxField";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Textarea } from "../components/forms/Textarea";
@@ -23,6 +24,9 @@ import { Drawer } from "../components/layout/Drawer";
 import { InputDialog } from "../components/layout/InputDialog";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
+import { Table, TableRow } from "../components/table/Table";
+import { bytes } from "../api/monitoring";
+import { EMPTY_VALUE } from "../utils/formatDisplayValue";
 import "../components/servers/files.css";
 
 interface Editor {
@@ -77,7 +81,15 @@ export function ServerFilesDialog({
     kind: "rename" | "compress" | "extract";
     entry: FileEntry;
   } | null>(null);
-  const [deleting, setDeleting] = useState<FileEntry | null>(null);
+  const [deleting, setDeleting] = useState<FileEntry[] | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<"compress" | "move" | null>(
+    null,
+  );
+  const selectable = entries.filter((entry) => entry.kind !== "unsupported");
+  const selectedEntries = selectable.filter((entry) =>
+    selected.includes(entry.name),
+  );
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const pending = useRef(true);
   const alive = useRef(true);
@@ -92,7 +104,7 @@ export function ServerFilesDialog({
     };
   }, []);
   const load = useCallback(
-    async (path: string, signal?: AbortSignal) => {
+    async (path: string, signal?: AbortSignal, preserveSelection = false) => {
       const result = await manageFiles(
         server.id,
         { operation: "list", path },
@@ -101,6 +113,13 @@ export function ServerFilesDialog({
       if (!signal?.aborted && alive.current) {
         setEntries(result.entries ?? []);
         setDirectory(path);
+        setSelected((current) =>
+          preserveSelection
+            ? current.filter((name) =>
+                result.entries?.some((entry) => entry.name === name),
+              )
+            : [],
+        );
       }
     },
     [server.id],
@@ -241,25 +260,30 @@ export function ServerFilesDialog({
     });
     await load(directory);
   }
-  async function remove(entry: FileEntry) {
+  async function remove(items: FileEntry[]) {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     setDeleteError(null);
+    let remaining = items;
     try {
-      await manageFiles(server.id, {
-        operation: "delete",
-        path: join(directory, entry.name),
-      });
-      await load(directory);
+      for (const entry of items) {
+        await manageFiles(server.id, {
+          operation: "delete",
+          path: join(directory, entry.name),
+        });
+        remaining = remaining.slice(1);
+      }
       setDeleting(null);
     } catch (cause) {
+      setDeleting(remaining);
       setDeleteError(
         cause instanceof Error
           ? cause.message
           : i18n.t("serverFilesDialog.unableToDeleteThisEntry"),
       );
     } finally {
+      await load(directory, undefined, true).catch(() => {});
       pending.current = false;
       setBusy(false);
     }
@@ -356,45 +380,168 @@ export function ServerFilesDialog({
     });
     await load(directory);
   }
+  async function bulkSubmit(value: string) {
+    if (!canWrite || !selectedEntries.length) return;
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    let completed = false;
+    try {
+      if (bulkAction === "compress") {
+        const name = entryName(value);
+        if (!name) return;
+        await manageFiles(server.id, {
+          operation: "compress",
+          path: directory,
+          paths: selectedEntries.map((entry) => join(directory, entry.name)),
+          destination: join(directory, name),
+        });
+      } else {
+        const destination = value.replace(/^\/+|\/+$/g, "") || ".";
+        if (
+          destination.split("/").some((part) => part === "..") ||
+          destination.includes("\\")
+        )
+          throw new Error(t("serverFilesDialog.invalidMoveDestination"));
+        if (destination === directory)
+          throw new Error(t("serverFilesDialog.chooseDifferentFolder"));
+        const target = await manageFiles(server.id, {
+          operation: "list",
+          path: destination,
+        });
+        if (target.entries?.some((entry) => selected.includes(entry.name)))
+          throw new Error(t("serverFilesDialog.destinationConflict"));
+        for (const entry of selectedEntries) {
+          const source = join(directory, entry.name);
+          if (destination === source || destination.startsWith(`${source}/`))
+            throw new Error(t("serverFilesDialog.invalidMoveDestination"));
+        }
+        for (const entry of selectedEntries) {
+          await manageFiles(server.id, {
+            operation: "rename",
+            path: join(directory, entry.name),
+            destination: join(destination, entry.name),
+          });
+        }
+      }
+      completed = true;
+    } finally {
+      await load(directory, undefined, !completed).catch(() => {});
+      pending.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
   return (
     <Drawer
       embedded={embedded}
       unsavedChanges={editor !== null && editor.text !== editor.initial}
-      title={t("serverFilesDialog.files", { serverName: server.name })}
-      description={t(
-        "serverFilesDialog.browseGameFilesTextEditingSupports1MiB",
-        {
-          maxUploadBytesNullLoading:
-            maxUploadBytes === null
-              ? t("serverFilesDialog.loadingUploadLimit")
-              : t("serverFilesDialog.uploadsSupportUpToMiBPerFile", {
-                  toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
-                }),
-        },
-      )}
+      title={t("serverFilesDialog.files")}
+      leading={
+        !editor && (
+          <details className="file-sftp">
+            <summary>{t("serverFilesDialog.sftpAccess")}</summary>
+            <div className="file-sftp-content">
+              <p>
+                {t(
+                  "serverFilesDialog.connectWithAnSFTPClientUsingTheAddressAndPort",
+                )}
+              </p>
+              <DetailsList>
+                <DetailItem label={t("serverFilesDialog.username")}>
+                  <code>{server.id}</code>
+                </DetailItem>
+                <DetailItem label={t("serverFilesDialog.password")}>
+                  {t("serverFilesDialog.yourPersonalAPIToken")}
+                </DetailItem>
+              </DetailsList>
+              <p>
+                <Trans
+                  i18nKey="serverFilesDialog.createATokenFromInYourAccountMenuWithAnd"
+                  t={t}
+                  components={{
+                    strong: <strong>{t("serverFilesDialog.apiKeys")}</strong>,
+                    code: <code>{t("serverFilesDialog.serverView")}</code>,
+                    code2: <code>{t("serverFilesDialog.serverOperate")}</code>,
+                  }}
+                />
+              </p>
+            </div>
+          </details>
+        )
+      }
+      actions={
+        !editor && (
+          <div className="file-toolbar">
+            <Button
+              type="button"
+              variant="primary"
+              disabled={busy || loading || !canWrite || maxUploadBytes === null}
+              onClick={() => uploadInput.current?.click()}
+            >
+              <NavigationIcon name="upload" />
+              {t("serverFilesDialog.uploadFiles")}
+            </Button>
+            <Button
+              disabled={busy || loading || !canWrite}
+              onClick={() => {
+                setCreating("file");
+              }}
+            >
+              <NavigationIcon name="file-plus" />
+              {t("serverFilesDialog.createFile")}
+            </Button>
+            <Button
+              disabled={busy || loading || !canWrite}
+              onClick={() => {
+                setCreating("folder");
+              }}
+            >
+              <NavigationIcon name="folder-plus" />
+              {t("serverFilesDialog.createFolder")}
+            </Button>
+            <input
+              ref={uploadInput}
+              hidden
+              type="file"
+              multiple
+              disabled={busy || loading || !canWrite || maxUploadBytes === null}
+              aria-label={t("serverFilesDialog.uploadFiles")}
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                event.target.value = "";
+                if (files.length)
+                  void perform(async () => {
+                    for (const file of files) {
+                      if (!alive.current) break;
+                      await upload(file);
+                    }
+                  });
+              }}
+            />
+          </div>
+        )
+      }
       busy={busy}
       onClose={close}
       footerLeft={
-        embedded && !editor ? null : (
+        editor ? (
           <Button
             disabled={busy}
             onClick={() => {
-              if (editor) {
-                if (
-                  editor.text !== editor.initial &&
-                  !window.confirm(
-                    i18n.t("serverFilesDialog.discardUnsavedFileChanges"),
-                  )
+              if (
+                editor.text !== editor.initial &&
+                !window.confirm(
+                  i18n.t("serverFilesDialog.discardUnsavedFileChanges"),
                 )
-                  return;
-                setEditor(null);
-                void perform(() => load(directory));
-              } else close();
+              )
+                return;
+              setEditor(null);
+              void perform(() => load(directory));
             }}
           >
-            {editor ? t("serverFilesDialog.backToFiles") : t("common.close")}
+            {t("serverFilesDialog.backToFiles")}
           </Button>
-        )
+        ) : null
       }
       footerRight={
         editor ? (
@@ -413,6 +560,34 @@ export function ServerFilesDialog({
       }
     >
       <div className="drawer-content">
+        {bulkAction && (
+          <InputDialog
+            title={t(
+              bulkAction === "compress"
+                ? "serverFilesDialog.archiveSelected"
+                : "serverFilesDialog.moveSelected",
+            )}
+            label={t(
+              bulkAction === "compress"
+                ? "serverFilesDialog.archiveName"
+                : "serverFilesDialog.destinationFolder",
+            )}
+            description={t(
+              bulkAction === "compress"
+                ? "serverFilesDialog.archiveDescription"
+                : "serverFilesDialog.moveDescription",
+              { count: selectedEntries.length },
+            )}
+            submitLabel={t(
+              bulkAction === "compress"
+                ? "serverFilesDialog.archiveSelected"
+                : "serverFilesDialog.move",
+            )}
+            initialValue={bulkAction === "compress" ? "archive.tar.gz" : "."}
+            onClose={() => setBulkAction(null)}
+            onSubmit={bulkSubmit}
+          />
+        )}
         {fileAction && (
           <InputDialog
             title={
@@ -460,21 +635,10 @@ export function ServerFilesDialog({
         )}
         {deleting && (
           <ConfirmDialog
-            title={
-              deleting.kind === "directory"
-                ? t("serverFilesDialog.deleteFolder")
-                : t("serverFilesDialog.deleteFile")
-            }
-            description={t(
-              "serverFilesDialog.permanentlyDeleteThisCannotBeUndone",
-              {
-                deletingName: deleting.name,
-                deletingKindDirectory:
-                  deleting.kind === "directory"
-                    ? t("serverFilesDialog.theFolderMustBeEmpty")
-                    : "",
-              },
-            )}
+            title={t("serverFilesDialog.deleteSelected")}
+            description={t("serverFilesDialog.deleteSelectedDescription", {
+              count: deleting.length,
+            })}
             confirmLabel={t("common.delete")}
             danger
             busy={busy}
@@ -547,50 +711,21 @@ export function ServerFilesDialog({
           </>
         ) : (
           <>
-            <details className="file-sftp">
-              <summary>{t("serverFilesDialog.sftpAccess")}</summary>
-              <div className="file-sftp-content">
-                <p>
-                  {t(
-                    "serverFilesDialog.connectWithAnSFTPClientUsingTheAddressAndPort",
-                  )}
-                </p>
-                <DetailsList>
-                  <DetailItem label={t("serverFilesDialog.username")}>
-                    <code>{server.id}</code>
-                  </DetailItem>
-                  <DetailItem label={t("serverFilesDialog.password")}>
-                    {t("serverFilesDialog.yourPersonalAPIToken")}
-                  </DetailItem>
-                </DetailsList>
-                <p>
-                  <Trans
-                    i18nKey="serverFilesDialog.createATokenFromInYourAccountMenuWithAnd"
-                    t={t}
-                    components={{
-                      strong: <strong>{t("serverFilesDialog.apiKeys")}</strong>,
-                      code: <code>{t("serverFilesDialog.serverView")}</code>,
-                      code2: (
-                        <code>{t("serverFilesDialog.serverOperate")}</code>
-                      ),
-                    }}
-                  />
-                </p>
-              </div>
-            </details>
             <nav
               className="file-breadcrumbs"
               aria-label={t("serverFilesDialog.fileDirectory")}
             >
               <button
                 className="file-breadcrumb"
+                aria-label={t("serverFilesDialog.root")}
+                title={t("serverFilesDialog.root")}
                 disabled={busy}
                 aria-current={directory === "." ? "location" : undefined}
                 onClick={() => {
                   void perform(() => load("."));
                 }}
               >
-                {t("serverFilesDialog.root")}
+                <NavigationIcon name="folder" />
               </button>
               {directory !== "." &&
                 directory.split("/").map((part, index, parts) => (
@@ -616,201 +751,219 @@ export function ServerFilesDialog({
                   </span>
                 ))}
             </nav>
-            <div className="file-toolbar">
-              <Button
-                disabled={busy || loading || !canWrite}
-                onClick={() => {
-                  setCreating("file");
-                }}
-              >
-                {t("serverFilesDialog.newFile")}
-              </Button>
-              <Button
-                disabled={busy || loading || !canWrite}
-                onClick={() => {
-                  setCreating("folder");
-                }}
-              >
-                {t("serverFilesDialog.newFolder")}
-              </Button>
-              <Button
-                type="button"
-                disabled={
-                  busy || loading || !canWrite || maxUploadBytes === null
-                }
-                onClick={() => uploadInput.current?.click()}
-              >
-                {t("serverFilesDialog.uploadFile")}
-              </Button>
-              <Button
-                className="file-refresh"
-                disabled={busy || loading}
-                onClick={() => {
-                  void perform(() => load(directory));
-                }}
-              >
-                {t("common.refresh")}
-              </Button>
-              <input
-                ref={uploadInput}
-                hidden
-                type="file"
-                disabled={
-                  busy || loading || !canWrite || maxUploadBytes === null
-                }
-                aria-label={t("serverFilesDialog.uploadFile")}
-                onChange={(event) => {
-                  const file = event.target.files?.item(0);
-                  event.target.value = "";
-                  if (file) void perform(() => upload(file));
-                }}
-              />
-            </div>
-            <div className="file-list">
-              {directory !== "." && (
-                <div className="file-row">
-                  <button
-                    type="button"
-                    className="file-name"
-                    aria-label={t("serverFilesDialog.goToParentFolder")}
-                    disabled={busy || loading}
-                    onClick={() => {
-                      const parent = directory
-                        .split("/")
-                        .slice(0, -1)
-                        .join("/");
-                      void perform(() => load(parent || "."));
-                    }}
-                  >
-                    <span className="file-entry-name">../</span>
-                    <span className="file-entry-meta">
-                      {t("serverFilesDialog.parentFolder")}
-                    </span>
-                  </button>
-                </div>
-              )}
-              {loading ? (
-                <ContentState
-                  loading
-                  resource={t("serverFilesDialog.files2")}
-                  compact
-                />
-              ) : entries.length === 0 ? (
-                <ContentState
-                  resource={t("serverFilesDialog.files2")}
-                  emptyMessage={t("serverFilesDialog.thisFolderIsEmpty")}
-                  compact
-                />
-              ) : (
-                entries.map((entry) => (
-                  <div className="file-row" key={entry.name}>
-                    <button
-                      className="file-name"
-                      disabled={busy || entry.kind === "unsupported"}
-                      onClick={() => {
-                        void perform(() => open(entry));
-                      }}
+            <Table className="file-list">
+              <thead>
+                <tr>
+                  <th className="table-fit">
+                    <CheckboxField
+                      checked={
+                        selectable.length > 0 &&
+                        selectedEntries.length === selectable.length
+                      }
+                      disabled={busy || loading || !selectable.length}
+                      onChange={(event) =>
+                        setSelected(
+                          event.target.checked
+                            ? selectable.map((entry) => entry.name)
+                            : [],
+                        )
+                      }
                     >
-                      <span className="file-entry-name">{entry.name}</span>
-                      <span className="file-entry-meta">
-                        {entry.kind === "directory"
-                          ? i18n.t("serverFilesDialog.folder2")
-                          : entry.kind === "unsupported"
-                            ? i18n.t(
-                                "serverFilesDialog.symbolicLinkOrSpecialFile",
-                              )
-                            : `${entry.size.toLocaleString()} bytes`}{" "}
-                        · {new Date(entry.modified_at).toLocaleString()}
+                      <span className="visually-hidden">
+                        {t("serverFilesDialog.selectAll")}
                       </span>
-                    </button>
-                    <ActionGroup>
-                      {entry.kind === "file" && (
-                        <Button
-                          iconOnly
-                          size="small"
-                          title={i18n.t("serverFilesDialog.download")}
-                          disabled={busy || entry.size > fileTransferLimit}
-                          onClick={() => {
-                            void perform(() => download(entry));
-                          }}
-                          aria-label={i18n.t("serverFilesDialog.download2", {
-                            entryName: entry.name,
-                          })}
+                    </CheckboxField>
+                  </th>
+                  <th>{t("common.name")}</th>
+                  <th className="file-size">{t("common.size")}</th>
+                  <th className="table-fit">
+                    {t("serverFilesDialog.modified")}
+                  </th>
+                  <th
+                    className="table-actions"
+                    aria-label={t("common.actions")}
+                  />
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <ContentState
+                        loading
+                        resource={t("serverFilesDialog.files2")}
+                        compact
+                      />
+                    </td>
+                  </tr>
+                ) : entries.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <ContentState
+                        resource={t("serverFilesDialog.files2")}
+                        emptyMessage={t("serverFilesDialog.thisFolderIsEmpty")}
+                        compact
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  entries.map((entry) => (
+                    <TableRow
+                      key={entry.name}
+                      className={
+                        selected.includes(entry.name)
+                          ? "file-selected"
+                          : undefined
+                      }
+                      onOpen={
+                        busy || entry.kind === "unsupported"
+                          ? undefined
+                          : () => {
+                              void perform(() => open(entry));
+                            }
+                      }
+                    >
+                      <td className="table-fit">
+                        <CheckboxField
+                          checked={selected.includes(entry.name)}
+                          disabled={busy || entry.kind === "unsupported"}
+                          onChange={(event) =>
+                            setSelected((current) =>
+                              event.target.checked
+                                ? [...current, entry.name]
+                                : current.filter((name) => name !== entry.name),
+                            )
+                          }
                         >
-                          <NavigationIcon name="download" />
-                        </Button>
-                      )}
-                      {entry.kind !== "unsupported" && (
-                        <Button
-                          iconOnly
-                          size="small"
-                          title={i18n.t("serverFilesDialog.compress2")}
-                          aria-label={i18n.t("serverFilesDialog.compress3", {
-                            entryName: entry.name,
-                          })}
-                          disabled={busy || !canWrite}
-                          onClick={() => {
-                            setFileAction({ kind: "compress", entry });
-                          }}
-                        >
-                          <NavigationIcon name="compress" />
-                        </Button>
-                      )}
-                      {entry.kind === "file" &&
-                        /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
-                          <Button
-                            iconOnly
-                            size="small"
-                            title={i18n.t("serverFilesDialog.extract")}
-                            aria-label={i18n.t("serverFilesDialog.extract2", {
-                              entryName: entry.name,
+                          <span className="visually-hidden">
+                            {t("serverFilesDialog.selectEntry", {
+                              name: entry.name,
                             })}
-                            disabled={busy || !canWrite}
-                            onClick={() => {
-                              setFileAction({ kind: "extract", entry });
-                            }}
-                          >
-                            <NavigationIcon name="extract" />
-                          </Button>
-                        )}
-                      <Button
-                        iconOnly
-                        size="small"
-                        title={i18n.t("serverFilesDialog.rename2")}
-                        disabled={
-                          busy || !canWrite || entry.kind === "unsupported"
-                        }
-                        onClick={() => {
-                          setFileAction({ kind: "rename", entry });
-                        }}
-                        aria-label={i18n.t("serverFilesDialog.rename3", {
-                          entryName: entry.name,
-                        })}
-                      >
-                        <NavigationIcon name="rename" />
-                      </Button>
-                      <Button
-                        variant="danger"
-                        iconOnly
-                        size="small"
-                        title={i18n.t("common.delete")}
-                        disabled={
-                          busy || !canWrite || entry.kind === "unsupported"
-                        }
-                        onClick={() => {
-                          setDeleteError(null);
-                          setDeleting(entry);
-                        }}
-                        aria-label={i18n.t("serverFilesDialog.delete", {
-                          entryName: entry.name,
-                        })}
-                      >
-                        <NavigationIcon name="delete" />
-                      </Button>
-                    </ActionGroup>
-                  </div>
-                ))
-              )}
+                          </span>
+                        </CheckboxField>
+                      </td>
+                      <td>
+                        <button
+                          className="file-name"
+                          disabled={busy || entry.kind === "unsupported"}
+                          onClick={() => {
+                            void perform(() => open(entry));
+                          }}
+                        >
+                          <span className="file-entry-name">{entry.name}</span>
+                          {entry.kind === "unsupported" && (
+                            <span className="file-entry-meta">
+                              {t("serverFilesDialog.symbolicLinkOrSpecialFile")}
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                      <td className="file-size file-entry-meta">
+                        {entry.kind === "file"
+                          ? bytes(entry.size)
+                          : EMPTY_VALUE}
+                      </td>
+                      <td className="table-fit file-entry-meta">
+                        <time dateTime={entry.modified_at}>
+                          {new Date(entry.modified_at).toLocaleString()}
+                        </time>
+                      </td>
+                      <td className="table-actions">
+                        <ActionGroup>
+                          {entry.kind === "file" && (
+                            <Button
+                              iconOnly
+                              size="small"
+                              title={i18n.t("serverFilesDialog.download")}
+                              disabled={busy || entry.size > fileTransferLimit}
+                              onClick={() => {
+                                void perform(() => download(entry));
+                              }}
+                              aria-label={i18n.t(
+                                "serverFilesDialog.download2",
+                                {
+                                  entryName: entry.name,
+                                },
+                              )}
+                            >
+                              <NavigationIcon name="download" />
+                            </Button>
+                          )}
+
+                          {entry.kind === "file" &&
+                            /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
+                              <Button
+                                iconOnly
+                                size="small"
+                                title={i18n.t("serverFilesDialog.extract")}
+                                aria-label={i18n.t(
+                                  "serverFilesDialog.extract2",
+                                  {
+                                    entryName: entry.name,
+                                  },
+                                )}
+                                disabled={busy || !canWrite}
+                                onClick={() => {
+                                  setFileAction({ kind: "extract", entry });
+                                }}
+                              >
+                                <NavigationIcon name="extract" />
+                              </Button>
+                            )}
+                        </ActionGroup>
+                      </td>
+                    </TableRow>
+                  ))
+                )}
+              </tbody>
+            </Table>
+            <div
+              className="file-selection-bar"
+              role="group"
+              aria-label={t("common.actions")}
+            >
+              <span className="file-selection-count">
+                {t("serverFilesDialog.selectedCount", {
+                  count: selectedEntries.length,
+                })}
+              </span>
+              <ActionGroup className="file-bulk-actions">
+                <Button
+                  disabled={busy || !canWrite || selectedEntries.length !== 1}
+                  onClick={() => {
+                    const entry = selectedEntries[0];
+                    if (entry) setFileAction({ kind: "rename", entry });
+                  }}
+                >
+                  <NavigationIcon name="rename" />
+                  {t("serverFilesDialog.rename2")}
+                </Button>
+                <Button
+                  disabled={busy || !canWrite || !selectedEntries.length}
+                  onClick={() => setBulkAction("move")}
+                >
+                  <NavigationIcon name="move" />
+                  {t("serverFilesDialog.move")}
+                </Button>
+                <Button
+                  disabled={busy || !canWrite || !selectedEntries.length}
+                  onClick={() => setBulkAction("compress")}
+                >
+                  <NavigationIcon name="compress" />
+                  {t("serverFilesDialog.archiveSelected")}
+                </Button>
+                <Button
+                  className="file-bulk-delete"
+                  disabled={busy || !canWrite || !selectedEntries.length}
+                  onClick={() => {
+                    setDeleteError(null);
+                    setDeleting(selectedEntries);
+                  }}
+                >
+                  <NavigationIcon name="delete" />
+                  {t("common.delete")}
+                </Button>
+              </ActionGroup>
             </div>
           </>
         )}

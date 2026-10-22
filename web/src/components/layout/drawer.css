@@ -21,6 +21,9 @@
   flex-direction: column;
   min-height: 100%;
 }
+.drawer-leading {
+  padding-inline: 24px;
+}
 .drawer-heading {
   display: flex;
   align-items: flex-start;
@@ -128,23 +131,34 @@
 
 .drawer-panel {
   min-height: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+
+  & .drawer-leading {
+    padding-inline: 20px;
+  }
 
   & .drawer-heading {
-    padding: 16px 20px;
+    padding: 16px 20px 8px;
+    border-bottom: 0;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  & .drawer-actions {
+    padding: 0;
+    border-bottom: 0;
+    margin-inline-start: auto;
   }
 
   & .drawer-heading h2 {
-    font-size: 16px;
+    font-size: 22px;
   }
 
   & .drawer-content {
-    padding: 16px 20px;
+    padding: 8px 20px 16px;
   }
 
   & .drawer-footer {
     position: static;
+    background: transparent;
   }
 }

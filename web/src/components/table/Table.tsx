@@ -68,7 +68,7 @@ export function TableRow({
         if (
           event.target instanceof Element &&
           event.target.closest(
-            "a, button, input, select, textarea, summary, details, [role=button]",
+            "a, button, input, label, select, textarea, summary, details, [role=button]",
           )
         )
           return;
