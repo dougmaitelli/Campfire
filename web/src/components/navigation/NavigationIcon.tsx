@@ -24,6 +24,7 @@ type NavigationIconName =
   | "folder"
   | "upload"
   | "file-plus"
+  | "file"
   | "folder-plus"
   | "move"
   | "send"
@@ -40,6 +41,7 @@ const paths: Record<NavigationIconName, string> = {
   "file-plus": "M14 2H4v20h16V8l-6-6Z M14 2v6h6 M8 15h8 M12 11v8",
   "folder-plus": "M3 7V4h6l2 3h10v13H3V7Z M8 14h8 M12 10v8",
   folder: "M3 7V4h6l2 3h10v13H3V7Z",
+  file: "M14 2H4v20h16V8l-6-6Z M14 2v6h6",
   restart: "M21 12a9 9 0 1 1-2.64-6.36L21 8 M21 3v5h-5",
   kill: "M3 3h18v18H3V3Z M8 8l8 8 M16 8l-8 8",
   send: "m3 3 19 9-19 9 4-9-4-9Z",

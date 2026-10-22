@@ -151,13 +151,27 @@
   }
 }
 .file-list {
+  & .file-icon-cell {
+    width: 1%;
+    padding-inline-end: 0;
+  }
+
+  & .file-name-column {
+    padding-inline-start: 12px;
+  }
+
+  & .button-icon {
+    --button-icon-size: 28px;
+    border-radius: 4px;
+  }
+
   & .file-size {
     width: 20%;
     white-space: nowrap;
   }
 
   & td {
-    padding-block: 2px;
+    padding-block: 4px;
   }
 }
 .file-name {
@@ -175,6 +189,18 @@
   cursor: pointer;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.file-entry-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+
+  & svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+.file-entry-folder {
+  color: var(--accent);
 }
 .file-entry-name {
   min-width: 0;

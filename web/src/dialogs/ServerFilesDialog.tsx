@@ -774,7 +774,8 @@ export function ServerFilesDialog({
                       </span>
                     </CheckboxField>
                   </th>
-                  <th>{t("common.name")}</th>
+                  <th className="file-icon-cell" />
+                  <th className="file-name-column">{t("common.name")}</th>
                   <th className="file-size">{t("common.size")}</th>
                   <th className="table-fit">
                     {t("serverFilesDialog.modified")}
@@ -788,7 +789,7 @@ export function ServerFilesDialog({
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <ContentState
                         loading
                         resource={t("serverFilesDialog.files2")}
@@ -798,7 +799,7 @@ export function ServerFilesDialog({
                   </tr>
                 ) : entries.length === 0 ? (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <ContentState
                         resource={t("serverFilesDialog.files2")}
                         emptyMessage={t("serverFilesDialog.thisFolderIsEmpty")}
@@ -842,7 +843,22 @@ export function ServerFilesDialog({
                           </span>
                         </CheckboxField>
                       </td>
-                      <td>
+                      <td className="file-icon-cell">
+                        <span
+                          className={`file-entry-icon${entry.kind === "directory" ? " file-entry-folder" : ""}`}
+                        >
+                          <NavigationIcon
+                            name={
+                              entry.kind === "directory"
+                                ? "folder"
+                                : entry.kind === "file"
+                                  ? "file"
+                                  : "link"
+                            }
+                          />
+                        </span>
+                      </td>
+                      <td className="file-name-column">
                         <button
                           className="file-name"
                           disabled={busy || entry.kind === "unsupported"}
