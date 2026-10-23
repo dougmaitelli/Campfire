@@ -1,6 +1,6 @@
 services:
   campfire:
-    image: ${CAMPFIRE_IMAGE:?Set CAMPFIRE_IMAGE to the version published by GitHub CI}
+    image: ghcr.io/dougmaitelli/campfire:${CAMPFIRE_VERSION:-latest}
     restart: unless-stopped
     environment:
       CAMPFIRE_DATABASE: ${CAMPFIRE_DATABASE:-/var/lib/campfire/panel.db}

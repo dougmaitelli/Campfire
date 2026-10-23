@@ -31,6 +31,7 @@ try {
   }
 
   await cp(join(root, "deploy"), join(stage, "deploy"), { recursive: true });
+  await cp(join(root, "docs"), join(stage, "docs"), { recursive: true });
   await cp(
     join(root, "config", "campfire.env.example"),
     join(stage, "campfire.env.example"),
@@ -39,7 +40,7 @@ try {
     join(root, "config", "spark.env.example"),
     join(stage, "spark.env.example"),
   );
-  await cp(join(root, "deploy", "INSTALL.txt"), join(stage, "INSTALL.txt"));
+  await cp(join(root, "README.md"), join(stage, "README.md"));
   await cp(
     join(root, "backend/internal/spark/runtime/seccomp/LICENSE"),
     join(stage, "SPARK-SECCOMP-LICENSE.txt"),
