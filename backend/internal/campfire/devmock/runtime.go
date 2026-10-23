@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 
@@ -50,29 +51,7 @@ func timestampLog(content string) string {
 	return prefix + strings.ReplaceAll(strings.TrimSuffix(content, "\n"), "\n", "\n"+prefix) + "\n"
 }
 
-func mockFiles() map[string]string {
-	return map[string]string{
-		"server.properties":            "motd=Campfire mock server\nserver-port=25565\nmax-players=20\n",
-		"eula.txt":                     "# Simulated fixture; no Minecraft software is running.\neula=false\n",
-		"whitelist.json":               "[]\n",
-		"ops.json":                     "[]\n",
-		"config/":                      "",
-		"config/fabric/":               "",
-		"config/fabric/settings.json":  "{\n  \"debug\": false,\n  \"maxViewDistance\": 12\n}\n",
-		"config/permissions.json":      "{\n  \"defaultRole\": \"player\"\n}\n",
-		"logs/":                        "",
-		"logs/latest.log":              "[12:00:00] [Server thread/INFO]: Starting mock Minecraft server\n[12:00:01] [Server thread/INFO]: Done! For help, type help\n",
-		"mods/":                        "",
-		"mods/README.txt":              "Place Fabric mod JARs here. This mock server does not execute them.\n",
-		"world/":                       "",
-		"world/datapacks/":             "",
-		"world/datapacks/README.txt":   "Place world datapacks here.\n",
-		"world/playerdata/":            "",
-		"world/stats/":                 "",
-		"world/stats/mock-player.json": "{\n  \"stats\": {\"minecraft:custom\": {\"minecraft:play_time\": 72000}},\n  \"DataVersion\": 4189\n}\n",
-		"crash-reports/":               "",
-	}
-}
+func mockFiles() map[string]string { return devfixture.Files() }
 
 // Connected makes the dedicated offline fixture unavailable; newly created Sparks are simulated online.
 func (r *Runtime) Connected(id string) bool { return id != "mock-offline" }

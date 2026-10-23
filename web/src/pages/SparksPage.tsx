@@ -19,7 +19,6 @@ import {
 } from "../api/sparks";
 import { useSparks } from "../hooks/useSparks";
 import { useMonitoring } from "../hooks/useMonitoring";
-import "./sparks.css";
 
 import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 import { useResourceSelection } from "../routing/useResourceSelection";

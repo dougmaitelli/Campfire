@@ -12,10 +12,10 @@
     "build": "pnpm run typecheck && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config eslint.config.mjs web/src web/vite.config.ts scripts eslint.config.mjs web/eslint.config.mjs --max-warnings 0",
-    "format": "node node_modules/prettier/bin/prettier.cjs --write src ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html",
-    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build"
+    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config eslint.config.mjs web/src e2e web/vite.config.ts scripts eslint.config.mjs web/eslint.config.mjs --max-warnings 0",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write src ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
+    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm --dir ../e2e run typecheck:e2e && pnpm run build"
   },
   "dependencies": {
     "@radix-ui/react-select": "2.4.1",

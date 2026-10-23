@@ -3,21 +3,14 @@
 package devmock
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"maps"
-	"math/rand/v2"
-	"sort"
-	"strings"
 	"time"
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -33,44 +26,7 @@ type backupRecord struct {
 func (backupRecord) TableName() string { return "mock_backups" }
 
 func backupArchive(record backupRecord) ([]byte, error) {
-	var buffer bytes.Buffer
-
-	zipped := gzip.NewWriter(&buffer)
-	archive := tar.NewWriter(zipped)
-	names := make([]string, 0, len(record.Files))
-
-	for name := range record.Files {
-		names = append(names, name)
-	}
-
-	sort.Strings(names)
-
-	for _, name := range names {
-		content := record.Files[name]
-		header := &tar.Header{Name: name, Mode: 0600, Size: int64(len(content)), ModTime: record.CreatedAt}
-
-		if strings.HasSuffix(name, "/") {
-			header.Typeflag, header.Mode, header.Size = tar.TypeDir, 0700, 0
-		}
-
-		if err := archive.WriteHeader(header); err != nil {
-			return nil, err
-		}
-
-		if _, err := archive.Write([]byte(content)); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := archive.Close(); err != nil {
-		return nil, err
-	}
-
-	if err := zipped.Close(); err != nil {
-		return nil, err
-	}
-
-	return buffer.Bytes(), nil
+	return devfixture.Archive(record.Files, record.CreatedAt)
 }
 
 func seedBackupFixtures(ctx context.Context, db *gorm.DB) error {
@@ -94,8 +50,10 @@ func seedBackupFixtures(ctx context.Context, db *gorm.DB) error {
 				continue
 			}
 
-			for index, name := range []string{"mock-nightly.tar.gz", "mock-before-update.tar.gz"} {
-				backup := backupRecord{ServerID: record.ServerID, Name: name, Files: maps.Clone(record.Files), CreatedAt: time.Now().UTC().Add(-time.Duration(index+1) * 24 * time.Hour)}
+			for _, entry := range devfixture.Backups(time.Now().UTC()) {
+				name := entry.Name
+
+				backup := backupRecord{ServerID: record.ServerID, Name: name, Files: maps.Clone(record.Files), CreatedAt: entry.ModifiedAt}
 				if err := tx.Create(&backup).Error; err != nil {
 					return err
 				}
@@ -132,17 +90,7 @@ func upgradeBackupSizes(ctx context.Context, db *gorm.DB) error {
 		}
 
 		for _, backup := range backups {
-			seed := sha256.Sum256([]byte(backup.ServerID + backup.Name))
-			size := 128*1024 + int(seed[0])*1024
-
-			if backup.Name == "mock-before-update.tar.gz" {
-				size += 512 * 1024
-			}
-
-			data := make([]byte, size)
-			_, _ = rand.NewChaCha8(seed).Read(data)
-			backup.Files["world/"] = ""
-			backup.Files["world/mock-snapshot-data.txt"] = base64.StdEncoding.EncodeToString(data)
+			backup.Files = devfixture.BackupFiles(backup.Files, backup.ServerID, backup.Name)
 
 			if err := tx.Save(&backup).Error; err != nil {
 				return err

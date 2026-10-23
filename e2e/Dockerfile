@@ -1,0 +1,13 @@
+ARG PLAYWRIGHT_VERSION
+FROM golang:1.27-bookworm AS go
+FROM node:26-bookworm-slim AS node
+FROM mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble
+COPY --from=go /usr/local/go /usr/local/go
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+ENV PATH="/usr/local/go/bin:${PATH}"
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install --global pnpm@11.28.5
+WORKDIR /work/e2e
+ENV CI=true

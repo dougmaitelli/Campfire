@@ -20,6 +20,7 @@ dependencies-backend:
 
 dependencies-frontend:
 	pnpm --dir web install --frozen-lockfile
+	pnpm --dir e2e install --frozen-lockfile
 
 build: build-campfire build-spark
 
@@ -51,6 +52,7 @@ test-postgres:
 # Check frontend types and installation command behavior.
 test-frontend:
 	pnpm --dir web run typecheck
+	pnpm --dir e2e run typecheck:e2e
 	node --test scripts/test-spark-installer.mjs scripts/test-api-client.mjs scripts/test-operation-message.mjs scripts/test-console-stream.mjs scripts/test-resource-links.mjs scripts/test-i18n.mjs
 
 format: format-backend format-frontend
@@ -98,3 +100,16 @@ dev-ui:
 
 preview:
 	pnpm --dir web run preview
+
+.PHONY: test-e2e test-e2e-docker screenshots screenshots-docker
+test-e2e:
+	pnpm --dir e2e run test:e2e
+
+test-e2e-docker:
+	sh e2e/scripts/docker.sh
+
+screenshots:
+	pnpm --dir e2e run screenshots
+
+screenshots-docker:
+	sh e2e/scripts/docker.sh --update-snapshots

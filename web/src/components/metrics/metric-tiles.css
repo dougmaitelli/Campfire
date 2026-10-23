@@ -1,7 +1,7 @@
 .metric-tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
-  gap: 32px;
+  gap: 24px;
   margin-bottom: 8px;
   overflow: hidden;
 
@@ -13,7 +13,26 @@
     content: "";
     position: absolute;
     inset-block: 0;
-    inset-inline-start: -16px;
+    inset-inline-start: -12px;
     border-inline-start: 1px solid var(--border);
+  }
+
+  & > .usage-reading-icon {
+    --resource-allocation-font-size: 14px;
+    grid-template-columns: 30px max-content minmax(0, 1fr);
+    column-gap: 12px;
+
+    & .usage-icon svg {
+      width: 30px;
+      height: 30px;
+    }
+
+    & .usage-value {
+      font-size: 18px;
+    }
+
+    & .resource-allocation {
+      margin-inline-start: 8px;
+    }
   }
 }

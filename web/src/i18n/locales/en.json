@@ -592,7 +592,7 @@
     "executions": "executions",
     "finished": "Finished",
     "inactive": "Inactive",
-    "includesManualServerOperationsInterruptedWorkMayAlreadyHaveExecuted": "Includes manual server operations. Interrupted work may already have executed; inspect the server before retrying.",
+    "scheduleHistoryDescription": "Runs of your one-off and recurring schedules. Interrupted work may already have executed; inspect the server before retrying.",
     "loadOlderExecutions": "Load older executions",
     "manual": "Manual",
     "nameServer": "Name / server",

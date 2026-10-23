@@ -9,7 +9,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	"campfire/internal/campfire/recurrence"
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 
@@ -122,120 +122,29 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 }
 
 func seed(ctx context.Context, tx *gorm.DB) error {
-	if err := tx.Model(&database.User{}).Where("id = ?", 1).Update("name", "Developer").Error; err != nil {
+	now := time.Now().UTC()
+
+	fixtures, err := devfixture.Seed(ctx, tx, now)
+	if err != nil {
 		return err
 	}
 
-	var admin database.User
-	if err := tx.First(&admin, 1).Error; err != nil {
+	ember, err := repository.NewEmberRepository(tx).Get(ctx, "mock-minecraft")
+	if err != nil {
 		return err
 	}
 
-	for _, account := range []struct {
-		username, name string
-		role           int64
-		disabled       bool
-	}{
-		{"alex", "Alex Rivera", database.CreatorRole, false},
-		{"sam", "Sam Chen", database.CreatorRole, false},
-		{"jordan", "Jordan Patel", database.UserRole, false},
-		{"morgan", "Morgan Lee", database.UserRole, false},
-		{"casey", "", database.UserRole, false},
-		{"taylor", "Taylor Brooks", database.UserRole, true},
-	} {
-		// All disposable mock accounts use the documented development password.
-		user := database.User{Username: account.username, Name: account.name, Email: account.username + "@example.test", PasswordHash: admin.PasswordHash, CredentialVersion: 1, RoleID: account.role, Disabled: account.disabled}
-		if account.username == "sam" {
-			user.OIDCNameManaged, user.OIDCEmailManaged = true, true
-		}
+	for i, fixture := range fixtures {
+		record := newRecord(fixture.SparkID, model.Deployment{ServerID: fixture.ID, Configuration: fixture.ServerConfiguration, Ember: ember})
+		record.State = fixture.State
+		record.Logs = devfixture.ConsoleLogs
 
-		if err := tx.Create(&user).Error; err != nil {
-			return err
-		}
-
-		if account.username == "sam" {
-			if err := tx.Create(&database.OIDCIdentity{Issuer: "https://identity.example.test", Subject: "mock-sam", UserID: user.ID}).Error; err != nil {
-				return err
-			}
-		}
-	}
-
-	sparks := repository.NewSparkRepository(tx)
-
-	for _, node := range []struct{ id, name, description string }{
-		{"mock-europe", "Europe · Mock", "Simulated online node for local development."},
-		{"mock-america", "America · Mock", "Simulated online node with a second running server."},
-		{"mock-offline", "Offline · Mock", "Always disconnected, for unavailable-state testing."},
-	} {
-		input := model.Spark{ID: node.id, Name: node.name, Description: node.description, CreatedAt: time.Now().UTC(), SparkSettings: model.SparkSettings{
-			GameAddress: "127.0.0.1", CPULimit: 16, MemoryMB: 32768, DiskMB: 409600,
-			PortAllocations: []model.PortAllocation{{BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: "tcp"}, {BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: "udp"}},
-		}}
-		if err := sparks.Create(ctx, input); err != nil {
-			return err
-		}
-	}
-
-	ember := model.Ember{Schema: 1, ID: "mock-minecraft", Name: "Minecraft · Mock", Description: "Development fixture. No image is pulled and no game process runs.", ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp", Description: "Main"}}}
-	ember.Variables = mockMinecraftVariables()
-	embers := service.NewEmberService(repository.NewEmberRepository(tx))
-
-	if err := repository.NewEmberRepository(tx).Create(ctx, ember); err != nil {
-		return err
-	}
-
-	servers := service.NewServerService(repository.NewServerRepository(tx), embers)
-
-	for index, fixture := range []struct{ name, node, state string }{
-		{"Survival · Mock", "mock-europe", "running"},
-		{"Creative · Mock", "mock-europe", "stopped"},
-		{"Modded · Mock", "mock-america", "running"},
-		{"Unavailable · Mock", "mock-offline", "stopped"},
-	} {
-		configuration := model.ServerConfiguration{Name: fixture.name, Description: "Simulated server. Actions and file edits affect only this mock database.", SparkID: fixture.node, EmberID: ember.ID, Image: ember.Images["Java 21"], Variables: map[string]string{}, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480, Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565 + index, ContainerPort: 25565, Protocol: "tcp"}}}
-
-		server, err := servers.CreateOwned(ctx, configuration, 1)
-		if err != nil {
-			return err
-		}
-
-		record := newRecord(fixture.node, model.Deployment{ServerID: server.ID, Configuration: configuration, Ember: ember})
-		record.State = fixture.state
-		record.StartedAt = time.Now().Add(-time.Duration(index+1) * 24 * time.Hour).Unix()
-
-		if fixture.state == "stopped" {
-			record.StoppedAt = time.Now().Add(-2 * time.Hour).Unix()
-		}
-
-		if fixture.state == "running" {
-			record.Logs += timestampLog("[Server] Done! Mock server ready for commands.\n")
+		record.StartedAt = now.Add(-time.Duration(i+1) * 24 * time.Hour).Unix()
+		if fixture.State == "stopped" {
+			record.StoppedAt = now.Add(-2 * time.Hour).Unix()
 		}
 
 		if err := tx.Create(&record).Error; err != nil {
-			return err
-		}
-
-		if index == 0 {
-			next, err := recurrence.Next("0 3 * * *", "UTC", time.Now(), 1)
-			if err != nil {
-				return err
-			}
-
-			schedule := database.Schedule{ID: "mock-restart", ServerID: server.ID, Name: "Daily restart · Mock", Action: "restart", CronExpression: "0 3 * * *", TimeZone: "UTC", OnlyWhenRunning: true, NextRunAt: next[0], Enabled: true, RunAsUserID: 1, Username: Username}
-			if err := tx.Omit("Server").Create(&schedule).Error; err != nil {
-				return err
-			}
-		}
-	}
-
-	inbox := repository.NewNotificationRepository(tx)
-
-	for _, item := range []database.Notification{
-		{TargetType: "account", TargetID: "1", Kind: "test", Severity: "info", Title: "Welcome to mock mode", Body: "Sparks, metrics and game processes are simulated. Your production infrastructure is not connected."},
-		{TargetType: "spark", TargetID: "mock-offline", Kind: "health", Severity: "warning", Title: "Offline Spark · Mock", Body: "This fixture stays offline so you can develop unavailable and recovery views."},
-	} {
-		item.CreatedAt = time.Now().Unix()
-		if err := inbox.Emit(ctx, &item, false); err != nil {
 			return err
 		}
 	}

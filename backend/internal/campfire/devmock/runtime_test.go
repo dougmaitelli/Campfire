@@ -44,7 +44,9 @@ func onlineServer(t *testing.T, runtime *Runtime, servers []model.Server) model.
 	t.Helper()
 
 	for _, server := range servers {
-		if !runtime.Connected(server.SparkID) {
+		// Lifecycle and file-quota tests need the quota-capable Europe node;
+		// America deliberately simulates a node without hard quota support.
+		if server.SparkID != "mock-europe" || !runtime.Connected(server.SparkID) {
 			continue
 		}
 
@@ -95,8 +97,8 @@ func TestSeedAuthenticationAndPersistence(t *testing.T) {
 		model any
 		count int64
 	}{
-		{&database.User{}, 7}, {&database.Server{}, 5}, {&database.Spark{}, 3},
-		{&database.Ember{}, 2}, {&database.Schedule{}, 1}, {&database.Notification{}, 2},
+		{&database.User{}, 8}, {&database.Server{}, 5}, {&database.Spark{}, 3},
+		{&database.Ember{}, 2}, {&database.Schedule{}, 1}, {&database.Notification{}, 3},
 	} {
 		var count int64
 		if err := db.ORM().Model(record.model).Count(&count).Error; err != nil || count != record.count {

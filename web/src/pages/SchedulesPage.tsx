@@ -356,9 +356,7 @@ export function SchedulesPage() {
       </ContentPanel>
       <h2>{t("schedulesPage.executionHistory")}</h2>
       <p className="field-help">
-        {t(
-          "schedulesPage.includesManualServerOperationsInterruptedWorkMayAlreadyHaveExecuted",
-        )}
+        {t("schedulesPage.scheduleHistoryDescription")}
       </p>
       <ContentPanel>
         <Table

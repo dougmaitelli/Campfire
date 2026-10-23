@@ -35,7 +35,19 @@ export default tseslint.config(
   },
   {
     basePath,
-    files: ["scripts/**/*.mjs", "eslint.config.mjs", "web/eslint.config.mjs"],
+    files: ["e2e/**/*.ts"],
+    extends: [eslint.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    rules: { "@typescript-eslint/consistent-type-imports": "error" },
+  },
+  {
+    basePath,
+    files: [
+      "scripts/**/*.mjs",
+      "e2e/scripts/**/*.mjs",
+      "eslint.config.mjs",
+      "web/eslint.config.mjs",
+    ],
     extends: [eslint.configs.recommended],
     languageOptions: {
       globals: globals.node,

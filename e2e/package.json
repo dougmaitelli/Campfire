@@ -1,0 +1,20 @@
+{
+  "name": "campfire-browser-tests",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.28.5",
+  "scripts": {
+    "typecheck:e2e": "tsc -p tsconfig.json",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "test:e2e:docker": "sh scripts/docker.sh",
+    "screenshots": "playwright test --update-snapshots",
+    "screenshots:docker": "sh scripts/docker.sh --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "26.6.5",
+    "typescript": "6.0.3"
+  }
+}
