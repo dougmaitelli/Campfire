@@ -1,0 +1,180 @@
+# Game integrations implementation plan
+
+Status: stage 1 implemented; stages 2–7 proposed. See
+[the transport documentation](game-integrations.md) for current functionality.
+
+## Objective and scope
+
+Allow game mods, plugins, and adapters to publish current game state and events to
+Campfire through Spark. Use the same information in the dashboard and external
+destinations such as Discord.
+
+- Games publish to Spark locally. Spark forwards data over its existing
+  authenticated connection to Campfire.
+- Local publishers must be bound to their own server. They never receive Spark's
+  Campfire credentials.
+- Keep only the latest game state. Do not add state history or charts.
+- Do not include tick rate in the initial scope.
+- Display fields only when the game integration supplies them. Maps, game modes,
+  matches, and similar concepts are optional.
+- Retain event history separately from current state.
+- Keep Discord credentials and routing configuration in Campfire.
+- Accept media produced by game tooling; capture and recording depend on the game.
+
+```text
+Game mod or adapter
+        |
+        | Local endpoint
+        v
+      Spark
+        |
+        | Existing authenticated connection
+        v
+     Campfire
+        |-- Current state --> Dashboard
+        |-- Events --------> Event history and activity feed
+        `-- Routing -------> Discord and future destinations
+```
+
+## Stage 1: Local ingestion and transport
+
+Implemented with per-server Unix sockets, isolated read-only container mounts,
+optional capability negotiation, bounded publications, and panel acknowledgements.
+No state projection, event persistence, or external delivery is included yet.
+
+Establish the path from a game server to Campfire.
+
+- Expose an opt-in Spark endpoint reachable from the game container.
+- Bind each publisher to its server through an isolated socket mount. No separate
+  game-to-Spark credential is needed, and publishers cannot supply their server ID.
+- Extend the Spark protocol with an optional game-integration capability.
+- Define versioned messages for state snapshots and events.
+- Apply payload limits, rate limits, and validation at Spark.
+- Provide a small example publisher for development.
+- Make state snapshots replace the previous snapshot so omitted fields disappear.
+- Give events unique IDs for deduplication.
+
+Completion criteria: an example publisher sends state and an event through Spark,
+and Campfire attributes both to the correct server. Sparks without the capability
+continue working.
+
+## Stage 2: Current state in the dashboard
+
+Expose useful game information without historical storage.
+
+- Store only the latest state per server.
+- Include optional standard fields such as player count and capacity.
+- Support optional map, game mode, and other bounded, typed fields.
+- Display only supplied fields. Games without maps or matches show neither.
+- Show the last update time and mark state stale after a defined timeout.
+- Invalidate state when the game stops or restarts.
+- Keep runtime status and game-data freshness separate.
+- Do not create charts or state history.
+
+For example, one server might show `8 / 20 players · Survival`, while another
+shows only `3 players`.
+
+Completion criteria: dashboard details reflect incoming snapshots, removed fields
+disappear, and stale or stopped servers no longer present old values as current.
+
+## Stage 3: Events and event history
+
+Add durable game activity independently of current state.
+
+- Define an event envelope containing an ID, type, timestamp, title, structured
+  data, and source.
+- Offer optional standard types such as player joined, player left, and
+  announcement.
+- Allow namespaced game-specific types such as `minecraft.advancement`.
+- Persist events with configurable retention and bounded storage.
+- Add a server activity feed with basic filtering.
+- Deduplicate retried events.
+- Define a bounded Spark queue and explicit behavior while Campfire is disconnected.
+- Support matches, rounds, and achievements only where an integration emits them.
+
+Completion criteria: events survive a Campfire restart, retries do not create
+duplicate entries, and retention works.
+
+## Stage 4: First real game integration
+
+Validate the contract with one game before expanding it.
+
+- Select a game actually hosted by the project users.
+- Build a mod, plugin, or adapter that publishes available player information and
+  selected events.
+- Supply optional fields appropriate to that game.
+- Document installation, socket discovery, mount isolation, and reconnection.
+- Adjust the shared contract based on real integration experience.
+
+Completion criteria: a real hosted game updates the dashboard and event feed
+through Spark without direct access to Campfire.
+
+## Stage 5: Discord publishing
+
+Introduce external destinations and routing.
+
+- Configure Discord destinations in Campfire and keep credentials there.
+- Route selected event types from selected servers to a destination.
+- Provide message templates and a test-delivery action.
+- Optionally maintain one status message per server using its latest available
+  state.
+- Throttle status updates and mark stale data appropriately.
+- Queue event deliveries with bounded retries and visible failures.
+- Disable unsolicited mentions by default.
+- Retain the existing Apprise path for general operational notifications; share
+  delivery infrastructure where practical.
+
+Example rules:
+
+| Trigger                            | Action                                             |
+| ---------------------------------- | -------------------------------------------------- |
+| First player joins an empty server | Announce that the server is active                 |
+| Player count changes               | Update a persistent status message with throttling |
+| Match ends, where supported        | Post the result                                    |
+| Game emits an announcement         | Publish it to the configured channel               |
+| Game data becomes stale            | Mark the status message's game data unavailable    |
+
+Completion criteria: game events produce Discord messages, and an optional status
+message reflects current player information without channel spam.
+
+## Stage 6: Screenshots and clips
+
+Extend events with media attachments.
+
+- Accept media supplied by a mod, adapter, spectator client, or recording tool.
+- Transfer media through a bounded upload path via Spark, avoiding large payloads
+  on the control connection.
+- Associate attachments with retained events.
+- Apply size limits, storage quotas, and retention.
+- Publish Discord attachments or links as appropriate.
+- Show media in the dashboard event feed.
+
+This stage handles media delivery. A headless game server may require separate
+client or recording tooling to produce screenshots and clips.
+
+Completion criteria: a real integration submits an image or clip that appears in
+its event and reaches Discord.
+
+## Stage 7: Interactive Discord features (optional)
+
+- Add `/status` and `/players` using the existing current-state model.
+- Treat server controls and bidirectional chat as separate follow-up work.
+- Define explicit permissions and account mapping before enabling administrative
+  actions.
+
+Completion criteria: authorized Discord users can query available server state,
+and unavailable or stale fields are represented accurately.
+
+## Suggested implementation increments
+
+1. Stages 1 and 2: transport and current-state dashboard support.
+2. Stage 3: event history.
+3. Stage 4: one real game integration.
+4. Stage 5: Discord publishing.
+5. Stage 6: media delivery.
+6. Stage 7: optional interactive Discord features.
+
+Stage 1 uses Unix sockets and per-container mount isolation for local identity.
+Choose the freshness timeout when implementing current-state display, queue limits
+and retention defaults when implementing events, and media transfer and storage
+details when implementing attachments.

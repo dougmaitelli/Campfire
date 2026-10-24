@@ -28,6 +28,7 @@ type ConfigurationStore struct {
 	NegotiatedProtocol int
 	Directory          string
 	mu                 sync.Mutex
+	games              *gameIntegrations
 	Runtime            interface {
 		Execute(context.Context, model.Deployment, model.RuntimeRequest) (model.RuntimeStatus, error)
 		Files(context.Context, model.Deployment, model.FileRequest) (model.FileResult, error)
@@ -36,6 +37,10 @@ type ConfigurationStore struct {
 
 func (s *ConfigurationStore) capabilities() []string {
 	offered := protocol.SupportedCapabilities()
+	if s.games == nil {
+		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityGameIntegration })
+	}
+
 	if host, ok := s.Runtime.(interface{ DiskQuotaSupported() bool }); !ok || !host.DiskQuotaSupported() {
 		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityDiskQuota })
 	}

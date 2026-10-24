@@ -58,13 +58,14 @@ type peer struct {
 
 // Hub owns live remote-agent connections; connection state is never persisted.
 type Hub struct {
-	store     EnrollmentStore
-	authority *Authority
-	mu        sync.RWMutex
-	peers     map[string]*peer
-	closed    bool
-	publicURL string
-	serverCA  func() []byte
+	store       EnrollmentStore
+	authority   *Authority
+	mu          sync.RWMutex
+	peers       map[string]*peer
+	closed      bool
+	publicURL   string
+	serverCA    func() []byte
+	receiveGame func(context.Context, string, protocol.GameFrame) error
 }
 
 // NewHub creates an agent connection manager.
@@ -311,6 +312,10 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 
 		switch message.Type {
 		case "heartbeat":
+		case "game.publish":
+			if h.gameFrame(ctx, id, current, message.Game) != nil {
+				return
+			}
 		case "console":
 			if protocol.Require(capabilities, protocol.CapabilityConsole) != nil || !current.consoleFrame(message.Console) {
 				return

@@ -112,6 +112,17 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	hub := agents.NewHub(store, authority)
+	publications := make(chan protocol.GameFrame, 4)
+
+	hub.WithGameIntegrations(func(_ context.Context, sparkID string, frame protocol.GameFrame) error {
+		if sparkID != node.ID || frame.ServerID != "game-bridge" {
+			return errors.New("incorrect publication placement")
+		}
+
+		publications <- frame
+
+		return nil
+	})
 	t.Cleanup(hub.Close)
 
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -164,8 +175,15 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	runCtx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
 
-	agentDir := filepath.Join(dir, "agent")
-	agentConfig := Config{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, dialContext: listener.dial}
+	// Unix socket paths are bounded by the OS; use a short private fixture root.
+	agentDir, err := os.MkdirTemp("", "cf-game-")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = os.RemoveAll(agentDir) })
+
+	agentConfig := Config{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, GameIntegrations: true, dialContext: listener.dial}
 	bootstrap := agentConfig
 	bootstrap.EnrollOnly = true
 
@@ -212,6 +230,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	testWireCommands(t, hub, node.ID, agentDir)
+	testWireGameIntegration(t, hub, node.ID, agentDir, publications)
 	testWireRuntime(t, hub, node.ID)
 	testWireTransfers(t, hub, node.ID)
 	testWireConsole(t, hub, node.ID, wire)

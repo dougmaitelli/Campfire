@@ -32,25 +32,26 @@ func CommandTimeout(command Command) time.Duration {
 
 // Capability names version the behavior of individual features independently.
 const (
-	CapabilityConfigure    = "server.configure.v1"
-	CapabilityLifecycle    = "server.lifecycle.v1"
-	CapabilityFiles        = "server.files.v1"
-	CapabilityFileTransfer = "server.files.transfer.v1"
-	CapabilityFileArchive  = "server.files.archive.v1"
-	CapabilityBackups      = "server.backups.v1"
-	CapabilityBackupRemote = "server.backups.remote.v1"
-	CapabilityMetrics      = "server.metrics.v1"
-	CapabilityConsole      = "server.console.stream.v1"
-	CapabilityDiskQuota    = "server.disk-quota.v1"
-	CapabilityTransfer     = "server.transfer.v1"
-	CapabilityReinstall    = "server.reinstall.v1"
-	CapabilitySelfUpdate   = "spark.self-update.v1"
-	CapabilityPrune        = "spark.prune.v1"
+	CapabilityConfigure       = "server.configure.v1"
+	CapabilityLifecycle       = "server.lifecycle.v1"
+	CapabilityFiles           = "server.files.v1"
+	CapabilityFileTransfer    = "server.files.transfer.v1"
+	CapabilityFileArchive     = "server.files.archive.v1"
+	CapabilityBackups         = "server.backups.v1"
+	CapabilityBackupRemote    = "server.backups.remote.v1"
+	CapabilityMetrics         = "server.metrics.v1"
+	CapabilityConsole         = "server.console.stream.v1"
+	CapabilityDiskQuota       = "server.disk-quota.v1"
+	CapabilityTransfer        = "server.transfer.v1"
+	CapabilityReinstall       = "server.reinstall.v1"
+	CapabilitySelfUpdate      = "spark.self-update.v1"
+	CapabilityPrune           = "spark.prune.v1"
+	CapabilityGameIntegration = "server.game-integration.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.

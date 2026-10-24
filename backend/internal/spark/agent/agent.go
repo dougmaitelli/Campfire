@@ -36,14 +36,15 @@ import (
 
 // Config controls first enrollment and persistent agent state.
 type Config struct {
-	PanelURL       string
-	DataDir        string
-	CAFile         string
-	Token          string
-	EnrollOnly     bool
-	dialContext    func(context.Context, string, string) (net.Conn, error)
-	runtimeFactory func(context.Context, string) *runtime.Manager
-	serverCA       []byte
+	PanelURL         string
+	DataDir          string
+	CAFile           string
+	Token            string
+	EnrollOnly       bool
+	GameIntegrations bool
+	dialContext      func(context.Context, string, string) (net.Conn, error)
+	runtimeFactory   func(context.Context, string) *runtime.Manager
+	serverCA         []byte
 }
 
 type agentIdentity struct {
@@ -160,6 +161,34 @@ func Run(ctx context.Context, config Config) error {
 	slog.Info("Game-data disk quota support", "enabled", manager.DiskQuotaSupported())
 
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
+	if config.GameIntegrations {
+		sparkID := identity.ID
+
+		games, err := newGameIntegrations(ctx, filepath.Join(config.DataDir, "game-integrations"), func(serverID string) bool { return configurations.savedGame(sparkID, serverID) })
+		if err != nil {
+			return err
+		}
+		defer games.close()
+
+		configurations.games = games
+		manager.GameIntegrationMount = games.mount
+		// Recreate endpoints for Docker containers surviving a Spark restart.
+		entries, err := os.ReadDir(filepath.Join(configurations.Directory, identity.ID))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+				continue
+			}
+
+			if _, err := games.mount(strings.TrimSuffix(entry.Name(), ".json")); err != nil {
+				return fmt.Errorf("restore game integration endpoint: %w", err)
+			}
+		}
+	}
+
 	if config.Token == "" {
 		configurations.Update = func(ctx context.Context, version string) (string, error) {
 			tlsConfig, err := identityTLS(identity)
@@ -449,7 +478,11 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 	}
 
 	wireVersion = welcome.Protocol
+
 	configurations.NegotiatedProtocol = wireVersion
+	if configurations.games != nil && protocol.Require(welcome.Capabilities, protocol.CapabilityGameIntegration) == nil {
+		configurations.games.attach(ctx, send)
+	}
 
 	slog.Info("Spark connected", "spark", id, "protocol", wireVersion, "capabilities", welcome.Capabilities)
 
@@ -470,6 +503,16 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 		outgoing := protocol.Message{Type: "heartbeat"}
 		switch message.Type {
 		case "heartbeat":
+		case "game.ack":
+			if configurations.games == nil || protocol.Require(welcome.Capabilities, protocol.CapabilityGameIntegration) != nil {
+				return errors.New("unnegotiated game acknowledgement")
+			}
+
+			if err := configurations.games.acknowledge(message.GameAck); err != nil {
+				return err
+			}
+
+			continue
 		case "console.open":
 			if err := protocol.Require(welcome.Capabilities, protocol.CapabilityConsole); err != nil {
 				return err

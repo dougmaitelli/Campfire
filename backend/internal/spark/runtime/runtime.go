@@ -22,22 +22,24 @@ var startupVariables = regexp.MustCompile(`\{\{([A-Z][A-Z0-9_]*)\}\}`)
 
 // Manager shares lifecycle behavior between the panel and remote Spark processes.
 type Manager struct {
-	Directory        string
-	Docker           Executor
-	Ownership        func(string, string) error
-	FileOwner        func(*os.File, string) error
-	Quota            DiskQuota
-	quotaUnavailable string
-	ctx              context.Context
-	cancel           context.CancelFunc
-	mu               sync.Mutex
-	entries          map[string]*entry
-	wg               sync.WaitGroup
-	closed           bool
-	maintenance      sync.RWMutex
-	metricsMu        sync.Mutex
-	metrics          map[string]*metricsEntry
-	transferTasks    map[string]context.CancelFunc
+	Directory string
+	// GameIntegrationMount creates an isolated directory mounted into game containers.
+	GameIntegrationMount func(string) (string, error)
+	Docker               Executor
+	Ownership            func(string, string) error
+	FileOwner            func(*os.File, string) error
+	Quota                DiskQuota
+	quotaUnavailable     string
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	mu                   sync.Mutex
+	entries              map[string]*entry
+	wg                   sync.WaitGroup
+	closed               bool
+	maintenance          sync.RWMutex
+	metricsMu            sync.Mutex
+	metrics              map[string]*metricsEntry
+	transferTasks        map[string]context.CancelFunc
 }
 
 type entry struct {
@@ -754,7 +756,21 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	env["STARTUP"] = startup
 	// Images may launch their own Tini beneath Docker's PID 1 init process.
 	env["TINI_SUBREAPER"] = "1"
+
 	args := []string{"create", "--name", container(d.ServerID), "--label", "campfire.server=" + d.ServerID, "--interactive", "--init", "--user", d.Ember.User, "--memory", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--memory-swap", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--cpus", strconv.FormatFloat(d.Configuration.CPULimit, 'f', -1, 64), "--pids-limit", "512", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--restart", "unless-stopped", "--log-driver", "local", "--log-opt", "max-size=10m", "--log-opt", "max-file=3", "--mount", "type=bind,source=" + volume + ",target=" + d.Ember.WorkDir, "--workdir", d.Ember.WorkDir}
+	if m.GameIntegrationMount != nil {
+		directory, err := m.GameIntegrationMount(d.ServerID)
+		if err != nil {
+			return err
+		}
+
+		if !filepath.IsAbs(directory) || strings.ContainsAny(directory, ",\x00") || d.Ember.WorkDir == "/run" || strings.HasPrefix(d.Ember.WorkDir, "/run/campfire-game") {
+			return errors.New("invalid game integration mount")
+		}
+
+		args = append(args, "--mount", "type=bind,source="+directory+",target=/run/campfire-game,readonly")
+		env["CAMPFIRE_GAME_SOCKET"] = "/run/campfire-game/publish.sock"
+	}
 
 	// Image entrypoints may create user-specific files in /tmp. Hide baked-in
 	// root-owned files with a fresh writable mount, bounded independently of disk.

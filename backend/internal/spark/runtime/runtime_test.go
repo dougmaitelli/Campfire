@@ -166,6 +166,14 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	m := newTestManager(context.Background(), dir)
 	m.Docker = docker
 	m.Ownership = func(string, string) error { return nil }
+	gameDirectory := t.TempDir()
+	m.GameIntegrationMount = func(id string) (string, error) {
+		if id != d.ServerID {
+			t.Error("integration mount requested for wrong server", id)
+		}
+
+		return gameDirectory, nil
+	}
 	t.Cleanup(m.Close)
 
 	if _, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: "start", OperationID: "early"}); err == nil {
@@ -201,6 +209,12 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	}
 
 	joined := strings.Join(create, " ")
+	for _, setting := range []string{"type=bind,source=" + gameDirectory + ",target=/run/campfire-game,readonly", "--env CAMPFIRE_GAME_SOCKET=/run/campfire-game/publish.sock"} {
+		if !strings.Contains(joined, setting) {
+			t.Error("missing isolated game integration mount", setting)
+		}
+	}
+
 	for _, expected := range []string{"--user 1000:1000", "--cpus 0.5", "--memory 128m", "--memory-swap 128m", "--publish 127.0.0.1:25565:25565/tcp", "--cap-drop ALL", "--env TINI_SUBREAPER=1", "sh -c sleep ${SECONDS}"} {
 		if !strings.Contains(joined, expected) {
 			t.Errorf("missing container setting %s", expected)

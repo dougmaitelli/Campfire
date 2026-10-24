@@ -1021,6 +1021,7 @@
   },
   "sparkFeatures": {
     "resourceCleanup": "Unused resource cleanup",
+    "gameIntegration": "Local game publishing",
     "archiveCreationAndExtraction": "Archive creation and extraction",
     "available": "Available",
     "connectThisSparkToCheckFeatureAvailability": "Connect this Spark to check feature availability.",

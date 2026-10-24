@@ -93,6 +93,21 @@ type Message struct {
 	Command         *Command         `json:"command,omitempty"`
 	Response        *CommandResponse `json:"response,omitempty"`
 	Console         *ConsoleFrame    `json:"console,omitempty"`
+	Game            *GameFrame       `json:"game,omitempty"`
+	GameAck         *GameAck         `json:"game_ack,omitempty"`
+}
+
+// GameFrame binds a local publication to Spark's authenticated server identity.
+type GameFrame struct {
+	ID          string                `json:"id"`
+	ServerID    string                `json:"server_id"`
+	Publication model.GamePublication `json:"publication"`
+}
+
+// GameAck confirms panel ingestion, not durable event storage or external delivery.
+type GameAck struct {
+	ID    string        `json:"id"`
+	Error *CommandError `json:"error,omitempty"`
 }
 
 // ConsoleFrame identifies one bounded console stream message on its originating session.

@@ -208,6 +208,11 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	defer embers.Updates.Close()
 
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
+	if hub != nil {
+		games := &service.GameIntegrationService{Servers: servers}
+		hub.WithGameIntegrations(games.Receive)
+	}
+
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)
 
 	var sparkUpdater service.SparkUpdater
