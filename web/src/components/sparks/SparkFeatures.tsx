@@ -1,4 +1,5 @@
 import i18n from "../../i18n";
+import { SquareCheck, SquareMinus, SquareX } from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
 import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
@@ -100,22 +101,13 @@ export function SparkFeatures({ spark }: { spark: Spark }) {
               className={`spark-feature spark-feature-${state}`}
               title={feature}
             >
-              <svg
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                aria-hidden="true"
-              >
-                <rect x="2" y="2" width="16" height="16" rx="4" />
-                {supported ? (
-                  <path d="m6 10 3 3 5-6" />
-                ) : spark.connected ? (
-                  <path d="m7 7 6 6m-6 0 6-6" />
-                ) : (
-                  <path d="M6 10h8" />
-                )}
-              </svg>
+              {supported ? (
+                <SquareCheck aria-hidden="true" />
+              ) : spark.connected ? (
+                <SquareX aria-hidden="true" />
+              ) : (
+                <SquareMinus aria-hidden="true" />
+              )}
               <span>{label}</span>
               <span className="spark-feature-state">
                 {!spark.connected

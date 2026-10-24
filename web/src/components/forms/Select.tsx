@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import "./form-controls.css";
 import "./select.css";
 
@@ -90,6 +91,9 @@ export function Select({
         <SelectPrimitive.Value
           placeholder={options.find((option) => option.value === "")?.children}
         />
+        <SelectPrimitive.Icon className="select-chevron">
+          <ChevronDown size={16} aria-hidden="true" />
+        </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal
         container={trigger?.closest("dialog") ?? undefined}
@@ -105,7 +109,7 @@ export function Select({
             className="select-scroll"
             aria-hidden="true"
           >
-            ▲
+            <ChevronUp size={16} aria-hidden="true" />
           </SelectPrimitive.ScrollUpButton>
           <SelectPrimitive.Viewport className="select-options">
             {options.map((option, index) => (
@@ -122,7 +126,7 @@ export function Select({
                   className="select-check"
                   aria-hidden="true"
                 >
-                  ✓
+                  <Check size={16} aria-hidden="true" />
                 </SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
             ))}
@@ -131,7 +135,7 @@ export function Select({
             className="select-scroll"
             aria-hidden="true"
           >
-            ▼
+            <ChevronDown size={16} aria-hidden="true" />
           </SelectPrimitive.ScrollDownButton>
         </SelectPrimitive.Content>
       </SelectPrimitive.Portal>

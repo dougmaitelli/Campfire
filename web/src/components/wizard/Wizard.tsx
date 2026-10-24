@@ -1,4 +1,5 @@
 import i18n from "../../i18n";
+import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Fieldset } from "../forms/Fieldset";
 import { InlineMessage } from "../status/InlineMessage";
@@ -129,7 +130,11 @@ export function Wizard({
               onClick={() => goToStep(position)}
             >
               <span className="wizard-step-number" aria-hidden="true">
-                {position <= completedThrough ? "✓" : position + 1}
+                {position <= completedThrough ? (
+                  <Check size={16} aria-hidden="true" />
+                ) : (
+                  position + 1
+                )}
               </span>
               <span>{item.title}</span>
             </button>

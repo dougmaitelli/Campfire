@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { X } from "lucide-react";
 import { Button } from "../forms/Button";
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
@@ -102,18 +103,7 @@ export function Drawer({
             disabled={busy}
             onClick={onClose}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M6 6l12 12M18 6 6 18" />
-            </svg>
+            <X size={18} aria-hidden="true" />
           </Button>
         </header>
         {actionBar}
