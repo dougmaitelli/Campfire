@@ -1,4 +1,6 @@
-# Importing game definitions
+---
+title: Importing game definitions
+---
 
 Campfire imports native Embers and supported Pterodactyl or Pelican Eggs.
 An Egg is converted into a Campfire Ember describing the game's images,

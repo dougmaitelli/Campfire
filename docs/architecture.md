@@ -1,4 +1,6 @@
-# Architecture
+---
+title: Architecture
+---
 
 Campfire has two production executables: the panel (`campfire`) and the game-host
 agent (`spark`). Every game host runs a separate Spark, even when the panel and

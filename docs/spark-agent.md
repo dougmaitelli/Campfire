@@ -1,4 +1,6 @@
-# Game hosts
+---
+title: Game hosts
+---
 
 A Spark is a Linux host that runs game containers. It needs rootful Docker Engine
 and the Docker CLI. Campfire's guided installer also needs systemd, curl,

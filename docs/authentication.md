@@ -1,6 +1,8 @@
-# Accounts and access
+---
+title: Accounts and access
+---
 
-Complete [first-run setup](../README.md#quick-start-with-docker-compose) to create
+Complete [first-run setup](/Campfire/getting-started/) to create
 the initial administrator. Administrators create additional password accounts
 from **Users**; there is no public password registration.
 
@@ -16,12 +18,21 @@ for viewing, operating, or configuring that server.
 
 ## OpenID Connect
 
-Configure the provider using the [panel environment example](../config/campfire.env.example)
+Configure the provider using the [panel environment example](/Campfire/configuration/)
 and register `PUBLIC_URL/api/v1/auth/oidc/callback` as the callback URL.
 Complete local administrator setup first. Before setting
 `CAMPFIRE_DISABLE_LOCAL_LOGIN=true`, link an administrator to the provider and
 verify that OIDC signs in to that account. First-time OIDC users receive ordinary
 user access rather than administrator privileges.
+
+```dotenv
+CAMPFIRE_OIDC_ISSUER=https://identity.example.com
+CAMPFIRE_OIDC_CLIENT_ID=campfire
+CAMPFIRE_OIDC_CLIENT_SECRET=replace-with-provider-secret
+```
+
+Restart or recreate the panel after changing its environment. Keep local login
+enabled until you have verified administrator access through your provider.
 
 ## Personal API tokens
 
@@ -34,4 +45,4 @@ access; they do not grant additional rights. Revoke tokens from the same dialog
 when they are no longer needed. Both local and OIDC users can create tokens.
 
 For a forgotten administrator password or an unavailable identity provider,
-see [password recovery](../README.md#administrator-password-recovery).
+see [password recovery](/Campfire/operations/#administrator-password-recovery).

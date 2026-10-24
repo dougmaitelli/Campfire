@@ -4,6 +4,9 @@
 /spark-data/
 /node_modules/
 /web/node_modules/
+/docs/node_modules/
+/docs/.astro/
+/docs/dist/
 /web/dist/
 /backend/internal/campfire/webui/dist/
 /backend/internal/campfire/sparkbundle/dist/

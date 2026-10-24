@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,7 +39,14 @@ try {
   }
 
   await cp(join(root, "deploy"), join(stage, "deploy"), { recursive: true });
-  await cp(join(root, "docs"), join(stage, "docs"), { recursive: true });
+  await mkdir(join(stage, "docs"));
+  for (const entry of await readdir(join(root, "docs"), {
+    withFileTypes: true,
+  })) {
+    if (entry.isFile() && /\.mdx?$/.test(entry.name)) {
+      await cp(join(root, "docs", entry.name), join(stage, "docs", entry.name));
+    }
+  }
   await cp(
     join(root, "config", "campfire.env.example"),
     join(stage, "campfire.env.example"),

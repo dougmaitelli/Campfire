@@ -1,4 +1,6 @@
-# Game files
+---
+title: Game files
+---
 
 Open a server's **Files** tab to browse its game directory. You can view and edit
 text files, create files and folders, rename entries, remove files or empty

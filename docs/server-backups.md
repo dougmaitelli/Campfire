@@ -1,4 +1,6 @@
-# Game backups
+---
+title: Game backups
+---
 
 Use a server's **Backups** tab to create, download, restore, or delete snapshots.
 The main **Backups** page lists archives across the servers you can access.
@@ -19,7 +21,7 @@ finishes and check its console.
 ## Off-host storage and retention
 
 Configure the S3 bucket, region, optional compatible endpoint, and credentials
-on the panel using the [environment example](../config/campfire.env.example).
+on the panel using the [environment example](/Campfire/configuration/).
 For Docker, add these settings to the Compose service; merely adding variables
 to `.env` does not forward settings absent from `compose.yaml`.
 
@@ -31,4 +33,4 @@ upload and restore workflows.
 
 Deleting a server also removes its local game data and backups. Keep a separate
 recovery copy when retiring a server. Game snapshots do not replace backups of
-the panel database and node identities; see [installation backups and upgrades](../README.md#backups-and-upgrades).
+the panel database and node identities; see [installation backups and upgrades](/Campfire/operations/).

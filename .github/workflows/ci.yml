@@ -24,6 +24,7 @@ jobs:
       pull-requests: read
     outputs:
       app: ${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.app == 'true' }}
+      docs: ${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.docs == 'true' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -39,6 +40,9 @@ jobs:
               - '!docs/**'
               - '!*.md'
               - '!LICENSE'
+              - '!.github/workflows/pages.yml'
+            docs:
+              - '{docs/**,screenshots/**,README.md,config/**,compose*.yaml,web/public/favicon.svg,Makefile,scripts/package-release.mjs,.github/workflows/pages.yml,.github/workflows/ci.yml}'
 
   validate:
     needs: changes
@@ -107,6 +111,16 @@ jobs:
             e2e/test-results/
           retention-days: 14
 
+  docs:
+    name: Documentation
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+
   publish:
     name: Publish images and tagged releases
     needs: [changes, ci-result]
@@ -121,7 +135,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, validate, browser-tests]
+    needs: [changes, validate, browser-tests, docs]
     runs-on: ubuntu-latest
     steps:
       - name: Require selected checks to pass

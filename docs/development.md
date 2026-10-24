@@ -1,4 +1,6 @@
-# Development
+---
+title: Development
+---
 
 Use Go 1.26 or newer, a C compiler for SQLite/CGO, Node.js 26, pnpm 11.28.5, and Make. Docker is needed for real game execution and the canonical browser test environment.
 
@@ -19,6 +21,30 @@ make check               # Full formatting, vet, lint, test, and build checks
 make test-e2e-docker     # Browser tests and strict screenshot comparisons
 ```
 
-The binaries are written to `bin/campfire` and `bin/spark`. Production hosts do not need Node.js or pnpm. Tagged builds package Linux amd64 and arm64 binaries, the project README, installation files, and SHA-256 checksums. Supplied systemd units are available for the [panel](../deploy/systemd/campfire.service) and [Spark](../deploy/systemd/spark.service).
+The binaries are written to `bin/campfire` and `bin/spark`. Production hosts do not need Node.js or pnpm. Tagged builds package Linux amd64 and arm64 binaries, the project README, installation files, and SHA-256 checksums. Supplied systemd units are available for the [panel](https://github.com/dougmaitelli/Campfire/blob/master/deploy/systemd/campfire.service) and [Spark](https://github.com/dougmaitelli/Campfire/blob/master/deploy/systemd/spark.service).
 
-See the [browser testing guide](../e2e/README.md) for the contributor testing workflow.
+See the [browser testing guide](https://github.com/dougmaitelli/Campfire/blob/master/e2e/README.md) for the contributor testing workflow.
+
+## Documentation site
+
+The Astro and Starlight site is a separate package in `docs/`:
+
+```sh
+make dependencies-docs
+make docs-dev
+```
+
+Open the `/Campfire/` URL printed by Astro. To validate the production output:
+
+```sh
+make docs-check
+make docs-build
+make docs-preview
+```
+
+The build generates the site and search data for `/Campfire/`. Source screenshots
+come from the root `screenshots/` directory.
+
+Pull requests validate the site. Pushes to `master` build and deploy it through
+GitHub Actions; the repository's Pages source must be set to **GitHub Actions**.
+Version tags validate the docs without replacing the live site.

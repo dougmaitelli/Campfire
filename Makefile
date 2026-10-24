@@ -113,3 +113,19 @@ screenshots:
 
 screenshots-docker:
 	sh e2e/scripts/docker.sh --update-snapshots
+
+.PHONY: dependencies-docs docs-dev docs-check docs-build docs-preview
+dependencies-docs:
+	pnpm --dir docs install --frozen-lockfile
+
+docs-dev:
+	pnpm --dir docs run dev
+
+docs-check:
+	pnpm --dir docs run check
+
+docs-build:
+	pnpm --dir docs run build
+
+docs-preview:
+	pnpm --dir docs run preview
