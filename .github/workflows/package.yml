@@ -13,7 +13,13 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       image: ${{ steps.release.outputs.image }}
       build_date: ${{ steps.release.outputs.build_date }}
+      latest: ${{ steps.release.outputs.latest }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Determine and validate release version
         id: release
         env:
@@ -40,7 +46,26 @@ jobs:
             echo "Publishing requires a master push or a version tag." >&2
             exit 1
           fi
+          latest=false
+          publish_major=false
+          publish_minor=false
+          if [[ "$version" != dev && "$version" != *-* ]]; then
+            latest=true
+            publish_major=true
+            publish_minor=true
+            IFS=. read -r major minor patch <<< "${version#v}"
+            while IFS= read -r tag; do
+              [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+              [[ "$tag" == "$version" ]] && break
+              latest=false
+              if [[ "$tag" == "v$major."* ]]; then publish_major=false; fi
+              if [[ "$tag" == "v$major.$minor."* ]]; then publish_minor=false; fi
+            done < <(git tag --list 'v*' --sort=-version:refname)
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "major=$publish_major" >> "$GITHUB_OUTPUT"
+          echo "minor=$publish_minor" >> "$GITHUB_OUTPUT"
           echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
@@ -155,10 +180,10 @@ jobs:
           flavor: latest=false
           tags: |
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/master' }}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
+            type=raw,value=latest,enable=${{ needs.prepare.outputs.latest == 'true' }}
             type=semver,pattern=v{{version}}
-            type=semver,pattern=v{{major}}.{{minor}}
-            type=semver,pattern=v{{major}}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ needs.prepare.outputs.minor == 'true' }}
+            type=semver,pattern=v{{major}},enable=${{ needs.prepare.outputs.major == 'true' }}
       - name: Publish multi-platform image tags
         env:
           IMAGE: ${{ needs.prepare.outputs.image }}
@@ -205,7 +230,7 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.version }}
           body: ${{ steps.cliff.outputs.content }}
           prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
-          make_latest: ${{ contains(needs.prepare.outputs.version, '-') && 'false' || 'true' }}
+          make_latest: ${{ needs.prepare.outputs.latest }}
           fail_on_unmatched_files: true
           files: |
             dist/releases/*.tar.gz

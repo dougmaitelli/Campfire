@@ -42,6 +42,9 @@ make docs-build
 make docs-preview
 ```
 
+`make docs-check` checks formatting, ESLint, and Astro diagnostics. Use
+`pnpm --dir docs run format` to format documentation sources locally.
+
 The build generates the site and search data for `/Campfire/`. Source screenshots
 come from the root `screenshots/` directory.
 

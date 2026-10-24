@@ -1,7 +1,9 @@
 version: 2
 updates:
   - package-ecosystem: docker
-    directory: /
+    directories:
+      - /
+      - /e2e
     schedule:
       interval: weekly
 
@@ -27,6 +29,39 @@ updates:
           - "@eslint/*"
           - "eslint-plugin-*"
           - typescript-eslint
+
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      astro:
+        patterns:
+          - astro
+          - "@astrojs/*"
+      lint:
+        patterns:
+          - eslint
+          - "@eslint/*"
+          - "eslint-plugin-*"
+          - typescript-eslint
+      prettier:
+        patterns:
+          - prettier
+          - prettier-plugin-astro
+
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      playwright:
+        patterns:
+          - "@playwright/*"
+          - playwright
+          - playwright-core
 
   - package-ecosystem: gomod
     directory: /backend
