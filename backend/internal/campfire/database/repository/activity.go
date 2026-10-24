@@ -233,6 +233,7 @@ func (r *ActivityRepository) runs(ctx context.Context, userID int64, admin bool,
 	if schedulesOnly {
 		query = query.Where("schedule_id <> ''")
 	}
+
 	if !admin {
 		query = query.Where("server_id IN (?)", visibleServers(r.db.WithContext(ctx), userID))
 	}
