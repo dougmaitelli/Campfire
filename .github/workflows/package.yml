@@ -187,15 +187,23 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v8
         with:
           path: dist/releases
           pattern: campfire-linux-*
           merge-multiple: true
+      - uses: orhun/git-cliff-action@v4
+        id: cliff
+        with:
+          config: cliff.toml
+          args: --current --strip header
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.version }}
-          generate_release_notes: true
+          body: ${{ steps.cliff.outputs.content }}
           prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
           make_latest: ${{ contains(needs.prepare.outputs.version, '-') && 'false' || 'true' }}
           fail_on_unmatched_files: true
