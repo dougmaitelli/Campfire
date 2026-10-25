@@ -693,7 +693,6 @@ export function ServerDialog({
                     port.host_port >= allocation.start &&
                     port.host_port <= allocation.end,
                 );
-                const allocation = allocations[selected];
                 return (
                   <AllocationRow
                     key={index}
@@ -712,45 +711,48 @@ export function ServerDialog({
                       <Select
                         id={`mapping-allocation-${index}`}
                         required
-                        value={selected >= 0 ? String(selected) : ""}
+                        value={
+                          selected >= 0 ? `${selected}:${port.host_port}` : ""
+                        }
                         onValueChange={(selectedValue) => {
-                          const next = allocations[Number(selectedValue)];
+                          const [allocationIndex, hostPort] = selectedValue
+                            .split(":")
+                            .map(Number);
+                          if (
+                            allocationIndex === undefined ||
+                            hostPort === undefined
+                          )
+                            return;
+                          const next = allocations[allocationIndex];
                           if (next)
                             changePort(index, {
                               bind_ip: next.bind_ip,
                               protocol: next.protocol,
-                              host_port: next.start,
+                              host_port: hostPort,
                             });
                         }}
                       >
                         <option value="" disabled>
                           {i18n.t("serverDialog.selectAllocation")}
                         </option>
-                        {allocations.map((entry, i) => (
-                          <option key={i} value={i}>
-                            {entry.bind_ip} · {entry.start}–{entry.end} /{" "}
-                            {entry.protocol.toUpperCase()}
-                          </option>
-                        ))}
+                        {allocations.flatMap((entry, i) =>
+                          Array.from(
+                            { length: entry.end - entry.start + 1 },
+                            (_, offset) => {
+                              const hostPort = entry.start + offset;
+                              return (
+                                <option
+                                  key={`${i}:${hostPort}`}
+                                  value={`${i}:${hostPort}`}
+                                >
+                                  {entry.bind_ip} · {hostPort} /{" "}
+                                  {entry.protocol.toUpperCase()}
+                                </option>
+                              );
+                            },
+                          ),
+                        )}
                       </Select>
-                    </FormField>
-                    <FormField label={i18n.t("serverDialog.hostPort")}>
-                      <TextInput
-                        id={`mapping-host-${index}`}
-                        type="number"
-                        min={allocation?.start ?? 1}
-                        max={allocation?.end ?? 65535}
-                        step={1}
-                        required
-                        value={
-                          Number.isNaN(port.host_port) ? "" : port.host_port
-                        }
-                        onChange={(event) =>
-                          changePort(index, {
-                            host_port: event.target.valueAsNumber,
-                          })
-                        }
-                      />
                     </FormField>
                     <FormField label={i18n.t("serverDialog.containerPort")}>
                       <TextInput
