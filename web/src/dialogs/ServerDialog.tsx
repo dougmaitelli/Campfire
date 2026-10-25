@@ -144,7 +144,7 @@ export function ServerDialog({
     );
     const ember = embers[0];
     return {
-      name: "",
+      name: ember?.name.slice(0, 100) ?? "",
       description: "",
       spark_id: spark?.id ?? "",
       ember_id: ember?.id ?? "",
@@ -351,6 +351,88 @@ export function ServerDialog({
                   )}
                 </p>
               )}
+              <FormField
+                label={t("common.ember")}
+                description={
+                  applyRevision && (
+                    <>
+                      <Trans
+                        i18nKey="serverDialog.theLatestDefinitionForWillBeAppliedReviewVariablesImages"
+                        t={t}
+                        components={{
+                          resourceLink: (
+                            <ResourceLink
+                              href={
+                                server
+                                  ? links.ember(server.ember_id)
+                                  : undefined
+                              }
+                            >
+                              {server?.ember_name}
+                            </ResourceLink>
+                          ),
+                        }}
+                      />
+                    </>
+                  )
+                }
+              >
+                <Select
+                  id="server-ember"
+                  required
+                  disabled={server !== null}
+                  value={value.ember_id}
+                  onValueChange={(selectedValue) => {
+                    const selected = embers.find(
+                      (item) => item.id === selectedValue,
+                    );
+                    setValue({
+                      ...value,
+                      name:
+                        !server &&
+                        (!value.name.trim() ||
+                          value.name === ember?.name.slice(0, 100))
+                          ? (selected?.name.slice(0, 100) ?? "")
+                          : value.name,
+                      ember_id: selectedValue,
+                      startup_command:
+                        Object.keys(selected?.startup_commands ?? {}).length ===
+                        1
+                          ? (Object.keys(selected?.startup_commands ?? {})[0] ??
+                            "")
+                          : "",
+                      image:
+                        applyRevision &&
+                        selected &&
+                        Object.values(selected.images).includes(value.image)
+                          ? value.image
+                          : (Object.values(selected?.images ?? {})[0] ?? ""),
+                      variables: applyRevision
+                        ? Object.fromEntries(
+                            (selected?.variables ?? [])
+                              .filter((variable) => !variable.hidden)
+                              .map((variable) => [
+                                variable.name,
+                                variable.editable
+                                  ? (server?.variables[variable.name] ??
+                                    variable.default)
+                                  : variable.default,
+                              ]),
+                          )
+                        : defaultVariables(selected),
+                      ports: applyRevision
+                        ? value.ports
+                        : defaultPorts(spark, selected, servers),
+                    });
+                  }}
+                >
+                  {embers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} · {item.id.slice(-6)}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
               <FormField label={t("serverDialog.serverName")}>
                 <TextInput
                   id="server-name"
@@ -403,82 +485,6 @@ export function ServerDialog({
                         {item.disabled ? " (disabled)" : ""}
                       </option>
                     ))}
-                </Select>
-              </FormField>
-              <FormField
-                label={t("common.ember")}
-                description={
-                  applyRevision && (
-                    <>
-                      <Trans
-                        i18nKey="serverDialog.theLatestDefinitionForWillBeAppliedReviewVariablesImages"
-                        t={t}
-                        components={{
-                          resourceLink: (
-                            <ResourceLink
-                              href={
-                                server
-                                  ? links.ember(server.ember_id)
-                                  : undefined
-                              }
-                            >
-                              {server?.ember_name}
-                            </ResourceLink>
-                          ),
-                        }}
-                      />
-                    </>
-                  )
-                }
-              >
-                <Select
-                  id="server-ember"
-                  required
-                  disabled={server !== null}
-                  value={value.ember_id}
-                  onValueChange={(selectedValue) => {
-                    const selected = embers.find(
-                      (item) => item.id === selectedValue,
-                    );
-                    setValue({
-                      ...value,
-                      ember_id: selectedValue,
-                      startup_command:
-                        Object.keys(selected?.startup_commands ?? {}).length ===
-                        1
-                          ? (Object.keys(selected?.startup_commands ?? {})[0] ??
-                            "")
-                          : "",
-                      image:
-                        applyRevision &&
-                        selected &&
-                        Object.values(selected.images).includes(value.image)
-                          ? value.image
-                          : (Object.values(selected?.images ?? {})[0] ?? ""),
-                      variables: applyRevision
-                        ? Object.fromEntries(
-                            (selected?.variables ?? [])
-                              .filter((variable) => !variable.hidden)
-                              .map((variable) => [
-                                variable.name,
-                                variable.editable
-                                  ? (server?.variables[variable.name] ??
-                                    variable.default)
-                                  : variable.default,
-                              ]),
-                          )
-                        : defaultVariables(selected),
-                      ports: applyRevision
-                        ? value.ports
-                        : defaultPorts(spark, selected, servers),
-                    });
-                  }}
-                >
-                  {embers.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} · {item.id.slice(-6)}
-                    </option>
-                  ))}
                 </Select>
               </FormField>
               {Object.keys(ember?.startup_commands ?? {}).length > 0 && (
