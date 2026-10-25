@@ -121,6 +121,10 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 		}
 	}
 
+	if err := SeedGameMedia(ctx, tx); err != nil {
+		return nil, err
+	}
+
 	next, err := recurrence.Next("0 3 * * *", "UTC", now, 1)
 	if err != nil {
 		return nil, err

@@ -18,6 +18,7 @@ func TestGameSimulationIngestionLifecycleAndReplay(t *testing.T) {
 	server := onlineServer(t, runtime, servers)
 	store := repository.NewGameEventRepository(db.ORM())
 	games := &service.GameIntegrationService{Servers: repository.NewServerRepository(db.ORM()), Events: service.NewGameEventService(store)}
+	games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM()))
 	runtime.games = games
 	now := time.Now()
 	tick := func(seconds int) {
@@ -93,6 +94,12 @@ func TestGameSimulationIngestionLifecycleAndReplay(t *testing.T) {
 	command("command", "mock-game resume")
 	tick(95)
 	snapshot(1, 0)
+
+	mediaPage, err := store.List(t.Context(), server.ID, repository.GameEventQuery{Limit: 1})
+	if err != nil || len(mediaPage.Items) != 1 || len(mediaPage.Items[0].Attachments) != 2 {
+		t.Fatal("mock publisher did not ingest its screenshot and clip", mediaPage, err)
+	}
+
 	command("command", "mock-game next")
 	tick(96)
 	snapshot(0, 1)

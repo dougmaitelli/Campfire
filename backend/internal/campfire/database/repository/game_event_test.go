@@ -114,6 +114,11 @@ func TestGameEventsSurviveDatabaseReopenAndCascadeWithServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	media := model.GameMedia{ID: "shot", Name: "world.png", ContentType: "image/png", Size: 5}
+	if err := repository.NewGameMediaRepository(db.ORM()).Append(t.Context(), "node", "game", "event-0", media, []byte("image")); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -133,6 +138,11 @@ func TestGameEventsSurviveDatabaseReopenAndCascadeWithServer(t *testing.T) {
 	page, err := store.List(t.Context(), "game", repository.GameEventQuery{Limit: 10})
 	if err != nil || len(page.Items) != 1 {
 		t.Fatal("restart lost event or deduplication", page, err)
+	}
+
+	attachment, err := repository.NewGameMediaRepository(db.ORM()).Get(t.Context(), "game", page.Items[0].ID, "shot")
+	if err != nil || string(attachment.Data) != "image" || len(page.Items[0].Attachments) != 1 {
+		t.Fatal("restart lost attachment bytes or metadata", attachment, err)
 	}
 
 	if err := db.ORM().Delete(&database.Server{ID: "game"}).Error; err != nil {

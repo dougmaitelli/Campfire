@@ -78,6 +78,9 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilityPrune}
 	if r.games != nil {
 		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)
+		if r.games.Media != nil {
+			features = append(features, protocol.CapabilityGameMedia)
+		}
 	}
 
 	if id == "mock-america" {

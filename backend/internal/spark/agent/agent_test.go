@@ -114,14 +114,26 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	hub := agents.NewHub(store, authority)
 	publications := make(chan protocol.GameFrame, 4)
 
-	hub.WithGameIntegrations(func(_ context.Context, sparkID string, frame protocol.GameFrame) error {
+	for _, row := range []any{
+		&database.Ember{ID: "media-ember", Name: "Game", Definition: model.Ember{Schema: 1}},
+		&database.Server{ID: "game-bridge", Name: "Game", SparkID: node.ID, EmberID: "media-ember", Variables: map[string]string{}, Ports: []model.ServerPort{}, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
+	} {
+		if err := db.ORM().Omit("Spark", "Ember", "Owner").Create(row).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	games := &service.GameIntegrationService{Servers: repository.NewServerRepository(db.ORM()), Events: service.NewGameEventService(repository.NewGameEventRepository(db.ORM())), Media: service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM()))}
+	hub.WithGameMedia(games.Media.Receive)
+
+	hub.WithGameIntegrations(func(ctx context.Context, sparkID string, frame protocol.GameFrame) error {
 		if sparkID != node.ID || frame.ServerID != "game-bridge" {
 			return errors.New("incorrect publication placement")
 		}
 
 		publications <- frame
 
-		return nil
+		return games.Receive(ctx, sparkID, frame)
 	})
 	t.Cleanup(hub.Close)
 
@@ -231,6 +243,12 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	testWireCommands(t, hub, node.ID, agentDir)
 	testWireGameIntegration(t, hub, node.ID, agentDir, publications)
+
+	mediaPage, err := games.Events.Store.List(ctx, "game-bridge", repository.GameEventQuery{Limit: 10})
+	if err != nil || len(mediaPage.Items) != 1 || len(mediaPage.Items[0].Attachments) != 1 {
+		t.Fatal("wire media retry was not stored exactly once", mediaPage, err)
+	}
+
 	testWireRuntime(t, hub, node.ID)
 	testWireTransfers(t, hub, node.ID)
 	testWireConsole(t, hub, node.ID, wire)
@@ -313,6 +331,11 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	waitCondition(t, func() bool { return !hub.Connected(node.ID) })
 	testWireCapabilities(t, hub, node.ID, leaf, listener.dial)
+
+	if err := db.ORM().Where("id = ?", "game-bridge").Delete(&database.Server{}).Error; err != nil {
+		t.Fatal(err)
+	}
+
 	testWireRenewal(ctx, t, identityPath, node.ID, store, nodeService, listener.dial)
 }
 

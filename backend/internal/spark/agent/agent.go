@@ -482,6 +482,15 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 	configurations.NegotiatedProtocol = wireVersion
 	if configurations.games != nil && protocol.Require(welcome.Capabilities, protocol.CapabilityGameIntegration) == nil {
 		configurations.games.attach(ctx, send, protocol.Require(welcome.Capabilities, protocol.CapabilityGameEvents) == nil)
+
+		if protocol.Require(welcome.Capabilities, protocol.CapabilityGameMedia) == nil {
+			upload, closeMedia := mediaSender(address, config, netDial)
+			defer closeMedia()
+
+			configurations.games.mu.Lock()
+			configurations.games.session.upload = upload
+			configurations.games.mu.Unlock()
+		}
 	}
 
 	slog.Info("Spark connected", "spark", id, "protocol", wireVersion, "capabilities", welcome.Capabilities)

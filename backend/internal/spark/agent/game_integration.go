@@ -23,20 +23,21 @@ import (
 // Each read-only directory mount exposes exactly one server's endpoint. No game
 // chooses its source identity and no host TCP listener is required.
 type gameIntegrations struct {
-	ctx       context.Context
-	directory string
-	authorize func(string) bool
-	mu        sync.Mutex
-	endpoints map[string]*http.Server
-	closed    bool
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	events    map[string]*queuedGameEvent
-	wake      chan struct{}
-	dropped   map[string]int
-	failures  map[string]string
-	session   *gameSession
-	slots     chan struct{}
+	ctx        context.Context
+	directory  string
+	authorize  func(string) bool
+	mu         sync.Mutex
+	endpoints  map[string]*http.Server
+	closed     bool
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
+	events     map[string]*queuedGameEvent
+	wake       chan struct{}
+	dropped    map[string]int
+	failures   map[string]string
+	session    *gameSession
+	slots      chan struct{}
+	mediaSlots chan struct{}
 }
 
 type gameSession struct {
@@ -44,6 +45,7 @@ type gameSession struct {
 	ctx     context.Context
 	send    func(protocol.Message) error
 	pending map[string]chan *protocol.CommandError
+	upload  gameMediaSender
 }
 
 func newGameIntegrations(ctx context.Context, directory string, authorize func(string) bool) (*gameIntegrations, error) {
@@ -63,6 +65,8 @@ func newGameIntegrations(ctx context.Context, directory string, authorize func(s
 	ctx, cancel := context.WithCancel(ctx)
 
 	g := &gameIntegrations{ctx: ctx, cancel: cancel, directory: directory, authorize: authorize, endpoints: make(map[string]*http.Server), slots: make(chan struct{}, 32), events: make(map[string]*queuedGameEvent), wake: make(chan struct{}, 1), dropped: make(map[string]int), failures: make(map[string]string)}
+
+	g.mediaSlots = make(chan struct{}, 2)
 	if err := g.loadEvents(); err != nil {
 		cancel()
 		return nil, err
@@ -133,6 +137,7 @@ func (g *gameIntegrations) mount(id string) (string, error) {
 	)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /v1/events/{event}/media/{attachment}", func(w http.ResponseWriter, r *http.Request) { g.mediaUpload(w, r, id) })
 	mux.HandleFunc("GET /v1/events/queue", func(w http.ResponseWriter, r *http.Request) { g.queueStatus(w, r, id) })
 	mux.HandleFunc("POST /v1/publish", func(w http.ResponseWriter, r *http.Request) {
 		rateMu.Lock()

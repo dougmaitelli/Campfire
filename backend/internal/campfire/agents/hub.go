@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"io"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -58,14 +59,15 @@ type peer struct {
 
 // Hub owns live remote-agent connections; connection state is never persisted.
 type Hub struct {
-	store       EnrollmentStore
-	authority   *Authority
-	mu          sync.RWMutex
-	peers       map[string]*peer
-	closed      bool
-	publicURL   string
-	serverCA    func() []byte
-	receiveGame func(context.Context, string, protocol.GameFrame) error
+	store        EnrollmentStore
+	authority    *Authority
+	mu           sync.RWMutex
+	peers        map[string]*peer
+	closed       bool
+	publicURL    string
+	serverCA     func() []byte
+	receiveGame  func(context.Context, string, protocol.GameFrame) error
+	receiveMedia func(context.Context, string, string, string, model.GameMedia, io.Reader) error
 }
 
 // NewHub creates an agent connection manager.
@@ -129,6 +131,7 @@ func (h *Hub) Handler() http.Handler {
 	mux.HandleFunc("POST /spark/enroll", h.enroll)
 	mux.HandleFunc("POST /spark/renew", h.renew)
 	mux.HandleFunc("GET /spark/connect", h.connect)
+	mux.HandleFunc("PUT /spark/game-media/{server}/{event}/{attachment}", h.gameMedia)
 
 	return mux
 }

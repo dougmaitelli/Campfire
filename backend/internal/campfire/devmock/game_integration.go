@@ -3,6 +3,7 @@
 package devmock
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
@@ -110,6 +112,26 @@ func (r *Runtime) publishGame(ctx context.Context, record runtimeRecord, now tim
 
 		if err := r.receiveGame(ctx, record, model.GamePublication{Version: 1, Event: session.last}); err != nil {
 			return err
+		}
+
+		if session.step%4 == 2 && r.games.Media != nil {
+			for _, sample := range []struct {
+				id, name, contentType string
+				bytes                 func() ([]byte, error)
+			}{
+				{"screenshot", "mock-world.png", "image/png", devfixture.GameScreenshot},
+				{"clip", "mock-clip.webm", "video/webm", devfixture.GameClip},
+			} {
+				data, err := sample.bytes()
+				if err != nil {
+					return err
+				}
+
+				media := model.GameMedia{ID: sample.id, Name: sample.name, ContentType: sample.contentType}
+				if err := r.games.Media.Receive(ctx, record.SparkID, record.ServerID, session.last.ID, media, bytes.NewReader(data)); err != nil {
+					return err
+				}
+			}
 		}
 
 		if phase := session.step % 4; phase == 1 || phase == 2 {

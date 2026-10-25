@@ -32,7 +32,8 @@ servers. State heartbeats arrive every five seconds. Every fifteen seconds the
 publisher advances through a connection announcement, Alex joining, a welcome
 announcement, and Alex leaving. Player count and capacity appear in monitoring;
 optional game mode is omitted while Alex is online to exercise snapshot
-replacement. These are generic development scenarios, not a Valheim mod.
+replacement. The welcome event includes a synthetic PNG screenshot and a
+one-second WebM clip. These are generic development scenarios, not a Valheim mod.
 
 Use the normal server console to control a publisher:
 

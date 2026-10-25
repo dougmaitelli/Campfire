@@ -19,6 +19,7 @@ type GameIntegrationService struct {
 		Get(context.Context, string) (model.Server, error)
 	}
 	Events  *GameEventService
+	Media   *GameMediaService
 	mu      sync.Mutex
 	states  map[string]gameStateRecord
 	blocked map[string]time.Time

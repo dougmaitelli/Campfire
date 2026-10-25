@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/agents"
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
@@ -100,6 +102,33 @@ func testWireGameIntegration(t *testing.T, hub *agents.Hub, sparkID, directory s
 			}
 		case <-ctx.Done():
 			t.Fatal(ctx.Err())
+		}
+	}
+
+	data, err := devfixture.GameScreenshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for range 2 {
+		request, err := http.NewRequestWithContext(ctx, http.MethodPut, "http://spark/v1/events/joined-1/media/shot", bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		request.Header.Set("Content-Type", "image/png")
+		request.Header.Set("X-Campfire-Media-Name", "world.png")
+
+		response, err := client.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		body, _ := io.ReadAll(response.Body)
+
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusNoContent {
+			t.Fatalf("media upload/retry failed: %d %s", response.StatusCode, body)
 		}
 	}
 }

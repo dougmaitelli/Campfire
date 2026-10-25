@@ -78,7 +78,7 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 		return page, errors.New("invalid game event page limit")
 	}
 
-	query := r.db.WithContext(ctx).Where("server_id = ?", serverID)
+	query := r.db.WithContext(ctx).Preload("Attachments", func(db *gorm.DB) *gorm.DB { return db.Omit("Data").Order("id") }).Where("server_id = ?", serverID)
 	if input.Before > 0 {
 		query = query.Where("id < ?", input.Before)
 	}

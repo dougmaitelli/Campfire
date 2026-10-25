@@ -80,6 +80,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/monitoring", a.monitoring)
 	server("GET /api/v1/servers/{id}/metrics", "server.view", a.serverMetrics)
 	server("GET /api/v1/servers/{id}/events", "server.view", a.gameEvents)
+	server("GET /api/v1/servers/{id}/events/{event}/media/{attachment}", "server.view", a.gameMedia)
 	server("GET /api/v1/servers/{id}/metrics/history", "server.view", a.serverResourceHistory)
 	platform("POST /api/v1/servers", "servers.create", a.createServer)
 	server("GET /api/v1/servers/{id}", "server.view", a.getServer)

@@ -1023,6 +1023,7 @@
     "resourceCleanup": "Unused resource cleanup",
     "gameIntegration": "Local game publishing",
     "gameEvents": "Durable game events",
+    "gameMedia": "Game screenshots and clips",
     "archiveCreationAndExtraction": "Archive creation and extraction",
     "available": "Available",
     "connectThisSparkToCheckFeatureAvailability": "Connect this Spark to check feature availability.",
@@ -1199,6 +1200,7 @@
     "utilizationUnavailable": "Utilization unavailable"
   },
   "gameEvents": {
+    "downloadMedia": "Download {{name}}",
     "title": "Game activity",
     "type": "Event type",
     "allTypes": "All event types",

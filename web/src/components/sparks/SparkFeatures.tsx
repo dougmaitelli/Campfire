@@ -1,67 +1,37 @@
-import i18n from "../../i18n";
 import { SquareCheck, SquareMinus, SquareX } from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
 import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
-const featureLabels: Record<string, string> = {
-  get "server.game-events.v1"() {
-    return i18n.t("sparkFeatures.gameEvents");
-  },
-  get "server.game-integration.v1"() {
-    return i18n.t("sparkFeatures.gameIntegration");
-  },
-  get "spark.prune.v1"() {
-    return i18n.t("sparkFeatures.resourceCleanup");
-  },
-  get "server.configure.v1"() {
-    return i18n.t("sparkFeatures.serverConfiguration");
-  },
-  get "server.lifecycle.v1"() {
-    return i18n.t("sparkFeatures.serverControls");
-  },
-  get "server.files.v1"() {
-    return i18n.t("sparkFeatures.fileManagement");
-  },
-  get "server.files.transfer.v1"() {
-    return i18n.t("sparkFeatures.fileUploadsAndDownloads");
-  },
-  get "server.files.archive.v1"() {
-    return i18n.t("sparkFeatures.archiveCreationAndExtraction");
-  },
-  get "server.backups.v1"() {
-    return i18n.t("sparkFeatures.localBackups");
-  },
-  get "server.backups.remote.v1"() {
-    return i18n.t("sparkFeatures.remoteBackups");
-  },
-  get "server.metrics.v1"() {
-    return i18n.t("sparkFeatures.usageMonitoring");
-  },
-  get "server.console.stream.v1"() {
-    return i18n.t("sparkFeatures.liveConsole");
-  },
-  get "server.disk-quota.v1"() {
-    return i18n.t("sparkFeatures.diskQuotas");
-  },
-  get "server.transfer.v1"() {
-    return i18n.t("sparkFeatures.serverTransfers");
-  },
-  get "server.reinstall.v1"() {
-    return i18n.t("common.reinstall");
-  },
-  get "spark.self-update.v1"() {
-    return i18n.t("sparkFeatures.remoteSparkUpdates");
-  },
-};
+const featureTranslationKeys = {
+  "server.game-media.v1": "sparkFeatures.gameMedia",
+  "server.game-events.v1": "sparkFeatures.gameEvents",
+  "server.game-integration.v1": "sparkFeatures.gameIntegration",
+  "spark.prune.v1": "sparkFeatures.resourceCleanup",
+  "server.configure.v1": "sparkFeatures.serverConfiguration",
+  "server.lifecycle.v1": "sparkFeatures.serverControls",
+  "server.files.v1": "sparkFeatures.fileManagement",
+  "server.files.transfer.v1": "sparkFeatures.fileUploadsAndDownloads",
+  "server.files.archive.v1": "sparkFeatures.archiveCreationAndExtraction",
+  "server.backups.v1": "sparkFeatures.localBackups",
+  "server.backups.remote.v1": "sparkFeatures.remoteBackups",
+  "server.metrics.v1": "sparkFeatures.usageMonitoring",
+  "server.console.stream.v1": "sparkFeatures.liveConsole",
+  "server.disk-quota.v1": "sparkFeatures.diskQuotas",
+  "server.transfer.v1": "sparkFeatures.serverTransfers",
+  "server.reinstall.v1": "common.reinstall",
+  "spark.self-update.v1": "sparkFeatures.remoteSparkUpdates",
+} as const;
 
 export function SparkFeatures({ spark }: { spark: Spark }) {
   const { t } = useTranslation();
   const available = new Set(spark.capabilities ?? []);
   const features = [
-    ...Object.entries(featureLabels),
+    ...Object.entries(featureTranslationKeys).map(
+      ([feature, key]): [string, string] => [feature, t(key)],
+    ),
     ...(spark.capabilities ?? [])
-      .filter((feature) => !(feature in featureLabels))
+      .filter((feature) => !Object.hasOwn(featureTranslationKeys, feature))
       .map((feature): [string, string] => [feature, feature]),
   ];
   return (
@@ -117,10 +87,10 @@ export function SparkFeatures({ spark }: { spark: Spark }) {
               <span>{label}</span>
               <span className="spark-feature-state">
                 {!spark.connected
-                  ? i18n.t("common.unknown")
+                  ? t("common.unknown")
                   : supported
-                    ? i18n.t("sparkFeatures.available")
-                    : i18n.t("common.unavailable")}
+                    ? t("sparkFeatures.available")
+                    : t("common.unavailable")}
               </span>
             </li>
           );

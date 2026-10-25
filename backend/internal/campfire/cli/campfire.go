@@ -223,6 +223,7 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 
 	games := &service.GameIntegrationService{Servers: servers}
 	games.Events = service.NewGameEventService(repository.NewGameEventRepository(db.ORM()))
+	games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM()))
 	games.Events.Retention = time.Duration(eventDays) * 24 * time.Hour
 	games.Events.MaxPerServer = eventMaximum
 
@@ -233,6 +234,7 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 
 	if hub != nil {
 		hub.WithGameIntegrations(games.Receive)
+		hub.WithGameMedia(games.Media.Receive)
 	}
 
 	sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), connectivity)

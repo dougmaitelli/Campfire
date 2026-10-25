@@ -57,3 +57,71 @@ test("game activity reports request failures and retries", async () => {
   await screen.findByText("A new adventure");
   expect(fetch).toHaveBeenCalledTimes(2);
 });
+
+test("game activity renders protected image and clip attachments without autoplay", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json({
+      items: [
+        {
+          ...event,
+          attachments: [
+            {
+              id: "shot",
+              name: "world.png",
+              content_type: "image/png",
+              size: 1024,
+            },
+            {
+              id: "clip",
+              name: "moment.webm",
+              content_type: "video/webm",
+              size: 4096,
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const view = render(<ServerGameEvents serverID="game" />);
+  const image = await screen.findByRole("img", { name: "world.png" });
+  expect(image.getAttribute("src")).toBe(
+    "/api/v1/servers/game/events/3/media/shot",
+  );
+  expect(
+    screen
+      .getByRole("link", { name: "Download world.png" })
+      .getAttribute("href"),
+  ).toBe("/api/v1/servers/game/events/3/media/shot?download=1");
+  const video = view.container.querySelector("video");
+  expect(video?.hasAttribute("controls")).toBe(true);
+  expect(video?.hasAttribute("autoplay")).toBe(false);
+  expect(video?.getAttribute("preload")).toBe("none");
+  expect(video?.querySelector("source")?.getAttribute("src")).toBe(
+    "/api/v1/servers/game/events/3/media/clip",
+  );
+});
+
+test("game activity rejects unsupported media and external attachment IDs", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json({
+      items: [
+        {
+          ...event,
+          attachments: [
+            {
+              id: "https://evil.test/shot",
+              name: "world.svg",
+              content_type: "image/svg+xml",
+              size: 1024,
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const view = render(<ServerGameEvents serverID="game" />);
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Unexpected game event response",
+  );
+  expect(view.container.querySelector("img,video")).toBeNull();
+});

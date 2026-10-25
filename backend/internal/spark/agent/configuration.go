@@ -39,7 +39,7 @@ func (s *ConfigurationStore) capabilities() []string {
 	offered := protocol.SupportedCapabilities()
 	if s.games == nil {
 		offered = slices.DeleteFunc(offered, func(capability string) bool {
-			return capability == protocol.CapabilityGameIntegration || capability == protocol.CapabilityGameEvents
+			return capability == protocol.CapabilityGameIntegration || capability == protocol.CapabilityGameEvents || capability == protocol.CapabilityGameMedia
 		})
 	}
 

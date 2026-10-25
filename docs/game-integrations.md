@@ -170,9 +170,76 @@ The Game activity tab offers type/time filters, older-page navigation, and a
 return to newest events. The newest page refreshes every ten seconds. It presents
 game-specific event types as supplied, without assuming matches or rounds.
 
+## Screenshots and clips
+
+Media travels separately from JSON publications and the control websocket.
+Publish an event first, then send the raw file to the same mounted socket:
+
+```sh
+curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
+  --request PUT \
+  --header 'Content-Type: image/png' \
+  --header 'X-Campfire-Media-Name: world.png' \
+  --data-binary @world.png \
+  http://spark/v1/events/EVENT_ID/media/screenshot-1
+```
+
+`EVENT_ID` is the original producer event ID, URL-encoded as a path segment.
+The final segment is a stable attachment ID containing 1–64 ASCII letters,
+digits, underscores, or hyphens. File names are 1–128 UTF-8 bytes without path
+separators or control characters. The MIME type must be exactly `image/png`,
+`image/jpeg`, `video/mp4`, or `video/webm` and match the file signature. Screenshot
+headers must describe a valid image no larger than 40 million pixels. Clips are
+stored as supplied without transcoding or server-side capture; playback depends
+on the browser's codec support.
+
+Spark derives server identity from the socket, then streams the upload over HTTPS
+to Campfire's dedicated agent listener using its existing client certificate and
+trust configuration. There is no new game credential or public upload endpoint.
+Both peers must negotiate `server.game-media.v1`. Uploads have a two-minute
+deadline and two concurrent upload slots per Spark and across Campfire.
+
+| Limit                          | Value   |
+| ------------------------------ | ------- |
+| Single attachment              | 25 MiB  |
+| Attachments per event          | 4       |
+| Retained media per server      | 250 MiB |
+| Retained media across Campfire | 1 GiB   |
+
+These are fixed initial limits. Quota checks and immutable attachment identity
+commit in the same database transaction. Metadata and bounded file bytes are
+stored together in SQLite or PostgreSQL. The media budgets bound logical stored
+bytes; database file/WAL space and backups can be larger. Event list responses
+include attachment metadata without loading or returning file bytes.
+
+Unlike events, media is not queued on Spark. `204` confirms a committed upload;
+retrying the same attachment ID with identical name, MIME type, and bytes succeeds
+without adding another attachment. A lost response has an uncertain outcome, so
+reuse the same ID and bytes. Changed content or metadata returns `409`.
+
+An event's local `202` acknowledgement may precede its arrival at Campfire. Media
+for an event not yet retained returns `409` with `Retry-After: 5`; retry after the
+event queue catches up. `429` means upload slots are busy; `503` means disconnected,
+unsupported, or temporarily unavailable. Respect `Retry-After`, use bounded
+backoff, and retain the original file until upload succeeds or the producer gives
+up. `400` rejects invalid metadata/content, `403` rejects source placement, and
+`413` rejects file, attachment-count, or storage limits. No partial attachment is
+visible after failed ingestion. Do not retry permanent rejections indefinitely.
+
+An attachment's lifetime follows its parent event. Age/count pruning and server
+deletion cascade to media in the same database. Deletion frees the logical quota;
+it does not promise immediate shrinking of database files on disk.
+
+The activity feed displays lazy-loaded images, clips with playback controls and
+no autoplay, and download links. `GET /api/v1/servers/{id}/events/{event}/media/{attachment}`
+uses the panel's numeric event ID and requires `server.view` authorization,
+including token scopes. It supports HTTP ranges for seeking; `?download=1`
+requests a download. Responses are private with no caching and cannot be used as
+public media links. Discord delivery will be implemented separately in stage 5.
+
 ## Request limits
 
-- Requests are limited to 16 KiB.
+- JSON publication requests are limited to 16 KiB; media uses the separate limits above.
 - Each server endpoint permits 10 requests per one-second window.
 - Spark permits 32 in-flight publications across its local endpoints.
 - State publications wait up to eight seconds for acknowledgement. Events use the

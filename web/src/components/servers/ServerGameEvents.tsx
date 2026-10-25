@@ -1,6 +1,10 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { readGameEvents, type GameEventFilter } from "../../api/gameEvents";
+import {
+  gameMediaURL,
+  readGameEvents,
+  type GameEventFilter,
+} from "../../api/gameEvents";
 import { useCollection } from "../../hooks/useCollection";
 import { Button } from "../forms/Button";
 import { InlineMessage } from "../status/InlineMessage";
@@ -147,6 +151,48 @@ function GameEventResults({
             <li key={event.id}>
               <strong>{event.title}</strong>
               <span className="game-event-type">{event.type}</span>
+              {event.attachments && event.attachments.length > 0 && (
+                <div className="game-event-media">
+                  {event.attachments.map((attachment) => {
+                    const url = gameMediaURL(serverID, event.id, attachment.id);
+                    return (
+                      <figure key={attachment.id}>
+                        {attachment.content_type.startsWith("image/") ? (
+                          <a href={url} target="_blank" rel="noreferrer">
+                            <img
+                              src={url}
+                              alt={attachment.name}
+                              loading="lazy"
+                            />
+                          </a>
+                        ) : (
+                          <video
+                            controls
+                            preload="none"
+                            aria-label={attachment.name}
+                          >
+                            <source src={url} type={attachment.content_type} />
+                            <a href={`${url}?download=1`}>{attachment.name}</a>
+                          </video>
+                        )}
+                        <figcaption>
+                          <a
+                            href={`${url}?download=1`}
+                            download={attachment.name}
+                          >
+                            {t("gameEvents.downloadMedia", {
+                              name: attachment.name,
+                            })}
+                          </a>
+                          <span>
+                            {(attachment.size / 1024 / 1024).toFixed(1)} MB
+                          </span>
+                        </figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+              )}
               <div className="game-event-times">
                 <span>
                   {t("gameEvents.occurred")}{" "}

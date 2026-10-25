@@ -1,6 +1,6 @@
 # Game integrations implementation plan
 
-Status: stages 1–4 implemented; stages 5–7 proposed. See
+Status: stages 1–4 and 6 implemented; Discord stages 5 and 7 deferred until last. See
 [the transport documentation](game-integrations.md) for current functionality.
 
 ## Objective and scope
@@ -150,6 +150,9 @@ compatibility remains a separate validation milestone.
 
 ## Stage 5: Discord publishing
 
+Deferred until after stage 6. This stage will also publish retained screenshots
+and clips as Discord attachments or links.
+
 Introduce external destinations and routing.
 
 - Configure Discord destinations in Campfire and keep credentials there.
@@ -178,6 +181,11 @@ message reflects current player information without channel spam.
 
 ## Stage 6: Screenshots and clips
 
+Implemented ahead of Discord with a bounded Unix-socket upload relayed over
+Spark's existing mTLS identity, immutable event attachments in the database,
+storage quotas, cascading event retention, authorized range downloads, and media
+in the Game activity feed. Dev-mock supplies synthetic screenshots and clips.
+
 Extend events with media attachments.
 
 - Accept media supplied by a mod, adapter, spectator client, or recording tool.
@@ -185,14 +193,16 @@ Extend events with media attachments.
   on the control connection.
 - Associate attachments with retained events.
 - Apply size limits, storage quotas, and retention.
-- Publish Discord attachments or links as appropriate.
+- Leave Discord attachments or links to stage 5, which now comes later.
 - Show media in the dashboard event feed.
 
 This stage handles media delivery. A headless game server may require separate
 client or recording tooling to produce screenshots and clips.
 
-Completion criteria: a real integration submits an image or clip that appears in
-its event and reaches Discord.
+Completion criteria: a publisher submits an image or clip through Spark that
+appears in its retained event and can be viewed or downloaded by authorized
+users. Automated transport tests and dev-mock validate this path; validation
+against the real Valheim integration remains deferred with that integration.
 
 ## Stage 7: Interactive Discord features (optional)
 
@@ -209,14 +219,14 @@ and unavailable or stale fields are represented accurately.
 1. Stages 1 and 2: transport and current-state dashboard support.
 2. Stage 3: event history.
 3. Stage 4: simulated game integration in dev-mock.
-4. Stage 5: Discord publishing.
-5. Stage 6: media delivery.
+4. Stage 6: media delivery.
+5. Stage 5: Discord publishing, including media.
 6. Stage 7: optional interactive Discord features.
 
 Develop the first real integration, Valheim, in a separate repository once the
 dashboard and external delivery flows are ready.
 
 Stage 1 uses Unix sockets and per-container mount isolation for local identity.
-Stage 2 uses a 60-second freshness timeout. Choose queue limits and retention
-defaults when implementing events, and media transfer and storage details when
-implementing attachments.
+Stage 2 uses a 60-second freshness timeout. Stage 3 defines the durable event
+queue and configurable event retention. Stage 6 defines media limits and
+retention in the [transport documentation](game-integrations.md#screenshots-and-clips).
