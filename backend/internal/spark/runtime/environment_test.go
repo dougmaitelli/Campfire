@@ -9,6 +9,19 @@ import (
 	"campfire/internal/shared/model"
 )
 
+func TestEnvironmentWithoutPublishedPorts(t *testing.T) {
+	d := runtimeFixture()
+	d.Configuration.Ports = nil
+	d.Configuration.Variables = map[string]string{"SERVER_PORT": "12345"}
+	if got := environment(d)["SERVER_PORT"]; got != "12345" {
+		t.Fatalf("configured internal port = %q", got)
+	}
+	d.Ember.RequiredPorts = []model.RequiredPort{{Container: 25565, Protocol: "tcp"}}
+	if got := environment(d)["SERVER_PORT"]; got != "25565" {
+		t.Fatalf("ember internal port = %q", got)
+	}
+}
+
 func TestResourcePlaceholdersUseEnforcedLimits(t *testing.T) {
 	d := runtimeFixture()
 	d.Configuration.CPULimit = 1.25

@@ -567,7 +567,11 @@ func environment(d model.Deployment) map[string]string {
 		env[key] = value
 	}
 
-	env["SERVER_PORT"] = strconv.Itoa(d.Configuration.Ports[0].ContainerPort)
+	if len(d.Configuration.Ports) > 0 {
+		env["SERVER_PORT"] = strconv.Itoa(d.Configuration.Ports[0].ContainerPort)
+	} else if len(d.Ember.RequiredPorts) > 0 {
+		env["SERVER_PORT"] = strconv.Itoa(d.Ember.RequiredPorts[0].Container)
+	}
 
 	env["SERVER_IP"] = "0.0.0.0"
 	env["SERVER_MEMORY"] = strconv.FormatInt(d.Configuration.MemoryMB, 10)

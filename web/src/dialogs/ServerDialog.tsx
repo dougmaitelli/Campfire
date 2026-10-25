@@ -139,9 +139,7 @@ export function ServerDialog({
         ),
       };
     }
-    const spark = sparks.find(
-      (item) => !item.disabled && item.port_allocations.length > 0,
-    );
+    const spark = sparks.find((item) => !item.disabled);
     const ember = embers[0];
     return {
       name: ember?.name.slice(0, 100) ?? "",
@@ -475,9 +473,7 @@ export function ServerDialog({
                 >
                   {sparks
                     .filter(
-                      (item) =>
-                        item.id === server?.spark_id ||
-                        (!item.disabled && item.port_allocations.length > 0),
+                      (item) => item.id === server?.spark_id || !item.disabled,
                     )
                     .map((item) => (
                       <option key={item.id} value={item.id}>
@@ -586,20 +582,19 @@ export function ServerDialog({
           id: "resources",
           title: t("serverDialog.resourcesPorts"),
           validate: () =>
-            value.ports.length === 0
-              ? i18n.t("serverDialog.addAtLeastOnePortMapping")
-              : (ember?.required_ports ?? []).some(
-                    (required) =>
-                      !value.ports.some(
-                        (port) =>
-                          port.container_port === required.container &&
-                          port.protocol === required.protocol,
-                      ),
-                  )
-                ? i18n.t(
-                    "serverDialog.mapEveryRequiredEmberContainerPortAndProtocol",
-                  )
-                : null,
+            value.ports.length > 0 &&
+            (ember?.required_ports ?? []).some(
+              (required) =>
+                !value.ports.some(
+                  (port) =>
+                    port.container_port === required.container &&
+                    port.protocol === required.protocol,
+                ),
+            )
+              ? i18n.t(
+                  "serverDialog.mapEveryRequiredEmberContainerPortAndProtocol",
+                )
+              : null,
           content: (
             <Fieldset disabled={runtimeRestricted}>
               <p className="field-help">

@@ -149,7 +149,7 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 		}
 	}
 
-	if !allowed || c.Name == "" || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < 0.1 || c.CPULimit > 1024 || c.MemoryMB < 64 || c.MemoryMB > 1048576 || c.DiskMB < 0 || c.DiskMB > 1073741824 || len(c.Ports) == 0 || len(c.Ports) > 32 {
+	if !allowed || c.Name == "" || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < 0.1 || c.CPULimit > 1024 || c.MemoryMB < 64 || c.MemoryMB > 1048576 || c.DiskMB < 0 || c.DiskMB > 1073741824 || len(c.Ports) > 32 {
 		return model.ConfigurationReceipt{}, errors.New("invalid server image or resources")
 	}
 

@@ -184,12 +184,15 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 }
 
 func (s *ServerService) save(ctx context.Context, server model.Server, create bool) (model.Server, error) {
+	if server.Ports == nil {
+		server.Ports = []model.ServerPort{}
+	}
 	server.Name = strings.TrimSpace(server.Name)
 	if server.Name == "" || !utf8.ValidString(server.Name) || utf8.RuneCountInString(server.Name) > 100 || strings.ContainsFunc(server.Name, unicode.IsControl) ||
 		math.IsNaN(server.CPULimit) || math.IsInf(server.CPULimit, 0) || server.CPULimit < 0.1 || server.CPULimit > 1024 ||
 		server.MemoryMB < 64 || server.MemoryMB > 1048576 || server.DiskMB < 0 || server.DiskMB > 1073741824 ||
-		len(server.Ports) == 0 || len(server.Ports) > 32 {
-		return model.Server{}, fmt.Errorf("%w: provide a name, 0.1–1024 CPU cores, at least 64 MiB memory, positive disk capacity, and 1–32 ports", ErrInvalidServer)
+		len(server.Ports) > 32 {
+		return model.Server{}, fmt.Errorf("%w: provide a name, 0.1–1024 CPU cores, at least 64 MiB memory, positive disk capacity, and at most 32 ports", ErrInvalidServer)
 	}
 
 	description, err := validateDescription(server.Description)
@@ -257,6 +260,9 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 	}
 
 	for _, required := range ember.RequiredPorts {
+		if len(server.Ports) == 0 {
+			break
+		}
 		found := false
 
 		for _, port := range server.Ports {

@@ -685,7 +685,7 @@
     "gameSettings": "Game settings",
     "general": "General",
     "hostPort": "Host port",
-    "hostPortsMustBelongToTheSparkSAllocationRanges": "Host ports must belong to the Spark’s allocation ranges and be available. Container ports must match the Ember requirements.",
+    "hostPortsMustBelongToTheSparkSAllocationRanges": "Port mappings are optional, for example when using a remote tunnel. When added, host ports must belong to the Spark’s allocation ranges and be available, and container ports must match the Ember requirements.",
     "image": "Image",
     "loadingAccess": "Loading access…",
     "loadingBackupPolicy": "Loading backup policy…",
@@ -855,7 +855,7 @@
   "serversPage": {
     "allSparks": "All Sparks",
     "askAnAdministratorToApproveASparkForYourRole": "Ask an administrator to approve a Spark for your role before creating a server.",
-    "configureAnEnabledSparkWithPortAllocations": "configure an enabled Spark with port allocations",
+    "configureAnEnabledSparkWithPortAllocations": "configure an enabled Spark",
     "count_one": "{{visible}} of {{count}} server",
     "count_other": "{{visible}} of {{count}} servers",
     "createServer": "+ Create server",

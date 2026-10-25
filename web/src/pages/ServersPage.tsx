@@ -101,9 +101,7 @@ export function ServersPage() {
     canProvision &&
     !loading &&
     options.embers.length > 0 &&
-    options.sparks.some(
-      (spark) => !spark.disabled && spark.port_allocations.length > 0,
-    );
+    options.sparks.some((spark) => !spark.disabled);
   const visible = servers.items.filter(
     (server) =>
       (!sparkFilter || server.spark_id === sparkFilter) &&
