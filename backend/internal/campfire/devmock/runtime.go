@@ -76,6 +76,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 	}
 
 	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilityPrune}
+
 	features = append(features, protocol.CapabilityStartupOverride)
 	if r.games != nil {
 		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)

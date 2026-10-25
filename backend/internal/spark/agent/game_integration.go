@@ -83,6 +83,7 @@ func (g *gameIntegrations) unmount(id string) {
 	endpoint := g.endpoints[id]
 	delete(g.endpoints, id)
 	g.mu.Unlock()
+
 	if endpoint != nil {
 		_ = endpoint.Close()
 	}

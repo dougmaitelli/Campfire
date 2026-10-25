@@ -186,6 +186,7 @@ func Run(ctx context.Context, config Config) error {
 			if !configurations.savedGame(sparkID, serverID) {
 				continue
 			}
+
 			if _, err := games.mount(serverID); err != nil {
 				return fmt.Errorf("restore game integration endpoint: %w", err)
 			}

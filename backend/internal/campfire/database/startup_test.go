@@ -18,9 +18,11 @@ func TestExistingBaselineAddsStartupSelectionColumn(t *testing.T) {
 	if err := db.ORM().Migrator().DropColumn(&database.Server{}, "StartupCommand"); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := db.ORM().Migrator().DropColumn(&database.Server{}, "StartupOverride"); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := db.ORM().Migrator().DropColumn(&database.Server{}, "GameIntegration"); err != nil {
 		t.Fatal(err)
 	}
@@ -44,9 +46,11 @@ func TestExistingBaselineAddsStartupSelectionColumn(t *testing.T) {
 	if !db.ORM().Migrator().HasColumn(&database.Server{}, "StartupCommand") {
 		t.Fatal("startup selection column was not added to the existing baseline")
 	}
+
 	if !db.ORM().Migrator().HasColumn(&database.Server{}, "StartupOverride") {
 		t.Fatal("startup override column was not added to the existing baseline")
 	}
+
 	if !db.ORM().Migrator().HasColumn(&database.Server{}, "GameIntegration") {
 		t.Fatal("game integration column was not added to the existing baseline")
 	}

@@ -162,6 +162,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		if name == "." {
 			return result, fileError("invalid_file", "The server root cannot be deleted.")
 		}
+
 		if !exists && !directory {
 			return result, fileError("file_not_found", "File not found.")
 		}

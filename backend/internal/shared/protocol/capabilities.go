@@ -144,9 +144,11 @@ func RequiredCapabilities(command Command) []string {
 		if command.Deployment != nil && command.Deployment.Configuration.GameIntegration {
 			required = append(required, CapabilityGameIntegration)
 		}
+
 		if command.Deployment != nil && command.Deployment.Configuration.StartupOverride != "" {
 			required = append(required, CapabilityStartupOverride)
 		}
+
 		return required
 	case ServerTransfer:
 		return []string{CapabilityTransfer}

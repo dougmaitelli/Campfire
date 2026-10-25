@@ -131,21 +131,26 @@ func TestRuntimeStartsCustomCommand(t *testing.T) {
 	d.Configuration.StartupOverride = "echo custom; sleep {{SECONDS}}"
 	m := newTestManager(t.Context(), t.TempDir())
 	t.Cleanup(m.Close)
+
 	docker := &fakeDocker{states: map[string]string{}}
 	m.Docker = docker
+
 	m.Ownership = func(string, string) error { return nil }
 	for _, action := range []string{"install", "start"} {
 		if status := awaitOperation(t, m, d, action, action); status.Error != "" {
 			t.Fatal(status)
 		}
 	}
+
 	docker.mu.Lock()
 	defer docker.mu.Unlock()
+
 	for _, args := range docker.calls {
 		if args[0] == "create" && args[len(args)-1] == "echo custom; sleep ${SECONDS}" && slices.Contains(args, "STARTUP=echo custom; sleep ${SECONDS}") {
 			return
 		}
 	}
+
 	t.Fatal("custom command was not used for shell arguments and STARTUP", docker.calls)
 }
 

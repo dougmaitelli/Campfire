@@ -163,9 +163,11 @@ func TestRuntimeDisabledGameIntegrationHasNoMount(t *testing.T) {
 	d := runtimeFixture()
 	m := newTestManager(t.Context(), t.TempDir())
 	t.Cleanup(m.Close)
+
 	docker := &fakeDocker{states: make(map[string]string)}
 	m.Docker = docker
 	m.Ownership = func(string, string) error { return nil }
+
 	m.GameIntegrationMount = func(string) (string, error) {
 		t.Error("disabled server requested an integration endpoint")
 		return t.TempDir(), nil
@@ -175,8 +177,10 @@ func TestRuntimeDisabledGameIntegrationHasNoMount(t *testing.T) {
 			t.Fatal(status.Error)
 		}
 	}
+
 	docker.mu.Lock()
 	defer docker.mu.Unlock()
+
 	for _, args := range docker.calls {
 		if args[0] == "create" && strings.Contains(strings.Join(args, " "), "campfire-game") {
 			t.Fatal("disabled integration exposed a mount or socket environment", args)

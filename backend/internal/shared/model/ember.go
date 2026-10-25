@@ -366,17 +366,21 @@ func (e Ember) ServerStartup(c ServerConfiguration) (string, string, error) {
 	if err != nil || c.StartupOverride == "" {
 		return selection, command, err
 	}
+
 	command = c.StartupOverride
 	if len(command) > 16384 || strings.TrimSpace(command) == "" || strings.ContainsRune(command, '\x00') {
 		return "", "", errors.New("custom startup command must contain 1–16384 bytes without null characters")
 	}
+
 	known := BuiltinEnvironment()
 	for _, variable := range e.Variables {
 		known[variable.Name] = ""
 	}
+
 	if _, err := Startup(command, known); err != nil {
 		return "", "", err
 	}
+
 	return selection, command, nil
 }
 

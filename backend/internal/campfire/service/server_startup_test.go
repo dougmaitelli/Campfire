@@ -98,22 +98,27 @@ func TestCreateServerWithCustomStartupAndReset(t *testing.T) {
 	input := f.server.ServerConfiguration
 	input.Name, input.SparkID = "Custom startup", "target"
 	input.StartupOverride = "echo custom; sleep 42"
+
 	server, err := servers.Create(t.Context(), input)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	saved, err := servers.Get(t.Context(), server.ID)
 	if err != nil || saved.StartupOverride != input.StartupOverride {
 		t.Fatal("custom command was not persisted", saved, err)
 	}
+
 	input.StartupOverride = ""
 	if _, err := servers.Update(t.Context(), server.ID, input); err != nil {
 		t.Fatal(err)
 	}
+
 	saved, err = servers.Get(t.Context(), server.ID)
 	if err != nil || saved.StartupOverride != "" {
 		t.Fatal("reset did not clear the custom command", saved, err)
 	}
+
 	input.StartupOverride = "echo {{UNKNOWN_STARTUP_VARIABLE}}"
 	if _, err := servers.Update(t.Context(), server.ID, input); err == nil {
 		t.Fatal("unknown custom startup variable accepted")
