@@ -3,6 +3,7 @@ import {
   ArchiveRestore,
   ArrowRight,
   Bell,
+  CalendarClock,
   Check,
   ChevronUp,
   CircleCheck,
@@ -120,7 +121,7 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   sparks: Zap,
   embers: Flame,
   servers: Server,
-  schedules: ClipboardList,
+  schedules: CalendarClock,
 };
 
 export function NavigationIcon({

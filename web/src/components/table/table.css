@@ -15,6 +15,7 @@
 }
 
 .table-container {
+  position: relative;
   overflow-x: auto;
 }
 .data-table {
