@@ -16,10 +16,10 @@
     "preview": "astro preview"
   },
   "devDependencies": {
-    "@astrojs/check": "0.9.10",
+    "@astrojs/check": "0.9.12",
     "@astrojs/starlight": "0.42.6",
     "@eslint/js": "10.0.1",
-    "astro": "7.3.8",
+    "astro": "7.4.2",
     "eslint": "10.13.0",
     "eslint-plugin-astro": "3.2.1",
     "globals": "17.13.0",
