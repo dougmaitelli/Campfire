@@ -16,10 +16,11 @@ import (
 
 const consoleContainerPollInterval = 250 * time.Millisecond
 const consoleInspectTimeout = 3 * time.Second
+const consolePreloadLines = "1000"
 
 // Follow relays Docker's demultiplexed stdout and stderr with bounded chunks.
 func (Docker) Follow(ctx context.Context, name string, emit func(string) error) error {
-	command, err := dockerCommand(ctx, "logs", "--timestamps", "--follow", "--tail", "200", name)
+	command, err := dockerCommand(ctx, "logs", "--timestamps", "--follow", "--tail", consolePreloadLines, name)
 	if err != nil {
 		return err
 	}

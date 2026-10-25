@@ -919,6 +919,11 @@
     "updating": "Updating"
   },
   "serverTerminal": {
+    "search": "Search console",
+    "noResults": "No matches",
+    "previousMatch": "Previous match",
+    "nextMatch": "Next match",
+    "closeSearch": "Close search",
     "clear": "Clear",
     "command": "Command",
     "connecting": "Connecting…",

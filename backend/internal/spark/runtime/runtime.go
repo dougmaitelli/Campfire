@@ -210,7 +210,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 				return result, nil
 			}
 
-			output, err := m.Docker.Run(ctx, nil, "logs", "--timestamps", "--tail", "200", container(d.ServerID)+"-install")
+			output, err := m.Docker.Run(ctx, nil, "logs", "--timestamps", "--tail", consolePreloadLines, container(d.ServerID)+"-install")
 			if err != nil {
 				output = "Installer output is not available yet."
 			}
@@ -220,7 +220,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 			return result, nil
 		}
 
-		output, err := m.Docker.Run(ctx, nil, "logs", "--timestamps", "--tail", "200", container(d.ServerID))
+		output, err := m.Docker.Run(ctx, nil, "logs", "--timestamps", "--tail", consolePreloadLines, container(d.ServerID))
 		if err != nil {
 			return model.RuntimeStatus{}, err
 		}

@@ -8,6 +8,7 @@ import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon } from "@xterm/addon-search";
 import { StatusPill, type StatusTone } from "../status/StatusPill";
 import { sendConsole } from "../../api/runtime";
 import { connectConsole, type ConsoleStreamMode } from "./consoleStream";
@@ -28,6 +29,42 @@ export function ServerTerminal({
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const terminal = useRef<Terminal | null>(null);
+  const search = useRef<SearchAddon | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [noResults, setNoResults] = useState(false);
+
+  function find(previous = false, incremental = false, value = query) {
+    const addon = search.current;
+    if (!addon) return;
+    if (!value) {
+      terminal.current?.clearSelection();
+      setNoResults(false);
+      return;
+    }
+    const found = previous
+      ? addon.findPrevious(value, { incremental })
+      : addon.findNext(value, { incremental });
+    setNoResults(!found);
+  }
+
+  function openSearch() {
+    setSearchOpen(true);
+    find(false, true);
+    searchInput.current?.focus();
+    searchInput.current?.select();
+  }
+
+  function closeSearch() {
+    setSearchOpen(false);
+    terminal.current?.clearSelection();
+    terminal.current?.focus();
+  }
+
+  useEffect(() => {
+    if (searchOpen) searchInput.current?.focus();
+  }, [searchOpen]);
   const [connection, setConnection] = useState<{
     label: string;
     tone: StatusTone;
@@ -129,6 +166,9 @@ export function ServerTerminal({
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
+    const searchAddon = new SearchAddon();
+    term.loadAddon(searchAddon);
+    search.current = searchAddon;
     term.open(container.current);
     terminal.current = term;
     let frame = 0;
@@ -142,6 +182,7 @@ export function ServerTerminal({
       observer.disconnect();
       cancelAnimationFrame(frame);
       terminal.current = null;
+      search.current = null;
       term.dispose();
     };
   }, [serverID]);
@@ -158,13 +199,92 @@ export function ServerTerminal({
     });
   }, [serverID, streamKey, streamMode]);
   return (
-    <div className="server-terminal">
+    <div
+      className="server-terminal"
+      onKeyDownCapture={(event) => {
+        if (
+          (event.ctrlKey || event.metaKey) &&
+          event.key.toLowerCase() === "f"
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          openSearch();
+        } else if (searchOpen && event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          closeSearch();
+        }
+      }}
+    >
       <div className="server-terminal-window">
         <div className="server-terminal-toolbar">
+          {searchOpen && (
+            <form
+              className="server-terminal-search"
+              role="search"
+              aria-label={t("serverTerminal.search")}
+              onSubmit={(event) => {
+                event.preventDefault();
+                find();
+              }}
+            >
+              <TextInput
+                ref={searchInput}
+                aria-label={t("serverTerminal.search")}
+                placeholder={t("serverTerminal.search")}
+                value={query}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  find(false, true, event.target.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    find(event.shiftKey);
+                  }
+                }}
+              />
+              <span role="status">
+                {noResults ? t("serverTerminal.noResults") : ""}
+              </span>
+              <Button
+                size="small"
+                type="button"
+                disabled={!query}
+                onClick={() => find(true)}
+              >
+                {t("serverTerminal.previousMatch")}
+              </Button>
+              <Button size="small" type="submit" disabled={!query}>
+                {t("serverTerminal.nextMatch")}
+              </Button>
+              <Button
+                size="small"
+                type="button"
+                iconOnly
+                aria-label={t("serverTerminal.closeSearch")}
+                onClick={closeSearch}
+              >
+                <NavigationIcon name="close" />
+              </Button>
+            </form>
+          )}
           <span role="status">
             <StatusPill tone={connection.tone}>{connection.label}</StatusPill>
           </span>
           <ActionGroup>
+            <Button
+              size="small"
+              type="button"
+              iconOnly
+              aria-label={t("serverTerminal.search")}
+              title={t("serverTerminal.search")}
+              onClick={openSearch}
+            >
+              <NavigationIcon name="search" />
+            </Button>
             <Button
               size="small"
               type="button"
