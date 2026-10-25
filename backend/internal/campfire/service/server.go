@@ -187,6 +187,7 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 	if server.Ports == nil {
 		server.Ports = []model.ServerPort{}
 	}
+
 	server.Name = strings.TrimSpace(server.Name)
 	if server.Name == "" || !utf8.ValidString(server.Name) || utf8.RuneCountInString(server.Name) > 100 || strings.ContainsFunc(server.Name, unicode.IsControl) ||
 		math.IsNaN(server.CPULimit) || math.IsInf(server.CPULimit, 0) || server.CPULimit < 0.1 || server.CPULimit > 1024 ||
@@ -263,6 +264,7 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 		if len(server.Ports) == 0 {
 			break
 		}
+
 		found := false
 
 		for _, port := range server.Ports {

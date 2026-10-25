@@ -29,6 +29,7 @@ func deploymentFixture(id, server string) model.Deployment {
 func TestConfigurationAllowsNoPorts(t *testing.T) {
 	d := deploymentFixture("node", "tunnel")
 	d.Configuration.Ports = nil
+
 	store := &ConfigurationStore{Directory: t.TempDir()}
 	if _, err := store.Deploy(t.Context(), "node", d); err != nil {
 		t.Fatal("configuration without published ports was rejected", err)

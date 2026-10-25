@@ -73,15 +73,19 @@ func TestServerStartupSelectionSurvivesUpdatesAndRejectsRemovedKeys(t *testing.T
 func TestCreateServerWithoutPortsOrSparkAllocations(t *testing.T) {
 	f := newTransferFixture(t)
 	d := f.service.Deployment
+
 	ember, err := d.Embers.Import(t.Context(), model.Ember{Schema: 1, Name: "Tunnel game", Images: map[string]string{"Game": "alpine:3.22"}, Startup: "sleep 3600", WorkDir: "/data", User: "1000", RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if err := f.db.ORM().Model(&database.Spark{}).Where("id = ?", "target").Update("port_allocations", "[]").Error; err != nil {
 		t.Fatal(err)
 	}
+
 	input := f.server.ServerConfiguration
 	input.Name, input.SparkID, input.EmberID, input.Ports = "Tunnel", "target", ember.ID, nil
+
 	server, err := d.Servers.Create(t.Context(), input)
 	if err != nil || server.Ports == nil || len(server.Ports) != 0 {
 		t.Fatal("server without published ports was rejected", server, err)
