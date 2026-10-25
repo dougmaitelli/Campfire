@@ -28,7 +28,7 @@ func (r *GameMediaRepository) Append(ctx context.Context, sparkID, serverID, eve
 
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var server database.Server
-		if err := tx.Select("servers.id", "servers.spark_id").Joins("JOIN sparks ON sparks.id = servers.spark_id").Where("servers.id = ? AND servers.spark_id = ? AND sparks.disabled = ?", serverID, sparkID, false).Take(&server).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Select("servers.id", "servers.spark_id").Joins("JOIN sparks ON sparks.id = servers.spark_id").Where("servers.id = ? AND servers.spark_id = ? AND sparks.disabled = ? AND servers.game_integration = ?", serverID, sparkID, false, true).Take(&server).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			return model.ErrGameMediaPlacement
 		} else if err != nil {
 			return err

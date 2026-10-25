@@ -82,7 +82,7 @@ func (s *GameIntegrationService) Receive(ctx context.Context, sparkID string, fr
 	}
 
 	server, err := s.Servers.Get(ctx, frame.ServerID)
-	if errors.Is(err, ErrServerNotFound) || err == nil && server.SparkID != sparkID {
+	if errors.Is(err, ErrServerNotFound) || err == nil && (server.SparkID != sparkID || !server.GameIntegration) {
 		return &protocol.CommandError{Code: "publication_rejected", Message: "Invalid game publication placement."}
 	}
 

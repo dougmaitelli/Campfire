@@ -34,6 +34,9 @@ export function ServerReview({
         <DetailItem label={t("common.spark")}>{sparkName}</DetailItem>
         <DetailItem label={t("common.ember")}>{emberName}</DetailItem>
         <DetailItem label={t("serverReview.image")}>{value.image}</DetailItem>
+        <DetailItem label={t("serverDialog.gameIntegration")}>
+          {value.game_integration ? t("common.enabled") : t("common.disabled")}
+        </DetailItem>
         {value.startup_command && (
           <DetailItem label={t("serverReview.startupCommand")}>
             {value.startup_command}

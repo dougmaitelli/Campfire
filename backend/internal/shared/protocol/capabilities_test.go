@@ -67,6 +67,7 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 		capability string
 	}{
 		{Command{Name: ConfigureServer}, CapabilityConfigure},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.ServerConfiguration{GameIntegration: true}}}, CapabilityGameIntegration},
 		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Readiness: &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready"}}}}}}, CapabilityConfigure},
 		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Configs: []model.ConfigFile{{Parser: "json", Create: true}}}}}, CapabilityConfigure},
 		{Command{Name: ServerFiles}, CapabilityFiles},

@@ -15,9 +15,10 @@ Events are durably retained in the database and appear in each server's
 
 ## Enable publishing
 
-Start Spark with `--game-integrations` or `SPARK_GAME_INTEGRATIONS=true`. The feature
-is disabled by default and advertised as `server.game-integration.v1` only when
-enabled. Durable event delivery additionally negotiates `server.game-events.v1`.
+In the dashboard, edit a game server and select **Enable game integration**.
+Publishing is disabled by default for each server. Spark automatically advertises
+support as `server.game-integration.v1`; no host flag or environment variable is
+required. Durable event delivery additionally negotiates `server.game-events.v1`.
 An older Campfire can still receive supported state snapshots, but Spark will not
 send queued events through the older, non-durable ingestion contract.
 
@@ -30,8 +31,8 @@ Newly created game containers receive:
 Existing running containers need recreation through a server restart to gain the
 mount. Spark recreates listeners for saved server configurations after its own
 restart; directory mounts allow containers to reconnect to the replacement socket.
-Disabling the feature removes listeners when Spark exits; recreate game containers
-to remove their mounts as well.
+Disabling publishing revokes access when Spark receives the updated configuration
+and removes the listener. Restart the game server to remove its container mount.
 
 Keep Spark's data directory private and on the same host filesystem visible to
 Docker, as with existing game-data mounts. Use a short absolute `--data` path:

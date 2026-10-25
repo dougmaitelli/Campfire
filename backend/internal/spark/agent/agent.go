@@ -36,15 +36,14 @@ import (
 
 // Config controls first enrollment and persistent agent state.
 type Config struct {
-	PanelURL         string
-	DataDir          string
-	CAFile           string
-	Token            string
-	EnrollOnly       bool
-	GameIntegrations bool
-	dialContext      func(context.Context, string, string) (net.Conn, error)
-	runtimeFactory   func(context.Context, string) *runtime.Manager
-	serverCA         []byte
+	PanelURL       string
+	DataDir        string
+	CAFile         string
+	Token          string
+	EnrollOnly     bool
+	dialContext    func(context.Context, string, string) (net.Conn, error)
+	runtimeFactory func(context.Context, string) *runtime.Manager
+	serverCA       []byte
 }
 
 type agentIdentity struct {
@@ -161,7 +160,7 @@ func Run(ctx context.Context, config Config) error {
 	slog.Info("Game-data disk quota support", "enabled", manager.DiskQuotaSupported())
 
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
-	if config.GameIntegrations {
+	{
 		sparkID := identity.ID
 
 		games, err := newGameIntegrations(ctx, filepath.Join(config.DataDir, "game-integrations"), func(serverID string) bool { return configurations.savedGame(sparkID, serverID) })
@@ -183,7 +182,11 @@ func Run(ctx context.Context, config Config) error {
 				continue
 			}
 
-			if _, err := games.mount(strings.TrimSuffix(entry.Name(), ".json")); err != nil {
+			serverID := strings.TrimSuffix(entry.Name(), ".json")
+			if !configurations.savedGame(sparkID, serverID) {
+				continue
+			}
+			if _, err := games.mount(serverID); err != nil {
 				return fmt.Errorf("restore game integration endpoint: %w", err)
 			}
 		}

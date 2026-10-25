@@ -17,7 +17,7 @@ func (gameServerStore) Get(_ context.Context, id string) (model.Server, error) {
 		return model.Server{}, errors.New("missing")
 	}
 
-	return model.Server{ID: id, ServerConfiguration: model.ServerConfiguration{SparkID: "owner"}}, nil
+	return model.Server{ID: id, ServerConfiguration: model.ServerConfiguration{SparkID: "owner", GameIntegration: true}}, nil
 }
 
 func TestGameStateReplacementFreshnessAndLifecycle(t *testing.T) {

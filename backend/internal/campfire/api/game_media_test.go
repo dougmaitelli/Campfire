@@ -21,6 +21,7 @@ func TestGameMediaDownloadsRequireServerAccessAndSupportRanges(t *testing.T) {
 	f := newAccessFixture(t)
 	user, member := f.user("game-media", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
+	input.GameIntegration = true
 	response := request(f.admin, "POST", "/api/v1/servers", configJSON(t, input))
 
 	var server model.Server

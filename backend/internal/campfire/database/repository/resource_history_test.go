@@ -20,7 +20,7 @@ func resourceHistoryStore(t *testing.T) (*database.Database, *repository.Resourc
 	for _, row := range []any{
 		&database.Spark{ID: "node", Name: "Node"},
 		&database.Ember{ID: "ember", Name: "Game", Definition: model.Ember{Schema: 1}},
-		&database.Server{ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", Image: "image", Variables: map[string]string{}, Ports: []model.ServerPort{}},
+		&database.Server{ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", Image: "image", GameIntegration: true, Variables: map[string]string{}, Ports: []model.ServerPort{}},
 	} {
 		if err := db.ORM().Omit("Spark", "Ember", "Owner").Create(row).Error; err != nil {
 			t.Fatal(err)

@@ -40,7 +40,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 				return err
 			}
 
-			configuration := model.ServerConfiguration{SparkID: current.SparkID, EmberID: current.EmberID, Image: current.Image, StartupCommand: current.StartupCommand, Variables: current.Variables, CPULimit: current.CPULimit, MemoryMB: current.MemoryMB, DiskMB: current.DiskMB, Ports: current.Ports}
+			configuration := model.ServerConfiguration{SparkID: current.SparkID, EmberID: current.EmberID, Image: current.Image, StartupCommand: current.StartupCommand, GameIntegration: current.GameIntegration, Variables: current.Variables, CPULimit: current.CPULimit, MemoryMB: current.MemoryMB, DiskMB: current.DiskMB, Ports: current.Ports}
 			if model.SameRuntimeConfiguration(configuration, server.ServerConfiguration) && current.EmberHash == server.EmberHash {
 				return tx.Model(&database.Server{}).Where("id = ?", server.ID).Updates(map[string]any{"name": server.Name, "description": server.Description}).Error
 			}
@@ -68,7 +68,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			return fmt.Errorf("read reservations: %w", err)
 		}
 
-		record := database.Server{ID: server.ID, Name: server.Name, Description: server.Description, SparkID: server.SparkID, EmberID: server.EmberID, EmberHash: server.EmberHash, Image: server.Image, StartupCommand: server.StartupCommand, Variables: server.Variables, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Ports: server.Ports, CreatedAt: server.CreatedAt.Format(time.RFC3339Nano)}
+		record := database.Server{ID: server.ID, Name: server.Name, Description: server.Description, SparkID: server.SparkID, EmberID: server.EmberID, EmberHash: server.EmberHash, Image: server.Image, StartupCommand: server.StartupCommand, GameIntegration: server.GameIntegration, Variables: server.Variables, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Ports: server.Ports, CreatedAt: server.CreatedAt.Format(time.RFC3339Nano)}
 		if create && server.OwnerUserID > 0 {
 			record.OwnerUserID = &server.OwnerUserID
 		}
@@ -80,7 +80,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 		if create {
 			err = tx.Omit("Spark", "Ember", "Owner").Create(&record).Error
 		} else {
-			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "EmberID", "EmberHash", "Image", "StartupCommand", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
+			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "EmberID", "EmberHash", "Image", "StartupCommand", "GameIntegration", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
 
 			err = result.Error
 			if err == nil && result.RowsAffected == 0 {
@@ -221,5 +221,5 @@ func toServer(record database.Server) (model.Server, error) {
 		return model.Server{}, fmt.Errorf("read server timestamp: %w", err)
 	}
 
-	return model.Server{ID: record.ID, EmberHash: record.EmberHash, EmberUpdateAvailable: record.EmberHash != "" && record.EmberHash != model.EmberHash(record.Ember.Definition), ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, StartupCommand: record.StartupCommand, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, EmberArtURL: record.Ember.Definition.ArtURL, GameAddress: record.Spark.GameAddress, PortDescriptions: record.Ember.Definition.PortDescriptions(), Status: "not_installed", CreatedAt: created}, nil
+	return model.Server{ID: record.ID, EmberHash: record.EmberHash, EmberUpdateAvailable: record.EmberHash != "" && record.EmberHash != model.EmberHash(record.Ember.Definition), ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, StartupCommand: record.StartupCommand, GameIntegration: record.GameIntegration, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, EmberArtURL: record.Ember.Definition.ArtURL, GameAddress: record.Spark.GameAddress, PortDescriptions: record.Ember.Definition.PortDescriptions(), Status: "not_installed", CreatedAt: created}, nil
 }

@@ -769,7 +769,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	env["TINI_SUBREAPER"] = "1"
 
 	args := []string{"create", "--name", container(d.ServerID), "--label", "campfire.server=" + d.ServerID, "--interactive", "--init", "--user", d.Ember.User, "--memory", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--memory-swap", strconv.FormatInt(d.Configuration.MemoryMB, 10) + "m", "--cpus", strconv.FormatFloat(d.Configuration.CPULimit, 'f', -1, 64), "--pids-limit", "512", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--restart", "unless-stopped", "--log-driver", "local", "--log-opt", "max-size=10m", "--log-opt", "max-file=3", "--mount", "type=bind,source=" + volume + ",target=" + d.Ember.WorkDir, "--workdir", d.Ember.WorkDir}
-	if m.GameIntegrationMount != nil {
+	if d.Configuration.GameIntegration && m.GameIntegrationMount != nil {
 		directory, err := m.GameIntegrationMount(d.ServerID)
 		if err != nil {
 			return err

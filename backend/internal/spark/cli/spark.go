@@ -26,7 +26,8 @@ func Run(ctx context.Context, args []string) error {
 	version := flags.Bool("version", false, "print release version and exit")
 	updateInfo := flags.Bool("update-info", false, "print version and wire compatibility for verified updates")
 	enrollOnly := flags.Bool("enroll-only", false, "enroll and save the agent identity, then exit")
-	gameIntegrations := flags.Bool("game-integrations", strings.EqualFold(os.Getenv("SPARK_GAME_INTEGRATIONS"), "true"), "enable isolated local game publishing sockets (SPARK_GAME_INTEGRATIONS)")
+	// Accept existing service arguments while control moves to server configuration.
+	flags.Bool("game-integrations", true, "deprecated: game integrations are managed through the dashboard")
 
 	tokenFile := flags.String("token-file", cliutil.Environment("SPARK_TOKEN_FILE", ""), "private one-time enrollment token file (SPARK_TOKEN_FILE)")
 	if err := flags.Parse(args); err != nil {
@@ -75,7 +76,7 @@ func Run(ctx context.Context, args []string) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	err := agent.Run(ctx, agent.Config{PanelURL: *panel, DataDir: *data, CAFile: *ca, Token: token, EnrollOnly: *enrollOnly, GameIntegrations: *gameIntegrations})
+	err := agent.Run(ctx, agent.Config{PanelURL: *panel, DataDir: *data, CAFile: *ca, Token: token, EnrollOnly: *enrollOnly})
 
 	var restart *agent.RestartError
 	if errors.As(err, &restart) {

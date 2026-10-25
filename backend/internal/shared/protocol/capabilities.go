@@ -139,6 +139,9 @@ func RequiredCapabilities(command Command) []string {
 	case UpdateSpark:
 		return []string{CapabilitySelfUpdate}
 	case ConfigureServer:
+		if command.Deployment != nil && command.Deployment.Configuration.GameIntegration {
+			return []string{CapabilityConfigure, CapabilityGameIntegration}
+		}
 		return []string{CapabilityConfigure}
 	case ServerTransfer:
 		return []string{CapabilityTransfer}

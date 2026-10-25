@@ -12,6 +12,30 @@ import (
 	"campfire/internal/shared/model"
 )
 
+func TestDisabledGameIntegrationRejectsEventsAndMediaRetries(t *testing.T) {
+	db, _ := resourceHistoryStore(t)
+	events := repository.NewGameEventRepository(db.ORM())
+	mediaStore := repository.NewGameMediaRepository(db.ORM())
+	now := time.Now()
+	event := gameEvent(0, now)
+	if err := events.Append(t.Context(), "node", "game", event, now, time.Hour, 10); err != nil {
+		t.Fatal(err)
+	}
+	media := model.GameMedia{ID: "shot", Name: "world.png", ContentType: "image/png", Size: 5}
+	if err := mediaStore.Append(t.Context(), "node", "game", event.ID, media, []byte("image")); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ORM().Model(&database.Server{}).Where("id = ?", "game").Update("game_integration", false).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := events.Append(t.Context(), "node", "game", event, now, time.Hour, 10); !errors.Is(err, repository.ErrGameEventPlacement) {
+		t.Fatal("disabled integration accepted an event retry", err)
+	}
+	if err := mediaStore.Append(t.Context(), "node", "game", event.ID, media, []byte("image")); !errors.Is(err, model.ErrGameMediaPlacement) {
+		t.Fatal("disabled integration accepted a media retry", err)
+	}
+}
+
 func TestGameMediaIdentityQuotasAndCascadingRetention(t *testing.T) {
 	db, _ := resourceHistoryStore(t)
 	events := repository.NewGameEventRepository(db.ORM())

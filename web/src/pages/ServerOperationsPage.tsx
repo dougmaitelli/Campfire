@@ -94,9 +94,11 @@ export function ServerOperationsPage({
       : status,
     currentOperationID,
   );
-  const activeTab = ["console", "files", "backups", "activity"].includes(tab)
-    ? tab
-    : "console";
+  const activeTab =
+    ["console", "files", "backups", "activity"].includes(tab) &&
+    (tab !== "activity" || server?.game_integration === true)
+      ? tab
+      : "console";
   const resourceHistory = useResourceHistory(server?.id);
   useEffect(() => {
     const controller = new AbortController();
@@ -311,10 +313,10 @@ export function ServerOperationsPage({
                 ["activity", t("gameEvents.title")],
               ] as const
             )
-              .filter(
-                ([item]) =>
-                  item === "activity" ||
-                  server.permissions.includes("server.operate"),
+              .filter(([item]) =>
+                item === "activity"
+                  ? server.game_integration === true
+                  : server.permissions.includes("server.operate"),
               )
               .map(([item, label]) => (
                 <a

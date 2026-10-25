@@ -8,6 +8,7 @@ import { AllocationRow } from "../components/forms/AllocationRow";
 import "./server-dialog.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
+import { CheckboxField } from "../components/forms/CheckboxField";
 import { Textarea } from "../components/forms/Textarea";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Button } from "../components/forms/Button";
@@ -155,6 +156,7 @@ export function ServerDialog({
       cpu_limit: 1,
       memory_mb: 1024,
       disk_mb: 10240,
+      game_integration: false,
       ports: defaultPorts(spark, ember, servers),
     };
   });
@@ -231,6 +233,7 @@ export function ServerDialog({
         ember_id: value.ember_id,
         image: value.image,
         startup_command: value.startup_command ?? "",
+        game_integration: value.game_integration ?? false,
         variables: value.variables,
         cpu_limit: value.cpu_limit,
         memory_mb: value.memory_mb,
@@ -524,6 +527,18 @@ export function ServerDialog({
                   </Select>
                 </FormField>
               )}
+              <CheckboxField
+                checked={value.game_integration ?? false}
+                disabled={runtimeRestricted}
+                onChange={(event) =>
+                  setValue({ ...value, game_integration: event.target.checked })
+                }
+              >
+                {t("serverDialog.gameIntegration")}
+              </CheckboxField>
+              <p className="field-help">
+                {t("serverDialog.gameIntegrationHelp")}
+              </p>
               <FormField label={t("serverDialog.image")}>
                 <Select
                   id="server-image"

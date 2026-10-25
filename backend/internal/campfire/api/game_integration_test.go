@@ -16,6 +16,7 @@ func TestMonitoringGameStateAuthorizationAndInvalidation(t *testing.T) {
 	f := newAccessFixture(t)
 	_, member := f.user("game-observer", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
+	input.GameIntegration = true
 	response := request(f.admin, "POST", "/api/v1/servers", configJSON(t, input))
 
 	var server model.Server

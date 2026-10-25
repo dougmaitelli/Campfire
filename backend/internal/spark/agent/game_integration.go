@@ -78,6 +78,16 @@ func newGameIntegrations(ctx context.Context, directory string, authorize func(s
 	return g, nil
 }
 
+func (g *gameIntegrations) unmount(id string) {
+	g.mu.Lock()
+	endpoint := g.endpoints[id]
+	delete(g.endpoints, id)
+	g.mu.Unlock()
+	if endpoint != nil {
+		_ = endpoint.Close()
+	}
+}
+
 func (g *gameIntegrations) mount(id string) (string, error) {
 	if !configurationID.MatchString(id) || !g.authorize(id) {
 		return "", errors.New("invalid game integration server")
@@ -353,5 +363,5 @@ func (s *ConfigurationStore) savedGame(sparkID, serverID string) bool {
 
 	var deployment model.Deployment
 
-	return json.Unmarshal(data, &deployment) == nil && deployment.ServerID == serverID && deployment.Configuration.SparkID == sparkID
+	return json.Unmarshal(data, &deployment) == nil && deployment.ServerID == serverID && deployment.Configuration.SparkID == sparkID && deployment.Configuration.GameIntegration
 }

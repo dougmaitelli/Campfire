@@ -72,7 +72,7 @@ func (r *Runtime) gameTick(ctx context.Context, now time.Time) error {
 	var failures []error
 
 	for _, record := range records {
-		if !r.Connected(record.SparkID) || record.State != "running" {
+		if !r.Connected(record.SparkID) || record.State != "running" || !record.Deployment.Configuration.GameIntegration {
 			delete(r.gameSessions, record.ServerID)
 			continue
 		}
@@ -170,7 +170,7 @@ func (r *Runtime) receiveGame(ctx context.Context, record runtimeRecord, publica
 
 // gameCommand is called under the runtime lock by the normal console path.
 func (r *Runtime) gameCommand(ctx context.Context, record runtimeRecord, command string) error {
-	if !strings.HasPrefix(command, "mock-game ") || r.games == nil {
+	if !strings.HasPrefix(command, "mock-game ") || r.games == nil || !record.Deployment.Configuration.GameIntegration {
 		return nil
 	}
 

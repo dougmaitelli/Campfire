@@ -28,6 +28,54 @@ func gameClient(path string) *http.Client {
 	}}}
 }
 
+func TestDashboardConfigurationControlsGameEndpoint(t *testing.T) {
+	store := &ConfigurationStore{Directory: t.TempDir()}
+	d := deploymentFixture("node", "game")
+	directory, err := os.MkdirTemp("", "game-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(directory) }()
+	g, err := newGameIntegrations(t.Context(), directory, func(id string) bool { return store.savedGame("node", id) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.close()
+	store.games = g
+	for _, enabled := range []bool{false, true, false, true} {
+		d.Configuration.GameIntegration = enabled
+		if _, err := store.Deploy(t.Context(), "node", d); err != nil {
+			t.Fatal(err)
+		}
+		path, err := g.mount(d.ServerID)
+		if !enabled {
+			if err == nil || store.savedGame("node", d.ServerID) {
+				t.Fatal("disabled integration authorized")
+			}
+			g.mu.Lock()
+			endpoint := g.endpoints[d.ServerID]
+			g.mu.Unlock()
+			if endpoint != nil {
+				t.Fatal("disabled integration retained its listener")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		client := gameClient(filepath.Join(path, "publish.sock"))
+		response, err := client.Get("http://spark/v1/events/queue")
+		client.CloseIdleConnections()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			t.Fatal("enabled endpoint unavailable", response.StatusCode)
+		}
+	}
+}
+
 func testWireGameIntegration(t *testing.T, hub *agents.Hub, sparkID, directory string, received <-chan protocol.GameFrame) {
 	t.Helper()
 
@@ -35,6 +83,7 @@ func testWireGameIntegration(t *testing.T, hub *agents.Hub, sparkID, directory s
 	defer cancel()
 
 	d := deploymentFixture(sparkID, "game-bridge")
+	d.Configuration.GameIntegration = true
 	if _, err := hub.Deploy(ctx, sparkID, d); err != nil {
 		t.Fatal(err)
 	}

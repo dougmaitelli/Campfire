@@ -159,6 +159,31 @@ func awaitRequest(t *testing.T, m *Manager, d model.Deployment, request model.Ru
 	return status
 }
 
+func TestRuntimeDisabledGameIntegrationHasNoMount(t *testing.T) {
+	d := runtimeFixture()
+	m := newTestManager(t.Context(), t.TempDir())
+	t.Cleanup(m.Close)
+	docker := &fakeDocker{states: make(map[string]string)}
+	m.Docker = docker
+	m.Ownership = func(string, string) error { return nil }
+	m.GameIntegrationMount = func(string) (string, error) {
+		t.Error("disabled server requested an integration endpoint")
+		return t.TempDir(), nil
+	}
+	for _, action := range []string{"install", "start"} {
+		if status := awaitOperation(t, m, d, action, action); status.Error != "" {
+			t.Fatal(status.Error)
+		}
+	}
+	docker.mu.Lock()
+	defer docker.mu.Unlock()
+	for _, args := range docker.calls {
+		if args[0] == "create" && strings.Contains(strings.Join(args, " "), "campfire-game") {
+			t.Fatal("disabled integration exposed a mount or socket environment", args)
+		}
+	}
+}
+
 func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	d := runtimeFixture()
 	dir := t.TempDir()
@@ -167,6 +192,7 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 	m.Docker = docker
 	m.Ownership = func(string, string) error { return nil }
 	gameDirectory := t.TempDir()
+	d.Configuration.GameIntegration = true
 	m.GameIntegrationMount = func(id string) (string, error) {
 		if id != d.ServerID {
 			t.Error("integration mount requested for wrong server", id)

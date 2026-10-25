@@ -186,6 +186,9 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 	if err := agentidentity.WritePrivate(filepath.Join(s.Directory, id, deployment.ServerID+".json"), data); err != nil {
 		return model.ConfigurationReceipt{}, err
 	}
+	if s.games != nil && !deployment.Configuration.GameIntegration {
+		s.games.unmount(deployment.ServerID)
+	}
 
 	return model.ConfigurationReceipt{ServerID: deployment.ServerID, Revision: agentidentity.Fingerprint(data)}, nil
 }

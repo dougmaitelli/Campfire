@@ -40,7 +40,7 @@ func NewGameEventRepository(db *gorm.DB) *GameEventRepository { return &GameEven
 func (r *GameEventRepository) Append(ctx context.Context, sparkID, serverID string, event model.GameEvent, now time.Time, retention time.Duration, maximum int) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var count int64
-		if err := tx.Model(&database.Server{}).Where("id = ? AND spark_id = ?", serverID, sparkID).Count(&count).Error; err != nil {
+		if err := tx.Model(&database.Server{}).Where("id = ? AND spark_id = ? AND game_integration = ?", serverID, sparkID, true).Count(&count).Error; err != nil {
 			return err
 		}
 

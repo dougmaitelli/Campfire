@@ -9,6 +9,7 @@ export interface ServerPort {
 }
 
 export interface ServerConfiguration {
+  game_integration?: boolean;
   name: string;
   description: string;
   spark_id: string;
@@ -43,6 +44,8 @@ export function isServer(value: unknown): value is Server {
     value !== null &&
     "id" in value &&
     typeof value.id === "string" &&
+    (!("game_integration" in value) ||
+      typeof value.game_integration === "boolean") &&
     "ember_hash" in value &&
     typeof value.ember_hash === "string" &&
     "ember_update_available" in value &&

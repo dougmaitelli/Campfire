@@ -116,7 +116,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	for _, row := range []any{
 		&database.Ember{ID: "media-ember", Name: "Game", Definition: model.Ember{Schema: 1}},
-		&database.Server{ID: "game-bridge", Name: "Game", SparkID: node.ID, EmberID: "media-ember", Variables: map[string]string{}, Ports: []model.ServerPort{}, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
+		&database.Server{ID: "game-bridge", Name: "Game", SparkID: node.ID, EmberID: "media-ember", GameIntegration: true, Variables: map[string]string{}, Ports: []model.ServerPort{}, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
 	} {
 		if err := db.ORM().Omit("Spark", "Ember", "Owner").Create(row).Error; err != nil {
 			t.Fatal(err)
@@ -195,7 +195,7 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 
 	t.Cleanup(func() { _ = os.RemoveAll(agentDir) })
 
-	agentConfig := Config{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, GameIntegrations: true, dialContext: listener.dial}
+	agentConfig := Config{PanelURL: "https://panel.test", DataDir: agentDir, CAFile: caPath, Token: token.Token, dialContext: listener.dial}
 	bootstrap := agentConfig
 	bootstrap.EnrollOnly = true
 

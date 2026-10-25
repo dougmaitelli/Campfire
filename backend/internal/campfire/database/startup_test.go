@@ -18,6 +18,9 @@ func TestExistingBaselineAddsStartupSelectionColumn(t *testing.T) {
 	if err := db.ORM().Migrator().DropColumn(&database.Server{}, "StartupCommand"); err != nil {
 		t.Fatal(err)
 	}
+	if err := db.ORM().Migrator().DropColumn(&database.Server{}, "GameIntegration"); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, field := range []string{"OIDCNameManaged", "OIDCEmailManaged"} {
 		if err := db.ORM().Migrator().DropColumn(&database.User{}, field); err != nil {
@@ -37,6 +40,9 @@ func TestExistingBaselineAddsStartupSelectionColumn(t *testing.T) {
 
 	if !db.ORM().Migrator().HasColumn(&database.Server{}, "StartupCommand") {
 		t.Fatal("startup selection column was not added to the existing baseline")
+	}
+	if !db.ORM().Migrator().HasColumn(&database.Server{}, "GameIntegration") {
+		t.Fatal("game integration column was not added to the existing baseline")
 	}
 
 	for _, field := range []string{"OIDCNameManaged", "OIDCEmailManaged"} {
