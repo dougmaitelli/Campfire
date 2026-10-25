@@ -337,7 +337,7 @@ export function ServerOperationsPage({
                   {message && (
                     <InlineMessage tone={message.tone}>
                       <strong>{message.title}</strong>
-                      {message.detail && <>{message.detail}</>}
+                      {message.detail && <> {message.detail}</>}
                     </InlineMessage>
                   )}
                   <ServerConsoleDialog
