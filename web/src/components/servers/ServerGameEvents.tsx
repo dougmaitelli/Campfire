@@ -7,8 +7,11 @@ import {
 } from "../../api/gameEvents";
 import { useCollection } from "../../hooks/useCollection";
 import { Button } from "../forms/Button";
+import { FormField } from "../forms/FormField";
+import { TextInput } from "../forms/TextInput";
 import { InlineMessage } from "../status/InlineMessage";
 import { ContentState } from "../layout/ContentState";
+import { ListToolbar } from "../layout/ListToolbar";
 import "./game-events.css";
 
 export function ServerGameEvents({ serverID }: { serverID: string }) {
@@ -42,45 +45,44 @@ export function ServerGameEvents({ serverID }: { serverID: string }) {
   return (
     <section className="game-events" aria-label={t("gameEvents.title")}>
       <h2>{t("gameEvents.title")}</h2>
-      <form className="game-event-filters" onSubmit={apply}>
-        <label>
-          {t("gameEvents.type")}
-          <input
-            value={type}
-            onChange={(event) => setType(event.target.value)}
-            maxLength={64}
-            placeholder={t("gameEvents.allTypes")}
-          />
-        </label>
-        <label>
-          {t("gameEvents.from")}
-          <input
-            type="datetime-local"
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-          />
-        </label>
-        <label>
-          {t("gameEvents.to")}
-          <input
-            type="datetime-local"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-          />
-        </label>
-        <Button type="submit">{t("gameEvents.apply")}</Button>
-        <Button
-          type="button"
-          onClick={() => {
-            setType("");
-            setFrom("");
-            setTo("");
-            setError(null);
-            setFilter({});
-          }}
-        >
-          {t("gameEvents.clear")}
-        </Button>
+      <form onSubmit={apply}>
+        <ListToolbar>
+          <FormField label={t("gameEvents.type")}>
+            <TextInput
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+              maxLength={64}
+              placeholder={t("gameEvents.allTypes")}
+            />
+          </FormField>
+          <FormField label={t("gameEvents.from")}>
+            <TextInput
+              type="datetime-local"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+            />
+          </FormField>
+          <FormField label={t("gameEvents.to")}>
+            <TextInput
+              type="datetime-local"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+            />
+          </FormField>
+          <Button type="submit">{t("gameEvents.apply")}</Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setType("");
+              setFrom("");
+              setTo("");
+              setError(null);
+              setFilter({});
+            }}
+          >
+            {t("gameEvents.clear")}
+          </Button>
+        </ListToolbar>
       </form>
       {error && <InlineMessage role="alert">{error}</InlineMessage>}
       <GameEventResults

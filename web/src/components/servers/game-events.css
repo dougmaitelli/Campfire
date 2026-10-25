@@ -2,19 +2,6 @@
   min-width: 0;
   margin-block: 20px;
 }
-.game-event-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 12px;
-  margin-block: 16px;
-}
-.game-event-filters label {
-  display: grid;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 13px;
-}
 .game-event-list {
   display: grid;
   gap: 12px;
