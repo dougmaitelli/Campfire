@@ -18,6 +18,7 @@ type GameIntegrationService struct {
 	Servers interface {
 		Get(context.Context, string) (model.Server, error)
 	}
+	Events  *GameEventService
 	mu      sync.Mutex
 	states  map[string]gameStateRecord
 	blocked map[string]time.Time
@@ -80,13 +81,25 @@ func (s *GameIntegrationService) Receive(ctx context.Context, sparkID string, fr
 	}
 
 	server, err := s.Servers.Get(ctx, frame.ServerID)
-	if err != nil || server.SparkID != sparkID {
-		return errors.New("invalid game publication placement")
+	if errors.Is(err, ErrServerNotFound) || err == nil && server.SparkID != sparkID {
+		return &protocol.CommandError{Code: "publication_rejected", Message: "Invalid game publication placement."}
+	}
+
+	if err != nil {
+		return err
 	}
 
 	kind := "state"
 	if frame.Publication.Event != nil {
 		kind = "event"
+
+		if s.Events == nil {
+			return errors.New("durable game events unavailable")
+		}
+
+		if err := s.Events.Receive(ctx, sparkID, frame.ServerID, *frame.Publication.Event); err != nil {
+			return err
+		}
 	} else {
 		s.mu.Lock()
 		if _, blocked := s.blocked[frame.ServerID]; blocked {

@@ -1,0 +1,64 @@
+.game-events {
+  min-width: 0;
+  margin-block: 20px;
+}
+.game-event-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-block: 16px;
+}
+.game-event-filters label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.game-event-list {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+.game-event-list > li {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.game-event-type {
+  display: block;
+  color: var(--accent);
+  font-size: 12px;
+}
+.game-event-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.game-event-list dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin-bottom: 0;
+}
+.game-event-list dl > div {
+  display: flex;
+  gap: 8px;
+}
+.game-event-list dt {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+.game-event-list dd {
+  margin: 0;
+}
+.game-event-pagination {
+  display: flex;
+  gap: 12px;
+}

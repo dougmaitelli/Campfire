@@ -29,11 +29,18 @@ type gameIntegrations struct {
 	mu        sync.Mutex
 	endpoints map[string]*http.Server
 	closed    bool
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	events    map[string]*queuedGameEvent
+	wake      chan struct{}
+	dropped   map[string]int
+	failures  map[string]string
 	session   *gameSession
 	slots     chan struct{}
 }
 
 type gameSession struct {
+	events  bool
 	ctx     context.Context
 	send    func(protocol.Message) error
 	pending map[string]chan *protocol.CommandError
@@ -53,7 +60,18 @@ func newGameIntegrations(ctx context.Context, directory string, authorize func(s
 		return nil, err
 	}
 
-	return &gameIntegrations{ctx: ctx, directory: directory, authorize: authorize, endpoints: make(map[string]*http.Server), slots: make(chan struct{}, 32)}, nil
+	ctx, cancel := context.WithCancel(ctx)
+
+	g := &gameIntegrations{ctx: ctx, cancel: cancel, directory: directory, authorize: authorize, endpoints: make(map[string]*http.Server), slots: make(chan struct{}, 32), events: make(map[string]*queuedGameEvent), wake: make(chan struct{}, 1), dropped: make(map[string]int), failures: make(map[string]string)}
+	if err := g.loadEvents(); err != nil {
+		cancel()
+		return nil, err
+	}
+
+	g.wg.Add(1)
+	go g.runEvents()
+
+	return g, nil
 }
 
 func (g *gameIntegrations) mount(id string) (string, error) {
@@ -115,6 +133,7 @@ func (g *gameIntegrations) mount(id string) (string, error) {
 	)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/events/queue", func(w http.ResponseWriter, r *http.Request) { g.queueStatus(w, r, id) })
 	mux.HandleFunc("POST /v1/publish", func(w http.ResponseWriter, r *http.Request) {
 		rateMu.Lock()
 		if time.Since(window) >= time.Second {
@@ -144,13 +163,19 @@ func (g *gameIntegrations) mount(id string) (string, error) {
 
 func (g *gameIntegrations) close() {
 	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	g.closed = true
 
 	for _, server := range g.endpoints {
 		_ = server.Close()
 	}
+	g.mu.Unlock()
+
+	if g.cancel != nil {
+		g.cancel()
+	}
+
+	g.wg.Wait()
 }
 
 func (g *gameIntegrations) publish(w http.ResponseWriter, r *http.Request, id string) {
@@ -196,6 +221,29 @@ func (g *gameIntegrations) publish(w http.ResponseWriter, r *http.Request, id st
 		return
 	}
 
+	if publication.Event != nil {
+		if err := g.enqueueEvent(id, publication); err != nil {
+			status := http.StatusServiceUnavailable
+			if errors.Is(err, errGameQueueFull) {
+				status = http.StatusTooManyRequests
+
+				w.Header().Set("Retry-After", "5")
+			}
+
+			if errors.Is(err, errGameEventConflict) {
+				status = http.StatusConflict
+			}
+
+			http.Error(w, err.Error(), status)
+
+			return
+		}
+
+		w.WriteHeader(http.StatusAccepted)
+
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 	defer cancel()
 
@@ -217,6 +265,11 @@ func (g *gameIntegrations) forward(ctx context.Context, serverID string, publica
 	if session == nil || session.ctx.Err() != nil {
 		g.mu.Unlock()
 		return errors.New("game integration disconnected or unsupported")
+	}
+
+	if publication.Event != nil && !session.events {
+		g.mu.Unlock()
+		return errors.New("durable game events require an updated Campfire")
 	}
 
 	session.pending[requestID] = ack
@@ -246,11 +299,19 @@ func (g *gameIntegrations) forward(ctx context.Context, serverID string, publica
 	}
 }
 
-func (g *gameIntegrations) attach(ctx context.Context, send func(protocol.Message) error) {
+func (g *gameIntegrations) attach(ctx context.Context, send func(protocol.Message) error, durableEvents ...bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.session = &gameSession{ctx: ctx, send: send, pending: make(map[string]chan *protocol.CommandError)}
+	g.session = &gameSession{ctx: ctx, send: send, pending: make(map[string]chan *protocol.CommandError), events: len(durableEvents) > 0 && durableEvents[0]}
+	for _, item := range g.events {
+		item.next = time.Time{}
+	}
+
+	select {
+	case g.wake <- struct{}{}:
+	default:
+	}
 }
 
 func (g *gameIntegrations) acknowledge(ack *protocol.GameAck) error {

@@ -19,6 +19,7 @@ import { ServerState } from "../components/servers/ServerState";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
+import { ServerGameEvents } from "../components/servers/ServerGameEvents";
 import { useResourceHistory } from "../hooks/useResourceHistory";
 import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
@@ -93,7 +94,7 @@ export function ServerOperationsPage({
       : status,
     currentOperationID,
   );
-  const activeTab = ["console", "files", "backups"].includes(tab)
+  const activeTab = ["console", "files", "backups", "activity"].includes(tab)
     ? tab
     : "console";
   const resourceHistory = useResourceHistory(server?.id);
@@ -298,28 +299,37 @@ export function ServerOperationsPage({
               {monitoring.error}
             </InlineMessage>
           )}
-          {server.permissions.includes("server.operate") ? (
+          <nav
+            className="operations-tabs"
+            aria-label={t("serverOperationsPage.serverOperations")}
+          >
+            {(
+              [
+                ["console", t("serverOperationsPage.consoleTab")],
+                ["files", t("serverOperationsPage.filesTab")],
+                ["backups", t("common.backups")],
+                ["activity", t("gameEvents.title")],
+              ] as const
+            )
+              .filter(
+                ([item]) =>
+                  item === "activity" ||
+                  server.permissions.includes("server.operate"),
+              )
+              .map(([item, label]) => (
+                <a
+                  key={item}
+                  href={`#servers/${encodeURIComponent(server.id)}/${item}`}
+                  aria-current={activeTab === item ? "page" : undefined}
+                >
+                  {label}
+                </a>
+              ))}
+          </nav>
+          {activeTab === "activity" ? (
+            <ServerGameEvents key={server.id} serverID={server.id} />
+          ) : server.permissions.includes("server.operate") ? (
             <>
-              <nav
-                className="operations-tabs"
-                aria-label={t("serverOperationsPage.serverOperations")}
-              >
-                {(
-                  [
-                    ["console", t("serverOperationsPage.consoleTab")],
-                    ["files", t("serverOperationsPage.filesTab")],
-                    ["backups", t("common.backups")],
-                  ] as const
-                ).map(([item, label]) => (
-                  <a
-                    key={item}
-                    href={`#servers/${encodeURIComponent(server.id)}/${item}`}
-                    aria-current={activeTab === item ? "page" : undefined}
-                  >
-                    {label}
-                  </a>
-                ))}
-              </nav>
               {activeTab === "console" && (
                 <>
                   {message && (

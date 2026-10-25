@@ -83,7 +83,13 @@ func testWireGameIntegration(t *testing.T, hub *agents.Hub, sparkID, directory s
 		data, _ := io.ReadAll(response.Body)
 
 		_ = response.Body.Close()
-		if response.StatusCode != http.StatusNoContent {
+
+		expected := http.StatusNoContent
+		if strings.Contains(body, `"event"`) {
+			expected = http.StatusAccepted
+		}
+
+		if response.StatusCode != expected {
 			t.Fatalf("publish: %d %s", response.StatusCode, data)
 		}
 

@@ -28,8 +28,7 @@ type GameState struct {
 	Fields   map[string]any `json:"fields,omitempty"`
 }
 
-// GameEvent IDs identify retries of the same event. Persistence and deduplication
-// are deliberately deferred to the event-history implementation stage.
+// GameEvent IDs identify retries of the same event within one server's history.
 type GameEvent struct {
 	ID         string         `json:"id"`
 	Type       string         `json:"type"`
@@ -37,6 +36,9 @@ type GameEvent struct {
 	Title      string         `json:"title"`
 	Data       map[string]any `json:"data,omitempty"`
 }
+
+// ValidGameEventType bounds namespaced event filter input.
+func ValidGameEventType(value string) bool { return gameFieldName.MatchString(value) }
 
 // Validate applies the same schema and size bounds at both ends of the wire.
 func (p GamePublication) Validate() error {

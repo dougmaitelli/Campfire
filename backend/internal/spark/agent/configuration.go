@@ -38,7 +38,9 @@ type ConfigurationStore struct {
 func (s *ConfigurationStore) capabilities() []string {
 	offered := protocol.SupportedCapabilities()
 	if s.games == nil {
-		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityGameIntegration })
+		offered = slices.DeleteFunc(offered, func(capability string) bool {
+			return capability == protocol.CapabilityGameIntegration || capability == protocol.CapabilityGameEvents
+		})
 	}
 
 	if host, ok := s.Runtime.(interface{ DiskQuotaSupported() bool }); !ok || !host.DiskQuotaSupported() {

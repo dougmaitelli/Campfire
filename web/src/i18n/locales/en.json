@@ -1022,6 +1022,7 @@
   "sparkFeatures": {
     "resourceCleanup": "Unused resource cleanup",
     "gameIntegration": "Local game publishing",
+    "gameEvents": "Durable game events",
     "archiveCreationAndExtraction": "Archive creation and extraction",
     "available": "Available",
     "connectThisSparkToCheckFeatureAvailability": "Connect this Spark to check feature availability.",
@@ -1196,6 +1197,24 @@
     "capacityCritical": "{{percent}}% of allocated capacity · Critical utilization",
     "capacityHigh": "{{percent}}% of allocated capacity · High utilization",
     "utilizationUnavailable": "Utilization unavailable"
+  },
+  "gameEvents": {
+    "title": "Game activity",
+    "type": "Event type",
+    "allTypes": "All event types",
+    "from": "Occurred after",
+    "to": "Occurred before",
+    "apply": "Apply filters",
+    "clear": "Clear filters",
+    "retry": "Retry",
+    "empty": "No game events found",
+    "emptyDescription": "Events published by this game will appear here. Try changing the filters if events are missing.",
+    "unexpectedResponse": "Unexpected game event response.",
+    "invalidRange": "Choose a valid time range with the start before the end.",
+    "occurred": "Occurred",
+    "received": "Received",
+    "newest": "Newest events",
+    "older": "Older events"
   },
   "gameState": {
     "gameData": "Game data",

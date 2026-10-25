@@ -32,11 +32,13 @@
 }
 .operations-tabs {
   display: flex;
+  overflow-x: auto;
   gap: 24px;
   margin: 24px 0 16px;
   border-bottom: 1px solid var(--border);
 
   & a {
+    white-space: nowrap;
     padding: 10px 12px;
     margin-bottom: -1px;
     border-bottom: 3px solid transparent;

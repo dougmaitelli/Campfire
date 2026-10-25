@@ -164,7 +164,7 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
-			return tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{})
+			return tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{})
 		}
 
 		prerelease := version == 5 && legacyUsers || version == 6 && tx.Migrator().HasColumn(&Schedule{}, "version")
@@ -186,6 +186,7 @@ func migrate(db *gorm.DB) error {
 			&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
 			&ServerResourceSample{}, &SparkResourceSample{},
 			&ServerResourceBucket{}, &SparkResourceBucket{},
+			&GameEvent{},
 		); err != nil {
 			return fmt.Errorf("apply initial schema: %w", err)
 		}

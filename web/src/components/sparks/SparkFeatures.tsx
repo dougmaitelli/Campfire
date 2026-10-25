@@ -5,6 +5,9 @@ import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
 const featureLabels: Record<string, string> = {
+  get "server.game-events.v1"() {
+    return i18n.t("sparkFeatures.gameEvents");
+  },
   get "server.game-integration.v1"() {
     return i18n.t("sparkFeatures.gameIntegration");
   },

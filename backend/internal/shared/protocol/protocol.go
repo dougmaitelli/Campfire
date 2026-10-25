@@ -104,7 +104,8 @@ type GameFrame struct {
 	Publication model.GamePublication `json:"publication"`
 }
 
-// GameAck confirms panel ingestion, not durable event storage or external delivery.
+// GameAck confirms ingestion. With CapabilityGameEvents an event acknowledgement
+// follows the database commit; external delivery is a separate concern.
 type GameAck struct {
 	ID    string        `json:"id"`
 	Error *CommandError `json:"error,omitempty"`

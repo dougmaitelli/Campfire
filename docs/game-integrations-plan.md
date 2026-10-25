@@ -1,6 +1,6 @@
 # Game integrations implementation plan
 
-Status: stages 1–2 implemented; stages 3–7 proposed. See
+Status: stages 1–3 implemented; stages 4–7 proposed. See
 [the transport documentation](game-integrations.md) for current functionality.
 
 ## Objective and scope
@@ -41,7 +41,7 @@ Game mod or adapter
 Implemented with per-server Unix sockets, isolated read-only container mounts,
 optional capability negotiation, bounded publications, and panel acknowledgements.
 Stage 1 provides transport only; stage 2 adds the current-state projection.
-Event persistence and external delivery are not included yet.
+Stage 3 adds event persistence; external delivery is not included yet.
 
 Establish the path from a game server to Campfire.
 
@@ -85,6 +85,11 @@ Completion criteria: dashboard details reflect incoming snapshots, removed field
 disappear, and stale or stopped servers no longer present old values as current.
 
 ## Stage 3: Events and event history
+
+Implemented with transactional per-server deduplication, database-backed history,
+configurable age/count limits, an authorized cursor API, and a Game activity tab.
+Spark queues events on disk with capacity limits, bounded retries and a 24-hour
+lifetime. A separate negotiated capability requires durable panel acknowledgements.
 
 Add durable game activity independently of current state.
 

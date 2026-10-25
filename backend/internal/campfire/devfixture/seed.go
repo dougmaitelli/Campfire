@@ -110,6 +110,17 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 		servers = append(servers, Server{Server: server, State: item.state})
 	}
 
+	for i, event := range []model.GameEvent{
+		{ID: "fixture-connected", Type: "game.announcement", Title: "Game integration connected", Data: map[string]any{"game": "Minecraft"}},
+		{ID: "fixture-joined", Type: "player.joined", Title: "Alex joined the server", Data: map[string]any{"player": "Alex"}},
+		{ID: "fixture-advancement", Type: "minecraft.advancement", Title: "Alex earned Stone Age", Data: map[string]any{"player": "Alex", "advancement": "Stone Age"}},
+	} {
+		event.OccurredAt = now.Add(time.Duration(i-3) * time.Minute)
+		if err := repository.NewGameEventRepository(tx).Append(ctx, "mock-europe", "survival", event, now, 30*24*time.Hour, 10000); err != nil {
+			return nil, err
+		}
+	}
+
 	next, err := recurrence.Next("0 3 * * *", "UTC", now, 1)
 	if err != nil {
 		return nil, err

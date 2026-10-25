@@ -91,6 +91,7 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: dispatch}
 	games := &service.GameIntegrationService{Servers: servers}
+	games.Events = service.NewGameEventService(repository.NewGameEventRepository(db.ORM()))
 	deployment.Games = games
 	history := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 	deployment.History = history

@@ -47,11 +47,12 @@ const (
 	CapabilitySelfUpdate      = "spark.self-update.v1"
 	CapabilityPrune           = "spark.prune.v1"
 	CapabilityGameIntegration = "server.game-integration.v1"
+	CapabilityGameEvents      = "server.game-events.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.

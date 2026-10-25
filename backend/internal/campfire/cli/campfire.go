@@ -69,6 +69,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	version := flags.Bool("version", false, "print release version and exit")
 	auditRetention := flags.String("audit-retention-days", environment("CAMPFIRE_AUDIT_RETENTION_DAYS", "0"), "audit record age limit in days; 0 keeps forever (CAMPFIRE_AUDIT_RETENTION_DAYS)")
 	operationRetention := flags.String("operation-retention-days", environment("CAMPFIRE_OPERATION_RETENTION_DAYS", "0"), "completed operation history age limit in days; 0 keeps forever (CAMPFIRE_OPERATION_RETENTION_DAYS)")
+	gameEventRetention := flags.String("game-event-retention-days", environment("CAMPFIRE_GAME_EVENT_RETENTION_DAYS", "30"), "game event retention in days (CAMPFIRE_GAME_EVENT_RETENTION_DAYS, 1–3650)")
+	gameEventLimit := flags.String("game-event-limit", environment("CAMPFIRE_GAME_EVENT_LIMIT", "10000"), "retained game events per server (CAMPFIRE_GAME_EVENT_LIMIT, 1–100000)")
 
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -84,6 +86,16 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 
 	if *version {
 		return printVersion("Campfire")
+	}
+
+	eventDays, err := strconv.Atoi(*gameEventRetention)
+	if err != nil || eventDays < 1 || eventDays > 3650 {
+		return errors.New("game event retention must be 1–3650 days")
+	}
+
+	eventMaximum, err := strconv.Atoi(*gameEventLimit)
+	if err != nil || eventMaximum < 1 || eventMaximum > 100000 {
+		return errors.New("game event limit must be 1–100000 per server")
 	}
 
 	maxUploadBytes, err := parseMaxUpload(*maxUpload)
@@ -210,6 +222,15 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 
 	games := &service.GameIntegrationService{Servers: servers}
+	games.Events = service.NewGameEventService(repository.NewGameEventRepository(db.ORM()))
+	games.Events.Retention = time.Duration(eventDays) * 24 * time.Hour
+	games.Events.MaxPerServer = eventMaximum
+
+	if err := games.Events.Start(ctx); err != nil {
+		return err
+	}
+	defer games.Events.Close()
+
 	if hub != nil {
 		hub.WithGameIntegrations(games.Receive)
 	}

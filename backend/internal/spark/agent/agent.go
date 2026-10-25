@@ -481,7 +481,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 
 	configurations.NegotiatedProtocol = wireVersion
 	if configurations.games != nil && protocol.Require(welcome.Capabilities, protocol.CapabilityGameIntegration) == nil {
-		configurations.games.attach(ctx, send)
+		configurations.games.attach(ctx, send, protocol.Require(welcome.Capabilities, protocol.CapabilityGameEvents) == nil)
 	}
 
 	slog.Info("Spark connected", "spark", id, "protocol", wireVersion, "capabilities", welcome.Capabilities)

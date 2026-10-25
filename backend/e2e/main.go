@@ -129,6 +129,7 @@ func main() {
 		sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), remote)
 		sparks.Updates = service.NewSparkUpdateService(sparks, nil)
 		deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: remote}
+		deployment.Games = &service.GameIntegrationService{Servers: servers, Events: service.NewGameEventService(repository.NewGameEventRepository(db.ORM()))}
 		deployment.History = service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 		deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
 		deployment.Transfers = service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)

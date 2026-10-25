@@ -46,12 +46,16 @@ const request = http.request(
       detail += chunk;
     });
     response.on("end", () => {
-      if (response.statusCode !== 204) {
+      if (response.statusCode !== 204 && response.statusCode !== 202) {
         console.error(`Publication failed (${response.statusCode}): ${detail}`);
         process.exitCode = 1;
         return;
       }
-      console.log(`Campfire acknowledged ${kind} publication.`);
+      console.log(
+        response.statusCode === 202
+          ? "Spark durably queued the event for delivery."
+          : `Campfire acknowledged ${kind} publication.`,
+      );
     });
   },
 );

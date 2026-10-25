@@ -8,14 +8,16 @@ and acknowledges it.
 State publications now appear in the overview, server list, and server operations
 page. Campfire keeps only the latest snapshot per server in memory. There are no
 game-state charts or history, and a Campfire restart clears these snapshots.
-Events are acknowledged but are not yet retained or delivered to Discord.
+Events are durably retained in the database and appear in each server's
+**Game activity** tab. Discord delivery and media attachments are later stages.
 
 ## Enable publishing
 
 Start Spark with `--game-integrations` or `SPARK_GAME_INTEGRATIONS=true`. The feature
 is disabled by default and advertised as `server.game-integration.v1` only when
-enabled. Both Spark and Campfire must support this capability; an older Campfire
-leaves publishing unavailable without breaking ordinary server operations.
+enabled. Durable event delivery additionally negotiates `server.game-events.v1`.
+An older Campfire can still receive supported state snapshots, but Spark will not
+send queued events through the older, non-durable ingestion contract.
 
 Start or restart the game server through Campfire after enabling the feature.
 Newly created game containers receive:
@@ -73,8 +75,9 @@ values, such as `map` or `game_mode`. An empty `state` object is valid.
 
 Events require an ID of 1–128 bytes, a type, an RFC 3339 timestamp, and a title of
 1–256 bytes. `data` is an optional scalar map. Namespaced types are supported.
-Event IDs must stay the same across retries. Durable deduplication and event
-retention will be implemented in stage 3; they are not provided by this transport.
+Event IDs must stay the same across retries. Campfire deduplicates them per server
+within retained history; the first stored payload wins. Reusing a queued ID with
+different content returns HTTP 409. Use a new ID for each distinct event.
 
 Field names and event types start with a lowercase ASCII letter and contain only
 lowercase letters, digits, underscores, dots, or hyphens, up to 64 bytes. Each
@@ -113,24 +116,79 @@ Game state is returned as the optional `game` member of each authorized server i
 include `state`. Servers that have never published state omit `game`. Existing
 server visibility and token permissions apply to the monitoring response.
 
-## Limits and delivery
+## Event history and delivery
+
+Spark persists events in private, atomically written queue files before returning
+HTTP 202. This means queued locally, not yet delivered. The queue survives Spark
+restarts. Campfire acknowledges an event only after its database transaction
+commits; Spark then removes the queue entry. Retries after a lost acknowledgement
+use the same event ID, so they do not create duplicate retained entries.
+
+The queue holds at most 512 events per server and 4,096 per Spark, with a 24-hour
+delivery lifetime. When full, it rejects new events with HTTP 429 and
+`Retry-After: 5`, preserving existing entries. Transient delivery failures retry
+with backoff up to 30 seconds; reconnecting triggers an immediate retry.
+Expired events and events permanently rejected because their server was deleted
+or reassigned are dropped with a warning in Spark's log. This bounded queue does
+not promise delivery after its lifetime expires or server placement changes.
+
+Inspect a server's queue over its own socket:
+
+```sh
+curl --unix-socket "$CAMPFIRE_GAME_SOCKET" http://spark/v1/events/queue
+```
+
+The response contains `pending`, `limit`, `node_limit`, `dropped`, and `last_error`.
+Failure counters are local to this Spark process; pending queue files persist
+across restarts. A corrupt or oversized spool file prevents queue startup rather
+than silently deleting accepted data.
+
+Campfire retains the newest 10,000 events per server for up to 30 days by default.
+Retention uses the trusted receipt time, independently of the game's clock.
+Limits apply during ingestion and cleanup runs at startup and hourly, including
+quiet servers. Configure them with:
+
+| Flag                          | Environment variable                 | Default | Range    |
+| ----------------------------- | ------------------------------------ | ------- | -------- |
+| `--game-event-retention-days` | `CAMPFIRE_GAME_EVENT_RETENTION_DAYS` | 30      | 1–3650   |
+| `--game-event-limit`          | `CAMPFIRE_GAME_EVENT_LIMIT`          | 10000   | 1–100000 |
+
+Once an event expires or is removed by the count limit, its ID is no longer in the
+deduplication window. Deleting a server also deletes its retained events.
+
+The authorized endpoint `GET /api/v1/servers/{id}/events` returns
+`{ "items": [...], "next_before": 123 }`. `next_before` is omitted at the end.
+Supported query parameters are `limit` (1–100, default 50), `before` (receipt-order
+ID cursor), `type` (exact namespaced type), and `from`/`to` (Unix seconds filtering
+occurrence time, inclusive start and exclusive end). Each event includes its
+original `event_id`, type, title, occurrence and receipt times, source server and
+Spark IDs, and scalar data. Ordering follows receipt IDs, so clock differences
+cannot cause cursor pagination to skip events. Existing `server.view` permissions
+and token scopes protect access; operating the server is not required.
+
+The Game activity tab offers type/time filters, older-page navigation, and a
+return to newest events. The newest page refreshes every ten seconds. It presents
+game-specific event types as supplied, without assuming matches or rounds.
+
+## Request limits
 
 - Requests are limited to 16 KiB.
 - Each server endpoint permits 10 requests per one-second window.
 - Spark permits 32 in-flight publications across its local endpoints.
-- Spark waits up to eight seconds for acknowledgement after decoding a request.
-- There is no offline queue yet. Producers should retry with bounded
-  backoff and reuse event IDs. An acknowledgement timeout has an uncertain outcome:
-  Campfire may have accepted the publication before the connection failed.
+- State publications wait up to eight seconds for acknowledgement. Events use the
+  durable queue; a local timeout can have an uncertain outcome, so retry with the
+  same event ID and payload.
 - Only the latest state is held in memory; no game-state history is stored.
 
 | HTTP status | Meaning                                                                             |
 | ----------- | ----------------------------------------------------------------------------------- |
 | 204         | Campfire validated and acknowledged the publication                                 |
+| 202         | Spark durably queued the event for delivery                                         |
 | 400         | Invalid schema, version, or trailing JSON                                           |
 | 403         | Local server configuration no longer authorizes this endpoint                       |
+| 409         | A pending event has the same ID but different content                               |
 | 413         | Request exceeds the size limit                                                      |
-| 429         | Server endpoint rate limit; retry after one second                                  |
+| 429         | Request rate exceeded (one second) or event queue full (five seconds)               |
 | 503         | Busy, disconnected, unsupported, rejected by Campfire, or acknowledgement timed out |
 
 ## Example publisher

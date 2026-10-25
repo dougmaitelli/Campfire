@@ -157,8 +157,8 @@ func TestGameEventsDoNotReplaceOrRefreshState(t *testing.T) {
 	now = now.Add(61 * time.Second)
 
 	frame.Publication = model.GamePublication{Version: 1, Event: &model.GameEvent{ID: "event", Type: "game.test", Title: "Hello", OccurredAt: now}}
-	if err := s.Receive(t.Context(), "owner", frame); err != nil {
-		t.Fatal(err)
+	if err := s.Receive(t.Context(), "owner", frame); err == nil {
+		t.Fatal("event acknowledged without durable storage")
 	}
 
 	view := s.Snapshot("game", "owner", true, now.Unix())
