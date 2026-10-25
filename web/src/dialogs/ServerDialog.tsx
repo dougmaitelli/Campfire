@@ -702,7 +702,7 @@ export function ServerDialog({
                       })
                     }
                   >
-                    <FormField label={i18n.t("serverDialog.sparkAllocation")}>
+                    <FormField label={i18n.t("serverDialog.hostPort")}>
                       <Select
                         id={`mapping-allocation-${index}`}
                         required
