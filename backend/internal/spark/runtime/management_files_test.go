@@ -79,6 +79,38 @@ func TestManagedFileLifecycleAndRevisions(t *testing.T) {
 	}
 }
 
+func TestManagedDeleteNonEmptyFolderDoesNotFollowSymlinks(t *testing.T) {
+	m, d := fileTestManager(t)
+	root := filepath.Join(m.root(d.ServerID), "data")
+	if err := os.MkdirAll(filepath.Join(root, "world", "nested"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"world/nested/save.dat", "world-other.txt"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("saved"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret")
+	if err := os.WriteFile(secret, []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "world", "link")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Files(t.Context(), d, model.FileRequest{ServerID: d.ServerID, Operation: "delete", Path: "world"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "world")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("folder was not removed", err)
+	}
+	for _, name := range []string{secret, filepath.Join(root, "world-other.txt")} {
+		if _, err := os.Stat(name); err != nil {
+			t.Fatal("deletion affected an unrelated file", name, err)
+		}
+	}
+}
+
 func TestManagedFileContainmentAndLimits(t *testing.T) {
 	m, d := fileTestManager(t)
 	root := filepath.Join(m.root(d.ServerID), "data")

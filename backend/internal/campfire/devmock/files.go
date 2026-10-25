@@ -159,14 +159,17 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 
 		record.Files[name+"/"] = ""
 	case "delete":
+		if name == "." {
+			return result, fileError("invalid_file", "The server root cannot be deleted.")
+		}
 		if !exists && !directory {
 			return result, fileError("file_not_found", "File not found.")
 		}
 
 		if directory {
 			for key := range record.Files {
-				if key != name+"/" && strings.HasPrefix(key, name+"/") || name == "." {
-					return result, fileError("file_conflict", "Directories must be empty.")
+				if strings.HasPrefix(key, name+"/") {
+					delete(record.Files, key)
 				}
 			}
 

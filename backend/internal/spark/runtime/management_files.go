@@ -310,8 +310,8 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 		result.Path = q.Destination
 	case "delete":
-		if err := root.Remove(q.Path); err != nil {
-			return result, fileFailure("file_conflict", "Could not delete entry. Directories must be empty.")
+		if err := root.RemoveAll(q.Path); err != nil {
+			return result, fileFailure("file_conflict", "Could not delete entry or all of its contents. Refresh and try again.")
 		}
 	}
 

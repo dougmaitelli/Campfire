@@ -47,6 +47,38 @@ func TestMockSelectedArchiveProducesDownloadableTarGzip(t *testing.T) {
 	}
 }
 
+func TestMockDeletesNonEmptyFolders(t *testing.T) {
+	runtime, _, _, servers := fixture(t)
+	server := servers[0]
+	call := func(q model.FileRequest) (model.FileResult, error) {
+		q.ServerID = server.ID
+		return runtime.Files(t.Context(), server.SparkID, q)
+	}
+	for _, q := range []model.FileRequest{
+		{Operation: "mkdir", Path: "folder"},
+		{Operation: "mkdir", Path: "folder/nested"},
+		{Operation: "write", Path: "folder/nested/save.txt", Revision: "absent", Data: []byte("saved")},
+		{Operation: "write", Path: "folder-other.txt", Revision: "absent", Data: []byte("keep")},
+		{Operation: "delete", Path: "folder"},
+	} {
+		if _, err := call(q); err != nil {
+			t.Fatal(q, err)
+		}
+	}
+	for _, q := range []model.FileRequest{
+		{Operation: "list", Path: "folder"},
+		{Operation: "read", Path: "folder/nested/save.txt"},
+		{Operation: "delete", Path: "."},
+	} {
+		if _, err := call(q); err == nil {
+			t.Fatal("deleted folder remained accessible or root deletion succeeded", q)
+		}
+	}
+	if result, err := call(model.FileRequest{Operation: "read", Path: "folder-other.txt"}); err != nil || string(result.Data) != "keep" {
+		t.Fatal("deletion affected a sibling file", result, err)
+	}
+}
+
 func TestMockMovesFoldersWithContentsAndRejectsOverwrite(t *testing.T) {
 	runtime, _, _, servers := fixture(t)
 	server := servers[0]

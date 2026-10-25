@@ -787,7 +787,7 @@
     "chooseDifferentFolder": "Choose a different destination folder.",
     "destinationConflict": "An item with the same name already exists in the destination.",
     "deleteSelected": "Delete selected items",
-    "deleteSelectedDescription": "Permanently delete {{count}} selected items? This cannot be undone. Folders must be empty.",
+    "deleteSelectedDescription": "Permanently delete {{count}} selected items? Folders and all their contents will be deleted. This cannot be undone.",
     "parentFolder": "Parent folder",
     "password": "Password",
     "permanentlyDeleteThisCannotBeUndone": "Permanently delete \"{{deletingName}}\"? This cannot be undone.{{deletingKindDirectory}}",
