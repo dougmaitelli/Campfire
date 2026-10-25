@@ -60,6 +60,43 @@ test("console commands arrive in the live log stream", async ({ page }) => {
   ).toContainText("Command accepted.");
 });
 
+test("console search preserves toolbar height and supports keyboard navigation", async ({
+  page,
+}) => {
+  await login(page);
+  await openServerTab(page, "console", "Console");
+  const command = page.getByRole("textbox", { name: "Command", exact: true });
+  await command.fill("list");
+  await page.getByRole("button", { name: "Send command", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Console output", exact: true }),
+  ).toContainText("Command accepted.");
+  const toolbar = page.locator(".server-terminal-toolbar");
+  const before = await toolbar.boundingBox();
+  expect(before).not.toBeNull();
+  await command.focus();
+  await page.keyboard.press("Control+f");
+  const search = page.getByRole("textbox", {
+    name: "Search console",
+    exact: true,
+  });
+  await expect(search).toBeFocused();
+  const after = await toolbar.boundingBox();
+  expect(after?.height).toBe(before?.height);
+  expect(after?.y).toBe(before?.y);
+  const bounds = await page.getByRole("search").boundingBox();
+  expect(bounds?.width).toBeLessThanOrEqual(640);
+  await search.fill("no-such-console-output");
+  await expect(page.getByText("No matches", { exact: true })).toBeVisible();
+  await search.fill("Command accepted.");
+  await expect(page.getByText("No matches", { exact: true })).toHaveCount(0);
+  await search.press("Enter");
+  await search.press("Shift+Enter");
+  await search.press("Escape");
+  await expect(page.getByRole("search")).toHaveCount(0);
+  await expect(command).toBeVisible();
+});
+
 test("server file edits persist after reopening", async ({ page }) => {
   await login(page);
   await openServerTab(page, "files", "Files");
