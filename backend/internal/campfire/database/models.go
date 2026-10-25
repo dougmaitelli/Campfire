@@ -97,6 +97,7 @@ type Server struct {
 	EmberHash       string             `gorm:"type:text;not null;default:''"`
 	Image           string             `gorm:"type:text;not null"`
 	StartupCommand  string             `gorm:"type:text;not null;default:''"`
+	StartupOverride string             `gorm:"type:text;not null;default:''"`
 	GameIntegration bool               `gorm:"not null;default:false"`
 	Variables       map[string]string  `gorm:"serializer:json;type:text;not null"`
 	CPULimit        float64            `gorm:"not null"`

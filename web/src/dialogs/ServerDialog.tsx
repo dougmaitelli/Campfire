@@ -116,7 +116,14 @@ export function ServerDialog({
   }, [canShare, admin, server, session?.user_id, accessAttempt]);
   const [value, setValue] = useState<ServerConfiguration>(() => {
     if (server) {
-      if (!applyRevision) return server;
+      if (!applyRevision)
+        return {
+          ...server,
+          startup_override:
+            server.startup_override === ""
+              ? undefined
+              : server.startup_override,
+        };
       const latest = embers.find((item) => item.id === server.ember_id);
       return {
         ...server,
@@ -233,6 +240,7 @@ export function ServerDialog({
         ember_id: value.ember_id,
         image: value.image,
         startup_command: value.startup_command ?? "",
+        startup_override: value.startup_override ?? "",
         game_integration: value.game_integration ?? false,
         variables: value.variables,
         cpu_limit: value.cpu_limit,
@@ -396,6 +404,7 @@ export function ServerDialog({
                           ? (selected?.name.slice(0, 100) ?? "")
                           : value.name,
                       ember_id: selectedValue,
+                      startup_override: undefined,
                       startup_command:
                         Object.keys(selected?.startup_commands ?? {}).length ===
                         1
@@ -502,7 +511,11 @@ export function ServerDialog({
                     }
                     value={value.startup_command ?? ""}
                     onValueChange={(selectedValue) =>
-                      setValue({ ...value, startup_command: selectedValue })
+                      setValue({
+                        ...value,
+                        startup_command: selectedValue,
+                        startup_override: undefined,
+                      })
                     }
                   >
                     <option value="">
@@ -527,6 +540,41 @@ export function ServerDialog({
                   </Select>
                 </FormField>
               )}
+              <FormField
+                label={t("serverDialog.customStartupCommand")}
+                description={t("serverDialog.customStartupCommandHelp")}
+              >
+                <Textarea
+                  id="server-startup-override"
+                  rows={4}
+                  maxLength={16384}
+                  disabled={
+                    runtimeRestricted ||
+                    (!!server?.ember_update_available && !applyRevision)
+                  }
+                  value={
+                    value.startup_override ??
+                    ember?.startup_commands?.[value.startup_command ?? ""] ??
+                    ember?.startup ??
+                    ""
+                  }
+                  onChange={(event) =>
+                    setValue({ ...value, startup_override: event.target.value })
+                  }
+                />
+              </FormField>
+              <Button
+                type="button"
+                disabled={
+                  runtimeRestricted ||
+                  (!!server?.ember_update_available && !applyRevision)
+                }
+                onClick={() =>
+                  setValue({ ...value, startup_override: undefined })
+                }
+              >
+                {t("serverDialog.resetStartupCommand")}
+              </Button>
               <CheckboxField
                 checked={value.game_integration ?? false}
                 disabled={runtimeRestricted}

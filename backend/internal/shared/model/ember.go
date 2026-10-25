@@ -360,6 +360,26 @@ func (e Ember) ResolveStartup(name string) (string, string, error) {
 	return name, command, nil
 }
 
+// ServerStartup resolves the selected default and validates an optional server override.
+func (e Ember) ServerStartup(c ServerConfiguration) (string, string, error) {
+	selection, command, err := e.ResolveStartup(c.StartupCommand)
+	if err != nil || c.StartupOverride == "" {
+		return selection, command, err
+	}
+	command = c.StartupOverride
+	if len(command) > 16384 || strings.TrimSpace(command) == "" || strings.ContainsRune(command, '\x00') {
+		return "", "", errors.New("custom startup command must contain 1–16384 bytes without null characters")
+	}
+	known := BuiltinEnvironment()
+	for _, variable := range e.Variables {
+		known[variable.Name] = ""
+	}
+	if _, err := Startup(command, known); err != nil {
+		return "", "", err
+	}
+	return selection, command, nil
+}
+
 // Startup validates environment placeholders in a startup command.
 func Startup(s string, env map[string]string) (string, error) {
 	var missing string

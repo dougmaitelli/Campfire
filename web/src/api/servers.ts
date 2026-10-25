@@ -16,6 +16,7 @@ export interface ServerConfiguration {
   ember_id: string;
   image: string;
   startup_command?: string;
+  startup_override?: string | undefined;
   variables: Record<string, string>;
   cpu_limit: number;
   memory_mb: number;
@@ -44,6 +45,8 @@ export function isServer(value: unknown): value is Server {
     value !== null &&
     "id" in value &&
     typeof value.id === "string" &&
+    (!("startup_override" in value) ||
+      typeof value.startup_override === "string") &&
     (!("game_integration" in value) ||
       typeof value.game_integration === "boolean") &&
     "ember_hash" in value &&

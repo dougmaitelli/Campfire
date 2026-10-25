@@ -6,7 +6,7 @@ First [install and enroll a Spark](/Campfire/spark-agent/) with a game address
 players can reach. The panel itself does not run game containers.
 
 1. Open **Embers** and import a native Ember or supported Pterodactyl/Pelican Egg. Review the image, installer, variables, and compatibility warnings.
-2. Create a server, choose its Spark and Ember, assign resources and ports, and configure the game variables.
+2. Create a server, choose its Spark and Ember, assign resources and ports, and configure the game variables. Edit **Startup command text** to customize the imported command for this server, or select **Use Ember default** to reset it. Ember variable placeholders are supported; later changes apply on the next server restart.
 3. Install the server, then start it. Open its console to follow startup and send game commands.
 4. Add server members, recurring schedules, and backups as needed.
 

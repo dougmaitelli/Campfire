@@ -703,7 +703,7 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 }
 
 func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error {
-	_, command, err := d.Ember.ResolveStartup(d.Configuration.StartupCommand)
+	_, command, err := d.Ember.ServerStartup(d.Configuration)
 	if err != nil {
 		return err
 	}

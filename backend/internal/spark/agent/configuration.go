@@ -137,7 +137,7 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 	}
 
 	c := deployment.Configuration
-	if _, _, err := deployment.Ember.ResolveStartup(c.StartupCommand); err != nil {
+	if _, _, err := deployment.Ember.ServerStartup(c); err != nil {
 		return model.ConfigurationReceipt{}, err
 	}
 

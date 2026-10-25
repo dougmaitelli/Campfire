@@ -150,6 +150,11 @@ func migrate(db *gorm.DB) error {
 		}
 
 		if version == schemaVersion {
+			if !tx.Migrator().HasColumn(&Server{}, "StartupOverride") {
+				if err := tx.Migrator().AddColumn(&Server{}, "StartupOverride"); err != nil {
+					return err
+				}
+			}
 			if !tx.Migrator().HasColumn(&Server{}, "GameIntegration") {
 				if err := tx.Migrator().AddColumn(&Server{}, "GameIntegration"); err != nil {
 					return err

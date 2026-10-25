@@ -42,6 +42,11 @@ export function ServerReview({
             {value.startup_command}
           </DetailItem>
         )}
+        {value.startup_override && (
+          <DetailItem label={t("serverDialog.customStartupCommand")}>
+            <code>{value.startup_override}</code>
+          </DetailItem>
+        )}
         <DetailItem label={t("common.cpu")}>
           <Trans
             i18nKey="serverReview.cores"

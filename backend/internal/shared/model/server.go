@@ -8,7 +8,7 @@ import (
 
 // SameRuntimeConfiguration ignores display metadata when comparing saved settings.
 func SameRuntimeConfiguration(a, b ServerConfiguration) bool {
-	return a.SparkID == b.SparkID && a.EmberID == b.EmberID && a.Image == b.Image && a.StartupCommand == b.StartupCommand &&
+	return a.SparkID == b.SparkID && a.EmberID == b.EmberID && a.Image == b.Image && a.StartupCommand == b.StartupCommand && a.StartupOverride == b.StartupOverride &&
 		a.CPULimit == b.CPULimit && a.MemoryMB == b.MemoryMB && a.DiskMB == b.DiskMB && a.GameIntegration == b.GameIntegration &&
 		maps.Equal(a.Variables, b.Variables) && slices.Equal(a.Ports, b.Ports)
 }
@@ -32,6 +32,7 @@ type Server struct {
 
 // ServerConfiguration contains the operator-configured placement and reservations.
 type ServerConfiguration struct {
+	StartupOverride string            `json:"startup_override,omitempty"`
 	GameIntegration bool              `json:"game_integration"`
 	Name            string            `json:"name"`
 	Description     string            `json:"description"`

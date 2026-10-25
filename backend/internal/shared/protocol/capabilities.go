@@ -32,6 +32,7 @@ func CommandTimeout(command Command) time.Duration {
 
 // Capability names version the behavior of individual features independently.
 const (
+	CapabilityStartupOverride = "server.startup-override.v1"
 	CapabilityConfigure       = "server.configure.v1"
 	CapabilityLifecycle       = "server.lifecycle.v1"
 	CapabilityFiles           = "server.files.v1"
@@ -53,7 +54,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityStartupOverride}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -139,10 +140,14 @@ func RequiredCapabilities(command Command) []string {
 	case UpdateSpark:
 		return []string{CapabilitySelfUpdate}
 	case ConfigureServer:
+		required := []string{CapabilityConfigure}
 		if command.Deployment != nil && command.Deployment.Configuration.GameIntegration {
-			return []string{CapabilityConfigure, CapabilityGameIntegration}
+			required = append(required, CapabilityGameIntegration)
 		}
-		return []string{CapabilityConfigure}
+		if command.Deployment != nil && command.Deployment.Configuration.StartupOverride != "" {
+			required = append(required, CapabilityStartupOverride)
+		}
+		return required
 	case ServerTransfer:
 		return []string{CapabilityTransfer}
 	case ServerFiles:
