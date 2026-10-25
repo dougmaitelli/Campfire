@@ -138,6 +138,11 @@ export async function openServerTab(page: Page, tab: string, label: string) {
     page.getByRole("heading", { level: 1, name: "Survival", exact: true }),
   ).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      tabs.evaluate((element) => element.scrollHeight <= element.clientHeight),
+    )
+    .toBe(true);
   if (tab === "console") {
     await expect(
       page.getByRole("region", { name: "Console output", exact: true }),
