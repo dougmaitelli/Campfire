@@ -1,4 +1,6 @@
-# Game integrations implementation plan
+---
+title: Game integrations implementation plan
+---
 
 Status: stages 1–4 and 6 implemented; Discord stages 5 and 7 deferred until last. See
 [the transport documentation](game-integrations.md) for current functionality.

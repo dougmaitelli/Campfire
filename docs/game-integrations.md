@@ -1,4 +1,6 @@
-# Game integrations
+---
+title: Game integrations
+---
 
 Game mods and adapters can publish state snapshots and events to a local Spark
 Unix socket. Spark forwards them over its existing authenticated connection.
