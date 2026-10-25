@@ -42,12 +42,12 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(30 * time.Minute))
 		}
 
-		if !slices.Contains([]string{"list", "read", "write", "mkdir", "rename", "delete", "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel", "compress", "extract"}, input.Operation) {
+		if !slices.Contains([]string{"list", "read", "write", "mkdir", "rename", "delete", "chmod", "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel", "compress", "extract"}, input.Operation) {
 			writeFileError(w, &model.FileError{Code: "invalid_file", Message: "Invalid game file operation."})
 			return
 		}
 
-		for _, operation := range []string{"list", "read", "write", "mkdir", "rename", "delete", "upload.begin", "upload.commit", "upload.cancel", "compress", "extract"} {
+		for _, operation := range []string{"list", "read", "write", "mkdir", "rename", "delete", "chmod", "upload.begin", "upload.commit", "upload.cancel", "compress", "extract"} {
 			if input.Operation == operation {
 				auditDetail(r, "server.files."+operation, "server:"+r.PathValue("id"))
 			}

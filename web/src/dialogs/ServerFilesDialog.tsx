@@ -82,6 +82,9 @@ export function ServerFilesDialog({
     entry: FileEntry;
   } | null>(null);
   const [deleting, setDeleting] = useState<FileEntry[] | null>(null);
+  const [permissionsEntries, setPermissionsEntries] = useState<
+    FileEntry[] | null
+  >(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<"compress" | "move" | null>(
     null,
@@ -633,6 +636,36 @@ export function ServerFilesDialog({
             }
           />
         )}
+        {permissionsEntries && (
+          <InputDialog
+            title={t("serverFilesDialog.permissions")}
+            label={t("serverFilesDialog.octalPermissions")}
+            description={t("serverFilesDialog.permissionsHelp", {
+              count: permissionsEntries.length,
+            })}
+            initialValue={
+              permissionsEntries[0]?.mode !== undefined &&
+              permissionsEntries.every(
+                (entry) => entry.mode === permissionsEntries[0]?.mode,
+              )
+                ? permissionsEntries[0].mode.toString(8).padStart(3, "0")
+                : ""
+            }
+            submitLabel={t("serverFilesDialog.savePermissions")}
+            onClose={() => setPermissionsEntries(null)}
+            onSubmit={async (value) => {
+              if (!/^[0-7]{3}$/.test(value))
+                throw new Error(t("serverFilesDialog.invalidPermissions"));
+              for (const entry of permissionsEntries)
+                await manageFiles(server.id, {
+                  operation: "chmod",
+                  path: join(directory, entry.name),
+                  mode: Number.parseInt(value, 8),
+                });
+              await load(directory);
+            }}
+          />
+        )}
         {deleting && (
           <ConfirmDialog
             title={t("serverFilesDialog.deleteSelected")}
@@ -953,6 +986,13 @@ export function ServerFilesDialog({
                 >
                   <NavigationIcon name="rename" />
                   {t("serverFilesDialog.rename2")}
+                </Button>
+                <Button
+                  disabled={busy || !canWrite || !selectedEntries.length}
+                  onClick={() => setPermissionsEntries(selectedEntries)}
+                >
+                  <NavigationIcon name="permissions" />
+                  {t("serverFilesDialog.permissions")}
                 </Button>
                 <Button
                   disabled={busy || !canWrite || !selectedEntries.length}

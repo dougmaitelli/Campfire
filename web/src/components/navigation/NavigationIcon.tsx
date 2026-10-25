@@ -57,6 +57,7 @@ type NavigationIconName =
   | "compress"
   | "extract"
   | "rename"
+  | "permissions"
   | "delete"
   | "warning"
   | "table"
@@ -105,6 +106,7 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   compress: Archive,
   extract: ArchiveRestore,
   rename: SquarePen,
+  permissions: ShieldCheck,
   delete: Trash2,
   loading: LoaderCircle,
   warning: TriangleAlert,

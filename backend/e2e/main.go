@@ -37,12 +37,13 @@ func must(err error) {
 
 // No Docker, agent sockets, credentials, or external network clients are used.
 type runtime struct {
-	mu       sync.Mutex
-	statuses map[string]model.RuntimeStatus
-	files    map[string]map[string]string
-	backups  map[string][]model.FileEntry
-	archives map[string][]byte
-	updates  chan struct{}
+	mu        sync.Mutex
+	statuses  map[string]model.RuntimeStatus
+	files     map[string]map[string]string
+	fileModes map[string]map[string]uint32
+	backups   map[string][]model.FileEntry
+	archives  map[string][]byte
+	updates   chan struct{}
 }
 
 func (*runtime) Connected(id string) bool { return id != "mock-offline" }

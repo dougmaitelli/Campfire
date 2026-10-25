@@ -79,6 +79,47 @@ test("server file edits persist after reopening", async ({ page }) => {
   ).toHaveValue("motd=Updated community server\n");
 });
 
+test("file permissions can be changed and persist after reloading", async ({
+  page,
+}) => {
+  await login(page);
+  await openServerTab(page, "files", "Files");
+  const permissions = page.getByRole("button", {
+    name: "Permissions",
+    exact: true,
+  });
+  await expect(permissions).toBeDisabled();
+  await expect(permissions.locator("svg")).toHaveCount(1);
+  for (const name of ["server.properties", "eula.txt", "config"]) {
+    await page
+      .getByRole("checkbox", { name: `Select ${name}`, exact: true })
+      .check();
+  }
+  await page.getByRole("button", { name: "Permissions", exact: true }).click();
+  await expect(
+    page.getByLabel("Permissions (octal)", { exact: true }),
+  ).toHaveValue("");
+  await page.getByLabel("Permissions (octal)", { exact: true }).fill("755");
+  await page
+    .getByRole("button", { name: "Save permissions", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.reload();
+  for (const name of ["server.properties", "eula.txt", "config"]) {
+    const selected = page.getByRole("checkbox", {
+      name: `Select ${name}`,
+      exact: true,
+    });
+    await selected.check();
+    await permissions.click();
+    await expect(
+      page.getByLabel("Permissions (octal)", { exact: true }),
+    ).toHaveValue("755");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await selected.uncheck();
+  }
+});
+
 test("user edits persist through the real API", async ({ page }) => {
   await login(page);
   await openUser(page);

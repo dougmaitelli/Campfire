@@ -49,6 +49,15 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 	defer r.mu.Unlock()
 	result := model.FileResult{ServerID: input.ServerID, Path: input.Path}
 	files := r.files[input.ServerID]
+	if r.fileModes == nil {
+		r.fileModes = make(map[string]map[string]uint32)
+	}
+
+	if r.fileModes[input.ServerID] == nil {
+		r.fileModes[input.ServerID] = make(map[string]uint32)
+	}
+
+	modes := r.fileModes[input.ServerID]
 	name := path.Clean(input.Path)
 	switch input.Operation {
 	case "backup.list":
@@ -80,9 +89,27 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 			if directory {
 				kind = "directory"
 			}
-			result.Entries = append(result.Entries, model.FileEntry{Name: child, Kind: kind, Size: int64(len(contents)), ModifiedAt: fixed})
+			mode, ok := modes[filename]
+			if !ok {
+				mode = 0644
+				if directory {
+					mode = 0755
+				}
+			}
+
+			result.Entries = append(result.Entries, model.FileEntry{Name: child, Kind: kind, Mode: mode, Size: int64(len(contents)), ModifiedAt: fixed})
 		}
 		sort.Slice(result.Entries, func(i, j int) bool { return result.Entries[i].Name < result.Entries[j].Name })
+	case "chmod":
+		if _, directory := files[name+"/"]; directory {
+			name += "/"
+		}
+
+		if _, exists := files[name]; !exists || input.Mode > 0777 {
+			return result, &model.FileError{Code: "invalid_file", Message: "Invalid permissions or file."}
+		}
+
+		modes[name] = input.Mode
 	case "read":
 		contents, exists := files[name]
 		if !exists {

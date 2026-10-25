@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -259,6 +260,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 
 	count := 0
 	seen := make(map[string]bool)
+	directoryModes := make(map[string]fs.FileMode)
 	unpack := func(name string, size int64, mode fs.FileMode, reader io.Reader) error {
 		count++
 		if count > backupEntries || size < 0 || size > model.FileTransferLimit-total {
@@ -291,6 +293,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		total += size
 
 		if mode.IsDir() {
+			directoryModes[name] = mode.Perm()
 			return target.MkdirAll(name, 0700)
 		}
 
@@ -302,7 +305,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 			return err
 		}
 
-		file, err := target.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600|mode.Perm()&0100)
+		file, err := target.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err != nil {
 			return err
 		}
@@ -310,6 +313,10 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		defer func() { _ = file.Close() }()
 
 		if _, err := io.CopyN(file, backupReader{ctx, reader}, size); err != nil {
+			return err
+		}
+
+		if err := file.Chmod(mode.Perm()); err != nil {
 			return err
 		}
 
@@ -379,7 +386,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 
 			switch header.Typeflag {
 			case tar.TypeDir:
-				mode = fs.ModeDir | 0700
+				mode = fs.ModeDir | fs.FileMode(header.Mode)&0777
 			case tar.TypeReg, 0:
 				mode = fs.FileMode(header.Mode) & 0777
 			default:
@@ -403,7 +410,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		return fileFailure("invalid_file", "Extract supports .zip, .tar.gz and .tgz archives.")
 	}
 	// Assign all implicitly created directories as well as files to the game's user.
-	return fs.WalkDir(target.FS(), ".", func(name string, _ fs.DirEntry, walkErr error) error {
+	err = fs.WalkDir(target.FS(), ".", func(name string, _ fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -417,4 +424,22 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 
 		return m.FileOwner(file, d.Ember.User)
 	})
+	if err != nil {
+		return err
+	}
+
+	directories := make([]string, 0, len(directoryModes))
+	for name := range directoryModes {
+		directories = append(directories, name)
+	}
+
+	sort.Slice(directories, func(i, j int) bool { return len(directories[i]) > len(directories[j]) })
+
+	for _, name := range directories {
+		if err := target.Chmod(name, directoryModes[name]); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

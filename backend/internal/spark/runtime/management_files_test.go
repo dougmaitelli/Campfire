@@ -119,6 +119,49 @@ func TestManagedDeleteNonEmptyFolderDoesNotFollowSymlinks(t *testing.T) {
 	}
 }
 
+func TestManagedFilePermissions(t *testing.T) {
+	m, d := fileTestManager(t)
+
+	root := filepath.Join(m.root(d.ServerID), "data")
+	if err := os.WriteFile(filepath.Join(root, "start.sh"), []byte("#!/bin/sh\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Mkdir(filepath.Join(root, "mods"), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"start.sh", "mods"} {
+		if _, err := m.Files(t.Context(), d, model.FileRequest{ServerID: d.ServerID, Operation: "chmod", Path: name, Mode: 0755}); err != nil {
+			t.Fatal(err)
+		}
+
+		info, err := os.Stat(filepath.Join(root, name))
+		if err != nil || info.Mode().Perm() != 0755 {
+			t.Fatal("permissions were not changed", info, err)
+		}
+	}
+
+	for _, q := range []model.FileRequest{
+		{Operation: "chmod", Path: "start.sh", Mode: 04755},
+		{Operation: "chmod", Path: ".", Mode: 0755},
+		{Operation: "chmod", Path: "../outside", Mode: 0755},
+	} {
+		q.ServerID = d.ServerID
+		if _, err := m.Files(t.Context(), d, q); err == nil {
+			t.Fatal("unsafe permission change accepted", q)
+		}
+	}
+
+	if err := os.Symlink(filepath.Join(root, "start.sh"), filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := m.Files(t.Context(), d, model.FileRequest{ServerID: d.ServerID, Operation: "chmod", Path: "link", Mode: 0644}); err == nil {
+		t.Fatal("symlink permission change accepted")
+	}
+}
+
 func TestManagedFileContainmentAndLimits(t *testing.T) {
 	m, d := fileTestManager(t)
 	root := filepath.Join(m.root(d.ServerID), "data")

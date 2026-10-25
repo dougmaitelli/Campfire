@@ -51,7 +51,7 @@ func chunkFile(root *os.Root, q model.FileRequest) (model.FileResult, error) {
 		kind = "directory"
 	}
 
-	result.Entries = []model.FileEntry{{Name: info.Name(), Kind: kind, Size: info.Size(), ModifiedAt: info.ModTime().UTC()}}
+	result.Entries = []model.FileEntry{{Name: info.Name(), Kind: kind, Mode: uint32(info.Mode().Perm()), Size: info.Size(), ModifiedAt: info.ModTime().UTC()}}
 	if q.Operation == "stat" {
 		return result, nil
 	}

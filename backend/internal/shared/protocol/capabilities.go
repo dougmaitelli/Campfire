@@ -36,6 +36,7 @@ const (
 	CapabilityConfigure       = "server.configure.v1"
 	CapabilityLifecycle       = "server.lifecycle.v1"
 	CapabilityFiles           = "server.files.v1"
+	CapabilityFilePermissions = "server.files.permissions.v1"
 	CapabilityFileTransfer    = "server.files.transfer.v1"
 	CapabilityFileArchive     = "server.files.archive.v1"
 	CapabilityBackups         = "server.backups.v1"
@@ -54,7 +55,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityStartupOverride}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityStartupOverride}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -155,6 +156,8 @@ func RequiredCapabilities(command Command) []string {
 	case ServerFiles:
 		if command.Files != nil {
 			switch command.Files.Operation {
+			case "chmod":
+				return []string{CapabilityFiles, CapabilityFilePermissions}
 			case "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel":
 				return []string{CapabilityFiles, CapabilityFileTransfer}
 			case "compress", "extract":

@@ -65,6 +65,11 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 	}
 
 	result := model.FileResult{ServerID: request.ServerID, Path: name}
+
+	if record.FileModes == nil {
+		record.FileModes = make(map[string]uint32)
+	}
+
 	data, exists := record.Files[name]
 
 	directory := name == "."
@@ -86,8 +91,15 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			}
 
 			entry := model.FileEntry{Name: path.Base(key), Kind: "file", Size: int64(len(mockFileContent(value))), ModifiedAt: time.Unix(1700000000, 0).UTC()}
+
+			entry.Mode = 0600
 			if strings.HasSuffix(key, "/") {
 				entry.Kind = "directory"
+				entry.Mode = 0700
+			}
+
+			if mode, ok := record.FileModes[strings.TrimSuffix(key, "/")]; ok {
+				entry.Mode = mode
 			}
 
 			result.Entries = append(result.Entries, entry)
@@ -158,6 +170,12 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		record.Files[name+"/"] = ""
+	case "chmod":
+		if name == "." || !exists && !directory || request.Mode > 0777 {
+			return result, fileError("invalid_file", "Select a file or folder and permissions between 000 and 777 (octal).")
+		}
+
+		record.FileModes[name] = request.Mode
 	case "delete":
 		if name == "." {
 			return result, fileError("invalid_file", "The server root cannot be deleted.")
@@ -171,6 +189,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			for key := range record.Files {
 				if strings.HasPrefix(key, name+"/") {
 					delete(record.Files, key)
+					delete(record.FileModes, strings.TrimSuffix(key, "/"))
 				}
 			}
 
@@ -178,6 +197,8 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		} else {
 			delete(record.Files, name)
 		}
+
+		delete(record.FileModes, name)
 	case "rename":
 		destination, err := cleanPath(request.Destination)
 		if err != nil {
@@ -204,6 +225,19 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			if _, ok := record.Files[parent+"/"]; !ok {
 				return result, fileError("file_not_found", "Parent directory not found.")
 			}
+		}
+
+		movedModes := make(map[string]uint32)
+
+		for key, mode := range record.FileModes {
+			if key == name || directory && strings.HasPrefix(key, name+"/") {
+				movedModes[destination+strings.TrimPrefix(key, name)] = mode
+				delete(record.FileModes, key)
+			}
+		}
+
+		for key, mode := range movedModes {
+			record.FileModes[key] = mode
 		}
 
 		if directory {

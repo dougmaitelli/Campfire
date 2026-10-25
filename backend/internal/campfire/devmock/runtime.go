@@ -42,6 +42,7 @@ type runtimeRecord struct {
 	Operation          string
 	Logs               string
 	Files              map[string]string `gorm:"serializer:json"`
+	FileModes          map[string]uint32 `gorm:"serializer:json"`
 	FileFixtureVersion int               `gorm:"not null;default:0"`
 }
 
@@ -78,6 +79,8 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilityPrune}
 
 	features = append(features, protocol.CapabilityStartupOverride)
+
+	features = append(features, protocol.CapabilityFilePermissions)
 	if r.games != nil {
 		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)
 		if r.games.Media != nil {

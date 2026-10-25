@@ -27,6 +27,7 @@ export async function uploadLimit(
 }
 
 export interface FileEntry {
+  mode?: number;
   name: string;
   kind: "file" | "directory" | "unsupported";
   size: number;
@@ -48,6 +49,7 @@ export interface FileRequest {
     | "mkdir"
     | "rename"
     | "delete"
+    | "chmod"
     | "upload.begin"
     | "upload.chunk"
     | "upload.commit"
@@ -55,6 +57,7 @@ export interface FileRequest {
     | "compress"
     | "extract";
   path: string;
+  mode?: number;
   paths?: string[];
   destination?: string;
   data?: string;

@@ -13,6 +13,7 @@ const DefaultUploadLimit int64 = 1 << 30
 
 // FileRequest describes contained game file access or immutable backup list/read access.
 type FileRequest struct {
+	Mode        uint32   `json:"mode,omitempty"`
 	ServerID    string   `json:"server_id"`
 	Operation   string   `json:"operation"`
 	Path        string   `json:"path"`
@@ -28,6 +29,7 @@ type FileRequest struct {
 
 // FileEntry describes a directory child without following symbolic links.
 type FileEntry struct {
+	Mode       uint32    `json:"mode"`
 	Name       string    `json:"name"`
 	Kind       string    `json:"kind"`
 	Size       int64     `json:"size"`

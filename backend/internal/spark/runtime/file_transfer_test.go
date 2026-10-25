@@ -169,6 +169,69 @@ func TestConfiguredUploadLimitForKnownAndUnknownSizes(t *testing.T) {
 	}
 }
 
+func TestArchivePreservesFileAndDirectoryPermissions(t *testing.T) {
+	for _, format := range []string{"tar.gz", "zip"} {
+		t.Run(format, func(t *testing.T) {
+			m, d := fileTestManager(t)
+
+			var data bytes.Buffer
+
+			if format == "zip" {
+				archive := zip.NewWriter(&data)
+
+				for _, entry := range []struct {
+					name string
+					mode os.FileMode
+				}{{"mods/", os.ModeDir | 0750}, {"mods/start.sh", 0755}} {
+					header := &zip.FileHeader{Name: entry.name}
+					header.SetMode(entry.mode)
+
+					if _, err := archive.CreateHeader(header); err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				if err := archive.Close(); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				compressed := gzip.NewWriter(&data)
+
+				archive := tar.NewWriter(compressed)
+				for _, header := range []*tar.Header{{Name: "mods/", Typeflag: tar.TypeDir, Mode: 0750}, {Name: "mods/start.sh", Typeflag: tar.TypeReg, Mode: 0755}} {
+					if err := archive.WriteHeader(header); err != nil {
+						t.Fatal(err)
+					}
+				}
+
+				if err := archive.Close(); err != nil {
+					t.Fatal(err)
+				}
+
+				if err := compressed.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			volume := filepath.Join(m.root(d.ServerID), "data")
+			if err := os.WriteFile(filepath.Join(volume, "mods."+format), data.Bytes(), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := m.Files(t.Context(), d, model.FileRequest{ServerID: d.ServerID, Operation: "extract", Path: "mods." + format, Destination: "unpacked"}); err != nil {
+				t.Fatal(err)
+			}
+
+			for name, mode := range map[string]os.FileMode{"mods": 0750, "mods/start.sh": 0755} {
+				info, err := os.Stat(filepath.Join(volume, "unpacked", name))
+				if err != nil || info.Mode().Perm() != mode {
+					t.Fatal("archive changed permissions", name, info, err)
+				}
+			}
+		})
+	}
+}
+
 func TestArchivesRoundTripAndContainment(t *testing.T) {
 	m, d := fileTestManager(t)
 

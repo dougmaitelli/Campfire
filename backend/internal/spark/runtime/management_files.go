@@ -109,7 +109,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	}
 
 	switch q.Operation {
-	case "list", "read", "write", "mkdir", "rename", "delete", "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel", "compress", "extract":
+	case "list", "read", "write", "mkdir", "rename", "delete", "chmod", "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel", "compress", "extract":
 	default:
 		return model.FileResult{}, fileFailure("invalid_file", "Unsupported file operation.")
 	}
@@ -203,7 +203,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 				kind = "unsupported"
 			}
 
-			result.Entries = append(result.Entries, model.FileEntry{Name: child.Name(), Kind: kind, Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
+			result.Entries = append(result.Entries, model.FileEntry{Name: child.Name(), Kind: kind, Mode: uint32(info.Mode().Perm()), Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
 		}
 
 		sort.Slice(result.Entries, func(i, j int) bool {
@@ -312,6 +312,25 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	case "delete":
 		if err := root.RemoveAll(q.Path); err != nil {
 			return result, fileFailure("file_conflict", "Could not delete entry or all of its contents. Refresh and try again.")
+		}
+	case "chmod":
+		if q.Mode > 0777 {
+			return result, fileFailure("invalid_file", "Permissions must be between 000 and 777 (octal).")
+		}
+
+		file, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
+		if err != nil {
+			return result, fileFailure("file_io", "Could not open entry to change permissions.")
+		}
+		defer func() { _ = file.Close() }()
+
+		info, err := file.Stat()
+		if err != nil || !info.IsDir() && !info.Mode().IsRegular() {
+			return result, fileFailure("invalid_file", "Select a regular file or directory.")
+		}
+
+		if err := file.Chmod(fs.FileMode(q.Mode)); err != nil {
+			return result, fileFailure("file_io", "Could not change permissions.")
 		}
 	}
 
