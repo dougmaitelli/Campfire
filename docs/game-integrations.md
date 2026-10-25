@@ -193,6 +193,11 @@ game-specific event types as supplied, without assuming matches or rounds.
 
 ## Example publisher
 
+For dashboard and destination development without a game server, `make dev-mock`
+runs a live simulated publisher. See the
+[mock game integration guide](development.md#mock-game-integration) for scenarios
+and console controls. A real Valheim integration will live in a separate repo.
+
 Copy `scripts/game-publisher.mjs` into a game container with Node.js installed:
 
 ```sh

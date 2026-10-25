@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/devfixture"
+	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 
@@ -24,8 +25,10 @@ import (
 
 // Runtime implements the panel's real dispatch interfaces without opening network connections.
 type Runtime struct {
-	db *gorm.DB
-	mu sync.Mutex
+	db           *gorm.DB
+	mu           sync.Mutex
+	games        *service.GameIntegrationService
+	gameSessions map[string]*gameSession
 }
 
 type runtimeRecord struct {
@@ -58,6 +61,9 @@ func (r *Runtime) Connected(id string) bool { return id != "mock-offline" }
 
 // SparkFeatures advertises only the transports this simulator actually implements.
 func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if !r.Connected(id) {
 		return 0, "", nil
 	}
@@ -70,6 +76,10 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 	}
 
 	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilityPrune}
+	if r.games != nil {
+		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)
+	}
+
 	if id == "mock-america" {
 		features = slices.DeleteFunc(features, func(feature string) bool { return feature == protocol.CapabilityDiskQuota })
 	}
@@ -159,6 +169,9 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		}
 
 		record.Logs += timestampLog(fmt.Sprintf("[Console] > %s\n[Mock server] Command received.\n", request.Content))
+		if err := r.gameCommand(ctx, record, request.Content); err != nil {
+			return model.RuntimeStatus{}, err
+		}
 	default:
 		return model.RuntimeStatus{}, fmt.Errorf("%s is not simulated in mock mode", request.Action)
 	}
@@ -173,6 +186,10 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 
 		if err := r.db.WithContext(ctx).Save(&record).Error; err != nil {
 			return model.RuntimeStatus{}, err
+		}
+
+		if request.Action != "command" && request.Action != "backup" {
+			delete(r.gameSessions, record.ServerID)
 		}
 	}
 

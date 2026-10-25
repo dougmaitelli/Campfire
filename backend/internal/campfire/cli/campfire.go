@@ -279,6 +279,12 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 	defer resources.Close()
 
+	if simulator, ok := runtime.(interface {
+		StartGameSimulation(context.Context, *service.GameIntegrationService) func()
+	}); ok {
+		defer simulator.StartGameSimulation(ctx, games)()
+	}
+
 	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
 	activity.Retention = retention
 

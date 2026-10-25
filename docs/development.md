@@ -25,6 +25,31 @@ The binaries are written to `bin/campfire` and `bin/spark`. Production hosts do 
 
 See the [browser testing guide](https://github.com/dougmaitelli/Campfire/blob/master/e2e/README.md) for the contributor testing workflow.
 
+## Mock game integration
+
+`make dev-mock` automatically simulates game publications for running, online
+servers. State heartbeats arrive every five seconds. Every fifteen seconds the
+publisher advances through a connection announcement, Alex joining, a welcome
+announcement, and Alex leaving. Player count and capacity appear in monitoring;
+optional game mode is omitted while Alex is online to exercise snapshot
+replacement. These are generic development scenarios, not a Valheim mod.
+
+Use the normal server console to control a publisher:
+
+| Command            | Behavior                                                          |
+| ------------------ | ----------------------------------------------------------------- |
+| `mock-game pause`  | Stop publishing; current state becomes stale after 60 seconds.    |
+| `mock-game resume` | Resume heartbeats and the event cycle.                            |
+| `mock-game next`   | Advance to the next event on the next heartbeat, unless paused.   |
+| `mock-game replay` | Resend the last event with the same ID to exercise deduplication. |
+
+Stopping a server stops its publisher. Starting or restarting it begins a new
+session with new event IDs. Existing history remains in the database. Publications
+use the real game ingestion, placement checks, state projection, and event store;
+the simulator bypasses the game socket and Spark queue. Real transport behavior
+is covered separately by Spark tests. The deterministic browser screenshot
+fixtures do not start this background publisher.
+
 ## Tests
 
 Frontend tests run through Vitest and import application TypeScript directly using

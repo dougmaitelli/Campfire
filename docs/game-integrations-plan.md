@@ -1,6 +1,6 @@
 # Game integrations implementation plan
 
-Status: stages 1–3 implemented; stages 4–7 proposed. See
+Status: stages 1–4 implemented; stages 5–7 proposed. See
 [the transport documentation](game-integrations.md) for current functionality.
 
 ## Objective and scope
@@ -107,19 +107,46 @@ Add durable game activity independently of current state.
 Completion criteria: events survive a Campfire restart, retries do not create
 duplicate entries, and retention works.
 
-## Stage 4: First real game integration
+## Stage 4: Simulated game integration in dev-mock
 
-Validate the contract with one game before expanding it.
+Implemented with five-second state heartbeats, a fifteen-second event cycle,
+mock-only console controls for pause/resume/advance/replay, and functional tests
+against the real ingestion services and database. See the
+[development guide](development.md#mock-game-integration) for usage.
 
-- Select a game actually hosted by the project users.
-- Build a mod, plugin, or adapter that publishes available player information and
-  selected events.
-- Supply optional fields appropriate to that game.
+Exercise the game-data flows during development before building a real game mod.
+Keep the simulator in the existing dev-mock package and cover its behavior with
+the normal functional and end-to-end test suites.
+
+- Simulate changing player counts, joins, leaves, and announcements for a running
+  mock server, rather than relying only on seeded event history.
+- Publish through the existing game ingestion services so validation, current
+  state, durable events, and later destination routing use the application paths.
+- Supply only relevant optional fields; omit map and match concepts when absent.
+- Respect start, stop, and restart behavior, including state freshness.
+- Provide deterministic scenarios for development and automated tests, including
+  duplicate event delivery and unavailable or stale state.
+- Reuse these scenarios when implementing Discord publishing and media delivery.
+
+Completion criteria: dev-mock demonstrates changing dashboard state and new
+durable events without Docker or a game installation. This does not validate the
+real game-to-Spark Unix socket transport; that remains covered by transport tests
+and must also be checked with the first real integration.
+
+### First real integration: Valheim (deferred)
+
+Build the Valheim mod or adapter in a separate repository after the end-to-end
+product flows are ready. Campfire owns the shared contract and its documentation;
+the integration repository owns game-specific code, packaging, and installation.
+
+- Publish available player information and selected events through Spark's
+  mounted Unix socket, without direct access to Campfire or separate credentials.
 - Document installation, socket discovery, mount isolation, and reconnection.
-- Adjust the shared contract based on real integration experience.
+- Validate against a real hosted Valheim server and adjust the shared contract
+  based on that experience.
 
-Completion criteria: a real hosted game updates the dashboard and event feed
-through Spark without direct access to Campfire.
+The mock integration lets stages 5 and 6 proceed independently; real Valheim
+compatibility remains a separate validation milestone.
 
 ## Stage 5: Discord publishing
 
@@ -181,10 +208,13 @@ and unavailable or stale fields are represented accurately.
 
 1. Stages 1 and 2: transport and current-state dashboard support.
 2. Stage 3: event history.
-3. Stage 4: one real game integration.
+3. Stage 4: simulated game integration in dev-mock.
 4. Stage 5: Discord publishing.
 5. Stage 6: media delivery.
 6. Stage 7: optional interactive Discord features.
+
+Develop the first real integration, Valheim, in a separate repository once the
+dashboard and external delivery flows are ready.
 
 Stage 1 uses Unix sockets and per-container mount isolation for local identity.
 Stage 2 uses a 60-second freshness timeout. Choose queue limits and retention
