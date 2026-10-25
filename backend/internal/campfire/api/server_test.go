@@ -159,6 +159,24 @@ func TestServerUnlimitedDiskAllocation(t *testing.T) {
 	}
 }
 
+func TestServerWithoutPublishedPorts(t *testing.T) {
+	handler, closeDB := openAPI(t, filepath.Join(t.TempDir(), "panel.db"))
+	defer closeDB()
+
+	_, _, input := serverFixture(t, handler)
+	input.Ports = []model.ServerPort{}
+
+	response := request(handler, "POST", "/api/v1/servers", configJSON(t, input))
+	if response.Code != http.StatusCreated {
+		t.Fatal("server without published ports rejected", response.Code, response.Body)
+	}
+
+	var server model.Server
+	if err := json.Unmarshal(response.Body.Bytes(), &server); err != nil || server.Ports == nil || len(server.Ports) != 0 {
+		t.Fatal("empty ports were not returned as an array", server, err)
+	}
+}
+
 func TestServerValidationAndReservations(t *testing.T) {
 	handler, _ := openAPI(t, filepath.Join(t.TempDir(), "panel.db"))
 
@@ -169,7 +187,6 @@ func TestServerValidationAndReservations(t *testing.T) {
 		func(c *model.ServerConfiguration) { c.Variables = map[string]string{"SECONDS": "invalid"} },
 		func(c *model.ServerConfiguration) { c.CPULimit = -1 },
 		func(c *model.ServerConfiguration) { c.MemoryMB = 0 },
-		func(c *model.ServerConfiguration) { c.Ports = []model.ServerPort{} },
 		func(c *model.ServerConfiguration) {
 			c.Ports = []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 30000, ContainerPort: 25565, Protocol: "tcp"}}
 		},
