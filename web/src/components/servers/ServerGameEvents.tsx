@@ -187,7 +187,9 @@ function GameEventResults({
                             })}
                           </a>
                           <span>
-                            {(attachment.size / 1024 / 1024).toFixed(1)} MB
+                            {t("gameEvents.mediaSize", {
+                              size: (attachment.size / 1024 / 1024).toFixed(1),
+                            })}
                           </span>
                         </figcaption>
                       </figure>

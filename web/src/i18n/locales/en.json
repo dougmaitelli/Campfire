@@ -1200,6 +1200,7 @@
     "utilizationUnavailable": "Utilization unavailable"
   },
   "gameEvents": {
+    "mediaSize": "{{size}} MB",
     "downloadMedia": "Download {{name}}",
     "title": "Game activity",
     "type": "Event type",
