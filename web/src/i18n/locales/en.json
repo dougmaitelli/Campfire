@@ -718,7 +718,6 @@
     "serverName": "Server name",
     "serverSavedButAccessChangesCouldNotBeFullySaved": "Server saved, but access changes could not be fully saved. Retry to finish saving the same server. {{causeInstanceofError}}",
     "serverSavedButBackupSettingsFailedRetrySavingToApply": "Server saved, but backup settings failed. Retry saving to apply them to the same server. {{causeInstanceofError}}",
-    "sparkAllocation": "Spark allocation",
     "startupCommand": "Startup command",
     "startupWorkingDirectoryRuntimeUser": "Startup: <code/><br/>Working directory: <emberWorkDir/><br2/>Runtime user: <emberUser/>",
     "theLatestDefinitionForWillBeAppliedReviewVariablesImages": "The latest definition for <resourceLink/> will be applied. Review variables, images, required ports, startup, and ownership before applying.",
