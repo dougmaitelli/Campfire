@@ -203,10 +203,10 @@ export function SparksPage() {
           onAdd={openAdd}
           onDetails={setDetails}
           sparks={sparks}
-          servers={
+          monitoring={
             monitoring.snapshot?.incomplete
               ? undefined
-              : monitoring.snapshot?.servers
+              : monitoring.snapshot?.sparks
           }
           elapsed={monitoring.elapsed}
           updating={updating}

@@ -17,7 +17,7 @@ import { useServerRuntime } from "../hooks/useServerRuntime";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
-import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { ResourceTiles } from "../components/metrics/ResourceTiles";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerGameEvents } from "../components/servers/ServerGameEvents";
 import { useResourceHistory } from "../hooks/useResourceHistory";
@@ -284,7 +284,7 @@ export function ServerOperationsPage({
               runtimeState={status?.state}
               busy={status?.busy}
             />
-            <ResourceReadings
+            <ResourceTiles
               usage={usage}
               cpuLimit={server.cpu_limit}
               memoryMB={server.memory_mb}

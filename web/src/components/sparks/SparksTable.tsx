@@ -6,8 +6,8 @@ import { Table, TableRow } from "../table/Table";
 import { SparkConnectionState } from "./SparkConnectionState";
 import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
-import { SparkResourceReadings } from "./SparkResourceReadings";
-import type { MonitoredServer } from "../../api/monitoring";
+import { ResourceReadings } from "../metrics/ResourceReadings";
+import type { MonitoredSpark } from "../../api/monitoring";
 import "./sparks-table.css";
 
 export function SparksTable({
@@ -19,7 +19,7 @@ export function SparksTable({
   onAdd,
   onUpdate,
   updating,
-  servers,
+  monitoring,
   elapsed,
 }: {
   sparks: Spark[];
@@ -30,7 +30,7 @@ export function SparksTable({
   onAdd: () => void;
   onUpdate: (spark: Spark) => void;
   updating: string | null;
-  servers: MonitoredServer[] | undefined;
+  monitoring: MonitoredSpark[] | undefined;
   elapsed: number;
 }) {
   const { t } = useTranslation();
@@ -91,10 +91,19 @@ export function SparksTable({
               />
             </td>
             <td>
-              <SparkResourceReadings
-                spark={spark}
-                servers={servers}
+              <ResourceReadings
+                usage={
+                  spark.connected && !spark.disabled
+                    ? monitoring?.find((item) => item.id === spark.id)?.usage
+                    : undefined
+                }
+                cpuLimit={spark.cpu_limit}
+                memoryMB={spark.memory_mb}
+                diskMB={spark.disk_mb}
                 elapsed={elapsed}
+                detail={t(
+                  "sparkResourceReadings.combinedGameServerUsageAgainstThisSparkSConfiguredLimit",
+                )}
               />
             </td>
             <td>{formatDisplayValue(spark.game_address)}</td>

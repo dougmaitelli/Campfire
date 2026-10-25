@@ -82,6 +82,7 @@ func seed(ctx context.Context, db *database.Database, auth *service.AuthService)
 	fixtures, err := devfixture.Seed(ctx, db.ORM(), fixed)
 	must(err)
 	r := &runtime{statuses: make(map[string]model.RuntimeStatus), files: make(map[string]map[string]string), backups: make(map[string][]model.FileEntry), archives: make(map[string][]byte), updates: make(chan struct{})}
+	nodeUsage := make(map[string]model.ResourceUsage)
 	for i, fixture := range fixtures {
 		id := fixture.ID
 		r.statuses[id] = model.RuntimeStatus{ServerID: id, State: fixture.State, Ready: true, Logs: devfixture.ConsoleLogs}
@@ -92,6 +93,15 @@ func seed(ctx context.Context, db *database.Database, auth *service.AuthService)
 		now := time.Now().Unix()
 		usage := model.ResourceUsage{ServerID: id, State: fixture.State, CPUPercent: &cpu, MemoryBytes: &memory, DiskBytes: &disk, SampledAt: now, DiskSampledAt: now}
 		must(db.ORM().Omit("Server").Create(&database.ServerResourceSample{ServerID: id, SparkID: fixture.SparkID, CollectedAt: now, ReceivedAt: now, CPULimit: fixture.CPULimit, MemoryMB: fixture.MemoryMB, DiskMB: fixture.DiskMB, Usage: usage}).Error)
+		total, ok := nodeUsage[fixture.SparkID]
+		if !ok {
+			total = model.ResourceUsage{State: "connected", CPUPercent: new(float64), MemoryBytes: new(int64), DiskBytes: new(int64), SampledAt: now, DiskSampledAt: now}
+		}
+
+		*total.CPUPercent += cpu
+		*total.MemoryBytes += memory
+		*total.DiskBytes += disk
+		nodeUsage[fixture.SparkID] = total
 		r.files[id] = devfixture.Files()
 		for _, entry := range devfixture.Backups(fixed) {
 			data, err := devfixture.Archive(devfixture.BackupFiles(r.files[id], id, entry.Name), entry.ModifiedAt)
@@ -102,6 +112,18 @@ func seed(ctx context.Context, db *database.Database, auth *service.AuthService)
 			must(db.ORM().Create(&database.Backup{ServerID: id, Name: entry.Name, Size: entry.Size, CreatedAt: entry.ModifiedAt.UnixNano(), Local: true, Key: id + "/" + entry.Name, NoRemote: true}).Error)
 		}
 	}
+	var nodes []database.Spark
+	must(db.ORM().Find(&nodes).Error)
+	for _, node := range nodes {
+		now := time.Now().Unix()
+		usage, ok := nodeUsage[node.ID]
+		if !ok {
+			usage = model.ResourceUsage{State: "connected", CPUPercent: new(float64), MemoryBytes: new(int64), DiskBytes: new(int64), SampledAt: now, DiskSampledAt: now}
+		}
+
+		must(db.ORM().Omit("Spark").Create(&database.SparkResourceSample{SparkID: node.ID, CollectedAt: now, ReceivedAt: now, CPULimit: node.CPULimit, MemoryMB: node.MemoryMB, DiskMB: node.DiskMB, Usage: usage}).Error)
+	}
+
 	return r
 }
 

@@ -48,6 +48,35 @@ for (const [tab, label] of serverTabs) {
   });
 }
 
+test("Spark resource layout is identical on direct entry and after visiting Servers", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/#sparks");
+  const readings = page.locator(".sparks-table .resource-readings").first();
+  await expect(readings.locator(".usage-reading")).toHaveCount(3);
+  await expect(readings).toHaveCSS("display", "grid");
+  const positions = () =>
+    readings
+      .locator(".usage-reading > .usage-value")
+      .evaluateAll((elements) =>
+        elements.map((element) =>
+          Math.round(element.getBoundingClientRect().left),
+        ),
+      );
+  const direct = await positions();
+  expect(new Set(direct).size).toBe(1);
+  await openScreen(page, "servers", "Servers");
+  await openScreen(page, "sparks", "Sparks");
+  await expect(readings.locator(".usage-reading")).toHaveCount(3);
+  expect(await positions()).toEqual(direct);
+  await page.setViewportSize({ width: 800, height: 900 });
+  expect(new Set(await positions()).size).toBe(1);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Sparks", exact: true }),
+  ).toBeVisible();
+});
+
 test("console commands arrive in the live log stream", async ({ page }) => {
   await login(page);
   await openServerTab(page, "console", "Console");

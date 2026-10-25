@@ -88,6 +88,30 @@ func (r *ResourceHistoryRepository) Save(ctx context.Context, servers []database
 	})
 }
 
+// LatestSparks reads the collector's persisted totals without resampling nodes.
+func (r *ResourceHistoryRepository) LatestSparks(ctx context.Context, ids []string) (map[string]database.SparkResourceSample, error) {
+	result := make(map[string]database.SparkResourceSample, len(ids))
+	for start := 0; start < len(ids); start += 500 {
+		batch := ids[start:min(start+500, len(ids))]
+		latest := r.db.Model(&database.SparkResourceSample{}).Select("spark_id, MAX(collected_at) AS newest").Where("spark_id IN ?", batch).Group("spark_id")
+
+		var rows []database.SparkResourceSample
+
+		err := r.db.WithContext(ctx).Model(&database.SparkResourceSample{}).
+			Joins("JOIN (?) latest ON latest.spark_id = spark_resource_samples.spark_id AND latest.newest = spark_resource_samples.collected_at", latest).
+			Find(&rows).Error
+		if err != nil {
+			return nil, err
+		}
+
+		for _, row := range rows {
+			result[row.SparkID] = row
+		}
+	}
+
+	return result, nil
+}
+
 // Latest fetches all requested latest samples with indexed grouped queries.
 func (r *ResourceHistoryRepository) Latest(ctx context.Context, ids []string) (map[string]database.ServerResourceSample, error) {
 	result := make(map[string]database.ServerResourceSample, len(ids))

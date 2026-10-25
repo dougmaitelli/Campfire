@@ -283,7 +283,7 @@ func (s *NotificationService) scan(ctx context.Context) error {
 
 	nodes := make(map[string]model.Spark, len(snapshot.Sparks))
 	for _, node := range snapshot.Sparks {
-		nodes[node.ID] = node
+		nodes[node.ID] = node.Spark
 		if node.Disabled {
 			continue
 		}

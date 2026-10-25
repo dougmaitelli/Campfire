@@ -22,12 +22,18 @@ type MonitoredServer struct {
 	Game       *GameStateView      `json:"game,omitempty"`
 }
 
+// MonitoredSpark includes the collector's fleet-wide usage totals for a node.
+type MonitoredSpark struct {
+	model.Spark
+	Usage model.ResourceUsage `json:"usage"`
+}
+
 // MonitoringSnapshot omits node inventory for non-administrators.
 type MonitoringSnapshot struct {
 	CollectedAt           int64             `json:"collected_at"`
 	SampleIntervalSeconds int64             `json:"sample_interval_seconds"`
 	Servers               []MonitoredServer `json:"servers"`
-	Sparks                []model.Spark     `json:"sparks,omitempty"`
+	Sparks                []MonitoredSpark  `json:"sparks,omitempty"`
 	Incomplete            bool              `json:"incomplete"`
 }
 
@@ -110,11 +116,28 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal)
 	}
 
 	if principal.Admin && principal.Allows("sparks.manage") {
-		var err error
-
-		snapshot.Sparks, err = s.Sparks.List(ctx)
+		nodes, err := s.Sparks.List(ctx)
 		if err != nil {
 			return snapshot, err
+		}
+
+		ids := make([]string, 0, len(nodes))
+		for _, node := range nodes {
+			ids = append(ids, node.ID)
+		}
+
+		samples, err := history.Store.LatestSparks(ctx, ids)
+		if err != nil {
+			return snapshot, err
+		}
+
+		for _, node := range nodes {
+			usage := unknownUsage("")
+			if sample, ok := samples[node.ID]; ok && node.Connected && !node.Disabled {
+				usage = ageResourceUsage(sample.Usage, sample.ReceivedAt, snapshot.CollectedAt)
+			}
+
+			snapshot.Sparks = append(snapshot.Sparks, MonitoredSpark{Spark: node, Usage: usage})
 		}
 	}
 

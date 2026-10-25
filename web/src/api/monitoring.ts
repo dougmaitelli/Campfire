@@ -34,12 +34,15 @@ export interface MonitoredServer {
   received_at: number;
   usage: ResourceUsage;
 }
+export interface MonitoredSpark extends Spark {
+  usage: ResourceUsage;
+}
 export interface MonitoringSnapshot {
   sample_interval_seconds: number;
   collected_at: number;
   incomplete: boolean;
   servers: MonitoredServer[];
-  sparks?: Spark[];
+  sparks?: MonitoredSpark[] | undefined;
 }
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -105,12 +108,23 @@ export async function readMonitoring(
     !Array.isArray(value.servers) ||
     !value.servers.every(isMonitoredServer) ||
     (value.sparks !== undefined &&
-      (!Array.isArray(value.sparks) || !value.sparks.every(isSpark)))
+      (!Array.isArray(value.sparks) ||
+        !value.sparks.every(
+          (spark: unknown) =>
+            isSpark(spark) && "usage" in spark && isResourceUsage(spark.usage),
+        )))
   )
     throw new Error(i18n.t("monitoring.unexpectedMonitoringResponse"));
   const snapshot = value as unknown as MonitoringSnapshot;
   return {
     ...snapshot,
+    sparks: snapshot.sparks?.map((spark) => ({
+      ...spark,
+      usage: {
+        ...spark.usage,
+        fresh_for_seconds: Math.max(15, snapshot.sample_interval_seconds * 3),
+      },
+    })),
     servers: snapshot.servers.map((server) => ({
       ...server,
       usage: {

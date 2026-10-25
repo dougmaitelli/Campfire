@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"campfire/internal/campfire/database"
 	"campfire/internal/shared/model"
 )
 
@@ -90,6 +91,71 @@ func TestResourceCollectionSharedAcrossReadersAndPersistsFailures(t *testing.T) 
 	usage, err := deployment.Metrics(t.Context(), "game")
 	if err != nil || usage.CPUPercent != nil || usage.MemoryBytes != nil || usage.ContainerError == "" {
 		t.Fatal("node failure carried old usage forward", usage, err)
+	}
+}
+
+func TestMonitoringExposesStoredSparkTotalsWithoutServerAccess(t *testing.T) {
+	activity, db, _, _ := activityFixture(t)
+	deployment := activity.deployment
+	online := &activityConnectivity{}
+	online.online.Store(true)
+	deployment.Sparks.connectivity = online
+	runtime := &historyRuntime{}
+	deployment.Remote = runtime
+
+	if err := db.ORM().Omit("Spark", "Ember", "Owner").Create(&database.Server{ID: "second", Name: "Second", SparkID: "node", EmberID: "ember", Image: "alpine:3.22", Variables: map[string]string{}, Ports: []model.ServerPort{}}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	admin, err := activity.principal(t.Context(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Node totals must not depend on a token's ability to list individual servers.
+	admin.APITokenID = 1
+	admin.TokenScopes = []string{"sparks.manage"}
+
+	read := func() model.ResourceUsage {
+		t.Helper()
+
+		before := runtime.calls.Load()
+
+		snapshot, readErr := deployment.Monitoring(t.Context(), admin)
+		if readErr != nil || len(snapshot.Sparks) != 1 || len(snapshot.Servers) != 0 || runtime.calls.Load() != before {
+			t.Fatal("node totals leaked servers or triggered sampling", snapshot, readErr)
+		}
+
+		return snapshot.Sparks[0].Usage
+	}
+	if usage := read(); usage.CPUPercent != nil || usage.MemoryBytes != nil || usage.DiskBytes != nil {
+		t.Fatal("missing samples fabricated totals", usage)
+	}
+
+	if err := deployment.History.Collect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	usage := read()
+	if usage.CPUPercent == nil || *usage.CPUPercent != 250 || usage.MemoryBytes == nil || *usage.MemoryBytes != 2048 || usage.DiskBytes == nil || *usage.DiskBytes != 8192 {
+		t.Fatal("incorrect stored fleet totals", usage)
+	}
+
+	online.online.Store(false)
+
+	if usage := read(); usage.CPUPercent != nil || usage.ContainerError == "" {
+		t.Fatal("disconnected node exposed old totals", usage)
+	}
+
+	online.online.Store(true)
+	runtime.failed.Store(true)
+
+	if err := deployment.History.Collect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	if usage := read(); usage.CPUPercent != nil || usage.MemoryBytes != nil || usage.DiskBytes != nil {
+		t.Fatal("failed sampling carried previous totals forward", usage)
 	}
 }
 

@@ -2,7 +2,9 @@ import { expect, test } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PortGroups } from "../../src/components/network/PortGroups";
 import { GameArt } from "../../src/components/media/GameArt";
-import { ResourceReadings } from "../../src/components/servers/ResourceReadings";
+import { ResourceReadings } from "../../src/components/metrics/ResourceReadings";
+import { ResourceTiles } from "../../src/components/metrics/ResourceTiles";
+import type { ResourceUsage } from "../../src/api/monitoring";
 import { OverviewEmptyState } from "../../src/components/overview/OverviewEmptyState";
 import { ServerState } from "../../src/components/servers/ServerState";
 
@@ -83,6 +85,52 @@ test("resource columns display percentages and allocation ratios accessibly", ()
   expect(cells[1]?.textContent).toContain("4 MiB");
   for (const cell of cells)
     expect(cell.querySelector(".visually-hidden")).not.toBeNull();
+});
+
+test("tiles pass metric history to individual readings while tables stay compact", () => {
+  const usage: ResourceUsage = {
+    server_id: "one",
+    state: "running",
+    cpu_percent: 150,
+    memory_bytes: 1048576,
+    disk_bytes: 2097152,
+    sampled_at: 100,
+    disk_sampled_at: 100,
+    sample_age_seconds: 0,
+    disk_age_seconds: 0,
+    container_error: "",
+    disk_error: "",
+    disk_quota_enforced: false,
+    disk_quota_error: "",
+  };
+  const options = { usage, cpuLimit: 2, memoryMB: 4, diskMB: 8, elapsed: 0 };
+  const view = render(
+    <ResourceTiles
+      {...options}
+      history={{
+        from: 100,
+        to: 200,
+        interval_seconds: 100,
+        samples: [
+          { collected_at: 100, usage },
+          { collected_at: 200, usage: { ...usage, cpu_percent: null } },
+        ],
+      }}
+    />,
+  );
+  expect(
+    view.container.querySelectorAll(".metric-tiles > .usage-reading"),
+  ).toHaveLength(3);
+  const charts = view.container.querySelectorAll(".resource-sparkline");
+  expect(charts).toHaveLength(3);
+  expect(charts[0]?.querySelectorAll("circle")).toHaveLength(1);
+  expect(charts[0]?.querySelector("title")?.textContent).toContain("75%");
+  expect(charts[1]?.querySelectorAll("circle")).toHaveLength(2);
+  view.rerender(<ResourceReadings {...options} />);
+  expect(
+    view.container.querySelectorAll(".resource-readings > .usage-reading"),
+  ).toHaveLength(3);
+  expect(view.container.querySelector(".resource-sparkline")).toBeNull();
 });
 
 test("overview setup reflects existing Sparks and management permissions", () => {
