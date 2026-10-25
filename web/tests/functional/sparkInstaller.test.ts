@@ -3,14 +3,13 @@ import { spawnSync } from "node:child_process";
 import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import test from "node:test";
-import { loadWebModule } from "./helpers/load-web-module.mjs";
+import { test } from "vitest";
+import {
+  sparkInstallCommand,
+  validAgentAddress,
+} from "../../src/components/sparks/installCommand";
 
-const { sparkInstallCommand, validAgentAddress } = await loadWebModule(
-  new URL("../web/src/components/sparks/installCommand.ts", import.meta.url),
-);
-
-const installer = resolve("web/public/install-spark.sh");
+const installer = resolve(import.meta.dirname, "../../public/install-spark.sh");
 
 test("installer lists every missing dependency before changing the host", () => {
   const result = spawnSync(
@@ -68,7 +67,7 @@ test("installer command preserves arguments without executing shell syntax", asy
       '#!/bin/bash\nprintf "%s\\0" "$@" > "$MOCK_LOG"\n',
     );
     const ca = `/private/CA's file $(touch ${sentinel}); certificate.crt`;
-    const execute = (command) =>
+    const execute = (command: string) =>
       spawnSync("/bin/bash", ["-c", command], {
         env: {
           PATH: `${directory}:/usr/bin:/bin`,
@@ -123,7 +122,7 @@ test("installer command preserves arguments without executing shell syntax", asy
       "testtoken",
       "--ca-base64",
     ]);
-    assert.equal(Buffer.from(args[7], "base64").toString("utf8"), certificate);
+    assert.equal(Buffer.from(args[7]!, "base64").toString("utf8"), certificate);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

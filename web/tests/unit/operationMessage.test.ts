@@ -1,18 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { loadWebModule } from "./helpers/load-web-module.mjs";
-
-const sourceURL = new URL(
-  "../web/src/components/servers/operationMessage.ts",
-  import.meta.url,
-);
-const { operationMessage } = await loadWebModule(sourceURL);
+import { test } from "vitest";
+import { operationMessage } from "../../src/components/servers/operationMessage";
 
 test("operation failures have context and formatted details", () => {
   assert.deepEqual(
     operationMessage({
       operation: "install",
       operation_state: "failed",
+      busy: false,
       error_code: "installer_failed",
       progress: "Any display text",
       error: "installer script failed",
@@ -29,10 +24,11 @@ test("display text does not decide whether an operation failed", () => {
   const result = operationMessage({
     operation: "start",
     operation_state: "running",
+    busy: true,
     progress: "Failed is only text",
   });
-  assert.equal(result.tone, "info");
-  assert.equal(result.title, "Server start in progress.");
+  assert.equal(result?.tone, "info");
+  assert.equal(result?.title, "Server start in progress.");
 });
 
 test("an error remains visible when no operation state or code is supplied", () => {
@@ -59,7 +55,7 @@ test("an idle operation is not described as in progress", () => {
       operation: "install",
       busy: false,
       progress: "Any text",
-    }).title,
+    })?.title,
     "Server status.",
   );
 });
@@ -69,8 +65,9 @@ test("interrupted operations keep their own state", () => {
     operationMessage({
       operation: "backup",
       operation_state: "interrupted",
+      busy: false,
       error_code: "operation_interrupted",
-    }).title,
+    })?.title,
     "Backup interrupted.",
   );
 });
@@ -79,7 +76,7 @@ test("success messages only appear for the operation started in this page sessio
   const status = {
     operation: "start",
     operation_id: "start-1",
-    operation_state: "succeeded",
+    operation_state: "succeeded" as const,
     busy: false,
   };
   assert.equal(operationMessage(status), null);

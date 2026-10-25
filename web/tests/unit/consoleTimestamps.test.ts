@@ -1,18 +1,11 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { loadWebModule } from "./helpers/load-web-module.mjs";
-
-const { ConsoleTimestamps } = await loadWebModule(
-  new URL(
-    "../web/src/components/servers/consoleTimestamps.ts",
-    import.meta.url,
-  ),
-);
+import { test } from "vitest";
+import { ConsoleTimestamps } from "../../src/components/servers/consoleTimestamps";
 
 test("formats Docker timestamps across arbitrary chunk boundaries", () => {
   const source =
     "2026-10-21T18:14:12.123456789Z \x1b[32mReady\x1b[0m\n2026-10-21T18:14:13Z > ";
-  const localTime = (iso) => {
+  const localTime = (iso: string) => {
     const date = new Date(iso);
     return [date.getHours(), date.getMinutes(), date.getSeconds()]
       .map((part) => String(part).padStart(2, "0"))

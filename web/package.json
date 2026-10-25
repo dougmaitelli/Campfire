@@ -12,10 +12,14 @@
     "build": "pnpm run typecheck && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config eslint.config.mjs web/src e2e web/vite.config.ts scripts eslint.config.mjs web/eslint.config.mjs --max-warnings 0",
-    "format": "node node_modules/prettier/bin/prettier.cjs --write src ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
-    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json vite.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm --dir ../e2e run typecheck:e2e && pnpm run build"
+    "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:functional": "vitest run tests/functional",
+    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config eslint.config.mjs web/src web/tests e2e web/vite.config.ts web/vitest.config.ts scripts eslint.config.mjs web/eslint.config.mjs --max-warnings 0",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write src tests ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json tsconfig.tests.json vite.config.ts vitest.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
+    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src tests ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json tsconfig.tests.json vite.config.ts vitest.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run typecheck:tests && pnpm run test && pnpm --dir ../e2e run typecheck:e2e && pnpm run build"
   },
   "dependencies": {
     "@radix-ui/react-select": "2.4.1",
@@ -29,6 +33,8 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
     "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -36,9 +42,11 @@
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
+    "jsdom": "30.1.3",
     "prettier": "3.9.10",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0",
-    "vite": "8.3.4"
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
   }
 }

@@ -8,6 +8,7 @@
 /docs/.astro/
 /docs/dist/
 /web/dist/
+/web/.vitest/
 /backend/internal/campfire/webui/dist/
 /backend/internal/campfire/sparkbundle/dist/
 /dist/

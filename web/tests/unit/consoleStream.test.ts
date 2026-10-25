@@ -1,19 +1,18 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { loadWebModule } from "./helpers/load-web-module.mjs";
-
-const { connectConsole } = await loadWebModule(
-  new URL("../web/src/components/servers/consoleStream.ts", import.meta.url),
-);
+import { test } from "vitest";
+import {
+  connectConsole,
+  type ConsoleStreamMode,
+} from "../../src/components/servers/consoleStream";
 
 class FakeEventSource extends EventTarget {
   CLOSED = 2;
   readyState = 1;
-  onerror = null;
+  onerror: ((event: Event) => void) | null = null;
   close() {
     this.readyState = this.CLOSED;
   }
-  emit(type, value = {}) {
+  emit(type: string, value: unknown = {}) {
     this.dispatchEvent(new MessageEvent(type, { data: JSON.stringify(value) }));
   }
   disconnect() {
@@ -24,10 +23,10 @@ class FakeEventSource extends EventTarget {
   }
 }
 
-function subscribe(mode) {
+function subscribe(mode: ConsoleStreamMode) {
   const stream = new FakeEventSource();
-  const connections = [];
-  const output = [];
+  const connections: { label: string; tone: string }[] = [];
+  const output: { content: string; replace: boolean }[] = [];
   let opened = 0;
   const close = connectConsole(
     {
@@ -38,7 +37,7 @@ function subscribe(mode) {
     },
     () => {
       opened++;
-      return stream;
+      return stream as unknown as EventSource;
     },
   );
   return { stream, connections, output, close, opened };
@@ -61,7 +60,7 @@ test("failed stopped-server log requests do not automatically reconnect", () => 
   const { stream, connections, output } = subscribe("snapshot");
   stream.disconnect();
   assert.equal(stream.readyState, stream.CLOSED);
-  assert.equal(connections.at(-1).label, "Logs unavailable");
+  assert.equal(connections.at(-1)?.label, "Logs unavailable");
   assert.deepEqual(output, []);
 });
 
@@ -73,7 +72,7 @@ test("live connection retries preserve output until new data arrives", () => {
   assert.notEqual(stream.readyState, stream.CLOSED);
   assert.deepEqual(output, [{ content: "Running\n", replace: true }]);
   stream.emit("output", { content: "Running again\n" });
-  assert.equal(output.at(-1).replace, true);
+  assert.equal(output.at(-1)?.replace, true);
   close();
   assert.equal(stream.readyState, stream.CLOSED);
 });
@@ -81,7 +80,7 @@ test("live connection retries preserve output until new data arrives", () => {
 test("waiting for runtime status does not open a stream", () => {
   const { opened, connections } = subscribe("waiting");
   assert.equal(opened, 0);
-  assert.equal(connections.at(-1).label, "Waiting for server status…");
+  assert.equal(connections.at(-1)?.label, "Waiting for server status…");
 });
 
 test("a new operation can open a live stream after stopped logs finish", () => {
@@ -90,7 +89,7 @@ test("a new operation can open a live stream after stopped logs finish", () => {
   const active = subscribe("live");
   active.stream.emit("ready");
   active.stream.emit("output", { content: "Installing again\n" });
-  assert.equal(active.connections.at(-1).label, "Live");
+  assert.equal(active.connections.at(-1)?.label, "Live");
   assert.deepEqual(active.output, [
     { content: "Installing again\n", replace: true },
   ]);

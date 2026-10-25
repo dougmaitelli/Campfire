@@ -49,11 +49,12 @@ test-postgres:
 	@test -n "$$CAMPFIRE_TEST_POSTGRES" || (echo "Set CAMPFIRE_TEST_POSTGRES to a PostgreSQL test URL"; exit 1)
 	go -C backend test -race -count=1 ./internal/campfire/database/repository
 
-# Check frontend types and installation command behavior.
+# Check frontend types, unit tests, and functional behavior.
 test-frontend:
 	pnpm --dir web run typecheck
+	pnpm --dir web run typecheck:tests
 	pnpm --dir e2e run typecheck:e2e
-	node --test scripts/test-spark-installer.mjs scripts/test-api-client.mjs scripts/test-operation-message.mjs scripts/test-console-stream.mjs scripts/test-resource-links.mjs scripts/test-i18n.mjs
+	pnpm --dir web run test
 
 format: format-backend format-frontend
 

@@ -25,6 +25,35 @@ The binaries are written to `bin/campfire` and `bin/spark`. Production hosts do 
 
 See the [browser testing guide](https://github.com/dougmaitelli/Campfire/blob/master/e2e/README.md) for the contributor testing workflow.
 
+## Tests
+
+Frontend tests run through Vitest and import application TypeScript directly using
+the Vite toolchain:
+
+- `web/tests/unit/`: isolated logic such as API response handling, routing,
+  operation messages, console streams, and timestamp formatting.
+- `web/tests/functional/`: component behavior with Testing Library and jsdom,
+  including user interactions, permissions, translations, and installer execution
+  with temporary fixtures.
+- `e2e/`: Playwright flows against the built application and real API. Native
+  browser behavior such as modal dialogs and dismissal belongs here.
+
+Backend unit and functional tests live beside the Go packages as `*_test.go`.
+API and repository tests exercise authorization and persistence boundaries.
+
+```sh
+pnpm --dir web run test:unit
+pnpm --dir web run test:functional
+pnpm --dir web run test          # All frontend unit and functional tests
+make test                      # Backend race tests and frontend checks
+make test-e2e-docker            # Browser flows and screenshot comparisons
+```
+
+`make test-frontend` and CI include test type checking and the complete Vitest
+suite. Formatting and lint checks cover the test files and configuration as well.
+Add application coverage to these suites. Keep `scripts/` for development, build,
+release, and operational tooling.
+
 ## Documentation site
 
 The Astro and Starlight site is a separate package in `docs/`:
