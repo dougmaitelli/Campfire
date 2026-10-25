@@ -29,6 +29,7 @@ type DeploymentService struct {
 	Transfers      *TransferService
 	Backups        *BackupService
 	History        *ResourceHistoryService
+	Games          *GameIntegrationService
 	mu             sync.Mutex
 	locks          map[string]*deliveryLock
 	statuses       map[string]model.RuntimeStatus

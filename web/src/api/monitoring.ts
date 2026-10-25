@@ -1,6 +1,7 @@
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 import { isSpark, type Spark } from "./sparks";
+import { isGameStateView, type GameStateView } from "./gameState";
 
 export interface ResourceUsage {
   // Presentation lifetime supplied by the shared collector's cadence.
@@ -22,6 +23,7 @@ export interface ResourceUsage {
   disk_quota_error: string;
 }
 export interface MonitoredServer {
+  game?: GameStateView;
   id: string;
   name: string;
   spark_id: string;
@@ -83,6 +85,7 @@ function isMonitoredServer(value: unknown): value is MonitoredServer {
     integer(value.memory_mb) &&
     integer(value.disk_mb) &&
     integer(value.received_at) &&
+    (value.game === undefined || isGameStateView(value.game)) &&
     isResourceUsage(value.usage) &&
     value.usage.server_id === value.id
   );

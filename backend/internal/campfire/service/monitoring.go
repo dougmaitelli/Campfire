@@ -19,6 +19,7 @@ type MonitoredServer struct {
 	DiskMB     int64               `json:"disk_mb"`
 	Usage      model.ResourceUsage `json:"usage"`
 	ReceivedAt int64               `json:"received_at"`
+	Game       *GameStateView      `json:"game,omitempty"`
 }
 
 // MonitoringSnapshot omits node inventory for non-administrators.
@@ -93,6 +94,15 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal)
 			if sample, ok := samples[target.ID]; ok && sample.SparkID == target.SparkID {
 				current.Usage = ageResourceUsage(sample.Usage, sample.ReceivedAt, snapshot.CollectedAt)
 				current.ReceivedAt = sample.ReceivedAt
+			}
+
+			if s.Games != nil {
+				fresh := current.Usage.State == "running" && current.Usage.SampledAt > 0 && current.Usage.ContainerError == "" && current.Usage.SampleAgeSeconds <= max(15, 3*snapshot.SampleIntervalSeconds)
+				if s.Sparks.connectivity == nil || !s.Sparks.connectivity.Connected(target.SparkID) {
+					fresh = false
+				}
+
+				current.Game = s.Games.Snapshot(target.ID, target.SparkID, fresh, snapshot.CollectedAt)
 			}
 
 			snapshot.Servers = append(snapshot.Servers, current)

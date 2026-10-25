@@ -24,6 +24,7 @@ import { Table, TableRow } from "../components/table/Table";
 import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { GameArt } from "../components/media/GameArt";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
@@ -321,6 +322,21 @@ export function ServersPage() {
                       {server.name}
                     </button>
                     <span className="row-id">{server.id}</span>
+                    <GameStateReadings
+                      game={
+                        monitoring.snapshot?.servers.find(
+                          (item) => item.id === server.id,
+                        )?.game
+                      }
+                      now={
+                        (monitoring.snapshot?.collected_at ?? 0) +
+                        monitoring.elapsed
+                      }
+                      usage={usage}
+                      elapsed={monitoring.elapsed}
+                      runtimeState={runtime.statuses[server.id]?.state}
+                      busy={runtime.statuses[server.id]?.busy}
+                    />
                   </td>
                   <td>
                     <ServerState

@@ -148,6 +148,10 @@ func (s *ResourceHistoryService) Collect(ctx context.Context) error {
 		return err
 	}
 
+	if s.deployment.Games != nil {
+		s.deployment.Games.Retain(targets)
+	}
+
 	nodeMap := make(map[string]model.Spark, len(nodes))
 	for _, node := range nodes {
 		nodeMap[node.ID] = node
@@ -216,6 +220,8 @@ queue:
 }
 
 func (s *ResourceHistoryService) sample(ctx context.Context, target model.ResourceTarget) (model.ResourceUsage, error) {
+	began := time.Now()
+
 	ctx, cancel := context.WithTimeout(ctx, resourceSampleTimeout)
 	defer cancel()
 
@@ -227,6 +233,10 @@ func (s *ResourceHistoryService) sample(ctx context.Context, target model.Resour
 	status, err := dispatch.Action(ctx, target.SparkID, model.RuntimeRequest{ServerID: target.ID, Action: "metrics"})
 	if err != nil || status.ServerID != target.ID || status.Metrics == nil || status.Metrics.ServerID != target.ID || !validUsage(*status.Metrics) {
 		return model.ResourceUsage{}, ErrDeploymentUnavailable
+	}
+
+	if s.deployment.Games != nil {
+		s.deployment.Games.Observe(target.ID, target.SparkID, *status.Metrics, began, status.Busy)
 	}
 
 	return *status.Metrics, nil

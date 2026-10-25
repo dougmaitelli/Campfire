@@ -208,8 +208,9 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	defer embers.Updates.Close()
 
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
+
+	games := &service.GameIntegrationService{Servers: servers}
 	if hub != nil {
-		games := &service.GameIntegrationService{Servers: servers}
 		hub.WithGameIntegrations(games.Receive)
 	}
 
@@ -231,7 +232,7 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 
 	sparks.Updates.Start(ctx)
 
-	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, MaxUploadBytes: maxUploadBytes}
+	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, MaxUploadBytes: maxUploadBytes, Games: games}
 	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
 	deployment.Transfers = transfers
 

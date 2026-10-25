@@ -72,6 +72,7 @@ type accessFixture struct {
 	panel   http.Handler
 	runtime *accessRuntime
 	history *service.ResourceHistoryService
+	games   *service.GameIntegrationService
 }
 
 func newAccessFixture(t *testing.T) *accessFixture {
@@ -89,13 +90,15 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: dispatch}
+	games := &service.GameIntegrationService{Servers: servers}
+	deployment.Games = games
 	history := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 	deployment.History = history
 	deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
 	panel := api.New(sparks, embers, servers).WithDeployment(deployment)
 	admin := authenticatedTestAPI(t, db, panel)
 
-	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history}
+	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games}
 }
 
 func (f *accessFixture) user(name string, role int64) (database.User, http.Handler) {

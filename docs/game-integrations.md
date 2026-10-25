@@ -1,14 +1,14 @@
-# Game publishing transport (stage 1)
+# Game integrations
 
 Game mods and adapters can publish state snapshots and events to a local Spark
 Unix socket. Spark forwards them over its existing authenticated connection.
 Campfire validates each publication against the server's current Spark placement
 and acknowledges it.
 
-This is the ingestion foundation. Publications do not yet appear in the dashboard,
-persist in event history, or reach Discord. An HTTP 204 confirms validated
-ingestion only. With debug logging enabled, Campfire logs accepted publication
-metadata without game payload contents.
+State publications now appear in the overview, server list, and server operations
+page. Campfire keeps only the latest snapshot per server in memory. There are no
+game-state charts or history, and a Campfire restart clears these snapshots.
+Events are acknowledged but are not yet retained or delivered to Discord.
 
 ## Enable publishing
 
@@ -54,7 +54,7 @@ curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
 ```
 
 State is a complete replacement snapshot. Omitted fields clear previous values
-when a state consumer is added. `players` and `capacity` are optional integers
+in the dashboard. `players` and `capacity` are optional integers
 between 0 and 1,000,000. `fields` is an optional map for game-specific scalar
 values, such as `map` or `game_mode`. An empty `state` object is valid.
 
@@ -82,16 +82,47 @@ scalar map permits at most 32 entries whose values are strings (up to 1,024 byte
 finite JSON numbers, or booleans. Nested objects, arrays, and null values are
 unsupported in these maps. Unknown envelope/state/event properties are rejected.
 
+## Current state and freshness
+
+All game fields are optional. Games without player counts, maps, game modes, or
+other fields show none of those values. A capacity without a player count is shown
+as capacity; a missing player count is never interpreted as zero. Custom scalar
+fields are displayed as text, numbers, or booleans. An empty snapshot clears the
+previous fields.
+
+Publish a complete snapshot periodically, for example every 15 seconds, even if
+the values have not changed. Snapshots become stale after 60 seconds without an
+update. The dashboard shows the last update time and replaces stale values with
+"Game data unavailable." The browser also expires displayed values if monitoring
+requests stop succeeding. Events do not refresh the state timestamp.
+
+Game-data freshness is independent of runtime status. A server can remain running
+while its game data is unavailable. Unknown or disconnected runtime observations
+also suppress game values until the runtime is confirmed running again.
+
+Lifecycle changes such as stop, restart, reinstall, or restore invalidate current
+game state immediately. State publications are temporarily rejected during the
+transition until a subsequent healthy, non-busy running observation reopens
+ingestion. Producers should retry with bounded backoff. The existing runtime
+sampler also detects stops and changes in Docker start times for restarts performed
+outside Campfire. External changes take effect on the next runtime observation.
+
+Game state is returned as the optional `game` member of each authorized server in
+`GET /api/v1/monitoring`. The object includes `updated_at`, `fresh_for_seconds`, and
+`status` (`fresh`, `stale`, or `unavailable`). Only fresh, runtime-valid responses
+include `state`. Servers that have never published state omit `game`. Existing
+server visibility and token permissions apply to the monitoring response.
+
 ## Limits and delivery
 
 - Requests are limited to 16 KiB.
 - Each server endpoint permits 10 requests per one-second window.
 - Spark permits 32 in-flight publications across its local endpoints.
 - Spark waits up to eight seconds for acknowledgement after decoding a request.
-- There is no offline queue in stage 1. Producers should retry with bounded
+- There is no offline queue yet. Producers should retry with bounded
   backoff and reuse event IDs. An acknowledgement timeout has an uncertain outcome:
   Campfire may have accepted the publication before the connection failed.
-- No history or latest-state projection is stored in stage 1.
+- Only the latest state is held in memory; no game-state history is stored.
 
 | HTTP status | Meaning                                                                             |
 | ----------- | ----------------------------------------------------------------------------------- |

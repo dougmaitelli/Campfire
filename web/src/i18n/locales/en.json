@@ -1197,6 +1197,18 @@
     "capacityHigh": "{{percent}}% of allocated capacity · High utilization",
     "utilizationUnavailable": "Utilization unavailable"
   },
+  "gameState": {
+    "gameData": "Game data",
+    "players": "Players",
+    "capacity": "Capacity",
+    "playersWithCapacity": "{{players}} / {{capacity}}",
+    "map": "Map",
+    "gameMode": "Game mode",
+    "yes": "Yes",
+    "no": "No",
+    "unavailable": "Game data unavailable",
+    "lastUpdated": "Last updated {{time}}"
+  },
   "wizard": {
     "aWizardMustContainAtLeastOneStep": "A wizard must contain at least one step.",
     "next": "Next: {{stepsIndex1}}",

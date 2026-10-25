@@ -248,6 +248,13 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		}
 	}
 
+	if s.Games != nil {
+		switch action {
+		case "install", "update", "reinstall", "start", "stop", "restart", "kill", "delete", "restore":
+			s.Games.Invalidate(id)
+		}
+	}
+
 	status, err := runtime.Action(ctx, node.ID, request)
 	if err != nil {
 		s.mu.Lock()

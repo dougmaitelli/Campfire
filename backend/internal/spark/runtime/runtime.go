@@ -147,7 +147,14 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 	if q.Action == "metrics" {
 		usage, err := m.Measure(ctx, d)
-		return model.RuntimeStatus{ServerID: d.ServerID, State: usage.State, Metrics: &usage}, err
+
+		busy := true
+		if state, loadErr := m.load(d.ServerID); loadErr == nil && state.mu.TryLock() {
+			busy = state.Status.Busy
+			state.mu.Unlock()
+		}
+
+		return model.RuntimeStatus{ServerID: d.ServerID, State: usage.State, Busy: busy, Metrics: &usage}, err
 	}
 
 	e, err := m.load(q.ServerID)

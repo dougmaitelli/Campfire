@@ -18,6 +18,7 @@ import { useMonitoring } from "../hooks/useMonitoring";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { useResourceHistory } from "../hooks/useResourceHistory";
 import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
@@ -266,6 +267,20 @@ export function ServerOperationsPage({
             </InlineMessage>
           )}
           <div className="operations-resources">
+            <GameStateReadings
+              game={
+                monitoring.snapshot?.servers.find(
+                  (item) => item.id === serverID,
+                )?.game
+              }
+              now={
+                (monitoring.snapshot?.collected_at ?? 0) + monitoring.elapsed
+              }
+              usage={usage}
+              elapsed={monitoring.elapsed}
+              runtimeState={status?.state}
+              busy={status?.busy}
+            />
             <ResourceReadings
               usage={usage}
               cpuLimit={server.cpu_limit}

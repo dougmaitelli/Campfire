@@ -1,6 +1,6 @@
 # Game integrations implementation plan
 
-Status: stage 1 implemented; stages 2–7 proposed. See
+Status: stages 1–2 implemented; stages 3–7 proposed. See
 [the transport documentation](game-integrations.md) for current functionality.
 
 ## Objective and scope
@@ -40,7 +40,8 @@ Game mod or adapter
 
 Implemented with per-server Unix sockets, isolated read-only container mounts,
 optional capability negotiation, bounded publications, and panel acknowledgements.
-No state projection, event persistence, or external delivery is included yet.
+Stage 1 provides transport only; stage 2 adds the current-state projection.
+Event persistence and external delivery are not included yet.
 
 Establish the path from a game server to Campfire.
 
@@ -59,6 +60,12 @@ and Campfire attributes both to the correct server. Sparks without the capabilit
 continue working.
 
 ## Stage 2: Current state in the dashboard
+
+Implemented with replacement snapshots held in memory, optional fields in the
+existing authorized monitoring response, and readings on overview, server list,
+and server operations pages. Freshness expires after 60 seconds; lifecycle changes
+and runtime sampling invalidate old values. No game-state history or charts are
+created.
 
 Expose useful game information without historical storage.
 
@@ -175,6 +182,6 @@ and unavailable or stale fields are represented accurately.
 6. Stage 7: optional interactive Discord features.
 
 Stage 1 uses Unix sockets and per-container mount isolation for local identity.
-Choose the freshness timeout when implementing current-state display, queue limits
-and retention defaults when implementing events, and media transfer and storage
-details when implementing attachments.
+Stage 2 uses a 60-second freshness timeout. Choose queue limits and retention
+defaults when implementing events, and media transfer and storage details when
+implementing attachments.

@@ -1,0 +1,40 @@
+.game-state-readings {
+  margin-block: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+
+  & dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 0;
+  }
+
+  & dl > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  & dt {
+    color: var(--muted);
+    text-transform: capitalize;
+  }
+
+  & dd {
+    margin: 0;
+    color: var(--text);
+    white-space: normal;
+  }
+}
+
+.game-state-updated {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.game-state-unavailable {
+  color: var(--muted);
+}

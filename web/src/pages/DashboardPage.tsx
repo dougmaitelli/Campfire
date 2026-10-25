@@ -16,6 +16,7 @@ import { bytes, containerFresh, diskFresh } from "../api/monitoring";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { ResourceReadings } from "../components/servers/ResourceReadings";
+import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { GameArt } from "../components/media/GameArt";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
@@ -397,6 +398,17 @@ export function DashboardPage() {
                           {server.spark_name}
                         </ResourceLink>
                       </span>
+                      <GameStateReadings
+                        game={server.game}
+                        now={
+                          (monitor.snapshot?.collected_at ?? 0) +
+                          monitor.elapsed
+                        }
+                        usage={server.usage}
+                        elapsed={monitor.elapsed}
+                        runtimeState={runtime.statuses[server.id]?.state}
+                        busy={runtime.statuses[server.id]?.busy}
+                      />
                     </td>
                     <td>
                       <ServerState
