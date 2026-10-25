@@ -919,26 +919,6 @@ export function ServerFilesDialog({
                       </td>
                       <td className="table-actions">
                         <ActionGroup>
-                          {entry.kind === "file" && (
-                            <Button
-                              iconOnly
-                              size="small"
-                              title={i18n.t("serverFilesDialog.download")}
-                              disabled={busy || entry.size > fileTransferLimit}
-                              onClick={() => {
-                                void perform(() => download(entry));
-                              }}
-                              aria-label={i18n.t(
-                                "serverFilesDialog.download2",
-                                {
-                                  entryName: entry.name,
-                                },
-                              )}
-                            >
-                              <NavigationIcon name="download" />
-                            </Button>
-                          )}
-
                           {entry.kind === "file" &&
                             /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
                               <Button
@@ -959,6 +939,25 @@ export function ServerFilesDialog({
                                 <NavigationIcon name="extract" />
                               </Button>
                             )}
+                          {entry.kind === "file" && (
+                            <Button
+                              iconOnly
+                              size="small"
+                              title={i18n.t("serverFilesDialog.download")}
+                              disabled={busy || entry.size > fileTransferLimit}
+                              onClick={() => {
+                                void perform(() => download(entry));
+                              }}
+                              aria-label={i18n.t(
+                                "serverFilesDialog.download2",
+                                {
+                                  entryName: entry.name,
+                                },
+                              )}
+                            >
+                              <NavigationIcon name="download" />
+                            </Button>
+                          )}
                         </ActionGroup>
                       </td>
                     </TableRow>
