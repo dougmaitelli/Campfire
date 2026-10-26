@@ -40,6 +40,35 @@ for (const [id, heading] of screens) {
   });
 }
 
+for (const [id, heading] of [
+  ["servers", "Servers"],
+  ["dashboard", "Overview"],
+] as const) {
+  test(`${heading} server rows can restart a running server`, async ({
+    page,
+  }) => {
+    await login(page);
+    await openScreen(page, id, heading);
+    const restart = page.getByRole("button", {
+      name: "Restart Survival",
+      exact: true,
+    });
+    await expect(restart).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "Restart Creative", exact: true }),
+    ).toBeDisabled();
+    const response = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/servers/survival/actions") &&
+        response.request().method() === "POST" &&
+        response.request().postDataJSON().action === "restart",
+    );
+    await restart.click();
+    expect((await response).ok()).toBeTruthy();
+    await expect(page).toHaveURL(new RegExp(`#${id}$`));
+  });
+}
+
 for (const [tab, label] of serverTabs) {
   test(`server ${label.toLowerCase()} screen`, async ({ page }) => {
     await login(page);

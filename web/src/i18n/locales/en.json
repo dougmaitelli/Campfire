@@ -14,6 +14,7 @@
     "goToServers": "Go to servers"
   },
   "serverQuickControls": {
+    "restart": "Restart {{name}}",
     "start": "Start {{name}}",
     "stop": "Stop {{name}}",
     "failed": "{{name}}: {{message}}"
@@ -875,8 +876,8 @@
     "importAnEmber": "import an Ember",
     "noMatchingServers": "No matching servers",
     "noServersYet": "No servers yet",
-    "open": "Open {{serverName}}",
-    "openServer": "Open server",
+    "openConsole": "Open console for {{serverName}}",
+    "console": "Console",
     "permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease": "Permanently delete \"{{serverName}}\", its container, game files and backups, and release its resources and ports?",
     "refreshing": "Refreshing…",
     "resources": "Resources",

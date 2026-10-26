@@ -419,12 +419,12 @@ export function ServersPage() {
                         variant="primary"
                         href={`#servers/${encodeURIComponent(server.id)}/console`}
                         iconOnly
-                        aria-label={i18n.t("serversPage.open", {
+                        aria-label={i18n.t("serversPage.openConsole", {
                           serverName: server.name,
                         })}
-                        title={i18n.t("serversPage.openServer")}
+                        title={i18n.t("serversPage.console")}
                       >
-                        <NavigationIcon name="arrow-right" />
+                        <NavigationIcon name="terminal" />
                       </ButtonLink>
                     </ServerQuickControls>
                   </td>

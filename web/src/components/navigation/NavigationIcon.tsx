@@ -34,6 +34,7 @@ import {
   SquarePen,
   SquareX,
   Table,
+  Terminal,
   Trash2,
   TriangleAlert,
   Upload,
@@ -62,6 +63,7 @@ type NavigationIconName =
   | "warning"
   | "table"
   | "arrow-right"
+  | "terminal"
   | "play"
   | "stop"
   | "restart"
@@ -101,6 +103,7 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   play: Play,
   stop: Square,
   "arrow-right": ArrowRight,
+  terminal: Terminal,
   backups: Archive,
   download: Download,
   compress: Archive,

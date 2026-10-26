@@ -68,16 +68,26 @@ test("disabled radio fields cannot change selection", async () => {
 });
 
 test.each([
-  ["running", false, undefined, true, true, false],
-  ["stopped", false, undefined, true, false, true],
-  ["restarting", false, undefined, true, true, false],
-  ["installing", true, "install", true, true, false],
-  ["stopped", false, undefined, false, true, true],
-  ["not_installed", false, undefined, true, true, true],
-  ["unknown", false, undefined, true, true, true],
+  ["running", false, undefined, true, true, false, false],
+  ["stopped", false, undefined, true, false, true, true],
+  ["restarting", false, undefined, true, true, false, false],
+  ["running", true, "restart", true, true, true, true],
+  ["installing", true, "install", true, true, false, true],
+  ["stopped", false, undefined, false, true, true, true],
+  ["running", false, undefined, false, true, true, true],
+  ["not_installed", false, undefined, true, true, true, true],
+  ["unknown", false, undefined, true, true, true, true],
 ] as const)(
   "quick controls respect %s state and permissions",
-  (state, busy, operation, canOperate, startDisabled, stopDisabled) => {
+  (
+    state,
+    busy,
+    operation,
+    canOperate,
+    startDisabled,
+    stopDisabled,
+    restartDisabled,
+  ) => {
     render(
       <ServerQuickControls
         id="server/one"
@@ -102,6 +112,11 @@ test.each([
       screen.getByRole<HTMLButtonElement>("button", { name: "Stop Test world" })
         .disabled,
     ).toBe(stopDisabled);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "Restart Test world",
+      }).disabled,
+    ).toBe(restartDisabled);
   },
 );
 

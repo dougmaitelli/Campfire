@@ -34,7 +34,7 @@ export function ServerLifecycleControls({
       </Button>
       <Button
         iconOnly
-        variant="primary"
+        variant="warning"
         title={t("common.stop")}
         aria-label={t("common.stop")}
         disabled={!canInterrupt && (blocked || !running)}
@@ -44,6 +44,7 @@ export function ServerLifecycleControls({
       </Button>
       <Button
         iconOnly
+        variant="secondary"
         title={t("common.restart")}
         aria-label={t("common.restart")}
         disabled={blocked || !running}

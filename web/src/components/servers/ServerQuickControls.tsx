@@ -26,13 +26,15 @@ export function ServerQuickControls({
   children?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const [action, setAction] = useState<"start" | "stop" | null>(null);
+  const [action, setAction] = useState<"start" | "stop" | "restart" | null>(
+    null,
+  );
   const pending = useRef(false);
   const { blocked, running, install, canInterrupt } = lifecycleControlState(
     status,
     disabled || !canOperate || action !== null,
   );
-  async function act(next: "start" | "stop") {
+  async function act(next: "start" | "stop" | "restart") {
     if (pending.current) return;
     pending.current = true;
     setAction(next);
@@ -72,7 +74,7 @@ export function ServerQuickControls({
       </Button>
       <Button
         iconOnly
-        variant="primary"
+        variant="warning"
         disabled={!canInterrupt && (blocked || !running)}
         aria-label={t("serverQuickControls.stop", { name })}
         title={t("common.stop")}
@@ -83,6 +85,17 @@ export function ServerQuickControls({
           name={action === "stop" ? "loading" : "stop"}
           filled={action !== "stop"}
         />
+      </Button>
+      <Button
+        iconOnly
+        variant="secondary"
+        disabled={blocked || !running}
+        aria-label={t("serverQuickControls.restart", { name })}
+        title={t("common.restart")}
+        loading={action === "restart"}
+        onClick={() => void act("restart")}
+      >
+        <NavigationIcon name={action === "restart" ? "loading" : "restart"} />
       </Button>
       {children}
     </ActionGroup>

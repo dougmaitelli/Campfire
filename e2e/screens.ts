@@ -127,7 +127,9 @@ export const serverTabs = [
 export async function openServerTab(page: Page, tab: string, label: string) {
   await openScreen(page, "servers", "Servers");
   await page.setViewportSize({ width: 1400, height: 1100 });
-  await page.locator('a[href="#servers/survival/console"]').click();
+  await page
+    .getByRole("link", { name: "Open console for Survival", exact: true })
+    .click();
   const tabs = page.getByRole("navigation", {
     name: "Server operations",
     exact: true,
