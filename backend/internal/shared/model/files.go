@@ -12,6 +12,7 @@ const FileTransferLimit int64 = 100 << 30
 const DefaultUploadLimit int64 = 1 << 30
 
 // FileRequest describes contained game file access or immutable backup list/read access.
+// Spark protocol paths are relative; HTTP translates server-data-rooted paths.
 type FileRequest struct {
 	Mode        uint32   `json:"mode,omitempty"`
 	ServerID    string   `json:"server_id"`

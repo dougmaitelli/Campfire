@@ -92,6 +92,7 @@ function isResult(value: unknown): value is FileResult {
     typeof value.server_id === "string" &&
     "path" in value &&
     typeof value.path === "string" &&
+    value.path.startsWith("/") &&
     (!("entries" in value) ||
       (Array.isArray(value.entries) && value.entries.every(isEntry))) &&
     (!("data" in value) || typeof value.data === "string") &&
@@ -119,7 +120,11 @@ export async function manageFiles(
         : AbortSignal.timeout(timeout),
     }),
   );
-  if (!isResult(body) || body.server_id !== id)
+  if (
+    !isResult(body) ||
+    body.server_id !== id ||
+    (input.operation === "list" && !body.path.endsWith("/"))
+  )
     throw new Error(i18n.t("files.unexpectedFileResponse"));
   return body;
 }

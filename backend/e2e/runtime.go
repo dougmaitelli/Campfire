@@ -100,6 +100,45 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 			result.Entries = append(result.Entries, model.FileEntry{Name: child, Kind: kind, Mode: mode, Size: int64(len(contents)), ModifiedAt: fixed})
 		}
 		sort.Slice(result.Entries, func(i, j int) bool { return result.Entries[i].Name < result.Entries[j].Name })
+	case "rename":
+		destination := path.Clean(input.Destination)
+		if name == "." || destination == "." || destination == name || strings.HasPrefix(destination, name+"/") {
+			return result, &model.FileError{Code: "invalid_file", Message: "Invalid move destination."}
+		}
+
+		if _, exists := files[destination]; exists {
+			return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+		}
+
+		if _, exists := files[destination+"/"]; exists {
+			return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+		}
+
+		_, directory := files[name+"/"]
+		if directory {
+			name += "/"
+			destination += "/"
+		}
+
+		if _, exists := files[name]; !exists {
+			return result, &model.FileError{Code: "file_not_found", Message: "File not found."}
+		}
+
+		for filename, contents := range files {
+			if filename != name && !(directory && strings.HasPrefix(filename, name)) {
+				continue
+			}
+
+			target := destination + strings.TrimPrefix(filename, name)
+			files[target] = contents
+			delete(files, filename)
+			if mode, exists := modes[filename]; exists {
+				modes[target] = mode
+				delete(modes, filename)
+			}
+		}
+
+		result.Path = input.Destination
 	case "chmod":
 		if _, directory := files[name+"/"]; directory {
 			name += "/"

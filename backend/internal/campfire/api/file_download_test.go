@@ -68,5 +68,12 @@ func TestLargeFileDownloadUsesBoundedChunksAndServerPermissions(t *testing.T) {
 		t.Fatal("download headers missing", response.Header())
 	}
 
+	chunks = 0
+
+	response = request(f.admin, "GET", "/api/v1/servers/"+server.ID+"/files/download?path=%2Fworld.bin", "")
+	if response.Code != http.StatusOK || !bytes.Equal(response.Body.Bytes(), data) || chunks != 3 {
+		t.Fatal("rooted download failed", response.Code, chunks, response.Body.Len())
+	}
+
 	expectAccess(t, f.admin, "POST", "/api/v1/servers/"+server.ID+"/files", `{"operation":"backup.read","path":"world.bin"}`, http.StatusBadRequest)
 }

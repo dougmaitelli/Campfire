@@ -7,9 +7,28 @@ text files, create files and folders, rename entries, remove folders and their
 contents, change permissions, and upload or download files. This view does not expose host files or
 Spark's private metadata.
 
-Browsing and downloads work while a game is running. Stop the server before
-making file changes. Other active server operations can also prevent access.
+Browsing, downloads, and file changes work while a game is running. Stopping the
+game before changing files is recommended to avoid conflicts with the game's
+own writes. Other active server operations can temporarily prevent file access.
 Text edits check the file revision: reload a changed file before saving again.
+
+## Paths and the server data root
+
+The **Server data** breadcrumb is `/` in the file manager. This is the server's
+persistent data directory, mounted at the Ember's working directory (for example,
+`/home/container` or `/data`). It is separate from the container image's system
+root and the Spark host filesystem.
+
+Paths always start at this data root. For example, `/config/fabric/` is a folder
+and `/config/fabric/settings.json` is a file. A move destination has the same
+meaning regardless of which folder you are viewing.
+
+The file HTTP API (`/api/v1/servers/{id}/files` and `/files/download`) uses this
+same namespace for `path`, archive `paths`, and `destination`. Listing responses
+return rooted directory paths ending in `/`. Relative request paths remain
+accepted for existing clients and are normalized at the API boundary. Parent
+traversal (`..`), backslashes, and control characters are rejected; Spark still
+enforces its existing file containment and symbolic-link restrictions.
 
 ## Transfers and archives
 
@@ -18,9 +37,10 @@ file; operators can change `CAMPFIRE_MAX_UPLOAD_MIB` on the panel. The text edit
 has a separate 1 MiB limit. Uploads show progress and can be cancelled.
 
 Use **Compress** to create a `.tar.gz` archive. **Extract** accepts `.zip`,
-`.tar.gz`, and `.tgz` and requires a new destination folder. Stop the game first
-and leave enough disk space for the original files and the archive or extracted
-copy. Archives do not merge into an existing destination.
+`.tar.gz`, and `.tgz` and requires a new destination folder. Stopping the game
+first is recommended to avoid concurrent changes during compression or
+extraction. Leave enough disk space for the original files and the archive or
+extracted copy. Archives do not merge into an existing destination.
 
 Extraction preserves the archive's read, write, and execute permissions for files
 and folders. Special permission bits are not restored. ZIP files created on some

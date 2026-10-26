@@ -37,6 +37,11 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := normalizeFileRequest(&input); err != nil {
+		writeFileError(w, err)
+		return
+	}
+
 	if r.Method == http.MethodPost {
 		if input.Operation == "compress" || input.Operation == "extract" {
 			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(30 * time.Minute))
@@ -61,6 +66,12 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Cache-Control", "no-store")
+
+	if result.Path == "" {
+		result.Path = input.Path
+	}
+
+	result.Path = publicDataPath(result.Path, input.Operation == "list" || input.Operation == "mkdir" || input.Operation == "extract")
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -72,6 +83,10 @@ func (a *API) downloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	request := model.FileRequest{Operation: "stat", Path: r.URL.Query().Get("path")}
+	if err := normalizeFileRequest(&request); err != nil {
+		writeFileError(w, err)
+		return
+	}
 
 	info, err := a.deployment.Files(r.Context(), r.PathValue("id"), request)
 	if err != nil {

@@ -37,7 +37,7 @@ interface Editor {
 }
 
 function join(directory: string, name: string) {
-  return directory === "." ? name : `${directory}/${name}`;
+  return `${directory}${name}`;
 }
 
 function entryName(value: string | null): string | null {
@@ -69,7 +69,7 @@ export function ServerFilesDialog({
   embedded?: boolean;
 }) {
   const { t } = useTranslation();
-  const [directory, setDirectory] = useState(".");
+  const [directory, setDirectory] = useState("/");
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [busy, setBusy] = useState(false);
@@ -115,7 +115,7 @@ export function ServerFilesDialog({
       );
       if (!signal?.aborted && alive.current) {
         setEntries(result.entries ?? []);
-        setDirectory(path);
+        setDirectory(result.path);
         setSelected((current) =>
           preserveSelection
             ? current.filter((name) =>
@@ -130,7 +130,7 @@ export function ServerFilesDialog({
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
-      load(".", controller.signal),
+      load("/", controller.signal),
       uploadLimit(
         server.id,
         AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
@@ -400,23 +400,18 @@ export function ServerFilesDialog({
           destination: join(directory, name),
         });
       } else {
-        const destination = value.replace(/^\/+|\/+$/g, "") || ".";
-        if (
-          destination.split("/").some((part) => part === "..") ||
-          destination.includes("\\")
-        )
-          throw new Error(t("serverFilesDialog.invalidMoveDestination"));
-        if (destination === directory)
-          throw new Error(t("serverFilesDialog.chooseDifferentFolder"));
         const target = await manageFiles(server.id, {
           operation: "list",
-          path: destination,
+          path: value,
         });
+        const destination = target.path;
+        if (destination === directory)
+          throw new Error(t("serverFilesDialog.chooseDifferentFolder"));
         if (target.entries?.some((entry) => selected.includes(entry.name)))
           throw new Error(t("serverFilesDialog.destinationConflict"));
         for (const entry of selectedEntries) {
           const source = join(directory, entry.name);
-          if (destination === source || destination.startsWith(`${source}/`))
+          if (destination.startsWith(`${source}/`))
             throw new Error(t("serverFilesDialog.invalidMoveDestination"));
         }
         for (const entry of selectedEntries) {
@@ -612,7 +607,7 @@ export function ServerFilesDialog({
             description={t("serverFilesDialog.in", {
               fileActionEntryName: fileAction.entry.name,
               directoryTheRoot:
-                directory === "."
+                directory === "/"
                   ? t("serverFilesDialog.theRootFolder")
                   : directory,
             })}
@@ -694,7 +689,7 @@ export function ServerFilesDialog({
             label={t("common.name")}
             description={t("serverFilesDialog.createIn", {
               directoryTheRoot:
-                directory === "."
+                directory === "/"
                   ? t("serverFilesDialog.theRootFolder")
                   : directory,
             })}
@@ -755,36 +750,40 @@ export function ServerFilesDialog({
                 aria-label={t("serverFilesDialog.root")}
                 title={t("serverFilesDialog.root")}
                 disabled={busy}
-                aria-current={directory === "." ? "location" : undefined}
+                aria-current={directory === "/" ? "location" : undefined}
                 onClick={() => {
-                  void perform(() => load("."));
+                  void perform(() => load("/"));
                 }}
               >
                 <NavigationIcon name="folder" />
+                {t("serverFilesDialog.root")}
               </button>
-              {directory !== "." &&
-                directory.split("/").map((part, index, parts) => (
-                  <span
-                    className="file-breadcrumb-segment"
-                    key={parts.slice(0, index + 1).join("/")}
-                  >
-                    <span aria-hidden="true">/</span>
-                    <button
-                      className="file-breadcrumb"
-                      disabled={busy}
-                      aria-current={
-                        index === parts.length - 1 ? "location" : undefined
-                      }
-                      onClick={() => {
-                        void perform(() =>
-                          load(parts.slice(0, index + 1).join("/")),
-                        );
-                      }}
+              {directory !== "/" &&
+                directory
+                  .split("/")
+                  .filter(Boolean)
+                  .map((part, index, parts) => (
+                    <span
+                      className="file-breadcrumb-segment"
+                      key={parts.slice(0, index + 1).join("/")}
                     >
-                      {part}
-                    </button>
-                  </span>
-                ))}
+                      <span aria-hidden="true">/</span>
+                      <button
+                        className="file-breadcrumb"
+                        disabled={busy}
+                        aria-current={
+                          index === parts.length - 1 ? "location" : undefined
+                        }
+                        onClick={() => {
+                          void perform(() =>
+                            load(`/${parts.slice(0, index + 1).join("/")}/`),
+                          );
+                        }}
+                      >
+                        {part}
+                      </button>
+                    </span>
+                  ))}
             </nav>
             <Table className="file-list">
               <thead>

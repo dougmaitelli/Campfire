@@ -173,7 +173,7 @@ test("server file edits persist after reopening", async ({ page }) => {
     .getByRole("button", { name: "server.properties", exact: true })
     .click();
   await page
-    .getByRole("textbox", { name: "server.properties", exact: true })
+    .getByRole("textbox", { name: "/server.properties", exact: true })
     .fill("motd=Updated community server\n");
   await page.getByRole("button", { name: "Save file", exact: true }).click();
   await page.reload();
@@ -181,8 +181,90 @@ test("server file edits persist after reopening", async ({ page }) => {
     .getByRole("button", { name: "server.properties", exact: true })
     .click();
   await expect(
-    page.getByRole("textbox", { name: "server.properties", exact: true }),
+    page.getByRole("textbox", { name: "/server.properties", exact: true }),
   ).toHaveValue("motd=Updated community server\n");
+});
+
+test("file paths use the server data root and move defaults follow navigation", async ({
+  page,
+}) => {
+  await login(page);
+  await openServerTab(page, "files", "Files");
+  const move = page.getByRole("button", { name: "Move", exact: true });
+  const dialog = page.getByRole("dialog", {
+    name: "Move selected items",
+    exact: true,
+  });
+  const destination = dialog.getByRole("textbox", {
+    name: "Destination folder",
+    exact: true,
+  });
+  await page
+    .getByRole("checkbox", { name: "Select server.properties", exact: true })
+    .check();
+  await move.click();
+  await expect(destination).toHaveValue("/");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "config", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "Select permissions.json", exact: true })
+    .check();
+  await move.click();
+  await expect(destination).toHaveValue("/config/");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "fabric", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "Select settings.json", exact: true })
+    .check();
+  await move.click();
+  await expect(destination).toHaveValue("/config/fabric/");
+  await screenshot(page, "file-move-dialog.png");
+  await dialog.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("different");
+  await destination.fill("/mods/");
+  await dialog.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.getByRole("button", { name: "Server data", exact: true }).click();
+  await page.getByRole("button", { name: "mods", exact: true }).click();
+  await page
+    .getByRole("button", { name: "settings.json", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "/mods/settings.json", exact: true }),
+  ).toHaveValue(/maxViewDistance/);
+});
+
+test("folder moves reject descendants and preserve nested file paths", async ({
+  page,
+}) => {
+  await login(page);
+  await openServerTab(page, "files", "Files");
+  await page
+    .getByRole("checkbox", { name: "Select config", exact: true })
+    .check();
+  await page.getByRole("button", { name: "Move", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Move selected items",
+    exact: true,
+  });
+  const destination = dialog.getByRole("textbox", {
+    name: "Destination folder",
+    exact: true,
+  });
+  await destination.fill("/config/fabric/");
+  await dialog.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await destination.fill("/world/");
+  await dialog.getByRole("button", { name: "Move", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  for (const name of ["world", "config", "fabric", "settings.json"])
+    await page.getByRole("button", { name, exact: true }).click();
+  await expect(
+    page.getByRole("textbox", {
+      name: "/world/config/fabric/settings.json",
+      exact: true,
+    }),
+  ).toBeVisible();
 });
 
 test("file permissions can be changed and persist after reloading", async ({
