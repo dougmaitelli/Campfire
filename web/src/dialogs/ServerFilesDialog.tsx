@@ -586,7 +586,9 @@ export function ServerFilesDialog({
                 ? "serverFilesDialog.archiveSelected"
                 : "serverFilesDialog.move",
             )}
-            initialValue={bulkAction === "compress" ? "archive.tar.gz" : "."}
+            initialValue={
+              bulkAction === "compress" ? "archive.tar.gz" : directory
+            }
             onClose={() => setBulkAction(null)}
             onSubmit={bulkSubmit}
           />
