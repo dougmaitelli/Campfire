@@ -246,9 +246,6 @@ export function ServerTerminal({
                   }
                 }}
               />
-              <span role="status">
-                {noResults ? t("serverTerminal.noResults") : ""}
-              </span>
               <Button
                 size="small"
                 type="button"
@@ -269,6 +266,15 @@ export function ServerTerminal({
               >
                 <NavigationIcon name="close" />
               </Button>
+              <span className="server-terminal-search-status">
+                <span
+                  aria-hidden="true"
+                  data-label={t("serverTerminal.noResults")}
+                />
+                <span role="status">
+                  {noResults ? t("serverTerminal.noResults") : ""}
+                </span>
+              </span>
             </form>
           )}
           <span role="status">

@@ -113,10 +113,21 @@ test("console search preserves toolbar height and supports keyboard navigation",
   const after = await toolbar.boundingBox();
   expect(after?.height).toBe(before?.height);
   expect(after?.y).toBe(before?.y);
-  const bounds = await page.getByRole("search").boundingBox();
+  const bounds = await search.boundingBox();
   expect(bounds?.width).toBeLessThanOrEqual(640);
+  const buttons = page.getByRole("search").getByRole("button");
+  const positions = () =>
+    buttons.evaluateAll((elements) =>
+      elements.map((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y, width, height };
+      }),
+    );
+  const initialPositions = await positions();
   await search.fill("no-such-console-output");
   await expect(page.getByText("No matches", { exact: true })).toBeVisible();
+  expect(await search.boundingBox()).toEqual(bounds);
+  expect(await positions()).toEqual(initialPositions);
   await search.fill("Command accepted.");
   await expect(page.getByText("No matches", { exact: true })).toHaveCount(0);
   await search.press("Enter");

@@ -27,17 +27,30 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
-  max-width: 640px;
   margin-right: auto;
 
   & input {
     flex: 1;
     min-width: 140px;
+    max-width: 640px;
+  }
+}
+.server-terminal-search-status {
+  display: grid;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 14px;
+
+  & > span {
+    grid-area: 1 / 1;
   }
 
-  & [role="status"] {
-    color: var(--muted);
-    font-size: 14px;
+  & > [aria-hidden="true"] {
+    visibility: hidden;
+
+    &::before {
+      content: attr(data-label);
+    }
   }
 }
 .server-terminal-window {
