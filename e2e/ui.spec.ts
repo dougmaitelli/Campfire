@@ -166,6 +166,52 @@ test("console search preserves toolbar height and supports keyboard navigation",
   await expect(command).toBeVisible();
 });
 
+test("binary file rows remain selectable and downloadable without opening the editor", async ({
+  page,
+}) => {
+  await login(page);
+  await openServerTab(page, "files", "Files");
+  const row = page.getByRole("row").filter({ hasText: "server.jar" });
+  await expect(
+    row.getByRole("cell", { name: "JAR", exact: true }),
+  ).toBeVisible();
+  await expect(
+    row.getByRole("button", { name: "server.jar", exact: true }),
+  ).toBeDisabled();
+  await row.getByRole("cell", { name: "JAR", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "/server.jar", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  const binaryDownload = row.getByRole("button", {
+    name: "Download server.jar",
+    exact: true,
+  });
+  const textDownload = page.getByRole("button", {
+    name: "Download server.properties",
+    exact: true,
+  });
+  await expect(async () => {
+    const binaryBounds = await binaryDownload.boundingBox();
+    const textBounds = await textDownload.boundingBox();
+    expect(binaryBounds).not.toBeNull();
+    expect(textBounds).not.toBeNull();
+    expect(binaryBounds!.x).toBe(textBounds!.x);
+  }).toPass();
+  await row.getByRole("checkbox").check();
+  const download = page.waitForEvent("download");
+  await row
+    .getByRole("button", { name: "Download server.jar", exact: true })
+    .click();
+  expect((await download).suggestedFilename()).toBe("server.jar");
+  await screenshot(page, "file-binary-row.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(row.getByRole("checkbox")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "server.properties", exact: true }),
+  ).toBeEnabled();
+});
+
 test("server file edits persist after reopening", async ({ page }) => {
   await login(page);
   await openServerTab(page, "files", "Files");
@@ -224,6 +270,20 @@ test("file paths use the server data root and move defaults follow navigation", 
   await destination.fill("/mods/");
   await dialog.getByRole("button", { name: "Move", exact: true }).click();
   await expect(dialog).not.toBeVisible();
+  const emptyFolder = page.getByText("This folder is empty.", { exact: true });
+  await expect(emptyFolder).toBeVisible();
+  await screenshot(page, "file-empty-folder.png");
+  const emptyState = page
+    .getByRole("status")
+    .filter({ hasText: "This folder is empty." });
+  const beforeHover = await emptyState.screenshot({
+    animations: "disabled",
+    caret: "hide",
+  });
+  await emptyFolder.hover();
+  expect(
+    await emptyState.screenshot({ animations: "disabled", caret: "hide" }),
+  ).toEqual(beforeHover);
   await page.getByRole("button", { name: "Server data", exact: true }).click();
   await page.getByRole("button", { name: "mods", exact: true }).click();
   await page

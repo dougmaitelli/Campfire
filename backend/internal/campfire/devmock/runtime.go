@@ -47,7 +47,7 @@ type runtimeRecord struct {
 }
 
 func newRecord(spark string, deployment model.Deployment) runtimeRecord {
-	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: "not_installed", Logs: timestampLog("[Mock Spark] Configuration received. No Docker containers are used.\n"), FileFixtureVersion: 1, Files: mockFiles()}
+	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: "not_installed", Logs: timestampLog("[Mock Spark] Configuration received. No Docker containers are used.\n"), FileFixtureVersion: 2, Files: mockFiles()}
 }
 
 func timestampLog(content string) string {

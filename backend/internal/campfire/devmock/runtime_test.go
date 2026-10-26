@@ -198,6 +198,41 @@ func TestLegacyFileFixtureMigration(t *testing.T) {
 	}
 }
 
+func TestBinaryFileFixtureUpgradePreservesEdits(t *testing.T) {
+	runtime, db, auth, servers := fixture(t)
+	server := onlineServer(t, runtime, servers)
+
+	var record runtimeRecord
+	if err := db.ORM().Where("server_id = ?", server.ID).Take(&record).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	record.FileFixtureVersion = 1
+	record.Files["server.jar"] = "custom JAR"
+	delete(record.Files, "world/level.dat")
+	delete(record.Files, "mods/README.txt")
+
+	if err := db.ORM().Save(&record).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := New(t.Context(), db.ORM(), auth); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.ORM().Where("server_id = ?", server.ID).Take(&record).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if record.FileFixtureVersion != 2 || record.Files["world/level.dat"] == "" || record.Files["server.jar"] != "custom JAR" {
+		t.Fatal("binary fixture upgrade lost edits or failed to add world data")
+	}
+
+	if _, exists := record.Files["mods/README.txt"]; exists {
+		t.Fatal("binary fixture upgrade restored an unrelated deleted file")
+	}
+}
+
 func TestFileTreeUpgradePreservesEdits(t *testing.T) {
 	runtime, db, auth, servers := fixture(t)
 	server := onlineServer(t, runtime, servers)

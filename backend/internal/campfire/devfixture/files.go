@@ -16,6 +16,9 @@ const ConsoleLogs = "[12:00:00] [Server thread/INFO]: Starting Minecraft server 
 // Files returns an independent set of the shared starter game files.
 func Files() map[string]string {
 	return map[string]string{
+		// Deliberately inert binary samples; the mock never executes game files.
+		"server.jar":                   "PK\x03\x04\x00Campfire mock JAR\x00",
+		"world/level.dat":              "\x1f\x8b\x08\x00Campfire mock world data\x00",
 		"server.properties":            "motd=Campfire mock server\nserver-port=25565\nmax-players=20\n",
 		"eula.txt":                     "# Simulated fixture; no Minecraft software is running.\neula=false\n",
 		"whitelist.json":               "[]\n",

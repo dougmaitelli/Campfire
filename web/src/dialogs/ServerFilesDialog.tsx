@@ -6,13 +6,14 @@ import { DetailsList, DetailItem } from "../components/layout/DetailsList";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { CheckboxField } from "../components/forms/CheckboxField";
-import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Textarea } from "../components/forms/Textarea";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "../api/servers";
 import {
   decodeBytes,
+  canOpenFile,
+  fileExtension,
   encodeBytes,
   fileLimit,
   fileTransferLimit,
@@ -785,7 +786,13 @@ export function ServerFilesDialog({
                     </span>
                   ))}
             </nav>
-            <Table className="file-list">
+            <Table
+              className="file-list"
+              empty={loading || entries.length === 0}
+              loading={loading}
+              resource={t("serverFilesDialog.files2")}
+              emptyMessage={t("serverFilesDialog.thisFolderIsEmpty")}
+            >
               <thead>
                 <tr>
                   <th className="table-fit">
@@ -810,6 +817,9 @@ export function ServerFilesDialog({
                   </th>
                   <th className="file-icon-cell" />
                   <th className="file-name-column">{t("common.name")}</th>
+                  <th className="table-fit">
+                    {t("serverFilesDialog.fileType")}
+                  </th>
                   <th className="file-size">{t("common.size")}</th>
                   <th className="table-fit">
                     {t("serverFilesDialog.modified")}
@@ -821,149 +831,127 @@ export function ServerFilesDialog({
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={6}>
-                      <ContentState
-                        loading
-                        resource={t("serverFilesDialog.files2")}
-                        compact
-                      />
-                    </td>
-                  </tr>
-                ) : entries.length === 0 ? (
-                  <tr>
-                    <td colSpan={6}>
-                      <ContentState
-                        resource={t("serverFilesDialog.files2")}
-                        emptyMessage={t("serverFilesDialog.thisFolderIsEmpty")}
-                        compact
-                      />
-                    </td>
-                  </tr>
-                ) : (
-                  entries.map((entry) => (
-                    <TableRow
-                      key={entry.name}
-                      className={
-                        selected.includes(entry.name)
-                          ? "file-selected"
-                          : undefined
-                      }
-                      onOpen={
-                        busy || entry.kind === "unsupported"
-                          ? undefined
-                          : () => {
-                              void perform(() => open(entry));
-                            }
-                      }
-                    >
-                      <td className="table-fit">
-                        <CheckboxField
-                          checked={selected.includes(entry.name)}
-                          disabled={busy || entry.kind === "unsupported"}
-                          onChange={(event) =>
-                            setSelected((current) =>
-                              event.target.checked
-                                ? [...current, entry.name]
-                                : current.filter((name) => name !== entry.name),
-                            )
-                          }
-                        >
-                          <span className="visually-hidden">
-                            {t("serverFilesDialog.selectEntry", {
-                              name: entry.name,
-                            })}
-                          </span>
-                        </CheckboxField>
-                      </td>
-                      <td className="file-icon-cell">
-                        <span
-                          className={`file-entry-icon${entry.kind === "directory" ? " file-entry-folder" : ""}`}
-                        >
-                          <NavigationIcon
-                            name={
-                              entry.kind === "directory"
-                                ? "folder"
-                                : entry.kind === "file"
-                                  ? "file"
-                                  : "link"
-                            }
-                          />
-                        </span>
-                      </td>
-                      <td className="file-name-column">
-                        <button
-                          className="file-name"
-                          disabled={busy || entry.kind === "unsupported"}
-                          onClick={() => {
+                {entries.map((entry) => (
+                  <TableRow
+                    key={entry.name}
+                    className={
+                      selected.includes(entry.name)
+                        ? "file-selected"
+                        : undefined
+                    }
+                    onOpen={
+                      busy || !canOpenFile(entry)
+                        ? undefined
+                        : () => {
                             void perform(() => open(entry));
-                          }}
-                        >
-                          <span className="file-entry-name">{entry.name}</span>
-                          {entry.kind === "unsupported" && (
-                            <span className="file-entry-meta">
-                              {t("serverFilesDialog.symbolicLinkOrSpecialFile")}
-                            </span>
-                          )}
-                        </button>
-                      </td>
-                      <td className="file-size file-entry-meta">
-                        {entry.kind === "file"
-                          ? bytes(entry.size)
-                          : EMPTY_VALUE}
-                      </td>
-                      <td className="table-fit file-entry-meta">
-                        <time dateTime={entry.modified_at}>
-                          {new Date(entry.modified_at).toLocaleString()}
-                        </time>
-                      </td>
-                      <td className="table-actions">
-                        <ActionGroup>
-                          {entry.kind === "file" &&
-                            /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
-                              <Button
-                                iconOnly
-                                size="small"
-                                title={i18n.t("serverFilesDialog.extract")}
-                                aria-label={i18n.t(
-                                  "serverFilesDialog.extract2",
-                                  {
-                                    entryName: entry.name,
-                                  },
-                                )}
-                                disabled={busy || !canWrite}
-                                onClick={() => {
-                                  setFileAction({ kind: "extract", entry });
-                                }}
-                              >
-                                <NavigationIcon name="extract" />
-                              </Button>
-                            )}
-                          {entry.kind === "file" && (
+                          }
+                    }
+                  >
+                    <td className="table-fit">
+                      <CheckboxField
+                        checked={selected.includes(entry.name)}
+                        disabled={busy || entry.kind === "unsupported"}
+                        onChange={(event) =>
+                          setSelected((current) =>
+                            event.target.checked
+                              ? [...current, entry.name]
+                              : current.filter((name) => name !== entry.name),
+                          )
+                        }
+                      >
+                        <span className="visually-hidden">
+                          {t("serverFilesDialog.selectEntry", {
+                            name: entry.name,
+                          })}
+                        </span>
+                      </CheckboxField>
+                    </td>
+                    <td className="file-icon-cell">
+                      <span
+                        className={`file-entry-icon${entry.kind === "directory" ? " file-entry-folder" : ""}`}
+                      >
+                        <NavigationIcon
+                          name={
+                            entry.kind === "directory"
+                              ? "folder"
+                              : entry.kind === "file"
+                                ? "file"
+                                : "link"
+                          }
+                        />
+                      </span>
+                    </td>
+                    <td className="file-name-column">
+                      <button
+                        className="file-name"
+                        disabled={busy || !canOpenFile(entry)}
+                        onClick={() => {
+                          void perform(() => open(entry));
+                        }}
+                      >
+                        <span className="file-entry-name">{entry.name}</span>
+                        {entry.kind === "unsupported" && (
+                          <span className="file-entry-meta">
+                            {t("serverFilesDialog.symbolicLinkOrSpecialFile")}
+                          </span>
+                        )}
+                      </button>
+                    </td>
+                    <td className="table-fit file-entry-meta">
+                      {entry.kind === "directory"
+                        ? t("serverFilesDialog.folderType")
+                        : entry.kind === "unsupported"
+                          ? t("serverFilesDialog.specialType")
+                          : fileExtension(entry.name).toUpperCase() ||
+                            t("serverFilesDialog.fileTypeFallback")}
+                    </td>
+                    <td className="file-size file-entry-meta">
+                      {entry.kind === "file" ? bytes(entry.size) : EMPTY_VALUE}
+                    </td>
+                    <td className="table-fit file-entry-meta">
+                      <time dateTime={entry.modified_at}>
+                        {new Date(entry.modified_at).toLocaleString()}
+                      </time>
+                    </td>
+                    <td className="table-actions">
+                      <ActionGroup>
+                        {entry.kind === "file" &&
+                          /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
                             <Button
                               iconOnly
                               size="small"
-                              title={i18n.t("serverFilesDialog.download")}
-                              disabled={busy || entry.size > fileTransferLimit}
+                              title={i18n.t("serverFilesDialog.extract")}
+                              aria-label={i18n.t("serverFilesDialog.extract2", {
+                                entryName: entry.name,
+                              })}
+                              disabled={busy || !canWrite}
                               onClick={() => {
-                                void perform(() => download(entry));
+                                setFileAction({ kind: "extract", entry });
                               }}
-                              aria-label={i18n.t(
-                                "serverFilesDialog.download2",
-                                {
-                                  entryName: entry.name,
-                                },
-                              )}
                             >
-                              <NavigationIcon name="download" />
+                              <NavigationIcon name="extract" />
                             </Button>
                           )}
-                        </ActionGroup>
-                      </td>
-                    </TableRow>
-                  ))
-                )}
+                        {entry.kind === "file" && (
+                          <Button
+                            iconOnly
+                            size="small"
+                            title={i18n.t("serverFilesDialog.download")}
+                            disabled={busy || entry.size > fileTransferLimit}
+                            onClick={() => {
+                              void perform(() => download(entry));
+                            }}
+                            aria-label={i18n.t("serverFilesDialog.download2", {
+                              entryName: entry.name,
+                            })}
+                          >
+                            <NavigationIcon name="download" />
+                          </Button>
+                        )}
+                      </ActionGroup>
+                    </td>
+                  </TableRow>
+                ))}
               </tbody>
             </Table>
             <div

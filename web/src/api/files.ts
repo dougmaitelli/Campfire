@@ -33,6 +33,62 @@ export interface FileEntry {
   size: number;
   modified_at: string;
 }
+
+export function fileExtension(name: string): string {
+  return (
+    /\.(tar\.gz|tar\.bz2|tar\.xz|[^.]+)$/i.exec(name)?.[1]?.toLowerCase() ?? ""
+  );
+}
+
+// Filename hints avoid fetching known binary formats just to reject them.
+// Unknown formats still go through the editor's UTF-8 and NUL checks.
+export function canOpenFile(entry: FileEntry): boolean {
+  if (entry.kind === "directory") return true;
+  if (entry.kind !== "file" || entry.size > fileLimit) return false;
+  return !new Set([
+    "jar",
+    "class",
+    "zip",
+    "gz",
+    "tgz",
+    "tar",
+    "tar.gz",
+    "tar.bz2",
+    "tar.xz",
+    "bz2",
+    "xz",
+    "7z",
+    "rar",
+    "zst",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+    "ico",
+    "bmp",
+    "pdf",
+    "exe",
+    "dll",
+    "so",
+    "bin",
+    "dat",
+    "mca",
+    "mcr",
+    "nbt",
+    "db",
+    "sqlite",
+    "sqlite3",
+    "ogg",
+    "mp3",
+    "wav",
+    "mp4",
+    "webm",
+    "woff",
+    "woff2",
+    "ttf",
+  ]).has(fileExtension(entry.name));
+}
 export interface FileResult {
   server_id: string;
   path: string;

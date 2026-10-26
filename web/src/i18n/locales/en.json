@@ -739,6 +739,10 @@
     "zeroDisablesALimitLocalAndS3CopiesExpireIndependently": "Zero disables a limit. Local and S3 copies expire independently. A local copy awaiting a required S3 upload is retained until sync succeeds."
   },
   "serverFilesDialog": {
+    "fileType": "Type",
+    "folderType": "Folder",
+    "specialType": "Special file",
+    "fileTypeFallback": "File",
     "apiKeys": "API keys",
     "archiveName": "Archive name",
     "backToFiles": "Back to files",

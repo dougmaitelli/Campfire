@@ -72,7 +72,7 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 
 	if err := database.Transaction(db.WithContext(ctx), func(tx *gorm.DB) error {
 		var records []runtimeRecord
-		if err := tx.Where("file_fixture_version = ?", 0).Find(&records).Error; err != nil {
+		if err := tx.Where("file_fixture_version < ?", 2).Find(&records).Error; err != nil {
 			return err
 		}
 
@@ -82,12 +82,16 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 			}
 
 			for name, contents := range mockFiles() {
+				if record.FileFixtureVersion > 0 && name != "server.jar" && name != "world/level.dat" {
+					continue
+				}
+
 				if _, exists := record.Files[name]; !exists {
 					record.Files[name] = contents
 				}
 			}
 
-			record.FileFixtureVersion = 1
+			record.FileFixtureVersion = 2
 			if err := tx.Save(&record).Error; err != nil {
 				return err
 			}

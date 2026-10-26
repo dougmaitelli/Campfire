@@ -151,6 +151,10 @@
   }
 }
 .file-list {
+  & td.table-actions {
+    padding-inline-end: 56px;
+  }
+
   & .file-icon-cell {
     width: 1%;
     padding-inline-end: 0;
