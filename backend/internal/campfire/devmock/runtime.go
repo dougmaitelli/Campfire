@@ -29,6 +29,7 @@ type Runtime struct {
 	mu           sync.Mutex
 	games        *service.GameIntegrationService
 	gameSessions map[string]*gameSession
+	now          func() time.Time
 }
 
 type runtimeRecord struct {
@@ -40,6 +41,7 @@ type runtimeRecord struct {
 	StoppedAt          int64 `gorm:"not null;default:0"`
 	OperationID        string
 	Operation          string
+	TransitionAt       int64 `gorm:"not null;default:0"`
 	Logs               string
 	Files              map[string]string `gorm:"serializer:json"`
 	FileModes          map[string]uint32 `gorm:"serializer:json"`
@@ -103,8 +105,31 @@ func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, er
 	var record runtimeRecord
 
 	err := r.db.WithContext(ctx).Where("server_id = ? AND spark_id = ?", id, spark).Take(&record).Error
+	if err == nil && record.TransitionAt != 0 && r.now().UnixNano() >= record.TransitionAt {
+		finishedAt := time.Unix(0, record.TransitionAt).Unix()
+		if record.State == "stopping" {
+			record.State = "stopped"
+			record.StoppedAt = finishedAt
+		} else {
+			record.State = "running"
+			record.StartedAt, record.StoppedAt = finishedAt, 0
+		}
+
+		record.TransitionAt = 0
+		record.logAction("completed")
+		err = r.db.WithContext(ctx).Save(&record).Error
+	}
 
 	return record, err
+}
+
+const lifecycleDuration = 5 * time.Second
+
+func (record *runtimeRecord) logAction(phase string) {
+	record.Logs += timestampLog(fmt.Sprintf("[Mock Spark] %s %s; state=%s\n", record.Operation, phase, record.State))
+	if len(record.Logs) > 32000 {
+		record.Logs = record.Logs[len(record.Logs)-16000:]
+	}
 }
 
 // Deploy durably records desired configuration, preserving the simulated runtime state.
@@ -144,6 +169,11 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		return model.RuntimeStatus{}, err
 	}
 
+	readOnly := request.Action == "status" || request.Action == "logs" || request.Action == "metrics"
+	if record.TransitionAt != 0 && !readOnly && request.Action != "kill" {
+		return model.RuntimeStatus{}, service.ErrServerActive
+	}
+
 	switch request.Action {
 	case "status", "logs", "metrics":
 	case "install", "update", "reinstall":
@@ -157,13 +187,23 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 			return model.RuntimeStatus{}, errors.New("install the mock server before starting it")
 		}
 
-		record.State = "running"
-		record.StartedAt, record.StoppedAt = time.Now().Unix(), 0
-	case "stop", "kill":
-		if record.State == "running" {
-			record.StoppedAt = time.Now().Unix()
+		record.State = "starting"
+		if request.Action == "restart" {
+			record.State = "restarting"
 		}
 
+		record.TransitionAt = r.now().Add(lifecycleDuration).UnixNano()
+	case "stop":
+		if record.State == "running" {
+			record.State = "stopping"
+			record.TransitionAt = r.now().Add(lifecycleDuration).UnixNano()
+		}
+	case "kill":
+		if record.State != "stopped" {
+			record.StoppedAt = r.now().Unix()
+		}
+
+		record.TransitionAt = 0
 		record.State = "stopped"
 	case "backup", "restore":
 		if err := r.backupAction(ctx, &record, request); err != nil {
@@ -184,13 +224,15 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		return model.RuntimeStatus{}, fmt.Errorf("%s is not simulated in mock mode", request.Action)
 	}
 
-	if request.Action != "status" && request.Action != "logs" && request.Action != "metrics" {
+	if !readOnly {
 		record.OperationID, record.Operation = request.OperationID, request.Action
 
-		record.Logs += timestampLog(fmt.Sprintf("[Mock Spark] %s completed; state=%s\n", request.Action, record.State))
-		if len(record.Logs) > 32000 {
-			record.Logs = record.Logs[len(record.Logs)-16000:]
+		phase := "completed"
+		if record.TransitionAt != 0 {
+			phase = "in progress"
 		}
+
+		record.logAction(phase)
 
 		if err := r.db.WithContext(ctx).Save(&record).Error; err != nil {
 			return model.RuntimeStatus{}, err
@@ -201,8 +243,11 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		}
 	}
 
-	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == "running", OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
-	if record.OperationID != "" {
+	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == "running", Busy: record.TransitionAt != 0, OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
+	if status.Busy {
+		status.OperationState = model.OperationRunning
+		status.Progress = "Mock server is " + record.State + "."
+	} else if record.OperationID != "" {
 		status.OperationState = model.OperationSucceeded
 		status.Progress = "Complete"
 	}

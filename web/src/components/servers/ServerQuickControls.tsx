@@ -30,6 +30,10 @@ export function ServerQuickControls({
     null,
   );
   const pending = useRef(false);
+  const startupPending =
+    action === "start" ||
+    status?.state === "starting" ||
+    status?.state === "restarting";
   const { blocked, running, install, canInterrupt } = lifecycleControlState(
     status,
     disabled || !canOperate || action !== null,
@@ -65,6 +69,7 @@ export function ServerQuickControls({
         aria-label={t("serverQuickControls.start", { name })}
         title={t("common.start")}
         loading={action === "start"}
+        aria-busy={startupPending}
         onClick={() => void act("start")}
       >
         <NavigationIcon

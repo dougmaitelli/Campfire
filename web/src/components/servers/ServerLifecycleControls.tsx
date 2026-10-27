@@ -16,6 +16,8 @@ export function ServerLifecycleControls({
   onAction: (action: ServerAction) => void;
 }) {
   const { t } = useTranslation();
+  const startupPending =
+    status?.state === "starting" || status?.state === "restarting";
   const { canInterrupt, blocked, running, install } = lifecycleControlState(
     status,
     disabled,
@@ -28,6 +30,7 @@ export function ServerLifecycleControls({
         title={t("common.start")}
         aria-label={t("common.start")}
         disabled={blocked || install || running}
+        aria-busy={startupPending}
         onClick={() => onAction("start")}
       >
         <NavigationIcon name="play" filled />

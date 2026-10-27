@@ -135,7 +135,7 @@ export function ServerState({
     );
   }
   return (
-    <span className="server-state">
+    <span className="server-state" data-state={state}>
       <StatusPill
         tone={labels[state] ? (tones[state] ?? "neutral") : "negative"}
       >

@@ -1,8 +1,13 @@
 export function CampfireMark() {
   return (
-    <svg viewBox="0 0 38 48" fill="none" aria-hidden="true">
+    <svg
+      className="campfire-mark"
+      viewBox="0 0 38 48"
+      fill="none"
+      aria-hidden="true"
+    >
       <path
-        fill="#ff913f"
+        fill="var(--accent)"
         d="M17 3Q18 2 19 3C22 5 24 8 25 14L27 12Q30 16 29 25Q27 29 21 30Q23 27 20 25V22Q18 22 18 24Q15 26 16 30Q10 30 9 25Q6 21 11 13Q12 11 13 12V14Q14 15 15 14V12Q19 8 17 3Z"
       />
       <path

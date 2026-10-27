@@ -80,6 +80,12 @@
   }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .data-table tbody tr {
+    transition: background-color var(--motion-fast) ease;
+  }
+}
+
 .table-actions .action-group {
   justify-content: flex-end;
   width: max-content;

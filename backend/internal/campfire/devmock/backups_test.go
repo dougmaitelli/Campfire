@@ -51,8 +51,13 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 	}
 
 	for _, action := range []string{"stop", "backup", "backup"} {
-		if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: action, OperationID: "snapshot"}); err != nil {
+		status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: action, OperationID: "snapshot"})
+		if err != nil {
 			t.Fatal(err)
+		}
+
+		if status.Busy {
+			settleRuntime(t, runtime, server)
 		}
 	}
 

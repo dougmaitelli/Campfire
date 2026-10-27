@@ -7,6 +7,9 @@
   background: var(--border);
   border-radius: 5px;
   appearance: none;
+  box-shadow:
+    inset 0 1px 1px #00000014,
+    0 1px 0 var(--surface-highlight);
 }
 
 .resource-meter::-webkit-meter-bar {
@@ -14,21 +17,49 @@
   background: var(--border);
   border: 0;
   border-radius: 5px;
+  box-shadow: inset 0 1px 1px #00000014;
 }
 
 .resource-meter::-webkit-meter-optimum-value,
 .resource-meter::-webkit-meter-suboptimum-value,
 .resource-meter::-webkit-meter-even-less-good-value {
-  background: var(--meter-color);
+  background:
+    linear-gradient(
+      180deg,
+      var(--control-highlight),
+      transparent 45%,
+      var(--control-shade)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--meter-color) 90%, var(--bg)),
+      var(--meter-color)
+    );
+  box-shadow: inset 0 1px 0 var(--control-rim);
   border-radius: 5px;
 }
 
 .resource-meter::-moz-meter-bar {
-  background: var(--meter-color);
+  background:
+    linear-gradient(
+      180deg,
+      var(--control-highlight),
+      transparent 45%,
+      var(--control-shade)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--meter-color) 90%, var(--bg)),
+      var(--meter-color)
+    );
+  box-shadow: inset 0 1px 0 var(--control-rim);
   border-radius: 5px;
 }
 .resource-meter-placeholder {
   height: 10px;
   background: var(--border);
   border-radius: 5px;
+  box-shadow:
+    inset 0 1px 1px #00000014,
+    0 1px 0 var(--surface-highlight);
 }

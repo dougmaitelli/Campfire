@@ -1,27 +1,40 @@
 :root {
   color-scheme: dark;
-  --bg: #1c1c1b;
-  --console-bg: #191918;
-  --console-selection: #ff913f40;
-  --sidebar-bg: #222120;
-  --surface: #242322;
-  --border: #3a3835;
-  --text: #eeeadd;
-  --muted: #b0b5a3;
-  --accent: #ff913f;
-  --secondary: #b5a48d;
-  --surface-hover: #2d2b29;
-  --accent-subtle: #35271e;
-  --accent-border: #754724;
-  --accent-hover: #ffa65f;
+  --bg: #1c1c18;
+  --console-bg: #161713;
+  --console-selection: #f5a05b40;
+  --sidebar-bg: #23241e;
+  --surface: #282720;
+  --border: #484134;
+  --border-strong: #756047;
+  --text: #f2eadb;
+  --muted: #b1b59f;
+  --accent: #f5a05b;
+  --secondary: #bba68a;
+  --surface-hover: #333027;
+  --accent-subtle: #3c2e21;
+  --accent-border: #8f5e38;
+  --accent-hover: #ffb87a;
+  --control-bg: #191a16;
+  --ember-glow: #f5a05b24;
+  --surface-highlight: #fff1d50a;
+  --control-highlight: #fff4d90d;
+  --control-shade: #15151010;
+  --control-rim: #fff4d914;
+  --surface-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='.035'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23grain)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
+  --font-heading: system-ui, sans-serif;
+  --motion-fast: 140ms;
+  --motion-enter: 220ms;
+  --ease-settle: cubic-bezier(0.2, 0.7, 0.2, 1);
   --danger-accent: #f87171;
   --warning-accent: #e4b16a;
   --danger: #f87171;
   --danger-border: #713a3a;
   --danger-surface: #351f1f;
-  --success: #7ed37b;
-  --success-border: #3d5235;
-  --success-surface: #263220;
+  --success: #96c18a;
+  --success-border: #485a3c;
+  --success-surface: #293323;
+  --pending: #e5ac75;
   --warning: #f2ce77;
   --warning-border: #6b572e;
   --warning-surface: #332c1d;
@@ -38,6 +51,11 @@
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
+}
+
+::selection {
+  background: var(--console-selection);
+  color: var(--text);
 }
 
 :where(a:any-link) {
@@ -68,6 +86,21 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+}
+
+:where(
+  .usage-value,
+  .metric-tile-value,
+  .resource-allocation,
+  .server-state-timing
+) {
+  font-variant-numeric: tabular-nums;
 }
 
 .list-summary {

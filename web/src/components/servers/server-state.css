@@ -12,3 +12,36 @@
   font-size: 11px;
   white-space: nowrap;
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .server-state:is(
+      [data-state="starting"],
+      [data-state="restarting"],
+      [data-state="stopping"]
+    )
+    .status-pill::before {
+    animation: server-ignite 900ms ease-out infinite;
+  }
+
+  .server-state[data-state="running"] .status-pill::before {
+    animation: server-settle 600ms ease-out;
+  }
+}
+
+@keyframes server-ignite {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 35%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@keyframes server-settle {
+  from {
+    box-shadow: 0 0 14px color-mix(in srgb, currentColor 65%, transparent);
+  }
+  to {
+    box-shadow: 0 0 7px color-mix(in srgb, currentColor 45%, transparent);
+  }
+}

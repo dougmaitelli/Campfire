@@ -10,10 +10,44 @@
   border: 0;
   border-left: 1px solid var(--border);
   background: var(--surface);
+  box-shadow:
+    inset 1px 0 0 var(--surface-highlight),
+    -16px 0 56px #00000030;
   color: var(--text);
 
   &::backdrop {
     background: rgb(0 0 0 / 55%);
+    backdrop-filter: blur(3px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .drawer[open] {
+    animation: drawer-arrive var(--motion-enter) var(--ease-settle);
+
+    &::backdrop {
+      animation: backdrop-arrive var(--motion-enter) ease;
+    }
+  }
+}
+
+@keyframes drawer-arrive {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes backdrop-arrive {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 .drawer-form {

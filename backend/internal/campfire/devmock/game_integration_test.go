@@ -31,8 +31,13 @@ func TestGameSimulationIngestionLifecycleAndReplay(t *testing.T) {
 	command := func(action, content string) {
 		t.Helper()
 
-		if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: action, Content: content}); err != nil {
+		status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: action, Content: content})
+		if err != nil {
 			t.Fatal(err)
+		}
+
+		if status.Busy {
+			settleRuntime(t, runtime, server)
 		}
 	}
 	snapshot := func(players, fields int) {

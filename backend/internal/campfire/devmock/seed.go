@@ -122,7 +122,7 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
-	return &Runtime{db: db}, nil
+	return &Runtime{db: db, now: time.Now}, nil
 }
 
 func seed(ctx context.Context, tx *gorm.DB) error {

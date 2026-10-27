@@ -4,75 +4,142 @@ input[type="file"]::file-selector-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--button-min-height, 38px);
+  min-height: var(--control-height);
   padding: var(--button-padding, 8px 14px);
   border: 1px solid var(--border);
   border-radius: 7px;
-  background: var(--surface);
+  background-color: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: var(--button-font-size, 14px);
   font-weight: 500;
   cursor: pointer;
+  background-image: linear-gradient(
+    180deg,
+    var(--surface-highlight),
+    transparent 45%,
+    #0000000f
+  );
+  box-shadow:
+    inset 0 1px 0 var(--surface-highlight),
+    0 1px 2px #00000010;
+}
+
+.button > svg {
+  filter: drop-shadow(0 -1px 0 #00000080) drop-shadow(0 1px 0 #fff1d580);
 }
 .button:hover:not(:disabled),
 input[type="file"]:not(:disabled)::file-selector-button:hover {
-  background: var(--surface-hover);
+  background-color: var(--surface-hover);
 }
 .button-primary {
   border-color: var(--accent);
-  background: var(--accent);
+  background-color: var(--accent);
   color: var(--bg);
 }
 .button[aria-pressed="true"] {
   border-color: var(--accent-border);
-  background: var(--accent-subtle);
+  background-color: var(--accent-subtle);
   color: var(--accent);
 }
 .button-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background-color: var(--accent-hover);
 }
 .button-success {
   border-color: var(--success);
-  background: var(--success);
+  background-color: var(--success);
   color: var(--bg);
 
   &:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--success) 85%, white);
+    background-color: color-mix(in srgb, var(--success) 85%, white);
   }
 }
 .button-secondary {
   border-color: var(--secondary);
-  background: var(--secondary);
+  background-color: var(--secondary);
   color: var(--bg);
 
   &:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--secondary) 85%, white);
+    background-color: color-mix(in srgb, var(--secondary) 85%, white);
   }
 }
 .button-danger {
   border-color: var(--danger-accent);
-  background: var(--danger-accent);
+  background-color: var(--danger-accent);
   color: var(--bg);
 }
 .button-warning {
   border-color: var(--warning-accent);
-  background: var(--warning-accent);
+  background-color: var(--warning-accent);
   color: var(--bg);
 
   &:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--warning-accent) 85%, white);
+    background-color: color-mix(in srgb, var(--warning-accent) 85%, white);
   }
 }
 .button-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--danger-accent) 85%, white);
+  background-color: color-mix(in srgb, var(--danger-accent) 85%, white);
 }
+
+.button:is(
+  .button-primary,
+  .button-success,
+  .button-secondary,
+  .button-warning,
+  .button-danger
+) {
+  background-image: linear-gradient(
+    180deg,
+    var(--control-highlight),
+    transparent 45%,
+    var(--control-shade)
+  );
+  box-shadow:
+    inset 0 1px 0 var(--control-rim),
+    0 1px 2px #00000014;
+}
+
 .button:disabled,
 input[type="file"]:disabled::file-selector-button {
   border-color: var(--border);
-  background: var(--surface-hover);
+  background-color: var(--surface-hover);
   color: var(--muted);
   cursor: default;
+  box-shadow: inset 0 1px 0 var(--surface-highlight);
+  background-image: linear-gradient(
+    180deg,
+    #fff1d507,
+    transparent 60%,
+    #00000008
+  );
+}
+
+.button:active:not(:disabled),
+input[type="file"]:not(:disabled)::file-selector-button:active {
+  box-shadow: inset 0 1px 2px #00000020;
+  background-image: linear-gradient(180deg, var(--control-shade), transparent);
+}
+
+.button:focus-visible,
+input[type="file"]:focus-visible::file-selector-button {
+  box-shadow: 0 0 0 4px var(--ember-glow);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .button,
+  input[type="file"]::file-selector-button {
+    transition:
+      background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease,
+      color var(--motion-fast) ease,
+      transform var(--motion-fast) var(--ease-settle);
+  }
+
+  .button:active:not(:disabled),
+  input[type="file"]:not(:disabled)::file-selector-button:active {
+    transform: translateY(1px);
+  }
 }
 input[type="file"] {
   color: var(--text);
@@ -98,9 +165,7 @@ input[type="file"] {
 }
 
 .button-small {
-  --button-icon-size: 32px;
   --button-icon-glyph-size: 16px;
-  --button-min-height: 32px;
   --button-padding: 6px 10px;
   --button-font-size: 12px;
 }

@@ -15,6 +15,11 @@ test("login validation, persistent session, and logout", async ({ page }) => {
     page.getByRole("heading", { name: "Sign in", exact: true }),
   ).toBeVisible();
   await screenshot(page, "login.png");
+  await page.keyboard.press("Tab");
+  await screenshot(page, "login-focused.png");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await screenshot(page, "login-focused-mobile.png");
+  await page.setViewportSize({ width: 1400, height: 900 });
   await page.getByLabel("Password", { exact: true }).fill("incorrect-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
@@ -37,6 +42,63 @@ for (const [id, heading] of screens) {
     await login(page);
     await openScreen(page, id, heading);
     await screenshot(page, `${id}.png`);
+    if (id === "dashboard") {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await screenshot(page, "dashboard-mobile.png");
+    }
+  });
+}
+
+for (const screen of ["overview", "server"] as const) {
+  test(`${screen} start action shows progress until the server is ready`, async ({
+    page,
+  }) => {
+    await login(page);
+    if (screen === "server") await page.goto("/#servers/creative/console");
+    let state = "stopped";
+    const status = () => ({
+      server_id: "creative",
+      state,
+      ready: state === "running",
+      busy: state === "starting",
+      disk_quota_enforced: true,
+      operation_id: "test-start",
+      operation: "start",
+      operation_state: state === "starting" ? "running" : "succeeded",
+    });
+    await page.route("**/api/v1/servers/creative/status", (route) =>
+      route.fulfill({ json: status() }),
+    );
+    await page.route("**/api/v1/servers/creative/actions", (route) => {
+      expect(route.request().postDataJSON().action).toBe("start");
+      state = "starting";
+      return route.fulfill({ json: status() });
+    });
+    const start = page.getByRole("button", {
+      name: screen === "overview" ? "Start Creative" : "Start",
+      exact: true,
+    });
+    const stateLabel =
+      screen === "overview"
+        ? page
+            .getByRole("row")
+            .filter({ hasText: "Creative" })
+            .locator(".server-state")
+        : page.locator(".page-header .server-state");
+    await expect(start).toBeEnabled();
+    await start.click();
+    await expect(start).toBeDisabled();
+    await expect(stateLabel).toContainText("Starting");
+    if (screen === "server")
+      await expect(page).toHaveScreenshot("server-starting.png");
+    state = "running";
+    await expect(stateLabel).toContainText("Running");
+    await expect(
+      page.getByRole("button", {
+        name: screen === "overview" ? "Stop Creative" : "Stop",
+        exact: true,
+      }),
+    ).toBeEnabled();
   });
 }
 
@@ -112,6 +174,7 @@ test("console commands arrive in the live log stream", async ({ page }) => {
   await page
     .getByRole("textbox", { name: "Command", exact: true })
     .fill("list");
+  await screenshot(page, "server-console-focused.png");
   await page.getByRole("button", { name: "Send command", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Console output", exact: true }),

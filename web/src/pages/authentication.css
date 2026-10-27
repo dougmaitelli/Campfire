@@ -3,6 +3,11 @@
   display: grid;
   place-items: center;
   padding: 3rem 1.5rem;
+  background-image: radial-gradient(
+    ellipse at 35% 35%,
+    var(--ember-glow),
+    transparent 65%
+  );
 }
 
 .authentication-card {
@@ -13,7 +18,9 @@
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface);
-  box-shadow: 0 24px 80px #00000020;
+  box-shadow:
+    inset 0 1px 0 var(--surface-highlight),
+    0 24px 80px #00000030;
 }
 
 .authentication-introduction {
@@ -23,6 +30,12 @@
   border-inline-end: 1px solid var(--border);
   border-radius: 16px 0 0 16px;
   background: var(--sidebar-bg);
+  background-image:
+    var(--surface-grain),
+    radial-gradient(ellipse at 0 0, var(--ember-glow), transparent 75%);
+  background-size:
+    160px 160px,
+    100% 100%;
 }
 
 .authentication-brand {
@@ -32,6 +45,7 @@
   font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.04em;
+  font-family: var(--font-heading);
 
   & svg {
     width: 30px;
@@ -51,6 +65,7 @@
   letter-spacing: -0.04em;
   line-height: 1.2;
   text-wrap: balance;
+  font-family: var(--font-heading);
 }
 
 .authentication-tagline {
@@ -129,11 +144,11 @@
 
   & .authentication-password-toggle {
     position: absolute;
-    inset-inline-end: 2px;
-    top: 2px;
-    --button-icon-size: calc(var(--control-height) - 4px);
+    inset-inline-end: 0;
+    top: 0;
     border: 0;
     background: transparent;
+    box-shadow: none;
     color: var(--muted);
   }
 }
@@ -151,6 +166,24 @@
     height: 1px;
     flex: 1;
     background: var(--border);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .authentication-page:has([role="status"]) .campfire-mark > path:first-child {
+    transform-origin: 50% 60%;
+    animation: flame-connect 1200ms ease-in-out infinite alternate;
+  }
+}
+
+@keyframes flame-connect {
+  from {
+    opacity: 0.75;
+    transform: scaleY(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1.04);
   }
 }
 

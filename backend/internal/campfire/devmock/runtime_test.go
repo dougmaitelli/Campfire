@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
@@ -65,6 +66,21 @@ func onlineServer(t *testing.T, runtime *Runtime, servers []model.Server) model.
 	return model.Server{}
 }
 
+func settleRuntime(t *testing.T, runtime *Runtime, server model.Server) model.RuntimeStatus {
+	t.Helper()
+	runtime.mu.Lock()
+	now := runtime.now().Add(lifecycleDuration)
+	runtime.now = func() time.Time { return now }
+	runtime.mu.Unlock()
+
+	status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "status"})
+	if err != nil || status.Busy {
+		t.Fatal("mock lifecycle did not settle", status, err)
+	}
+
+	return status
+}
+
 func TestSeedAuthenticationAndPersistence(t *testing.T) {
 	runtime, db, auth, servers := fixture(t)
 
@@ -79,6 +95,9 @@ func TestSeedAuthenticationAndPersistence(t *testing.T) {
 	}
 
 	server := onlineServer(t, runtime, servers)
+	now := time.Now()
+
+	runtime.now = func() time.Time { return now }
 	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "stop", OperationID: "test-stop"}); err != nil {
 		t.Fatal(err)
 	}
@@ -88,9 +107,15 @@ func TestSeedAuthenticationAndPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	reloaded.now = runtime.now
+
 	status, err := reloaded.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "status"})
-	if err != nil || status.State != "stopped" || status.OperationID != "test-stop" {
+	if err != nil || status.State != "stopping" || !status.Busy || status.OperationID != "test-stop" {
 		t.Fatal("mock restart reset runtime state", status, err)
+	}
+
+	if status := settleRuntime(t, reloaded, server); status.State != "stopped" || status.OperationID != "test-stop" {
+		t.Fatal("persisted mock transition did not complete", status)
 	}
 
 	for _, record := range []struct {
@@ -137,6 +162,10 @@ func TestLifecycleMetricsAndOffline(t *testing.T) {
 			t.Fatal(action, err)
 		}
 
+		if status.Busy {
+			status = settleRuntime(t, runtime, server)
+		}
+
 		if action == "metrics" && (status.Metrics == nil || status.Metrics.CPUPercent == nil || status.Metrics.MemoryBytes == nil || status.Metrics.SampledAt == 0) {
 			t.Fatal("missing fresh resource readings", status)
 		}
@@ -166,6 +195,79 @@ func TestLifecycleMetricsAndOffline(t *testing.T) {
 
 	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "backup"}); err == nil {
 		t.Fatal("unsupported backup pretended to succeed")
+	}
+}
+
+func TestLifecycleTransitionsRemainObservableUntilCompletion(t *testing.T) {
+	runtime, _, _, servers := fixture(t)
+	server := onlineServer(t, runtime, servers)
+	now := time.Now()
+	runtime.now = func() time.Time { return now }
+
+	for _, step := range []struct {
+		action, pending, settled string
+	}{
+		{"stop", "stopping", "stopped"},
+		{"start", "starting", "running"},
+		{"restart", "restarting", "running"},
+	} {
+		request := model.RuntimeRequest{ServerID: server.ID, Action: step.action, OperationID: "test-" + step.action}
+
+		status, err := runtime.Action(t.Context(), server.SparkID, request)
+		if err != nil || status.State != step.pending || !status.Busy || status.Ready || status.OperationState != model.OperationRunning {
+			t.Fatal("lifecycle action skipped its pending state", step.action, status, err)
+		}
+
+		logs, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "logs"})
+		if err != nil || !strings.Contains(logs.Logs, step.action+" in progress; state="+step.pending) {
+			t.Fatal("pending action missing from console", logs, err)
+		}
+
+		if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "restart", OperationID: "conflicting"}); !errors.Is(err, service.ErrServerActive) {
+			t.Fatal("overlapping lifecycle action was not rejected", err)
+		}
+
+		now = now.Add(5*time.Second - time.Nanosecond)
+
+		metrics, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "metrics"})
+		if err != nil || !metrics.Busy || metrics.State != step.pending || metrics.Metrics.State != step.pending || metrics.OperationID != request.OperationID {
+			t.Fatal("polling completed a transition too early or lost its operation", metrics, err)
+		}
+
+		now = now.Add(time.Nanosecond)
+
+		status, err = runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "status"})
+		if err != nil || status.Busy || status.State != step.settled || status.Ready != (step.settled == "running") || status.OperationState != model.OperationSucceeded || status.OperationID != request.OperationID {
+			t.Fatal("transition did not complete at its deadline", status, err)
+		}
+
+		logs, err = runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "logs"})
+		if err != nil || strings.Count(logs.Logs, step.action+" completed; state="+step.settled) != 1 {
+			t.Fatal("completion was missing or logged more than once", logs, err)
+		}
+	}
+}
+
+func TestKillCancelsPendingLifecycleTransition(t *testing.T) {
+	runtime, _, _, servers := fixture(t)
+	server := onlineServer(t, runtime, servers)
+	now := time.Now()
+
+	runtime.now = func() time.Time { return now }
+	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "restart", OperationID: "restart"}); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "kill", OperationID: "kill"})
+	if err != nil || status.Busy || status.State != "stopped" || status.OperationID != "kill" {
+		t.Fatal("kill did not immediately cancel the pending restart", status, err)
+	}
+
+	now = now.Add(10 * time.Second)
+
+	status, err = runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "status"})
+	if err != nil || status.State != "stopped" || status.Ready || status.Busy || status.OperationID != "kill" {
+		t.Fatal("cancelled restart revived the server", status, err)
 	}
 }
 
