@@ -73,8 +73,16 @@
 .drawer-title {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
+
+  & .status-pill {
+    align-items: baseline;
+  }
+
+  & .status-pill::before {
+    transform: translateY(calc((var(--status-indicator-size) - 1cap) / 2));
+  }
 }
 .drawer-heading h2 {
   margin: 0;

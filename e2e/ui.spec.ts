@@ -547,6 +547,16 @@ test("resource inspection keeps the current page and supports nested drawers", a
   await inspectServer(page);
   await expect(page).toHaveURL(/#schedules$/);
   await screenshot(page, "server-inspection.png");
+  const variable = page
+    .getByRole("dialog")
+    .locator(".details-list > div")
+    .filter({ has: page.getByText("ENABLE_COMMAND_BLOCKS", { exact: true }) });
+  await expect(variable).toHaveScreenshot("server-inspection-long-label.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(variable).toHaveScreenshot(
+    "server-inspection-long-label-mobile.png",
+  );
+  await page.setViewportSize({ width: 1400, height: 900 });
   await page
     .getByRole("dialog")
     .getByRole("link", { name: "Europe", exact: true })
@@ -567,6 +577,37 @@ test("resource inspection keeps the current page and supports nested drawers", a
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page).toHaveURL(/#schedules$/);
+
+  for (const [screen, heading, resource] of [
+    ["servers", "Servers", "Survival"],
+    ["sparks", "Sparks", "Europe"],
+  ] as const) {
+    await openScreen(page, screen, heading);
+    await page
+      .getByRole("button", {
+        name: `View details for ${resource}`,
+        exact: true,
+      })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { level: 2, name: new RegExp(resource) }),
+    ).toBeVisible();
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+    await expect(dialog.locator(".drawer-heading")).toHaveScreenshot(
+      `${screen}-drawer-heading.png`,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(dialog.locator(".drawer-heading")).toHaveScreenshot(
+      `${screen}-drawer-heading-mobile.png`,
+    );
+    await dialog
+      .getByRole("button", { name: "Close", exact: true })
+      .first()
+      .click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`#${screen}$`));
+  }
 });
 
 test("schedule history excludes direct server operations", async ({ page }) => {
