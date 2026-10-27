@@ -22,6 +22,7 @@ import {
 } from "../api/activity";
 import { useCollection } from "../hooks/useCollection";
 import { ScheduleDialog } from "../dialogs/ScheduleDialog";
+import { ScheduleDetailsDialog } from "../dialogs/ScheduleDetailsDialog";
 
 import { Table, TableRow } from "../components/table/Table";
 import { ExecutionState } from "../components/schedules/ExecutionState";
@@ -41,7 +42,7 @@ export function SchedulesPage() {
   const servers = useCollection(listServers);
   const schedules = useCollection(listSchedules);
   const [runs, setRuns] = useState<Execution[]>([]);
-  const { selected: editing, select: setEditing } = useResourceSelection(
+  const { selected: details, select: setDetails } = useResourceSelection(
     schedules.items,
     !schedules.loading && !schedules.error,
   );
@@ -189,7 +190,7 @@ export function SchedulesPage() {
               variant="primary"
               disabled={!managed.length}
               onClick={() => {
-                setEditing(null);
+                setDetails(null);
                 setOpen(true);
               }}
             >
@@ -265,34 +266,29 @@ export function SchedulesPage() {
                 <TableRow
                   key={item.id}
                   onOpen={
-                    !busy &&
-                    managed.some((server) => server.id === item.server_id)
+                    !busy
                       ? () => {
-                          setEditing(item);
+                          setDetails(item);
                           setOpen(false);
                         }
                       : undefined
                   }
                 >
                   <td>
-                    {managed.some((server) => server.id === item.server_id) ? (
-                      <button
-                        type="button"
-                        className="table-row-trigger"
-                        disabled={busy}
-                        aria-label={i18n.t("schedulesPage.editSchedule", {
-                          itemName: item.name,
-                        })}
-                        onClick={() => {
-                          setEditing(item);
-                          setOpen(false);
-                        }}
-                      >
-                        {item.name}
-                      </button>
-                    ) : (
-                      <strong>{item.name}</strong>
-                    )}
+                    <button
+                      type="button"
+                      className="table-row-trigger"
+                      disabled={busy}
+                      aria-label={i18n.t("schedulesPage.viewDetailsFor", {
+                        itemName: item.name,
+                      })}
+                      onClick={() => {
+                        setDetails(item);
+                        setOpen(false);
+                      }}
+                    >
+                      {item.name}
+                    </button>
                     <span className="row-description">
                       <ResourceLink href={links.server(item.server_id)}>
                         {servers.items.find(
@@ -398,8 +394,7 @@ export function SchedulesPage() {
                     {operationLabel(run.action)} ·{" "}
                     <ResourceLink
                       href={
-                        run.schedule_id &&
-                        managed.some((server) => server.id === run.server_id)
+                        run.schedule_id
                           ? links.schedule(run.schedule_id)
                           : undefined
                       }
@@ -470,22 +465,23 @@ export function SchedulesPage() {
           </Button>
         )}
       </ContentPanel>
-      {editing &&
-        !managed.some((server) => server.id === editing.server_id) && (
-          <InlineMessage>
-            {t("schedulesPage.youDoNotHavePermissionToEditThisSchedule")}
-          </InlineMessage>
-        )}
-      {(open ||
-        (editing &&
-          managed.some((server) => server.id === editing.server_id))) && (
+      {details && (
+        <ScheduleDetailsDialog
+          key={details.id}
+          schedule={details}
+          servers={servers.items}
+          onClose={() => setDetails(null)}
+          onSaved={() => {
+            void schedules.refresh();
+          }}
+        />
+      )}
+      {open && (
         <ScheduleDialog
-          key={editing?.id ?? "new"}
-          schedule={editing}
+          schedule={null}
           servers={managed}
           onClose={() => {
             setOpen(false);
-            setEditing(null);
           }}
           onSaved={() => {
             void schedules.refresh();

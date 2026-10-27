@@ -263,7 +263,7 @@ func (a *API) runSchedule(w http.ResponseWriter, r *http.Request) {
 func (a *API) listExecutions(w http.ResponseWriter, r *http.Request) {
 	p := currentUser(r)
 
-	items, err := a.activity.Store.ScheduleRuns(r.Context(), p.UserID, p.Admin, r.URL.Query().Get("server_id"), r.URL.Query().Get("before"))
+	items, err := a.activity.Store.ScheduleRuns(r.Context(), p.UserID, p.Admin, r.URL.Query().Get("server_id"), r.URL.Query().Get("before"), r.URL.Query().Get("schedule_id"))
 	if err != nil {
 		writeError(w, err)
 		return

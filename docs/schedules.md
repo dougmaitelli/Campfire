@@ -23,6 +23,11 @@ scheduled work, and the Spark must be available to execute it.
 
 ## Check the result
 
+Open a schedule from its row to view its settings and execution history. The
+drawer shows only that schedule's runs and can load older attempts. Users with
+server view access can inspect it; **Edit schedule** requires both configuration
+and operation permissions for that server.
+
 Inspect schedule history for the run's status and any reported error. **Run now**
 lets you trigger a schedule explicitly. It still uses the same action requirements
 and permissions as a timed execution.

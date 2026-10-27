@@ -3,7 +3,7 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 48px;
   margin-top: 8px;
-  align-items: start;
+  align-items: stretch;
   overflow: hidden;
 
   & > .content-panel {
@@ -15,7 +15,7 @@
     &::before {
       content: "";
       position: absolute;
-      inset-block: 24px 0;
+      inset-block: 0;
       inset-inline-start: -24px;
       border-inline-start: 1px solid var(--border);
     }

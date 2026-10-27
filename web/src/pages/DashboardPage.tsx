@@ -2,6 +2,7 @@ import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
+import { useResourceInspection } from "../routing/ResourceInspection";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { ContentState } from "../components/layout/ContentState";
 import { OverviewEmptyState } from "../components/overview/OverviewEmptyState";
@@ -43,6 +44,11 @@ const OVERVIEW_REFRESH_INTERVAL_MS = 10000;
 export function DashboardPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
+  const inspect = useResourceInspection();
+  function openSchedule(id: string) {
+    const href = links.schedule(id);
+    if (href) inspect?.(href);
+  }
   const monitor = useMonitoring();
   const auth = useAuthentication();
   const canReadBackups =
@@ -572,11 +578,21 @@ export function DashboardPage() {
                 </thead>
                 <tbody>
                   {upcomingSchedules.map((schedule) => (
-                    <tr key={schedule.id}>
+                    <TableRow
+                      key={schedule.id}
+                      onOpen={() => openSchedule(schedule.id)}
+                    >
                       <td>
-                        <ResourceLink href={links.schedule(schedule.id)}>
+                        <button
+                          type="button"
+                          className="table-row-trigger"
+                          aria-label={t("schedulesPage.viewDetailsFor", {
+                            itemName: schedule.name,
+                          })}
+                          onClick={() => openSchedule(schedule.id)}
+                        >
                           {schedule.name}
-                        </ResourceLink>
+                        </button>
                       </td>
                       <td>
                         <ResourceLink href={links.server(schedule.server_id)}>
@@ -609,7 +625,7 @@ export function DashboardPage() {
                           onError={setScheduleError}
                         />
                       </td>
-                    </tr>
+                    </TableRow>
                   ))}
                 </tbody>
               </Table>

@@ -138,8 +138,10 @@ export function listExecutions(
   signal: AbortSignal,
   before = "",
   serverID = "",
+  scheduleID = "",
 ) {
   const query = new URLSearchParams({ before, server_id: serverID });
+  if (scheduleID) query.set("schedule_id", scheduleID);
   return collection(
     `/api/v1/schedules/executions?${query}`,
     signal,

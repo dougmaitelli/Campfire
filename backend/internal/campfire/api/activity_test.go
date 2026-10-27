@@ -208,6 +208,17 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal("schedule history included a direct operation", response.Body)
 	}
 
+	for _, selected := range []string{schedule.ID, "other-schedule"} {
+		response = request(ownerHandler, "GET", "/api/v1/schedules/executions?schedule_id="+selected, "")
+		if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &scheduleRuns) != nil {
+			t.Fatal("filtered history request failed", response.Code, response.Body)
+		}
+
+		if selected == schedule.ID && len(scheduleRuns) != 1 || selected != schedule.ID && len(scheduleRuns) != 0 {
+			t.Fatal("history did not honor its schedule filter", response.Body)
+		}
+	}
+
 	const password = "private-password-for-new-account"
 	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","password":"`+password+`","role_id":3}`, http.StatusCreated)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-console-input"}`, http.StatusOK)

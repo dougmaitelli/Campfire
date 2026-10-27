@@ -8,7 +8,7 @@ import { useAuthentication } from "../hooks/useAuthentication";
 import { UserDialog } from "../dialogs/UserDialog";
 import { RoleDialog } from "../dialogs/RoleDialog";
 import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
-import { ScheduleDialog } from "../dialogs/ScheduleDialog";
+import { ScheduleDetailsDialog } from "../dialogs/ScheduleDetailsDialog";
 import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
 import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
 import { Drawer } from "../components/layout/Drawer";
@@ -137,7 +137,8 @@ export function InspectSchedule({ id, onClose }: InspectionProps) {
       />
     );
   return (
-    <ScheduleDialog
+    <ScheduleDetailsDialog
+      key={schedule.id}
       schedule={schedule}
       servers={servers.items}
       onClose={onClose}

@@ -218,15 +218,15 @@ func (r *ActivityRepository) Run(ctx context.Context, id string) (database.Sched
 
 // Runs returns paginated execution history with current server visibility enforced.
 func (r *ActivityRepository) Runs(ctx context.Context, userID int64, admin bool, serverID, before string) ([]database.ScheduleRun, error) {
-	return r.runs(ctx, userID, admin, serverID, before, false)
+	return r.runs(ctx, userID, admin, serverID, before, "", false)
 }
 
 // ScheduleRuns excludes direct operations while retaining runs of deleted schedules.
-func (r *ActivityRepository) ScheduleRuns(ctx context.Context, userID int64, admin bool, serverID, before string) ([]database.ScheduleRun, error) {
-	return r.runs(ctx, userID, admin, serverID, before, true)
+func (r *ActivityRepository) ScheduleRuns(ctx context.Context, userID int64, admin bool, serverID, before, scheduleID string) ([]database.ScheduleRun, error) {
+	return r.runs(ctx, userID, admin, serverID, before, scheduleID, true)
 }
 
-func (r *ActivityRepository) runs(ctx context.Context, userID int64, admin bool, serverID, before string, schedulesOnly bool) ([]database.ScheduleRun, error) {
+func (r *ActivityRepository) runs(ctx context.Context, userID int64, admin bool, serverID, before, scheduleID string, schedulesOnly bool) ([]database.ScheduleRun, error) {
 	items := []database.ScheduleRun{}
 
 	query := r.db.WithContext(ctx).Omit("Content").Order("created_at DESC, id DESC")
@@ -240,6 +240,10 @@ func (r *ActivityRepository) runs(ctx context.Context, userID int64, admin bool,
 
 	if serverID != "" {
 		query = query.Where("server_id = ?", serverID)
+	}
+
+	if scheduleID != "" {
+		query = query.Where("schedule_id = ?", scheduleID)
 	}
 
 	query, err := historyBefore(query, &database.ScheduleRun{}, before)

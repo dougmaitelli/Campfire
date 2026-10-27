@@ -48,7 +48,7 @@ func TestScheduleHistoryExcludesDirectOperationsBeforePagination(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	first, err := store.ScheduleRuns(ctx, 1, true, "game", "")
+	first, err := store.ScheduleRuns(ctx, 1, true, "game", "", "")
 	if err != nil || len(first) != 100 || first[0].ID != "run-101" || first[0].RetryOf != "run-100" {
 		t.Fatal("schedule pagination lost scheduled attempts", len(first), err)
 	}
@@ -61,12 +61,12 @@ func TestScheduleHistoryExcludesDirectOperationsBeforePagination(t *testing.T) {
 
 	last := first[len(first)-1]
 
-	second, err := store.ScheduleRuns(ctx, 1, true, "game", fmt.Sprintf("%d:%s", last.CreatedAt, last.ID))
+	second, err := store.ScheduleRuns(ctx, 1, true, "game", fmt.Sprintf("%d:%s", last.CreatedAt, last.ID), "")
 	if err != nil || len(second) != 2 || second[0].ID != "run-001" || second[1].ID != "run-000" {
 		t.Fatal("schedule history cursor skipped attempts", second, err)
 	}
 
-	visible, err := store.ScheduleRuns(ctx, 999, false, "", "")
+	visible, err := store.ScheduleRuns(ctx, 999, false, "", "", "")
 	if err != nil || len(visible) != 0 {
 		t.Fatal("schedule history bypassed server visibility", visible, err)
 	}
@@ -74,6 +74,27 @@ func TestScheduleHistoryExcludesDirectOperationsBeforePagination(t *testing.T) {
 	operations, err := store.Runs(ctx, 1, true, "game", "")
 	if err != nil || len(operations) != 100 || operations[0].ScheduleID != "" {
 		t.Fatal("direct operation history was removed", len(operations), err)
+	}
+
+	for i := range 110 {
+		if err := store.CreateRun(ctx, &database.ScheduleRun{ID: fmt.Sprintf("other-%03d", i), ScheduleID: "other-schedule", ServerID: "game", CreatedAt: int64(1000 + i)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	filtered, err := store.ScheduleRuns(ctx, 1, true, "game", "", "deleted-schedule")
+	if err != nil || len(filtered) != 100 || filtered[0].ID != "run-101" {
+		t.Fatal("schedule filter was applied after pagination", filtered, err)
+	}
+
+	filtered, err = store.ScheduleRuns(ctx, 1, true, "game", fmt.Sprintf("%d:%s", last.CreatedAt, last.ID), "deleted-schedule")
+	if err != nil || len(filtered) != 2 || filtered[0].ID != "run-001" {
+		t.Fatal("filtered history lost its cursor", filtered, err)
+	}
+
+	filtered, err = store.ScheduleRuns(ctx, 999, false, "", "", "deleted-schedule")
+	if err != nil || len(filtered) != 0 {
+		t.Fatal("schedule filter bypassed visibility", filtered, err)
 	}
 }
 
