@@ -161,6 +161,12 @@ for (const permissions of [
       ).ok(),
     ).toBeTruthy();
     await page.reload();
+    await expect(
+      page.getByRole("switch", {
+        name: "Enable schedule Nightly restart",
+        exact: true,
+      }),
+    ).toBeDisabled();
     await page
       .getByRole("button", {
         name: "View details for Nightly restart",
@@ -191,6 +197,12 @@ for (const permissions of [
       .last()
       .click();
     await openScreen(page, "schedules", "Schedules");
+    await expect(
+      page.getByRole("switch", {
+        name: "Enable schedule Nightly restart",
+        exact: true,
+      }),
+    ).toBeDisabled();
     await page
       .getByRole("button", {
         name: "View details for Nightly restart",
@@ -226,6 +238,68 @@ test("a schedule without server access cannot be opened through a direct link", 
   await page.goto("/#schedules/nightly-restart");
   await expect(page).toHaveURL(/#schedules$/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("the seeded observer can view schedules but cannot toggle them", async ({
+  page,
+}) => {
+  await login(page, "observer");
+  const upcoming = page.getByRole("table", {
+    name: "Upcoming schedules",
+    exact: true,
+  });
+  const row = upcoming.getByRole("row").filter({ hasText: "Nightly restart" });
+  await expect(
+    row.getByRole("switch", {
+      name: "Enable schedule Nightly restart",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await expect(upcoming).toHaveScreenshot("upcoming-schedules-read-only.png");
+  await row.getByRole("cell").nth(2).click();
+  const overview = page.getByRole("dialog", {
+    name: "Nightly restart",
+    exact: true,
+  });
+  await expect(
+    overview.getByRole("button", { name: "Edit schedule", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    overview
+      .getByRole("region", { name: "Execution history", exact: true })
+      .getByRole("row"),
+  ).toHaveCount(2);
+  await overview
+    .getByRole("button", { name: "Close", exact: true })
+    .last()
+    .click();
+  await openScreen(page, "schedules", "Schedules");
+  await expect(
+    page.getByRole("switch", {
+      name: "Enable schedule Nightly restart",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", {
+      name: "View details for Nightly restart",
+      exact: true,
+    })
+    .click();
+  await expect(overview).toBeVisible();
+  await expect(
+    overview.getByRole("button", { name: "Edit schedule", exact: true }),
+  ).toHaveCount(0);
+  const session = await page.request.get("/api/v1/auth/session");
+  const { csrf_token } = (await session.json()) as { csrf_token: string };
+  expect(
+    (
+      await page.request.patch("/api/v1/schedules/nightly-restart", {
+        headers: { "X-CSRF-Token": csrf_token },
+        data: { enabled: false },
+      })
+    ).status(),
+  ).toBe(403);
 });
 
 test("schedule history loads older attempts without including other schedules", async ({

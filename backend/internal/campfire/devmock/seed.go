@@ -26,6 +26,8 @@ type seedMarker struct {
 	ID int `gorm:"primaryKey;autoIncrement:false"`
 }
 
+const observerSeedMarkerID = 6
+
 // New seeds a fresh mock database once, then restores its saved simulated state.
 func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime, error) {
 	// Populate legacy rows before AutoMigrate can rebuild the SQLite table.
@@ -56,15 +58,29 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 
 	err = database.Transaction(db.WithContext(ctx), func(tx *gorm.DB) error {
 		var count int64
-		if err := tx.Model(&seedMarker{}).Count(&count).Error; err != nil || count > 0 {
+		if err := tx.Model(&seedMarker{}).Count(&count).Error; err != nil {
 			return err
 		}
 
-		if err := seed(ctx, tx); err != nil {
+		if count == 0 {
+			if err := seed(ctx, tx); err != nil {
+				return err
+			}
+
+			if err := tx.Create(&seedMarker{ID: 1}).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Model(&seedMarker{}).Where("id = ?", observerSeedMarkerID).Count(&count).Error; err != nil || count > 0 {
 			return err
 		}
 
-		return tx.Create(&seedMarker{ID: 1}).Error
+		if err := devfixture.SeedObserver(ctx, tx, time.Now().UTC()); err != nil {
+			return err
+		}
+
+		return tx.Create(&seedMarker{ID: observerSeedMarkerID}).Error
 	})
 	if err != nil {
 		return nil, err

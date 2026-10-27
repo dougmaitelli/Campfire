@@ -169,6 +169,10 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 		}
 	}
 
+	if err := SeedObserver(ctx, tx, now); err != nil {
+		return nil, err
+	}
+
 	return servers, nil
 }
 

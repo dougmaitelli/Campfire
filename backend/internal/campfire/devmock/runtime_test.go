@@ -122,7 +122,7 @@ func TestSeedAuthenticationAndPersistence(t *testing.T) {
 		model any
 		count int64
 	}{
-		{&database.User{}, 8}, {&database.Server{}, 5}, {&database.Spark{}, 3},
+		{&database.User{}, 9}, {&database.Server{}, 5}, {&database.Spark{}, 3},
 		{&database.Ember{}, 2}, {&database.Schedule{}, 1}, {&database.Notification{}, 3},
 	} {
 		var count int64
