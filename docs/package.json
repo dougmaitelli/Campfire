@@ -7,7 +7,7 @@
     "node": ">=26"
   },
   "scripts": {
-    "dev": "astro dev",
+    "dev": "astro dev --host 0.0.0.0",
     "check": "pnpm run format:check && pnpm run lint && astro check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

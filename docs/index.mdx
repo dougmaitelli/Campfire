@@ -3,7 +3,8 @@ title: Campfire
 description: Manage game servers, consoles, schedules, and backups across your Linux hosts.
 template: splash
 hero:
-  tagline: Your game servers, together around one Campfire.
+  title: Your game servers, in one place.
+  tagline: Campfire is a self-hosted game server panel for your Linux machines. Run games, manage files and backups, and give friends access—all from one web interface.
   image:
     file: ../screenshots/dashboard.png
     alt: Campfire overview showing game servers and resource usage
@@ -17,61 +18,71 @@ hero:
       icon: external
 ---
 
-import consoleImage from "../screenshots/server-console.png";
-import schedulesImage from "../screenshots/schedules.png";
-import backupsImage from "../screenshots/server-backups.png";
+import { CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
 
-## A home for your game servers
+## Keep your games running
 
-Campfire is a self-hosted panel for running games across Linux machines.
-The panel manages accounts, permissions, and automation. A **Spark** agent on
-each game host runs the containers. **Embers** define how each game is installed
-and configured, including supported Pterodactyl and Pelican Egg imports.
+Follow what's happening now, take care of routine work, and share access with
+the people you play with.
 
-Start with [Docker Compose](/Campfire/getting-started/) or a
-[Linux binary](/Campfire/binary-installation/), then
-[install your first game server](/Campfire/first-server/).
+<CardGrid>
+  <LinkCard
+    title="Live console and monitoring"
+    description="Stream game logs, send commands, and follow CPU and memory use."
+    href="/Campfire/console/"
+  />
+  <LinkCard
+    title="Files and SFTP"
+    description="Edit configuration, transfer worlds, and manage game files in the browser or over SFTP."
+    href="/Campfire/server-files/"
+  />
+  <LinkCard
+    title="Backups and recovery"
+    description="Create and restore snapshots, with optional S3-compatible storage and retention."
+    href="/Campfire/server-backups/"
+  />
+  <LinkCard
+    title="Schedules and automation"
+    description="Schedule restarts and backups, then review their execution history."
+    href="/Campfire/schedules/"
+  />
+  <LinkCard
+    title="Accounts and access"
+    description="Share individual servers through roles and memberships, with optional OpenID Connect sign-in."
+    href="/Campfire/authentication/"
+  />
+  <LinkCard
+    title="Multiple game hosts"
+    description="Run games across Linux machines and allocate resources through Spark agents."
+    href="/Campfire/spark-agent/"
+  />
+</CardGrid>
 
-## Follow the game live
+## From installation to your first game
 
-Stream game and installer logs and send commands from the
-[console](/Campfire/console/). Give friends access to their servers through
-[roles and memberships](/Campfire/authentication/).
+<Steps>
 
-<img
-  src={consoleImage.src}
-  width={consoleImage.width}
-  height={consoleImage.height}
-  loading="lazy"
-  decoding="async"
-  alt="Game console with live logs and command input"
-/>
+1. **Set up the panel**
 
-## Plan routine actions
+   Install Campfire with [Docker Compose](/Campfire/getting-started/) or a
+   [Linux binary](/Campfire/binary-installation/). The panel manages accounts,
+   permissions, configuration, and automation.
 
-Use [schedules](/Campfire/schedules/) for recurring actions such as restarts
-and backups, with a history of their scheduled executions.
+2. **Connect a game host**
 
-<img
-  src={schedulesImage.src}
-  width={schedulesImage.width}
-  height={schedulesImage.height}
-  loading="lazy"
-  decoding="async"
-  alt="Recurring server schedules and execution history"
-/>
+   Add a [Spark](/Campfire/spark-agent/), the agent that runs game containers on
+   a Linux host. Start with one machine and add more hosts when you need them.
 
-## Keep a recovery point
+3. **Choose a game and start playing**
 
-Create and restore game snapshots from the server's Backups tab. Add
-[off-host storage and retention](/Campfire/server-backups/) when you need
-copies beyond the game host.
+   Import an [Ember](/Campfire/egg-compatibility/), the definition for installing
+   and running a game, then create your [first server](/Campfire/first-server/).
+   Supported Pterodactyl and Pelican Eggs can also be imported.
 
-<img
-  src={backupsImage.src}
-  width={backupsImage.width}
-  height={backupsImage.height}
-  loading="lazy"
-  decoding="async"
-  alt="Backups tab showing local and off-host game snapshots"
-/>
+</Steps>
+
+## Already running Campfire?
+
+Find a setting in the [configuration reference](/Campfire/configuration/),
+set up [notifications](/Campfire/notifications/), or follow the
+[upgrade and recovery guide](/Campfire/operations/).

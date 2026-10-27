@@ -29,25 +29,6 @@ if (image) {
 ---
 
 <div class="hero">
-  {darkImage && (
-    <img
-      src={darkImage.src}
-      width={darkImage.width}
-      height={darkImage.height}
-      {...imageAttrs}
-      class:list={{ "light:sl-hidden": Boolean(lightImage) }}
-    />
-  )}
-  {lightImage && (
-    <img
-      src={lightImage.src}
-      width={lightImage.width}
-      height={lightImage.height}
-      {...imageAttrs}
-      class="dark:sl-hidden"
-    />
-  )}
-  {rawHtml && <div class="hero-html sl-flex" set:html={rawHtml} />}
   <div class="sl-flex stack">
     <div class="sl-flex copy">
       <h1 id="_top" data-page-title set:html={title} />
@@ -79,6 +60,25 @@ if (image) {
       </div>
     )}
   </div>
+  {darkImage && (
+    <img
+      src={darkImage.src}
+      width={darkImage.width}
+      height={darkImage.height}
+      {...imageAttrs}
+      class:list={{ "light:sl-hidden": Boolean(lightImage) }}
+    />
+  )}
+  {lightImage && (
+    <img
+      src={lightImage.src}
+      width={lightImage.width}
+      height={lightImage.height}
+      {...imageAttrs}
+      class="dark:sl-hidden"
+    />
+  )}
+  {rawHtml && <div class="hero-html sl-flex" set:html={rawHtml} />}
 </div>
 
 <style>
@@ -154,12 +154,11 @@ if (image) {
       .hero {
         grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
         gap: clamp(2rem, 4vw, 4rem);
-        padding-block: clamp(2.5rem, calc(1rem + 10vmin), 10rem);
+        padding-block: clamp(2rem, 4vw, 4rem);
       }
 
       .hero > img,
       .hero > .hero-html {
-        order: 2;
         width: 100%;
       }
 
