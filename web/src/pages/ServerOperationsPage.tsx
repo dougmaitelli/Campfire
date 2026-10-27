@@ -20,7 +20,7 @@ import { ServerLifecycleControls } from "../components/servers/ServerLifecycleCo
 import { ResourceTiles } from "../components/metrics/ResourceTiles";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerGameEvents } from "../components/servers/ServerGameEvents";
-import { useResourceHistory } from "../hooks/useResourceHistory";
+import { ResourceGraphs } from "../components/metrics/ResourceGraphs";
 import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
 import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
 import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
@@ -99,7 +99,6 @@ export function ServerOperationsPage({
     (tab !== "activity" || server?.game_integration === true)
       ? tab
       : "console";
-  const resourceHistory = useResourceHistory(server?.id);
   useEffect(() => {
     const controller = new AbortController();
     const requestedRoute = window.location.hash.slice(1);
@@ -290,11 +289,7 @@ export function ServerOperationsPage({
               memoryMB={server.memory_mb}
               diskMB={server.disk_mb}
               elapsed={monitoring.elapsed}
-              history={resourceHistory?.history}
             />
-            {resourceHistory?.error && (
-              <InlineMessage tone="info">{resourceHistory.error}</InlineMessage>
-            )}
           </div>
           {monitoring.error && (
             <InlineMessage tone="info" role="status">
@@ -345,6 +340,11 @@ export function ServerOperationsPage({
                     server={server}
                     status={status}
                     onClose={back}
+                  />
+                  <ResourceGraphs
+                    serverID={server.id}
+                    cpuLimit={server.cpu_limit}
+                    memoryMB={server.memory_mb}
                   />
                 </>
               )}

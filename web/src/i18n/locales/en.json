@@ -28,6 +28,10 @@
   },
   "resourceHistory": {
     "chartLabel": "{{resource}} usage history",
+    "lastHour": "Last hour",
+    "loading": "Loading resource history…",
+    "empty": "No samples yet. History will appear as measurements arrive.",
+    "summary": "{{count}} measurements. Latest: {{value}}.",
     "unexpectedResponse": "Unexpected resource history response.",
     "loadFailed": "Unable to load resource history."
   },

@@ -1,12 +1,14 @@
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
-import { isResourceUsage, type ResourceUsage } from "./monitoring";
 
 export interface ResourceHistory {
   from: number;
   to: number;
   interval_seconds: number;
-  samples: { collected_at: number; usage: ResourceUsage }[];
+  samples: {
+    collected_at: number;
+    usage: { cpu_percent: number | null; memory_bytes: number | null };
+  }[];
 }
 
 export async function readResourceHistory(
@@ -30,6 +32,9 @@ export async function readResourceHistory(
     typeof input === "object" && input !== null;
   const timestamp = (input: unknown): input is number =>
     typeof input === "number" && Number.isSafeInteger(input) && input >= 0;
+  const measurement = (input: unknown) =>
+    input === null ||
+    (typeof input === "number" && Number.isFinite(input) && input >= 0);
   if (
     !object(value) ||
     !timestamp(value.from) ||
@@ -42,7 +47,10 @@ export async function readResourceHistory(
       (sample: unknown) =>
         object(sample) &&
         timestamp(sample.collected_at) &&
-        isResourceUsage(sample.usage),
+        object(sample.usage) &&
+        measurement(sample.usage.cpu_percent) &&
+        (sample.usage.memory_bytes === null ||
+          timestamp(sample.usage.memory_bytes)),
     )
   ) {
     throw new Error(i18n.t("resourceHistory.unexpectedResponse"));

@@ -87,7 +87,7 @@ test("resource columns display percentages and allocation ratios accessibly", ()
     expect(cell.querySelector(".visually-hidden")).not.toBeNull();
 });
 
-test("tiles pass metric history to individual readings while tables stay compact", () => {
+test("resource tiles show current measurements and allocation", () => {
   const usage: ResourceUsage = {
     server_id: "one",
     state: "running",
@@ -104,33 +104,18 @@ test("tiles pass metric history to individual readings while tables stay compact
     disk_quota_error: "",
   };
   const options = { usage, cpuLimit: 2, memoryMB: 4, diskMB: 8, elapsed: 0 };
-  const view = render(
-    <ResourceTiles
-      {...options}
-      history={{
-        from: 100,
-        to: 200,
-        interval_seconds: 100,
-        samples: [
-          { collected_at: 100, usage },
-          { collected_at: 200, usage: { ...usage, cpu_percent: null } },
-        ],
-      }}
-    />,
-  );
+  const view = render(<ResourceTiles {...options} />);
   expect(
     view.container.querySelectorAll(".metric-tiles > .usage-reading"),
   ).toHaveLength(3);
-  const charts = view.container.querySelectorAll(".resource-sparkline");
-  expect(charts).toHaveLength(3);
-  expect(charts[0]?.querySelectorAll("circle")).toHaveLength(1);
-  expect(charts[0]?.querySelector("title")?.textContent).toContain("75%");
-  expect(charts[1]?.querySelectorAll("circle")).toHaveLength(2);
+  expect(screen.getByText("75%")).toBeDefined();
+  expect(screen.getByText("1 MiB")).toBeDefined();
+  expect(screen.getByText("2 MiB")).toBeDefined();
+  expect(screen.getAllByRole("meter")).toHaveLength(3);
   view.rerender(<ResourceReadings {...options} />);
   expect(
     view.container.querySelectorAll(".resource-readings > .usage-reading"),
   ).toHaveLength(3);
-  expect(view.container.querySelector(".resource-sparkline")).toBeNull();
 });
 
 test("overview setup reflects existing Sparks and management permissions", () => {

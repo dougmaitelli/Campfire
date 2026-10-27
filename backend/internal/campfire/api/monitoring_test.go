@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"campfire/internal/campfire/database"
@@ -75,6 +76,30 @@ func TestMonitoringReadsStoredSamplesAndRevokesAccess(t *testing.T) {
 	var history model.ResourceHistory
 	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &history) != nil || len(history.Samples) != 1 || history.Samples[0].Usage.CPUPercent == nil || *history.Samples[0].Usage.CPUPercent != 125 {
 		t.Fatal("Spark aggregate history missing", response.Code, response.Body)
+	}
+
+	var payload struct {
+		Samples []map[string]json.RawMessage `json:"samples"`
+	}
+
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+
+	point := payload.Samples[0]
+	for key := range point {
+		if strings.HasPrefix(key, "disk_") {
+			t.Fatal("history still exposes disk aggregates", key)
+		}
+	}
+
+	var usage map[string]json.RawMessage
+	if err := json.Unmarshal(point["usage"], &usage); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(usage) != 2 || usage["memory_bytes"] == nil {
+		t.Fatal("history must contain only CPU and memory measurements", usage)
 	}
 
 	if f.runtime.calls.Load() != before {

@@ -12,16 +12,11 @@ type ResourceAggregate struct {
 	MemoryCount     int64   `gorm:"not null"`
 	MemorySum       float64 `gorm:"not null"`
 	MemoryPeak      int64   `gorm:"not null"`
-	DiskCount       int64   `gorm:"not null"`
-	DiskSum         float64 `gorm:"not null"`
-	DiskPeak        int64   `gorm:"not null"`
 	CPULimitSum     float64 `gorm:"not null"`
 	MemoryLimitSum  float64 `gorm:"not null"`
-	DiskLimitSum    float64 `gorm:"not null"`
 	LatestAt        int64   `gorm:"not null"`
 	CPUUnlimited    int64   `gorm:"not null"`
 	MemoryUnlimited int64   `gorm:"not null"`
-	DiskUnlimited   int64   `gorm:"not null"`
 }
 
 // ServerResourceBucket is one indexed, five-minute resource rollup.

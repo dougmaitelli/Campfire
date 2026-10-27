@@ -7,6 +7,10 @@ Open a server's console to follow game output, inspect its resource usage, and
 control its lifecycle. During installation, the console shows installer output.
 Once the game is running, it follows the game's standard output and error streams.
 
+CPU and memory graphs below the console show measurements from the last hour.
+Gaps indicate unavailable measurements. The resource bars above the console show
+current usage, including game-data disk usage; disk usage has no history graph.
+
 ## Send a command
 
 Enter a game command in the command field and choose **Send command**. Commands

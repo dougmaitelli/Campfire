@@ -176,7 +176,11 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
-			return tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{})
+			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}); err != nil {
+				return err
+			}
+
+			return removeDiskHistory(tx)
 		}
 
 		prerelease := version == 5 && legacyUsers || version == 6 && tx.Migrator().HasColumn(&Schedule{}, "version")

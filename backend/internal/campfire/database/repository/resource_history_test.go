@@ -40,7 +40,7 @@ func TestResourceHistoryMonthQueryIsBounded(t *testing.T) {
 	rows := make([]database.ServerResourceBucket, bucketCount)
 	for i := range rows {
 		start := base + int64(i)*repository.ResourceBucketSeconds
-		rows[i] = database.ServerResourceBucket{ServerID: "game", ResourceAggregate: database.ResourceAggregate{BucketStart: start, SampleCount: 30, CPUCount: 30, CPUSum: 1500, CPUPeak: 100, CPULimitSum: 60, MemoryUnlimited: 30, DiskUnlimited: 30, LatestAt: start + 290}}
+		rows[i] = database.ServerResourceBucket{ServerID: "game", ResourceAggregate: database.ResourceAggregate{BucketStart: start, SampleCount: 30, CPUCount: 30, CPUSum: 1500, CPUPeak: 100, CPULimitSum: 60, MemoryUnlimited: 30, LatestAt: start + 290}}
 	}
 
 	if err := db.ORM().Omit("Server").CreateInBatches(&rows, 100).Error; err != nil {
@@ -132,16 +132,16 @@ func TestResourceRollupWeightedAveragesPeaksAndRawTail(t *testing.T) {
 		t.Fatalf("rollup changed history: %s -> %s, %v", a, b, err)
 	}
 
-	if len(after) != 3 || after[0].SampleCount != 4 || after[0].CPUSamples != 4 || math.Abs(*after[0].Usage.CPUPercent-45) > 0.001 || *after[0].CPUPeak != 100 || after[0].MemorySamples != 3 || *after[0].Usage.MemoryBytes != 200 || after[0].DiskSamples != 3 || *after[0].Usage.DiskBytes != 2 {
+	if len(after) != 3 || after[0].SampleCount != 4 || after[0].CPUSamples != 4 || math.Abs(*after[0].Usage.CPUPercent-45) > 0.001 || *after[0].CPUPeak != 100 || after[0].MemorySamples != 3 || *after[0].Usage.MemoryBytes != 200 {
 		t.Fatal("incorrect weighted averages or peaks", after)
 	}
 
-	if after[1].Usage.CPUPercent != nil || after[1].Usage.MemoryBytes != nil || after[1].Usage.DiskBytes != nil || after[1].SampleCount != 1 {
+	if after[1].Usage.CPUPercent != nil || after[1].Usage.MemoryBytes != nil || after[1].SampleCount != 1 {
 		t.Fatal("missing samples became zeros", after[1])
 	}
 
 	latest, err := store.Latest(t.Context(), []string{"game"})
-	if err != nil || latest["game"].CollectedAt != base+1810 || *latest["game"].Usage.CPUPercent != 90 {
+	if err != nil || latest["game"].CollectedAt != base+1810 || *latest["game"].Usage.CPUPercent != 90 || *latest["game"].Usage.DiskBytes != 9 {
 		t.Fatal("latest exact sample was lost", latest, err)
 	}
 

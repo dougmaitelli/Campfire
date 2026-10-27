@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import { ResourceMeter } from "./ResourceMeter";
 import { ResourceAllocation } from "./ResourceAllocation";
-import { ResourceSparkline, type SparklineHistory } from "./ResourceSparkline";
 import { resourceUtilization } from "./utilization";
 import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
 import "./resource-reading.css";
@@ -17,7 +16,6 @@ export function ResourceReading({
   formatUsed = format,
   formatAllocation = format,
   unit,
-  history,
   icon,
   showLabel = true,
   showAllocation = true,
@@ -31,7 +29,6 @@ export function ResourceReading({
   formatUsed?: (value: number) => string;
   formatAllocation?: (value: number) => string;
   unit?: string;
-  history?: SparklineHistory | undefined;
   icon?: ReactNode;
   showLabel?: boolean;
   showAllocation?: boolean;
@@ -41,7 +38,7 @@ export function ResourceReading({
   const { tone, title } = resourceUtilization(fresh ? value : null, allocation);
   return (
     <div
-      className={`usage-reading usage-reading-${tone}${history ? " usage-reading-history" : ""}${icon ? " usage-reading-icon" : ""}${measured && !fresh ? " usage-stale" : ""}`}
+      className={`usage-reading usage-reading-${tone}${icon ? " usage-reading-icon" : ""}${measured && !fresh ? " usage-stale" : ""}`}
       title={detail ?? title}
     >
       {icon && <span className="usage-icon">{icon}</span>}
@@ -62,9 +59,6 @@ export function ResourceReading({
           <span className="usage-age"> {t("resourceReadings.stale")}</span>
         )}
       </span>
-      {history && (
-        <ResourceSparkline history={history} label={label} format={format} />
-      )}
       {!measured ? (
         <div
           className="resource-meter resource-meter-placeholder"

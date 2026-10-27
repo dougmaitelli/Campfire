@@ -139,6 +139,96 @@ for (const [tab, label] of serverTabs) {
   });
 }
 
+test("console shows CPU and memory history and keeps graphs out of other tabs", async ({
+  page,
+}) => {
+  const to = Math.floor(new Date("2026-10-22T12:00:00Z").getTime() / 1000);
+  const history = {
+    from: to - 3600,
+    to,
+    interval_seconds: 300,
+    samples: Array.from({ length: 13 }, (_, index) => ({
+      collected_at: to - 3600 + index * 300,
+      usage: {
+        cpu_percent:
+          index === 5
+            ? null
+            : [30, 55, 45, 90, 120, 0, 80, 100, 70, 110, 130, 100, 125][index],
+        memory_bytes: index === 5 ? null : (768 + index * 64) * 1048576,
+      },
+    })),
+  };
+  await page.route("**/api/v1/servers/survival/metrics/history?*", (route) =>
+    route.fulfill({ json: history }),
+  );
+  await login(page);
+  await openServerTab(page, "console", "Console");
+  const cpu = page.getByRole("region", { name: "CPU", exact: true });
+  const memory = page.getByRole("region", { name: "Memory", exact: true });
+  await expect(
+    cpu.getByRole("img", { name: "CPU usage history" }),
+  ).toBeVisible();
+  await expect(cpu).toContainText("62.5%");
+  await expect(
+    memory.getByRole("img", { name: "Memory usage history" }),
+  ).toBeVisible();
+  await expect(memory).toContainText("1.5 GiB");
+  await expect(page.locator(".resource-graphs")).toHaveScreenshot(
+    "server-resource-graphs.png",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".resource-graphs")).toHaveScreenshot(
+    "server-resource-graphs-mobile.png",
+  );
+  await page.getByRole("link", { name: "Files", exact: true }).click();
+  await expect(cpu).toHaveCount(0);
+  await page.getByRole("link", { name: "Console", exact: true }).click();
+  await expect(
+    cpu.getByRole("img", { name: "CPU usage history" }),
+  ).toBeVisible();
+});
+
+test("console history handles missing samples and failed requests", async ({
+  page,
+}) => {
+  const to = Math.floor(new Date("2026-10-22T12:00:00Z").getTime() / 1000);
+  await page.route("**/api/v1/servers/survival/metrics/history?*", (route) =>
+    route.fulfill({
+      json: {
+        from: to - 3600,
+        to,
+        interval_seconds: 300,
+        samples: [
+          {
+            collected_at: to,
+            usage: { cpu_percent: null, memory_bytes: null },
+          },
+        ],
+      },
+    }),
+  );
+  await login(page);
+  await openServerTab(page, "console", "Console");
+  await expect(
+    page.getByText(
+      "No samples yet. History will appear as measurements arrive.",
+    ),
+  ).toHaveCount(2);
+  await page.route("**/api/v1/servers/survival/metrics/history?*", (route) =>
+    route.fulfill({
+      status: 408,
+      json: { error: "History request timed out." },
+    }),
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("status").filter({ hasText: "History request timed out." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Command", exact: true }),
+  ).toBeVisible();
+});
+
 test("Spark resource layout is identical on direct entry and after visiting Servers", async ({
   page,
 }) => {

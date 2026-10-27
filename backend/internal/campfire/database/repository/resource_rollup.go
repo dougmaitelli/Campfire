@@ -32,26 +32,21 @@ type resourceRawRow struct {
 	ReceivedAt  int64
 	CPULimit    float64
 	MemoryMB    int64
-	DiskMB      int64
 	Usage       model.ResourceUsage `gorm:"serializer:json"`
 }
 
 func resourceRawQuery(tx *gorm.DB, table resourceTable) *gorm.DB {
-	return tx.Table(table.raw).Select(table.key + " AS resource_id, collected_at, received_at, cpu_limit, memory_mb, disk_mb, usage")
+	return tx.Table(table.raw).Select(table.key + " AS resource_id, collected_at, received_at, cpu_limit, memory_mb, usage")
 }
 
 func aggregateRaw(row resourceRawRow, start int64) database.ResourceAggregate {
-	result := database.ResourceAggregate{BucketStart: start, SampleCount: 1, CPULimitSum: row.CPULimit, MemoryLimitSum: float64(row.MemoryMB), DiskLimitSum: float64(row.DiskMB), LatestAt: row.CollectedAt}
+	result := database.ResourceAggregate{BucketStart: start, SampleCount: 1, CPULimitSum: row.CPULimit, MemoryLimitSum: float64(row.MemoryMB), LatestAt: row.CollectedAt}
 	if row.CPULimit == 0 {
 		result.CPUUnlimited = 1
 	}
 
 	if row.MemoryMB == 0 {
 		result.MemoryUnlimited = 1
-	}
-
-	if row.DiskMB == 0 {
-		result.DiskUnlimited = 1
 	}
 
 	if row.Usage.ContainerError == "" {
@@ -62,10 +57,6 @@ func aggregateRaw(row resourceRawRow, start int64) database.ResourceAggregate {
 		if value := row.Usage.MemoryBytes; value != nil {
 			result.MemoryCount, result.MemorySum, result.MemoryPeak = 1, float64(*value), *value
 		}
-	}
-
-	if value := row.Usage.DiskBytes; value != nil && row.Usage.DiskError == "" {
-		result.DiskCount, result.DiskSum, result.DiskPeak = 1, float64(*value), *value
 	}
 
 	return result
@@ -79,20 +70,15 @@ func mergeResourceAggregate(target *database.ResourceAggregate, value database.R
 	target.MemoryCount += value.MemoryCount
 	target.MemorySum += value.MemorySum
 	target.MemoryPeak = max(target.MemoryPeak, value.MemoryPeak)
-	target.DiskCount += value.DiskCount
-	target.DiskSum += value.DiskSum
-	target.DiskPeak = max(target.DiskPeak, value.DiskPeak)
 	target.CPULimitSum += value.CPULimitSum
 	target.MemoryLimitSum += value.MemoryLimitSum
-	target.DiskLimitSum += value.DiskLimitSum
 	target.CPUUnlimited += value.CPUUnlimited
 	target.MemoryUnlimited += value.MemoryUnlimited
-	target.DiskUnlimited += value.DiskUnlimited
 	target.LatestAt = max(target.LatestAt, value.LatestAt)
 }
 
-var resourceSumColumns = []string{"sample_count", "cpu_count", "cpu_sum", "memory_count", "memory_sum", "disk_count", "disk_sum", "cpu_limit_sum", "memory_limit_sum", "disk_limit_sum", "cpu_unlimited", "memory_unlimited", "disk_unlimited"}
-var resourceMaxColumns = []string{"cpu_peak", "memory_peak", "disk_peak", "latest_at"}
+var resourceSumColumns = []string{"sample_count", "cpu_count", "cpu_sum", "memory_count", "memory_sum", "cpu_limit_sum", "memory_limit_sum", "cpu_unlimited", "memory_unlimited"}
+var resourceMaxColumns = []string{"cpu_peak", "memory_peak", "latest_at"}
 
 // Rollup compacts closed buckets transactionally in bounded batches. Keeping the
 // newest raw row per resource lets latest reads remain exact across restarts.
@@ -141,7 +127,7 @@ func (r *ResourceHistoryRepository) Rollup(ctx context.Context, now int64) error
 				}
 
 				for key, bucket := range buckets {
-					row := map[string]any{table.key: key.id, "bucket_start": key.start, "sample_count": bucket.SampleCount, "cpu_count": bucket.CPUCount, "cpu_sum": bucket.CPUSum, "cpu_peak": bucket.CPUPeak, "memory_count": bucket.MemoryCount, "memory_sum": bucket.MemorySum, "memory_peak": bucket.MemoryPeak, "disk_count": bucket.DiskCount, "disk_sum": bucket.DiskSum, "disk_peak": bucket.DiskPeak, "cpu_limit_sum": bucket.CPULimitSum, "memory_limit_sum": bucket.MemoryLimitSum, "disk_limit_sum": bucket.DiskLimitSum, "cpu_unlimited": bucket.CPUUnlimited, "memory_unlimited": bucket.MemoryUnlimited, "disk_unlimited": bucket.DiskUnlimited, "latest_at": bucket.LatestAt}
+					row := map[string]any{table.key: key.id, "bucket_start": key.start, "sample_count": bucket.SampleCount, "cpu_count": bucket.CPUCount, "cpu_sum": bucket.CPUSum, "cpu_peak": bucket.CPUPeak, "memory_count": bucket.MemoryCount, "memory_sum": bucket.MemorySum, "memory_peak": bucket.MemoryPeak, "cpu_limit_sum": bucket.CPULimitSum, "memory_limit_sum": bucket.MemoryLimitSum, "cpu_unlimited": bucket.CPUUnlimited, "memory_unlimited": bucket.MemoryUnlimited, "latest_at": bucket.LatestAt}
 					if err := tx.Table(table.bucket).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: table.key}, {Name: "bucket_start"}}, DoUpdates: clause.Assignments(updates)}).Create(&row).Error; err != nil {
 						return err
 					}
@@ -168,8 +154,8 @@ func (r *ResourceHistoryRepository) Rollup(ctx context.Context, now int64) error
 	return nil
 }
 
-func aggregateResourcePoint(value database.ResourceAggregate, id string) model.ResourceSample {
-	point := model.ResourceSample{CollectedAt: value.BucketStart, ReceivedAt: value.LatestAt, SampleCount: value.SampleCount, CPUSamples: value.CPUCount, MemorySamples: value.MemoryCount, DiskSamples: value.DiskCount, Usage: model.ResourceUsage{ServerID: id, State: "sampled"}}
+func aggregateResourcePoint(value database.ResourceAggregate) model.ResourceSample {
+	point := model.ResourceSample{CollectedAt: value.BucketStart, ReceivedAt: value.LatestAt, SampleCount: value.SampleCount, CPUSamples: value.CPUCount, MemorySamples: value.MemoryCount}
 	if value.SampleCount > 0 {
 		if value.CPUUnlimited == 0 {
 			point.CPULimit = value.CPULimitSum / float64(value.SampleCount)
@@ -177,10 +163,6 @@ func aggregateResourcePoint(value database.ResourceAggregate, id string) model.R
 
 		if value.MemoryUnlimited == 0 {
 			point.MemoryMB = int64(value.MemoryLimitSum / float64(value.SampleCount))
-		}
-
-		if value.DiskUnlimited == 0 {
-			point.DiskMB = int64(value.DiskLimitSum / float64(value.SampleCount))
 		}
 	}
 
@@ -192,24 +174,6 @@ func aggregateResourcePoint(value database.ResourceAggregate, id string) model.R
 	if value.MemoryCount > 0 {
 		point.Usage.MemoryBytes = new(int64(value.MemorySum / float64(value.MemoryCount)))
 		point.MemoryPeak = new(value.MemoryPeak)
-	}
-
-	if value.DiskCount > 0 {
-		point.Usage.DiskBytes = new(int64(value.DiskSum / float64(value.DiskCount)))
-		point.DiskPeak = new(value.DiskPeak)
-	}
-
-	if value.CPUCount > 0 || value.MemoryCount > 0 {
-		point.Usage.SampledAt = value.LatestAt
-	} else {
-		point.Usage.State = "unknown"
-		point.Usage.ContainerError = "Resource samples unavailable in this bucket."
-	}
-
-	if value.DiskCount > 0 {
-		point.Usage.DiskSampledAt = value.LatestAt
-	} else {
-		point.Usage.DiskError = "Game-data samples unavailable in this bucket."
 	}
 
 	return point
@@ -273,13 +237,8 @@ func (r *ResourceHistoryRepository) bucketHistory(ctx context.Context, spark boo
 
 		sort.Slice(starts, func(i, j int) bool { return starts[i] < starts[j] })
 
-		usageID := id
-		if spark {
-			usageID = ""
-		}
-
 		for _, start := range starts[:min(limit, len(starts))] {
-			points = append(points, aggregateResourcePoint(*buckets[start], usageID))
+			points = append(points, aggregateResourcePoint(*buckets[start]))
 		}
 
 		return nil
