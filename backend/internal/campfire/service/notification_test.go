@@ -68,7 +68,7 @@ func TestAlertTransitionsAreSustainedAndUnknownDoesNotRecover(t *testing.T) {
 	}
 }
 
-func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
+func TestCollectionCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	activity, db, _, owner := activityFixture(t)
 	deployment := activity.deployment
 	online := &activityConnectivity{}
@@ -83,13 +83,10 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	deployment.Remote = runtime
 	service := NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, activity.auth)
 	service.Config.Duration = 0
+	deployment.History.Notifications = service
 
 	ctx := context.Background()
 	if err := deployment.History.Collect(ctx); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := service.scan(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,12 +110,9 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	restarted := NewNotificationService(service.Store, deployment, activity.auth)
 
 	restarted.Config = service.Config
+	deployment.History.Notifications = restarted
 
 	if err := deployment.History.Collect(ctx); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := restarted.scan(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -135,10 +129,6 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := restarted.scan(ctx); err != nil {
-		t.Fatal(err)
-	}
-
 	messages, err = restarted.List(ctx, owner, 0, false)
 	if err != nil || len(messages) != 3 {
 		t.Fatal("missing samples caused false recovery", len(messages), err)
@@ -152,10 +142,6 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := restarted.scan(ctx); err != nil {
-		t.Fatal(err)
-	}
-
 	messages, err = restarted.List(ctx, owner, 0, false)
 	if err != nil || len(messages) != 6 {
 		t.Fatal("recovery messages missing", len(messages), err)
@@ -164,10 +150,6 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	online.online.Store(false)
 
 	if err := deployment.History.Collect(ctx); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := restarted.scan(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -184,6 +166,90 @@ func TestMonitoringCreatesPersistentNotificationsWithoutApprise(t *testing.T) {
 	pending, failed, err := service.Store.DeliveryCounts(ctx)
 	if err != nil || pending != 0 || failed != 0 {
 		t.Fatal("disabled Apprise queued work", pending, failed, err)
+	}
+}
+
+func TestFailedCollectionDoesNotEvaluateCachedResources(t *testing.T) {
+	activity, db, _, owner := activityFixture(t)
+	deployment := activity.deployment
+	online := &activityConnectivity{}
+	online.online.Store(true)
+	deployment.Sparks.connectivity = online
+	runtime := &notificationRuntime{usage: model.ResourceUsage{ServerID: "game", State: "running", CPUPercent: new(float64(190)), SampledAt: time.Now().Unix(), DiskQuotaEnforced: true}}
+	deployment.Remote = runtime
+
+	if err := deployment.History.Collect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	notifications := NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, activity.auth)
+	notifications.Config.Duration = 0
+	deployment.History.Notifications = notifications
+
+	if err := db.ORM().Exec("CREATE TRIGGER fail_resource_save BEFORE INSERT ON server_resource_samples BEGIN SELECT RAISE(FAIL, 'resource save failed'); END").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := deployment.History.Collect(t.Context()); err == nil {
+		t.Fatal("resource save failure was ignored")
+	}
+
+	messages, err := notifications.List(t.Context(), owner, 0, false)
+	if err != nil || len(messages) != 0 {
+		t.Fatal("failed collection evaluated cached measurements", len(messages), err)
+	}
+
+	if err := db.ORM().Exec("DROP TRIGGER fail_resource_save").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := deployment.History.Collect(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	messages, err = notifications.List(t.Context(), owner, 0, false)
+	if err != nil || len(messages) != 1 {
+		t.Fatal("successful collection did not evaluate fresh measurements", len(messages), err)
+	}
+}
+
+func TestAlertObservationGapsFollowResourceInterval(t *testing.T) {
+	for _, interval := range []time.Duration{10 * time.Second, time.Minute} {
+		t.Run(interval.String(), func(t *testing.T) {
+			activity, db, _, owner := activityFixture(t)
+			deployment := activity.deployment
+			online := &activityConnectivity{}
+			online.online.Store(true)
+			deployment.Sparks.connectivity = online
+			deployment.Remote = &notificationRuntime{usage: model.ResourceUsage{ServerID: "game", State: "running", CPUPercent: new(float64(190)), SampledAt: time.Now().Unix(), DiskQuotaEnforced: true}}
+
+			notifications := NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, activity.auth)
+			deployment.History.Interval = interval
+			deployment.History.Notifications = notifications
+
+			if err := deployment.History.Collect(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+
+			now := time.Now().Unix()
+			if err := db.ORM().Model(&database.AlertState{}).Where("key = ?", "server:game:CPU").Updates(map[string]any{"since": now - 120, "last_observed_at": now - 100}).Error; err != nil {
+				t.Fatal(err)
+			}
+
+			if err := deployment.History.Collect(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+
+			want := 0
+			if interval == time.Minute {
+				want = 1
+			}
+
+			messages, err := notifications.List(t.Context(), owner, 0, false)
+			if err != nil || len(messages) != want {
+				t.Fatal("alert observation gap did not follow collection interval", len(messages), want, err)
+			}
+		})
 	}
 }
 

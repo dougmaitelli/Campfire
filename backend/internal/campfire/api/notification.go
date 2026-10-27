@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"campfire/internal/campfire/service"
 )
 
 func (a *API) notificationsEnabled(next http.HandlerFunc) http.HandlerFunc {
@@ -99,7 +101,13 @@ func (a *API) notificationStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config := a.notifications.Config
-	writeJSON(w, http.StatusOK, map[string]any{"apprise_enabled": a.notifications.Apprise != nil, "pending": pending, "failed": failed, "cpu_percent": config.CPUPercent, "memory_percent": config.MemoryPercent, "disk_percent": config.DiskPercent, "duration_seconds": int64(config.Duration.Seconds()), "interval_seconds": int64(config.Interval.Seconds()), "health_enabled": config.Health})
+
+	interval := service.DefaultResourceInterval
+	if a.deployment != nil && a.deployment.History != nil {
+		interval = a.deployment.History.Interval
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"apprise_enabled": a.notifications.Apprise != nil, "pending": pending, "failed": failed, "cpu_percent": config.CPUPercent, "memory_percent": config.MemoryPercent, "disk_percent": config.DiskPercent, "duration_seconds": int64(config.Duration.Seconds()), "interval_seconds": int64(interval.Seconds()), "health_enabled": config.Health})
 }
 
 func (a *API) testNotification(w http.ResponseWriter, r *http.Request) {

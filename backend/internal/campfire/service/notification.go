@@ -18,13 +18,13 @@ import (
 // AlertConfig controls sustained thresholds relative to server allocations.
 type AlertConfig struct {
 	CPUPercent, MemoryPercent, DiskPercent float64
-	Duration, Interval                     time.Duration
+	Duration                               time.Duration
 	Health                                 bool
 }
 
 // DefaultAlertConfig provides conservative sustained resource and health alerts.
 func DefaultAlertConfig() AlertConfig {
-	return AlertConfig{CPUPercent: 90, MemoryPercent: 90, DiskPercent: 90, Duration: 2 * time.Minute, Interval: 30 * time.Second, Health: true}
+	return AlertConfig{CPUPercent: 90, MemoryPercent: 90, DiskPercent: 90, Duration: 2 * time.Minute, Health: true}
 }
 
 // Validate bounds worker timing and rejects non-finite resource thresholds.
@@ -35,14 +35,14 @@ func (c AlertConfig) Validate() error {
 		}
 	}
 
-	if c.Duration < 0 || c.Duration > 24*time.Hour || c.Interval < 5*time.Second || c.Interval > time.Hour {
-		return fmt.Errorf("alert duration must be 0–86400 seconds and interval 5–3600 seconds")
+	if c.Duration < 0 || c.Duration > 24*time.Hour {
+		return fmt.Errorf("alert duration must be 0–86400 seconds")
 	}
 
 	return nil
 }
 
-// NotificationService runs monitoring and optional delivery independently of browsers.
+// NotificationService evaluates collected resources and delivers notifications.
 type NotificationService struct {
 	Store      *repository.NotificationRepository
 	Config     AlertConfig
@@ -58,36 +58,13 @@ func NewNotificationService(store *repository.NotificationRepository, deployment
 	return &NotificationService{Store: store, Config: DefaultAlertConfig(), deployment: deployment, auth: auth}
 }
 
-// Start starts bounded monitoring and optional external delivery workers.
+// Start validates alert settings and starts the optional external delivery worker.
 func (s *NotificationService) Start(ctx context.Context) error {
 	if err := s.Config.Validate(); err != nil {
 		return err
 	}
 
 	ctx, s.cancel = context.WithCancel(ctx)
-
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-
-		timer := time.NewTimer(0)
-		defer timer.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-timer.C:
-				sampleCtx, cancel := context.WithTimeout(ctx, s.Config.Interval)
-				if err := s.scan(sampleCtx); err != nil && ctx.Err() == nil {
-					slog.Error("evaluate monitoring alerts", "error", err)
-				}
-
-				cancel()
-				timer.Reset(s.Config.Interval)
-			}
-		}
-	}()
 
 	if s.Apprise != nil {
 		s.wg.Add(1)
@@ -252,7 +229,7 @@ func (s *NotificationService) observe(ctx context.Context, targetType, id, name,
 	return s.Store.Observe(ctx, targetType+":"+id+":"+code, s.Apprise != nil, func(state *database.AlertState) *database.Notification {
 		state.TargetType, state.TargetID = targetType, id
 
-		kind := transitionAlert(state, condition, now.Unix(), int64(s.Config.Duration.Seconds()), int64((3*s.Config.Interval + 5*time.Second).Seconds()))
+		kind := transitionAlert(state, condition, now.Unix(), int64(s.Config.Duration.Seconds()), int64((3*s.deployment.History.Interval + resourceSampleTimeout).Seconds()))
 		if kind == "" {
 			return nil
 		}

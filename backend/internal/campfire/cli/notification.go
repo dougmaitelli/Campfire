@@ -23,18 +23,12 @@ func notificationConfig() (service.AlertConfig, *service.AppriseClient, error) {
 		*item.target = value
 	}
 
-	for _, item := range []struct {
-		name, defaultValue string
-		target             *time.Duration
-		max                int64
-	}{{"CAMPFIRE_ALERT_DURATION_SECONDS", "120", &config.Duration, 86400}, {"CAMPFIRE_ALERT_INTERVAL_SECONDS", "30", &config.Interval, 3600}} {
-		value, err := strconv.ParseInt(environment(item.name, item.defaultValue), 10, 64)
-		if err != nil || value < 0 || value > item.max {
-			return config, nil, fmt.Errorf("%s is outside its supported range", item.name)
-		}
-
-		*item.target = time.Duration(value) * time.Second
+	duration, err := strconv.ParseInt(environment("CAMPFIRE_ALERT_DURATION_SECONDS", "120"), 10, 64)
+	if err != nil || duration < 0 || duration > 86400 {
+		return config, nil, fmt.Errorf("CAMPFIRE_ALERT_DURATION_SECONDS is outside its supported range")
 	}
+
+	config.Duration = time.Duration(duration) * time.Second
 
 	health, err := strconv.ParseBool(environment("CAMPFIRE_ALERT_HEALTH_ENABLED", "true"))
 	if err != nil {

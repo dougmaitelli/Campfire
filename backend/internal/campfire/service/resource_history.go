@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -28,13 +29,14 @@ var ErrResourceHistoryInput = errors.New("invalid resource history range or poin
 
 // ResourceHistoryService collects once for the fleet, independent of page reads.
 type ResourceHistoryService struct {
-	Store      *repository.ResourceHistoryRepository
-	Interval   time.Duration
-	Retention  time.Duration
-	deployment *DeploymentService
-	collectMu  sync.Mutex
-	cancel     context.CancelFunc
-	wg         sync.WaitGroup
+	Store         *repository.ResourceHistoryRepository
+	Interval      time.Duration
+	Retention     time.Duration
+	Notifications *NotificationService
+	deployment    *DeploymentService
+	collectMu     sync.Mutex
+	cancel        context.CancelFunc
+	wg            sync.WaitGroup
 }
 
 // NewResourceHistoryService constructs fleet sampling, compaction and retention jobs.
@@ -216,7 +218,17 @@ queue:
 	saveCtx, saveCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer saveCancel()
 
-	return s.Store.Save(saveCtx, rows, sparkRows)
+	if err := s.Store.Save(saveCtx, rows, sparkRows); err != nil {
+		return err
+	}
+
+	if s.Notifications != nil {
+		if err := s.Notifications.scan(saveCtx); err != nil {
+			return fmt.Errorf("evaluate monitoring alerts: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *ResourceHistoryService) sample(ctx context.Context, target model.ResourceTarget) (model.ResourceUsage, error) {

@@ -106,4 +106,11 @@ func TestNotificationsIsolationRevocationAndScopedTokens(t *testing.T) {
 	if response := request(admin, "GET", "/api/v1/notifications/status", ""); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"apprise_enabled":false`) {
 		t.Fatal(response.Code, response.Body)
 	}
+
+	deployment.History = service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
+	deployment.History.Interval = 45 * time.Second
+
+	if response := request(admin, "GET", "/api/v1/notifications/status", ""); response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"interval_seconds":45`) {
+		t.Fatal("notification status did not use resource collection interval", response.Code, response.Body)
+	}
 }

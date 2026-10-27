@@ -13,10 +13,10 @@ Campfire monitors servers in the background, including when no browser is open.
 Resource thresholds use each server's allocation. For example, 180% CPU usage
 on a two-core allocation is 90% of that allocation.
 
-Alerts are evaluated against the latest collected resource data. Resource
-collection runs separately, every 10 seconds by default, controlled by
-`CAMPFIRE_RESOURCE_INTERVAL_SECONDS`. The alert interval below controls how often
-Campfire evaluates alert conditions.
+Alerts are evaluated after each resource collection cycle, every 10 seconds by
+default, controlled by `CAMPFIRE_RESOURCE_INTERVAL_SECONDS`. Set
+`CAMPFIRE_ALERT_DURATION_SECONDS` to control how long an alert or recovery
+condition must persist before a notification is created.
 
 | Setting                           | Default | Purpose                                          |
 | --------------------------------- | ------- | ------------------------------------------------ |
@@ -24,7 +24,6 @@ Campfire evaluates alert conditions.
 | `CAMPFIRE_ALERT_MEMORY_PERCENT`   | `90`    | Memory threshold; `0` disables it                |
 | `CAMPFIRE_ALERT_DISK_PERCENT`     | `90`    | Game-data disk threshold; `0` disables it        |
 | `CAMPFIRE_ALERT_DURATION_SECONDS` | `120`   | Time an alert or recovery condition must persist |
-| `CAMPFIRE_ALERT_INTERVAL_SECONDS` | `30`    | Time between alert evaluations                   |
 | `CAMPFIRE_ALERT_HEALTH_ENABLED`   | `true`  | Spark connection and server health alerts        |
 
 Health alerts cover unavailable monitoring, failed runtime states, and relevant

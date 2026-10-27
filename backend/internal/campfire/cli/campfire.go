@@ -276,10 +276,6 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 
 	deployment.History = resources
-	if err := resources.Start(ctx); err != nil {
-		return fmt.Errorf("start resource history: %w", err)
-	}
-	defer resources.Close()
 
 	if simulator, ok := runtime.(interface {
 		StartGameSimulation(context.Context, *service.GameIntegrationService) func()
@@ -324,6 +320,12 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 		return fmt.Errorf("start notifications: %w", err)
 	}
 	defer notifications.Close()
+
+	resources.Notifications = notifications
+	if err := resources.Start(ctx); err != nil {
+		return fmt.Errorf("start resource history: %w", err)
+	}
+	defer resources.Close()
 
 	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
 	admin := newHTTPServer(ctx, webui.Handler(handler))
