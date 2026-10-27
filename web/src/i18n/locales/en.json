@@ -121,6 +121,13 @@
     "unexpectedOpenIDConnectResponse": "Unexpected OpenID Connect response."
   },
   "authenticationPage": {
+    "aHomeForYourGameServers": "A home for your game servers.",
+    "bringYourServersTogether": "Bring your servers together. Keep the good times running.",
+    "useYourOrganizationAccount": "Use your organization’s account to access your game servers.",
+    "continueToIdentityProvider": "You’ll continue to your identity provider to sign in.",
+    "hidePassword": "Hide password",
+    "showPassword": "Show password",
+    "orUseYourUsername": "or use your username",
     "campfire": "Campfire",
     "confirmPassword": "Confirm password",
     "connecting": "Connecting…",
