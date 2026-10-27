@@ -30,6 +30,7 @@ export default defineConfig({
         {
           label: "Getting started",
           items: [
+            { label: "How Campfire works", slug: "concepts" },
             { label: "Docker Compose", slug: "getting-started" },
             { label: "Linux binary", slug: "binary-installation" },
             { label: "Your first server", slug: "first-server" },

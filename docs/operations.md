@@ -10,7 +10,7 @@ Game snapshots and installation recovery protect different data. Preserve:
 
 Before upgrading, stop the panel and take a consistent database and state backup. For SQLite, copying only a live database file can omit WAL contents. For PostgreSQL, back up the database as well as the panel state directory.
 
-Run `docker compose pull` and `docker compose up -d` to upgrade to the latest release. If you pinned a release with `CAMPFIRE_VERSION`, update that value first. Check login, health, and Spark connections afterward. Upgrade Spark when required by protocol or feature compatibility; wait for active operations to finish before restarting an agent.
+For Compose upgrades, select the desired image tag in your deployment configuration, then run `docker compose pull` and `docker compose up -d`. Check login, health, and Spark connections afterward. Upgrade Spark when required by protocol or feature compatibility; wait for active operations to finish before restarting an agent.
 
 For binary upgrades, stop the relevant service, replace its binary with the verified new release, and restart it. Preserve the previous binary until verification succeeds. Database migrations run at startup; a rollback may require restoring the matching pre-upgrade database and state as well as the previous image or binary. Do not use `docker compose down -v` during upgrades: it deletes persistent volumes.
 

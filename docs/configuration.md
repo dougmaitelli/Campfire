@@ -6,7 +6,6 @@ Command-line flags override environment values. The configuration examples list 
 
 | Setting                                                                          | Purpose                                                                                       |
 | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `CAMPFIRE_VERSION`                                                               | Optional Compose image tag; defaults to `latest`                                              |
 | `CAMPFIRE_PUBLIC_URL`                                                            | Browser-visible HTTPS origin                                                                  |
 | `CAMPFIRE_DATABASE`                                                              | SQLite file path or PostgreSQL connection URL                                                 |
 | `CAMPFIRE_DATA`                                                                  | Persistent panel identities, certificates, and SFTP host key                                  |
@@ -15,12 +14,13 @@ Command-line flags override environment values. The configuration examples list 
 | `CAMPFIRE_DISABLE_LOCAL_LOGIN`                                                   | Require OIDC after an administrator has been linked                                           |
 | `CAMPFIRE_SFTP_LISTEN`                                                           | Enable the optional SFTP listener; publish its TCP port separately                            |
 | `CAMPFIRE_MAX_UPLOAD_MIB`                                                        | Per-file browser and SFTP upload limit; defaults to 1024 MiB                                  |
+| `CAMPFIRE_RESOURCE_INTERVAL_SECONDS`                                             | Resource collection interval; defaults to `10` seconds                                        |
 | `CAMPFIRE_S3_BUCKET`, `CAMPFIRE_S3_REGION`, `CAMPFIRE_S3_ENDPOINT`               | Optional off-host backup storage                                                              |
 | `CAMPFIRE_ALERT_CPU_PERCENT`                                                     | CPU alert threshold relative to the server allocation; defaults to `90`, or `0` to disable    |
 | `CAMPFIRE_ALERT_MEMORY_PERCENT`                                                  | Memory alert threshold relative to the server allocation; defaults to `90`, or `0` to disable |
 | `CAMPFIRE_ALERT_DISK_PERCENT`                                                    | Disk alert threshold relative to the server allocation; defaults to `90`, or `0` to disable   |
 | `CAMPFIRE_ALERT_DURATION_SECONDS`                                                | How long an alert or recovery condition must persist; defaults to `120` seconds               |
-| `CAMPFIRE_ALERT_INTERVAL_SECONDS`                                                | Monitoring interval; defaults to `30` seconds                                                 |
+| `CAMPFIRE_ALERT_INTERVAL_SECONDS`                                                | Alert evaluation interval; defaults to `30` seconds                                           |
 | `CAMPFIRE_ALERT_HEALTH_ENABLED`                                                  | Enable Spark connection and server health alerts; defaults to `true`                          |
 | `CAMPFIRE_APPRISE_URL`, `CAMPFIRE_APPRISE_TAGS`, `CAMPFIRE_APPRISE_URLS`         | Optional external notification delivery                                                       |
 | `CAMPFIRE_AUDIT_RETENTION_DAYS`, `CAMPFIRE_OPERATION_RETENTION_DAYS`             | Independent history retention; `0` keeps records indefinitely                                 |
