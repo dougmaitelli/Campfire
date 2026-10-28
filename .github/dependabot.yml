@@ -1,75 +1,210 @@
 version: 2
 updates:
   - package-ecosystem: docker
-    directories:
-      - /
-      - /e2e
     schedule:
       interval: weekly
-
+    directory: /
+    open-pull-requests-limit: 3
+    groups:
+      container-images-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      container-images-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - docker
+  - package-ecosystem: docker
+    schedule:
+      interval: weekly
+    directory: /e2e
+    open-pull-requests-limit: 3
+    groups:
+      browser-images-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      browser-images-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - docker
   - package-ecosystem: npm
     directory: /web
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     groups:
-      react:
+      frontend-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      react-major:
+        applies-to: version-updates
         patterns:
           - react
           - react-dom
           - "@types/react"
           - "@types/react-dom"
-      vite:
+        update-types:
+          - major
+      vite-major:
+        applies-to: version-updates
         patterns:
           - vite
-          - "@vitejs/plugin-react"
-      lint:
+          - "@vitejs/*"
+        update-types:
+          - major
+      eslint-major:
+        applies-to: version-updates
         patterns:
           - eslint
           - "@eslint/*"
-          - "eslint-plugin-*"
+          - eslint-*
+          - "@typescript-eslint/*"
           - typescript-eslint
-
+        update-types:
+          - major
+      vitest-major:
+        applies-to: version-updates
+        patterns:
+          - vitest
+          - "@vitest/*"
+        update-types:
+          - major
+      prettier-major:
+        applies-to: version-updates
+        patterns:
+          - prettier
+          - prettier-plugin-*
+        update-types:
+          - major
+      frontend-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - dependencies
   - package-ecosystem: npm
     directory: /docs
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     groups:
-      astro:
+      docs-minor-patch:
+        applies-to: version-updates
         patterns:
-          - astro
-          - "@astrojs/*"
-      lint:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      eslint-major:
+        applies-to: version-updates
         patterns:
           - eslint
           - "@eslint/*"
-          - "eslint-plugin-*"
+          - eslint-*
+          - "@typescript-eslint/*"
           - typescript-eslint
-      prettier:
+        update-types:
+          - major
+      astro-major:
+        applies-to: version-updates
+        patterns:
+          - astro
+          - "@astrojs/*"
+        update-types:
+          - major
+      prettier-major:
+        applies-to: version-updates
         patterns:
           - prettier
-          - prettier-plugin-astro
-
+          - prettier-plugin-*
+        update-types:
+          - major
+      docs-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - dependencies
   - package-ecosystem: npm
     directory: /e2e
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 3
     groups:
-      playwright:
+      browser-minor-patch:
+        applies-to: version-updates
         patterns:
-          - "@playwright/*"
+          - "*"
+        update-types:
+          - minor
+          - patch
+      playwright-major:
+        applies-to: version-updates
+        patterns:
           - playwright
           - playwright-core
-
+          - "@playwright/*"
+        update-types:
+          - major
+      browser-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - dependencies
   - package-ecosystem: gomod
     directory: /backend
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
-
+    open-pull-requests-limit: 3
+    groups:
+      backend-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      backend-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - dependencies
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - github-actions
