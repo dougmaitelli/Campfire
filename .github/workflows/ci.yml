@@ -105,10 +105,12 @@ jobs:
           CAMPFIRE_TEST_POSTGRES: postgresql://campfire:campfire@127.0.0.1:5432/campfire?sslmode=disable
 
   browser-tests:
-    name: Browser and visual regression tests
+    name: Browser tests
     timeout-minutes: 20
     needs: changes
-    if: needs.changes.outputs.browser == 'true'
+    if: >-
+      needs.changes.outputs.browser == 'true' &&
+      (github.event_name != 'push' || github.ref_type == 'tag')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -134,6 +136,8 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/pages.yml
+    with:
+      deploy: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
   publish:
     name: Publish images and tagged releases
@@ -142,6 +146,7 @@ jobs:
       always() && github.event_name == 'push' &&
       needs.changes.result == 'success' &&
       !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') &&
+      (github.ref_type != 'tag' || needs.browser-tests.result == 'success') &&
       needs.changes.outputs.publish == 'true'
     permissions:
       contents: write
