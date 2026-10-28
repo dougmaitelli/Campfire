@@ -21,11 +21,17 @@ Configure an HTTPS reverse proxy for your panel hostname, forwarding to `http://
 ```sh
 docker compose pull
 docker compose up -d
+docker compose logs campfire
 ```
 
 Open your configured HTTPS URL. On first startup, the logs contain a one-time administrator setup token. Enter it in the setup form, choose a username, and create a password of at least 15 characters. Restarting before setup completes generates a new token; use the latest startup output.
 
 The panel generates and persists its Spark TLS certificates automatically. By default, agents connect to the panel hostname on port `8443`; set `CAMPFIRE_AGENT_PUBLIC_URL` if they need a different hostname or external port. This listener needs direct TLS or TCP passthrough, since Spark connections use client certificates. Configure your HTTP proxy to stream console responses without buffering.
+
+The default setup uses SQLite and the container image's built-in settings. For
+OIDC, S3 backups, SFTP, or other customizations, add
+[optional Compose settings](/Campfire/configuration/#optional-compose-settings)
+to the service's environment.
 
 To supply your own agent certificate, set `CAMPFIRE_TLS_DIR` to a directory containing `panel.crt` and `panel.key`, readable by container UID/GID `10001`. Start Compose with `-f compose.yaml -f compose.agent-tls.yaml`. Preserve the certificate authority trusted by enrolled Sparks when changing TLS settings.
 
