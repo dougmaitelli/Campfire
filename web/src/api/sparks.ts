@@ -182,12 +182,13 @@ export async function pruneSpark(id: string): Promise<SparkPruneResult> {
 export async function updateSparkClient(
   id: string,
   version: string,
+  force = false,
 ): Promise<void> {
   await readJSON(
     await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}/update`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version }),
+      body: JSON.stringify(force ? { version, force: true } : { version }),
       signal: AbortSignal.timeout(SPARK_UPDATE_REQUEST_TIMEOUT_MS),
     }),
   );

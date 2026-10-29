@@ -78,7 +78,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 		version = client.Version
 	}
 
-	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilityPrune}
+	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilitySelfReinstall, protocol.CapabilityPrune}
 
 	features = append(features, protocol.CapabilityStartupOverride)
 

@@ -74,6 +74,36 @@ func (h *Hub) UpdateSpark(ctx context.Context, id, version string) error {
 	return nil
 }
 
+// ReinstallSpark waits for the replaced process to disconnect before acknowledging.
+func (h *Hub) ReinstallSpark(ctx context.Context, id, version string) error {
+	ctx, cancel := context.WithTimeout(ctx, protocol.SparkUpdateTimeout)
+	defer cancel()
+
+	h.mu.RLock()
+	current := h.peers[id]
+	h.mu.RUnlock()
+
+	if current == nil {
+		return ErrDisconnected
+	}
+
+	response, err := h.execute(ctx, id, protocol.Command{Name: protocol.ReinstallSpark, SparkVersion: version}, current)
+	if err != nil {
+		return err
+	}
+
+	if response.SparkVersion != version {
+		return errors.New("invalid Spark reinstall acknowledgement")
+	}
+
+	select {
+	case <-current.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // Transfer dispatches one bounded transfer step to its authenticated Spark.
 func (h *Hub) Transfer(ctx context.Context, id string, request model.TransferRequest) (model.TransferResult, error) {
 	response, err := h.Execute(ctx, id, protocol.Command{Name: protocol.ServerTransfer, Transfer: &request})
@@ -123,6 +153,10 @@ func (h *Hub) Action(ctx context.Context, id string, request model.RuntimeReques
 
 // Execute waits for a matching response within the command's bounded time budget.
 func (h *Hub) Execute(ctx context.Context, id string, command protocol.Command) (protocol.CommandResponse, error) {
+	return h.execute(ctx, id, command, nil)
+}
+
+func (h *Hub) execute(ctx context.Context, id string, command protocol.Command, expected *peer) (protocol.CommandResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, protocol.CommandTimeout(command))
 	defer cancel()
 
@@ -133,7 +167,7 @@ func (h *Hub) Execute(ctx context.Context, id string, command protocol.Command) 
 	current := h.peers[id]
 	h.mu.RUnlock()
 
-	if current == nil {
+	if current == nil || (expected != nil && current != expected) {
 		return protocol.CommandResponse{}, ErrDisconnected
 	}
 
@@ -173,18 +207,25 @@ func (h *Hub) Execute(ctx context.Context, id string, command protocol.Command) 
 		return protocol.CommandResponse{}, ctx.Err()
 	}
 
+	var result protocol.CommandResponse
 	select {
-	case result := <-response:
-		if result.Error != nil {
-			return result, result.Error
-		}
-
-		return result, nil
+	case result = <-response:
 	case <-current.done:
-		return protocol.CommandResponse{}, ErrDisconnected
+		// A restarting Spark can disconnect immediately after its acknowledgement.
+		select {
+		case result = <-response:
+		default:
+			return protocol.CommandResponse{}, ErrDisconnected
+		}
 	case <-ctx.Done():
 		return protocol.CommandResponse{}, ctx.Err()
 	}
+
+	if result.Error != nil {
+		return result, result.Error
+	}
+
+	return result, nil
 }
 
 // Deploy delivers a configuration and requires an acknowledgement for that server.

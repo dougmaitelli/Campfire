@@ -32,6 +32,7 @@ func (p *updateTestPeer) SparkFeatures(string) (int, string, []string) {
 	features := []string{}
 	if p.capable {
 		features = append(features, protocol.CapabilitySelfUpdate)
+		features = append(features, protocol.CapabilitySelfReinstall)
 	}
 
 	return protocol.ProtocolVersion, p.version, features
@@ -41,6 +42,48 @@ func (p *updateTestPeer) UpdateSpark(_ context.Context, _, version string) error
 	p.version = version
 
 	return nil
+}
+
+func (p *updateTestPeer) ReinstallSpark(ctx context.Context, id, version string) error {
+	return p.UpdateSpark(ctx, id, version)
+}
+
+func TestSparkReinstallAlwaysUsesBundledBuildAndRequiresSupport(t *testing.T) {
+	for _, version := range []string{"v0.3.0", "v0.4.0", "dev-abcdef123"} {
+		t.Run(version, func(t *testing.T) {
+			peer := &updateTestPeer{version: version, connected: true, capable: true}
+			sparks := NewSparkService(&updateTestStore{spark: model.Spark{ID: "node"}}, peer)
+			updates := NewSparkUpdateService(sparks, peer).WithFetcher(func(context.Context) (string, error) { return "v0.3.0", nil })
+			sparks.Updates = updates
+			updates.Start(t.Context())
+
+			if err := updates.Reinstall(t.Context(), "node", "v0.4.0"); !errors.Is(err, ErrSparkReinstall) {
+				t.Fatal("non-bundled build accepted", err)
+			}
+
+			peer.connected = false
+
+			if err := updates.Reinstall(t.Context(), "node", "v0.3.0"); !errors.Is(err, ErrSparkReinstall) {
+				t.Fatal("offline reinstall accepted", err)
+			}
+
+			peer.connected, peer.capable = true, false
+
+			if err := updates.Reinstall(t.Context(), "node", "v0.3.0"); err == nil {
+				t.Fatal("unsupported reinstall accepted")
+			}
+
+			peer.capable = true
+
+			if err := updates.Reinstall(t.Context(), "node", "v0.3.0"); err != nil {
+				t.Fatal(err)
+			}
+
+			if peer.calls != 1 || peer.version != "v0.3.0" {
+				t.Fatal("forced replacement not delivered", peer)
+			}
+		})
+	}
 }
 
 func TestSparkUpdatesUseCachedVersionsAndRejectUnsupportedRequests(t *testing.T) {

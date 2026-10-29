@@ -32,6 +32,9 @@ const ServerTransfer CommandName = "server.transfer"
 // UpdateSpark replaces the agent executable with the verified panel build.
 const UpdateSpark CommandName = "spark.update"
 
+// ReinstallSpark replaces the agent executable regardless of its current version.
+const ReinstallSpark CommandName = "spark.reinstall"
+
 // PruneSpark removes unused Campfire Docker resources on a node.
 const PruneSpark CommandName = "spark.prune"
 

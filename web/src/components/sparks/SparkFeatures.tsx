@@ -23,6 +23,7 @@ const featureTranslationKeys = {
   "server.transfer.v1": "sparkFeatures.serverTransfers",
   "server.reinstall.v1": "common.reinstall",
   "spark.self-update.v1": "sparkFeatures.remoteSparkUpdates",
+  "spark.self-reinstall.v1": "sparkFeatures.remoteSparkReinstall",
 } as const;
 
 export function SparkFeatures({ spark }: { spark: Spark }) {

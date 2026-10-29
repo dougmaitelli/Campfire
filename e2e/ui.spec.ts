@@ -614,6 +614,84 @@ test("resource inspection keeps the current page and supports nested drawers", a
   }
 });
 
+test("Spark can force update the current panel build remotely without an update", async ({
+  page,
+}) => {
+  await login(page);
+  let enrollments = 0;
+  let reinstalls = 0;
+  let connected = true;
+  let capable = true;
+  await page.route(/\/api\/v1\/sparks(?:\/.*)?(?:\?.*)?$/, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/enrollment")) {
+      enrollments++;
+      return route.abort();
+    }
+    if (path.endsWith("/update")) {
+      expect(route.request().method()).toBe("POST");
+      expect(route.request().postDataJSON()).toEqual({
+        version: "v1.1.0",
+        force: true,
+      });
+      reinstalls++;
+      return route.fulfill({ status: 202, json: { version: "v1.1.0" } });
+    }
+    const response = await route.fetch();
+    const value = await response.json();
+    const current = (spark: Record<string, unknown>) => ({
+      ...spark,
+      connected,
+      agent_version: "v1.1.0",
+      latest_agent_version: "v1.1.0",
+      agent_update_available: false,
+      capabilities: capable ? ["spark.self-reinstall.v1"] : [],
+    });
+    await route.fulfill({
+      response,
+      json: Array.isArray(value) ? value.map(current) : current(value),
+    });
+  });
+  await openScreen(page, "sparks", "Sparks");
+  await page
+    .getByRole("button", { name: "View details for Europe", exact: true })
+    .click();
+  const details = page.getByRole("dialog");
+  const action = details.getByRole("button", {
+    name: "Force update",
+    exact: true,
+  });
+  await expect(
+    details.getByRole("button", { name: "Update", exact: true }),
+  ).toHaveCount(0);
+  await action.click();
+  const reinstall = page.getByRole("dialog", {
+    name: "Force update Spark · Europe?",
+    exact: true,
+  });
+  await expect(reinstall).toContainText("Install Spark v1.1.0");
+  await expect(reinstall).toHaveScreenshot("spark-force-update.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(reinstall).toHaveScreenshot("spark-force-update-mobile.png");
+  await reinstall.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(reinstalls).toBe(0);
+  await action.click();
+  await page
+    .getByRole("dialog", { name: "Force update Spark · Europe?", exact: true })
+    .getByRole("button", { name: "Force update", exact: true })
+    .click();
+  await expect.poll(() => reinstalls).toBe(1);
+  await expect(action).toBeEnabled();
+  expect(enrollments).toBe(0);
+  connected = false;
+  await page.reload();
+  await expect(action).toBeDisabled();
+  connected = true;
+  capable = false;
+  await page.reload();
+  await expect(action).toBeDisabled();
+});
+
 test("schedule history excludes direct server operations", async ({ page }) => {
   await login(page);
   await openScreen(page, "servers", "Servers");

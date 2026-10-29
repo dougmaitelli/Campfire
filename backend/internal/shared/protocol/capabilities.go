@@ -19,7 +19,7 @@ func CommandTimeout(command Command) time.Duration {
 		return SparkPruneTimeout
 	}
 
-	if command.Name == UpdateSpark {
+	if command.Name == UpdateSpark || command.Name == ReinstallSpark {
 		return SparkUpdateTimeout
 	}
 
@@ -47,6 +47,7 @@ const (
 	CapabilityTransfer        = "server.transfer.v1"
 	CapabilityReinstall       = "server.reinstall.v1"
 	CapabilitySelfUpdate      = "spark.self-update.v1"
+	CapabilitySelfReinstall   = "spark.self-reinstall.v1"
 	CapabilityPrune           = "spark.prune.v1"
 	CapabilityGameIntegration = "server.game-integration.v1"
 	CapabilityGameEvents      = "server.game-events.v1"
@@ -55,7 +56,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityStartupOverride}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityStartupOverride}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -140,6 +141,8 @@ func RequiredCapabilities(command Command) []string {
 		return []string{CapabilityPrune}
 	case UpdateSpark:
 		return []string{CapabilitySelfUpdate}
+	case ReinstallSpark:
+		return []string{CapabilitySelfReinstall}
 	case ConfigureServer:
 		required := []string{CapabilityConfigure}
 		if command.Deployment != nil && command.Deployment.Configuration.GameIntegration {

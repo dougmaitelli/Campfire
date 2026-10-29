@@ -86,6 +86,8 @@ func writeError(w http.ResponseWriter, err error) {
 	var commandError *protocol.CommandError
 
 	switch {
+	case errors.Is(err, service.ErrSparkReinstall):
+		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, repository.ErrResourceHistoryPending):
 		status, message = http.StatusServiceUnavailable, err.Error()
 	case errors.Is(err, service.ErrResourceHistoryInput):

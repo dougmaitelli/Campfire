@@ -62,6 +62,7 @@ func (a *API) pruneSpark(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateSparkClient(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Version string `json:"version"`
+		Force   bool   `json:"force"`
 	}
 	if !decodeRequest(w, r, &input, 1024) {
 		return
@@ -78,12 +79,20 @@ func (a *API) updateSparkClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.sparks.Updates.Update(r.Context(), r.PathValue("id"), input.Version); err != nil {
+	operation := a.sparks.Updates.Update
+	action := "spark.update"
+
+	if input.Force {
+		operation = a.sparks.Updates.Reinstall
+		action = "spark.force-update"
+	}
+
+	if err := operation(r.Context(), r.PathValue("id"), input.Version); err != nil {
 		writeError(w, err)
 		return
 	}
 
-	auditDetail(r, "spark.update", "spark:"+r.PathValue("id"))
+	auditDetail(r, action, "spark:"+r.PathValue("id"))
 	writeJSON(w, http.StatusAccepted, map[string]string{"version": input.Version})
 }
 

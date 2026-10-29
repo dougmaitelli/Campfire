@@ -1055,6 +1055,7 @@
     "waitForServerCreationAccessToLoad": "Wait for server creation access to load."
   },
   "sparkFeatures": {
+    "remoteSparkReinstall": "Remote Spark force updates",
     "resourceCleanup": "Unused resource cleanup",
     "gameIntegration": "Local game publishing",
     "gameEvents": "Durable game events",
@@ -1103,6 +1104,9 @@
     "unexpectedResponseWhileUpdatingTheSpark": "Unexpected response while updating the Spark."
   },
   "sparksPage": {
+    "forceUpdate": "Force update",
+    "forceUpdateTitle": "Force update Spark · {{name}}?",
+    "forceUpdateDescription": "Install Spark {{version}} from this Campfire panel regardless of the installed version. The node briefly disconnects and restarts; credentials, configuration, game files, and backups are preserved, and game containers keep running. Finish active server operations, uploads, and transfers first.",
     "prune": "Prune",
     "pruneTitle": "Prune {{name}}?",
     "pruneDescription": "Remove leftover Campfire installer containers, containers for deleted servers, unused images tracked by Campfire, and unused volumes labeled for Campfire. Running and stopped game servers, game files, backups, and other applications’ resources are preserved. Finish active server operations and transfers first.",

@@ -2,11 +2,13 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"campfire/internal/shared/buildinfo"
 	"campfire/internal/shared/protocol"
 )
 
@@ -37,10 +39,10 @@ func TestVerifySparkUpdateCompatibility(t *testing.T) {
 
 func TestSelfUpdateRequiresCapabilityAndAcknowledgesBeforeRestart(t *testing.T) {
 	calls := 0
-	store := &ConfigurationStore{Update: func(_ context.Context, version string) (string, error) {
+	store := &ConfigurationStore{Update: func(_ context.Context, version string, reinstall bool) (string, error) {
 		calls++
 
-		if version != "v1.1.0" {
+		if version != "v1.1.0" || reinstall {
 			t.Fatal(version)
 		}
 
@@ -56,5 +58,56 @@ func TestSelfUpdateRequiresCapabilityAndAcknowledgesBeforeRestart(t *testing.T) 
 	accepted := store.executeNegotiated(t.Context(), "node", command, []string{protocol.CapabilitySelfUpdate})
 	if accepted.Error != nil || accepted.SparkVersion != "v1.1.0" || calls != 1 || store.RestartExecutable == "" {
 		t.Fatal("missing update acknowledgement", accepted)
+	}
+}
+
+func TestSelfReinstallRequiresItsOwnCapability(t *testing.T) {
+	calls := 0
+	store := &ConfigurationStore{Update: func(_ context.Context, version string, reinstall bool) (string, error) {
+		if version != "v0.3.0" || !reinstall {
+			t.Fatal("reinstall did not bypass version ordering", version, reinstall)
+		}
+
+		calls++
+
+		return "/usr/local/bin/spark", nil
+	}}
+	command := protocol.Command{ID: "reinstall", Name: protocol.ReinstallSpark, SparkVersion: "v0.3.0", Deadline: time.Now().Add(time.Minute)}
+
+	denied := store.executeNegotiated(t.Context(), "node", command, []string{protocol.CapabilitySelfUpdate})
+	if denied.Error == nil || calls != 0 || store.RestartExecutable != "" {
+		t.Fatal("update capability allowed forced replacement", denied)
+	}
+
+	accepted := store.executeNegotiated(t.Context(), "node", command, []string{protocol.CapabilitySelfReinstall})
+	if accepted.Error != nil || accepted.SparkVersion != "v0.3.0" || calls != 1 || store.RestartExecutable == "" {
+		t.Fatal("reinstall not acknowledged before restart", accepted)
+	}
+}
+
+func TestReinstallBypassesVersionOrderingButStillRequiresIdleRuntime(t *testing.T) {
+	previous := buildinfo.Version
+	buildinfo.Version = "v0.3.0"
+
+	t.Cleanup(func() { buildinfo.Version = previous })
+
+	busy := errors.New("server operation is active")
+
+	for _, target := range []string{"v0.3.0", "v0.2.0", "dev-abcdef123"} {
+		calls := 0
+
+		idle := func() error { calls++; return busy }
+
+		if _, err := installSparkUpdate(t.Context(), target, protocol.ProtocolVersion, false, idle, nil); err == nil || calls != 0 {
+			t.Fatal("ordinary update bypassed version gate", target, err)
+		}
+
+		if _, err := installSparkUpdate(t.Context(), target, protocol.ProtocolVersion, true, idle, nil); !errors.Is(err, busy) || calls != 1 {
+			t.Fatal("reinstall bypassed runtime safety check", target, err)
+		}
+	}
+
+	if _, err := installSparkUpdate(t.Context(), "../../invalid", protocol.ProtocolVersion, true, func() error { t.Fatal("invalid target reached runtime"); return nil }, nil); err == nil {
+		t.Fatal("invalid reinstall version accepted")
 	}
 }

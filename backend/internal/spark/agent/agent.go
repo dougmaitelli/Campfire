@@ -194,7 +194,7 @@ func Run(ctx context.Context, config Config) error {
 	}
 
 	if config.Token == "" {
-		configurations.Update = func(ctx context.Context, version string) (string, error) {
+		configurations.Update = func(ctx context.Context, version string, reinstall bool) (string, error) {
 			tlsConfig, err := identityTLS(identity)
 			if err != nil {
 				return "", err
@@ -205,7 +205,7 @@ func Run(ctx context.Context, config Config) error {
 
 			client := sparkrelease.NewClient(identity.PanelURL+"/spark/downloads", transport)
 
-			return installSparkUpdate(ctx, version, configurations.NegotiatedProtocol, manager.CanUpdate, client)
+			return installSparkUpdate(ctx, version, configurations.NegotiatedProtocol, reinstall, manager.CanUpdate, client)
 		}
 	}
 
@@ -570,7 +570,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			}
 
 			var response protocol.CommandResponse
-			if message.Command.Name == protocol.UpdateSpark || message.Command.Name == protocol.PruneSpark {
+			if message.Command.Name == protocol.UpdateSpark || message.Command.Name == protocol.ReinstallSpark || message.Command.Name == protocol.PruneSpark {
 				response = updateWithHeartbeats(ctx, func() protocol.CommandResponse {
 					return configurations.executeNegotiated(ctx, id, *message.Command, welcome.Capabilities)
 				}, send)

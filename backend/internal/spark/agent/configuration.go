@@ -23,7 +23,7 @@ var configurationID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 // ConfigurationStore stores desired state on standalone Spark agents.
 type ConfigurationStore struct {
-	Update             func(context.Context, string) (string, error)
+	Update             func(context.Context, string, bool) (string, error)
 	RestartExecutable  string
 	NegotiatedProtocol int
 	Directory          string
@@ -48,7 +48,9 @@ func (s *ConfigurationStore) capabilities() []string {
 	}
 
 	if s.Update == nil {
-		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilitySelfUpdate })
+		offered = slices.DeleteFunc(offered, func(capability string) bool {
+			return capability == protocol.CapabilitySelfUpdate || capability == protocol.CapabilitySelfReinstall
+		})
 	}
 
 	if _, ok := s.Runtime.(interface {
@@ -234,7 +236,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 		return result
 	}
 
-	if command.Name == protocol.UpdateSpark {
+	if command.Name == protocol.UpdateSpark || command.Name == protocol.ReinstallSpark {
 		if s.Update == nil {
 			result.Error = &protocol.CommandError{Code: "unsupported_capability", Message: "Restart Spark without an enrollment token before using remote updates."}
 			return result
@@ -243,7 +245,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 		ctx, cancel := context.WithDeadline(ctx, command.Deadline)
 		defer cancel()
 
-		filename, err := s.Update(ctx, command.SparkVersion)
+		filename, err := s.Update(ctx, command.SparkVersion, command.Name == protocol.ReinstallSpark)
 		if err != nil {
 			result.Error = &protocol.CommandError{Code: "spark_update_failed", Message: fmt.Sprintf("%.1024s", err.Error())}
 			return result

@@ -67,6 +67,7 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 		capability string
 	}{
 		{Command{Name: ConfigureServer}, CapabilityConfigure},
+		{Command{Name: ReinstallSpark}, CapabilitySelfReinstall},
 		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.ServerConfiguration{StartupOverride: "sleep 10"}}}, CapabilityStartupOverride},
 		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.ServerConfiguration{GameIntegration: true}}}, CapabilityGameIntegration},
 		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Readiness: &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready"}}}}}}, CapabilityConfigure},

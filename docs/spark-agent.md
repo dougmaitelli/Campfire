@@ -28,6 +28,14 @@ Use **Re-enroll** in Spark details when replacing its credentials. Successful
 re-enrollment replaces the previous identity and briefly restarts the service.
 Preserve the Spark data directory across ordinary service and host restarts.
 
+Use **Force update** in Spark details to install the client build bundled with the
+current panel remotely, even when no update is detected or the installed version
+matches the panel. This requires a connected Spark with remote force update
+support. Confirm the action to download and verify the panel's package, replace
+the executable, and restart Spark. Credentials, configuration, game files, and
+backups are preserved; game containers keep running. Older clients need an
+ordinary update before they can support this action.
+
 Inspect service logs with `sudo journalctl -u spark -f`. For connection problems,
 check the configured agent address, outbound reachability, certificate trust,
 and whether the Spark is enabled in the panel. An expired identity needs

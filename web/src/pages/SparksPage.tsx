@@ -46,6 +46,9 @@ export function SparksPage() {
   const [confirmEnrollment, setConfirmEnrollment] = useState<Spark | null>(
     null,
   );
+  const [confirmForceUpdate, setConfirmForceUpdate] = useState<Spark | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmUpdate, setConfirmUpdate] = useState<Spark | null>(null);
@@ -110,13 +113,14 @@ export function SparksPage() {
       window.clearInterval(timer);
     };
   }, [waiting, addSpark]);
-  async function updateClient(spark: Spark) {
+  async function updateClient(spark: Spark, force = false) {
     if (updating || !spark.latest_agent_version) return;
     setUpdating(spark.id);
     setUpdateError(null);
     setConfirmUpdate(null);
+    setConfirmForceUpdate(null);
     try {
-      await updateSparkClient(spark.id, spark.latest_agent_version);
+      await updateSparkClient(spark.id, spark.latest_agent_version, force);
       setWaiting({ id: spark.id, version: spark.latest_agent_version });
     } catch (cause) {
       setUpdateError(
@@ -299,6 +303,22 @@ export function SparksPage() {
                 type="button"
                 variant="warning"
                 disabled={
+                  !details.connected ||
+                  details.disabled ||
+                  !details.latest_agent_version ||
+                  !details.capabilities?.includes("spark.self-reinstall.v1") ||
+                  pruning ||
+                  deleting !== null ||
+                  updating !== null
+                }
+                onClick={() => setConfirmForceUpdate(details)}
+              >
+                {t("sparksPage.forceUpdate")}
+              </Button>
+              <Button
+                type="button"
+                variant="warning"
+                disabled={
                   details.disabled || deleting !== null || updating !== null
                 }
                 onClick={() => {
@@ -316,6 +336,24 @@ export function SparksPage() {
             setAdding(true);
           }}
           editDisabled={deleting !== null}
+        />
+      )}
+      {confirmForceUpdate && (
+        <ConfirmDialog
+          title={t("sparksPage.forceUpdateTitle", {
+            name: confirmForceUpdate.name,
+          })}
+          description={t("sparksPage.forceUpdateDescription", {
+            version: confirmForceUpdate.latest_agent_version,
+          })}
+          confirmLabel={t("sparksPage.forceUpdate")}
+          warning
+          busy={false}
+          error={null}
+          onClose={() => setConfirmForceUpdate(null)}
+          onConfirm={() => {
+            void updateClient(confirmForceUpdate, true);
+          }}
         />
       )}
       {confirmPrune && (

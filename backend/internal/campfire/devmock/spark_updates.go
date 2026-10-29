@@ -50,6 +50,15 @@ func (r *Runtime) PruneSpark(ctx context.Context, id string) (model.PruneResult,
 	return model.PruneResult{Containers: 2, Images: 3, Volumes: 1}, nil
 }
 
+// ReinstallSpark simulates a forced replacement with the bundled build.
+func (r *Runtime) ReinstallSpark(ctx context.Context, id, version string) error {
+	if !r.Connected(id) || version != "v1.1.0" {
+		return errors.New("mock Spark must be connected and select the bundled build")
+	}
+
+	return r.db.WithContext(ctx).Model(&sparkClientRecord{}).Where("spark_id = ?", id).Update("version", version).Error
+}
+
 // UpdateSpark simulates a verified upgrade and persists its reported version.
 func (r *Runtime) UpdateSpark(ctx context.Context, id, version string) error {
 	if !r.Connected(id) {

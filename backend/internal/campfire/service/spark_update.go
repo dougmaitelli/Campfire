@@ -29,6 +29,9 @@ type SparkReleaseStatus struct {
 // ErrSparkUpdate describes a stale, unsupported or unnecessary upgrade request.
 var ErrSparkUpdate = errors.New("spark must be connected, support remote updates, and need the selected panel build")
 
+// ErrSparkReinstall describes an unavailable or stale forced replacement request.
+var ErrSparkReinstall = errors.New("spark must be connected, support remote reinstallation, and select the bundled panel build")
+
 // SparkUpdateService offers only the build bundled with the running panel.
 type SparkUpdateService struct {
 	sparks  *SparkService
@@ -95,10 +98,24 @@ func (s *SparkUpdateService) Start(ctx context.Context) {
 
 // Update revalidates the connected client's version and negotiated capability.
 func (s *SparkUpdateService) Update(ctx context.Context, id, version string) error {
+	return s.replace(ctx, id, version, false)
+}
+
+// Reinstall installs the bundled build regardless of version ordering.
+func (s *SparkUpdateService) Reinstall(ctx context.Context, id, version string) error {
+	return s.replace(ctx, id, version, true)
+}
+
+func (s *SparkUpdateService) replace(ctx context.Context, id, version string, reinstall bool) error {
+	failure := ErrSparkUpdate
+	if reinstall {
+		failure = ErrSparkReinstall
+	}
+
 	s.mu.Lock()
 	if s.active[id] {
 		s.mu.Unlock()
-		return ErrSparkUpdate
+		return failure
 	}
 
 	s.active[id] = true
@@ -111,8 +128,23 @@ func (s *SparkUpdateService) Update(ctx context.Context, id, version string) err
 		return err
 	}
 
-	if s.updater == nil || !spark.Connected || version != s.Status().LatestVersion || !sparkrelease.UpdateAvailable(spark.AgentVersion, version) {
-		return ErrSparkUpdate
+	if s.updater == nil || !spark.Connected || spark.Disabled || !sparkrelease.ValidVersion(version) || version != s.Status().LatestVersion || (!reinstall && !sparkrelease.UpdateAvailable(spark.AgentVersion, version)) {
+		return failure
+	}
+
+	if reinstall {
+		if err := protocol.Require(spark.Capabilities, protocol.CapabilitySelfReinstall); err != nil {
+			return err
+		}
+
+		remote, ok := s.updater.(interface {
+			ReinstallSpark(context.Context, string, string) error
+		})
+		if !ok {
+			return failure
+		}
+
+		return remote.ReinstallSpark(ctx, id, version)
 	}
 
 	if err := protocol.Require(spark.Capabilities, protocol.CapabilitySelfUpdate); err != nil {
