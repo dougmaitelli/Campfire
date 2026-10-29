@@ -165,6 +165,7 @@
   }
 
   & .button-icon {
+    --button-icon-size: 28px;
     border-radius: 4px;
   }
 
