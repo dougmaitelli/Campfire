@@ -33,10 +33,11 @@ func ValidVersion(version string) bool {
 	return version == "dev" || versionPattern.MatchString(version) || developmentPattern.MatchString(version)
 }
 
-// UpdateAvailable allows newer releases or a different commit on the development channel.
+// UpdateAvailable allows newer releases, development builds to move to a release,
+// or a different commit on the development channel.
 func UpdateAvailable(current, target string) bool {
-	if (current == "dev" || strings.HasPrefix(current, "dev-")) && developmentPattern.MatchString(target) {
-		return ValidVersion(current) && current != target
+	if current == "dev" || developmentPattern.MatchString(current) {
+		return current != target && (versionPattern.MatchString(target) || developmentPattern.MatchString(target))
 	}
 
 	return Newer(current, target)

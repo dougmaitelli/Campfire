@@ -98,3 +98,29 @@ func TestSparkUpdatesUseCachedVersionsAndRejectUnsupportedRequests(t *testing.T)
 		t.Fatal("failed check discarded last good release", status)
 	}
 }
+
+func TestSparkUpdatesFromDevelopmentToRelease(t *testing.T) {
+	for _, version := range []string{"dev", "dev-abcdef123"} {
+		t.Run(version, func(t *testing.T) {
+			peer := &updateTestPeer{version: version, connected: true, capable: true}
+			sparks := NewSparkService(&updateTestStore{spark: model.Spark{ID: "node"}}, peer)
+			updates := NewSparkUpdateService(sparks, peer).WithFetcher(func(context.Context) (string, error) { return "v0.3.0", nil })
+			sparks.Updates = updates
+			updates.Start(t.Context())
+
+			spark, err := sparks.Get(t.Context(), "node")
+			if err != nil || !spark.AgentUpdateAvailable || spark.LatestAgentVersion != "v0.3.0" {
+				t.Fatal("development Spark did not offer the panel release", spark, err)
+			}
+
+			if err := updates.Update(t.Context(), "node", "v0.3.0"); err != nil {
+				t.Fatal(err)
+			}
+
+			spark, err = sparks.Get(t.Context(), "node")
+			if err != nil || spark.AgentUpdateAvailable || peer.calls != 1 || peer.version != "v0.3.0" {
+				t.Fatal("release update did not clear availability", spark, peer, err)
+			}
+		})
+	}
+}
