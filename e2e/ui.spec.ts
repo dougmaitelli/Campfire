@@ -324,6 +324,8 @@ test("binary file rows remain selectable and downloadable without opening the ed
 }) => {
   await login(page);
   await openServerTab(page, "files", "Files");
+  const actions = page.locator(".file-selection-bar");
+  await expect(actions).toHaveScreenshot("file-actions-disabled.png");
   const row = page.getByRole("row").filter({ hasText: "server.jar" });
   await expect(
     row.getByRole("cell", { name: "JAR", exact: true }),
@@ -363,6 +365,8 @@ test("binary file rows remain selectable and downloadable without opening the ed
   await expect(
     page.getByRole("button", { name: "server.properties", exact: true }),
   ).toBeEnabled();
+  await row.getByRole("checkbox").uncheck();
+  await expect(actions).toHaveScreenshot("file-actions-disabled-mobile.png");
 });
 
 test("server file edits persist after reopening", async ({ page }) => {

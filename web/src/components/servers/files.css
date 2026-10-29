@@ -33,6 +33,7 @@
 
     &:disabled {
       color: var(--muted);
+      box-shadow: none;
     }
   }
 
