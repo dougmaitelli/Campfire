@@ -30,6 +30,7 @@ export interface Server extends ServerConfiguration {
   id: string;
   owner_user_id: number;
   permissions: string[];
+  can_manage_access?: boolean;
   spark_name: string;
   ember_name: string;
   ember_art_url?: string;
@@ -45,6 +46,8 @@ export function isServer(value: unknown): value is Server {
     value !== null &&
     "id" in value &&
     typeof value.id === "string" &&
+    (!("can_manage_access" in value) ||
+      typeof value.can_manage_access === "boolean") &&
     (!("startup_override" in value) ||
       typeof value.startup_override === "string") &&
     (!("game_integration" in value) ||

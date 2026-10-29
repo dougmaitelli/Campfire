@@ -5,24 +5,29 @@ import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { saveRole, type Role } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import {
+  Permission,
+  permissionCatalog,
+  expandPermissions,
+  togglePermission,
+  type PermissionDefinition,
+} from "../api/permissions";
+import { Fieldset } from "../components/forms/Fieldset";
+import "./role-dialog.css";
 
-const serverPermissions = [
-  ["server.view", i18n.t("roleDialog.viewTheServerAndRuntimeStatus")],
-  [
-    "server.operate",
-    i18n.t("roleDialog.lifecycleControlsConsoleFilesAndBackups"),
-  ],
-  [
-    "server.configure",
-    i18n.t("roleDialog.editServerConfigurationAndResourceReservations"),
-  ],
-  ["server.delete", i18n.t("roleDialog.deleteTheServerAndGameData")],
-  ["server.share", i18n.t("roleDialog.shareAccessWithOperators")],
+const presets = [
+  ["Observer", Permission.ServerView],
+  ["Log viewer", Permission.ServerConsoleRead],
+  ["Power operator", Permission.ServerOperate],
+  ["Console operator", Permission.ServerConsoleWrite],
+  ["File maintainer", Permission.ServerFilesWrite],
+  ["Backup creator", Permission.ServerBackupsCreate],
+  ["Backup restorer", Permission.ServerBackupsRestore],
 ] as const;
 
 export function RoleDialog({
@@ -44,10 +49,28 @@ export function RoleDialog({
   const [name, setName] = useState(role?.name ?? "");
   const [scope, setScope] = useState<Role["scope"]>(role?.scope ?? "server");
   const [permissions, setPermissions] = useState(
-    role?.permissions ?? ["server.view"],
+    role?.permissions ?? [Permission.ServerView],
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState<PermissionDefinition[]>([]);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void permissionCatalog(controller.signal)
+      .then((items) => {
+        if (!controller.signal.aborted) setCatalog(items);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setCatalogError(
+            cause instanceof Error
+              ? cause.message
+              : i18n.t("roleDialog.unableToLoadPermissions"),
+          );
+      });
+    return () => controller.abort();
+  }, []);
   const pending = useRef(false);
   async function submit() {
     if (pending.current || role?.builtin) return;
@@ -68,15 +91,49 @@ export function RoleDialog({
       setBusy(false);
     }
   }
+  const platformChoices: PermissionDefinition[] = (
+    [
+      [
+        Permission.ServersCreate,
+        t("roleDialog.createServersOnSparksApprovedByAnAdministrator"),
+      ],
+      [Permission.ServersManageAll, t("rolesPage.manageAllServers")],
+      [Permission.UsersManage, t("rolesPage.manageUsers")],
+      [Permission.RolesManage, t("rolesPage.manageRoles")],
+      [Permission.SparksManage, t("rolesPage.manageSparks")],
+      [Permission.EmbersManage, t("rolesPage.manageEmbers")],
+    ] as const
+  ).map(([id, label]) => ({ id, group: "Platform", label, requires: [] }));
   const choices =
     scope === "server"
-      ? serverPermissions
-      : ([
-          [
-            "servers.create",
-            t("roleDialog.createServersOnSparksApprovedByAnAdministrator"),
-          ],
-        ] as const);
+      ? catalog
+      : platformChoices.filter((item) =>
+          role?.builtin
+            ? role.permissions.includes(item.id)
+            : item.id === Permission.ServersCreate,
+        );
+  const groups = [...new Set(choices.map((item) => item.group))];
+  function toggle(id: string, checked: boolean) {
+    const next = togglePermission(permissions, id, checked, catalog);
+    const removed = permissions.filter(
+      (item) => item !== id && !next.includes(item),
+    );
+    if (
+      removed.length &&
+      !window.confirm(
+        t("roleDialog.removeDependencies", {
+          permissions: removed
+            .map(
+              (item) =>
+                catalog.find((entry) => entry.id === item)?.label ?? item,
+            )
+            .join(", "),
+        }),
+      )
+    )
+      return;
+    setPermissions(next);
+  }
   return (
     <Drawer
       title={
@@ -106,7 +163,12 @@ export function RoleDialog({
           {!role?.builtin && (
             <Button
               variant="primary"
-              disabled={busy || deleting || !name.trim()}
+              disabled={
+                busy ||
+                deleting ||
+                !name.trim() ||
+                (scope === "server" && !catalog.length)
+              }
               onClick={() => {
                 void submit();
               }}
@@ -124,6 +186,9 @@ export function RoleDialog({
           <InlineMessage role="alert">{deleteError}</InlineMessage>
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
+        {catalogError && (
+          <InlineMessage role="alert">{catalogError}</InlineMessage>
+        )}
         <FormField label={t("common.name")}>
           <TextInput
             id="role-name"
@@ -141,7 +206,7 @@ export function RoleDialog({
             onValueChange={(selectedValue) => {
               const next = selectedValue === "platform" ? "platform" : "server";
               setScope(next);
-              setPermissions(next === "server" ? ["server.view"] : []);
+              setPermissions(next === "server" ? [Permission.ServerView] : []);
             }}
           >
             <option value="server">{t("common.server")}</option>
@@ -149,27 +214,71 @@ export function RoleDialog({
           </Select>
         </FormField>
         <h3>{t("roleDialog.permissions")}</h3>
-        {choices.map(([permission, label]) => (
-          <CheckboxField
-            key={permission}
-            checked={permissions.includes(permission)}
-            disabled={
-              busy ||
-              deleting ||
-              role?.builtin === true ||
-              permission === "server.view"
-            }
-            onChange={(event) =>
-              setPermissions(
-                event.target.checked
-                  ? [...permissions, permission]
-                  : permissions.filter((entry) => entry !== permission),
-              )
-            }
+        {scope === "server" && !role?.builtin && (
+          <FormField label={t("roleDialog.applyPreset")}>
+            <Select
+              value=""
+              disabled={busy || deleting || !catalog.length}
+              onValueChange={(value) => {
+                if (presets.some(([label]) => label === value)) {
+                  const preset = presets.find(([label]) => label === value);
+                  if (preset)
+                    setPermissions(expandPermissions([preset[1]], catalog));
+                }
+              }}
+            >
+              <option value="">{t("roleDialog.choosePreset")}</option>
+              {presets.map(([label]) => (
+                <option key={label} value={label}>
+                  {t(`permissionPresets.${label}`)}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        )}
+        {groups.map((group) => (
+          <Fieldset
+            className="role-permissions"
+            key={group}
+            disabled={busy || deleting || role?.builtin === true}
           >
-            {label}
-          </CheckboxField>
+            <legend>
+              {t(`permissionGroups.${group}`, { defaultValue: group })}
+            </legend>
+            {choices
+              .filter((item) => item.group === group)
+              .map((item) => (
+                <CheckboxField
+                  key={item.id}
+                  checked={permissions.includes(item.id)}
+                  disabled={item.id === Permission.ServerView}
+                  onChange={(event) => toggle(item.id, event.target.checked)}
+                >
+                  {t(`permissionLabels.${item.id.replaceAll(".", "_")}`, {
+                    defaultValue: item.label,
+                  })}
+                  {item.requires.length > 0 && (
+                    <span className="field-help">
+                      {t("roleDialog.requires", {
+                        permissions: item.requires
+                          .map((id) =>
+                            t(`permissionLabels.${id.replaceAll(".", "_")}`, {
+                              defaultValue:
+                                catalog.find((entry) => entry.id === id)
+                                  ?.label ?? id,
+                            }),
+                          )
+                          .join("; "),
+                      })}
+                    </span>
+                  )}
+                </CheckboxField>
+              ))}
+          </Fieldset>
         ))}
+        {scope === "server" && (
+          <p className="field-help">{t("roleDialog.permissionGuidance")}</p>
+        )}
         <p className="field-help">
           {t(
             "roleDialog.serverPermissionsNeverGrantAccessToUnassignedServersSparkUser",

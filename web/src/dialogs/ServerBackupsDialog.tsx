@@ -13,6 +13,7 @@ import { BackupState } from "../components/servers/BackupState";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { bytes } from "../api/monitoring";
 import "../components/servers/files.css";
+import { Permission } from "../api/permissions";
 
 export function ServerBackupsDialog({
   server,
@@ -26,7 +27,14 @@ export function ServerBackupsDialog({
   const { t } = useTranslation();
   const [entries, setEntries] = useState<Backup[]>([]);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
-  const canConfigure = server.permissions.includes("server.configure");
+  const canDelete = server.permissions.includes(Permission.ServerBackupsDelete);
+  const canCreate = server.permissions.includes(Permission.ServerBackupsCreate);
+  const canRestore = server.permissions.includes(
+    Permission.ServerBackupsRestore,
+  );
+  const canDownload = server.permissions.includes(
+    Permission.ServerBackupsDownload,
+  );
   const [status, setStatus] = useState<RuntimeStatus>();
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -96,6 +104,7 @@ export function ServerBackupsDialog({
   async function remove(entry: Backup, location: "local" | "s3") {
     if (
       pending.current ||
+      !canDelete ||
       !window.confirm(
         i18n.t(
           "serverBackupsDialog.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
@@ -126,7 +135,12 @@ export function ServerBackupsDialog({
     }
   }
   async function submit(action: "backup" | "restore", name?: string) {
-    if (pending.current || !canChange) return;
+    if (
+      pending.current ||
+      !canChange ||
+      !(action === "backup" ? canCreate : canRestore)
+    )
+      return;
     if (
       action === "restore" &&
       !window.confirm(
@@ -177,7 +191,7 @@ export function ServerBackupsDialog({
       footerRight={
         <Button
           variant="primary"
-          disabled={!canChange}
+          disabled={!canChange || !canCreate}
           onClick={() => {
             void submit("backup");
           }}
@@ -261,7 +275,8 @@ export function ServerBackupsDialog({
                 </td>
                 <td className="table-actions">
                   <ActionGroup>
-                    {!busy &&
+                    {canDownload &&
+                      !busy &&
                       entry.state !== "deleting" &&
                       (entry.remote ||
                         (entry.local && status && !status.busy)) && (
@@ -280,6 +295,7 @@ export function ServerBackupsDialog({
                     <Button
                       disabled={
                         !canChange ||
+                        !canRestore ||
                         entry.state === "deleting" ||
                         (!entry.local && !entry.remote)
                       }
@@ -289,7 +305,7 @@ export function ServerBackupsDialog({
                     >
                       {i18n.t("serverBackupsDialog.restore")}
                     </Button>
-                    {canConfigure && entry.local && (
+                    {canDelete && entry.local && (
                       <Button
                         variant="danger"
                         disabled={
@@ -304,7 +320,7 @@ export function ServerBackupsDialog({
                         {i18n.t("serverBackupsDialog.deleteLocal")}
                       </Button>
                     )}
-                    {canConfigure && entry.remote && (
+                    {canDelete && entry.remote && (
                       <Button
                         variant="danger"
                         disabled={

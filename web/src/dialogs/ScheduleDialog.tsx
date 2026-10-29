@@ -12,6 +12,7 @@ import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CronField } from "../components/schedules/CronField";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import { serverActionPermission } from "../api/permissions";
 
 export function ScheduleDialog({
   schedule,
@@ -25,11 +26,21 @@ export function ScheduleDialog({
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
+  function allowedActions(id: string) {
+    const selected = servers.find((item) => item.id === id);
+    return ["backup", "restart", "start", "stop", "kill", "command"].filter(
+      (item) => selected?.permissions.includes(serverActionPermission(item)),
+    );
+  }
   const [serverID, setServerID] = useState(
     schedule?.server_id ?? servers[0]?.id ?? "",
   );
   const [name, setName] = useState(schedule?.name ?? "");
-  const [action, setAction] = useState(schedule?.action ?? "backup");
+  const [action, setAction] = useState(
+    schedule?.action ??
+      allowedActions(schedule?.server_id ?? servers[0]?.id ?? "")[0] ??
+      "backup",
+  );
   const [command, setCommand] = useState("");
   const [expression, setExpression] = useState(
     schedule?.cron_expression ?? "0 3 * * *",
@@ -91,6 +102,10 @@ export function ScheduleDialog({
   }
   async function submit() {
     if (pending.current) return;
+    if (!allowedActions(serverID).includes(action)) {
+      setError(i18n.t("scheduleDialog.actionNotAllowed"));
+      return;
+    }
     if (once && enabled && new Date(runAt).getTime() <= Date.now()) {
       setError(i18n.t("scheduleDialog.chooseAFutureDateAndTimeForThisOneOff"));
       return;
@@ -195,7 +210,11 @@ export function ScheduleDialog({
             id="schedule-server"
             value={serverID}
             disabled={schedule !== null}
-            onValueChange={(selectedValue) => setServerID(selectedValue)}
+            onValueChange={(selectedValue) => {
+              setServerID(selectedValue);
+              if (!allowedActions(selectedValue).includes(action))
+                setAction(allowedActions(selectedValue)[0] ?? "");
+            }}
           >
             {servers.map((server) => (
               <option key={server.id} value={server.id}>
@@ -210,15 +229,13 @@ export function ScheduleDialog({
             value={action}
             onValueChange={(selectedValue) => setAction(selectedValue)}
           >
-            {["backup", "restart", "start", "stop", "kill", "command"].map(
-              (value) => (
-                <option key={value} value={value}>
-                  {value === "command"
-                    ? i18n.t("scheduleDialog.consoleCommand")
-                    : value.charAt(0).toUpperCase() + value.slice(1)}
-                </option>
-              ),
-            )}
+            {allowedActions(serverID).map((value) => (
+              <option key={value} value={value}>
+                {value === "command"
+                  ? i18n.t("scheduleDialog.consoleCommand")
+                  : value.charAt(0).toUpperCase() + value.slice(1)}
+              </option>
+            ))}
           </Select>
         </FormField>
         {action === "command" && (

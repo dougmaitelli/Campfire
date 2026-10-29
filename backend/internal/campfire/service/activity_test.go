@@ -14,6 +14,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 type activityRuntime struct {
@@ -95,6 +96,48 @@ func activityFixture(t *testing.T) (*ActivityService, *database.Database, *activ
 	}
 
 	return activity, db, runtime, principal
+}
+
+func TestScheduledExecutionKeepsTokenScopeLimit(t *testing.T) {
+	s, _, _, owner := activityFixture(t)
+	limited := owner
+	limited.APITokenID = 99
+	limited.TokenScopes = accessperm.Expand([]string{accessperm.ServerSchedulesManage, accessperm.ServerBackupsCreate})
+
+	item := savedSchedule(t, s, limited, "backup")
+	if _, err := s.Save(t.Context(), limited, database.Schedule{ServerID: "game", Name: "Command", Action: "command", Command: "save-all", CronExpression: "0 3 * * *", TimeZone: "UTC"}, true); !errors.Is(err, repository.ErrAccessDenied) {
+		t.Fatalf("token scheduled an action outside its scope: %v", err)
+	}
+
+	if _, err := s.RunNow(t.Context(), limited, item.ID); !errors.Is(err, repository.ErrAccessDenied) {
+		t.Fatalf("manage scope granted immediate execution: %v", err)
+	}
+
+	run, err := s.Store.ClaimSchedule(t.Context(), item.ID, time.Now(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	principal, err := s.checkExecution(t.Context(), run)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.authorize(t.Context(), principal, "game", accessperm.ServerBackupsCreate); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, denied := range []string{accessperm.ServerConsoleWrite, accessperm.ServerFilesWrite, accessperm.ServerSchedulesRun} {
+		if err := s.authorize(t.Context(), principal, "game", denied); !errors.Is(err, repository.ErrAccessDenied) {
+			t.Fatalf("scheduled execution escaped token scope for %s: %v", denied, err)
+		}
+	}
+	// Changing the persisted action must not turn the owner's full rights into
+	// authorization for an action the scheduling token never held.
+	run.Action = "command"
+	if _, err := s.checkExecution(t.Context(), run); !errors.Is(err, repository.ErrAccessDenied) {
+		t.Fatalf("execution accepted an action outside its original scope: %v", err)
+	}
 }
 
 func TestStopInstallationRecordsInterruption(t *testing.T) {

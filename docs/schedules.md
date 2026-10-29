@@ -24,13 +24,16 @@ scheduled work, and the Spark must be available to execute it.
 ## Check the result
 
 Open a schedule from its row to view its settings and execution history. The
-drawer shows only that schedule's runs and can load older attempts. Users with
-server view access can inspect it; **Edit schedule** requires both configuration
-and operation permissions for that server.
+drawer shows only that schedule's runs and can load older attempts.
+`server.schedules.read` allows inspection. Editing requires
+`server.schedules.manage` and the permission for the scheduled action, such as
+`server.operate` for a restart or `server.backups.create` for a backup.
 
 Inspect schedule history for the run's status and any reported error. **Run now**
-lets you trigger a schedule explicitly. It still uses the same action requirements
-and permissions as a timed execution.
+lets you trigger a schedule explicitly with `server.schedules.run` and the
+underlying action's permission. The same grants are required to retry a scheduled
+execution. Jobs created or enabled through an API token retain its scope limit
+and recheck the account's current access before dispatch.
 
 Backup creation requires a stopped game. Arrange the stop and later start
 separately rather than expecting a backup action to stop the server itself.

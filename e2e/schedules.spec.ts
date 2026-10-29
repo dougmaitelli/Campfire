@@ -148,7 +148,11 @@ for (const permissions of [
     const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
     const roleResponse = await request.post("/api/v1/roles", {
       headers,
-      data: { name: "Schedule reader", scope: "server", permissions },
+      data: {
+        name: "Schedule reader",
+        scope: "server",
+        permissions: [...permissions, "server.schedules.read"],
+      },
     });
     expect(roleResponse.ok()).toBeTruthy();
     const role = (await roleResponse.json()) as { id: number };

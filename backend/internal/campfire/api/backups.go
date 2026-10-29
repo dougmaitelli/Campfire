@@ -13,6 +13,7 @@ import (
 
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +132,7 @@ func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
 		}
 
 		permissions, err := a.access.ServerPermissions(ctx, principal, r.PathValue("id"))
-		if err != nil || !slices.Contains(permissions, "server.operate") {
+		if err != nil || !slices.Contains(permissions, accessperm.ServerBackupsDownload) {
 			return
 		}
 

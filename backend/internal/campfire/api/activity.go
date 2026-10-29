@@ -13,6 +13,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/campfire/service"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 type auditKey struct{}
@@ -149,19 +150,15 @@ func (a *API) listSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if p.APITokenID != 0 && !slices.Contains(p.TokenScopes, "*") {
-		visible := make([]database.Schedule, 0, len(items))
-		for _, item := range items {
-			permissions, err := a.access.ServerPermissions(r.Context(), p, item.ServerID)
-			if err == nil && slices.Contains(permissions, "server.view") {
-				visible = append(visible, item)
-			}
+	visible := make([]database.Schedule, 0, len(items))
+	for _, item := range items {
+		permissions, err := a.access.ServerPermissions(r.Context(), p, item.ServerID)
+		if err == nil && slices.Contains(permissions, accessperm.ServerSchedulesRead) {
+			visible = append(visible, item)
 		}
-
-		items = visible
 	}
 
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (a *API) previewSchedule(w http.ResponseWriter, r *http.Request) {
@@ -269,19 +266,15 @@ func (a *API) listExecutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if p.APITokenID != 0 && !slices.Contains(p.TokenScopes, "*") {
-		visible := make([]database.ScheduleRun, 0, len(items))
-		for _, item := range items {
-			permissions, err := a.access.ServerPermissions(r.Context(), p, item.ServerID)
-			if err == nil && slices.Contains(permissions, "server.view") {
-				visible = append(visible, item)
-			}
+	visible := make([]database.ScheduleRun, 0, len(items))
+	for _, item := range items {
+		permissions, err := a.access.ServerPermissions(r.Context(), p, item.ServerID)
+		if err == nil && slices.Contains(permissions, accessperm.ServerSchedulesRead) {
+			visible = append(visible, item)
 		}
-
-		items = visible
 	}
 
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (a *API) retryExecution(w http.ResponseWriter, r *http.Request) {

@@ -16,6 +16,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 type actorKey struct{}
@@ -200,17 +201,17 @@ func (s *ActivityService) principal(ctx context.Context, userID int64) (Principa
 	return PrincipalFromSession(database.UserSession{UserID: user.ID, User: user}), nil
 }
 
-func (s *ActivityService) authorize(ctx context.Context, principal Principal, serverID string, configure bool) error {
+func (s *ActivityService) authorize(ctx context.Context, principal Principal, serverID, required string) error {
 	permissions, err := s.auth.Access().ServerPermissions(ctx, principal, serverID)
 	if err != nil {
 		return err
 	}
 
-	if !slices.Contains(permissions, "server.view") {
+	if !slices.Contains(permissions, accessperm.ServerView) {
 		return ErrServerNotFound
 	}
 
-	if !slices.Contains(permissions, "server.operate") || configure && !slices.Contains(permissions, "server.configure") {
+	if required == "" || !slices.Contains(permissions, required) {
 		return repository.ErrAccessDenied
 	}
 
@@ -219,7 +220,7 @@ func (s *ActivityService) authorize(ctx context.Context, principal Principal, se
 
 // Save validates a recurrence and assigns its execution identity to the editing user.
 func (s *ActivityService) Save(ctx context.Context, principal Principal, item database.Schedule, create bool) (database.Schedule, error) {
-	if err := s.authorize(ctx, principal, item.ServerID, true); err != nil {
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.ServerSchedulesManage); err != nil {
 		return database.Schedule{}, err
 	}
 
@@ -283,6 +284,11 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 	}
 
 	item.RunAsUserID, item.Username = principal.UserID, principal.Username
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.Action(item.Action)); err != nil {
+		return database.Schedule{}, err
+	}
+
+	item.AuthorizationScopes = principal.TokenScopes
 	if err := s.Store.SaveSchedule(ctx, &item, create); err != nil {
 		return database.Schedule{}, err
 	}
@@ -297,11 +303,15 @@ func (s *ActivityService) SetEnabled(ctx context.Context, principal Principal, i
 		return database.Schedule{}, err
 	}
 
-	if err := s.authorize(ctx, principal, item.ServerID, true); err != nil {
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.ServerSchedulesManage); err != nil {
 		return database.Schedule{}, err
 	}
 
-	return s.Store.SetScheduleEnabled(ctx, id, item.ServerID, enabled, principal.UserID)
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.Action(item.Action)); err != nil {
+		return database.Schedule{}, err
+	}
+
+	return s.Store.SetScheduleEnabled(ctx, id, item.ServerID, enabled, principal.UserID, principal.TokenScopes)
 }
 
 // Remove stops future recurrences while retaining execution and audit history.
@@ -311,7 +321,11 @@ func (s *ActivityService) Remove(ctx context.Context, principal Principal, id st
 		return err
 	}
 
-	if err := s.authorize(ctx, principal, item.ServerID, true); err != nil {
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.ServerSchedulesManage); err != nil {
+		return err
+	}
+
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.Action(item.Action)); err != nil {
 		return err
 	}
 
@@ -325,11 +339,15 @@ func (s *ActivityService) RunNow(ctx context.Context, principal Principal, id st
 		return database.ScheduleRun{}, err
 	}
 
-	if err := s.authorize(ctx, principal, item.ServerID, true); err != nil {
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.ServerSchedulesRun); err != nil {
 		return database.ScheduleRun{}, err
 	}
 
-	run, err := s.Store.ClaimSchedule(ctx, id, time.Now(), &principal.UserID)
+	if err := s.authorize(ctx, principal, item.ServerID, accessperm.Action(item.Action)); err != nil {
+		return database.ScheduleRun{}, err
+	}
+
+	run, err := s.Store.ClaimSchedule(ctx, id, time.Now(), &principal.UserID, principal.TokenScopes)
 	if err != nil {
 		return database.ScheduleRun{}, err
 	}
@@ -351,6 +369,12 @@ func (s *ActivityService) attempt(ctx context.Context, principal Principal, old 
 	now := time.Now().Unix()
 
 	run := database.ScheduleRun{ID: rand.Text(), ScheduleID: old.ScheduleID, RetryOf: old.ID, ServerID: server.ID, ServerName: server.Name, Action: old.Action, UserID: principal.UserID, Username: principal.Username, State: "dispatching", CreatedAt: now, StartedAt: now}
+
+	run.AuthorizationScopes = principal.TokenScopes
+	if old.ScheduleID != "" {
+		run.AuthorizationPermission = accessperm.ServerSchedulesRun
+	}
+
 	if err := s.Store.CreateRun(ctx, &run); err != nil {
 		return database.ScheduleRun{}, err
 	}
@@ -369,8 +393,14 @@ func (s *ActivityService) Retry(ctx context.Context, principal Principal, id str
 		return database.ScheduleRun{}, err
 	}
 
-	if err := s.authorize(ctx, principal, old.ServerID, false); err != nil {
+	if err := s.authorize(ctx, principal, old.ServerID, accessperm.Action(old.Action)); err != nil {
 		return database.ScheduleRun{}, err
+	}
+
+	if old.ScheduleID != "" {
+		if err := s.authorize(ctx, principal, old.ServerID, accessperm.ServerSchedulesRun); err != nil {
+			return database.ScheduleRun{}, err
+		}
 	}
 
 	if !slices.Contains([]string{"failed", "interrupted"}, old.State) || !slices.Contains([]string{"install", "start", "stop", "restart", "kill", "backup"}, old.Action) {
@@ -386,8 +416,18 @@ func (s *ActivityService) finish(ctx context.Context, run database.ScheduleRun, 
 
 func (s *ActivityService) checkExecution(ctx context.Context, run database.ScheduleRun) (Principal, error) {
 	principal, err := s.principal(ctx, run.UserID)
+
+	principal.ScopeLimit = run.AuthorizationScopes
 	if err == nil {
-		err = s.authorize(ctx, principal, run.ServerID, run.ScheduleID != "")
+		err = s.authorize(ctx, principal, run.ServerID, accessperm.Action(run.Action))
+		if err == nil && run.ScheduleID != "" {
+			required := run.AuthorizationPermission
+			if required == "" {
+				required = accessperm.ServerSchedulesManage
+			}
+
+			err = s.authorize(ctx, principal, run.ServerID, required)
+		}
 	}
 
 	if err != nil {
@@ -517,6 +557,7 @@ func (s *ActivityService) BeginManual(ctx context.Context, serverID, action, con
 	}
 
 	run := database.ScheduleRun{ID: rand.Text(), ServerID: serverID, ServerName: server.Name, UserID: principal.UserID, Username: principal.Username, Action: action, Content: content, State: "dispatching", CreatedAt: time.Now().Unix(), StartedAt: time.Now().Unix()}
+	run.AuthorizationScopes = principal.TokenScopes
 
 	return run, s.Store.CreateRun(ctx, &run)
 }

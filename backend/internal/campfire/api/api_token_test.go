@@ -125,7 +125,7 @@ func TestAPITokenBackupDownloadStopsAfterRevocation(t *testing.T) {
 
 	endpoint := "/api/v1/servers/" + server.ID
 	expectAccess(t, f.admin, "POST", endpoint+"/members", `{"username":"downloader"}`, http.StatusOK)
-	token, secret := createTestAPIToken(t, browser, `["server.view","server.operate"]`)
+	token, secret := createTestAPIToken(t, browser, `["server.view","server.backups.download"]`)
 	f.runtime.files = func(input model.FileRequest) (model.FileResult, error) {
 		if input.Offset > 0 {
 			expectAccess(t, browser, "DELETE", fmt.Sprintf("/api/v1/tokens/%d", token.ID), "", http.StatusNoContent)

@@ -1,3 +1,4 @@
+import { Permission } from "../api/permissions";
 import { lazy, type ComponentType } from "react";
 
 export type InspectionProps = { id: string; onClose: () => void };
@@ -34,7 +35,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: "spark",
-      permission: "sparks.manage",
+      permission: Permission.SparksManage,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectSpark })),
       ),
@@ -47,7 +48,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: "ember",
-      permission: "embers.manage",
+      permission: Permission.EmbersManage,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectEmber })),
       ),
@@ -79,7 +80,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: "user",
-      permission: "users.manage",
+      permission: Permission.UsersManage,
       numericID: true,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectUser })),
@@ -93,7 +94,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: "role",
-      permission: "roles.manage",
+      permission: Permission.RolesManage,
       numericID: true,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectRole })),

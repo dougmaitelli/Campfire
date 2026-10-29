@@ -1,6 +1,10 @@
 package database
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+
+	accessperm "campfire/internal/shared/permissions"
+)
 
 // Built-in role identifiers are stable so authorization does not depend on display names.
 const (
@@ -26,10 +30,10 @@ func seedRoles(tx *gorm.DB) error {
 	}
 
 	permissions := map[int64][]string{
-		AdminRole:    {"users.manage", "roles.manage", "sparks.manage", "embers.manage", "servers.create", "servers.manage_all"},
-		CreatorRole:  {"servers.create"},
-		OwnerRole:    {"server.view", "server.operate", "server.configure", "server.delete", "server.share"},
-		OperatorRole: {"server.view", "server.operate"},
+		AdminRole:    {accessperm.UsersManage, accessperm.RolesManage, accessperm.SparksManage, accessperm.EmbersManage, accessperm.ServersCreate, accessperm.ServersManageAll},
+		CreatorRole:  {accessperm.ServersCreate},
+		OwnerRole:    accessperm.All(),
+		OperatorRole: accessperm.Legacy([]string{accessperm.ServerView, accessperm.ServerOperate}),
 	}
 	for roleID, actions := range permissions {
 		for _, action := range actions {

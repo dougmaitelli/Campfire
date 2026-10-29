@@ -3,6 +3,7 @@ package api
 import (
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 	"errors"
 	"fmt"
 	"mime"
@@ -39,6 +40,16 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 
 	if err := normalizeFileRequest(&input); err != nil {
 		writeFileError(w, err)
+		return
+	}
+
+	required := accessperm.File(input.Operation)
+	if required == "" {
+		writeFileError(w, &model.FileError{Code: "invalid_file", Message: "Invalid game file operation."})
+		return
+	}
+
+	if !a.requireServer(w, r, required) {
 		return
 	}
 
@@ -119,7 +130,7 @@ func (a *API) downloadFile(w http.ResponseWriter, r *http.Request) {
 		}
 
 		permissions, err := a.access.ServerPermissions(r.Context(), principal, r.PathValue("id"))
-		if err != nil || !slices.Contains(permissions, "server.view") || !slices.Contains(permissions, "server.operate") {
+		if err != nil || !slices.Contains(permissions, accessperm.ServerView) || !slices.Contains(permissions, accessperm.ServerFilesRead) {
 			panic(http.ErrAbortHandler)
 		}
 

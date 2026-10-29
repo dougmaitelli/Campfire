@@ -27,6 +27,7 @@ import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
+import { Permission } from "../api/permissions";
 
 const confirmations = {
   kill: {
@@ -94,11 +95,20 @@ export function ServerOperationsPage({
       : status,
     currentOperationID,
   );
-  const activeTab =
-    ["console", "files", "backups", "activity"].includes(tab) &&
-    (tab !== "activity" || server?.game_integration === true)
-      ? tab
-      : "console";
+  const tabPermissions = {
+    console: Permission.ServerConsoleRead,
+    files: Permission.ServerFilesRead,
+    backups: Permission.ServerBackupsRead,
+    activity: Permission.ServerView,
+  } as const;
+  const allowedTabs = Object.entries(tabPermissions)
+    .filter(
+      ([item, permission]) =>
+        server?.permissions.includes(permission) &&
+        (item !== "activity" || server.game_integration === true),
+    )
+    .map(([item]) => item);
+  const activeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0];
   useEffect(() => {
     const controller = new AbortController();
     const requestedRoute = window.location.hash.slice(1);
@@ -223,7 +233,7 @@ export function ServerOperationsPage({
           )
         }
         actions={
-          server?.permissions.includes("server.operate") && (
+          server?.permissions.includes(Permission.ServerOperate) && (
             <ServerLifecycleControls
               status={status}
               disabled={
@@ -232,7 +242,9 @@ export function ServerOperationsPage({
                   (spark) => spark.id === server.spark_id && spark.disabled,
                 ) === true
               }
-              canConfigure={server.permissions.includes("server.configure")}
+              canConfigure={server.permissions.includes(
+                Permission.ServerReinstall,
+              )}
               onAction={(action) => {
                 if (action === "kill" || action === "reinstall") {
                   setError(null);
@@ -308,11 +320,7 @@ export function ServerOperationsPage({
                 ["activity", t("gameEvents.title")],
               ] as const
             )
-              .filter(([item]) =>
-                item === "activity"
-                  ? server.game_integration === true
-                  : server.permissions.includes("server.operate"),
-              )
+              .filter(([item]) => allowedTabs.includes(item))
               .map(([item, label]) => (
                 <a
                   key={item}
@@ -325,7 +333,7 @@ export function ServerOperationsPage({
           </nav>
           {activeTab === "activity" ? (
             <ServerGameEvents key={server.id} serverID={server.id} />
-          ) : server.permissions.includes("server.operate") ? (
+          ) : activeTab ? (
             <>
               {activeTab === "console" && (
                 <>
@@ -428,6 +436,9 @@ export function ServerOperationsPage({
               <RadioField
                 name="reinstall-mode"
                 value="clean"
+                disabled={
+                  !server.permissions.includes(Permission.ServerFilesDelete)
+                }
                 checked={reinstallMode === "clean"}
                 onChange={() => setReinstallMode("clean")}
                 tone="danger"

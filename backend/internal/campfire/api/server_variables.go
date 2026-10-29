@@ -6,6 +6,7 @@ import (
 
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 // editorEmbers excludes hidden defaults from the server creation/editing API.
@@ -34,6 +35,14 @@ func visibleServer(server model.Server, ember model.Ember) model.Server {
 }
 
 func (a *API) writeServer(w http.ResponseWriter, r *http.Request, status int, server model.Server) {
+	allowed, err := a.access.CanManageServer(r.Context(), currentUser(r), server.ID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	server.CanManageAccess = allowed
+
 	ember, err := a.embers.Get(r.Context(), server.EmberID)
 	if err != nil {
 		writeError(w, err)
@@ -45,7 +54,7 @@ func (a *API) writeServer(w http.ResponseWriter, r *http.Request, status int, se
 
 // Hidden variables are managed by Ember managers, independently of editability.
 func (a *API) checkHiddenVariables(r *http.Request, input model.ServerConfiguration, serverID string) error {
-	if currentUser(r).Allows("embers.manage") {
+	if currentUser(r).Allows(accessperm.EmbersManage) {
 		return nil
 	}
 

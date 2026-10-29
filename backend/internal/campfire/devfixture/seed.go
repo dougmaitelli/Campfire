@@ -11,6 +11,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )
@@ -37,9 +38,13 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 		return nil, err
 	}
 
-	team := database.Role{Name: "Community managers", Scope: "platform", Permissions: []database.RolePermission{{Permission: "servers.create"}, {Permission: "audit.view"}}}
+	team := database.Role{Name: "Community managers", Scope: "platform", Permissions: []database.RolePermission{{Permission: accessperm.ServersCreate}, {Permission: accessperm.AuditView}}}
 
-	maintainers := database.Role{Name: "World maintainers", Scope: "server", Permissions: []database.RolePermission{{Permission: "server.view"}, {Permission: "server.operate"}, {Permission: "server.configure"}}}
+	maintainers := database.Role{Name: "World maintainers", Scope: "server"}
+	for _, action := range accessperm.Legacy([]string{accessperm.ServerView, accessperm.ServerOperate, accessperm.ServerConfigure}) {
+		maintainers.Permissions = append(maintainers.Permissions, database.RolePermission{Permission: action})
+	}
+
 	for _, role := range []*database.Role{&team, &maintainers} {
 		if err := tx.Create(role).Error; err != nil {
 			return nil, err

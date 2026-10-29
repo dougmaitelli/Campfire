@@ -4,6 +4,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 	"net/http"
 	"slices"
 )
@@ -167,7 +168,13 @@ func (a *API) listServers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if slices.Contains(server.Permissions, "server.view") {
+		if slices.Contains(server.Permissions, accessperm.ServerView) {
+			server.CanManageAccess, err = a.access.CanManageServer(r.Context(), currentUser(r), server.ID)
+			if err != nil {
+				writeError(w, err)
+				return
+			}
+
 			ember, loaded := definitions[server.EmberID]
 			if !loaded {
 				ember, err = a.embers.Get(r.Context(), server.EmberID)
@@ -248,17 +255,12 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Action == "update" || input.Action == "reinstall" {
-		permissions, err := a.access.ServerPermissions(r.Context(), currentUser(r), r.PathValue("id"))
-		if err != nil {
-			writeError(w, err)
-			return
-		}
+	if !a.requireServer(w, r, accessperm.Action(input.Action)) {
+		return
+	}
 
-		if !slices.Contains(permissions, "server.configure") {
-			writeError(w, repository.ErrAccessDenied)
-			return
-		}
+	if input.Action == "reinstall" && input.Mode == "clean" && !a.requireServer(w, r, accessperm.ServerFilesDelete) {
+		return
 	}
 
 	if a.deployment == nil {

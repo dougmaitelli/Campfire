@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 // MonitoredServer combines authorized metadata and the latest persisted usage.
@@ -79,7 +80,7 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal)
 	history := s.History
 
 	snapshot := MonitoringSnapshot{CollectedAt: time.Now().Unix(), SampleIntervalSeconds: int64(history.Interval.Seconds()), Servers: []MonitoredServer{}}
-	if principal.tokenAllows("server.view") {
+	if principal.tokenAllows(accessperm.ServerView) {
 		targets, err := history.Store.Targets(ctx, principal.UserID, principal.Admin)
 		if err != nil {
 			return snapshot, err
@@ -115,7 +116,7 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal)
 		}
 	}
 
-	if principal.Admin && principal.Allows("sparks.manage") {
+	if principal.Admin && principal.Allows(accessperm.SparksManage) {
 		nodes, err := s.Sparks.List(ctx)
 		if err != nil {
 			return snapshot, err

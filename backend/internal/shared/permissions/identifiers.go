@@ -1,0 +1,36 @@
+package permissions
+
+// Permission identifiers are shared by roles, tokens, API checks, and migrations.
+const (
+	AllAccess             = "*"
+	ServersCreate         = "servers.create"
+	ServersManageAll      = "servers.manage_all"
+	SparksManage          = "sparks.manage"
+	EmbersManage          = "embers.manage"
+	UsersManage           = "users.manage"
+	RolesManage           = "roles.manage"
+	AuditView             = "audit.view"
+	NotificationsRead     = "notifications.read"
+	NotificationsWrite    = "notifications.write"
+	NotificationsManage   = "notifications.manage"
+	ServerView            = "server.view"
+	ServerOperate         = "server.operate"
+	ServerConfigure       = "server.configure"
+	ServerDelete          = "server.delete"
+	ServerConsoleRead     = "server.console.read"
+	ServerConsoleWrite    = "server.console.write"
+	ServerFilesRead       = "server.files.read"
+	ServerFilesWrite      = "server.files.write"
+	ServerFilesDelete     = "server.files.delete"
+	ServerBackupsRead     = "server.backups.read"
+	ServerBackupsCreate   = "server.backups.create"
+	ServerBackupsDownload = "server.backups.download"
+	ServerBackupsDelete   = "server.backups.delete"
+	ServerBackupsRestore  = "server.backups.restore"
+	ServerReinstall       = "server.reinstall"
+	ServerSchedulesRead   = "server.schedules.read"
+	ServerSchedulesManage = "server.schedules.manage"
+	ServerSchedulesRun    = "server.schedules.run"
+	// LegacyServerShare is accepted only by the one-time migration.
+	LegacyServerShare = "server.share"
+)

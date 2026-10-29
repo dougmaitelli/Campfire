@@ -4,7 +4,12 @@ import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  Permission,
+  permissionCatalog,
+  type PermissionDefinition,
+} from "../api/permissions";
 import { deleteRole, listRoles, type Role } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { RoleDialog } from "../dialogs/RoleDialog";
@@ -13,38 +18,35 @@ import { Table, TableRow } from "../components/table/Table";
 import { useResourceSelection } from "../routing/useResourceSelection";
 
 const permissionLabels: Record<string, string> = {
-  get "users.manage"() {
+  get [Permission.UsersManage]() {
     return i18n.t("rolesPage.manageUsers");
   },
-  get "roles.manage"() {
+  get [Permission.RolesManage]() {
     return i18n.t("rolesPage.manageRoles");
   },
-  get "sparks.manage"() {
+  get [Permission.SparksManage]() {
     return i18n.t("rolesPage.manageSparks");
   },
-  get "embers.manage"() {
+  get [Permission.EmbersManage]() {
     return i18n.t("rolesPage.manageEmbers");
   },
-  get "servers.create"() {
+  get [Permission.ServersCreate]() {
     return i18n.t("rolesPage.createServers");
   },
-  get "servers.manage_all"() {
+  get [Permission.ServersManageAll]() {
     return i18n.t("rolesPage.manageAllServers");
   },
-  get "server.view"() {
+  get [Permission.ServerView]() {
     return i18n.t("rolesPage.viewServer");
   },
-  get "server.operate"() {
+  get [Permission.ServerOperate]() {
     return i18n.t("rolesPage.operateServer");
   },
-  get "server.configure"() {
+  get [Permission.ServerConfigure]() {
     return i18n.t("rolesPage.configureServer");
   },
-  get "server.delete"() {
+  get [Permission.ServerDelete]() {
     return i18n.t("rolesPage.deleteServer");
-  },
-  get "server.share"() {
-    return i18n.t("rolesPage.shareServer");
   },
 };
 
@@ -58,8 +60,29 @@ export function RolesPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [catalog, setCatalog] = useState<PermissionDefinition[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  useEffect(() => {
+    const controller = new AbortController();
+    void permissionCatalog(controller.signal)
+      .then((items) => {
+        if (!controller.signal.aborted) setCatalog(items);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : t("roleDialog.unableToLoadPermissions"),
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCatalogLoading(false);
+      });
+    return () => controller.abort();
+  }, [t]);
   function edit(role: Role) {
-    if (role.builtin || busy) return;
+    if (busy) return;
     setError(null);
     setEditing(role);
     setOpen(false);
@@ -114,7 +137,7 @@ export function RolesPage() {
       {(error ?? (roles.items.length ? roles.error : null)) && (
         <InlineMessage role="alert">{error ?? roles.error}</InlineMessage>
       )}
-      <ContentPanel>
+      <ContentPanel aria-busy={roles.loading || catalogLoading}>
         <Table
           empty={roles.items.length === 0}
           loading={roles.loading}
@@ -138,11 +161,18 @@ export function RolesPage() {
             {roles.items.map((role) => (
               <TableRow
                 key={role.id}
-                onOpen={!role.builtin && !busy ? () => edit(role) : undefined}
+                onOpen={!busy ? () => edit(role) : undefined}
               >
                 <td>
                   {role.builtin ? (
-                    role.name
+                    <button
+                      type="button"
+                      className="table-row-trigger"
+                      disabled={busy}
+                      onClick={() => edit(role)}
+                    >
+                      {role.name}
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -164,16 +194,41 @@ export function RolesPage() {
                 </td>
                 <td>{role.scope}</td>
                 <td>
-                  {role.permissions.length
-                    ? role.permissions
-                        .map(
-                          (permission) =>
-                            permissionLabels[permission] ?? permission,
-                        )
-                        .join(", ")
-                    : i18n.t(
-                        "rolesPage.accessThroughServerOwnershipOrMembership",
-                      )}
+                  {role.scope === "server" && role.permissions.length > 6
+                    ? t("rolesPage.permissionSummary", {
+                        count: role.permissions.length,
+                        groups: [
+                          ...new Set(
+                            catalog
+                              .filter((item) =>
+                                role.permissions.includes(item.id),
+                              )
+                              .map((item) =>
+                                t(`permissionGroups.${item.group}`, {
+                                  defaultValue: item.group,
+                                }),
+                              ),
+                          ),
+                        ].join(", "),
+                      })
+                    : role.permissions.length
+                      ? role.permissions
+                          .map((permission) =>
+                            t(
+                              `permissionLabels.${permission.replaceAll(".", "_")}`,
+                              {
+                                defaultValue:
+                                  catalog.find((item) => item.id === permission)
+                                    ?.label ??
+                                  permissionLabels[permission] ??
+                                  permission,
+                              },
+                            ),
+                          )
+                          .join(", ")
+                      : i18n.t(
+                          "rolesPage.accessThroughServerOwnershipOrMembership",
+                        )}
                 </td>
               </TableRow>
             ))}

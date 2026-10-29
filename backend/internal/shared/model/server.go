@@ -15,9 +15,10 @@ func SameRuntimeConfiguration(a, b ServerConfiguration) bool {
 
 // Server is a saved game server configuration; runtime state is not persisted.
 type Server struct {
-	ID          string   `json:"id"`
-	OwnerUserID int64    `json:"owner_user_id"`
-	Permissions []string `json:"permissions,omitempty"`
+	ID              string   `json:"id"`
+	OwnerUserID     int64    `json:"owner_user_id"`
+	Permissions     []string `json:"permissions,omitempty"`
+	CanManageAccess bool     `json:"can_manage_access"`
 	ServerConfiguration
 	SparkName            string            `json:"spark_name"`
 	EmberName            string            `json:"ember_name"`

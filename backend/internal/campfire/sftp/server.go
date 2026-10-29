@@ -18,6 +18,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -159,7 +160,7 @@ func (s *Server) connection(ctx context.Context, conn net.Conn) {
 		}
 
 		permissions, err := s.Auth.Access().ServerPermissions(authCtx, principal, id)
-		if err != nil || !slices.Contains(permissions, "server.view") || !slices.Contains(permissions, "server.operate") {
+		if err != nil || !slices.Contains(permissions, accessperm.ServerView) || !slices.Contains(permissions, accessperm.ServerFilesRead) {
 			return nil, os.ErrPermission
 		}
 

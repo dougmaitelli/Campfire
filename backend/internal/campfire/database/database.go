@@ -24,7 +24,7 @@ type Database struct {
 	sql *sql.DB
 }
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It applies the same transactional schema migrations to either backend.
@@ -149,7 +149,7 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("database schema version %d predates the release baseline; upgrade to Campfire commit 204d134 first", version)
 		}
 
-		if version == schemaVersion {
+		if version == 1 || version == schemaVersion {
 			if !tx.Migrator().HasColumn(&Server{}, "StartupOverride") {
 				if err := tx.Migrator().AddColumn(&Server{}, "StartupOverride"); err != nil {
 					return err
@@ -176,11 +176,27 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
-			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}); err != nil {
+			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}); err != nil {
 				return err
 			}
 
-			return removeDiskHistory(tx)
+			if err := removeDiskHistory(tx); err != nil {
+				return err
+			}
+
+			if version == 1 {
+				if err := migratePermissions(tx); err != nil {
+					return err
+				}
+
+				if err := tx.Where("1 = 1").Delete(&schemaMigration{}).Error; err != nil {
+					return err
+				}
+
+				return tx.Create(&schemaMigration{Version: schemaVersion}).Error
+			}
+
+			return nil
 		}
 
 		prerelease := version == 5 && legacyUsers || version == 6 && tx.Migrator().HasColumn(&Schedule{}, "version")
@@ -212,6 +228,8 @@ func migrate(db *gorm.DB) error {
 			if err := seedRoles(tx); err != nil {
 				return fmt.Errorf("seed built-in roles: %w", err)
 			}
+		} else if err := migratePermissions(tx); err != nil {
+			return err
 		}
 
 		if tx.Name() == "sqlite" {

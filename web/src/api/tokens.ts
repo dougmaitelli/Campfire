@@ -1,5 +1,6 @@
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
+import { isPermissionCatalog } from "./permissions";
 
 export interface APIToken {
   id: number;
@@ -40,7 +41,13 @@ export async function listTokens(signal: AbortSignal) {
     !strings(body.scopes)
   )
     throw new Error(i18n.t("tokens.unexpectedAPITokenResponse"));
-  return { tokens: body.tokens, scopes: body.scopes };
+  if (!isPermissionCatalog(body.permissions))
+    throw new Error(i18n.t("tokens.unexpectedAPITokenResponse"));
+  return {
+    tokens: body.tokens,
+    scopes: body.scopes,
+    permissions: body.permissions,
+  };
 }
 export async function createToken(
   name: string,

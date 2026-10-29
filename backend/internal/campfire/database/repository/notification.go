@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )
@@ -110,7 +111,7 @@ func emitNotification(tx *gorm.DB, item *database.Notification, queue bool) erro
 	case "spark":
 		users = users.Where("role_id = ?", database.AdminRole)
 	case "server":
-		users = users.Where("users.role_id = ? OR users.id IN (SELECT owner_user_id FROM servers WHERE id = ?) OR EXISTS (SELECT 1 FROM server_access_grants JOIN role_permissions ON role_permissions.role_id = server_access_grants.access_role_id WHERE server_id = ? AND permission = 'server.view' AND (server_access_grants.user_id = users.id OR server_access_grants.role_id = users.role_id))", database.AdminRole, item.TargetID, item.TargetID)
+		users = users.Where("users.role_id = ? OR users.id IN (SELECT owner_user_id FROM servers WHERE id = ?) OR EXISTS (SELECT 1 FROM server_access_grants JOIN role_permissions ON role_permissions.role_id = server_access_grants.access_role_id WHERE server_id = ? AND permission = ? AND (server_access_grants.user_id = users.id OR server_access_grants.role_id = users.role_id))", database.AdminRole, item.TargetID, item.TargetID, accessperm.ServerView)
 	default:
 		return ErrAccessInput
 	}

@@ -1,3 +1,4 @@
+import { Permission } from "../api/permissions";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -41,16 +42,16 @@ export function ServersPage() {
   const auth = useAuthentication();
   const canApplyRevision =
     auth.session?.admin === true ||
-    auth.session?.permissions?.includes("servers.manage_all") === true;
+    auth.session?.permissions?.includes(Permission.ServersManageAll) === true;
   const [applyRevision, setApplyRevision] = useState(false);
   const canTransfer =
     auth.session?.admin === true ||
-    (auth.session?.permissions?.includes("sparks.manage") === true &&
-      auth.session.permissions.includes("servers.manage_all"));
+    (auth.session?.permissions?.includes(Permission.SparksManage) === true &&
+      auth.session.permissions.includes(Permission.ServersManageAll));
   const [transferServer, setTransferServer] = useState<Server | null>(null);
   const canProvision =
     auth.session?.admin === true ||
-    auth.session?.permissions?.includes("servers.create") === true;
+    auth.session?.permissions?.includes(Permission.ServersCreate) === true;
   const servers = useCollection(listServers, SERVER_LIST_REFRESH_INTERVAL_MS);
   const monitoring = useMonitoring();
   const [options, setOptions] = useState<ServerOptions>({
@@ -154,7 +155,7 @@ export function ServersPage() {
     setActionError(null);
     try {
       setDraftOptions(
-        server.permissions.includes("server.configure") || revision
+        server.permissions.includes(Permission.ServerConfigure) || revision
           ? await serverOptions(AbortSignal.timeout(15000), server.id)
           : { s3_available: false, sparks: [], embers: [] },
       );
@@ -411,7 +412,9 @@ export function ServersPage() {
                             spark.id === server.spark_id && spark.disabled,
                         ) === true
                       }
-                      canOperate={server.permissions.includes("server.operate")}
+                      canOperate={server.permissions.includes(
+                        Permission.ServerOperate,
+                      )}
                       onStatus={runtime.upsert}
                       onError={setActionError}
                     >
@@ -447,7 +450,7 @@ export function ServersPage() {
           applyRevision={applyRevision}
           accessOnly={
             editing !== null &&
-            !editing.permissions.includes("server.configure") &&
+            !editing.permissions.includes(Permission.ServerConfigure) &&
             !applyRevision
           }
           server={editing}
@@ -489,7 +492,7 @@ export function ServersPage() {
             </>
           }
           onDelete={
-            details.permissions.includes("server.delete")
+            details.permissions.includes(Permission.ServerDelete)
               ? () => {
                   void remove(details);
                 }
@@ -536,8 +539,8 @@ export function ServersPage() {
           }
           onClose={() => setDetails(null)}
           onEdit={
-            details.permissions.includes("server.configure") ||
-            details.permissions.includes("server.share")
+            details.permissions.includes(Permission.ServerConfigure) ||
+            details.can_manage_access === true
               ? () => {
                   setDetails(null);
                   void edit(details);

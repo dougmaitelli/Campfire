@@ -129,7 +129,7 @@ func TestUpgradeSchema5PreservesData(t *testing.T) {
 	}
 
 	var versions []int
-	if err := db.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 1 {
+	if err := db.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 2 {
 		t.Fatal("did not consolidate migration history", versions, err)
 	}
 
@@ -176,7 +176,7 @@ func TestConsolidateReviewedPrereleaseSchema(t *testing.T) {
 	}
 
 	var versions []int
-	if err := db.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 1 {
+	if err := db.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 2 {
 		t.Fatal(versions, err)
 	}
 }

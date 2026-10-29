@@ -223,7 +223,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","password":"`+password+`","role_id":3}`, http.StatusCreated)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-console-input"}`, http.StatusOK)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/files", `{"operation":"write","path":"secret.txt","data":"cHJpdmF0ZS1maWxl","revision":"absent"}`, http.StatusOK)
-	token, tokenSecret := createTestAPIToken(t, ownerHandler, `["server.view","server.operate"]`)
+	token, tokenSecret := createTestAPIToken(t, ownerHandler, `["server.view","server.console.write"]`)
 	expectAccess(t, bearerAPI(panel.Handler(), tokenSecret), "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-token-command"}`, http.StatusOK)
 
 	_, restricted := createTestAPIToken(t, admin, `["audit.view"]`)

@@ -5,6 +5,7 @@ import type { Server } from "../api/servers";
 import type { RuntimeStatus } from "../api/runtime";
 import { Drawer } from "../components/layout/Drawer";
 import { useNavigationGuard } from "../hooks/useNavigationGuard";
+import { Permission } from "../api/permissions";
 const ServerTerminal = lazy(() =>
   import("../components/servers/ServerTerminal").then((module) => ({
     default: module.ServerTerminal,
@@ -41,6 +42,7 @@ export function ServerConsoleDialog({
               : "snapshot"
         }
         onBusyChange={setBusy}
+        canWrite={server.permissions.includes(Permission.ServerConsoleWrite)}
       />
     </Suspense>
   );

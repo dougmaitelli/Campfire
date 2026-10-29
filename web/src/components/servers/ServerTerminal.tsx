@@ -20,11 +20,13 @@ export function ServerTerminal({
   streamKey,
   streamMode,
   onBusyChange,
+  canWrite = true,
 }: {
   serverID: string;
   streamKey: string;
   streamMode: ConsoleStreamMode;
   onBusyChange: (busy: boolean) => void;
+  canWrite?: boolean;
 }) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
@@ -100,7 +102,7 @@ export function ServerTerminal({
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function send() {
-    if (pending.current || !command.trim()) return;
+    if (pending.current || !canWrite || !command.trim()) return;
     pending.current = true;
     setBusy(true);
     onBusyChange(true);
@@ -321,67 +323,69 @@ export function ServerTerminal({
           role="region"
           aria-label={t("serverTerminal.consoleOutput")}
         />
-        <form
-          className="server-terminal-command"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void send();
-          }}
-        >
-          <div className="server-terminal-input">
-            <span aria-hidden="true">{">"}</span>
-            <TextInput
-              aria-label={t("serverTerminal.command")}
-              value={command}
-              readOnly={busy}
-              maxLength={4096}
-              placeholder={
-                busy
-                  ? t("serverTerminal.sending")
-                  : t("serverTerminal.sendCommandPlaceholder")
-              }
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              onChange={(event) => {
-                setCommand(event.target.value);
-                historyIndex.current = history.current.length;
-                draft.current = event.target.value;
-              }}
-              onKeyDown={(event) => {
-                if (
-                  busy ||
-                  (event.key !== "ArrowUp" && event.key !== "ArrowDown")
-                )
-                  return;
-                event.preventDefault();
-                if (historyIndex.current === history.current.length)
-                  draft.current = command;
-                historyIndex.current = Math.max(
-                  0,
-                  Math.min(
-                    history.current.length,
-                    historyIndex.current + (event.key === "ArrowUp" ? -1 : 1),
-                  ),
-                );
-                setCommand(
-                  history.current[historyIndex.current] ?? draft.current,
-                );
-              }}
-            />
-          </div>
-          <Button
-            type="submit"
-            iconOnly
-            variant="primary"
-            disabled={busy || !command.trim()}
-            loading={busy}
-            aria-label={t("serverTerminal.sendCommand")}
-            title={t("serverTerminal.sendCommand")}
+        {canWrite && (
+          <form
+            className="server-terminal-command"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void send();
+            }}
           >
-            <NavigationIcon name={busy ? "loading" : "send"} filled={!busy} />
-          </Button>
-        </form>
+            <div className="server-terminal-input">
+              <span aria-hidden="true">{">"}</span>
+              <TextInput
+                aria-label={t("serverTerminal.command")}
+                value={command}
+                readOnly={busy}
+                maxLength={4096}
+                placeholder={
+                  busy
+                    ? t("serverTerminal.sending")
+                    : t("serverTerminal.sendCommandPlaceholder")
+                }
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                onChange={(event) => {
+                  setCommand(event.target.value);
+                  historyIndex.current = history.current.length;
+                  draft.current = event.target.value;
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    busy ||
+                    (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+                  )
+                    return;
+                  event.preventDefault();
+                  if (historyIndex.current === history.current.length)
+                    draft.current = command;
+                  historyIndex.current = Math.max(
+                    0,
+                    Math.min(
+                      history.current.length,
+                      historyIndex.current + (event.key === "ArrowUp" ? -1 : 1),
+                    ),
+                  );
+                  setCommand(
+                    history.current[historyIndex.current] ?? draft.current,
+                  );
+                }}
+              />
+            </div>
+            <Button
+              type="submit"
+              iconOnly
+              variant="primary"
+              disabled={busy || !command.trim()}
+              loading={busy}
+              aria-label={t("serverTerminal.sendCommand")}
+              title={t("serverTerminal.sendCommand")}
+            >
+              <NavigationIcon name={busy ? "loading" : "send"} filled={!busy} />
+            </Button>
+          </form>
+        )}
       </div>
       {error && <InlineMessage role="alert">{error}</InlineMessage>}
     </div>

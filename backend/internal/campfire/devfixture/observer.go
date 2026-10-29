@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )
@@ -25,7 +26,7 @@ func SeedObserver(ctx context.Context, db *gorm.DB, now time.Time) error {
 		return err
 	}
 
-	role := database.Role{Name: "Observers", Scope: "server", Permissions: []database.RolePermission{{Permission: "server.view"}}}
+	role := database.Role{Name: "Observers", Scope: "server", Permissions: []database.RolePermission{{Permission: accessperm.ServerView}, {Permission: accessperm.ServerSchedulesRead}}}
 	if err := tx.Where("lower(name) = ? AND scope = ?", "observers", "server").FirstOrCreate(&role).Error; err != nil {
 		return err
 	}

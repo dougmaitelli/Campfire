@@ -14,12 +14,18 @@ import {
 } from "../api/tokens";
 import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import {
+  Permission,
+  togglePermission,
+  type PermissionDefinition,
+} from "../api/permissions";
 
 export function APITokensDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [tokens, setTokens] = useState<APIToken[]>([]);
   const [choices, setChoices] = useState<string[]>([]);
-  const [scopes, setScopes] = useState<string[]>(["*"]);
+  const [catalog, setCatalog] = useState<PermissionDefinition[]>([]);
+  const [scopes, setScopes] = useState<string[]>([Permission.AllAccess]);
   const [name, setName] = useState("");
   const [days, setDays] = useState(90);
   const [secret, setSecret] = useState("");
@@ -35,6 +41,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
         if (!controller.signal.aborted) {
           setTokens(result.tokens);
           setChoices(result.scopes);
+          setCatalog(result.permissions);
         }
       })
       .catch((cause: unknown) => {
@@ -71,16 +78,14 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
   }
   function toggle(scope: string, checked: boolean) {
     setScopes((current) => {
-      let next = checked
-        ? [...current, scope]
-        : current.filter((item) => item !== scope);
+      let next = togglePermission(current, scope, checked, catalog);
       if (
         checked &&
         scope.startsWith("server.") &&
-        !next.includes("server.view")
+        !next.includes(Permission.ServerView)
       )
-        next.push("server.view");
-      if (!checked && scope === "server.view")
+        next.push(Permission.ServerView);
+      if (!checked && scope === Permission.ServerView)
         next = next.filter((item) => !item.startsWith("server."));
       return next;
     });
@@ -169,17 +174,21 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             />
           </FormField>
           <CheckboxField
-            checked={scopes.includes("*")}
+            checked={scopes.includes(Permission.AllAccess)}
             disabled={busy}
             onChange={(event) =>
-              setScopes(event.target.checked ? ["*"] : ["server.view"])
+              setScopes(
+                event.target.checked
+                  ? [Permission.AllAccess]
+                  : [Permission.ServerView],
+              )
             }
           >
             {t("apiTokensDialog.allMyCurrentPermissions")}
           </CheckboxField>
-          {!scopes.includes("*") &&
+          {!scopes.includes(Permission.AllAccess) &&
             choices
-              .filter((scope) => scope !== "*")
+              .filter((scope) => scope !== Permission.AllAccess)
               .map((scope) => (
                 <CheckboxField
                   key={scope}
@@ -261,7 +270,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 components={{
                   tokenScopesIncludes: (
                     <>
-                      {token.scopes.includes("*")
+                      {token.scopes.includes(Permission.AllAccess)
                         ? i18n.t("apiTokensDialog.allMyCurrentPermissions")
                         : token.scopes.join(", ")}
                     </>

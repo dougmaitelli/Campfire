@@ -8,6 +8,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 func pathNumber(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
@@ -104,6 +105,10 @@ func (a *API) listRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, roles)
+}
+
+func (a *API) permissionCatalog(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, accessperm.Catalog())
 }
 
 func (a *API) saveRole(w http.ResponseWriter, r *http.Request, id int64) {
@@ -216,7 +221,7 @@ func (a *API) assignableServerRoles(r *http.Request) ([]service.RoleView, error)
 	allowed := []service.RoleView{}
 
 	for _, role := range roles {
-		if role.Scope == "server" && role.ID != database.OwnerRole && (currentUser(r).Admin || role.ID == database.OperatorRole) {
+		if role.Scope == "server" && role.ID != database.OwnerRole {
 			allowed = append(allowed, role)
 		}
 	}
@@ -388,7 +393,7 @@ func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	embers := []model.Ember{ember}
-	if currentUser(r).Allows("servers.manage_all") {
+	if currentUser(r).Allows(accessperm.ServersManageAll) {
 		embers, err = a.embers.List(r.Context())
 		if err != nil {
 			writeError(w, err)

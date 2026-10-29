@@ -325,7 +325,7 @@ func TestServerAuthorizationOwnershipAndRevocation(t *testing.T) {
 		t.Fatal("unrelated server leaked", response.Body)
 	}
 
-	expectAccess(t, owner, "POST", endpoint+"/members", `{"username":"operator","role_id":1}`, http.StatusForbidden)
+	expectAccess(t, owner, "POST", endpoint+"/members", `{"username":"operator","role_id":1}`, http.StatusBadRequest)
 	expectAccess(t, owner, "POST", endpoint+"/members", `{"username":"operator","role_id":5}`, http.StatusOK)
 	expectAccess(t, operator, "GET", endpoint, "", http.StatusOK)
 	expectAccess(t, operator, "POST", endpoint+"/actions", `{"action":"start"}`, http.StatusAccepted)
@@ -360,7 +360,7 @@ func TestCreationAccessOptionsRespectRoleGrantPermissions(t *testing.T) {
 	f := newAccessFixture(t)
 	_, creator := f.user("access-creator", database.CreatorRole)
 
-	response := request(f.admin, "POST", "/api/v1/roles", `{"name":"Access helper","scope":"server","permissions":["server.view","server.share"]}`)
+	response := request(f.admin, "POST", "/api/v1/roles", `{"name":"Access helper","scope":"server","permissions":["server.view","server.files.read"]}`)
 	if response.Code != http.StatusCreated {
 		t.Fatal(response.Code, response.Body)
 	}
@@ -369,7 +369,7 @@ func TestCreationAccessOptionsRespectRoleGrantPermissions(t *testing.T) {
 		name    string
 		handler http.Handler
 		custom  bool
-	}{{"administrator", f.admin, true}, {"creator", creator, false}} {
+	}{{"administrator", f.admin, true}, {"creator", creator, true}} {
 		t.Run(check.name, func(t *testing.T) {
 			response := request(check.handler, "GET", "/api/v1/provisioning/access", "")
 			if response.Code != http.StatusOK {

@@ -29,6 +29,7 @@ import { Table, TableRow } from "../components/table/Table";
 import { bytes } from "../api/monitoring";
 import { EMPTY_VALUE } from "../utils/formatDisplayValue";
 import "../components/servers/files.css";
+import { Permission } from "../api/permissions";
 
 interface Editor {
   path: string;
@@ -60,7 +61,7 @@ function entryName(value: string | null): string | null {
 
 export function ServerFilesDialog({
   server,
-  canWrite,
+  canWrite: runtimeCanWrite,
   onClose,
   embedded = false,
 }: {
@@ -70,6 +71,12 @@ export function ServerFilesDialog({
   embedded?: boolean;
 }) {
   const { t } = useTranslation();
+  const hasWritePermission = server.permissions.includes(
+    Permission.ServerFilesWrite,
+  );
+  const canWrite = runtimeCanWrite && hasWritePermission;
+  const canDelete =
+    canWrite && server.permissions.includes(Permission.ServerFilesDelete);
   const [directory, setDirectory] = useState("/");
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -132,12 +139,14 @@ export function ServerFilesDialog({
     const controller = new AbortController();
     void Promise.all([
       load("/", controller.signal),
-      uploadLimit(
-        server.id,
-        AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
-      ).then((limit) => {
-        if (!controller.signal.aborted) setMaxUploadBytes(limit);
-      }),
+      hasWritePermission
+        ? uploadLimit(
+            server.id,
+            AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+          ).then((limit) => {
+            if (!controller.signal.aborted) setMaxUploadBytes(limit);
+          })
+        : Promise.resolve(),
     ])
       .catch((cause: unknown) => {
         if (!controller.signal.aborted)
@@ -154,7 +163,7 @@ export function ServerFilesDialog({
         }
       });
     return () => controller.abort();
-  }, [load, server.id]);
+  }, [load, server.id, hasWritePermission]);
   async function perform(work: () => void | Promise<void>) {
     if (pending.current) return;
     pending.current = true;
@@ -265,7 +274,7 @@ export function ServerFilesDialog({
     await load(directory);
   }
   async function remove(items: FileEntry[]) {
-    if (pending.current) return;
+    if (pending.current || !canDelete) return;
     pending.current = true;
     setBusy(true);
     setDeleteError(null);
@@ -459,8 +468,8 @@ export function ServerFilesDialog({
                   t={t}
                   components={{
                     strong: <strong>{t("serverFilesDialog.apiKeys")}</strong>,
-                    code: <code>{t("serverFilesDialog.serverView")}</code>,
-                    code2: <code>{t("serverFilesDialog.serverOperate")}</code>,
+                    code: <code>{Permission.ServerView}</code>,
+                    code2: <code>{Permission.ServerFilesRead}</code>,
                   }}
                 />
               </p>
@@ -715,7 +724,9 @@ export function ServerFilesDialog({
         {!canWrite && (
           <PrerequisiteNote>
             {t(
-              "serverFilesDialog.fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation",
+              hasWritePermission
+                ? "serverFilesDialog.fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation"
+                : "serverFilesDialog.readOnlyAccess",
             )}
           </PrerequisiteNote>
         )}
@@ -998,7 +1009,7 @@ export function ServerFilesDialog({
                 </Button>
                 <Button
                   className="file-bulk-delete"
-                  disabled={busy || !canWrite || !selectedEntries.length}
+                  disabled={busy || !canDelete || !selectedEntries.length}
                   onClick={() => {
                     setDeleteError(null);
                     setDeleting(selectedEntries);

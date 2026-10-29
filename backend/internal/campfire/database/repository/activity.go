@@ -8,6 +8,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/recurrence"
+	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )
@@ -24,7 +25,7 @@ func scheduleUsers(tx *gorm.DB) *gorm.DB {
 
 func visibleServers(tx *gorm.DB, userID int64) *gorm.DB {
 	return tx.Model(&database.Server{}).Select("servers.id").Where("owner_user_id = ?", userID).
-		Or("servers.id IN (?)", tx.Model(&database.ServerAccessGrant{}).Select("server_id").Joins("JOIN role_permissions ON role_permissions.role_id = server_access_grants.access_role_id").Where("permission = 'server.view' AND (user_id = ? OR server_access_grants.role_id IN (SELECT role_id FROM users WHERE id = ?))", userID, userID))
+		Or("servers.id IN (?)", tx.Model(&database.ServerAccessGrant{}).Select("server_id").Joins("JOIN role_permissions ON role_permissions.role_id = server_access_grants.access_role_id").Where("permission = ? AND (user_id = ? OR server_access_grants.role_id IN (SELECT role_id FROM users WHERE id = ?))", accessperm.ServerView, userID, userID))
 }
 
 // Schedules lists only servers currently visible to the caller.
@@ -64,7 +65,7 @@ func (r *ActivityRepository) SaveSchedule(ctx context.Context, item *database.Sc
 	}
 
 	result := r.db.WithContext(ctx).Model(&database.Schedule{}).Where("id = ? AND server_id = ?", item.ID, item.ServerID).
-		Select("Name", "Action", "Command", "CronExpression", "TimeZone", "OnlyWhenRunning", "NextRunAt", "Enabled", "RunAsUserID").Updates(item)
+		Select("Name", "Action", "Command", "CronExpression", "TimeZone", "OnlyWhenRunning", "NextRunAt", "Enabled", "RunAsUserID", "AuthorizationScopes").Updates(item)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -77,7 +78,7 @@ func (r *ActivityRepository) SaveSchedule(ctx context.Context, item *database.Sc
 }
 
 // SetScheduleEnabled changes only scheduling state and execution ownership.
-func (r *ActivityRepository) SetScheduleEnabled(ctx context.Context, id, serverID string, enabled bool, userID int64) (database.Schedule, error) {
+func (r *ActivityRepository) SetScheduleEnabled(ctx context.Context, id, serverID string, enabled bool, userID int64, scopes ...[]string) (database.Schedule, error) {
 	var item database.Schedule
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -105,9 +106,12 @@ func (r *ActivityRepository) SetScheduleEnabled(ctx context.Context, id, serverI
 		}
 
 		item.Enabled, item.RunAsUserID = enabled, userID
+		if len(scopes) > 0 {
+			item.AuthorizationScopes = scopes[0]
+		}
 
 		return tx.Model(&database.Schedule{}).Where("id = ? AND server_id = ?", id, serverID).
-			Select("Enabled", "NextRunAt", "RunAsUserID").Updates(&item).Error
+			Select("Enabled", "NextRunAt", "RunAsUserID", "AuthorizationScopes").Updates(&item).Error
 	})
 	if err != nil {
 		return database.Schedule{}, err
@@ -142,7 +146,7 @@ func (r *ActivityRepository) DueAfter(ctx context.Context, now time.Time, after 
 
 // ClaimSchedule snapshots the current definition and atomically consumes its due occurrence.
 // A non-nil actor requests an immediate attempt, including for a paused schedule.
-func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now time.Time, actor *int64) (database.ScheduleRun, error) {
+func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now time.Time, actor *int64, scopes ...[]string) (database.ScheduleRun, error) {
 	var run database.ScheduleRun
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -181,6 +185,17 @@ func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now t
 		}
 
 		run = database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, OnlyWhenRunning: item.OnlyWhenRunning, Recurring: actor == nil && item.CronExpression != "", ServerID: item.ServerID, ServerName: server.Name, UserID: userID, Username: username, Action: item.Action, Content: item.Command, State: "dispatching", CreatedAt: now.Unix(), StartedAt: now.Unix()}
+		run.AuthorizationScopes = item.AuthorizationScopes
+
+		run.AuthorizationPermission = accessperm.ServerSchedulesManage
+		if actor != nil {
+			run.AuthorizationPermission = accessperm.ServerSchedulesRun
+		}
+
+		if len(scopes) > 0 {
+			run.AuthorizationScopes = scopes[0]
+		}
+
 		if item.CronExpression == "" {
 			if err := tx.Model(&item).Update("enabled", false).Error; err != nil {
 				return err

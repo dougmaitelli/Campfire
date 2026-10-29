@@ -15,6 +15,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 
 	pkg "github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -99,7 +100,7 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 	owner := service.Principal{UserID: 2, CredentialVersion: 1}
 
-	token, raw, err := auth.CreateAPIToken(ctx, owner, "SFTP", 1, []string{"server.view", "server.operate"})
+	token, raw, err := auth.CreateAPIToken(ctx, owner, "SFTP", 1, []string{"server.view", "server.files.delete"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +151,7 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 	if conn, err := dial(restricted); err == nil {
 		_ = conn.Close()
 
-		t.Fatal("token without server.operate authenticated")
+		t.Fatal("token without file access authenticated")
 	}
 
 	connection, err := dial(raw)
@@ -184,6 +185,50 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 	file, err = client.Open("/world")
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	_, readSecret, err := auth.CreateAPIToken(ctx, owner, "file reader", 1, []string{accessperm.ServerView, accessperm.ServerFilesRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readConnection, err := dial(readSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = readConnection.Close() }()
+
+	reader, err := pkg.NewClient(readConnection)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = reader.Close() }()
+
+	readFile, err := reader.Open("/world")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readData, err := io.ReadAll(readFile)
+	if err != nil || !bytes.Equal(readData, data) {
+		t.Fatal("read-only SFTP failed", err)
+	}
+
+	_ = readFile.Close()
+	if created, err := reader.Create("/blocked"); err == nil {
+		_ = created.Close()
+
+		t.Fatal("read-only SFTP created a file")
+	}
+
+	if err := reader.Chmod("/world", 0o600); err == nil {
+		t.Fatal("read-only SFTP changed permissions")
+	}
+
+	if err := reader.Remove("/world"); err == nil {
+		t.Fatal("read-only SFTP deleted a file")
 	}
 
 	read, err := io.ReadAll(file)

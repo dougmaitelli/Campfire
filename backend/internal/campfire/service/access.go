@@ -10,12 +10,14 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 // Principal is derived from persisted credentials, never from client-supplied roles.
 type Principal struct {
 	APITokenID        int64    `json:"api_token_id,omitempty"`
 	TokenScopes       []string `json:"-"`
+	ScopeLimit        []string `json:"-"`
 	CredentialVersion int64    `json:"-"`
 	UserID            int64    `json:"user_id"`
 	Username          string   `json:"username"`
@@ -47,15 +49,20 @@ func (p Principal) Allows(action string) bool {
 }
 
 func (p Principal) tokenAllows(action string) bool {
-	return p.APITokenID == 0 || slices.Contains(p.TokenScopes, "*") || slices.Contains(p.TokenScopes, action)
+	if p.ScopeLimit != nil && !slices.Contains(p.ScopeLimit, accessperm.AllAccess) && !slices.Contains(p.ScopeLimit, action) {
+		return false
+	}
+
+	return p.APITokenID == 0 || slices.Contains(p.TokenScopes, accessperm.AllAccess) || slices.Contains(p.TokenScopes, action)
 }
 
 func (p Principal) restrictServer(actions []string) []string {
-	if p.APITokenID == 0 {
+	actions = accessperm.Expand(actions)
+	if p.APITokenID == 0 && p.ScopeLimit == nil {
 		return actions
 	}
 
-	return slices.DeleteFunc(slices.Clone(actions), func(action string) bool { return !p.tokenAllows(action) })
+	return accessperm.Restrict(slices.DeleteFunc(slices.Clone(actions), func(action string) bool { return !p.tokenAllows(action) }))
 }
 
 func roleActions(role database.Role) []string {
@@ -102,6 +109,17 @@ func (s *AccessService) ServerPermissions(ctx context.Context, principal Princip
 	return principal.restrictServer(roleActions(role)), err
 }
 
+// CanManageServer requires actual ownership; a custom role cannot delegate access.
+func (s *AccessService) CanManageServer(ctx context.Context, principal Principal, id string) (bool, error) {
+	if principal.APITokenID != 0 && !slices.Contains(principal.TokenScopes, accessperm.AllAccess) {
+		return false, nil
+	}
+
+	owner, err := s.store.Owner(ctx, id)
+
+	return principal.Admin || owner != nil && owner.ID == principal.UserID, err
+}
+
 // Roles returns the built-in and custom role catalog.
 func (s *AccessService) Roles(ctx context.Context) ([]RoleView, error) {
 	roles, err := s.store.Roles(ctx)
@@ -121,12 +139,21 @@ func (s *AccessService) SaveRole(ctx context.Context, id int64, name, scope stri
 		return RoleView{}, repository.ErrAccessInput
 	}
 
-	allowed := []string{"servers.create"}
+	allowed := []string{accessperm.ServersCreate}
 	if scope == "server" {
-		allowed = []string{"server.view", "server.operate", "server.configure", "server.delete", "server.share"}
+		allowed = accessperm.All()
 	}
 
 	role := database.Role{ID: id, Name: name, Scope: scope}
+	if scope == "server" {
+		for _, action := range permissions {
+			if !slices.Contains(allowed, action) {
+				return RoleView{}, repository.ErrAccessInput
+			}
+		}
+
+		permissions = accessperm.Expand(permissions)
+	}
 
 	slices.Sort(permissions)
 
@@ -138,7 +165,7 @@ func (s *AccessService) SaveRole(ctx context.Context, id int64, name, scope stri
 		role.Permissions = append(role.Permissions, database.RolePermission{Permission: permission})
 	}
 
-	if scope == "server" && !slices.Contains(permissions, "server.view") {
+	if scope == "server" && !slices.Contains(permissions, accessperm.ServerView) {
 		return RoleView{}, repository.ErrAccessInput
 	}
 
@@ -283,9 +310,14 @@ func (s *AccessService) ServerAccess(ctx context.Context, id string) (*database.
 	return owner, members, err
 }
 
-// Share lets owners add operators; only admins can grant a custom server role.
+// Share lets owners and administrators assign a server role to a collaborator.
 func (s *AccessService) Share(ctx context.Context, principal Principal, id, username string, roleID int64) error {
-	if !principal.Admin && roleID != database.OperatorRole {
+	allowed, err := s.CanManageServer(ctx, principal, id)
+	if err != nil {
+		return err
+	}
+
+	if !allowed {
 		return repository.ErrAccessDenied
 	}
 
@@ -327,7 +359,7 @@ func (s *AccessService) CanProvision(ctx context.Context, principal Principal, s
 		return true, nil
 	}
 
-	if !principal.tokenAllows("servers.create") {
+	if !principal.tokenAllows(accessperm.ServersCreate) {
 		return false, nil
 	}
 
@@ -336,13 +368,13 @@ func (s *AccessService) CanProvision(ctx context.Context, principal Principal, s
 
 // EffectivePrincipal exposes scoped creation eligibility without granting Spark management.
 func (s *AccessService) EffectivePrincipal(ctx context.Context, principal Principal) (Principal, error) {
-	if principal.Admin || slices.Contains(principal.Permissions, "servers.create") {
+	if principal.Admin || slices.Contains(principal.Permissions, accessperm.ServersCreate) {
 		return principal, nil
 	}
 
 	allowed, err := s.store.HasSparkGrant(ctx, principal.UserID, principal.RoleID, "")
 	if err == nil && allowed {
-		principal.Permissions = append(slices.Clone(principal.Permissions), "servers.create")
+		principal.Permissions = append(slices.Clone(principal.Permissions), accessperm.ServersCreate)
 	}
 
 	return principal, err
@@ -378,7 +410,12 @@ func (s *AccessService) grantSubject(ctx context.Context, input AccessGrantInput
 
 // GrantServer validates and saves a server access grant.
 func (s *AccessService) GrantServer(ctx context.Context, principal Principal, id string, input AccessGrantInput) error {
-	if !principal.Admin && input.AccessRoleID != database.OperatorRole {
+	allowed, err := s.CanManageServer(ctx, principal, id)
+	if err != nil {
+		return err
+	}
+
+	if !allowed {
 		return repository.ErrAccessDenied
 	}
 

@@ -1,4 +1,5 @@
 import i18n from "../i18n";
+import { Permission, serverActionPermission } from "../api/permissions";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
@@ -57,10 +58,8 @@ export function SchedulesPage() {
   const pending = useRef(false);
   const [revision, setRevision] = useState(0);
   const generation = useRef(0);
-  const managed = servers.items.filter(
-    (server) =>
-      server.permissions.includes("server.configure") &&
-      server.permissions.includes("server.operate"),
+  const managed = servers.items.filter((server) =>
+    server.permissions.includes(Permission.ServerSchedulesManage),
   );
   const replaceSchedules = schedules.replace;
   useEffect(() => {
@@ -325,14 +324,29 @@ export function SchedulesPage() {
                       schedule={item}
                       disabled={
                         busy ||
-                        !managed.some((server) => server.id === item.server_id)
+                        !managed.some(
+                          (server) =>
+                            server.id === item.server_id &&
+                            server.permissions.includes(
+                              serverActionPermission(item.action),
+                            ),
+                        )
                       }
                       onSaved={schedules.upsert}
                       onError={setError}
                     />
                   </td>
                   <td className="table-actions">
-                    {managed.some((server) => server.id === item.server_id) && (
+                    {servers.items.some(
+                      (server) =>
+                        server.id === item.server_id &&
+                        server.permissions.includes(
+                          Permission.ServerSchedulesRun,
+                        ) &&
+                        server.permissions.includes(
+                          serverActionPermission(item.action),
+                        ),
+                    ) && (
                       <ActionGroup>
                         <Button
                           disabled={busy}
@@ -431,7 +445,13 @@ export function SchedulesPage() {
                     servers.items.some(
                       (server) =>
                         server.id === run.server_id &&
-                        server.permissions.includes("server.operate"),
+                        server.permissions.includes(
+                          serverActionPermission(run.action),
+                        ) &&
+                        (!run.schedule_id ||
+                          server.permissions.includes(
+                            Permission.ServerSchedulesRun,
+                          )),
                     ) && (
                       <Button
                         disabled={busy}

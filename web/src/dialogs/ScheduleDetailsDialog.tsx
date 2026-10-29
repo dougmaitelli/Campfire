@@ -12,6 +12,7 @@ import { operationLabel } from "../components/servers/operationMessage";
 import { StatusPill } from "../components/status/StatusPill";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ScheduleDialog } from "./ScheduleDialog";
+import { Permission, serverActionPermission } from "../api/permissions";
 
 export function ScheduleDetailsDialog({
   schedule,
@@ -28,12 +29,14 @@ export function ScheduleDetailsDialog({
   const links = useResourceLinks();
   const [editing, setEditing] = useState(false);
   const server = servers.find((item) => item.id === schedule.server_id);
-  const managed = servers.filter(
-    (item) =>
-      item.permissions.includes("server.configure") &&
-      item.permissions.includes("server.operate"),
+  const managed = servers.filter((item) =>
+    item.permissions.includes(Permission.ServerSchedulesManage),
   );
-  const canEdit = managed.some((item) => item.id === schedule.server_id);
+  const canEdit = managed.some(
+    (item) =>
+      item.id === schedule.server_id &&
+      item.permissions.includes(serverActionPermission(schedule.action)),
+  );
   if (editing && canEdit)
     return (
       <ScheduleDialog

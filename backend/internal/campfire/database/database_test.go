@@ -19,7 +19,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (2)").Error; err != nil {
+	if err := db.ORM().Exec("INSERT INTO schema_migrations(version) VALUES (3)").Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -34,7 +34,7 @@ func TestRejectNewerSchema(t *testing.T) {
 		t.Fatal("opened unsupported future schema")
 	}
 
-	if !strings.Contains(err.Error(), "newer than supported version 1") {
+	if !strings.Contains(err.Error(), "newer than supported version 2") {
 		t.Fatal("wrong schema version error", err)
 	}
 }
@@ -126,7 +126,7 @@ func TestInitialSchemaAndReopen(t *testing.T) {
 	}
 
 	var initialVersions []int
-	if err := db.ORM().Table("schema_migrations").Pluck("version", &initialVersions).Error; err != nil || len(initialVersions) != 1 || initialVersions[0] != 1 {
+	if err := db.ORM().Table("schema_migrations").Pluck("version", &initialVersions).Error; err != nil || len(initialVersions) != 1 || initialVersions[0] != 2 {
 		t.Fatal("expected one baseline migration", initialVersions, err)
 	}
 
@@ -141,7 +141,7 @@ func TestInitialSchemaAndReopen(t *testing.T) {
 	defer func() { _ = reopened.Close() }()
 
 	var versions []int
-	if err := reopened.ORM().Table("schema_migrations").Order("version").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 1 {
+	if err := reopened.ORM().Table("schema_migrations").Order("version").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 2 {
 		t.Fatal("upgraded migration history changed", versions, err)
 	}
 

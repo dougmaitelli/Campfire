@@ -12,6 +12,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 	"campfire/internal/shared/protocol"
 )
 
@@ -100,12 +101,12 @@ func (s *NotificationService) Close() {
 }
 
 func notificationAccess(p Principal) repository.NotificationAccess {
-	return repository.NotificationAccess{UserID: p.UserID, Admin: p.Admin, ServerView: p.tokenAllows("server.view"), SparkView: p.Allows("sparks.manage")}
+	return repository.NotificationAccess{UserID: p.UserID, Admin: p.Admin, ServerView: p.tokenAllows(accessperm.ServerView), SparkView: p.Allows(accessperm.SparksManage)}
 }
 
 // List returns the user's visible inbox, respecting current access and token scopes.
 func (s *NotificationService) List(ctx context.Context, p Principal, before int64, unread bool) ([]repository.NotificationView, error) {
-	if !p.tokenAllows("notifications.read") {
+	if !p.tokenAllows(accessperm.NotificationsRead) {
 		return nil, repository.ErrAccessDenied
 	}
 
@@ -114,7 +115,7 @@ func (s *NotificationService) List(ctx context.Context, p Principal, before int6
 
 // Unread returns the visible unread count for the current user.
 func (s *NotificationService) Unread(ctx context.Context, p Principal) (int64, error) {
-	if !p.tokenAllows("notifications.read") {
+	if !p.tokenAllows(accessperm.NotificationsRead) {
 		return 0, repository.ErrAccessDenied
 	}
 
@@ -123,7 +124,7 @@ func (s *NotificationService) Unread(ctx context.Context, p Principal) (int64, e
 
 // MarkRead changes one personal receipt without acknowledging other recipients.
 func (s *NotificationService) MarkRead(ctx context.Context, p Principal, id int64, read bool) error {
-	if !p.tokenAllows("notifications.write") {
+	if !p.tokenAllows(accessperm.NotificationsWrite) {
 		return repository.ErrAccessDenied
 	}
 
@@ -132,7 +133,7 @@ func (s *NotificationService) MarkRead(ctx context.Context, p Principal, id int6
 
 // MarkAllRead acknowledges visible messages through the supplied inbox watermark.
 func (s *NotificationService) MarkAllRead(ctx context.Context, p Principal, through int64) error {
-	if !p.tokenAllows("notifications.write") {
+	if !p.tokenAllows(accessperm.NotificationsWrite) {
 		return repository.ErrAccessDenied
 	}
 
@@ -141,7 +142,7 @@ func (s *NotificationService) MarkAllRead(ctx context.Context, p Principal, thro
 
 // Test creates a real inbox message and queues optional external delivery.
 func (s *NotificationService) Test(ctx context.Context, p Principal) (int64, error) {
-	if !p.Allows("notifications.manage") {
+	if !p.Allows(accessperm.NotificationsManage) {
 		return 0, repository.ErrAccessDenied
 	}
 

@@ -541,7 +541,13 @@
     "shareAccessWithOperators": "Share access with operators",
     "unableToSaveRole": "Unable to save role.",
     "viewRole": "View role",
-    "viewTheServerAndRuntimeStatus": "View the server and runtime status"
+    "viewTheServerAndRuntimeStatus": "View the server and runtime status",
+    "applyPreset": "Apply a permission preset",
+    "choosePreset": "Choose a preset…",
+    "requires": "Requires: {{permissions}}.",
+    "permissionGuidance": "Server access is managed by its owner or an administrator. Console reading is included with operation access. Restoring backups requires file writing and operation access.",
+    "unableToLoadPermissions": "Unable to load permissions.",
+    "removeDependencies": "Also remove dependent permissions: {{permissions}}?"
   },
   "rolesPage": {
     "accessRoles": "Access roles",
@@ -566,7 +572,8 @@
     "shareServer": "Share server",
     "thisRoleIsUnavailableOrNoLongerExists": "This role is unavailable or no longer exists.",
     "unableToDeleteRole": "Unable to delete role.",
-    "viewServer": "View server"
+    "viewServer": "View server",
+    "permissionSummary": "{{count}} permissions · {{groups}}"
   },
   "runtime": {
     "unexpectedRuntimeResponse": "Unexpected runtime response."
@@ -580,6 +587,7 @@
   "scheduleDialog": {
     "action": "Action",
     "chooseAFutureDateAndTimeForThisOneOff": "Choose a future date and time for this one-off schedule.",
+    "actionNotAllowed": "Your permissions do not allow this scheduled action.",
     "commandsAreStoredPrivatelyForExecutionWhenEditingACommand": "Commands are stored privately for execution. When editing a command schedule, leave this blank to keep its stored command.",
     "consoleCommand": "Console command",
     "createSchedule": "Create schedule",
@@ -767,7 +775,7 @@
     "compress2": "Compress",
     "compress3": "Compress {{entryName}}",
     "connectWithAnSFTPClientUsingTheAddressAndPort": "Connect with an SFTP client using the address and port provided by your administrator. SFTP must be enabled first.",
-    "createATokenFromInYourAccountMenuWithAnd": "Create a token from <strong/> in your account menu, with <code/> and <code2/> permissions.",
+    "createATokenFromInYourAccountMenuWithAnd": "Create a token from <strong/> in your account menu, with <code/> and <code2/> permissions. Add file writing or deletion grants for those actions.",
     "createFile": "Create file",
     "createFolder": "Create folder",
     "createIn": "Create in {{directoryTheRoot}}.",
@@ -825,7 +833,7 @@
     "root": "Server data",
     "saveFile": "Save file",
     "saving": "Saving…",
-    "serverOperate": "server.operate",
+    "readOnlyAccess": "You have read-only file access. You can browse, open, and download files.",
     "serverView": "server.view",
     "sftpAccess": "SFTP access",
     "symbolicLinkOrSpecialFile": "Symbolic link or special file",
@@ -868,7 +876,7 @@
     "unableToLoadServer": "Unable to load server.",
     "unableToRunServerAction": "Unable to run server action.",
     "unexpectedServerResponse": "Unexpected server response.",
-    "youHaveReadOnlyAccessToThisServerConsoleFiles": "You have read-only access to this server. Console, files, and backups require permission to operate it."
+    "youHaveReadOnlyAccessToThisServerConsoleFiles": "You can view this server's overview. Additional permissions are required for its console, files, and backups."
   },
   "serverReview": {
     "cores": "<valueCpuLimit/> cores",
@@ -1276,5 +1284,42 @@
     "progress": "Progress",
     "saving": "Saving…",
     "unableToSaveTryAgain": "Unable to save. Try again."
+  },
+  "permissionGroups": {
+    "Server": "Server",
+    "Console": "Console",
+    "Files": "Files",
+    "Backups": "Backups",
+    "Schedules": "Schedules",
+    "Platform": "Platform"
+  },
+  "permissionPresets": {
+    "Observer": "Observer",
+    "Log viewer": "Log viewer",
+    "Power operator": "Power operator",
+    "Console operator": "Console operator",
+    "File maintainer": "File maintainer",
+    "Backup creator": "Backup creator",
+    "Backup restorer": "Backup restorer"
+  },
+  "permissionLabels": {
+    "server_view": "View overview, status, and metrics",
+    "server_console_read": "Read logs and live console output",
+    "server_operate": "Install, start, stop, restart, and kill; includes console reading",
+    "server_console_write": "Send console commands",
+    "server_files_read": "Browse, read, and download files",
+    "server_files_write": "Create, upload, edit, move, archive, extract, and change file permissions",
+    "server_files_delete": "Delete files and folders",
+    "server_backups_read": "View backup lists and metadata",
+    "server_backups_create": "Create backups",
+    "server_backups_download": "Download archives containing server data",
+    "server_backups_delete": "Delete backups",
+    "server_backups_restore": "Restore game files from a backup",
+    "server_configure": "Edit configuration, resource reservations, and backup policy",
+    "server_reinstall": "Update or reinstall game files",
+    "server_delete": "Delete the server and its game data",
+    "server_schedules_read": "View schedules and execution history",
+    "server_schedules_manage": "Create, edit, enable, and remove schedules",
+    "server_schedules_run": "Run schedules and retry their executions"
   }
 }

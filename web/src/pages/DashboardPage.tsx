@@ -1,4 +1,5 @@
 import i18n from "../i18n";
+import { Permission, serverActionPermission } from "../api/permissions";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
@@ -52,7 +53,7 @@ export function DashboardPage() {
   const monitor = useMonitoring();
   const auth = useAuthentication();
   const canReadBackups =
-    auth.session?.permissions?.includes("servers.manage_all") === true;
+    auth.session?.permissions?.includes(Permission.ServersManageAll) === true;
   const loadBackups = useCallback(
     (signal: AbortSignal) =>
       canReadBackups ? listAllBackups(signal) : Promise.resolve([]),
@@ -66,7 +67,7 @@ export function DashboardPage() {
   );
   const runtime = useServerRuntime(
     serverInventory.items
-      .filter((server) => server.permissions.includes("server.operate"))
+      .filter((server) => server.permissions.includes(Permission.ServerOperate))
       .map((server) => server.id),
   );
   const [serverActionError, setServerActionError] = useState<string | null>(
@@ -152,14 +153,14 @@ export function DashboardPage() {
           monitor.snapshot ? (monitor.snapshot.sparks?.length ?? 0) : undefined
         }
         canManageSparks={
-          auth.session?.permissions?.includes("sparks.manage") === true
+          auth.session?.permissions?.includes(Permission.SparksManage) === true
         }
         canManageEmbers={
-          auth.session?.permissions?.includes("embers.manage") === true
+          auth.session?.permissions?.includes(Permission.EmbersManage) === true
         }
         canCreateServers={
           auth.session?.admin === true ||
-          auth.session?.permissions?.includes("servers.create") === true
+          auth.session?.permissions?.includes(Permission.ServersCreate) === true
         }
       />
     );
@@ -457,7 +458,7 @@ export function DashboardPage() {
                         canOperate={serverInventory.items.some(
                           (item) =>
                             item.id === server.id &&
-                            item.permissions.includes("server.operate"),
+                            item.permissions.includes(Permission.ServerOperate),
                         )}
                         disabled={
                           monitor.snapshot?.sparks?.some(
@@ -616,9 +617,11 @@ export function DashboardPage() {
                               (server) =>
                                 server.id === schedule.server_id &&
                                 server.permissions.includes(
-                                  "server.configure",
+                                  Permission.ServerSchedulesManage,
                                 ) &&
-                                server.permissions.includes("server.operate"),
+                                server.permissions.includes(
+                                  serverActionPermission(schedule.action),
+                                ),
                             )
                           }
                           onSaved={schedules.upsert}

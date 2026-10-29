@@ -9,6 +9,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 func checkObserverAccess(t *testing.T, db *database.Database, auth *service.AuthService) {
@@ -26,7 +27,7 @@ func checkObserverAccess(t *testing.T, db *database.Database, auth *service.Auth
 
 	for _, id := range []string{"survival", "creative"} {
 		permissions, err := auth.Access().ServerPermissions(t.Context(), principal, id)
-		if err != nil || id == "survival" && !slices.Equal(permissions, []string{"server.view"}) || id == "creative" && len(permissions) != 0 {
+		if err != nil || id == "survival" && !slices.Equal(permissions, []string{accessperm.ServerSchedulesRead, accessperm.ServerView}) || id == "creative" && len(permissions) != 0 {
 			t.Fatal("unexpected observer access", id, permissions, err)
 		}
 	}

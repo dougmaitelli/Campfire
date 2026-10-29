@@ -10,10 +10,11 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 // APITokenScopes is the existing permission vocabulary plus all current access.
-var APITokenScopes = []string{"*", "servers.create", "servers.manage_all", "sparks.manage", "embers.manage", "users.manage", "roles.manage", "audit.view", "server.view", "server.operate", "server.configure", "server.delete", "server.share", "notifications.read", "notifications.write", "notifications.manage"}
+var APITokenScopes = append([]string{accessperm.AllAccess, accessperm.ServersCreate, accessperm.ServersManageAll, accessperm.SparksManage, accessperm.EmbersManage, accessperm.UsersManage, accessperm.RolesManage, accessperm.AuditView, accessperm.NotificationsRead, accessperm.NotificationsWrite, accessperm.NotificationsManage}, accessperm.All()...)
 
 // CreateAPIToken returns a secret exactly once. Scopes restrict live user access
 // and cannot independently grant any platform permission or server membership.
@@ -38,16 +39,17 @@ func (s *AuthService) CreateAPIToken(ctx context.Context, principal Principal, n
 		}
 	}
 
-	if slices.Contains(scopes, "*") && len(scopes) != 1 {
+	if slices.Contains(scopes, accessperm.AllAccess) && len(scopes) != 1 {
 		return database.APIToken{}, "", repository.ErrAccessInput
 	}
 
 	for _, scope := range scopes {
-		if strings.HasPrefix(scope, "server.") && scope != "server.view" && !slices.Contains(scopes, "server.view") {
+		if strings.HasPrefix(scope, "server.") && scope != accessperm.ServerView && !slices.Contains(scopes, accessperm.ServerView) {
 			return database.APIToken{}, "", repository.ErrAccessInput
 		}
 	}
 
+	scopes = accessperm.Expand(scopes)
 	raw := "cf_" + authToken()
 	now := s.now()
 

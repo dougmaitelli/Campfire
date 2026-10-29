@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"campfire/internal/campfire/service"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 func (a *API) listAPITokens(w http.ResponseWriter, r *http.Request) {
@@ -14,7 +15,7 @@ func (a *API) listAPITokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"tokens": items, "scopes": service.APITokenScopes})
+	writeJSON(w, http.StatusOK, map[string]any{"tokens": items, "scopes": service.APITokenScopes, "permissions": accessperm.Catalog()})
 }
 
 func (a *API) createAPIToken(w http.ResponseWriter, r *http.Request) {

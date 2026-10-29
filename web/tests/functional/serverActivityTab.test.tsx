@@ -46,7 +46,7 @@ test.each([true, false, undefined])(
       ember_hash: "hash",
       ember_update_available: false,
       owner_user_id: 1,
-      permissions: ["server.view", "server.operate"],
+      permissions: ["server.view", "server.operate", "server.console.read"],
       spark_name: "Node",
       ember_name: "Game",
       game_address: "",

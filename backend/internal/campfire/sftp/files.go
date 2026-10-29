@@ -15,6 +15,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 
 	"github.com/pkg/sftp"
 )
@@ -35,7 +36,9 @@ func (h *fileHandler) call(q model.FileRequest) (model.FileResult, error) {
 	}
 
 	permissions, err := h.server.Auth.Access().ServerPermissions(ctx, principal, h.id)
-	if err != nil || !slices.Contains(permissions, "server.view") || !slices.Contains(permissions, "server.operate") {
+
+	action := accessperm.File(q.Operation)
+	if err != nil || action == "" || !slices.Contains(permissions, accessperm.ServerView) || !slices.Contains(permissions, action) {
 		return model.FileResult{}, os.ErrPermission
 	}
 

@@ -75,8 +75,7 @@ export function ServerDialog({
   const session = useAuthentication().session;
   const admin = session?.admin === true;
   const canShare =
-    !applyRevision &&
-    (!server || admin || server.permissions.includes("server.share"));
+    !applyRevision && (!server || server.can_manage_access === true);
   const [access, setAccess] = useState<ServerAccess | null>(null);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [accessAttempt, setAccessAttempt] = useState(0);
