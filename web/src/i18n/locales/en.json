@@ -1291,6 +1291,19 @@
     "Schedules": "Schedules",
     "Platform": "Platform"
   },
+  "viewAs": {
+    "title": "View as…",
+    "description": "Inspect the panel using another user's current permissions. Changes are blocked during the preview.",
+    "start": "Start preview",
+    "preview": "Permission preview",
+    "viewingAs": "Viewing as {{user}}",
+    "readOnly": "Read-only preview. Controls reflect this user's permissions.",
+    "returnToAdmin": "Return to Admin",
+    "noUsers": "There are no other enabled users to preview.",
+    "unableToStart": "Unable to start the permission preview.",
+    "unableToStop": "Unable to return to Admin.",
+    "ended": "The permission preview ended because the selected account is no longer available. You are back in your own account."
+  },
   "permissionPresets": {
     "Basic operator": "Basic operator",
     "Log viewer": "Log viewer",

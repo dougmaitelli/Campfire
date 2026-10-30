@@ -16,11 +16,12 @@ import (
 )
 
 func TestConsoleStreamingAndLiveRevocation(t *testing.T) {
-	t.Run("session", func(t *testing.T) { testConsoleStreamingAndLiveRevocation(t, false) })
-	t.Run("api-token", func(t *testing.T) { testConsoleStreamingAndLiveRevocation(t, true) })
+	t.Run("session", func(t *testing.T) { testConsoleStreamingAndLiveRevocation(t, "session") })
+	t.Run("api-token", func(t *testing.T) { testConsoleStreamingAndLiveRevocation(t, "api-token") })
+	t.Run("view-as", func(t *testing.T) { testConsoleStreamingAndLiveRevocation(t, "view-as") })
 }
 
-func testConsoleStreamingAndLiveRevocation(t *testing.T, tokenAuth bool) {
+func testConsoleStreamingAndLiveRevocation(t *testing.T, mode string) {
 	f := newAccessFixture(t)
 	user, member := f.user("console-user", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
@@ -42,7 +43,11 @@ func testConsoleStreamingAndLiveRevocation(t *testing.T, tokenAuth bool) {
 		expectAccess(t, f.admin, "DELETE", endpoint+"/members/"+fmt.Sprint(user.ID), "", http.StatusNoContent)
 	}
 
-	if tokenAuth {
+	if mode == "view-as" {
+		_, member = previewAs(t, f.admin, user.ID)
+	}
+
+	if mode == "api-token" {
 		token, secret := createTestAPIToken(t, member, `["server.view","server.operate"]`)
 		browser := member
 		member = bearerAPI(f.panel, secret)

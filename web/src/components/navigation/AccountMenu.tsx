@@ -1,12 +1,18 @@
 import i18n from "../../i18n";
 import { useTranslation, Trans } from "react-i18next";
-import { useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { useAuthentication } from "../../hooks/useAuthentication";
-import { linkOIDC } from "../../api/auth";
+import { linkOIDC, stopViewAs } from "../../api/auth";
 import { APITokensDrawer } from "../../drawers/APITokensDrawer";
 import { NavigationIcon } from "./NavigationIcon";
 import { Button } from "../forms/Button";
 import "./account-menu.css";
+
+const ViewAsDrawer = lazy(() =>
+  import("../../drawers/ViewAsDrawer").then((module) => ({
+    default: module.ViewAsDrawer,
+  })),
+);
 
 export function AccountMenu() {
   const { t } = useTranslation();
@@ -14,6 +20,7 @@ export function AccountMenu() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
+  const [viewAsOpen, setViewAsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -92,32 +99,60 @@ export function AccountMenu() {
           className="account-dropdown"
           aria-label={t("accountMenu.accountOptions")}
         >
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              setTokensOpen(true);
-            }}
-          >
-            <Trans
-              i18nKey="accountMenu.apiTokens"
-              t={t}
-              components={{ navigationIcon: <NavigationIcon name="key" /> }}
-            />
-          </button>
-          {auth.session?.oidc_enabled && (
+          {auth.session?.admin === true && !auth.session.view_as && (
             <button
               type="button"
               onClick={() => {
-                void perform(linkOIDC);
+                setOpen(false);
+                setViewAsOpen(true);
               }}
             >
-              <Trans
-                i18nKey="accountMenu.linkOpenIDConnect"
-                t={t}
-                components={{ navigationIcon: <NavigationIcon name="link" /> }}
-              />
+              <NavigationIcon name="users" />
+              {t("viewAs.title")}
             </button>
+          )}
+          {auth.session?.view_as ? (
+            <button
+              type="button"
+              onClick={() => {
+                void perform(stopViewAs);
+              }}
+            >
+              <NavigationIcon name="logout" />
+              {t("viewAs.returnToAdmin")}
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setTokensOpen(true);
+                }}
+              >
+                <Trans
+                  i18nKey="accountMenu.apiTokens"
+                  t={t}
+                  components={{ navigationIcon: <NavigationIcon name="key" /> }}
+                />
+              </button>
+              {auth.session?.oidc_enabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void perform(linkOIDC);
+                  }}
+                >
+                  <Trans
+                    i18nKey="accountMenu.linkOpenIDConnect"
+                    t={t}
+                    components={{
+                      navigationIcon: <NavigationIcon name="link" />,
+                    }}
+                  />
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -178,6 +213,11 @@ export function AccountMenu() {
         </p>
       )}
       {tokensOpen && <APITokensDrawer onClose={() => setTokensOpen(false)} />}
+      {viewAsOpen && auth.session?.admin === true && !auth.session.view_as && (
+        <Suspense fallback={null}>
+          <ViewAsDrawer onClose={() => setViewAsOpen(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

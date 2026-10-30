@@ -16,6 +16,12 @@ export interface AuthState {
   permissions?: string[];
   csrf_token?: string;
   expires_at?: number;
+  view_as?: {
+    admin_user_id: number;
+    admin_username: string;
+    admin_name: string;
+  };
+  view_as_ended?: boolean;
 }
 
 export interface Credentials {
@@ -38,6 +44,16 @@ function isAuthState(value: unknown): value is AuthState {
     typeof value.oidc_enabled === "boolean" &&
     (!("name" in value) || typeof value.name === "string") &&
     (!("picture" in value) || typeof value.picture === "string") &&
+    (!("view_as_ended" in value) || typeof value.view_as_ended === "boolean") &&
+    (!("view_as" in value) ||
+      (typeof value.view_as === "object" &&
+        value.view_as !== null &&
+        "admin_user_id" in value.view_as &&
+        typeof value.view_as.admin_user_id === "number" &&
+        "admin_username" in value.view_as &&
+        typeof value.view_as.admin_username === "string" &&
+        "admin_name" in value.view_as &&
+        typeof value.view_as.admin_name === "string")) &&
     (!value.authenticated ||
       ("username" in value &&
         typeof value.username === "string" &&
@@ -101,6 +117,34 @@ export async function logout(): Promise<void> {
   const response = await apiFetch("/api/v1/auth/logout", { method: "POST" });
   if (response.status !== 204 && response.status !== 401)
     await readJSON(response);
+}
+
+async function changeViewAs(userID?: number): Promise<void> {
+  const response = await apiFetch("/api/v1/auth/view-as", {
+    method: userID === undefined ? "DELETE" : "POST",
+    ...(userID === undefined
+      ? {}
+      : {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userID }),
+        }),
+  });
+  if (response.status !== 204) await readJSON(response);
+  try {
+    localStorage.setItem("campfire:view-as-changed", crypto.randomUUID());
+  } catch {
+    // The session-bound cookie also applies when browser storage is unavailable.
+  }
+  window.location.replace("/#dashboard");
+  window.location.reload();
+}
+
+export function startViewAs(userID: number): Promise<void> {
+  return changeViewAs(userID);
+}
+
+export function stopViewAs(): Promise<void> {
+  return changeViewAs();
 }
 
 export async function linkOIDC(): Promise<void> {

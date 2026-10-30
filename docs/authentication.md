@@ -115,6 +115,32 @@ grants. This migration runs once. Overview-only grants remain overview-only;
 viewing schedules requires operation access under the new hierarchy. The built-in
 Operator role retains its existing access.
 
+## View as another user
+
+The built-in platform **Admin** role can open **View as…** from the account menu
+and choose another enabled user. The panel then uses that user's current account
+role, server memberships, ownership, and Spark provisioning grants for its normal
+permission checks. Navigation, visible servers, files, backups, schedules, and
+controls reflect the selected user's access.
+
+This is an inspect-only preview. Changes are rejected by the API, including
+server operations, file writes, schedule changes, and account changes. File reads,
+downloads, and live console output remain available when the selected user's
+permissions allow them. Personal API tokens are unavailable during preview.
+The banner identifies the selected user and provides **Return to Admin**.
+
+Only authenticated Admin browser sessions can start a preview; server owners,
+custom roles, and API tokens cannot. Preview does not create credentials or a
+session for the selected user. Its cookie is bound to the Admin's current session,
+persists across reloads, and applies to other tabs using that session. Open tabs
+refresh when the preview starts or stops. Start, stop, and rejected changes are
+audited under the real administrator's account.
+
+Permissions are rechecked on subsequent requests, including live console
+reauthorization. Disabling or deleting the selected account blocks further preview
+requests; refreshing the session ends the preview and explicitly returns to the
+administrator's account. Signing out ends the administrator's session.
+
 ## OpenID Connect
 
 Configure the provider using the [panel environment example](/Campfire/configuration/)

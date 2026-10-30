@@ -41,6 +41,7 @@ for an example.
 - **Recurring schedules** — configure future server actions with execution history separate from direct operations
 - **Ember imports and updates** — preview native definitions or supported Egg conversions, review warnings, and explicitly apply definition updates
 - **Users and roles** — combine platform roles, server ownership, and server memberships to control access; inspect linked resources in drawers without leaving the current page
+- **Permission preview** — Admin-only, read-only “View as…” to inspect another user's access
 - **Authentication and API tokens** — local password accounts, optional OpenID Connect, and scoped, expiring personal tokens
 - **Monitoring and notifications** — view live resource usage, receive sustained resource and health alerts, and optionally deliver notifications through Apprise
 - **Game integrations** — display player counts, game state, and retained events published by game mods or adapters

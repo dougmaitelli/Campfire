@@ -132,6 +132,33 @@ func (s *AccessService) Roles(ctx context.Context) ([]RoleView, error) {
 	return views, err
 }
 
+// ViewAsPrincipal resolves fresh account grants without creating credentials for that account.
+func (s *AccessService) ViewAsPrincipal(ctx context.Context, actor Principal, userID int64) (Principal, error) {
+	if !actor.Admin || actor.RoleID != database.AdminRole || actor.APITokenID != 0 {
+		return Principal{}, repository.ErrAccessDenied
+	}
+
+	if userID <= 0 || userID == actor.UserID {
+		return Principal{}, repository.ErrAccessInput
+	}
+
+	user, err := s.store.User(ctx, userID)
+	if err != nil {
+		return Principal{}, err
+	}
+
+	if user.Disabled {
+		return Principal{}, repository.ErrAccessInput
+	}
+
+	user.Role, err = s.store.Role(ctx, user.RoleID)
+	if err != nil {
+		return Principal{}, err
+	}
+
+	return s.EffectivePrincipal(ctx, PrincipalFromSession(database.UserSession{UserID: user.ID, User: user}))
+}
+
 // SaveRole permits platform creation grants or server-scoped actions, never custom admin bypasses.
 func (s *AccessService) SaveRole(ctx context.Context, id int64, name, scope string, permissions []string) (RoleView, error) {
 	name = strings.TrimSpace(name)

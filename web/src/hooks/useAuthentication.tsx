@@ -75,10 +75,15 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
       void load(AbortSignal.timeout(15000));
     };
     window.addEventListener("campfire:unauthenticated", expired);
+    function viewAsChanged(event: StorageEvent) {
+      if (event.key === "campfire:view-as-changed") window.location.reload();
+    }
+    window.addEventListener("storage", viewAsChanged);
     void load(AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]));
     return () => {
       controller.abort();
       window.removeEventListener("campfire:unauthenticated", expired);
+      window.removeEventListener("storage", viewAsChanged);
     };
   }, [accept, load]);
   async function signIn(credentials: Credentials, setup: boolean) {

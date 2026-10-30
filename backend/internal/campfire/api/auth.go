@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -20,10 +21,12 @@ type authState struct {
 	Authenticated bool `json:"authenticated"`
 	SetupRequired bool `json:"setup_required"`
 	*service.Principal
-	CSRFToken   string `json:"csrf_token,omitempty"`
-	ExpiresAt   int64  `json:"expires_at,omitempty"`
-	LocalLogin  bool   `json:"local_login"`
-	OIDCEnabled bool   `json:"oidc_enabled"`
+	CSRFToken   string       `json:"csrf_token,omitempty"`
+	ExpiresAt   int64        `json:"expires_at,omitempty"`
+	LocalLogin  bool         `json:"local_login"`
+	OIDCEnabled bool         `json:"oidc_enabled"`
+	ViewAs      *viewAsState `json:"view_as,omitempty"`
+	ViewAsEnded bool         `json:"view_as_ended,omitempty"`
 }
 
 type principalKey struct{}
@@ -67,7 +70,9 @@ func (a *API) requestPrincipal(r *http.Request) (service.Principal, error) {
 		return service.Principal{}, err
 	}
 
-	return a.access.EffectivePrincipal(r.Context(), service.PrincipalFromSession(session))
+	principal, _, err := a.browserPrincipal(r, session)
+
+	return principal, err
 }
 
 func (a *API) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expires int64) {
@@ -149,15 +154,28 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		principal := service.PrincipalFromSession(session)
+		actor := service.PrincipalFromSession(session)
+		auditActor(r, actor)
 
-		principal, err = a.access.EffectivePrincipal(r.Context(), principal)
+		principal := actor
+
+		if r.URL.Path != "/api/v1/auth/view-as" && r.URL.Path != "/api/v1/auth/logout" {
+			var preview *viewAsState
+
+			principal, preview, err = a.browserPrincipal(r, session)
+			if err == nil && preview != nil && !previewRequest(r) {
+				auditDetail(r, "auth.view_as.read_only", fmt.Sprintf("user:%d", principal.UserID))
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "View as is read-only. Return to Admin to make changes."})
+
+				return
+			}
+		}
+
 		if err != nil {
 			writeError(w, err)
 			return
 		}
 
-		auditActor(r, principal)
 		ctx := service.WithActor(r.Context(), principal)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, principalKey{}, principal)))
 	})
@@ -209,13 +227,21 @@ func (a *API) authSession(w http.ResponseWriter, r *http.Request) {
 func (a *API) writeLoginState(w http.ResponseWriter, r *http.Request, session database.UserSession) {
 	state := sessionState(session)
 
-	principal, err := a.access.EffectivePrincipal(r.Context(), *state.Principal)
+	principal, preview, err := a.browserPrincipal(r, session)
+	if previewUnavailable(err) {
+		a.setViewAsCookie(w, r, session, 0)
+
+		state.ViewAsEnded = true
+		principal, err = a.access.EffectivePrincipal(r.Context(), service.PrincipalFromSession(session))
+	}
+
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 
 	state.Principal = &principal
+	state.ViewAs = preview
 
 	state.LocalLogin, err = a.auth.LocalLoginEnabled(r.Context())
 	if err != nil {

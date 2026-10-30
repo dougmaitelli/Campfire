@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import type { NavigationItem } from "../../routing/navigation";
 import { Sidebar } from "../navigation/Sidebar";
+import { ViewAsBanner } from "./ViewAsBanner";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { useNotifications } from "../../hooks/useNotifications";
 import "./dashboard.css";
@@ -21,6 +22,7 @@ export function DashboardLayout({ page, children }: DashboardLayoutProps) {
       </a>
       <Sidebar page={page} />
       <main id="main-content" className="main-content" tabIndex={-1}>
+        <ViewAsBanner />
         <div className="app-toolbar">
           {import.meta.env.DEV &&
             import.meta.env.VITE_CAMPFIRE_MOCK === "true" && (

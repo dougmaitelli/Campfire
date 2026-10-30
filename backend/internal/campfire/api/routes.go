@@ -20,6 +20,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/setup", a.authSetup)
 	mux.HandleFunc("POST /api/v1/auth/login", a.authLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.authLogout)
+	mux.HandleFunc("POST /api/v1/auth/view-as", a.startViewAs)
+	mux.HandleFunc("DELETE /api/v1/auth/view-as", a.stopViewAs)
 	mux.HandleFunc("GET /api/v1/auth/oidc/start", a.oidcStart)
 	mux.HandleFunc("GET /api/v1/auth/oidc/callback", a.oidcCallback)
 	mux.HandleFunc("POST /api/v1/auth/oidc/link", a.oidcLink)

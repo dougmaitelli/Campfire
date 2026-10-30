@@ -1,0 +1,17 @@
+.view-as-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-subtle);
+
+  & p {
+    margin: 6px 0 0;
+    color: var(--muted);
+  }
+}
