@@ -15,7 +15,7 @@ import { bytes } from "../api/monitoring";
 import "../components/servers/files.css";
 import { Permission } from "../api/permissions";
 
-export function ServerBackupsDialog({
+export function ServerBackupsDrawer({
   server,
   onClose,
   embedded = false,
@@ -72,7 +72,7 @@ export function ServerBackupsDialog({
             observed.status === "fulfilled"
               ? null
               : i18n.t(
-                  "serverBackupsDialog.sparkIsUnavailableOffHostBackupsCanStillBeDownloaded",
+                  "serverBackupsDrawer.sparkIsUnavailableOffHostBackupsCanStillBeDownloaded",
                 ),
           );
           setLoadError(null);
@@ -83,7 +83,7 @@ export function ServerBackupsDialog({
           setLoadError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverBackupsDialog.unableToLoadBackups"),
+              : i18n.t("serverBackupsDrawer.unableToLoadBackups"),
           );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -107,7 +107,7 @@ export function ServerBackupsDialog({
       !canDelete ||
       !window.confirm(
         i18n.t(
-          "serverBackupsDialog.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
+          "serverBackupsDrawer.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
           {
             locationLocalLocal: location === "local" ? "local" : "S3",
             entryName: entry.name,
@@ -127,7 +127,7 @@ export function ServerBackupsDialog({
         setError(
           cause instanceof Error
             ? cause.message
-            : i18n.t("serverBackupsDialog.unableToDeleteBackup"),
+            : i18n.t("serverBackupsDrawer.unableToDeleteBackup"),
         );
     } finally {
       pending.current = false;
@@ -145,7 +145,7 @@ export function ServerBackupsDialog({
       action === "restore" &&
       !window.confirm(
         i18n.t(
-          "serverBackupsDialog.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
+          "serverBackupsDrawer.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
           { serverName: server.name },
         ),
       )
@@ -165,7 +165,7 @@ export function ServerBackupsDialog({
         setError(
           cause instanceof Error
             ? cause.message
-            : i18n.t("serverBackupsDialog.unableToSubmitOperation"),
+            : i18n.t("serverBackupsDrawer.unableToSubmitOperation"),
         );
     } finally {
       pending.current = false;
@@ -175,9 +175,9 @@ export function ServerBackupsDialog({
   return (
     <Drawer
       embedded={embedded}
-      title={t("serverBackupsDialog.backups", { serverName: server.name })}
+      title={t("serverBackupsDrawer.backups", { serverName: server.name })}
       description={t(
-        "serverBackupsDialog.stopTheServerToCreateOrRestoreABackupCompleted",
+        "serverBackupsDrawer.stopTheServerToCreateOrRestoreABackupCompleted",
       )}
       busy={busy}
       onClose={onClose}
@@ -196,7 +196,7 @@ export function ServerBackupsDialog({
             void submit("backup");
           }}
         >
-          {t("serverBackupsDialog.createBackup")}
+          {t("serverBackupsDrawer.createBackup")}
         </Button>
       }
     >
@@ -220,29 +220,29 @@ export function ServerBackupsDialog({
             status?.operation === "restore") && (
             <InlineMessage tone="success">
               {status.operation === "backup"
-                ? t("serverBackupsDialog.backupCreated")
-                : t("serverBackupsDialog.backupRestoredTheServerIsStopped")}
+                ? t("serverBackupsDrawer.backupCreated")
+                : t("serverBackupsDrawer.backupRestoredTheServerIsStopped")}
             </InlineMessage>
           )}
         <Table
           empty={entries.length === 0}
           loading={loading}
           error={loadError}
-          resource={t("serverBackupsDialog.backups2")}
+          resource={t("serverBackupsDrawer.backups2")}
           onRetry={() => {
             setLoading(true);
             setRefresh((value) => value + 1);
           }}
         >
           <caption className="visually-hidden">
-            {t("serverBackupsDialog.serverBackups")}
+            {t("serverBackupsDrawer.serverBackups")}
           </caption>
           <thead>
             <tr>
-              <th>{t("serverBackupsDialog.archive")}</th>
-              <th>{t("serverBackupsDialog.created")}</th>
-              <th>{t("serverBackupsDialog.size")}</th>
-              <th>{t("serverBackupsDialog.storage")}</th>
+              <th>{t("serverBackupsDrawer.archive")}</th>
+              <th>{t("serverBackupsDrawer.created")}</th>
+              <th>{t("serverBackupsDrawer.size")}</th>
+              <th>{t("serverBackupsDrawer.storage")}</th>
               <th>{t("common.status")}</th>
               <th className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
@@ -264,7 +264,7 @@ export function ServerBackupsDialog({
                 <td>{bytes(entry.size)}</td>
                 <td>
                   {[
-                    entry.local ? i18n.t("serverBackupsDialog.local") : null,
+                    entry.local ? i18n.t("serverBackupsDrawer.local") : null,
                     entry.remote ? "S3" : null,
                   ]
                     .filter(Boolean)
@@ -284,10 +284,10 @@ export function ServerBackupsDialog({
                           href={`/api/v1/servers/${encodeURIComponent(server.id)}/backups/${encodeURIComponent(entry.name)}`}
                           download
                           iconOnly
-                          aria-label={i18n.t("serverBackupsDialog.download", {
+                          aria-label={i18n.t("serverBackupsDrawer.download", {
                             entryName: entry.name,
                           })}
-                          title={i18n.t("serverBackupsDialog.downloadBackup")}
+                          title={i18n.t("serverBackupsDrawer.downloadBackup")}
                         >
                           <NavigationIcon name="download" />
                         </ButtonLink>
@@ -303,7 +303,7 @@ export function ServerBackupsDialog({
                         void submit("restore", entry.name);
                       }}
                     >
-                      {i18n.t("serverBackupsDialog.restore")}
+                      {i18n.t("serverBackupsDrawer.restore")}
                     </Button>
                     {canDelete && entry.local && (
                       <Button
@@ -317,7 +317,7 @@ export function ServerBackupsDialog({
                           void remove(entry, "local");
                         }}
                       >
-                        {i18n.t("serverBackupsDialog.deleteLocal")}
+                        {i18n.t("serverBackupsDrawer.deleteLocal")}
                       </Button>
                     )}
                     {canDelete && entry.remote && (
@@ -332,7 +332,7 @@ export function ServerBackupsDialog({
                           void remove(entry, "s3");
                         }}
                       >
-                        {i18n.t("serverBackupsDialog.deleteS3")}
+                        {i18n.t("serverBackupsDrawer.deleteS3")}
                       </Button>
                     )}
                   </ActionGroup>
@@ -343,7 +343,7 @@ export function ServerBackupsDialog({
         </Table>
         <p>
           {t(
-            "serverBackupsDialog.backupsExcludeLinksAndSpecialFilesAndAreLimitedTo",
+            "serverBackupsDrawer.backupsExcludeLinksAndSpecialFilesAndAreLimitedTo",
           )}
         </p>
       </div>

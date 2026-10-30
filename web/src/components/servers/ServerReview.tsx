@@ -34,7 +34,7 @@ export function ServerReview({
         <DetailItem label={t("common.spark")}>{sparkName}</DetailItem>
         <DetailItem label={t("common.ember")}>{emberName}</DetailItem>
         <DetailItem label={t("serverReview.image")}>{value.image}</DetailItem>
-        <DetailItem label={t("serverDialog.gameIntegration")}>
+        <DetailItem label={t("serverDrawer.gameIntegration")}>
           {value.game_integration ? t("common.enabled") : t("common.disabled")}
         </DetailItem>
         {value.startup_command && (
@@ -43,7 +43,7 @@ export function ServerReview({
           </DetailItem>
         )}
         {value.startup_override && (
-          <DetailItem label={t("serverDialog.customStartupCommand")}>
+          <DetailItem label={t("serverDrawer.customStartupCommand")}>
             <code>{value.startup_override}</code>
           </DetailItem>
         )}

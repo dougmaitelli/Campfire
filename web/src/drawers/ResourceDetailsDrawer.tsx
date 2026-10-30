@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 
-export function ResourceDetailsDialog<T>({
+export function ResourceDetailsDrawer<T>({
   title,
   description,
   editLabel = i18n.t("common.edit"),
@@ -23,7 +23,7 @@ export function ResourceDetailsDialog<T>({
   deleting = false,
   actionError,
   actions,
-}: ResourceDetailsDialogProps<T>) {
+}: ResourceDetailsDrawerProps<T>) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function ResourceDetailsDialog<T>({
           setError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("resourceDetailsDialog.unableToLoadDetails"),
+              : i18n.t("resourceDetailsDrawer.unableToLoadDetails"),
           );
       });
     return () => controller.abort();
@@ -94,7 +94,7 @@ export function ResourceDetailsDialog<T>({
         {!details && !error && (
           <ContentState
             loading
-            resource={t("resourceDetailsDialog.details")}
+            resource={t("resourceDetailsDrawer.details")}
             compact
           />
         )}
@@ -104,7 +104,7 @@ export function ResourceDetailsDialog<T>({
   );
 }
 
-export interface ResourceDetailsDialogProps<T> {
+export interface ResourceDetailsDrawerProps<T> {
   title: ReactNode;
   description: string;
   editLabel?: string;

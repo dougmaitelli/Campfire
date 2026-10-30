@@ -11,10 +11,10 @@ import { ScheduleExecutionHistory } from "../components/schedules/ScheduleExecut
 import { operationLabel } from "../components/servers/operationMessage";
 import { StatusPill } from "../components/status/StatusPill";
 import { useResourceLinks } from "../routing/useResourceLinks";
-import { ScheduleDialog } from "./ScheduleDialog";
+import { ScheduleDrawer } from "./ScheduleDrawer";
 import { Permission, serverActionPermission } from "../api/permissions";
 
-export function ScheduleDetailsDialog({
+export function ScheduleDetailsDrawer({
   schedule,
   servers,
   onClose,
@@ -39,7 +39,7 @@ export function ScheduleDetailsDialog({
   );
   if (editing && canEdit)
     return (
-      <ScheduleDialog
+      <ScheduleDrawer
         schedule={schedule}
         servers={managed}
         onClose={onClose}
@@ -49,14 +49,14 @@ export function ScheduleDetailsDialog({
   return (
     <Drawer
       title={schedule.name}
-      description={t("scheduleDetailsDialog.description")}
+      description={t("scheduleDetailsDrawer.description")}
       busy={false}
       onClose={onClose}
       footerLeft={<Button onClick={onClose}>{t("common.close")}</Button>}
       footerRight={
         canEdit ? (
           <Button variant="primary" onClick={() => setEditing(true)}>
-            {t("scheduleDialog.editSchedule")}
+            {t("scheduleDrawer.editSchedule")}
           </Button>
         ) : null
       }
@@ -69,7 +69,7 @@ export function ScheduleDetailsDialog({
               {server?.name ?? schedule.server_id}
             </ResourceLink>
           </DetailItem>
-          <DetailItem label={t("scheduleDialog.action")}>
+          <DetailItem label={t("scheduleDrawer.action")}>
             {operationLabel(schedule.action)}
           </DetailItem>
           <DetailItem label={t("common.status")}>
@@ -77,25 +77,25 @@ export function ScheduleDetailsDialog({
               {t(schedule.enabled ? "common.enabled" : "common.disabled")}
             </StatusPill>
           </DetailItem>
-          <DetailItem label={t("scheduleDialog.timing")}>
+          <DetailItem label={t("scheduleDrawer.timing")}>
             {t(
               schedule.cron_expression
-                ? "scheduleDialog.recurring"
-                : "scheduleDialog.runOnce",
+                ? "scheduleDrawer.recurring"
+                : "scheduleDrawer.runOnce",
             )}
           </DetailItem>
           {schedule.cron_expression && (
             <>
-              <DetailItem label={t("scheduleDetailsDialog.cronExpression")}>
+              <DetailItem label={t("scheduleDetailsDrawer.cronExpression")}>
                 <code>{schedule.cron_expression}</code>
               </DetailItem>
-              <DetailItem label={t("scheduleDetailsDialog.timeZone")}>
+              <DetailItem label={t("scheduleDetailsDrawer.timeZone")}>
                 {schedule.time_zone}
               </DetailItem>
             </>
           )}
           {!schedule.cron_expression && schedule.next_run_at > 0 && (
-            <DetailItem label={t("scheduleDialog.runAt")}>
+            <DetailItem label={t("scheduleDrawer.runAt")}>
               <time
                 dateTime={new Date(schedule.next_run_at * 1000).toISOString()}
               >
@@ -114,7 +114,7 @@ export function ScheduleDetailsDialog({
               {schedule.username}
             </ResourceLink>
           </DetailItem>
-          <DetailItem label={t("scheduleDialog.onlyRunWhenTheServerIsRunning")}>
+          <DetailItem label={t("scheduleDrawer.onlyRunWhenTheServerIsRunning")}>
             {t(
               schedule.only_when_running ? "common.enabled" : "common.disabled",
             )}
@@ -122,7 +122,7 @@ export function ScheduleDetailsDialog({
         </DetailsList>
         {schedule.action === "command" && (
           <p className="field-help">
-            {t("scheduleDetailsDialog.privateCommand")}
+            {t("scheduleDetailsDrawer.privateCommand")}
           </p>
         )}
         <ScheduleExecutionHistory key={schedule.id} scheduleID={schedule.id} />

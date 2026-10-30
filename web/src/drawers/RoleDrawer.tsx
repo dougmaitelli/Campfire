@@ -18,7 +18,7 @@ import {
   type PermissionDefinition,
 } from "../api/permissions";
 import { Fieldset } from "../components/forms/Fieldset";
-import "./role-dialog.css";
+import "./role-drawer.css";
 
 const presets = [
   ["Observer", Permission.ServerView],
@@ -30,7 +30,7 @@ const presets = [
   ["Backup restorer", Permission.ServerBackupsRestore],
 ] as const;
 
-export function RoleDialog({
+export function RoleDrawer({
   role,
   onClose,
   onSaved,
@@ -66,7 +66,7 @@ export function RoleDialog({
           setCatalogError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("roleDialog.unableToLoadPermissions"),
+              : i18n.t("roleDrawer.unableToLoadPermissions"),
           );
       });
     return () => controller.abort();
@@ -84,7 +84,7 @@ export function RoleDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("roleDialog.unableToSaveRole"),
+          : i18n.t("roleDrawer.unableToSaveRole"),
       );
     } finally {
       pending.current = false;
@@ -95,7 +95,7 @@ export function RoleDialog({
     [
       [
         Permission.ServersCreate,
-        t("roleDialog.createServersOnSparksApprovedByAnAdministrator"),
+        t("roleDrawer.createServersOnSparksApprovedByAnAdministrator"),
       ],
       [Permission.ServersManageAll, t("rolesPage.manageAllServers")],
       [Permission.UsersManage, t("rolesPage.manageUsers")],
@@ -121,7 +121,7 @@ export function RoleDialog({
     if (
       removed.length &&
       !window.confirm(
-        t("roleDialog.removeDependencies", {
+        t("roleDrawer.removeDependencies", {
           permissions: removed
             .map(
               (item) =>
@@ -138,13 +138,13 @@ export function RoleDialog({
     <Drawer
       title={
         role?.builtin
-          ? t("roleDialog.viewRole")
+          ? t("roleDrawer.viewRole")
           : role
-            ? t("roleDialog.editRole")
-            : t("roleDialog.createRole")
+            ? t("roleDrawer.editRole")
+            : t("roleDrawer.createRole")
       }
       description={t(
-        "roleDialog.rolesGrantPanelCapabilitiesServerRolesApplyOnlyToAssigned",
+        "roleDrawer.rolesGrantPanelCapabilitiesServerRolesApplyOnlyToAssigned",
       )}
       busy={busy || deleting}
       onClose={onClose}
@@ -173,9 +173,9 @@ export function RoleDialog({
                 void submit();
               }}
               loading={busy}
-              loadingLabel={t("roleDialog.saving")}
+              loadingLabel={t("roleDrawer.saving")}
             >
-              {t("roleDialog.saveRole")}
+              {t("roleDrawer.saveRole")}
             </Button>
           )}
         </>
@@ -198,7 +198,7 @@ export function RoleDialog({
             onChange={(event) => setName(event.target.value)}
           />
         </FormField>
-        <FormField label={t("roleDialog.scope")}>
+        <FormField label={t("roleDrawer.scope")}>
           <Select
             id="role-scope"
             value={scope}
@@ -210,12 +210,12 @@ export function RoleDialog({
             }}
           >
             <option value="server">{t("common.server")}</option>
-            <option value="platform">{t("roleDialog.platform")}</option>
+            <option value="platform">{t("roleDrawer.platform")}</option>
           </Select>
         </FormField>
-        <h3>{t("roleDialog.permissions")}</h3>
+        <h3>{t("roleDrawer.permissions")}</h3>
         {scope === "server" && !role?.builtin && (
-          <FormField label={t("roleDialog.applyPreset")}>
+          <FormField label={t("roleDrawer.applyPreset")}>
             <Select
               value=""
               disabled={busy || deleting || !catalog.length}
@@ -227,7 +227,7 @@ export function RoleDialog({
                 }
               }}
             >
-              <option value="">{t("roleDialog.choosePreset")}</option>
+              <option value="">{t("roleDrawer.choosePreset")}</option>
               {presets.map(([label]) => (
                 <option key={label} value={label}>
                   {t(`permissionPresets.${label}`)}
@@ -259,7 +259,7 @@ export function RoleDialog({
                   })}
                   {item.requires.length > 0 && (
                     <span className="field-help">
-                      {t("roleDialog.requires", {
+                      {t("roleDrawer.requires", {
                         permissions: item.requires
                           .map((id) =>
                             t(`permissionLabels.${id.replaceAll(".", "_")}`, {
@@ -277,11 +277,11 @@ export function RoleDialog({
           </Fieldset>
         ))}
         {scope === "server" && (
-          <p className="field-help">{t("roleDialog.permissionGuidance")}</p>
+          <p className="field-help">{t("roleDrawer.permissionGuidance")}</p>
         )}
         <p className="field-help">
           {t(
-            "roleDialog.serverPermissionsNeverGrantAccessToUnassignedServersSparkUser",
+            "roleDrawer.serverPermissionsNeverGrantAccessToUnassignedServersSparkUser",
           )}
         </p>
       </div>

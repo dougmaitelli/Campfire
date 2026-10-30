@@ -3,7 +3,7 @@ import { useTranslation, Trans } from "react-i18next";
 import { useEffect, useId, useRef, useState } from "react";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { linkOIDC } from "../../api/auth";
-import { APITokensDialog } from "../../dialogs/APITokensDialog";
+import { APITokensDrawer } from "../../drawers/APITokensDrawer";
 import { NavigationIcon } from "./NavigationIcon";
 import { Button } from "../forms/Button";
 import "./account-menu.css";
@@ -177,7 +177,7 @@ export function AccountMenu() {
           )}
         </p>
       )}
-      {tokensOpen && <APITokensDialog onClose={() => setTokensOpen(false)} />}
+      {tokensOpen && <APITokensDrawer onClose={() => setTokensOpen(false)} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
-import "./api-tokens-dialog.css";
+import "./api-tokens-drawer.css";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { useEffect, useRef, useState } from "react";
@@ -20,7 +20,7 @@ import {
   type PermissionDefinition,
 } from "../api/permissions";
 
-export function APITokensDialog({ onClose }: { onClose: () => void }) {
+export function APITokensDrawer({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [tokens, setTokens] = useState<APIToken[]>([]);
   const [choices, setChoices] = useState<string[]>([]);
@@ -49,7 +49,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
           setError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("apiTokensDialog.unableToLoadAPITokens"),
+              : i18n.t("apiTokensDrawer.unableToLoadAPITokens"),
           );
       })
       .finally(() => {
@@ -69,7 +69,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("apiTokensDialog.unableToUpdateAPITokens"),
+          : i18n.t("apiTokensDrawer.unableToUpdateAPITokens"),
       );
     } finally {
       pending.current = false;
@@ -92,9 +92,9 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
   }
   return (
     <Drawer
-      title={t("apiTokensDialog.apiTokens")}
+      title={t("apiTokensDrawer.apiTokens")}
       description={t(
-        "apiTokensDialog.tokensActAsYourUserScopesCanRestrictYourPermissions",
+        "apiTokensDrawer.tokensActAsYourUserScopesCanRestrictYourPermissions",
       )}
       busy={busy}
       onClose={onClose}
@@ -108,16 +108,16 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
       <div className="drawer-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {secret && (
-          <section aria-label={t("apiTokensDialog.newTokenSecret")}>
-            <h3>{t("apiTokensDialog.saveYourToken")}</h3>
+          <section aria-label={t("apiTokensDrawer.newTokenSecret")}>
+            <h3>{t("apiTokensDrawer.saveYourToken")}</h3>
             <p>
               {t(
-                "apiTokensDialog.thisSecretIsShownOnlyOnceStoreItSomewhereSafe",
+                "apiTokensDrawer.thisSecretIsShownOnlyOnceStoreItSomewhereSafe",
               )}
             </p>
             <TextInput
               className="api-token-secret"
-              aria-label={t("apiTokensDialog.tokenSecret")}
+              aria-label={t("apiTokensDrawer.tokenSecret")}
               value={secret}
               readOnly
               spellCheck={false}
@@ -133,12 +133,12 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               }}
             >
               {copied
-                ? t("apiTokensDialog.copied")
-                : t("apiTokensDialog.copyToken")}
+                ? t("apiTokensDrawer.copied")
+                : t("apiTokensDrawer.copyToken")}
             </Button>
           </section>
         )}
-        <h3>{t("apiTokensDialog.createAToken")}</h3>
+        <h3>{t("apiTokensDrawer.createAToken")}</h3>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -161,7 +161,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               onChange={(event) => setName(event.target.value)}
             />
           </FormField>
-          <FormField label={t("apiTokensDialog.expiresInDays")}>
+          <FormField label={t("apiTokensDrawer.expiresInDays")}>
             <TextInput
               id="token-expiry"
               type="number"
@@ -184,7 +184,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               )
             }
           >
-            {t("apiTokensDialog.allMyCurrentPermissions")}
+            {t("apiTokensDrawer.allMyCurrentPermissions")}
           </CheckboxField>
           {!scopes.includes(Permission.AllAccess) &&
             choices
@@ -201,7 +201,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               ))}
           <p className="field-help">
             {t(
-              "apiTokensDialog.serverAccessFollowsYourOwnershipAndAssignmentsAccountPasswordRole",
+              "apiTokensDrawer.serverAccessFollowsYourOwnershipAndAssignmentsAccountPasswordRole",
             )}
           </p>
           <Button
@@ -215,28 +215,28 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
               !!secret
             }
           >
-            {t("apiTokensDialog.createToken")}
+            {t("apiTokensDrawer.createToken")}
           </Button>
           {secret && (
             <p>
               {t(
-                "apiTokensDialog.closeAndReopenThisWindowToCreateAnotherToken",
+                "apiTokensDrawer.closeAndReopenThisWindowToCreateAnotherToken",
               )}
             </p>
           )}
         </form>
-        <h3>{t("apiTokensDialog.activeTokens")}</h3>
+        <h3>{t("apiTokensDrawer.activeTokens")}</h3>
         {loading ? (
           <p>{t("common.loading")}</p>
         ) : (
-          !tokens.length && <p>{t("apiTokensDialog.noActiveAPITokens")}</p>
+          !tokens.length && <p>{t("apiTokensDrawer.noActiveAPITokens")}</p>
         )}
         {tokens.map((token) => (
           <section key={token.id} aria-label={token.name}>
             <h4 className="api-token-heading">{token.name}</h4>
             <p>
               <Trans
-                i18nKey="apiTokensDialog.expires"
+                i18nKey="apiTokensDrawer.expires"
                 t={i18n.t}
                 components={{
                   code: <code>{token.prefix}…</code>,
@@ -250,14 +250,14 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>
               <Trans
-                i18nKey="apiTokensDialog.lastUsed"
+                i18nKey="apiTokensDrawer.lastUsed"
                 t={i18n.t}
                 components={{
                   tokenLastUsed: (
                     <>
                       {token.last_used_at
                         ? new Date(token.last_used_at * 1000).toLocaleString()
-                        : i18n.t("apiTokensDialog.never")}
+                        : i18n.t("apiTokensDrawer.never")}
                     </>
                   ),
                 }}
@@ -265,13 +265,13 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
             </p>
             <p>
               <Trans
-                i18nKey="apiTokensDialog.scopes"
+                i18nKey="apiTokensDrawer.scopes"
                 t={i18n.t}
                 components={{
                   tokenScopesIncludes: (
                     <>
                       {token.scopes.includes(Permission.AllAccess)
-                        ? i18n.t("apiTokensDialog.allMyCurrentPermissions")
+                        ? i18n.t("apiTokensDrawer.allMyCurrentPermissions")
                         : token.scopes.join(", ")}
                     </>
                   ),
@@ -285,7 +285,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 if (
                   !window.confirm(
                     i18n.t(
-                      "apiTokensDialog.revokeApplicationsUsingItWillLoseAccessImmediately",
+                      "apiTokensDrawer.revokeApplicationsUsingItWillLoseAccessImmediately",
                       { tokenName: token.name },
                     ),
                   )
@@ -299,7 +299,7 @@ export function APITokensDialog({ onClose }: { onClose: () => void }) {
                 });
               }}
             >
-              {i18n.t("apiTokensDialog.revoke")}
+              {i18n.t("apiTokensDrawer.revoke")}
             </Button>
           </section>
         ))}

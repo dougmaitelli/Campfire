@@ -23,17 +23,17 @@ import { Wizard } from "../components/wizard/Wizard";
 import { SparkReview } from "../components/sparks/SparkReview";
 import { Drawer } from "../components/layout/Drawer";
 import { CheckboxField } from "../components/forms/CheckboxField";
-import "./spark-dialog.css";
+import "./spark-drawer.css";
 import { AccessGrantFields } from "../components/forms/AccessGrantFields";
 import { AccessGrantLabel } from "../components/forms/AccessGrantLabel";
 
-interface SparkDialogProps {
+interface SparkDrawerProps {
   spark: Spark | null;
   onClose: () => void;
   onSaved: (spark: Spark) => void;
 }
 
-export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
+export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
   const { t } = useTranslation();
   const submittingRef = useRef(false);
   const [created, setCreated] = useState<Spark | null>(null);
@@ -62,7 +62,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
           setRolesError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("sparkDialog.unableToLoadServerCreationAccess"),
+              : i18n.t("sparkDrawer.unableToLoadServerCreationAccess"),
           );
       })
       .finally(() => {
@@ -96,7 +96,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
     if (submittingRef.current) return;
     if (rolesLoading || rolesError) {
       setError(
-        rolesError ?? i18n.t("sparkDialog.waitForServerCreationAccessToLoad"),
+        rolesError ?? i18n.t("sparkDrawer.waitForServerCreationAccessToLoad"),
       );
       return;
     }
@@ -123,7 +123,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
       } catch (cause) {
         throw new Error(
           i18n.t(
-            "sparkDialog.sparkSavedButServerCreationAccessCouldNotBeSaved",
+            "sparkDrawer.sparkSavedButServerCreationAccessCouldNotBeSaved",
             {
               causeInstanceofError: cause instanceof Error ? cause.message : "",
             },
@@ -137,7 +137,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("sparkDialog.unableToAddTheSpark"),
+          : i18n.t("sparkDrawer.unableToAddTheSpark"),
       );
     } finally {
       submittingRef.current = false;
@@ -150,20 +150,20 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
       allowAllSteps={spark !== null}
       busy={submitting}
       error={error}
-      finishLabel={spark ? t("common.saveChanges") : t("sparkDialog.addSpark")}
+      finishLabel={spark ? t("common.saveChanges") : t("sparkDrawer.addSpark")}
       onFinish={submit}
       steps={[
         {
           id: "basics",
-          title: t("sparkDialog.general"),
+          title: t("sparkDrawer.general"),
           validate: () =>
-            name.trim() === "" ? i18n.t("sparkDialog.enterASparkName") : null,
+            name.trim() === "" ? i18n.t("sparkDrawer.enterASparkName") : null,
           content: (
             <>
               <FormField
                 label={t("common.name")}
                 description={t(
-                  "sparkDialog.runTheSparkAgentOnThisHostOrAnotherMachine",
+                  "sparkDrawer.runTheSparkAgentOnThisHostOrAnotherMachine",
                 )}
               >
                 <TextInput
@@ -173,7 +173,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   onChange={(event) => setName(event.target.value)}
                   required
                   maxLength={100}
-                  placeholder={t("sparkDialog.eGHomeServer")}
+                  placeholder={t("sparkDrawer.eGHomeServer")}
                   autoComplete="off"
                   readOnly={spark !== null || created !== null}
                 />
@@ -182,12 +182,12 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 label={
                   <>
                     <Trans
-                      i18nKey="sparkDialog.description"
+                      i18nKey="sparkDrawer.description"
                       t={t}
                       components={{
                         span: (
                           <span className="field-help">
-                            {t("sparkDialog.optional")}
+                            {t("sparkDrawer.optional")}
                           </span>
                         ),
                       }}
@@ -212,23 +212,23 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 {t("common.disabled")}
               </CheckboxField>
               <p className="field-help">
-                {t("sparkDialog.keepThisSparkUnavailableForHostingGameServers")}
+                {t("sparkDrawer.keepThisSparkUnavailableForHostingGameServers")}
               </p>
             </>
           ),
         },
         {
           id: "resources",
-          title: t("sparkDialog.resourcesNetworking"),
+          title: t("sparkDrawer.resourcesNetworking"),
           content: (
             <div className="spark-settings">
-              <h3>{t("sparkDialog.resourceLimits")}</h3>
+              <h3>{t("sparkDrawer.resourceLimits")}</h3>
               <p className="field-help">
-                {t("sparkDialog.capacityAvailableForGameServersSetALimitTo0")}
+                {t("sparkDrawer.capacityAvailableForGameServersSetALimitTo0")}
               </p>
               <div className="resource-fields">
                 <div>
-                  <FormField label={t("sparkDialog.cpuCores")}>
+                  <FormField label={t("sparkDrawer.cpuCores")}>
                     <TextInput
                       id="spark-cpu"
                       type="number"
@@ -251,7 +251,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   </FormField>
                 </div>
                 <div>
-                  <FormField label={t("sparkDialog.memoryMiB")}>
+                  <FormField label={t("sparkDrawer.memoryMiB")}>
                     <TextInput
                       id="spark-memory"
                       type="number"
@@ -274,7 +274,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   </FormField>
                 </div>
                 <div>
-                  <FormField label={t("sparkDialog.diskMiB")}>
+                  <FormField label={t("sparkDrawer.diskMiB")}>
                     <TextInput
                       id="spark-disk"
                       type="number"
@@ -295,17 +295,17 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   </FormField>
                 </div>
               </div>
-              <h3>{t("sparkDialog.network")}</h3>
+              <h3>{t("sparkDrawer.network")}</h3>
               <FormField
                 label={
                   <>
                     <Trans
-                      i18nKey="sparkDialog.gameAddress"
+                      i18nKey="sparkDrawer.gameAddress"
                       t={t}
                       components={{
                         span: (
                           <span className="field-help">
-                            {t("sparkDialog.optional")}
+                            {t("sparkDrawer.optional")}
                           </span>
                         ),
                       }}
@@ -317,7 +317,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   id="spark-address"
                   value={settings.game_address}
                   maxLength={253}
-                  placeholder={t("sparkDialog.gamesExampleComOrAnIP")}
+                  placeholder={t("sparkDrawer.gamesExampleComOrAnIP")}
                   onChange={(event) =>
                     setSettings({
                       ...settings,
@@ -328,17 +328,17 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                 />
               </FormField>
               <p id="game-address-help" className="field-help">
-                {t("sparkDialog.theAddressPlayersUseToReachGameServersEnterAn")}
+                {t("sparkDrawer.theAddressPlayersUseToReachGameServersEnterAn")}
               </p>
-              <h3>{t("sparkDialog.portAllocations")}</h3>
+              <h3>{t("sparkDrawer.portAllocations")}</h3>
               <p className="field-help">
-                {t("sparkDialog.gamePortsAvailableOnThisSparkUseTheSameStart")}
+                {t("sparkDrawer.gamePortsAvailableOnThisSparkUseTheSameStart")}
               </p>
               {settings.port_allocations.map((allocation, index) => (
                 <AllocationRow
                   key={index}
-                  label={`${t("sparkDialog.range")} ${index + 1}`}
-                  removeLabel={t("sparkDialog.removeRange", {
+                  label={`${t("sparkDrawer.range")} ${index + 1}`}
+                  removeLabel={t("sparkDrawer.removeRange", {
                     index1: index + 1,
                   })}
                   onRemove={() =>
@@ -350,7 +350,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                     })
                   }
                 >
-                  <FormField label={i18n.t("sparkDialog.bindIP")}>
+                  <FormField label={i18n.t("sparkDrawer.bindIP")}>
                     <TextInput
                       id={`allocation-ip-${index}`}
                       required
@@ -361,7 +361,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       placeholder="0.0.0.0"
                     />
                   </FormField>
-                  <FormField label={i18n.t("sparkDialog.startPort")}>
+                  <FormField label={i18n.t("sparkDrawer.startPort")}>
                     <TextInput
                       id={`allocation-start-${index}`}
                       type="number"
@@ -379,7 +379,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       }
                     />
                   </FormField>
-                  <FormField label={i18n.t("sparkDialog.endPort")}>
+                  <FormField label={i18n.t("sparkDrawer.endPort")}>
                     <TextInput
                       id={`allocation-end-${index}`}
                       type="number"
@@ -395,7 +395,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       }
                     />
                   </FormField>
-                  <FormField label={i18n.t("sparkDialog.protocol")}>
+                  <FormField label={i18n.t("sparkDrawer.protocol")}>
                     <Select
                       id={`allocation-protocol-${index}`}
                       value={allocation.protocol}
@@ -405,8 +405,8 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                         })
                       }
                     >
-                      <option value="tcp">{i18n.t("sparkDialog.tcp")}</option>
-                      <option value="udp">{i18n.t("sparkDialog.udp")}</option>
+                      <option value="tcp">{i18n.t("sparkDrawer.tcp")}</option>
+                      <option value="udp">{i18n.t("sparkDrawer.udp")}</option>
                     </Select>
                   </FormField>
                 </AllocationRow>
@@ -429,26 +429,26 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   })
                 }
               >
-                {t("sparkDialog.addPortRange")}
+                {t("sparkDrawer.addPortRange")}
               </Button>
             </div>
           ),
         },
         {
           id: "access",
-          title: t("sparkDialog.access"),
+          title: t("sparkDrawer.access"),
           validate: () =>
             rolesLoading
-              ? i18n.t("sparkDialog.waitForServerCreationAccessToLoad")
+              ? i18n.t("sparkDrawer.waitForServerCreationAccessToLoad")
               : rolesError,
           content: (
             <Fieldset>
-              <legend>{t("sparkDialog.serverCreationAccess")}</legend>
+              <legend>{t("sparkDrawer.serverCreationAccess")}</legend>
               <p className="field-help">
-                {t("sparkDialog.chooseWhichUsersOrRolesCanCreateServersOnThis")}
+                {t("sparkDrawer.chooseWhichUsersOrRolesCanCreateServersOnThis")}
               </p>
               {rolesLoading ? (
-                <p role="status">{t("sparkDialog.loadingRoles")}</p>
+                <p role="status">{t("sparkDrawer.loadingRoles")}</p>
               ) : rolesError ? (
                 <>
                   <InlineMessage>{rolesError}</InlineMessage>
@@ -460,7 +460,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                       setRolesAttempt((attempt) => attempt + 1);
                     }}
                   >
-                    {t("sparkDialog.retry")}
+                    {t("sparkDrawer.retry")}
                   </Button>
                 </>
               ) : (
@@ -469,7 +469,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
                   grants={grants}
                   subjectRoles={roles}
                   accessRoles={[
-                    { id: 2, name: t("sparkDialog.createServers") },
+                    { id: 2, name: t("sparkDrawer.createServers") },
                   ]}
                   onChange={(next, removedID) => {
                     setGrants(next);
@@ -479,7 +479,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               )}
               <p className="field-help">
                 {t(
-                  "sparkDialog.thisDoesNotGrantSparkManagementAccessRemovingAccessDoes",
+                  "sparkDrawer.thisDoesNotGrantSparkManagementAccessRemovingAccessDoes",
                 )}
               </p>
             </Fieldset>
@@ -497,7 +497,7 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
               serverCreationRoles={
                 <>
                   <Trans
-                    i18nKey="sparkDialog.administrators"
+                    i18nKey="sparkDrawer.administrators"
                     t={t}
                     components={{
                       grantsMapGrant: (
@@ -532,15 +532,15 @@ export function SparkDialog({ spark, onClose, onSaved }: SparkDialogProps) {
         <Drawer
           title={
             spark
-              ? i18n.t("sparkDialog.editSpark")
-              : i18n.t("sparkDialog.addSpark")
+              ? i18n.t("sparkDrawer.editSpark")
+              : i18n.t("sparkDrawer.addSpark")
           }
           description={
             spark
               ? i18n.t(
-                  "sparkDialog.manageThisNodeSCapacityNetworkAndAvailability",
+                  "sparkDrawer.manageThisNodeSCapacityNetworkAndAvailability",
                 )
-              : i18n.t("sparkDialog.registerANodeToHostYourGameServers")
+              : i18n.t("sparkDrawer.registerANodeToHostYourGameServers")
           }
           busy={submitting}
           onClose={onClose}

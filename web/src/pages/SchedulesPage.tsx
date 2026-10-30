@@ -22,8 +22,8 @@ import {
   type Execution,
 } from "../api/activity";
 import { useCollection } from "../hooks/useCollection";
-import { ScheduleDialog } from "../dialogs/ScheduleDialog";
-import { ScheduleDetailsDialog } from "../dialogs/ScheduleDetailsDialog";
+import { ScheduleDrawer } from "../drawers/ScheduleDrawer";
+import { ScheduleDetailsDrawer } from "../drawers/ScheduleDetailsDrawer";
 
 import { Table, TableRow } from "../components/table/Table";
 import { ExecutionState } from "../components/schedules/ExecutionState";
@@ -486,7 +486,7 @@ export function SchedulesPage() {
         )}
       </ContentPanel>
       {details && (
-        <ScheduleDetailsDialog
+        <ScheduleDetailsDrawer
           key={details.id}
           schedule={details}
           servers={servers.items}
@@ -497,7 +497,7 @@ export function SchedulesPage() {
         />
       )}
       {open && (
-        <ScheduleDialog
+        <ScheduleDrawer
           schedule={null}
           servers={managed}
           onClose={() => {

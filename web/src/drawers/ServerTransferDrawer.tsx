@@ -25,40 +25,40 @@ import { Drawer } from "../components/layout/Drawer";
 
 const phases: Record<string, string> = {
   get queued() {
-    return i18n.t("serverTransferDialog.preparing");
+    return i18n.t("serverTransferDrawer.preparing");
   },
   get exporting() {
-    return i18n.t("serverTransferDialog.preparingSourceArchive");
+    return i18n.t("serverTransferDrawer.preparingSourceArchive");
   },
   get copying() {
-    return i18n.t("serverTransferDialog.copyingArchive");
+    return i18n.t("serverTransferDrawer.copyingArchive");
   },
   get importing() {
-    return i18n.t("serverTransferDialog.validatingAndImporting");
+    return i18n.t("serverTransferDrawer.validatingAndImporting");
   },
   get committing() {
-    return i18n.t("serverTransferDialog.changingPlacement");
+    return i18n.t("serverTransferDrawer.changingPlacement");
   },
   get cleanup() {
     return i18n.t(
-      "serverTransferDialog.activatingDestinationAndCleaningSource",
+      "serverTransferDrawer.activatingDestinationAndCleaningSource",
     );
   },
   get complete() {
-    return i18n.t("serverTransferDialog.complete");
+    return i18n.t("serverTransferDrawer.complete");
   },
   get cancelling() {
-    return i18n.t("serverTransferDialog.cancelling");
+    return i18n.t("serverTransferDrawer.cancelling");
   },
   get cancelled() {
-    return i18n.t("serverTransferDialog.cancelled");
+    return i18n.t("serverTransferDrawer.cancelled");
   },
   get failed() {
-    return i18n.t("serverTransferDialog.pausedAfterAnError");
+    return i18n.t("serverTransferDrawer.pausedAfterAnError");
   },
 };
 
-export function ServerTransferDialog({
+export function ServerTransferDrawer({
   server,
   onClose,
   onChanged,
@@ -90,7 +90,7 @@ export function ServerTransferDialog({
           setError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverTransferDialog.unableToLoadSparks"),
+              : i18n.t("serverTransferDrawer.unableToLoadSparks"),
           );
       });
     return () => controller.abort();
@@ -126,7 +126,7 @@ export function ServerTransferDialog({
           setLoadError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverTransferDialog.unableToReadTransferStatus"),
+              : i18n.t("serverTransferDrawer.unableToReadTransferStatus"),
           );
           setLoading(false);
         }
@@ -207,7 +207,7 @@ export function ServerTransferDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("serverTransferDialog.unableToUpdateTransfer"),
+          : i18n.t("serverTransferDrawer.unableToUpdateTransfer"),
       );
     } finally {
       pending.current = false;
@@ -216,9 +216,9 @@ export function ServerTransferDialog({
   }
   return (
     <Drawer
-      title={t("serverTransferDialog.transfer", { serverName: server.name })}
+      title={t("serverTransferDrawer.transfer", { serverName: server.name })}
       description={t(
-        "serverTransferDialog.moveGameDataAndCompletedBackupsToAnotherSparkThe",
+        "serverTransferDrawer.moveGameDataAndCompletedBackupsToAnotherSparkThe",
       )}
       busy={busy}
       onClose={onClose}
@@ -235,7 +235,7 @@ export function ServerTransferDialog({
             void submit("begin");
           }}
         >
-          {t("serverTransferDialog.transferServer")}
+          {t("serverTransferDrawer.transferServer")}
         </Button>
       }
     >
@@ -245,7 +245,7 @@ export function ServerTransferDialog({
         )}
         <p>
           <Trans
-            i18nKey="serverTransferDialog.currentSparkOwnershipAccessAndSchedulesStayWithTheServer"
+            i18nKey="serverTransferDrawer.currentSparkOwnershipAccessAndSchedulesStayWithTheServer"
             t={t}
             components={{
               resourceLink: (
@@ -259,17 +259,17 @@ export function ServerTransferDialog({
         {status !== undefined &&
           !["stopped", "not_installed"].includes(status.state) && (
             <p className="field-help">
-              {t("serverTransferDialog.stopTheServerBeforeBeginningATransfer")}
+              {t("serverTransferDrawer.stopTheServerBeforeBeginningATransfer")}
             </p>
           )}
-        <FormField label={t("serverTransferDialog.destinationSpark")}>
+        <FormField label={t("serverTransferDrawer.destinationSpark")}>
           <Select
             id="transfer-target"
             value={targetID}
             disabled={busy || active}
             onValueChange={(selectedValue) => selectTarget(selectedValue)}
           >
-            <option value="">{t("serverTransferDialog.selectASpark")}</option>
+            <option value="">{t("serverTransferDrawer.selectASpark")}</option>
             {choices.map((spark) => (
               <option key={spark.id} value={spark.id}>
                 {spark.name}
@@ -282,7 +282,7 @@ export function ServerTransferDialog({
           <>
             <p className="field-help">
               <Trans
-                i18nKey="serverTransferDialog.gameAddressAfterTransferExistingGameClientsMayNeedThe"
+                i18nKey="serverTransferDrawer.gameAddressAfterTransferExistingGameClientsMayNeedThe"
                 t={t}
                 components={{
                   targetGameAddress: (
@@ -297,11 +297,11 @@ export function ServerTransferDialog({
                 disabled={busy || active}
               >
                 <legend>
-                  {i18n.t("serverTransferDialog.containerPort")}
+                  {i18n.t("serverTransferDrawer.containerPort")}
                   {port.container_port}/{port.protocol}
                 </legend>
                 <FormField
-                  label={i18n.t("serverTransferDialog.destinationInterface")}
+                  label={i18n.t("serverTransferDrawer.destinationInterface")}
                 >
                   <Select
                     id={`transfer-ip-${index}`}
@@ -317,7 +317,7 @@ export function ServerTransferDialog({
                     }
                   >
                     <option value="">
-                      {i18n.t("serverTransferDialog.selectAnInterface")}
+                      {i18n.t("serverTransferDrawer.selectAnInterface")}
                     </option>
                     {[
                       ...new Set(
@@ -336,11 +336,11 @@ export function ServerTransferDialog({
                   </Select>
                 </FormField>
                 <FormField
-                  label={i18n.t("serverTransferDialog.destinationHostPort")}
+                  label={i18n.t("serverTransferDrawer.destinationHostPort")}
                   description={
                     <>
                       <Trans
-                        i18nKey="serverTransferDialog.allowedRanges"
+                        i18nKey="serverTransferDrawer.allowedRanges"
                         t={i18n.t}
                         components={{
                           formatDisplayValueTargetPort: (
@@ -390,15 +390,15 @@ export function ServerTransferDialog({
             ))}
           </>
         )}
-        <h3>{t("serverTransferDialog.transferHistory")}</h3>
+        <h3>{t("serverTransferDrawer.transferHistory")}</h3>
         {loading && <p role="status">{t("common.loading")}</p>}
         {!loading && items.length === 0 && (
-          <p>{t("serverTransferDialog.noTransfersYet")}</p>
+          <p>{t("serverTransferDrawer.noTransfersYet")}</p>
         )}
         {items.map((item) => (
           <section
             key={item.id}
-            aria-label={i18n.t("serverTransferDialog.transfer2", {
+            aria-label={i18n.t("serverTransferDrawer.transfer2", {
               itemId: item.id,
             })}
           >
@@ -417,7 +417,7 @@ export function ServerTransferDialog({
             {item.total_bytes > 0 && (
               <>
                 <progress
-                  aria-label={i18n.t("serverTransferDialog.archiveBytesCopied")}
+                  aria-label={i18n.t("serverTransferDrawer.archiveBytesCopied")}
                   max={item.total_bytes}
                   value={item.transferred_bytes}
                 />
@@ -438,7 +438,7 @@ export function ServerTransferDialog({
                       void submit("retry", item);
                     }}
                   >
-                    {i18n.t("serverTransferDialog.retryTransfer")}
+                    {i18n.t("serverTransferDrawer.retryTransfer")}
                   </Button>
                 )}
                 {item.can_cancel && (
@@ -448,13 +448,13 @@ export function ServerTransferDialog({
                       void submit("cancel", item);
                     }}
                   >
-                    {i18n.t("serverTransferDialog.cancelTransfer")}
+                    {i18n.t("serverTransferDrawer.cancelTransfer")}
                   </Button>
                 )}
                 {!item.can_cancel && item.phase !== "cancelling" && (
                   <p className="field-help">
                     {i18n.t(
-                      "serverTransferDialog.placementIsBeingCommittedOrHasChangedRetryAnyFailed",
+                      "serverTransferDrawer.placementIsBeingCommittedOrHasChangedRetryAnyFailed",
                     )}
                   </p>
                 )}

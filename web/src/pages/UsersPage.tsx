@@ -12,7 +12,7 @@ import { useState } from "react";
 import { listRoles, listUsers, type User } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { useAuthentication } from "../hooks/useAuthentication";
-import { UserDialog } from "../dialogs/UserDialog";
+import { UserDrawer } from "../drawers/UserDrawer";
 import { StatusPill } from "../components/status/StatusPill";
 
 import { Table, TableRow } from "../components/table/Table";
@@ -131,7 +131,7 @@ export function UsersPage() {
         </Table>
       </ContentPanel>
       {(open || editing) && (
-        <UserDialog
+        <UserDrawer
           key={editing?.id ?? "new"}
           user={editing}
           roles={roles.items}

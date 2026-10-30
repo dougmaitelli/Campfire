@@ -15,7 +15,7 @@ import {
   type EmberPreview,
 } from "../api/embers";
 import { useCollection } from "../hooks/useCollection";
-import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
+import { ImportEmberDrawer } from "../drawers/ImportEmberDrawer";
 
 import { Table, TableRow } from "../components/table/Table";
 import { StatusPill } from "../components/status/StatusPill";
@@ -281,7 +281,7 @@ export function EmbersPage() {
           : t("embersPage.count", { count: items.length })}
       </p>
       {(importing || editing) && (
-        <ImportEmberDialog
+        <ImportEmberDrawer
           key={editing?.id ?? "new"}
           ember={editing}
           initialPreview={update?.preview}

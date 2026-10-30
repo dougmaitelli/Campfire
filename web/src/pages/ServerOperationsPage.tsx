@@ -21,9 +21,9 @@ import { ResourceTiles } from "../components/metrics/ResourceTiles";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerGameEvents } from "../components/servers/ServerGameEvents";
 import { ResourceGraphs } from "../components/metrics/ResourceGraphs";
-import { ServerConsoleDialog } from "../dialogs/ServerConsoleDialog";
-import { ServerFilesDialog } from "../dialogs/ServerFilesDialog";
-import { ServerBackupsDialog } from "../dialogs/ServerBackupsDialog";
+import { ServerConsoleDrawer } from "../drawers/ServerConsoleDrawer";
+import { ServerFilesDrawer } from "../drawers/ServerFilesDrawer";
+import { ServerBackupsDrawer } from "../drawers/ServerBackupsDrawer";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
@@ -343,7 +343,7 @@ export function ServerOperationsPage({
                       {message.detail && <> {message.detail}</>}
                     </InlineMessage>
                   )}
-                  <ServerConsoleDialog
+                  <ServerConsoleDrawer
                     embedded
                     server={server}
                     status={status}
@@ -357,7 +357,7 @@ export function ServerOperationsPage({
                 </>
               )}
               {activeTab === "files" && (
-                <ServerFilesDialog
+                <ServerFilesDrawer
                   embedded
                   server={server}
                   canWrite={
@@ -369,7 +369,7 @@ export function ServerOperationsPage({
                 />
               )}
               {activeTab === "backups" && (
-                <ServerBackupsDialog embedded server={server} onClose={back} />
+                <ServerBackupsDrawer embedded server={server} onClose={back} />
               )}
             </>
           ) : (

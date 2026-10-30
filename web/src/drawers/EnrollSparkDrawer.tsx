@@ -15,7 +15,7 @@ import {
   validAgentAddress,
 } from "../components/sparks/installCommand";
 
-export function EnrollSparkDialog({
+export function EnrollSparkDrawer({
   spark,
   onClose,
   reEnrollment = false,
@@ -51,7 +51,7 @@ export function EnrollSparkDialog({
         setError(
           cause instanceof Error
             ? cause.message
-            : i18n.t("enrollSparkDialog.unableToCreateEnrollmentToken"),
+            : i18n.t("enrollSparkDrawer.unableToCreateEnrollmentToken"),
         ),
       )
       .finally(() => {
@@ -82,7 +82,7 @@ export function EnrollSparkDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("enrollSparkDialog.unableToCreateEnrollmentToken"),
+          : i18n.t("enrollSparkDrawer.unableToCreateEnrollmentToken"),
       );
     } finally {
       pending.current = false;
@@ -96,8 +96,8 @@ export function EnrollSparkDialog({
           <span>
             {t(
               reEnrollment
-                ? "enrollSparkDialog.reEnrollTitle"
-                : "enrollSparkDialog.installTitle",
+                ? "enrollSparkDrawer.reEnrollTitle"
+                : "enrollSparkDrawer.installTitle",
               { name: spark.name },
             )}
           </span>
@@ -109,7 +109,7 @@ export function EnrollSparkDialog({
         </>
       }
       description={t(
-        "enrollSparkDialog.runOneCommandOnTheGameHostToInstallAnd",
+        "enrollSparkDrawer.runOneCommandOnTheGameHostToInstallAnd",
       )}
       busy={busy}
       onClose={onClose}
@@ -132,11 +132,11 @@ export function EnrollSparkDialog({
             void generate();
           }}
           loading={busy}
-          loadingLabel={t("enrollSparkDialog.generating")}
+          loadingLabel={t("enrollSparkDrawer.generating")}
         >
           {enrollment
-            ? t("enrollSparkDialog.generateNewCommand")
-            : t("enrollSparkDialog.generateCommand")}
+            ? t("enrollSparkDrawer.generateNewCommand")
+            : t("enrollSparkDrawer.generateCommand")}
         </Button>
       }
     >
@@ -144,7 +144,7 @@ export function EnrollSparkDialog({
         {reEnrollment && (
           <InlineMessage tone="warning">
             {t(
-              "enrollSparkDialog.runningThisCommandReplacesTheExistingSparkCredentialsAndBriefly",
+              "enrollSparkDrawer.runningThisCommandReplacesTheExistingSparkCredentialsAndBriefly",
             )}
           </InlineMessage>
         )}
@@ -152,15 +152,15 @@ export function EnrollSparkDialog({
         {spark.disabled && (
           <InlineMessage tone="info">
             {t(
-              "enrollSparkDialog.enableThisSparkBeforeGeneratingAnInstallationCommand",
+              "enrollSparkDrawer.enableThisSparkBeforeGeneratingAnInstallationCommand",
             )}
           </InlineMessage>
         )}
-        <p>{t("enrollSparkDialog.runThisOnALinuxAmd64OrArm64HostWith")}</p>
+        <p>{t("enrollSparkDrawer.runThisOnALinuxAmd64OrArm64HostWith")}</p>
         <FormField
-          label={t("enrollSparkDialog.agentHTTPSAddress")}
+          label={t("enrollSparkDrawer.agentHTTPSAddress")}
           description={t(
-            "enrollSparkDialog.useCampfireSDedicatedAgentListenerWhichMayHaveA",
+            "enrollSparkDrawer.useCampfireSDedicatedAgentListenerWhichMayHaveA",
           )}
         >
           <TextInput
@@ -176,9 +176,9 @@ export function EnrollSparkDialog({
         </FormField>
         {!busy && !enrollment?.server_ca && (
           <FormField
-            label={t("enrollSparkDialog.privateCAFileOptional")}
+            label={t("enrollSparkDrawer.privateCAFileOptional")}
             description={t(
-              "enrollSparkDialog.forAPrivateHTTPSCertificateEnterTheAbsolutePathTo",
+              "enrollSparkDrawer.forAPrivateHTTPSCertificateEnterTheAbsolutePathTo",
             )}
           >
             <TextInput
@@ -187,18 +187,18 @@ export function EnrollSparkDialog({
                 setCAFile(event.target.value);
                 setCopied(false);
               }}
-              placeholder={t("enrollSparkDialog.etcCampfirePanelCaCrt")}
+              placeholder={t("enrollSparkDrawer.etcCampfirePanelCaCrt")}
             />
           </FormField>
         )}
         {busy && (
           <p role="status">
-            {t("enrollSparkDialog.generatingInstallationCommand")}
+            {t("enrollSparkDrawer.generatingInstallationCommand")}
           </p>
         )}
         {enrollment && (
           <>
-            <FormField label={t("enrollSparkDialog.installationCommand")}>
+            <FormField label={t("enrollSparkDrawer.installationCommand")}>
               <Textarea
                 id="spark-install-command"
                 readOnly
@@ -216,26 +216,26 @@ export function EnrollSparkDialog({
                   .catch(() =>
                     setError(
                       i18n.t(
-                        "enrollSparkDialog.unableToCopySelectAndCopyTheCommandAbove",
+                        "enrollSparkDrawer.unableToCopySelectAndCopyTheCommandAbove",
                       ),
                     ),
                   );
               }}
             >
               {copied
-                ? t("enrollSparkDialog.copied")
-                : t("enrollSparkDialog.copyCommand")}
+                ? t("enrollSparkDrawer.copied")
+                : t("enrollSparkDrawer.copyCommand")}
             </Button>
             {!validPanel && (
               <InlineMessage>
                 {t(
-                  "enrollSparkDialog.enterAValidHTTPSAgentAddressWithoutAPath",
+                  "enrollSparkDrawer.enterAValidHTTPSAgentAddressWithoutAPath",
                 )}
               </InlineMessage>
             )}
             <p>
               <Trans
-                i18nKey="enrollSparkDialog.thisCommandContainsAOneTimeEnrollmentTokenAndExpires"
+                i18nKey="enrollSparkDrawer.thisCommandContainsAOneTimeEnrollmentTokenAndExpires"
                 t={t}
                 components={{
                   newDateEnrollment: (
@@ -246,7 +246,7 @@ export function EnrollSparkDialog({
             </p>
             <p>
               {t(
-                "enrollSparkDialog.refreshTheSparksPageToSeeTheConnectionStatus",
+                "enrollSparkDrawer.refreshTheSparksPageToSeeTheConnectionStatus",
               )}
             </p>
           </>

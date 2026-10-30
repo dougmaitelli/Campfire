@@ -72,7 +72,7 @@
     "unexpectedSchedulePreviewResponse": "Unexpected schedule preview response.",
     "unexpectedScheduleResponse": "Unexpected schedule response."
   },
-  "apiTokensDialog": {
+  "apiTokensDrawer": {
     "activeTokens": "Active tokens",
     "allMyCurrentPermissions": "All my current permissions",
     "apiTokens": "API tokens",
@@ -373,7 +373,7 @@
     "updatesAreCheckedDailyReviewUpdatesBeforeReplacingTheLocal": "Updates are checked daily. Review updates before replacing the local Ember.",
     "upToDate": "Up to date"
   },
-  "enrollSparkDialog": {
+  "enrollSparkDrawer": {
     "agentHTTPSAddress": "Agent HTTPS address",
     "copied": "Copied",
     "copyCommand": "Copy command",
@@ -406,7 +406,7 @@
     "unexpectedFileResponse": "Unexpected file response.",
     "unexpectedUploadLimitResponse": "Unexpected upload limit response."
   },
-  "importEmberDialog": {
+  "importEmberDrawer": {
     "beforeRunningAServerWithThisEmber": "Before running a server with this Ember:",
     "changesNeededBeforeImport": "Changes needed before import",
     "checkingCompatibility": "Checking compatibility…",
@@ -506,7 +506,7 @@
     "serverStop": "Server stop",
     "serverTransfer": "Server transfer"
   },
-  "resourceDetailsDialog": {
+  "resourceDetailsDrawer": {
     "details": "details",
     "unableToLoadDetails": "Unable to load details."
   },
@@ -524,7 +524,7 @@
     "waitingForACPUSample": "Waiting for a CPU sample.",
     "waitingForAGameDataSizeSample": "Waiting for a game-data size sample."
   },
-  "roleDialog": {
+  "roleDrawer": {
     "createRole": "Create role",
     "createServersOnSparksApprovedByAnAdministrator": "Create servers on Sparks approved by an administrator",
     "deleteTheServerAndGameData": "Delete the server and game data",
@@ -578,13 +578,13 @@
   "runtime": {
     "unexpectedRuntimeResponse": "Unexpected runtime response."
   },
-  "scheduleDetailsDialog": {
+  "scheduleDetailsDrawer": {
     "description": "Schedule details and execution settings.",
     "cronExpression": "Cron expression",
     "timeZone": "Time zone",
     "privateCommand": "The console command is stored privately for execution."
   },
-  "scheduleDialog": {
+  "scheduleDrawer": {
     "action": "Action",
     "chooseAFutureDateAndTimeForThisOneOff": "Choose a future date and time for this one-off schedule.",
     "actionNotAllowed": "Your permissions do not allow this scheduled action.",
@@ -645,7 +645,7 @@
     "unableToLoadExecutions": "Unable to load executions.",
     "unableToLoadHistory": "Unable to load history."
   },
-  "serverBackupsDialog": {
+  "serverBackupsDrawer": {
     "archive": "Archive",
     "backupCreated": "Backup created.",
     "backupRestoredTheServerIsStopped": "Backup restored. The server is stopped.",
@@ -671,18 +671,18 @@
     "unableToLoadBackups": "Unable to load backups.",
     "unableToSubmitOperation": "Unable to submit operation."
   },
-  "serverConsoleDialog": {
+  "serverConsoleDrawer": {
     "console": "Console",
     "liveServerOutputAndCommands": "Live server output and commands.",
     "loadingConsole": "Loading console…"
   },
-  "serverDetailsDialog": {
+  "serverDetailsDrawer": {
     "diskQuotaEnforcementIsUnavailableOnThisSpark": "Disk quota enforcement is unavailable on this Spark.",
     "editServer": "Edit server",
     "serverDetailsAndConfiguration": "Server details and configuration.",
     "unexpectedServerDetailsResponse": "Unexpected server details response."
   },
-  "serverDialog": {
+  "serverDrawer": {
     "access": "Access",
     "accessGrants": "Access grants",
     "addAtLeastOnePortMapping": "Add at least one port mapping.",
@@ -762,7 +762,7 @@
     "youCanEditTheNameAndDescriptionDuringAnOperation": "You can edit the name and description during an operation. Game settings, resources and ports are locked until it finishes.",
     "zeroDisablesALimitLocalAndS3CopiesExpireIndependently": "Zero disables a limit. Local and S3 copies expire independently. A local copy awaiting a required S3 upload is retained until sync succeeds."
   },
-  "serverFilesDialog": {
+  "serverFilesDrawer": {
     "fileType": "Type",
     "folderType": "Folder",
     "specialType": "Special file",
@@ -965,7 +965,7 @@
     "uiMonospaceSFMonoRegularMenloConsolasMonospace": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
     "unableToSendCommand": "Unable to send command."
   },
-  "serverTransferDialog": {
+  "serverTransferDrawer": {
     "activatingDestinationAndCleaningSource": "Activating destination and cleaning source",
     "allowedRanges": "Allowed ranges: <formatDisplayValueTargetPort/>",
     "archiveBytesCopied": "Archive bytes copied",
@@ -1011,12 +1011,12 @@
     "disconnected": "Disconnected",
     "updating": "Updating…"
   },
-  "sparkDetailsDialog": {
+  "sparkDetailsDrawer": {
     "editSpark": "Edit Spark",
     "sparkDetailsAndConfiguredCapacity": "Spark details and configured capacity.",
     "unexpectedSparkDetailsResponse": "Unexpected Spark details response."
   },
-  "sparkDialog": {
+  "sparkDrawer": {
     "access": "Access",
     "addPortRange": "+ Add port range",
     "addSpark": "Add Spark",
@@ -1195,7 +1195,7 @@
   "useNavigationGuard": {
     "discardUnsavedChanges": "Discard unsaved changes?"
   },
-  "userDialog": {
+  "userDrawer": {
     "atLeast15CharactersPasswordRoleAndAccessChangesRevoke": "At least 15 characters. Password, role, and access changes revoke this user's existing sessions.",
     "createUser": "Create user",
     "deleteTransferTheirOwnedServersFirstTheirAccessAndCredentials": "Delete \"{{userUsername}}\"? Transfer their owned servers first. Their access and credentials will be revoked. Their profile will be retained for audit history.",

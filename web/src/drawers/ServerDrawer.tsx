@@ -5,7 +5,7 @@ import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import { AllocationRow } from "../components/forms/AllocationRow";
-import "./server-dialog.css";
+import "./server-drawer.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
 import { CheckboxField } from "../components/forms/CheckboxField";
@@ -45,7 +45,7 @@ import {
 import { AccessGrantFields } from "../components/forms/AccessGrantFields";
 import { AccessGrantLabel } from "../components/forms/AccessGrantLabel";
 
-interface ServerDialogProps {
+interface ServerDrawerProps {
   s3Configured: boolean;
   runtimeRestricted?: boolean;
   applyRevision?: boolean;
@@ -58,7 +58,7 @@ interface ServerDialogProps {
   onSaved: (server: Server) => void;
 }
 
-export function ServerDialog({
+export function ServerDrawer({
   s3Configured,
   runtimeRestricted = false,
   applyRevision = false,
@@ -69,7 +69,7 @@ export function ServerDialog({
   servers,
   onClose,
   onSaved,
-}: ServerDialogProps) {
+}: ServerDrawerProps) {
   const { t } = useTranslation();
   const links = useResourceLinks();
   const session = useAuthentication().session;
@@ -108,7 +108,7 @@ export function ServerDialog({
           setAccessError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverDialog.unableToLoadServerAccess"),
+              : i18n.t("serverDrawer.unableToLoadServerAccess"),
           );
       });
     return () => controller.abort();
@@ -198,7 +198,7 @@ export function ServerDialog({
           setPolicyError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverDialog.unableToLoadBackupPolicy"),
+              : i18n.t("serverDrawer.unableToLoadBackupPolicy"),
           );
       });
     return () => controller.abort();
@@ -224,7 +224,7 @@ export function ServerDialog({
   async function finish() {
     if (submitting.current) return;
     if (canShare && accessDirty && (!access || accessError)) {
-      setError(accessError ?? i18n.t("serverDialog.waitForServerAccessToLoad"));
+      setError(accessError ?? i18n.t("serverDrawer.waitForServerAccessToLoad"));
       return;
     }
     submitting.current = true;
@@ -263,7 +263,7 @@ export function ServerDialog({
           onSaved(saved);
           throw new Error(
             i18n.t(
-              "serverDialog.serverSavedButBackupSettingsFailedRetrySavingToApply",
+              "serverDrawer.serverSavedButBackupSettingsFailedRetrySavingToApply",
               {
                 causeInstanceofError:
                   cause instanceof Error ? cause.message : "",
@@ -287,7 +287,7 @@ export function ServerDialog({
           onSaved(saved);
           throw new Error(
             i18n.t(
-              "serverDialog.serverSavedButAccessChangesCouldNotBeFullySaved",
+              "serverDrawer.serverSavedButAccessChangesCouldNotBeFullySaved",
               {
                 causeInstanceofError:
                   cause instanceof Error ? cause.message : "",
@@ -303,7 +303,7 @@ export function ServerDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("serverDialog.unableToSaveServer"),
+          : i18n.t("serverDrawer.unableToSaveServer"),
       );
     } finally {
       submitting.current = false;
@@ -317,12 +317,12 @@ export function ServerDialog({
       error={error}
       finishLabel={
         accessOnly
-          ? t("serverDialog.saveAccess")
+          ? t("serverDrawer.saveAccess")
           : applyRevision
-            ? t("serverDialog.updateEmber")
+            ? t("serverDrawer.updateEmber")
             : server
               ? t("common.saveChanges")
-              : t("serverDialog.createServer")
+              : t("serverDrawer.createServer")
       }
       onFinish={async () => {
         if (
@@ -337,25 +337,25 @@ export function ServerDialog({
       steps={[
         {
           id: "basics",
-          title: t("serverDialog.general"),
+          title: t("serverDrawer.general"),
           validate: () =>
             applyRevision && !server?.ember_update_available
-              ? i18n.t("serverDialog.thisServerAlreadyUsesTheCurrentEmber")
+              ? i18n.t("serverDrawer.thisServerAlreadyUsesTheCurrentEmber")
               : !value.name.trim() || !spark || !ember || !value.image
-                ? i18n.t("serverDialog.chooseANameSparkEmberAndImage")
+                ? i18n.t("serverDrawer.chooseANameSparkEmberAndImage")
                 : (!server ||
                       applyRevision ||
                       !server.ember_update_available) &&
                     Object.keys(ember.startup_commands ?? {}).length > 0 &&
                     !ember.startup_commands?.[value.startup_command ?? ""]
-                  ? i18n.t("serverDialog.selectAnAvailableStartupCommand")
+                  ? i18n.t("serverDrawer.selectAnAvailableStartupCommand")
                   : null,
           content: (
             <>
               {runtimeRestricted && (
                 <p className="field-help">
                   {t(
-                    "serverDialog.youCanEditTheNameAndDescriptionDuringAnOperation",
+                    "serverDrawer.youCanEditTheNameAndDescriptionDuringAnOperation",
                   )}
                 </p>
               )}
@@ -365,7 +365,7 @@ export function ServerDialog({
                   applyRevision && (
                     <>
                       <Trans
-                        i18nKey="serverDialog.theLatestDefinitionForWillBeAppliedReviewVariablesImages"
+                        i18nKey="serverDrawer.theLatestDefinitionForWillBeAppliedReviewVariablesImages"
                         t={t}
                         components={{
                           resourceLink: (
@@ -442,7 +442,7 @@ export function ServerDialog({
                   ))}
                 </Select>
               </FormField>
-              <FormField label={t("serverDialog.serverName")}>
+              <FormField label={t("serverDrawer.serverName")}>
                 <TextInput
                   id="server-name"
                   required
@@ -451,10 +451,10 @@ export function ServerDialog({
                   onChange={(event) =>
                     setValue({ ...value, name: event.target.value })
                   }
-                  placeholder={t("serverDialog.fridayMinecraft")}
+                  placeholder={t("serverDrawer.fridayMinecraft")}
                 />
               </FormField>
-              <FormField label={t("serverDialog.descriptionOptional")}>
+              <FormField label={t("serverDrawer.descriptionOptional")}>
                 <Textarea
                   id="server-description"
                   placeholder={t("common.descriptionPlaceholder")}
@@ -496,9 +496,9 @@ export function ServerDialog({
               </FormField>
               {Object.keys(ember?.startup_commands ?? {}).length > 0 && (
                 <FormField
-                  label={t("serverDialog.startupCommand")}
+                  label={t("serverDrawer.startupCommand")}
                   description={t(
-                    "serverDialog.chooseTheStartupOptionThisServerWillUseChangesApply",
+                    "serverDrawer.chooseTheStartupOptionThisServerWillUseChangesApply",
                   )}
                 >
                   <Select
@@ -518,7 +518,7 @@ export function ServerDialog({
                     }
                   >
                     <option value="">
-                      {t("serverDialog.selectAStartupCommand")}
+                      {t("serverDrawer.selectAStartupCommand")}
                     </option>
                     {server &&
                       !applyRevision &&
@@ -526,7 +526,7 @@ export function ServerDialog({
                       !ember?.startup_commands?.[value.startup_command] && (
                         <option value={value.startup_command}>
                           {value.startup_command}{" "}
-                          {t("serverDialog.appliedRevision")}
+                          {t("serverDrawer.appliedRevision")}
                         </option>
                       )}
                     {Object.keys(ember?.startup_commands ?? {})
@@ -540,8 +540,8 @@ export function ServerDialog({
                 </FormField>
               )}
               <FormField
-                label={t("serverDialog.customStartupCommand")}
-                description={t("serverDialog.customStartupCommandHelp")}
+                label={t("serverDrawer.customStartupCommand")}
+                description={t("serverDrawer.customStartupCommandHelp")}
               >
                 <Textarea
                   id="server-startup-override"
@@ -572,7 +572,7 @@ export function ServerDialog({
                   setValue({ ...value, startup_override: undefined })
                 }
               >
-                {t("serverDialog.resetStartupCommand")}
+                {t("serverDrawer.resetStartupCommand")}
               </Button>
               <CheckboxField
                 checked={value.game_integration ?? false}
@@ -581,12 +581,12 @@ export function ServerDialog({
                   setValue({ ...value, game_integration: event.target.checked })
                 }
               >
-                {t("serverDialog.gameIntegration")}
+                {t("serverDrawer.gameIntegration")}
               </CheckboxField>
               <p className="field-help">
-                {t("serverDialog.gameIntegrationHelp")}
+                {t("serverDrawer.gameIntegrationHelp")}
               </p>
-              <FormField label={t("serverDialog.image")}>
+              <FormField label={t("serverDrawer.image")}>
                 <Select
                   id="server-image"
                   disabled={runtimeRestricted}
@@ -606,8 +606,8 @@ export function ServerDialog({
               {(ember?.variables ?? []).some(
                 (variable) => !variable.hidden,
               ) && (
-                <h4 className="server-dialog-heading">
-                  {t("serverDialog.gameSettings")}
+                <h4 className="server-drawer-heading">
+                  {t("serverDrawer.gameSettings")}
                 </h4>
               )}
               <div className="server-variable-fields">
@@ -642,7 +642,7 @@ export function ServerDialog({
         },
         {
           id: "resources",
-          title: t("serverDialog.resourcesPorts"),
+          title: t("serverDrawer.resourcesPorts"),
           validate: () =>
             value.ports.length > 0 &&
             (ember?.required_ports ?? []).some(
@@ -654,23 +654,23 @@ export function ServerDialog({
                 ),
             )
               ? i18n.t(
-                  "serverDialog.mapEveryRequiredEmberContainerPortAndProtocol",
+                  "serverDrawer.mapEveryRequiredEmberContainerPortAndProtocol",
                 )
               : null,
           content: (
             <Fieldset disabled={runtimeRestricted}>
               <p className="field-help">
                 <Trans
-                  i18nKey="serverDialog.reserveCapacityOnSetTheResourcesAllocatedToThisServer"
+                  i18nKey="serverDrawer.reserveCapacityOnSetTheResourcesAllocatedToThisServer"
                   t={t}
                   components={{
                     sparkNameThe: (
-                      <>{spark?.name ?? t("serverDialog.theSelectedSpark")}</>
+                      <>{spark?.name ?? t("serverDrawer.theSelectedSpark")}</>
                     ),
                   }}
                 />
               </p>
-              <FormField label={t("serverDialog.cpuCores")}>
+              <FormField label={t("serverDrawer.cpuCores")}>
                 <TextInput
                   id="server-cpu"
                   type="number"
@@ -689,7 +689,7 @@ export function ServerDialog({
               </FormField>
               <div className="server-form-grid">
                 <div>
-                  <FormField label={t("serverDialog.memoryMiB")}>
+                  <FormField label={t("serverDrawer.memoryMiB")}>
                     <TextInput
                       id="server-memory"
                       type="number"
@@ -711,9 +711,9 @@ export function ServerDialog({
                 </div>
                 <div>
                   <FormField
-                    label={t("serverDialog.diskMiB")}
+                    label={t("serverDrawer.diskMiB")}
                     description={t(
-                      "serverDialog.use0ForUnlimitedHardLimitsRequireDiskQuotaSupport",
+                      "serverDrawer.use0ForUnlimitedHardLimitsRequireDiskQuotaSupport",
                     )}
                   >
                     <TextInput
@@ -734,12 +734,12 @@ export function ServerDialog({
                   </FormField>
                 </div>
               </div>
-              <h4 className="server-dialog-heading">
-                {t("serverDialog.portMappings")}
+              <h4 className="server-drawer-heading">
+                {t("serverDrawer.portMappings")}
               </h4>
               <p className="field-help">
                 {t(
-                  "serverDialog.hostPortsMustBelongToTheSparkSAllocationRanges",
+                  "serverDrawer.hostPortsMustBelongToTheSparkSAllocationRanges",
                 )}
               </p>
               {value.ports.map((port, index) => {
@@ -753,8 +753,8 @@ export function ServerDialog({
                 return (
                   <AllocationRow
                     key={index}
-                    label={`${t("serverDialog.mapping")} ${index + 1}`}
-                    removeLabel={t("serverDialog.removeMapping", {
+                    label={`${t("serverDrawer.mapping")} ${index + 1}`}
+                    removeLabel={t("serverDrawer.removeMapping", {
                       index1: index + 1,
                     })}
                     onRemove={() =>
@@ -764,7 +764,7 @@ export function ServerDialog({
                       })
                     }
                   >
-                    <FormField label={i18n.t("serverDialog.hostPort")}>
+                    <FormField label={i18n.t("serverDrawer.hostPort")}>
                       <Select
                         id={`mapping-allocation-${index}`}
                         required
@@ -790,7 +790,7 @@ export function ServerDialog({
                         }}
                       >
                         <option value="" disabled>
-                          {i18n.t("serverDialog.selectAllocation")}
+                          {i18n.t("serverDrawer.selectAllocation")}
                         </option>
                         {allocations.flatMap((entry, i) =>
                           Array.from(
@@ -811,7 +811,7 @@ export function ServerDialog({
                         )}
                       </Select>
                     </FormField>
-                    <FormField label={i18n.t("serverDialog.containerPort")}>
+                    <FormField label={i18n.t("serverDrawer.containerPort")}>
                       <TextInput
                         id={`mapping-container-${index}`}
                         type="number"
@@ -854,7 +854,7 @@ export function ServerDialog({
                     });
                 }}
               >
-                {t("serverDialog.addMapping")}
+                {t("serverDrawer.addMapping")}
               </Button>
             </Fieldset>
           ),
@@ -868,7 +868,7 @@ export function ServerDialog({
                   <InlineMessage role="alert">{policyError}</InlineMessage>
                 ) : backupPolicy ? (
                   <>
-                    <FormField label={t("serverDialog.backgroundS3Sync")}>
+                    <FormField label={t("serverDrawer.backgroundS3Sync")}>
                       <Select
                         id="backup-storage"
                         value={backupPolicy.storage}
@@ -888,7 +888,7 @@ export function ServerDialog({
                     {!s3Available && (
                       <p className="field-help">
                         {t(
-                          "serverDialog.configureS3OnCampfireBeforeEnablingSync",
+                          "serverDrawer.configureS3OnCampfireBeforeEnablingSync",
                         )}
                       </p>
                     )}
@@ -896,22 +896,22 @@ export function ServerDialog({
                       [
                         [
                           "local_keep_last",
-                          t("serverDialog.localCopiesToKeep"),
+                          t("serverDrawer.localCopiesToKeep"),
                           1000,
                         ],
                         [
                           "local_max_age_days",
-                          t("serverDialog.localMaximumAgeDays"),
+                          t("serverDrawer.localMaximumAgeDays"),
                           36500,
                         ],
                         [
                           "remote_keep_last",
-                          t("serverDialog.s3CopiesToKeep"),
+                          t("serverDrawer.s3CopiesToKeep"),
                           1000,
                         ],
                         [
                           "remote_max_age_days",
-                          t("serverDialog.s3MaximumAgeDays"),
+                          t("serverDrawer.s3MaximumAgeDays"),
                           36500,
                         ],
                       ] as const
@@ -938,12 +938,12 @@ export function ServerDialog({
                     ))}
                     <p className="field-help">
                       {t(
-                        "serverDialog.zeroDisablesALimitLocalAndS3CopiesExpireIndependently",
+                        "serverDrawer.zeroDisablesALimitLocalAndS3CopiesExpireIndependently",
                       )}
                     </p>
                   </>
                 ) : (
-                  <p role="status">{t("serverDialog.loadingBackupPolicy")}</p>
+                  <p role="status">{t("serverDrawer.loadingBackupPolicy")}</p>
                 ),
               },
             ]
@@ -952,11 +952,11 @@ export function ServerDialog({
           ? [
               {
                 id: "access",
-                title: t("serverDialog.access"),
+                title: t("serverDrawer.access"),
                 validate: () =>
                   accessError ??
                   (!access
-                    ? i18n.t("serverDialog.waitForServerAccessToLoad")
+                    ? i18n.t("serverDrawer.waitForServerAccessToLoad")
                     : null),
                 content: accessError ? (
                   <>
@@ -968,27 +968,27 @@ export function ServerDialog({
                         setAccessAttempt((attempt) => attempt + 1);
                       }}
                     >
-                      {t("serverDialog.retry")}
+                      {t("serverDrawer.retry")}
                     </Button>
                   </>
                 ) : !access ? (
-                  <p role="status">{t("serverDialog.loadingAccess")}</p>
+                  <p role="status">{t("serverDrawer.loadingAccess")}</p>
                 ) : (
                   <>
                     {(admin || server) && (
-                      <h4 className="server-dialog-heading">
-                        {t("serverDialog.owner")}
+                      <h4 className="server-drawer-heading">
+                        {t("serverDrawer.owner")}
                       </h4>
                     )}
                     {admin ? (
                       <FormField
-                        label={t("serverDialog.owner")}
+                        label={t("serverDrawer.owner")}
                         description={
                           server
                             ? t(
-                                "serverDialog.changingTheOwnerRemovesThePreviousOwnerSImplicitAccess",
+                                "serverDrawer.changingTheOwnerRemovesThePreviousOwnerSImplicitAccess",
                               )
-                            : t("serverDialog.chooseWhoWillOwnThisServer")
+                            : t("serverDrawer.chooseWhoWillOwnThisServer")
                         }
                       >
                         <UserSelect
@@ -1011,12 +1011,12 @@ export function ServerDialog({
                           {owner
                             ? formatUserLabel(owner)
                             : (session?.username ??
-                              t("serverDialog.administratorManaged"))}
+                              t("serverDrawer.administratorManaged"))}
                         </ResourceLink>
                       </p>
                     ) : null}
-                    <h4 className="server-dialog-heading">
-                      {t("serverDialog.accessGrants")}
+                    <h4 className="server-drawer-heading">
+                      {t("serverDrawer.accessGrants")}
                     </h4>
                     <AccessGrantFields
                       users={access.subject_users.filter(
@@ -1046,7 +1046,7 @@ export function ServerDialog({
                 <>
                   <p>
                     <Trans
-                      i18nKey="serverDialog.revision"
+                      i18nKey="serverDrawer.revision"
                       t={t}
                       components={{
                         serverEmberHash: <>{server?.ember_hash.slice(0, 12)}</>,
@@ -1058,7 +1058,7 @@ export function ServerDialog({
                   </p>
                   <p>
                     <Trans
-                      i18nKey="serverDialog.startupWorkingDirectoryRuntimeUser"
+                      i18nKey="serverDrawer.startupWorkingDirectoryRuntimeUser"
                       t={t}
                       components={{
                         code: (
@@ -1077,7 +1077,7 @@ export function ServerDialog({
                   </p>
                   <p>
                     <Trans
-                      i18nKey="serverDialog.removedSettingsSharedEditableSettingsAreRetainedNewAndLocked"
+                      i18nKey="serverDrawer.removedSettingsSharedEditableSettingsAreRetainedNewAndLocked"
                       t={t}
                       components={{
                         formatDisplayValueObjectKeys: (
@@ -1121,11 +1121,11 @@ export function ServerDialog({
                   notice={
                     applyRevision
                       ? t(
-                          "serverDialog.applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration",
+                          "serverDrawer.applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration",
                         )
                       : server
                         ? t(
-                            "serverDialog.savingKeepsTheServerInItsCurrentStateIncludingWhen",
+                            "serverDrawer.savingKeepsTheServerInItsCurrentStateIncludingWhen",
                           )
                         : undefined
                   }
@@ -1133,12 +1133,12 @@ export function ServerDialog({
               )}
               {canShare && access && (
                 <>
-                  <h4 className="server-dialog-heading">
-                    {t("serverDialog.access")}
+                  <h4 className="server-drawer-heading">
+                    {t("serverDrawer.access")}
                   </h4>
                   <p>
                     <Trans
-                      i18nKey="serverDialog.owner2"
+                      i18nKey="serverDrawer.owner2"
                       t={t}
                       components={{
                         resourceLink: (
@@ -1148,7 +1148,7 @@ export function ServerDialog({
                             {owner
                               ? formatUserLabel(owner)
                               : (session?.username ??
-                                t("serverDialog.administratorManaged"))}
+                                t("serverDrawer.administratorManaged"))}
                           </ResourceLink>
                         ),
                       }}
@@ -1170,7 +1170,7 @@ export function ServerDialog({
                     </ul>
                   ) : (
                     <p className="field-help">
-                      {t("serverDialog.noAccessGrantsAssigned")}
+                      {t("serverDrawer.noAccessGrantsAssigned")}
                     </p>
                   )}
                 </>
@@ -1186,17 +1186,17 @@ export function ServerDialog({
         <Drawer
           title={
             accessOnly
-              ? i18n.t("serverDialog.editServerAccess")
+              ? i18n.t("serverDrawer.editServerAccess")
               : applyRevision
-                ? i18n.t("serverDialog.updateEmber")
+                ? i18n.t("serverDrawer.updateEmber")
                 : server
-                  ? i18n.t("serverDialog.editServer")
-                  : i18n.t("serverDialog.createServer")
+                  ? i18n.t("serverDrawer.editServer")
+                  : i18n.t("serverDrawer.createServer")
           }
           description={
             accessOnly
-              ? i18n.t("serverDialog.manageOwnershipAndCollaborators")
-              : i18n.t("serverDialog.chooseWhereItRunsWhatItHostsAndWhoHas")
+              ? i18n.t("serverDrawer.manageOwnershipAndCollaborators")
+              : i18n.t("serverDrawer.chooseWhereItRunsWhatItHostsAndWhoHas")
           }
           busy={busy}
           onClose={onClose}
@@ -1215,14 +1215,14 @@ export function ServerDialog({
           {content}
           {confirmPolicy && (
             <ConfirmDialog
-              title={i18n.t("serverDialog.saveServerChanges")}
+              title={i18n.t("serverDrawer.saveServerChanges")}
               description={
                 policyDirty
                   ? i18n.t(
-                      "serverDialog.retentionRunsInTheBackgroundAndPermanentlyDeletesExpiredCopies",
+                      "serverDrawer.retentionRunsInTheBackgroundAndPermanentlyDeletesExpiredCopies",
                     )
                   : i18n.t(
-                      "serverDialog.changingOwnershipRemovesThePreviousOwnerSImplicitAccessTo",
+                      "serverDrawer.changingOwnershipRemovesThePreviousOwnerSImplicitAccessTo",
                     )
               }
               confirmLabel={i18n.t("common.saveChanges")}
@@ -1240,7 +1240,7 @@ export function ServerDialog({
                   (access?.owner?.id ?? (server ? 0 : session.user_id)) && (
                   <p>
                     {i18n.t(
-                      "serverDialog.changingOwnershipAlsoRemovesThePreviousOwnerSImplicitAccess",
+                      "serverDrawer.changingOwnershipAlsoRemovesThePreviousOwnerSImplicitAccess",
                     )}
                   </p>
                 )}

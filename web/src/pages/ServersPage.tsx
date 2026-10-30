@@ -18,11 +18,11 @@ import type { Server } from "../api/servers";
 import { serverOptions, type ServerOptions } from "../api/access";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { useCollection } from "../hooks/useCollection";
-import { ServerDialog } from "../dialogs/ServerDialog";
+import { ServerDrawer } from "../drawers/ServerDrawer";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import "./servers.css";
 import { Table, TableRow } from "../components/table/Table";
-import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
+import { ServerDetailsDrawer } from "../drawers/ServerDetailsDrawer";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
@@ -31,7 +31,7 @@ import { GameArt } from "../components/media/GameArt";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
-import { ServerTransferDialog } from "../dialogs/ServerTransferDialog";
+import { ServerTransferDrawer } from "../drawers/ServerTransferDrawer";
 
 const SERVER_LIST_REFRESH_INTERVAL_MS = 10000;
 
@@ -446,7 +446,7 @@ export function ServersPage() {
             })}
       </p>
       {open && (
-        <ServerDialog
+        <ServerDrawer
           applyRevision={applyRevision}
           accessOnly={
             editing !== null &&
@@ -469,7 +469,7 @@ export function ServersPage() {
         />
       )}
       {transferServer && (
-        <ServerTransferDialog
+        <ServerTransferDrawer
           server={
             servers.items.find((item) => item.id === transferServer.id) ??
             transferServer
@@ -479,7 +479,7 @@ export function ServersPage() {
         />
       )}
       {details && (
-        <ServerDetailsDialog
+        <ServerDetailsDrawer
           key={details.id}
           id={details.id}
           title={

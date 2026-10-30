@@ -15,14 +15,14 @@ vi.mock("../../src/hooks/useMonitoring", () => ({
 vi.mock("../../src/hooks/useResourceHistory", () => ({
   useResourceHistory: () => null,
 }));
-vi.mock("../../src/dialogs/ServerConsoleDialog", () => ({
-  ServerConsoleDialog: () => <div>Console content</div>,
+vi.mock("../../src/drawers/ServerConsoleDrawer", () => ({
+  ServerConsoleDrawer: () => <div>Console content</div>,
 }));
-vi.mock("../../src/dialogs/ServerFilesDialog", () => ({
-  ServerFilesDialog: () => null,
+vi.mock("../../src/drawers/ServerFilesDrawer", () => ({
+  ServerFilesDrawer: () => null,
 }));
-vi.mock("../../src/dialogs/ServerBackupsDialog", () => ({
-  ServerBackupsDialog: () => null,
+vi.mock("../../src/drawers/ServerBackupsDrawer", () => ({
+  ServerBackupsDrawer: () => null,
 }));
 vi.mock("../../src/components/servers/ServerGameEvents", () => ({
   ServerGameEvents: () => <div>Activity content</div>,

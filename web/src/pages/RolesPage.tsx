@@ -12,7 +12,7 @@ import {
 } from "../api/permissions";
 import { deleteRole, listRoles, type Role } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
-import { RoleDialog } from "../dialogs/RoleDialog";
+import { RoleDrawer } from "../drawers/RoleDrawer";
 
 import { Table, TableRow } from "../components/table/Table";
 import { useResourceSelection } from "../routing/useResourceSelection";
@@ -73,7 +73,7 @@ export function RolesPage() {
           setError(
             cause instanceof Error
               ? cause.message
-              : t("roleDialog.unableToLoadPermissions"),
+              : t("roleDrawer.unableToLoadPermissions"),
           );
       })
       .finally(() => {
@@ -236,7 +236,7 @@ export function RolesPage() {
         </Table>
       </ContentPanel>
       {(open || editing) && (
-        <RoleDialog
+        <RoleDrawer
           key={editing?.id ?? "new"}
           role={editing}
           onClose={() => {

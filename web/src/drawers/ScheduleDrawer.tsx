@@ -14,7 +14,7 @@ import { CronField } from "../components/schedules/CronField";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import { serverActionPermission } from "../api/permissions";
 
-export function ScheduleDialog({
+export function ScheduleDrawer({
   schedule,
   servers,
   onClose,
@@ -74,7 +74,7 @@ export function ScheduleDialog({
       !schedule ||
       pending.current ||
       !window.confirm(
-        i18n.t("scheduleDialog.deleteScheduleHistoryWillBeRetained", {
+        i18n.t("scheduleDrawer.deleteScheduleHistoryWillBeRetained", {
           scheduleName: schedule.name,
         }),
       )
@@ -92,7 +92,7 @@ export function ScheduleDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("scheduleDialog.unableToDeleteSchedule"),
+          : i18n.t("scheduleDrawer.unableToDeleteSchedule"),
       );
     } finally {
       pending.current = false;
@@ -103,11 +103,11 @@ export function ScheduleDialog({
   async function submit() {
     if (pending.current) return;
     if (!allowedActions(serverID).includes(action)) {
-      setError(i18n.t("scheduleDialog.actionNotAllowed"));
+      setError(i18n.t("scheduleDrawer.actionNotAllowed"));
       return;
     }
     if (once && enabled && new Date(runAt).getTime() <= Date.now()) {
-      setError(i18n.t("scheduleDialog.chooseAFutureDateAndTimeForThisOneOff"));
+      setError(i18n.t("scheduleDrawer.chooseAFutureDateAndTimeForThisOneOff"));
       return;
     }
     pending.current = true;
@@ -134,7 +134,7 @@ export function ScheduleDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("scheduleDialog.unableToSaveSchedule"),
+          : i18n.t("scheduleDrawer.unableToSaveSchedule"),
       );
     } finally {
       pending.current = false;
@@ -145,11 +145,11 @@ export function ScheduleDialog({
     <Drawer
       title={
         schedule
-          ? t("scheduleDialog.editSchedule")
-          : t("scheduleDialog.createSchedule")
+          ? t("scheduleDrawer.editSchedule")
+          : t("scheduleDrawer.createSchedule")
       }
       description={t(
-        "scheduleDialog.oneOffAndRecurringOperationsRunWithYourCurrentPermissions",
+        "scheduleDrawer.oneOffAndRecurringOperationsRunWithYourCurrentPermissions",
       )}
       busy={busy}
       onClose={onClose}
@@ -188,9 +188,9 @@ export function ScheduleDialog({
               void submit();
             }}
             loading={busy && !deleting}
-            loadingLabel={t("scheduleDialog.saving")}
+            loadingLabel={t("scheduleDrawer.saving")}
           >
-            {t("scheduleDialog.saveSchedule")}
+            {t("scheduleDrawer.saveSchedule")}
           </Button>
         </>
       }
@@ -223,7 +223,7 @@ export function ScheduleDialog({
             ))}
           </Select>
         </FormField>
-        <FormField label={t("scheduleDialog.action")}>
+        <FormField label={t("scheduleDrawer.action")}>
           <Select
             id="schedule-action"
             value={action}
@@ -232,7 +232,7 @@ export function ScheduleDialog({
             {allowedActions(serverID).map((value) => (
               <option key={value} value={value}>
                 {value === "command"
-                  ? i18n.t("scheduleDialog.consoleCommand")
+                  ? i18n.t("scheduleDrawer.consoleCommand")
                   : value.charAt(0).toUpperCase() + value.slice(1)}
               </option>
             ))}
@@ -241,9 +241,9 @@ export function ScheduleDialog({
         {action === "command" && (
           <>
             <FormField
-              label={t("scheduleDialog.consoleCommand")}
+              label={t("scheduleDrawer.consoleCommand")}
               description={t(
-                "scheduleDialog.commandsAreStoredPrivatelyForExecutionWhenEditingACommand",
+                "scheduleDrawer.commandsAreStoredPrivatelyForExecutionWhenEditingACommand",
               )}
             >
               <TextInput
@@ -257,20 +257,20 @@ export function ScheduleDialog({
             </FormField>
           </>
         )}
-        <FormField label={t("scheduleDialog.timing")}>
+        <FormField label={t("scheduleDrawer.timing")}>
           <Select
             value={once ? "once" : "recurring"}
             onValueChange={(selectedValue) => setOnce(selectedValue === "once")}
           >
-            <option value="recurring">{t("scheduleDialog.recurring")}</option>
-            <option value="once">{t("scheduleDialog.runOnce")}</option>
+            <option value="recurring">{t("scheduleDrawer.recurring")}</option>
+            <option value="once">{t("scheduleDrawer.runOnce")}</option>
           </Select>
         </FormField>
         {once ? (
           <FormField
-            label={t("scheduleDialog.runAt")}
+            label={t("scheduleDrawer.runAt")}
             description={t(
-              "scheduleDialog.dateAndTimeInYourBrowserSLocalTimeZone",
+              "scheduleDrawer.dateAndTimeInYourBrowserSLocalTimeZone",
             )}
           >
             <TextInput
@@ -295,10 +295,10 @@ export function ScheduleDialog({
           disabled={busy}
           onChange={(event) => setOnlyWhenRunning(event.target.checked)}
         >
-          {t("scheduleDialog.onlyRunWhenTheServerIsRunning")}
+          {t("scheduleDrawer.onlyRunWhenTheServerIsRunning")}
         </CheckboxField>
         <p className="field-help">
-          {t("scheduleDialog.skipThisRunIfTheServerIsStoppedOtherwiseAttempt")}
+          {t("scheduleDrawer.skipThisRunIfTheServerIsStoppedOtherwiseAttempt")}
         </p>
         <CheckboxField
           checked={enabled}
@@ -309,7 +309,7 @@ export function ScheduleDialog({
         </CheckboxField>
         <p className="field-help">
           {t(
-            "scheduleDialog.workStaysPendingWhileItsSparkIsOfflineMissedRecurring",
+            "scheduleDrawer.workStaysPendingWhileItsSparkIsOfflineMissedRecurring",
           )}
         </p>
       </div>

@@ -12,7 +12,7 @@ const ServerTerminal = lazy(() =>
   })),
 );
 
-export function ServerConsoleDialog({
+export function ServerConsoleDrawer({
   server,
   onClose,
   embedded = false,
@@ -28,7 +28,7 @@ export function ServerConsoleDialog({
   useNavigationGuard(embedded, busy, false);
   const content = (
     <Suspense
-      fallback={<p role="status">{t("serverConsoleDialog.loadingConsole")}</p>}
+      fallback={<p role="status">{t("serverConsoleDrawer.loadingConsole")}</p>}
     >
       <ServerTerminal
         serverID={server.id}
@@ -49,8 +49,8 @@ export function ServerConsoleDialog({
   if (embedded) return content;
   return (
     <Drawer
-      title={t("serverConsoleDialog.console")}
-      description={t("serverConsoleDialog.liveServerOutputAndCommands")}
+      title={t("serverConsoleDrawer.console")}
+      description={t("serverConsoleDrawer.liveServerOutputAndCommands")}
       busy={busy}
       onClose={onClose}
       footerLeft={

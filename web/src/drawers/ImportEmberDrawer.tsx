@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
-import "./import-ember-dialog.css";
+import "./import-ember-drawer.css";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
@@ -30,7 +30,7 @@ interface DefinitionPreview {
   error: string | null;
 }
 
-export function ImportEmberDialog({
+export function ImportEmberDrawer({
   ember,
   initialPreview,
   initialSourceURL,
@@ -106,7 +106,7 @@ export function ImportEmberDialog({
               error:
                 cause instanceof Error
                   ? cause.message
-                  : i18n.t("importEmberDialog.unableToCheckCompatibility"),
+                  : i18n.t("importEmberDrawer.unableToCheckCompatibility"),
             });
         });
     }, PREVIEW_DEBOUNCE_MS);
@@ -144,7 +144,7 @@ export function ImportEmberDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("importEmberDialog.unableToLoadURL"),
+          : i18n.t("importEmberDrawer.unableToLoadURL"),
       );
     } finally {
       submitting.current = false;
@@ -162,7 +162,7 @@ export function ImportEmberDialog({
       setText("");
       setPreviewResult(null);
       setReviewed(false);
-      setError(i18n.t("importEmberDialog.definitionFilesMustBeAtMost1MiB"));
+      setError(i18n.t("importEmberDrawer.definitionFilesMustBeAtMost1MiB"));
       return;
     }
     submitting.current = true;
@@ -175,7 +175,7 @@ export function ImportEmberDialog({
       setText(await file.text());
       setError(null);
     } catch {
-      setError(i18n.t("importEmberDialog.unableToReadThisFile"));
+      setError(i18n.t("importEmberDrawer.unableToReadThisFile"));
     } finally {
       submitting.current = false;
       setLoadingSource(false);
@@ -202,7 +202,7 @@ export function ImportEmberDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("importEmberDialog.unableToImportEmber"),
+          : i18n.t("importEmberDrawer.unableToImportEmber"),
       );
     } finally {
       submitting.current = false;
@@ -222,7 +222,7 @@ export function ImportEmberDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("importEmberDialog.unableToDeleteEmber"),
+          : i18n.t("importEmberDrawer.unableToDeleteEmber"),
       );
     } finally {
       submitting.current = false;
@@ -233,18 +233,18 @@ export function ImportEmberDialog({
     <Drawer
       title={
         ember
-          ? t("importEmberDialog.editEmber")
+          ? t("importEmberDrawer.editEmber")
           : initialPreview
-            ? t("importEmberDialog.reviewEmberUpdate")
-            : t("importEmberDialog.importEmber")
+            ? t("importEmberDrawer.reviewEmberUpdate")
+            : t("importEmberDrawer.importEmber")
       }
       description={
         ember || initialPreview
           ? t(
-              "importEmberDialog.reviewTheDefinitionBeforeReplacingThisEmberExistingServersShow",
+              "importEmberDrawer.reviewTheDefinitionBeforeReplacingThisEmberExistingServersShow",
             )
           : t(
-              "importEmberDialog.importANativeEmberOrPterodactylPelicanEggFromJSON",
+              "importEmberDrawer.importANativeEmberOrPterodactylPelicanEggFromJSON",
             )
       }
       busy={busy}
@@ -286,11 +286,11 @@ export function ImportEmberDialog({
               ? loadingSource
                 ? t("common.loading")
                 : ember
-                  ? t("importEmberDialog.saving")
-                  : t("importEmberDialog.importing")
+                  ? t("importEmberDrawer.saving")
+                  : t("importEmberDrawer.importing")
               : ember
-                ? t("importEmberDialog.saveEmber")
-                : t("importEmberDialog.importEmber")}
+                ? t("importEmberDrawer.saveEmber")
+                : t("importEmberDrawer.importEmber")}
           </Button>
         </>
       }
@@ -320,7 +320,7 @@ export function ImportEmberDialog({
             {!ember && (
               <>
                 <div className="import-sources">
-                  <FormField label={t("importEmberDialog.definitionURL")}>
+                  <FormField label={t("importEmberDrawer.definitionURL")}>
                     <TextInput
                       ref={urlRef}
                       id="ember-url"
@@ -329,7 +329,7 @@ export function ImportEmberDialog({
                       value={url}
                       onChange={(event) => setURL(event.target.value)}
                       placeholder={t(
-                        "importEmberDialog.httpsExampleComGameEmberJson",
+                        "importEmberDrawer.httpsExampleComGameEmberJson",
                       )}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
@@ -349,21 +349,21 @@ export function ImportEmberDialog({
                     loading={busy}
                     loadingLabel={t("common.loading")}
                   >
-                    {t("importEmberDialog.loadDefinition")}
+                    {t("importEmberDrawer.loadDefinition")}
                   </Button>
                   <Button
                     type="button"
                     onClick={() => fileRef.current?.click()}
                   >
-                    {t("importEmberDialog.uploadFile")}
+                    {t("importEmberDrawer.uploadFile")}
                   </Button>
                 </div>
                 <p className="field-help">
-                  {t("importEmberDialog.useAPublicHTTPSLinkToTheRawJSONOr")}
+                  {t("importEmberDrawer.useAPublicHTTPSLinkToTheRawJSONOr")}
                 </p>
               </>
             )}
-            <FormField label={t("importEmberDialog.definition")}>
+            <FormField label={t("importEmberDrawer.definition")}>
               <Textarea
                 id="ember-definition"
                 className="definition-editor"
@@ -380,24 +380,24 @@ export function ImportEmberDialog({
             </FormField>
             {checking && (
               <p role="status">
-                {t("importEmberDialog.checkingCompatibility")}
+                {t("importEmberDrawer.checkingCompatibility")}
               </p>
             )}
             {preview && (
-              <section aria-label={t("importEmberDialog.compatibilityPreview")}>
+              <section aria-label={t("importEmberDrawer.compatibilityPreview")}>
                 <h3>
                   {preview.errors.length > 0
-                    ? t("importEmberDialog.changesNeededBeforeImport")
-                    : t("importEmberDialog.isReadyToImport", {
+                    ? t("importEmberDrawer.changesNeededBeforeImport")
+                    : t("importEmberDrawer.isReadyToImport", {
                         previewEmber:
                           preview.ember?.name ??
-                          t("importEmberDialog.definition"),
+                          t("importEmberDrawer.definition"),
                       })}
                 </h3>
                 {preview.errors.length > 0 && (
                   <>
                     <InlineMessage role="alert">
-                      {t("importEmberDialog.thisDefinitionCannotBeImportedYet")}
+                      {t("importEmberDrawer.thisDefinitionCannotBeImportedYet")}
                     </InlineMessage>
                     <ul>
                       {preview.errors.map((issue, index) => (
@@ -411,7 +411,7 @@ export function ImportEmberDialog({
                 {warnings.length > 0 && (
                   <>
                     <p>
-                      {t("importEmberDialog.beforeRunningAServerWithThisEmber")}
+                      {t("importEmberDrawer.beforeRunningAServerWithThisEmber")}
                     </p>
                     <ul>
                       {warnings.map((issue, index) => (
@@ -422,13 +422,13 @@ export function ImportEmberDialog({
                       checked={reviewed}
                       onChange={(event) => setReviewed(event.target.checked)}
                     >
-                      {t("importEmberDialog.iUnderstandTheseSetupRequirements")}
+                      {t("importEmberDrawer.iUnderstandTheseSetupRequirements")}
                     </CheckboxField>
                   </>
                 )}
                 {preview.ember && (
                   <details>
-                    <summary>{t("importEmberDialog.convertedEmber")}</summary>
+                    <summary>{t("importEmberDrawer.convertedEmber")}</summary>
                     <pre className="ember-preview-definition">
                       {JSON.stringify(preview.ember, null, 2)}
                     </pre>
@@ -441,9 +441,9 @@ export function ImportEmberDialog({
       </form>
       {ember && confirmDelete && (
         <ConfirmDialog
-          title={t("importEmberDialog.deleteEmber")}
+          title={t("importEmberDrawer.deleteEmber")}
           description={t(
-            "importEmberDialog.permanentlyDeleteThisEmberCannotBeDeletedWhileServersReference",
+            "importEmberDrawer.permanentlyDeleteThisEmberCannotBeDeletedWhileServersReference",
             { emberName: ember.name },
           )}
           confirmLabel={t("common.delete")}

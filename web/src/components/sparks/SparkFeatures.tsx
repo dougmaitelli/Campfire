@@ -4,8 +4,8 @@ import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
 const featureTranslationKeys = {
-  "server.files.permissions.v1": "serverFilesDialog.permissions",
-  "server.startup-override.v1": "serverDialog.customStartupCommand",
+  "server.files.permissions.v1": "serverFilesDrawer.permissions",
+  "server.startup-override.v1": "serverDrawer.customStartupCommand",
   "server.game-media.v1": "sparkFeatures.gameMedia",
   "server.game-events.v1": "sparkFeatures.gameEvents",
   "server.game-integration.v1": "sparkFeatures.gameIntegration",

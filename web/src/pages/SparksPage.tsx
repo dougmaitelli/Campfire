@@ -8,8 +8,8 @@ import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { useEffect, useState } from "react";
 import { SparksTable } from "../components/sparks/SparksTable";
 import { SparkConnectionState } from "../components/sparks/SparkConnectionState";
-import { SparkDialog } from "../dialogs/SparkDialog";
-import { EnrollSparkDialog } from "../dialogs/EnrollSparkDialog";
+import { SparkDrawer } from "../drawers/SparkDrawer";
+import { EnrollSparkDrawer } from "../drawers/EnrollSparkDrawer";
 import type { Spark } from "../api/sparks";
 import {
   deleteSpark,
@@ -20,7 +20,7 @@ import {
 import { useSparks } from "../hooks/useSparks";
 import { useMonitoring } from "../hooks/useMonitoring";
 
-import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
+import { SparkDetailsDrawer } from "../drawers/SparkDetailsDrawer";
 import { useResourceSelection } from "../routing/useResourceSelection";
 
 const UPDATE_RECONNECT_TIMEOUT_MS = 120000;
@@ -223,7 +223,7 @@ export function SparksPage() {
           : t("sparksPage.count", { count: sparks.length })}
       </p>
       {adding && (
-        <SparkDialog
+        <SparkDrawer
           spark={editing}
           onClose={() => setAdding(false)}
           onSaved={(spark) => {
@@ -234,7 +234,7 @@ export function SparksPage() {
         />
       )}
       {enrolling && (
-        <EnrollSparkDialog
+        <EnrollSparkDrawer
           spark={
             sparks.find((spark) => spark.id === enrolling.spark.id) ??
             enrolling.spark
@@ -244,7 +244,7 @@ export function SparksPage() {
         />
       )}
       {details && (
-        <SparkDetailsDialog
+        <SparkDetailsDrawer
           key={details.id}
           id={details.id}
           spark={details}

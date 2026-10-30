@@ -5,12 +5,12 @@ import { listSchedules } from "../api/activity";
 import { listServers } from "../api/servers";
 import { useCollection } from "../hooks/useCollection";
 import { useAuthentication } from "../hooks/useAuthentication";
-import { UserDialog } from "../dialogs/UserDialog";
-import { RoleDialog } from "../dialogs/RoleDialog";
-import { ImportEmberDialog } from "../dialogs/ImportEmberDialog";
-import { ScheduleDetailsDialog } from "../dialogs/ScheduleDetailsDialog";
-import { ServerDetailsDialog } from "../dialogs/ServerDetailsDialog";
-import { SparkDetailsDialog } from "../dialogs/SparkDetailsDialog";
+import { UserDrawer } from "../drawers/UserDrawer";
+import { RoleDrawer } from "../drawers/RoleDrawer";
+import { ImportEmberDrawer } from "../drawers/ImportEmberDrawer";
+import { ScheduleDetailsDrawer } from "../drawers/ScheduleDetailsDrawer";
+import { ServerDetailsDrawer } from "../drawers/ServerDetailsDrawer";
+import { SparkDetailsDrawer } from "../drawers/SparkDetailsDrawer";
 import { Drawer } from "../components/layout/Drawer";
 import { Button } from "../components/forms/Button";
 import { ContentState } from "../components/layout/ContentState";
@@ -22,14 +22,14 @@ import { useEffect } from "react";
 export function InspectServer({ id, onClose }: InspectionProps) {
   const { t } = useTranslation();
   return (
-    <ServerDetailsDialog id={id} title={t("common.server")} onClose={onClose} />
+    <ServerDetailsDrawer id={id} title={t("common.server")} onClose={onClose} />
   );
 }
 
 export function InspectSpark({ id, onClose }: InspectionProps) {
   const { t } = useTranslation();
   return (
-    <SparkDetailsDialog id={id} title={t("common.spark")} onClose={onClose} />
+    <SparkDetailsDrawer id={id} title={t("common.spark")} onClose={onClose} />
   );
 }
 
@@ -49,7 +49,7 @@ function InspectionState({
   const { t } = useTranslation();
   return (
     <Drawer
-      title={t("resourceDetailsDialog.details")}
+      title={t("resourceDetailsDrawer.details")}
       busy={false}
       onClose={onClose}
       footerLeft={<Button onClick={onClose}>{t("common.close")}</Button>}
@@ -60,7 +60,7 @@ function InspectionState({
       ) : (
         <ContentState
           loading
-          resource={t("resourceDetailsDialog.details")}
+          resource={t("resourceDetailsDrawer.details")}
           compact
         />
       )}
@@ -79,7 +79,7 @@ export function InspectUser({ id, onClose }: InspectionProps) {
       <InspectionState error={users.error ?? roles.error} onClose={onClose} />
     );
   return (
-    <UserDialog
+    <UserDrawer
       user={user}
       roles={roles.items}
       onClose={onClose}
@@ -100,7 +100,7 @@ export function InspectRole({ id, onClose }: InspectionProps) {
   useCloseMissing(!roles.loading && !roles.error && !role, onClose);
   if (!role) return <InspectionState error={roles.error} onClose={onClose} />;
   return (
-    <RoleDialog
+    <RoleDrawer
       role={role}
       onClose={onClose}
       onSaved={roles.upsert}
@@ -116,7 +116,7 @@ export function InspectEmber({ id, onClose }: InspectionProps) {
   useCloseMissing(!embers.loading && !embers.error && !ember, onClose);
   if (!ember) return <InspectionState error={embers.error} onClose={onClose} />;
   return (
-    <ImportEmberDialog
+    <ImportEmberDrawer
       ember={ember}
       onClose={onClose}
       onImported={embers.upsert}
@@ -137,7 +137,7 @@ export function InspectSchedule({ id, onClose }: InspectionProps) {
       />
     );
   return (
-    <ScheduleDetailsDialog
+    <ScheduleDetailsDrawer
       key={schedule.id}
       schedule={schedule}
       servers={servers.items}

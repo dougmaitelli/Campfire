@@ -6,16 +6,16 @@ import { isSpark, type Spark } from "../api/sparks";
 import { SparkReview } from "../components/sparks/SparkReview";
 import { SparkFeatures } from "../components/sparks/SparkFeatures";
 import {
-  ResourceDetailsDialog,
-  type ResourceDetailsDialogProps,
-} from "./ResourceDetailsDialog";
+  ResourceDetailsDrawer,
+  type ResourceDetailsDrawerProps,
+} from "./ResourceDetailsDrawer";
 
 type Props = Omit<
-  ResourceDetailsDialogProps<Spark>,
+  ResourceDetailsDrawerProps<Spark>,
   "loadDetails" | "children" | "description" | "editLabel"
 > & { id: string; spark?: Spark };
 
-export function SparkDetailsDialog({
+export function SparkDetailsDrawer({
   id,
   spark: currentSpark,
   ...props
@@ -28,17 +28,17 @@ export function SparkDetailsDialog({
       );
       if (!isSpark(value))
         throw new Error(
-          i18n.t("sparkDetailsDialog.unexpectedSparkDetailsResponse"),
+          i18n.t("sparkDetailsDrawer.unexpectedSparkDetailsResponse"),
         );
       return value;
     },
     [id],
   );
   return (
-    <ResourceDetailsDialog
+    <ResourceDetailsDrawer
       {...props}
-      description={t("sparkDetailsDialog.sparkDetailsAndConfiguredCapacity")}
-      editLabel={t("sparkDetailsDialog.editSpark")}
+      description={t("sparkDetailsDrawer.sparkDetailsAndConfiguredCapacity")}
+      editLabel={t("sparkDetailsDrawer.editSpark")}
       loadDetails={loadDetails}
     >
       {(loadedSpark) => {
@@ -56,6 +56,6 @@ export function SparkDetailsDialog({
           </>
         );
       }}
-    </ResourceDetailsDialog>
+    </ResourceDetailsDrawer>
   );
 }

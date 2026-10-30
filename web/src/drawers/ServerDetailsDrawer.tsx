@@ -10,18 +10,18 @@ import { serverStatus, type RuntimeStatus } from "../api/runtime";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { formatErrorMessage } from "../utils/errors";
 import {
-  ResourceDetailsDialog,
-  type ResourceDetailsDialogProps,
-} from "./ResourceDetailsDialog";
+  ResourceDetailsDrawer,
+  type ResourceDetailsDrawerProps,
+} from "./ResourceDetailsDrawer";
 
 type Details = Server & { runtime: RuntimeStatus | undefined };
 
 type Props = Omit<
-  ResourceDetailsDialogProps<Details>,
+  ResourceDetailsDrawerProps<Details>,
   "loadDetails" | "children" | "description" | "editLabel"
 > & { id: string };
 
-export function ServerDetailsDialog({ id, ...props }: Props) {
+export function ServerDetailsDrawer({ id, ...props }: Props) {
   const { t } = useTranslation();
   const links = useResourceLinks();
   const loadDetails = useCallback(
@@ -31,7 +31,7 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
       );
       if (!isServer(value))
         throw new Error(
-          i18n.t("serverDetailsDialog.unexpectedServerDetailsResponse"),
+          i18n.t("serverDetailsDrawer.unexpectedServerDetailsResponse"),
         );
       const runtime = await serverStatus(id, signal).catch(() => undefined);
       return { ...value, runtime };
@@ -39,10 +39,10 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
     [id],
   );
   return (
-    <ResourceDetailsDialog
+    <ResourceDetailsDrawer
       {...props}
-      description={t("serverDetailsDialog.serverDetailsAndConfiguration")}
-      editLabel={t("serverDetailsDialog.editServer")}
+      description={t("serverDetailsDrawer.serverDetailsAndConfiguration")}
+      editLabel={t("serverDetailsDrawer.editServer")}
       loadDetails={loadDetails}
     >
       {(server) => (
@@ -68,13 +68,13 @@ export function ServerDetailsDialog({ id, ...props }: Props) {
               {formatErrorMessage(
                 server.runtime.disk_quota_error ??
                   i18n.t(
-                    "serverDetailsDialog.diskQuotaEnforcementIsUnavailableOnThisSpark",
+                    "serverDetailsDrawer.diskQuotaEnforcementIsUnavailableOnThisSpark",
                   ),
               )}
             </InlineMessage>
           )}
         </>
       )}
-    </ResourceDetailsDialog>
+    </ResourceDetailsDrawer>
   );
 }

@@ -54,12 +54,12 @@ function entryName(value: string | null): string | null {
     Array.from(name).some((char) => char.charCodeAt(0) < 32)
   )
     throw new Error(
-      i18n.t("serverFilesDialog.enterAFileOrFolderNameWithoutSlashesOrControl"),
+      i18n.t("serverFilesDrawer.enterAFileOrFolderNameWithoutSlashesOrControl"),
     );
   return name;
 }
 
-export function ServerFilesDialog({
+export function ServerFilesDrawer({
   server,
   canWrite: runtimeCanWrite,
   onClose,
@@ -153,7 +153,7 @@ export function ServerFilesDialog({
           setError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverFilesDialog.unableToLoadFiles"),
+              : i18n.t("serverFilesDrawer.unableToLoadFiles"),
           );
       })
       .finally(() => {
@@ -176,7 +176,7 @@ export function ServerFilesDialog({
         setError(
           cause instanceof Error
             ? cause.message
-            : i18n.t("serverFilesDialog.fileOperationFailed"),
+            : i18n.t("serverFilesDrawer.fileOperationFailed"),
         );
     } finally {
       pending.current = false;
@@ -187,7 +187,7 @@ export function ServerFilesDialog({
     if (
       editor &&
       editor.text !== editor.initial &&
-      !window.confirm(i18n.t("serverFilesDialog.discardUnsavedFileChanges"))
+      !window.confirm(i18n.t("serverFilesDrawer.discardUnsavedFileChanges"))
     )
       return;
     onClose();
@@ -199,7 +199,7 @@ export function ServerFilesDialog({
     }
     if (entry.size > fileLimit)
       throw new Error(
-        i18n.t("serverFilesDialog.textEditingIsLimitedTo1MiBDownloadThisFile"),
+        i18n.t("serverFilesDrawer.textEditingIsLimitedTo1MiBDownloadThisFile"),
       );
     const result = await manageFiles(server.id, {
       operation: "read",
@@ -213,11 +213,11 @@ export function ServerFilesDialog({
       if (text.includes("\u0000")) throw new Error("binary");
     } catch {
       throw new Error(
-        i18n.t("serverFilesDialog.thisFileIsBinaryUseDownloadInsteadOfEditing"),
+        i18n.t("serverFilesDrawer.thisFileIsBinaryUseDownloadInsteadOfEditing"),
       );
     }
     if (!result.revision)
-      throw new Error(i18n.t("serverFilesDialog.fileRevisionIsMissing"));
+      throw new Error(i18n.t("serverFilesDrawer.fileRevisionIsMissing"));
     setEditor({
       path: result.path,
       text,
@@ -227,7 +227,7 @@ export function ServerFilesDialog({
   }
   function download(entry: FileEntry) {
     if (entry.size > fileTransferLimit)
-      throw new Error(i18n.t("serverFilesDialog.downloadsAreLimitedTo100GiB"));
+      throw new Error(i18n.t("serverFilesDrawer.downloadsAreLimitedTo100GiB"));
     const anchor = document.createElement("a");
     anchor.href = `/api/v1/servers/${encodeURIComponent(server.id)}/files/download?${new URLSearchParams({ path: join(directory, entry.name) })}`;
     anchor.download = entry.name;
@@ -242,7 +242,7 @@ export function ServerFilesDialog({
       revision: editor.revision,
     });
     if (!result.revision)
-      throw new Error(i18n.t("serverFilesDialog.fileRevisionIsMissing"));
+      throw new Error(i18n.t("serverFilesDrawer.fileRevisionIsMissing"));
     setEditor({ ...editor, initial: editor.text, revision: result.revision });
   }
   async function create(folder: boolean, value: string) {
@@ -293,7 +293,7 @@ export function ServerFilesDialog({
       setDeleteError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("serverFilesDialog.unableToDeleteThisEntry"),
+          : i18n.t("serverFilesDrawer.unableToDeleteThisEntry"),
       );
     } finally {
       await load(directory, undefined, true).catch(() => {});
@@ -305,12 +305,12 @@ export function ServerFilesDialog({
     if (maxUploadBytes === null)
       throw new Error(
         i18n.t(
-          "serverFilesDialog.uploadLimitIsUnavailableReopenFilesToTryAgain",
+          "serverFilesDrawer.uploadLimitIsUnavailableReopenFilesToTryAgain",
         ),
       );
     if (file.size > maxUploadBytes)
       throw new Error(
-        i18n.t("serverFilesDialog.uploadsAreLimitedToMiBPerFile", {
+        i18n.t("serverFilesDrawer.uploadsAreLimitedToMiBPerFile", {
           toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
         }),
       );
@@ -334,11 +334,11 @@ export function ServerFilesDialog({
       );
       uploadID = started.upload_id;
       if (!uploadID)
-        throw new Error(i18n.t("serverFilesDialog.uploadSessionIsMissing"));
+        throw new Error(i18n.t("serverFilesDrawer.uploadSessionIsMissing"));
       for (let offset = 0; offset < file.size; offset += fileLimit) {
         if (alive.current)
           setProgress(
-            i18n.t("serverFilesDialog.uploading", {
+            i18n.t("serverFilesDrawer.uploading", {
               fileName: file.name,
               MathFloor100: Math.floor((offset / file.size) * 100),
             }),
@@ -416,13 +416,13 @@ export function ServerFilesDialog({
         });
         const destination = target.path;
         if (destination === directory)
-          throw new Error(t("serverFilesDialog.chooseDifferentFolder"));
+          throw new Error(t("serverFilesDrawer.chooseDifferentFolder"));
         if (target.entries?.some((entry) => selected.includes(entry.name)))
-          throw new Error(t("serverFilesDialog.destinationConflict"));
+          throw new Error(t("serverFilesDrawer.destinationConflict"));
         for (const entry of selectedEntries) {
           const source = join(directory, entry.name);
           if (destination.startsWith(`${source}/`))
-            throw new Error(t("serverFilesDialog.invalidMoveDestination"));
+            throw new Error(t("serverFilesDrawer.invalidMoveDestination"));
         }
         for (const entry of selectedEntries) {
           await manageFiles(server.id, {
@@ -443,31 +443,31 @@ export function ServerFilesDialog({
     <Drawer
       embedded={embedded}
       unsavedChanges={editor !== null && editor.text !== editor.initial}
-      title={t("serverFilesDialog.files")}
+      title={t("serverFilesDrawer.files")}
       leading={
         !editor && (
           <details className="file-sftp">
-            <summary>{t("serverFilesDialog.sftpAccess")}</summary>
+            <summary>{t("serverFilesDrawer.sftpAccess")}</summary>
             <div className="file-sftp-content">
               <p>
                 {t(
-                  "serverFilesDialog.connectWithAnSFTPClientUsingTheAddressAndPort",
+                  "serverFilesDrawer.connectWithAnSFTPClientUsingTheAddressAndPort",
                 )}
               </p>
               <DetailsList>
-                <DetailItem label={t("serverFilesDialog.username")}>
+                <DetailItem label={t("serverFilesDrawer.username")}>
                   <code>{server.id}</code>
                 </DetailItem>
-                <DetailItem label={t("serverFilesDialog.password")}>
-                  {t("serverFilesDialog.yourPersonalAPIToken")}
+                <DetailItem label={t("serverFilesDrawer.password")}>
+                  {t("serverFilesDrawer.yourPersonalAPIToken")}
                 </DetailItem>
               </DetailsList>
               <p>
                 <Trans
-                  i18nKey="serverFilesDialog.createATokenFromInYourAccountMenuWithAnd"
+                  i18nKey="serverFilesDrawer.createATokenFromInYourAccountMenuWithAnd"
                   t={t}
                   components={{
-                    strong: <strong>{t("serverFilesDialog.apiKeys")}</strong>,
+                    strong: <strong>{t("serverFilesDrawer.apiKeys")}</strong>,
                     code: <code>{Permission.ServerView}</code>,
                     code2: <code>{Permission.ServerFilesRead}</code>,
                   }}
@@ -487,7 +487,7 @@ export function ServerFilesDialog({
               onClick={() => uploadInput.current?.click()}
             >
               <NavigationIcon name="upload" />
-              {t("serverFilesDialog.uploadFiles")}
+              {t("serverFilesDrawer.uploadFiles")}
             </Button>
             <Button
               disabled={busy || loading || !canWrite}
@@ -496,7 +496,7 @@ export function ServerFilesDialog({
               }}
             >
               <NavigationIcon name="file-plus" />
-              {t("serverFilesDialog.createFile")}
+              {t("serverFilesDrawer.createFile")}
             </Button>
             <Button
               disabled={busy || loading || !canWrite}
@@ -505,7 +505,7 @@ export function ServerFilesDialog({
               }}
             >
               <NavigationIcon name="folder-plus" />
-              {t("serverFilesDialog.createFolder")}
+              {t("serverFilesDrawer.createFolder")}
             </Button>
             <input
               ref={uploadInput}
@@ -513,7 +513,7 @@ export function ServerFilesDialog({
               type="file"
               multiple
               disabled={busy || loading || !canWrite || maxUploadBytes === null}
-              aria-label={t("serverFilesDialog.uploadFiles")}
+              aria-label={t("serverFilesDrawer.uploadFiles")}
               onChange={(event) => {
                 const files = Array.from(event.target.files ?? []);
                 event.target.value = "";
@@ -539,7 +539,7 @@ export function ServerFilesDialog({
               if (
                 editor.text !== editor.initial &&
                 !window.confirm(
-                  i18n.t("serverFilesDialog.discardUnsavedFileChanges"),
+                  i18n.t("serverFilesDrawer.discardUnsavedFileChanges"),
                 )
               )
                 return;
@@ -547,7 +547,7 @@ export function ServerFilesDialog({
               void perform(() => load(directory));
             }}
           >
-            {t("serverFilesDialog.backToFiles")}
+            {t("serverFilesDrawer.backToFiles")}
           </Button>
         ) : null
       }
@@ -560,9 +560,9 @@ export function ServerFilesDialog({
               void perform(save);
             }}
             loading={busy}
-            loadingLabel={t("serverFilesDialog.saving")}
+            loadingLabel={t("serverFilesDrawer.saving")}
           >
-            {t("serverFilesDialog.saveFile")}
+            {t("serverFilesDrawer.saveFile")}
           </Button>
         ) : null
       }
@@ -572,24 +572,24 @@ export function ServerFilesDialog({
           <InputDialog
             title={t(
               bulkAction === "compress"
-                ? "serverFilesDialog.archiveSelected"
-                : "serverFilesDialog.moveSelected",
+                ? "serverFilesDrawer.archiveSelected"
+                : "serverFilesDrawer.moveSelected",
             )}
             label={t(
               bulkAction === "compress"
-                ? "serverFilesDialog.archiveName"
-                : "serverFilesDialog.destinationFolder",
+                ? "serverFilesDrawer.archiveName"
+                : "serverFilesDrawer.destinationFolder",
             )}
             description={t(
               bulkAction === "compress"
-                ? "serverFilesDialog.archiveDescription"
-                : "serverFilesDialog.moveDescription",
+                ? "serverFilesDrawer.archiveDescription"
+                : "serverFilesDrawer.moveDescription",
               { count: selectedEntries.length },
             )}
             submitLabel={t(
               bulkAction === "compress"
-                ? "serverFilesDialog.archiveSelected"
-                : "serverFilesDialog.move",
+                ? "serverFilesDrawer.archiveSelected"
+                : "serverFilesDrawer.move",
             )}
             initialValue={
               bulkAction === "compress" ? "archive.tar.gz" : directory
@@ -602,31 +602,31 @@ export function ServerFilesDialog({
           <InputDialog
             title={
               fileAction.kind === "rename"
-                ? t("serverFilesDialog.rename2")
+                ? t("serverFilesDrawer.rename2")
                 : fileAction.kind === "compress"
-                  ? t("serverFilesDialog.compress2")
-                  : t("serverFilesDialog.extractArchive")
+                  ? t("serverFilesDrawer.compress2")
+                  : t("serverFilesDrawer.extractArchive")
             }
             label={
               fileAction.kind === "rename"
-                ? t("serverFilesDialog.newName")
+                ? t("serverFilesDrawer.newName")
                 : fileAction.kind === "compress"
-                  ? t("serverFilesDialog.archiveName")
-                  : t("serverFilesDialog.newFolderName")
+                  ? t("serverFilesDrawer.archiveName")
+                  : t("serverFilesDrawer.newFolderName")
             }
-            description={t("serverFilesDialog.in", {
+            description={t("serverFilesDrawer.in", {
               fileActionEntryName: fileAction.entry.name,
               directoryTheRoot:
                 directory === "/"
-                  ? t("serverFilesDialog.theRootFolder")
+                  ? t("serverFilesDrawer.theRootFolder")
                   : directory,
             })}
             submitLabel={
               fileAction.kind === "rename"
-                ? t("serverFilesDialog.rename2")
+                ? t("serverFilesDrawer.rename2")
                 : fileAction.kind === "compress"
-                  ? t("serverFilesDialog.compress2")
-                  : t("serverFilesDialog.extract")
+                  ? t("serverFilesDrawer.compress2")
+                  : t("serverFilesDrawer.extract")
             }
             initialValue={
               fileAction.kind === "rename"
@@ -645,9 +645,9 @@ export function ServerFilesDialog({
         )}
         {permissionsEntries && (
           <InputDialog
-            title={t("serverFilesDialog.permissions")}
-            label={t("serverFilesDialog.octalPermissions")}
-            description={t("serverFilesDialog.permissionsHelp", {
+            title={t("serverFilesDrawer.permissions")}
+            label={t("serverFilesDrawer.octalPermissions")}
+            description={t("serverFilesDrawer.permissionsHelp", {
               count: permissionsEntries.length,
             })}
             initialValue={
@@ -658,11 +658,11 @@ export function ServerFilesDialog({
                 ? permissionsEntries[0].mode.toString(8).padStart(3, "0")
                 : ""
             }
-            submitLabel={t("serverFilesDialog.savePermissions")}
+            submitLabel={t("serverFilesDrawer.savePermissions")}
             onClose={() => setPermissionsEntries(null)}
             onSubmit={async (value) => {
               if (!/^[0-7]{3}$/.test(value))
-                throw new Error(t("serverFilesDialog.invalidPermissions"));
+                throw new Error(t("serverFilesDrawer.invalidPermissions"));
               for (const entry of permissionsEntries)
                 await manageFiles(server.id, {
                   operation: "chmod",
@@ -675,8 +675,8 @@ export function ServerFilesDialog({
         )}
         {deleting && (
           <ConfirmDialog
-            title={t("serverFilesDialog.deleteSelected")}
-            description={t("serverFilesDialog.deleteSelectedDescription", {
+            title={t("serverFilesDrawer.deleteSelected")}
+            description={t("serverFilesDrawer.deleteSelectedDescription", {
               count: deleting.length,
             })}
             confirmLabel={t("common.delete")}
@@ -693,20 +693,20 @@ export function ServerFilesDialog({
           <InputDialog
             title={
               creating === "folder"
-                ? t("serverFilesDialog.newFolder")
-                : t("serverFilesDialog.newFile")
+                ? t("serverFilesDrawer.newFolder")
+                : t("serverFilesDrawer.newFile")
             }
             label={t("common.name")}
-            description={t("serverFilesDialog.createIn", {
+            description={t("serverFilesDrawer.createIn", {
               directoryTheRoot:
                 directory === "/"
-                  ? t("serverFilesDialog.theRootFolder")
+                  ? t("serverFilesDrawer.theRootFolder")
                   : directory,
             })}
             submitLabel={
               creating === "folder"
-                ? t("serverFilesDialog.createFolder")
-                : t("serverFilesDialog.createFile")
+                ? t("serverFilesDrawer.createFolder")
+                : t("serverFilesDrawer.createFile")
             }
             onClose={() => setCreating(null)}
             onSubmit={(name) => create(creating === "folder", name)}
@@ -716,7 +716,7 @@ export function ServerFilesDialog({
           <p role="status">
             {progress}{" "}
             <Button onClick={() => transfer.current?.abort()}>
-              {t("serverFilesDialog.cancelUpload")}
+              {t("serverFilesDrawer.cancelUpload")}
             </Button>
           </p>
         )}
@@ -725,8 +725,8 @@ export function ServerFilesDialog({
           <PrerequisiteNote>
             {t(
               hasWritePermission
-                ? "serverFilesDialog.fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation"
-                : "serverFilesDialog.readOnlyAccess",
+                ? "serverFilesDrawer.fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation"
+                : "serverFilesDrawer.readOnlyAccess",
             )}
           </PrerequisiteNote>
         )}
@@ -747,7 +747,7 @@ export function ServerFilesDialog({
             </FormField>
             {editor.text !== editor.initial && (
               <p className="list-summary" role="status">
-                {t("serverFilesDialog.unsavedChanges")}
+                {t("serverFilesDrawer.unsavedChanges")}
               </p>
             )}
           </>
@@ -755,12 +755,12 @@ export function ServerFilesDialog({
           <>
             <nav
               className="file-breadcrumbs"
-              aria-label={t("serverFilesDialog.fileDirectory")}
+              aria-label={t("serverFilesDrawer.fileDirectory")}
             >
               <button
                 className="file-breadcrumb"
-                aria-label={t("serverFilesDialog.root")}
-                title={t("serverFilesDialog.root")}
+                aria-label={t("serverFilesDrawer.root")}
+                title={t("serverFilesDrawer.root")}
                 disabled={busy}
                 aria-current={directory === "/" ? "location" : undefined}
                 onClick={() => {
@@ -768,7 +768,7 @@ export function ServerFilesDialog({
                 }}
               >
                 <NavigationIcon name="folder" />
-                {t("serverFilesDialog.root")}
+                {t("serverFilesDrawer.root")}
               </button>
               {directory !== "/" &&
                 directory
@@ -801,8 +801,8 @@ export function ServerFilesDialog({
               className="file-list"
               empty={loading || entries.length === 0}
               loading={loading}
-              resource={t("serverFilesDialog.files2")}
-              emptyMessage={t("serverFilesDialog.thisFolderIsEmpty")}
+              resource={t("serverFilesDrawer.files2")}
+              emptyMessage={t("serverFilesDrawer.thisFolderIsEmpty")}
             >
               <thead>
                 <tr>
@@ -822,18 +822,18 @@ export function ServerFilesDialog({
                       }
                     >
                       <span className="visually-hidden">
-                        {t("serverFilesDialog.selectAll")}
+                        {t("serverFilesDrawer.selectAll")}
                       </span>
                     </CheckboxField>
                   </th>
                   <th className="file-icon-cell" />
                   <th className="file-name-column">{t("common.name")}</th>
                   <th className="table-fit">
-                    {t("serverFilesDialog.fileType")}
+                    {t("serverFilesDrawer.fileType")}
                   </th>
                   <th className="file-size">{t("common.size")}</th>
                   <th className="table-fit">
-                    {t("serverFilesDialog.modified")}
+                    {t("serverFilesDrawer.modified")}
                   </th>
                   <th
                     className="table-actions"
@@ -871,7 +871,7 @@ export function ServerFilesDialog({
                         }
                       >
                         <span className="visually-hidden">
-                          {t("serverFilesDialog.selectEntry", {
+                          {t("serverFilesDrawer.selectEntry", {
                             name: entry.name,
                           })}
                         </span>
@@ -903,18 +903,18 @@ export function ServerFilesDialog({
                         <span className="file-entry-name">{entry.name}</span>
                         {entry.kind === "unsupported" && (
                           <span className="file-entry-meta">
-                            {t("serverFilesDialog.symbolicLinkOrSpecialFile")}
+                            {t("serverFilesDrawer.symbolicLinkOrSpecialFile")}
                           </span>
                         )}
                       </button>
                     </td>
                     <td className="table-fit file-entry-meta">
                       {entry.kind === "directory"
-                        ? t("serverFilesDialog.folderType")
+                        ? t("serverFilesDrawer.folderType")
                         : entry.kind === "unsupported"
-                          ? t("serverFilesDialog.specialType")
+                          ? t("serverFilesDrawer.specialType")
                           : fileExtension(entry.name).toUpperCase() ||
-                            t("serverFilesDialog.fileTypeFallback")}
+                            t("serverFilesDrawer.fileTypeFallback")}
                     </td>
                     <td className="file-size file-entry-meta">
                       {entry.kind === "file" ? bytes(entry.size) : EMPTY_VALUE}
@@ -931,8 +931,8 @@ export function ServerFilesDialog({
                             <Button
                               iconOnly
                               size="small"
-                              title={i18n.t("serverFilesDialog.extract")}
-                              aria-label={i18n.t("serverFilesDialog.extract2", {
+                              title={i18n.t("serverFilesDrawer.extract")}
+                              aria-label={i18n.t("serverFilesDrawer.extract2", {
                                 entryName: entry.name,
                               })}
                               disabled={busy || !canWrite}
@@ -947,12 +947,12 @@ export function ServerFilesDialog({
                           <Button
                             iconOnly
                             size="small"
-                            title={i18n.t("serverFilesDialog.download")}
+                            title={i18n.t("serverFilesDrawer.download")}
                             disabled={busy || entry.size > fileTransferLimit}
                             onClick={() => {
                               void perform(() => download(entry));
                             }}
-                            aria-label={i18n.t("serverFilesDialog.download2", {
+                            aria-label={i18n.t("serverFilesDrawer.download2", {
                               entryName: entry.name,
                             })}
                           >
@@ -971,7 +971,7 @@ export function ServerFilesDialog({
               aria-label={t("common.actions")}
             >
               <span className="file-selection-count">
-                {t("serverFilesDialog.selectedCount", {
+                {t("serverFilesDrawer.selectedCount", {
                   count: selectedEntries.length,
                 })}
               </span>
@@ -984,28 +984,28 @@ export function ServerFilesDialog({
                   }}
                 >
                   <NavigationIcon name="rename" />
-                  {t("serverFilesDialog.rename2")}
+                  {t("serverFilesDrawer.rename2")}
                 </Button>
                 <Button
                   disabled={busy || !canWrite || !selectedEntries.length}
                   onClick={() => setPermissionsEntries(selectedEntries)}
                 >
                   <NavigationIcon name="permissions" />
-                  {t("serverFilesDialog.permissions")}
+                  {t("serverFilesDrawer.permissions")}
                 </Button>
                 <Button
                   disabled={busy || !canWrite || !selectedEntries.length}
                   onClick={() => setBulkAction("move")}
                 >
                   <NavigationIcon name="move" />
-                  {t("serverFilesDialog.move")}
+                  {t("serverFilesDrawer.move")}
                 </Button>
                 <Button
                   disabled={busy || !canWrite || !selectedEntries.length}
                   onClick={() => setBulkAction("compress")}
                 >
                   <NavigationIcon name="compress" />
-                  {t("serverFilesDialog.archiveSelected")}
+                  {t("serverFilesDrawer.archiveSelected")}
                 </Button>
                 <Button
                   className="file-bulk-delete"

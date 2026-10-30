@@ -11,7 +11,7 @@ import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CheckboxField } from "../components/forms/CheckboxField";
 
-export function UserDialog({
+export function UserDrawer({
   user,
   roles,
   onClose,
@@ -42,7 +42,7 @@ export function UserDialog({
       pending.current ||
       !window.confirm(
         i18n.t(
-          "userDialog.deleteTransferTheirOwnedServersFirstTheirAccessAndCredentials",
+          "userDrawer.deleteTransferTheirOwnedServersFirstTheirAccessAndCredentials",
           { userUsername: user.username },
         ),
       )
@@ -60,7 +60,7 @@ export function UserDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("userDialog.unableToDeleteUser"),
+          : i18n.t("userDrawer.unableToDeleteUser"),
       );
     } finally {
       pending.current = false;
@@ -72,7 +72,7 @@ export function UserDialog({
     if (pending.current) return;
     if (emailInput.current && !emailInput.current.reportValidity()) return;
     if ((!user && !password) || (password && [...password].length < 15)) {
-      setError(i18n.t("userDialog.useAPasswordOfAtLeast15Characters"));
+      setError(i18n.t("userDrawer.useAPasswordOfAtLeast15Characters"));
       return;
     }
     pending.current = true;
@@ -90,7 +90,7 @@ export function UserDialog({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("userDialog.unableToSaveUser"),
+          : i18n.t("userDrawer.unableToSaveUser"),
       );
     } finally {
       pending.current = false;
@@ -99,8 +99,8 @@ export function UserDialog({
   }
   return (
     <Drawer
-      title={user ? t("userDialog.editUser") : t("userDialog.createUser")}
-      description={t("userDialog.manageThisAccountSRoleAndSignInAccess")}
+      title={user ? t("userDrawer.editUser") : t("userDrawer.createUser")}
+      description={t("userDrawer.manageThisAccountSRoleAndSignInAccess")}
       busy={busy}
       onClose={onClose}
       footerLeft={
@@ -128,9 +128,9 @@ export function UserDialog({
               void submit();
             }}
             loading={busy && !deleting}
-            loadingLabel={t("userDialog.saving")}
+            loadingLabel={t("userDrawer.saving")}
           >
-            {t("userDialog.saveUser")}
+            {t("userDrawer.saveUser")}
           </Button>
         </>
       }
@@ -140,13 +140,13 @@ export function UserDialog({
         {user && (
           <p className="field-help">
             <Trans
-              i18nKey="userDialog.userID"
+              i18nKey="userDrawer.userID"
               t={t}
               components={{ code: <code>{user.id}</code> }}
             />
           </p>
         )}
-        <FormField label={t("userDialog.username")}>
+        <FormField label={t("userDrawer.username")}>
           <TextInput
             id="user-name"
             value={username}
@@ -157,11 +157,11 @@ export function UserDialog({
           />
         </FormField>
         <FormField
-          label={t("userDialog.nameOptional")}
+          label={t("userDrawer.nameOptional")}
           description={
             user?.oidc_name_managed
-              ? t("userDialog.managedByYourIdentityProvider")
-              : t("userDialog.shownInTheAccountMenuDefaultsToTheUsername")
+              ? t("userDrawer.managedByYourIdentityProvider")
+              : t("userDrawer.shownInTheAccountMenuDefaultsToTheUsername")
           }
         >
           <TextInput
@@ -174,10 +174,10 @@ export function UserDialog({
           />
         </FormField>
         <FormField
-          label={t("userDialog.emailOptional")}
+          label={t("userDrawer.emailOptional")}
           description={
             user?.oidc_email_managed
-              ? t("userDialog.managedByYourIdentityProvider")
+              ? t("userDrawer.managedByYourIdentityProvider")
               : undefined
           }
         >
@@ -196,12 +196,12 @@ export function UserDialog({
           label={
             <>
               {user
-                ? t("userDialog.newPasswordOptional")
-                : t("userDialog.password")}
+                ? t("userDrawer.newPasswordOptional")
+                : t("userDrawer.password")}
             </>
           }
           description={t(
-            "userDialog.atLeast15CharactersPasswordRoleAndAccessChangesRevoke",
+            "userDrawer.atLeast15CharactersPasswordRoleAndAccessChangesRevoke",
           )}
         >
           <TextInput
@@ -236,7 +236,7 @@ export function UserDialog({
           {t("common.disabled")}
         </CheckboxField>
         <p className="field-help">
-          {t("userDialog.usersAccessServersThroughOwnershipOrAServerRoleOnly")}
+          {t("userDrawer.usersAccessServersThroughOwnershipOrAServerRoleOnly")}
         </p>
       </div>
     </Drawer>
