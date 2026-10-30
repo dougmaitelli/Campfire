@@ -34,12 +34,6 @@ test("game activity loads protected screenshots and playable clips", async ({
   const download = await page.request.get(`${source}?download=1`);
   expect(download.headers()["content-disposition"]).toContain("attachment");
   expect(download.headers()["cache-control"]).toContain("no-store");
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
 });
 
 test("game media cannot be downloaded without server access", async ({

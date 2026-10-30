@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openServerTab } from "./screens";
 
 test("danger and reinstall confirmations use the right action and lock dismissal while busy", async ({
@@ -11,9 +11,8 @@ test("danger and reinstall confirmations use the right action and lock dismissal
     name: "Kill server: Survival",
     exact: true,
   });
-  await expect(
-    danger.getByRole("button", { name: "Kill server", exact: true }),
-  ).toHaveClass(/button-danger/);
+  await prepareScreenshot(page);
+  await expect(danger).toHaveScreenshot("confirmation-danger.png");
   await danger.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(
@@ -28,7 +27,8 @@ test("danger and reinstall confirmations use the right action and lock dismissal
     name: "Reinstall server",
     exact: true,
   });
-  await expect(confirm).toHaveClass(/button-primary/);
+  await prepareScreenshot(page);
+  await expect(dialog).toHaveScreenshot("confirmation-reinstall.png");
   let release: () => void = () => {};
   const pending = new Promise<void>((resolve) => {
     release = resolve;

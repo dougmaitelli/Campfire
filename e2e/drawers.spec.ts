@@ -1,7 +1,7 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
 
-test("disabled drawer Save actions retain a muted primary tint", async ({
+test("drawer Save actions disable until required fields are provided", async ({
   page,
 }) => {
   await login(page);
@@ -12,15 +12,7 @@ test("disabled drawer Save actions retain a muted primary tint", async ({
   const dialog = page.getByRole("dialog", { name: "Create role", exact: true });
   await expect(dialog.getByRole("checkbox")).toHaveCount(18);
   const save = dialog.getByRole("button", { name: "Save role", exact: true });
-  const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
   await expect(save).toBeDisabled();
-  await expect(save).toHaveClass(/button-primary/);
-  const disabledColor = await save.evaluate(
-    (button) => getComputedStyle(button).backgroundColor,
-  );
-  expect(disabledColor).not.toBe(
-    await cancel.evaluate((button) => getComputedStyle(button).backgroundColor),
-  );
   await prepareScreenshot(page);
   await expect(dialog.locator(".drawer-footer")).toHaveScreenshot(
     "drawer-save-disabled.png",
@@ -32,9 +24,15 @@ test("disabled drawer Save actions retain a muted primary tint", async ({
   );
   await dialog.getByLabel("Name", { exact: true }).fill("File readers");
   await expect(save).toBeEnabled();
-  expect(
-    await save.evaluate((button) => getComputedStyle(button).backgroundColor),
-  ).not.toBe(disabledColor);
+  await prepareScreenshot(page);
+  await expect(dialog.locator(".drawer-footer")).toHaveScreenshot(
+    "drawer-save-enabled-mobile.png",
+  );
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await prepareScreenshot(page);
+  await expect(dialog.locator(".drawer-footer")).toHaveScreenshot(
+    "drawer-save-enabled.png",
+  );
 });
 
 test("wizard Next disables immediately for missing and invalid required fields", async ({

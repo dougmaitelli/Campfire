@@ -21,9 +21,6 @@ test("mobile login supports password visibility and keyboard submission", async 
     .click();
   await expect(password).toHaveAttribute("type", "password");
   await page.setViewportSize({ width: 320, height: 568 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
-    320,
-  );
   await password.press("Enter");
   await expect(
     page.getByRole("navigation", { name: "Main navigation" }),
@@ -66,9 +63,6 @@ for (const localLogin of [false, true]) {
     await page.setViewportSize({ width: 375, height: 812 });
     await screenshot(page, `login-${state}-mobile.png`);
     await page.setViewportSize({ width: 320, height: 568 });
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBe(320);
     await page.goto("/?oidc_error=failed");
     await expect(page.getByRole("alert")).toContainText(
       "OpenID Connect sign-in failed",

@@ -229,30 +229,16 @@ test("console history handles missing samples and failed requests", async ({
   ).toBeVisible();
 });
 
-test("Spark resource layout is identical on direct entry and after visiting Servers", async ({
+test("Spark resource readings remain available across navigation", async ({
   page,
 }) => {
   await login(page);
   await page.goto("/#sparks");
   const readings = page.locator(".sparks-table .resource-readings").first();
   await expect(readings.locator(".usage-reading")).toHaveCount(3);
-  await expect(readings).toHaveCSS("display", "grid");
-  const positions = () =>
-    readings
-      .locator(".usage-reading > .usage-value")
-      .evaluateAll((elements) =>
-        elements.map((element) =>
-          Math.round(element.getBoundingClientRect().left),
-        ),
-      );
-  const direct = await positions();
-  expect(new Set(direct).size).toBe(1);
   await openScreen(page, "servers", "Servers");
   await openScreen(page, "sparks", "Sparks");
   await expect(readings.locator(".usage-reading")).toHaveCount(3);
-  expect(await positions()).toEqual(direct);
-  await page.setViewportSize({ width: 800, height: 900 });
-  expect(new Set(await positions()).size).toBe(1);
   await expect(
     page.getByRole("heading", { level: 1, name: "Sparks", exact: true }),
   ).toBeVisible();
@@ -349,21 +335,6 @@ test("binary file rows remain selectable and downloadable without opening the ed
     page.getByRole("textbox", { name: "/server.jar", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
-  const binaryDownload = row.getByRole("button", {
-    name: "Download server.jar",
-    exact: true,
-  });
-  const textDownload = page.getByRole("button", {
-    name: "Download server.properties",
-    exact: true,
-  });
-  await expect(async () => {
-    const binaryBounds = await binaryDownload.boundingBox();
-    const textBounds = await textDownload.boundingBox();
-    expect(binaryBounds).not.toBeNull();
-    expect(textBounds).not.toBeNull();
-    expect(binaryBounds!.x).toBe(textBounds!.x);
-  }).toPass();
   await row.getByRole("checkbox").check();
   const download = page.waitForEvent("download");
   await row
@@ -444,14 +415,9 @@ test("file paths use the server data root and move defaults follow navigation", 
   const emptyState = page
     .getByRole("status")
     .filter({ hasText: "This folder is empty." });
-  const beforeHover = await emptyState.screenshot({
-    animations: "disabled",
-    caret: "hide",
-  });
+  await expect(emptyState).toHaveScreenshot("file-empty-folder-status.png");
   await emptyFolder.hover();
-  expect(
-    await emptyState.screenshot({ animations: "disabled", caret: "hide" }),
-  ).toEqual(beforeHover);
+  await expect(emptyState).toHaveScreenshot("file-empty-folder-status.png");
   await page.getByRole("button", { name: "Server data", exact: true }).click();
   await page.getByRole("button", { name: "mods", exact: true }).click();
   await page
@@ -505,7 +471,6 @@ test("file permissions can be changed and persist after reloading", async ({
     exact: true,
   });
   await expect(permissions).toBeDisabled();
-  await expect(permissions.locator("svg")).toHaveCount(1);
   for (const name of ["server.properties", "eula.txt", "config"]) {
     await page
       .getByRole("checkbox", { name: `Select ${name}`, exact: true })

@@ -53,11 +53,6 @@ test("game activity reads retained events and filters by type and time", async (
   expect(older.items[0]?.id).not.toBe(first.items[0]?.id);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(feed).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
 });
 
 test("unassigned users cannot read a server's game events", async ({

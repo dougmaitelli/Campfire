@@ -55,6 +55,11 @@ Review and commit the screenshot changes, then run `make test-e2e-docker` again.
 `make test-e2e-docker` only compares against those images. Use Docker for shared
 baselines; local font and browser rendering can differ by OS.
 
+Use browser assertions for behavior, content, accessibility, and control states.
+Use screenshot comparisons for appearance, including sizing, spacing, alignment,
+colors, overflow, and visual ordering. Avoid coordinate measurements, computed
+style comparisons, and assertions about styling classes or decorative markup.
+
 Fixtures fix browser time, locale, timezone, and viewport; use stable IDs and seed
 data; block unexpected external requests; and fail on browser exceptions and server
 errors. Real session cookies survive a post-login fixture reset so screenshots do
