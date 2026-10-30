@@ -21,6 +21,10 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     name: "Import Ember",
     exact: true,
   });
+  await screenshot(page, "ember-import-sources.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await screenshot(page, "ember-import-sources-mobile.png");
+  await page.setViewportSize({ width: 1400, height: 900 });
   await drawer
     .getByRole("textbox", { name: "Definition", exact: true })
     .fill(definition);

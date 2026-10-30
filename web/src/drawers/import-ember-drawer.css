@@ -13,6 +13,7 @@
 
   & > .form-field {
     flex: 1 1 240px;
+    margin-bottom: 0;
   }
 }
 
