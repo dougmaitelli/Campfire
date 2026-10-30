@@ -33,6 +33,11 @@ See the [browser testing guide](https://github.com/dougmaitelli/Campfire/blob/ma
 
 ## Mock game integration
 
+For mod and adapter authors, the [game integration developer guide](/Campfire/game-integrations/)
+documents the publishing API, payload schemas, delivery guarantees, and client
+implementation patterns. The simulator below helps develop panel features; it
+does not replace testing a mod against a real Spark socket.
+
 `make dev-mock` automatically simulates game publications for running, online
 servers. State heartbeats arrive every five seconds. Every fifteen seconds the
 publisher advances through a connection announcement, Alex joining, a welcome

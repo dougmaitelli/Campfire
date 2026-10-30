@@ -66,6 +66,7 @@ export default defineConfig({
           label: "Development",
           items: [
             { label: "Local development", slug: "development" },
+            { label: "Game integrations", slug: "game-integrations" },
             { label: "Architecture", slug: "architecture" },
           ],
         },
