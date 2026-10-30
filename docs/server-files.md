@@ -52,7 +52,11 @@ current file and the remaining queue; files already uploaded are kept. The file
 list refreshes when the upload finishes or is cancelled.
 
 Use **Compress** to create a `.tar.gz` archive. **Extract** accepts `.zip`,
-`.tar.gz`, and `.tgz` and requires a new destination folder. Stopping the game
+`.tar.gz`, `.tgz`, and `.rar` and requires a new destination folder. RAR support
+includes single-volume, unencrypted RAR 4 and RAR 5 archives, with decoder
+dictionaries up to 128 MiB. Split and password-protected RAR archives are unsupported.
+While extraction runs, the dialog displays an indeterminate progress bar; it
+does not report a percentage or time remaining. Stopping the game
 first is recommended to avoid concurrent changes during compression or
 extraction. Leave enough disk space for the original files and the archive or
 extracted copy. Archives do not merge into an existing destination.

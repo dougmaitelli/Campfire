@@ -802,6 +802,7 @@
     "extract": "Extract",
     "extract2": "Extract {{entryName}}",
     "extractArchive": "Extract archive",
+    "extracting": "Extracting {{name}}…",
     "fileDirectory": "File directory",
     "fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation": "File modifications are currently unavailable. Wait for the current operation to finish and ensure the Spark is connected.",
     "fileOperationFailed": "File operation failed.",

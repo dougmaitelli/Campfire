@@ -364,6 +364,10 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 				return err
 			}
 		}
+	} else if strings.HasSuffix(strings.ToLower(source), ".rar") {
+		if err := extractRAR(backupReader{ctx, input}, unpack); err != nil {
+			return err
+		}
 	} else if strings.HasSuffix(strings.ToLower(source), ".tar.gz") || strings.HasSuffix(strings.ToLower(source), ".tgz") {
 		compressed, err := gzip.NewReader(input)
 		if err != nil {
@@ -407,7 +411,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 			return fileFailure("invalid_file", "Unexpected trailing archive data.")
 		}
 	} else {
-		return fileFailure("invalid_file", "Extract supports .zip, .tar.gz and .tgz archives.")
+		return fileFailure("invalid_file", "Extract supports .zip, .tar.gz, .tgz and .rar archives.")
 	}
 	// Assign all implicitly created directories as well as files to the game's user.
 	err = fs.WalkDir(target.FS(), ".", func(name string, _ fs.DirEntry, walkErr error) error {

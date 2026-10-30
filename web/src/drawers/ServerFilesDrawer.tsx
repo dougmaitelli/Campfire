@@ -7,6 +7,7 @@ import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import { InlineMessage } from "../components/status/InlineMessage";
+import { IndeterminateProgress } from "../components/status/IndeterminateProgress";
 import { Textarea } from "../components/forms/Textarea";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Server } from "../api/servers";
@@ -722,7 +723,19 @@ export function ServerFilesDrawer({
                 ? fileAction.entry.name
                 : fileAction.kind === "compress"
                   ? `${fileAction.entry.name}.tar.gz`
-                  : fileAction.entry.name.replace(/\.(tar\.gz|tgz|zip)$/i, "")
+                  : fileAction.entry.name.replace(
+                      /\.(tar\.gz|tgz|zip|rar)$/i,
+                      "",
+                    )
+            }
+            busyContent={
+              fileAction.kind === "extract" && (
+                <IndeterminateProgress
+                  label={t("serverFilesDrawer.extracting", {
+                    name: fileAction.entry.name,
+                  })}
+                />
+              )
             }
             onClose={() => setFileAction(null)}
             onSubmit={(name) =>
@@ -1016,7 +1029,7 @@ export function ServerFilesDrawer({
                     <td className="table-actions">
                       <ActionGroup>
                         {entry.kind === "file" &&
-                          /\.(zip|tar\.gz|tgz)$/i.test(entry.name) && (
+                          /\.(zip|tar\.gz|tgz|rar)$/i.test(entry.name) && (
                             <Button
                               iconOnly
                               size="small"

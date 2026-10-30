@@ -10,6 +10,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/gorilla/websocket v1.5.3
+	github.com/nwaples/rardecode/v2 v2.4.5
 	github.com/pkg/sftp v1.13.12
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/crypto v0.58.0

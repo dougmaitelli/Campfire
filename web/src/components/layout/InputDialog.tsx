@@ -5,7 +5,7 @@ import { TextInput } from "../forms/TextInput";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { formatErrorMessage } from "../../utils/errors";
 import "./confirm-dialog.css";
 import "./input-dialog.css";
@@ -16,6 +16,7 @@ export function InputDialog({
   description,
   submitLabel,
   initialValue = "",
+  busyContent,
   onClose,
   onSubmit,
 }: {
@@ -24,6 +25,7 @@ export function InputDialog({
   description: string;
   submitLabel: string;
   initialValue?: string;
+  busyContent?: ReactNode;
   onClose: () => void;
   onSubmit: (value: string) => Promise<void>;
 }) {
@@ -106,6 +108,7 @@ export function InputDialog({
             onChange={(event) => setValue(event.target.value)}
           />
         </FormField>
+        {busy && busyContent}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         <div className="confirm-dialog-actions">
           <Button
