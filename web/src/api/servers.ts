@@ -36,6 +36,7 @@ export interface Server extends ServerConfiguration {
   ember_art_url?: string;
   game_address: string;
   port_descriptions?: Record<string, string>;
+  variable_types?: Record<string, string>;
   status: string;
   created_at: string;
 }
@@ -68,6 +69,13 @@ export function isServer(value: unknown): value is Server {
     typeof value.description === "string" &&
     "game_address" in value &&
     typeof value.game_address === "string" &&
+    (!("variable_types" in value) ||
+      (typeof value.variable_types === "object" &&
+        value.variable_types !== null &&
+        !Array.isArray(value.variable_types) &&
+        Object.values(value.variable_types).every(
+          (type: unknown) => typeof type === "string",
+        ))) &&
     (!("port_descriptions" in value) ||
       (typeof value.port_descriptions === "object" &&
         value.port_descriptions !== null &&

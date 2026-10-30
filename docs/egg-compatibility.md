@@ -47,6 +47,10 @@ Spark before relying on it for a live server.
 | Readiness and shutdown | Check that startup detection matches the game's logs and that its stop command or signal shuts it down as expected.                                 |
 | Game requirements      | Select the correct Java or other runtime image yourself and accept any required EULA explicitly. These choices are not made automatically.          |
 
+Boolean variables, such as `ENABLE_CROSSPLAY`, use toggles in server settings
+and keep the Egg's `1` (enabled) and `0` (disabled) values.
+Server details and configuration reviews display these as **Enabled** or **Disabled**.
+
 The plain `url` variable rule is preserved as native URL validation. Values must
 be absolute URLs with a host, checked using Go's URL parser at both the panel and
 Spark boundaries. Empty optional values remain allowed. Protocol-qualified rules

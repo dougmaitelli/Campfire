@@ -8,6 +8,7 @@ export interface EmberVariable {
   editable: boolean;
   hidden?: boolean;
   pattern?: string;
+  validation?: { type: "string" | "integer" | "numeric" | "boolean" };
 }
 
 export interface Ember {
@@ -100,7 +101,14 @@ function isVariable(value: unknown): value is EmberVariable {
     typeof value.required === "boolean" &&
     "editable" in value &&
     typeof value.editable === "boolean" &&
-    (!("hidden" in value) || typeof value.hidden === "boolean")
+    (!("hidden" in value) || typeof value.hidden === "boolean") &&
+    (!("validation" in value) ||
+      (typeof value.validation === "object" &&
+        value.validation !== null &&
+        "type" in value.validation &&
+        ["string", "integer", "numeric", "boolean"].includes(
+          String(value.validation.type),
+        )))
   );
 }
 

@@ -64,6 +64,9 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	status := r.statuses[input.ServerID]
+	if status.State == "" {
+		status.State = "not_installed"
+	}
 	status.ServerID = input.ServerID
 	if input.Action != "status" {
 		status.OperationID, status.Operation = input.OperationID, input.Action

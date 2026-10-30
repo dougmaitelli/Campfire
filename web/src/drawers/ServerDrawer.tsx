@@ -5,6 +5,7 @@ import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
 import { AllocationRow } from "../components/forms/AllocationRow";
+import { ServerVariableField } from "../components/servers/ServerVariableField";
 import "./server-drawer.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
@@ -614,27 +615,21 @@ export function ServerDrawer({
                 {(ember?.variables ?? [])
                   .filter((variable) => !variable.hidden)
                   .map((variable) => (
-                    <FormField key={variable.name} label={<>{variable.name}</>}>
-                      <TextInput
-                        id={`variable-${variable.name}`}
-                        disabled={runtimeRestricted}
-                        required={variable.required}
-                        readOnly={!variable.editable}
-                        maxLength={8192}
-                        value={
-                          value.variables[variable.name] ?? variable.default
-                        }
-                        onChange={(event) =>
-                          setValue({
-                            ...value,
-                            variables: {
-                              ...value.variables,
-                              [variable.name]: event.target.value,
-                            },
-                          })
-                        }
-                      />
-                    </FormField>
+                    <ServerVariableField
+                      key={variable.name}
+                      variable={variable}
+                      disabled={runtimeRestricted}
+                      value={value.variables[variable.name] ?? variable.default}
+                      onChange={(next) =>
+                        setValue({
+                          ...value,
+                          variables: {
+                            ...value.variables,
+                            [variable.name]: next,
+                          },
+                        })
+                      }
+                    />
                   ))}
               </div>
             </>
@@ -1102,6 +1097,12 @@ export function ServerDrawer({
               {!accessOnly && (
                 <ServerReview
                   value={value}
+                  variableTypes={Object.fromEntries(
+                    (ember?.variables ?? []).map((variable) => [
+                      variable.name,
+                      variable.validation?.type ?? "string",
+                    ]),
+                  )}
                   portDescriptions={Object.fromEntries(
                     (ember?.required_ports ?? []).map((port) => [
                       `${port.container}/${port.protocol}`,

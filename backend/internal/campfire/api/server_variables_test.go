@@ -17,6 +17,8 @@ func TestHiddenVariablesArePrivateAndPreservedOnEdit(t *testing.T) {
 	ember.Variables = append(ember.Variables,
 		model.Variable{Name: "INTERNAL_SETTING", Default: "private-default", Editable: true, Hidden: true},
 		model.Variable{Name: "INTERNAL_LOCKED", Default: "locked-default", Hidden: true},
+		model.Variable{Name: "ENABLE_FEATURE", Default: "0", Required: true, Editable: true, Validation: &model.VariableValidation{Type: "boolean"}},
+		model.Variable{Name: "INTERNAL_BOOL", Default: "1", Hidden: true, Validation: &model.VariableValidation{Type: "boolean"}},
 	)
 
 	data, err := json.Marshal(ember)
@@ -47,13 +49,18 @@ func TestHiddenVariablesArePrivateAndPreservedOnEdit(t *testing.T) {
 	}
 
 	endpoint := "/api/v1/servers/" + server.ID
+
+	if server.VariableTypes["ENABLE_FEATURE"] != "boolean" {
+		t.Fatal("visible boolean type was lost", server.VariableTypes)
+	}
+
 	for _, path := range []string{"/api/v1/servers", endpoint, endpoint + "/editor"} {
 		response := request(regular, "GET", path, "")
 		if response.Code != http.StatusOK {
 			t.Fatal(path, response.Code, response.Body)
 		}
 
-		for _, hidden := range []string{"INTERNAL_SETTING", "INTERNAL_LOCKED", "private-default", "managed-private-value", "locked-default"} {
+		for _, hidden := range []string{"INTERNAL_SETTING", "INTERNAL_LOCKED", "INTERNAL_BOOL", "private-default", "managed-private-value", "locked-default"} {
 			if strings.Contains(response.Body.String(), hidden) {
 				t.Fatal("hidden variable exposed", path, hidden)
 			}

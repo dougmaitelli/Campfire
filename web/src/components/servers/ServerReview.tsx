@@ -12,6 +12,7 @@ export function ServerReview({
   sparkName,
   emberName,
   portDescriptions,
+  variableTypes,
   notice = i18n.t(
     "serverReview.savingReservesTheseResourcesAndPortsTheServerWillRemain",
   ),
@@ -21,6 +22,7 @@ export function ServerReview({
   sparkName: ReactNode;
   emberName: ReactNode;
   portDescriptions?: Record<string, string> | undefined;
+  variableTypes?: Record<string, string> | undefined;
   notice?: string | undefined;
 }) {
   const { t } = useTranslation();
@@ -84,7 +86,10 @@ export function ServerReview({
         </DetailItem>
         {Object.entries(value.variables).map(([name, content]) => (
           <DetailItem key={name} label={<>{name}</>}>
-            {content || "(empty)"}
+            {variableTypes?.[name] === "boolean" &&
+            (content === "0" || content === "1")
+              ? t(content === "1" ? "common.enabled" : "common.disabled")
+              : content || "(empty)"}
           </DetailItem>
         ))}
       </DetailsList>

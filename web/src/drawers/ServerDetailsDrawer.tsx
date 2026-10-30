@@ -50,6 +50,7 @@ export function ServerDetailsDrawer({ id, ...props }: Props) {
           <ServerReview
             value={server}
             portDescriptions={server.port_descriptions}
+            variableTypes={server.variable_types}
             name={server.name}
             sparkName={
               <ResourceLink href={links.spark(server.spark_id)}>

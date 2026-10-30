@@ -27,6 +27,7 @@ type Server struct {
 	EmberUpdateAvailable bool              `json:"ember_update_available"`
 	GameAddress          string            `json:"game_address"`
 	PortDescriptions     map[string]string `json:"port_descriptions,omitempty"`
+	VariableTypes        map[string]string `json:"variable_types,omitempty"`
 	Status               string            `json:"status"`
 	CreatedAt            time.Time         `json:"created_at"`
 }
