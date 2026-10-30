@@ -18,6 +18,9 @@ Definitions can be JSON or YAML, up to 1 MiB. Use a self-contained export;
 definitions that inherit configuration or installer scripts from another Egg
 are unsupported. An unknown or missing format version prevents import.
 
+Empty Egg lists may be exported as `[]`, `{}`, or `null`. Campfire accepts these
+empty forms while still checking nonempty lists and their entries.
+
 ## Import an Egg
 
 1. Open **Embers** and choose **Import Ember**.
@@ -43,6 +46,16 @@ Spark before relying on it for a live server.
 | Configuration files    | Supported parsers include properties, JSON, YAML, INI, and line-prefix text replacements. Conversion may normalize file formatting.                 |
 | Readiness and shutdown | Check that startup detection matches the game's logs and that its stop command or signal shuts it down as expected.                                 |
 | Game requirements      | Select the correct Java or other runtime image yourself and accept any required EULA explicitly. These choices are not made automatically.          |
+
+The plain `url` variable rule is preserved as native URL validation. Values must
+be absolute URLs with a host, checked using Go's URL parser at both the panel and
+Spark boundaries. Empty optional values remain allowed. Protocol-qualified rules
+such as `url:http,https` remain unsupported; they are not silently discarded.
+
+Game variables do not configure Campfire's backup policy. For example, Valheim
+Eggs pass `BACKUP_INTERVAL`, `BACKUP_COUNT`, `BACKUP_SHORTTIME`, and `BACKUP_LONGTIME`
+to the game's own save and backup flags. These remain ordinary game variables.
+Configure Campfire's backup schedules, storage, and retention separately.
 
 ## Warnings and blocking errors
 

@@ -18,6 +18,9 @@ func TestEggRulesRetainConstraints(t *testing.T) {
 		{"required|string|regex:/^(alpha|beta)$/i", []string{"alpha", "BETA"}, []string{"gamma", "alpha-extra"}},
 		{"required|string|size:3", []string{"abc"}, []string{"ab", "abcd"}},
 		{"required|boolean", []string{"0", "1"}, []string{"true", "false", "2", ""}},
+		{"required|url", []string{"https://thunderstore.io/api/experimental/package/denikson/BepInExPack_Valheim/", "http://localhost:8080/package", "ftp://example.com/file", "https://[::1]/file"}, []string{"", "not a url", "//example.com/path", "/relative", "https:///missing-host", "javascript:alert(1)", "https://example.com/a b", "https://example.com\\path", "https://example.com\n"}},
+		{[]string{"nullable", "url"}, []string{"", "https://example.com"}, []string{"example.com"}},
+		{"url", []string{"", "https://example.com"}, []string{"example.com"}},
 		{"required|numeric|min:0.3|max:1", []string{"0.3", "1"}, []string{"0.29999999999999999999", "1.00000000000000000001", "1e1000000000"}},
 	} {
 		raw, err := json.Marshal(test.rules)
@@ -43,7 +46,7 @@ func TestEggRulesRetainConstraints(t *testing.T) {
 		}
 	}
 
-	for _, rule := range []string{"required|url", "regex:/^(?=secret).*$/", "regex:/^(x)\\1$/", "regex:/x/g", "regex:/unterminated", "regex:x", "integer|min:5|max:1", "string|min:-1", "required:foo", "required|regex:/a/|regex:/b/", "numeric|min:NaN", "integer|boolean"} {
+	for _, rule := range []string{"url:http,https", "integer|url", "url|boolean", "regex:/^(?=secret).*$/", "regex:/^(x)\\1$/", "regex:/x/g", "regex:/unterminated", "regex:x", "integer|min:5|max:1", "string|min:-1", "required:foo", "required|regex:/a/|regex:/b/", "numeric|min:NaN", "integer|boolean"} {
 		raw, _ := json.Marshal(rule)
 		if _, err := convertEggRules(raw); err == nil {
 			t.Errorf("unsupported rule accepted: %s", rule)

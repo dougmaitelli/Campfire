@@ -4,10 +4,12 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	"net/url"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -57,6 +59,7 @@ func NumericBound(value string) (float64, error) {
 // VariableValidation preserves the supported Egg validation rules in native Embers.
 type VariableValidation struct {
 	Type      string   `json:"type"`
+	Format    string   `json:"format,omitempty"`
 	Nullable  bool     `json:"nullable,omitempty"`
 	Min       *float64 `json:"min,omitempty"`
 	Max       *float64 `json:"max,omitempty"`
@@ -69,6 +72,10 @@ type VariableValidation struct {
 func (v VariableValidation) Validate() error {
 	if !slices.Contains([]string{"string", "integer", "numeric", "boolean"}, v.Type) {
 		return errors.New("unsupported variable type")
+	}
+
+	if v.Format != "" && (v.Format != "url" || v.Type != "string") {
+		return errors.New("unsupported variable format for this type")
 	}
 
 	for _, bound := range []*float64{v.Min, v.Max} {
@@ -130,6 +137,13 @@ func (v Variable) ValidateValue(value string) error {
 
 	if err := rules.Validate(); err != nil {
 		return err
+	}
+
+	if rules.Format == "url" && value != "" {
+		parsed, err := url.Parse(value)
+		if err != nil || !parsed.IsAbs() || parsed.Hostname() == "" || parsed.Opaque != "" || strings.Contains(value, "\\") || strings.ContainsFunc(value, func(ch rune) bool { return unicode.IsSpace(ch) || unicode.IsControl(ch) }) {
+			return errors.New("value must be an absolute URL with a host")
+		}
 	}
 
 	if len(rules.Choices) > 0 && !slices.Contains(rules.Choices, value) {

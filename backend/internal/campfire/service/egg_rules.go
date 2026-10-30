@@ -153,6 +153,8 @@ func convertEggRules(raw json.RawMessage) (model.Variable, error) {
 		case "nullable":
 			validation.Nullable = true
 		case "string", "integer", "numeric", "boolean":
+		case "url":
+			validation.Format = "url"
 		case "regex":
 			if !hasArg || variable.Pattern != "" {
 				return variable, errors.New("only one delimited regex rule is supported")

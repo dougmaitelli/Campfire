@@ -88,6 +88,7 @@ func TestEggCompatibilityFixtures(t *testing.T) {
 		{"native.json", "ember"}, {"ptdl-v1.json", "PTDL_v1"}, {"ptdl-v2.json", "PTDL_v2"},
 		{"plcn-v1.json", "PLCN_v1"}, {"plcn-v2.json", "PLCN_v2"}, {"plcn-v3.json", "PLCN_v3"}, {"plcn-v3.yaml", "PLCN_v3"},
 		{"extended.json", "PTDL_v2"}, {"valheim.json", "PTDL_v2"},
+		{"valheim-bepinex.yaml", "PLCN_v3"},
 	} {
 		t.Run(test.file, func(t *testing.T) {
 			data := eggFixture(t, test.file)

@@ -95,3 +95,33 @@ func TestEggPreviewImportPersistenceAndServerValidation(t *testing.T) {
 	input.Variables["MAX_PLAYERS"] = "20"
 	expectAccess(t, handler, "POST", "/api/v1/servers", configJSON(t, input), http.StatusCreated)
 }
+
+func TestEggURLRuleImportAndServerValidation(t *testing.T) {
+	handler, _ := openAPI(t, filepath.Join(t.TempDir(), "panel.db"))
+	_, _, input := serverFixture(t, handler)
+	definition := `{"meta":{"version":"PLCN_v3"},"name":"URL validation","tags":{},"docker_images":{"Alpine":"alpine:3.22"},"startup_commands":{"Default":"sleep 3600"},"variables":[{"env_variable":"DOWNLOAD_URL","default_value":"https://example.com/file","user_viewable":true,"user_editable":true,"rules":["required","url"]}]}`
+
+	body, err := json.Marshal(map[string]any{"definition": definition, "acknowledge_warnings": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response := request(handler, "POST", "/api/v1/embers", string(body))
+
+	var imported model.Ember
+	if response.Code != http.StatusCreated || json.Unmarshal(response.Body.Bytes(), &imported) != nil {
+		t.Fatal(response.Code, response.Body)
+	}
+
+	response = request(handler, "GET", "/api/v1/embers/"+imported.ID, "")
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &imported) != nil || len(imported.Variables) != 1 || imported.Variables[0].Validation == nil || imported.Variables[0].Validation.Format != "url" {
+		t.Fatal("URL constraint was lost in storage", response.Code, response.Body)
+	}
+
+	input.EmberID = imported.ID
+	input.Image = imported.Images["Alpine"]
+	input.Variables = map[string]string{"DOWNLOAD_URL": "relative/file"}
+	expectAccess(t, handler, "POST", "/api/v1/servers", configJSON(t, input), http.StatusBadRequest)
+	input.Variables["DOWNLOAD_URL"] = "https://example.com/another-file"
+	expectAccess(t, handler, "POST", "/api/v1/servers", configJSON(t, input), http.StatusCreated)
+}

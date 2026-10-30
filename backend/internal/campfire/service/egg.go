@@ -11,6 +11,19 @@ import (
 	"campfire/internal/shared/model"
 )
 
+// eggList accepts PHP's empty-object representation of an empty exported list.
+// Nonempty lists still use the strict decoder, including their nested fields.
+type eggList[T any] []T
+
+func (list *eggList[T]) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(bytes.TrimSpace(data), []byte("{}")) {
+		*list = nil
+		return nil
+	}
+
+	return strictDefinition(data, (*[]T)(list))
+}
+
 type eggDefinition struct {
 	Comment json.RawMessage `json:"_comment"`
 	Meta    struct {
@@ -23,10 +36,10 @@ type eggDefinition struct {
 	UUID            string            `json:"uuid"`
 	Description     string            `json:"description"`
 	Icon            string            `json:"icon"`
-	Tags            []string          `json:"tags"`
-	Features        []string          `json:"features"`
+	Tags            eggList[string]   `json:"tags"`
+	Features        eggList[string]   `json:"features"`
 	DockerImages    map[string]string `json:"docker_images"`
-	Images          []string          `json:"images"`
+	Images          eggList[string]   `json:"images"`
 	Image           string            `json:"image"`
 	FileDenylist    json.RawMessage   `json:"file_denylist"`
 	Startup         string            `json:"startup"`
@@ -44,12 +57,12 @@ type eggDefinition struct {
 			Entrypoint string  `json:"entrypoint"`
 		} `json:"installation"`
 	} `json:"scripts"`
-	Variables          []eggVariable   `json:"variables"`
-	ConfigFrom         json.RawMessage `json:"config_from"`
-	CopyScriptFrom     json.RawMessage `json:"copy_script_from"`
-	ScriptIsPrivileged bool            `json:"script_is_privileged"`
-	ForceOutgoingIP    bool            `json:"force_outgoing_ip"`
-	Mounts             json.RawMessage `json:"mounts"`
+	Variables          eggList[eggVariable] `json:"variables"`
+	ConfigFrom         json.RawMessage      `json:"config_from"`
+	CopyScriptFrom     json.RawMessage      `json:"copy_script_from"`
+	ScriptIsPrivileged bool                 `json:"script_is_privileged"`
+	ForceOutgoingIP    bool                 `json:"force_outgoing_ip"`
+	Mounts             json.RawMessage      `json:"mounts"`
 }
 
 type eggVariable struct {
@@ -171,6 +184,10 @@ func convertEgg(data []byte, report *EmberPreview) model.Ember {
 
 		if converted.Pattern != "" {
 			report.note(path+".rules", "Variable validation was converted to Go RE2. Unicode character and case-folding behavior can differ from PCRE.")
+		}
+
+		if converted.Validation != nil && converted.Validation.Format == "url" {
+			report.note(path+".rules", "URL values are validated as absolute URLs with a host using Go's URL parser.")
 		}
 
 		if converted.Default != "" && converted.ValidateValue(converted.Default) != nil {
