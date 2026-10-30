@@ -293,7 +293,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		total += size
 
 		if mode.IsDir() {
-			directoryModes[name] = mode.Perm()
+			directoryModes[name] = importedMode(mode)
 			return target.MkdirAll(name, 0700)
 		}
 
@@ -316,7 +316,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 			return err
 		}
 
-		if err := file.Chmod(mode.Perm()); err != nil {
+		if err := file.Chmod(importedMode(mode)); err != nil {
 			return err
 		}
 

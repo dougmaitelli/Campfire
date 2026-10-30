@@ -28,6 +28,10 @@ snapshot carefully, and keep enough host space for the current game directory
 and the extracted snapshot at the same time. Start the game after restoration
 finishes and check its console.
 
+Restores assign ownership to the server's runtime user and normalize permissions
+to `0600` for files and `0700` for directories and executable files. This prevents
+read-only permissions from a migrated world from blocking future saves.
+
 ## Off-host storage and retention
 
 Configure the S3 bucket, region, optional compatible endpoint, and credentials

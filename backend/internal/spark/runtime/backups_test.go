@@ -44,6 +44,55 @@ func awaitBackup(t *testing.T, m *Manager, d model.Deployment, q model.RuntimeRe
 	return status
 }
 
+func TestExtractBackupMakesMigratedWorldWritable(t *testing.T) {
+	var data bytes.Buffer
+
+	compressed := gzip.NewWriter(&data)
+	archive := tar.NewWriter(compressed)
+
+	for _, header := range []*tar.Header{
+		{Name: "worlds_local/", Typeflag: tar.TypeDir, Mode: 0500, Uid: 2000, Gid: 3000},
+		{Name: "worlds_local/test-world/", Typeflag: tar.TypeDir, Mode: 0},
+		{Name: "worlds_local/test-world/world.chunk", Typeflag: tar.TypeReg, Mode: 0444},
+		{Name: "start.sh", Typeflag: tar.TypeReg, Mode: 04755},
+	} {
+		if err := archive.WriteHeader(header); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := compressed.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	volume := t.TempDir()
+	if err := extractBackup(t.Context(), &data, volume, backupBytes); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, mode := range map[string]os.FileMode{
+		"worlds_local":                        0700,
+		"worlds_local/test-world":             0700,
+		"worlds_local/test-world/world.chunk": 0600,
+		"start.sh":                            0700,
+	} {
+		info, err := os.Stat(filepath.Join(volume, name))
+		if err != nil || info.Mode().Perm() != mode || info.Mode()&(os.ModeSetuid|os.ModeSetgid|os.ModeSticky) != 0 {
+			t.Fatal("backup did not normalize permissions", name, info, err)
+		}
+	}
+
+	for _, name := range []string{"world.chunk", "new.chunk"} {
+		if err := os.WriteFile(filepath.Join(volume, "worlds_local/test-world", name), []byte("saved world"), 0600); err != nil {
+			t.Fatal("restored world could not be saved", err)
+		}
+	}
+}
+
 func TestUnlimitedRestoreWithoutQuotaSupport(t *testing.T) {
 	m, d := fileTestManager(t)
 	m.Quota = nil
@@ -140,7 +189,7 @@ func TestBackupRoundTripChunksAndDeletion(t *testing.T) {
 		t.Fatal("restore retained a file absent from the snapshot")
 	}
 
-	for name, mode := range map[string]os.FileMode{"world": 0640, "config": 0750} {
+	for name, mode := range map[string]os.FileMode{"world": 0600, "config": 0700} {
 		info, err := os.Stat(filepath.Join(volume, name))
 		if err != nil || info.Mode().Perm() != mode {
 			t.Fatalf("restored permissions for %s: %v", name, err)

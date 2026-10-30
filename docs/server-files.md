@@ -57,9 +57,11 @@ first is recommended to avoid concurrent changes during compression or
 extraction. Leave enough disk space for the original files and the archive or
 extracted copy. Archives do not merge into an existing destination.
 
-Extraction preserves the archive's read, write, and execute permissions for files
-and folders. Special permission bits are not restored. ZIP files created on some
-platforms do not record executable permissions.
+Extraction assigns files and folders to the server's runtime user and replaces
+archive permissions with private, writable defaults: `0600` for files and `0700`
+for directories. Executable files receive `0700`; group, other, and special
+permission bits are discarded. ZIP files created on some platforms do not record
+executable permissions.
 
 Select files or folders and choose **Permissions** to apply an octal mode to all
 selected items.

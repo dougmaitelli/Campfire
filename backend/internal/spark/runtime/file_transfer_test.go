@@ -169,7 +169,7 @@ func TestConfiguredUploadLimitForKnownAndUnknownSizes(t *testing.T) {
 	}
 }
 
-func TestArchivePreservesFileAndDirectoryPermissions(t *testing.T) {
+func TestArchiveNormalizesImportedPermissions(t *testing.T) {
 	for _, format := range []string{"tar.gz", "zip"} {
 		t.Run(format, func(t *testing.T) {
 			m, d := fileTestManager(t)
@@ -182,7 +182,7 @@ func TestArchivePreservesFileAndDirectoryPermissions(t *testing.T) {
 				for _, entry := range []struct {
 					name string
 					mode os.FileMode
-				}{{"mods/", os.ModeDir | 0750}, {"mods/start.sh", 0755}} {
+				}{{"mods/", os.ModeDir | 0500}, {"mods/start.sh", os.ModeSetuid | 0755}, {"mods/world.chunk", 0444}, {"mods/locked.chunk", 0}, {"mods/group-executable.sh", 0010}} {
 					header := &zip.FileHeader{Name: entry.name}
 					header.SetMode(entry.mode)
 
@@ -198,7 +198,13 @@ func TestArchivePreservesFileAndDirectoryPermissions(t *testing.T) {
 				compressed := gzip.NewWriter(&data)
 
 				archive := tar.NewWriter(compressed)
-				for _, header := range []*tar.Header{{Name: "mods/", Typeflag: tar.TypeDir, Mode: 0750}, {Name: "mods/start.sh", Typeflag: tar.TypeReg, Mode: 0755}} {
+				for _, header := range []*tar.Header{
+					{Name: "mods/", Typeflag: tar.TypeDir, Mode: 0500},
+					{Name: "mods/start.sh", Typeflag: tar.TypeReg, Mode: 04755},
+					{Name: "mods/world.chunk", Typeflag: tar.TypeReg, Mode: 0444, Uid: 2000, Gid: 3000},
+					{Name: "mods/locked.chunk", Typeflag: tar.TypeReg, Mode: 0},
+					{Name: "mods/group-executable.sh", Typeflag: tar.TypeReg, Mode: 0010},
+				} {
 					if err := archive.WriteHeader(header); err != nil {
 						t.Fatal(err)
 					}
@@ -222,11 +228,20 @@ func TestArchivePreservesFileAndDirectoryPermissions(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			for name, mode := range map[string]os.FileMode{"mods": 0750, "mods/start.sh": 0755} {
+			for name, mode := range map[string]os.FileMode{"mods": 0700, "mods/start.sh": 0700, "mods/world.chunk": 0600, "mods/locked.chunk": 0600, "mods/group-executable.sh": 0700} {
 				info, err := os.Stat(filepath.Join(volume, "unpacked", name))
 				if err != nil || info.Mode().Perm() != mode {
-					t.Fatal("archive changed permissions", name, info, err)
+					t.Fatal("archive did not normalize permissions", name, info, err)
 				}
+			}
+
+			world := filepath.Join(volume, "unpacked/mods/world.chunk")
+			if err := os.WriteFile(world, []byte("updated world"), 0600); err != nil {
+				t.Fatal("imported world could not be saved", err)
+			}
+
+			if err := os.WriteFile(filepath.Join(volume, "unpacked/mods/new.chunk"), []byte("new world chunk"), 0600); err != nil {
+				t.Fatal("imported world folder could not receive new chunks", err)
 			}
 		})
 	}

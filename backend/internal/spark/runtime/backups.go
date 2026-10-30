@@ -355,7 +355,7 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 				return err
 			}
 
-			directories = append(directories, directoryMode{name: name, mode: fs.FileMode(header.Mode) & 0777})
+			directories = append(directories, directoryMode{name: name, mode: importedMode(fs.ModeDir)})
 
 			continue
 		}
@@ -366,7 +366,7 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 		}
 
 		_, copyErr := io.CopyN(file, backupReader{ctx, archive}, header.Size)
-		modeErr := file.Chmod(fs.FileMode(header.Mode) & 0777)
+		modeErr := file.Chmod(importedMode(fs.FileMode(header.Mode)))
 		syncErr := file.Sync()
 
 		closeErr := file.Close()
@@ -381,7 +381,7 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 		return errors.New("backup checksum or trailing data is invalid")
 	}
 
-	// Restore directory permissions after their children have been extracted.
+	// Normalize directory permissions after their children have been extracted.
 	sort.Slice(directories, func(i, j int) bool { return len(directories[i].name) > len(directories[j].name) })
 
 	for _, item := range directories {
