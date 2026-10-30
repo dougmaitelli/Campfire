@@ -42,6 +42,15 @@ The browser displays the configured upload limit. Its default is 1024 MiB per
 file; operators can change `CAMPFIRE_MAX_UPLOAD_MIB` on the panel. The text editor
 has a separate 1 MiB limit. Uploads show progress and can be cancelled.
 
+Choose **Upload Files** or drag files from your computer onto the file browser.
+A **Release to upload** overlay identifies the destination folder. Uploads require file writing access;
+folder drops are unsupported, and existing files are not overwritten.
+
+The progress bar shows the bytes transferred across the selected files, the
+current filename, and its position in the queue. **Cancel upload** stops the
+current file and the remaining queue; files already uploaded are kept. The file
+list refreshes when the upload finishes or is cancelled.
+
 Use **Compress** to create a `.tar.gz` archive. **Extract** accepts `.zip`,
 `.tar.gz`, and `.tgz` and requires a new destination folder. Stopping the game
 first is recommended to avoid concurrent changes during compression or

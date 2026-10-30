@@ -760,6 +760,21 @@
     "youCanEditTheNameAndDescriptionDuringAnOperation": "You can edit the name and description during an operation. Game settings, resources and ports are locked until it finishes.",
     "zeroDisablesALimitLocalAndS3CopiesExpireIndependently": "Zero disables a limit. Local and S3 copies expire independently. A local copy awaiting a required S3 upload is retained until sync succeeds."
   },
+  "fileUploads": {
+    "fileBrowser": "File browser",
+    "releaseToUpload": "Release to upload",
+    "destination": "Files will be uploaded to {{directory}}",
+    "foldersUnsupported": "Drop files only. Folder uploads are not supported.",
+    "uploadProgress": "Upload progress",
+    "uploading": "Uploading file {{index}} of {{count}}",
+    "saving": "Saving file {{index}} of {{count}}…",
+    "cancelling": "Cancelling upload…",
+    "transferred": "{{uploaded}} of {{total}}",
+    "cancelUpload": "Cancel upload",
+    "cancelled": "Upload cancelled. Completed files are kept.",
+    "completed_one": "{{count}} file uploaded.",
+    "completed_other": "{{count}} files uploaded."
+  },
   "serverFilesDrawer": {
     "fileType": "Type",
     "folderType": "Folder",
@@ -769,7 +784,6 @@
     "archiveName": "Archive name",
     "backToFiles": "Back to files",
     "browseGameFilesTextEditingSupports1MiB": "Browse game files. {{maxUploadBytesNullLoading}} Text editing supports 1 MiB.",
-    "cancelUpload": "Cancel upload",
     "compress2": "Compress",
     "compress3": "Compress {{entryName}}",
     "connectWithAnSFTPClientUsingTheAddressAndPort": "Connect with an SFTP client using the address and port provided by your administrator. SFTP must be enabled first.",
@@ -844,7 +858,6 @@
     "unableToLoadFiles": "Unable to load files.",
     "unsavedChanges": "Unsaved changes",
     "uploadFile": "Upload file",
-    "uploading": "Uploading {{fileName}}: {{MathFloor100}}%",
     "uploadFiles": "Upload Files",
     "uploadLimitIsUnavailableReopenFilesToTryAgain": "Upload limit is unavailable. Reopen Files to try again.",
     "uploadsAreLimitedToMiBPerFile": "Uploads are limited to {{toLocaleString}} MiB per file.",

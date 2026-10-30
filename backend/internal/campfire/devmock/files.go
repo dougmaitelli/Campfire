@@ -47,6 +47,17 @@ func cleanPath(value string) (string, error) {
 // Files keeps small editable game files in SQLite, never on the host filesystem.
 // Directory keys end in a slash; game-file keys do not.
 func (r *Runtime) Files(ctx context.Context, spark string, request model.FileRequest) (model.FileResult, error) {
+	if request.Operation == "upload.chunk" || request.Operation == "upload.commit" {
+		timer := time.NewTimer(250 * time.Millisecond)
+		defer timer.Stop()
+
+		select {
+		case <-ctx.Done():
+			return model.FileResult{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -65,6 +76,9 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 	}
 
 	result := model.FileResult{ServerID: request.ServerID, Path: name}
+	if strings.HasPrefix(request.Operation, "upload.") {
+		return r.uploadFile(record, request, result)
+	}
 
 	if record.FileModes == nil {
 		record.FileModes = make(map[string]uint32)

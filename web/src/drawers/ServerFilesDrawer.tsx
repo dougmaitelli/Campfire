@@ -30,6 +30,11 @@ import { bytes } from "../api/monitoring";
 import { EMPTY_VALUE } from "../utils/formatDisplayValue";
 import "../components/servers/files.css";
 import { Permission } from "../api/permissions";
+import { FileDropZone } from "../components/files/FileDropZone";
+import {
+  FileUploadProgress,
+  type UploadProgress,
+} from "../components/files/FileUploadProgress";
 
 interface Editor {
   path: string;
@@ -106,7 +111,22 @@ export function ServerFilesDrawer({
   const alive = useRef(true);
   const transfer = useRef<AbortController | null>(null);
   const uploadInput = useRef<HTMLInputElement | null>(null);
-  const [progress, setProgress] = useState<string | null>(null);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<{
+    tone: "info" | "success";
+    text: string;
+  } | null>(null);
+  const canUpload =
+    canWrite &&
+    !busy &&
+    !loading &&
+    maxUploadBytes !== null &&
+    !editor &&
+    !creating &&
+    !fileAction &&
+    !deleting &&
+    !permissionsEntries &&
+    !bulkAction;
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -301,7 +321,82 @@ export function ServerFilesDrawer({
       setBusy(false);
     }
   }
-  async function upload(file: File) {
+  async function uploadFiles(files: File[]) {
+    if (!canUpload || pending.current || !files.length) return;
+    await perform(async () => {
+      setUploadNotice(null);
+      for (const file of files) {
+        entryName(file.name);
+        if (file.size > maxUploadBytes)
+          throw new Error(
+            t("serverFilesDrawer.uploadsAreLimitedToMiBPerFile", {
+              toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
+            }),
+          );
+      }
+      const controller = new AbortController();
+      transfer.current = controller;
+      const folder = directory;
+      const totalBytes = files.reduce((total, file) => total + file.size, 0);
+      let uploadedBytes = 0;
+      try {
+        for (const [index, file] of files.entries()) {
+          controller.signal.throwIfAborted();
+          if (!alive.current) break;
+          setProgress({
+            name: file.name,
+            index: index + 1,
+            count: files.length,
+            completedFiles: index,
+            uploadedBytes,
+            totalBytes,
+            phase: "uploading",
+          });
+          const previousBytes = uploadedBytes;
+          await upload(file, controller, (transferred, phase) => {
+            if (alive.current && !controller.signal.aborted)
+              setProgress({
+                name: file.name,
+                index: index + 1,
+                count: files.length,
+                completedFiles: index,
+                uploadedBytes: previousBytes + transferred,
+                totalBytes,
+                phase,
+              });
+          });
+          uploadedBytes += file.size;
+        }
+        if (alive.current)
+          setUploadNotice({
+            tone: "success",
+            text: t("fileUploads.completed", { count: files.length }),
+          });
+      } catch (cause) {
+        if (!controller.signal.aborted) throw cause;
+        if (alive.current)
+          setUploadNotice({ tone: "info", text: t("fileUploads.cancelled") });
+      } finally {
+        transfer.current = null;
+        if (alive.current) {
+          setProgress(null);
+          await load(folder);
+        }
+      }
+    });
+  }
+  function cancelUpload() {
+    if (!transfer.current || transfer.current.signal.aborted) return;
+    setProgress((current) =>
+      current ? { ...current, phase: "cancelling" } : null,
+    );
+    transfer.current.abort();
+  }
+  async function upload(
+    file: File,
+    controller: AbortController,
+    onProgress: (uploaded: number, phase: "uploading" | "saving") => void,
+  ) {
     if (maxUploadBytes === null)
       throw new Error(
         i18n.t(
@@ -316,8 +411,6 @@ export function ServerFilesDrawer({
       );
     const name = entryName(file.name);
     if (name === null) return;
-    const controller = new AbortController();
-    transfer.current = controller;
     const target = join(directory, name);
     let uploadID: string | undefined;
     let committed = false;
@@ -336,18 +429,13 @@ export function ServerFilesDrawer({
       if (!uploadID)
         throw new Error(i18n.t("serverFilesDrawer.uploadSessionIsMissing"));
       for (let offset = 0; offset < file.size; offset += fileLimit) {
-        if (alive.current)
-          setProgress(
-            i18n.t("serverFilesDrawer.uploading", {
-              fileName: file.name,
-              MathFloor100: Math.floor((offset / file.size) * 100),
-            }),
-          );
+        controller.signal.throwIfAborted();
         const data = encodeBytes(
           new Uint8Array(
             await file.slice(offset, offset + fileLimit).arrayBuffer(),
           ),
         );
+        controller.signal.throwIfAborted();
         await manageFiles(
           server.id,
           {
@@ -359,7 +447,10 @@ export function ServerFilesDrawer({
           },
           controller.signal,
         );
+        onProgress(Math.min(file.size, offset + fileLimit), "uploading");
       }
+      controller.signal.throwIfAborted();
+      onProgress(file.size, "saving");
       await manageFiles(
         server.id,
         { operation: "upload.commit", path: target, upload_id: uploadID },
@@ -378,10 +469,7 @@ export function ServerFilesDrawer({
           /* Expired staging files are cleaned on the Spark. */
         }
       }
-      transfer.current = null;
-      if (alive.current) setProgress(null);
     }
-    await load(directory);
   }
   async function archive(entry: FileEntry, extract: boolean, value: string) {
     const destination = entryName(value);
@@ -517,13 +605,7 @@ export function ServerFilesDrawer({
               onChange={(event) => {
                 const files = Array.from(event.target.files ?? []);
                 event.target.value = "";
-                if (files.length)
-                  void perform(async () => {
-                    for (const file of files) {
-                      if (!alive.current) break;
-                      await upload(file);
-                    }
-                  });
+                void uploadFiles(files);
               }}
             />
           </div>
@@ -567,7 +649,14 @@ export function ServerFilesDrawer({
         ) : null
       }
     >
-      <div className="drawer-content">
+      <FileDropZone
+        enabled={canUpload}
+        directory={directory}
+        onFiles={(files) => {
+          void uploadFiles(files);
+        }}
+        onError={setError}
+      >
         {bulkAction && (
           <InputDialog
             title={t(
@@ -713,12 +802,12 @@ export function ServerFilesDrawer({
           />
         )}
         {progress && (
-          <p role="status">
-            {progress}{" "}
-            <Button onClick={() => transfer.current?.abort()}>
-              {t("serverFilesDrawer.cancelUpload")}
-            </Button>
-          </p>
+          <FileUploadProgress progress={progress} onCancel={cancelUpload} />
+        )}
+        {uploadNotice && (
+          <InlineMessage tone={uploadNotice.tone}>
+            {uploadNotice.text}
+          </InlineMessage>
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {!canWrite && (
@@ -1022,7 +1111,7 @@ export function ServerFilesDrawer({
             </div>
           </>
         )}
-      </div>
+      </FileDropZone>
     </Drawer>
   );
 }

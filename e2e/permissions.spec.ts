@@ -346,6 +346,24 @@ test("file readers inherit operation and logs without file writing or console co
     page.getByRole("button", { name: "Upload Files", exact: true }),
   ).toBeDisabled();
   await expect(page.getByRole("alert")).toHaveCount(0);
+  const files = await page.evaluateHandle(() => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File(["read only"], "forbidden.txt"));
+    return transfer;
+  });
+  const browser = page.getByRole("region", {
+    name: "File browser",
+    exact: true,
+  });
+  await browser.dispatchEvent("dragenter", { dataTransfer: files });
+  await expect(
+    page.getByText("Release to upload", { exact: true }),
+  ).toHaveCount(0);
+  await browser.dispatchEvent("drop", { dataTransfer: files });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "forbidden.txt", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Delete", exact: true }),
   ).toBeDisabled();

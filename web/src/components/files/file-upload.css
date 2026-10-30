@@ -1,0 +1,136 @@
+.file-drop-zone {
+  position: relative;
+  min-height: 160px;
+}
+
+.file-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.file-drop-message {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 24px;
+  text-align: center;
+  overflow-wrap: anywhere;
+
+  & svg {
+    width: 40px;
+    height: 40px;
+    color: var(--accent);
+  }
+
+  & strong {
+    font-size: 20px;
+    color: var(--text);
+  }
+
+  & span {
+    color: var(--muted);
+    font-size: 14px;
+  }
+}
+
+.file-upload {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.file-upload-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  & .button {
+    flex-shrink: 0;
+  }
+}
+
+.file-upload-details {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+
+  & span {
+    color: var(--muted);
+    font-size: 13px;
+  }
+}
+
+.file-upload-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.file-upload-bar {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--control-bg);
+  overflow: hidden;
+
+  &::-webkit-progress-bar {
+    background: var(--control-bg);
+    border-radius: 999px;
+  }
+
+  &::-webkit-progress-value {
+    background: var(--accent);
+    border-radius: 999px;
+  }
+
+  &::-moz-progress-bar {
+    background: var(--accent);
+    border-radius: 999px;
+  }
+}
+
+.file-upload-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+
+  & strong {
+    color: var(--accent);
+  }
+}
+
+@media (max-width: 480px) {
+  .file-upload-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .file-upload-details {
+    width: 100%;
+  }
+}

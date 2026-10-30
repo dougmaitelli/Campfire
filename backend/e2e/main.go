@@ -43,7 +43,15 @@ type runtime struct {
 	fileModes map[string]map[string]uint32
 	backups   map[string][]model.FileEntry
 	archives  map[string][]byte
+	uploads   map[string]*uploadFixture
 	updates   chan struct{}
+}
+
+type uploadFixture struct {
+	serverID string
+	path     string
+	size     int64
+	data     []byte
 }
 
 func (*runtime) Connected(id string) bool { return id != "mock-offline" }

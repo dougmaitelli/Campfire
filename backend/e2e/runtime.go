@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"path"
@@ -60,6 +61,45 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 	modes := r.fileModes[input.ServerID]
 	name := path.Clean(input.Path)
 	switch input.Operation {
+	case "upload.begin":
+		if _, exists := files[name]; exists {
+			return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+		}
+
+		if r.uploads == nil {
+			r.uploads = make(map[string]*uploadFixture)
+		}
+
+		result.UploadID = rand.Text()
+		r.uploads[result.UploadID] = &uploadFixture{serverID: input.ServerID, path: name, size: input.Size}
+	case "upload.chunk", "upload.commit", "upload.cancel":
+		upload := r.uploads[input.UploadID]
+		if upload == nil || upload.serverID != input.ServerID || upload.path != name {
+			return result, &model.FileError{Code: "invalid_file", Message: "Upload session not found."}
+		}
+
+		switch input.Operation {
+		case "upload.chunk":
+			if input.Offset != int64(len(upload.data)) || input.Offset+int64(len(input.Data)) > upload.size {
+				return result, &model.FileError{Code: "invalid_file", Message: "Invalid upload offset or size."}
+			}
+
+			upload.data = append(upload.data, input.Data...)
+		case "upload.commit":
+			if int64(len(upload.data)) != upload.size {
+				return result, &model.FileError{Code: "invalid_file", Message: "Upload is incomplete."}
+			}
+
+			if _, exists := files[name]; exists {
+				return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+			}
+
+			files[name] = string(upload.data)
+
+			delete(r.uploads, input.UploadID)
+		case "upload.cancel":
+			delete(r.uploads, input.UploadID)
+		}
 	case "backup.list":
 		result.Entries = r.backups[input.ServerID]
 	case "backup.read":

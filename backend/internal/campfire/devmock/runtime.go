@@ -29,6 +29,7 @@ type Runtime struct {
 	mu           sync.Mutex
 	games        *service.GameIntegrationService
 	gameSessions map[string]*gameSession
+	uploads      map[string]*mockUpload
 	now          func() time.Time
 }
 
