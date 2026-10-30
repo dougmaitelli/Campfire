@@ -1,4 +1,4 @@
-import { test, expect, screenshot } from "./fixtures";
+import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
 import {
   login,
   screens,
@@ -271,7 +271,7 @@ test("console commands arrive in the live log stream", async ({ page }) => {
   ).toContainText("Command accepted.");
 });
 
-test("console search preserves toolbar height and supports keyboard navigation", async ({
+test("console search supports toolbar controls and keyboard navigation", async ({
   page,
 }) => {
   await login(page);
@@ -283,8 +283,10 @@ test("console search preserves toolbar height and supports keyboard navigation",
     page.getByRole("region", { name: "Console output", exact: true }),
   ).toContainText("Command accepted.");
   const toolbar = page.locator(".server-terminal-toolbar");
-  const before = await toolbar.boundingBox();
-  expect(before).not.toBeNull();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await prepareScreenshot(page);
+  await expect(toolbar).toHaveScreenshot("console-toolbar-mobile.png");
+  await page.setViewportSize({ width: 1400, height: 1100 });
   await command.focus();
   await page.keyboard.press("Control+f");
   const search = page.getByRole("textbox", {
@@ -292,31 +294,40 @@ test("console search preserves toolbar height and supports keyboard navigation",
     exact: true,
   });
   await expect(search).toBeFocused();
-  const after = await toolbar.boundingBox();
-  expect(after?.height).toBe(before?.height);
-  expect(after?.y).toBe(before?.y);
-  const bounds = await search.boundingBox();
-  expect(bounds?.width).toBeLessThanOrEqual(640);
-  const buttons = page.getByRole("search").getByRole("button");
-  const positions = () =>
-    buttons.evaluateAll((elements) =>
-      elements.map((element) => {
-        const { x, y, width, height } = element.getBoundingClientRect();
-        return { x, y, width, height };
-      }),
-    );
-  const initialPositions = await positions();
   await search.fill("no-such-console-output");
   await expect(page.getByText("No matches", { exact: true })).toBeVisible();
-  expect(await search.boundingBox()).toEqual(bounds);
-  expect(await positions()).toEqual(initialPositions);
+  await prepareScreenshot(page);
+  await expect(toolbar).toHaveScreenshot("console-toolbar-search-empty.png");
   await search.fill("Command accepted.");
   await expect(page.getByText("No matches", { exact: true })).toHaveCount(0);
+  const count = page.locator(".server-terminal-search-status [role=status]");
+  await expect(count).toHaveText("1 / 1");
+  await prepareScreenshot(page);
+  await expect(toolbar).toHaveScreenshot("console-toolbar-search.png");
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
   await search.press("Enter");
   await search.press("Shift+Enter");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await prepareScreenshot(page);
+  await expect(toolbar).toHaveScreenshot("console-toolbar-search-mobile.png");
+  await command.fill("help");
+  await page.getByRole("button", { name: "Send command", exact: true }).click();
+  await expect(count).toHaveText(/^[12] \/ 2$/);
+  const beforeNext = await count.innerText();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(count).toHaveText(beforeNext === "1 / 2" ? "2 / 2" : "1 / 2");
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
+  await expect(count).toHaveText(beforeNext);
   await search.press("Escape");
   await expect(page.getByRole("search")).toHaveCount(0);
   await expect(command).toBeVisible();
+  await page
+    .getByRole("button", { name: "Search console", exact: true })
+    .click();
+  await expect(search).toBeFocused();
+  await page.getByRole("button", { name: "Close search", exact: true }).click();
+  await expect(page.getByRole("search")).toHaveCount(0);
 });
 
 test("binary file rows remain selectable and downloadable without opening the editor", async ({

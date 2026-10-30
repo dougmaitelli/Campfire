@@ -8,12 +8,18 @@ import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { SearchAddon } from "@xterm/addon-search";
+import {
+  SearchAddon,
+  type ISearchOptions,
+  type ISearchResultChangeEvent,
+} from "@xterm/addon-search";
 import { StatusPill, type StatusTone } from "../status/StatusPill";
 import { sendConsole } from "../../api/runtime";
 import { connectConsole, type ConsoleStreamMode } from "./consoleStream";
 import "@xterm/xterm/css/xterm.css";
 import "./server-terminal.css";
+
+const searchResultLimit = 1000;
 
 export function ServerTerminal({
   serverID,
@@ -32,22 +38,40 @@ export function ServerTerminal({
   const container = useRef<HTMLDivElement>(null);
   const terminal = useRef<Terminal | null>(null);
   const search = useRef<SearchAddon | null>(null);
+  const searchDecorations = useRef<ISearchOptions["decorations"]>(undefined);
   const searchInput = useRef<HTMLInputElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [noResults, setNoResults] = useState(false);
+  const [results, setResults] = useState<ISearchResultChangeEvent>({
+    resultIndex: -1,
+    resultCount: 0,
+  });
+  const countValues = {
+    current:
+      results.resultIndex < 0
+        ? "–"
+        : (results.resultIndex + 1).toLocaleString(),
+    total:
+      results.resultCount.toLocaleString() +
+      (results.resultCount >= searchResultLimit ? "+" : ""),
+  };
 
   function find(previous = false, incremental = false, value = query) {
     const addon = search.current;
-    if (!addon) return;
+    const decorations = searchDecorations.current;
+    if (!addon || !decorations) return;
     if (!value) {
+      addon.clearDecorations();
       terminal.current?.clearSelection();
       setNoResults(false);
+      setResults({ resultIndex: -1, resultCount: 0 });
       return;
     }
+    const options = { incremental, decorations };
     const found = previous
-      ? addon.findPrevious(value, { incremental })
-      : addon.findNext(value, { incremental });
+      ? addon.findPrevious(value, options)
+      : addon.findNext(value, options);
     setNoResults(!found);
   }
 
@@ -60,6 +84,8 @@ export function ServerTerminal({
 
   function closeSearch() {
     setSearchOpen(false);
+    search.current?.clearDecorations();
+    setResults({ resultIndex: -1, resultCount: 0 });
     terminal.current?.clearSelection();
     terminal.current?.focus();
   }
@@ -130,7 +156,15 @@ export function ServerTerminal({
   useEffect(() => {
     if (!container.current) return;
     const colors = getComputedStyle(document.documentElement);
+    searchDecorations.current = {
+      matchBackground: colors.getPropertyValue("--accent-subtle").trim(),
+      matchOverviewRuler: colors.getPropertyValue("--accent").trim(),
+      activeMatchBackground: colors.getPropertyValue("--accent-border").trim(),
+      activeMatchBorder: colors.getPropertyValue("--accent").trim(),
+      activeMatchColorOverviewRuler: colors.getPropertyValue("--accent").trim(),
+    };
     const term = new Terminal({
+      allowProposedApi: true,
       disableStdin: true,
       convertEol: true,
       cursorBlink: false,
@@ -168,8 +202,12 @@ export function ServerTerminal({
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    const searchAddon = new SearchAddon();
+    const searchAddon = new SearchAddon({ highlightLimit: searchResultLimit });
     term.loadAddon(searchAddon);
+    const resultListener = searchAddon.onDidChangeResults((next) => {
+      setResults(next);
+      setNoResults(next.resultCount === 0);
+    });
     search.current = searchAddon;
     term.open(container.current);
     terminal.current = term;
@@ -183,6 +221,7 @@ export function ServerTerminal({
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
+      resultListener.dispose();
       terminal.current = null;
       search.current = null;
       term.dispose();
@@ -220,6 +259,18 @@ export function ServerTerminal({
     >
       <div className="server-terminal-window">
         <div className="server-terminal-toolbar">
+          <Button
+            className="server-terminal-search-toggle"
+            size="small"
+            type="button"
+            iconOnly
+            aria-label={t("serverTerminal.search")}
+            aria-expanded={searchOpen}
+            title={t("serverTerminal.search")}
+            onClick={openSearch}
+          >
+            <NavigationIcon name="search" />
+          </Button>
           {searchOpen && (
             <form
               className="server-terminal-search"
@@ -254,10 +305,10 @@ export function ServerTerminal({
                 disabled={!query}
                 onClick={() => find(true)}
               >
-                {t("serverTerminal.previousMatch")}
+                {t("serverTerminal.previous")}
               </Button>
               <Button size="small" type="submit" disabled={!query}>
-                {t("serverTerminal.nextMatch")}
+                {t("serverTerminal.next")}
               </Button>
               <Button
                 size="small"
@@ -273,8 +324,21 @@ export function ServerTerminal({
                   aria-hidden="true"
                   data-label={t("serverTerminal.noResults")}
                 />
-                <span role="status">
-                  {noResults ? t("serverTerminal.noResults") : ""}
+                <span
+                  role="status"
+                  aria-label={
+                    noResults
+                      ? t("serverTerminal.noResults")
+                      : results.resultCount > 0
+                        ? t("serverTerminal.matchCountLabel", countValues)
+                        : undefined
+                  }
+                >
+                  {noResults
+                    ? t("serverTerminal.noResults")
+                    : results.resultCount > 0
+                      ? t("serverTerminal.matchCount", countValues)
+                      : ""}
                 </span>
               </span>
             </form>
@@ -287,16 +351,6 @@ export function ServerTerminal({
               size="small"
               type="button"
               iconOnly
-              aria-label={t("serverTerminal.search")}
-              title={t("serverTerminal.search")}
-              onClick={openSearch}
-            >
-              <NavigationIcon name="search" />
-            </Button>
-            <Button
-              size="small"
-              type="button"
-              iconOnly
               aria-label={t("serverTerminal.downloadLogs")}
               title={t(
                 "serverTerminal.downloadRetainedConsoleOutputUpTo5000LinesOf",
@@ -304,16 +358,6 @@ export function ServerTerminal({
               onClick={downloadLogs}
             >
               <NavigationIcon name="download" />
-            </Button>
-            <Button
-              size="small"
-              type="button"
-              iconOnly
-              aria-label={t("serverTerminal.clear")}
-              title={t("serverTerminal.clear")}
-              onClick={() => terminal.current?.clear()}
-            >
-              <NavigationIcon name="delete" />
             </Button>
           </ActionGroup>
         </div>
