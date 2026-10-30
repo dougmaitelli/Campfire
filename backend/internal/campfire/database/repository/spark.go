@@ -119,6 +119,10 @@ func (r *SparkRepository) Get(ctx context.Context, id string) (model.Spark, erro
 // Update changes only supplied operator fields, including explicit false values.
 func (r *SparkRepository) Update(ctx context.Context, id string, changes model.SparkChanges) (model.Spark, error) {
 	fields := make(map[string]any)
+	if changes.Name != nil {
+		fields["name"] = *changes.Name
+	}
+
 	if changes.Description != nil {
 		fields["description"] = *changes.Description
 	}
@@ -157,6 +161,10 @@ func (r *SparkRepository) Update(ctx context.Context, id string, changes model.S
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		result := tx.Model(&database.Spark{}).Where("id = ?", id).Updates(fields)
 		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
+				return ErrConflict
+			}
+
 			return fmt.Errorf("update Spark: %w", result.Error)
 		}
 

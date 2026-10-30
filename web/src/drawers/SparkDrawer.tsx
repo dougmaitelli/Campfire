@@ -106,7 +106,12 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
     try {
       const existing = spark ?? created;
       const result = existing
-        ? await updateSpark(existing.id, { description, disabled, ...settings })
+        ? await updateSpark(existing.id, {
+            name: name.trim(),
+            description,
+            disabled,
+            ...settings,
+          })
         : await createSpark({
             name: name.trim(),
             description,
@@ -175,7 +180,6 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                   maxLength={100}
                   placeholder={t("sparkDrawer.eGHomeServer")}
                   autoComplete="off"
-                  readOnly={spark !== null || created !== null}
                 />
               </FormField>
               <FormField

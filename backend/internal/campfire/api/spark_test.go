@@ -279,6 +279,69 @@ func TestSparkDescriptionAndDisabledUpdates(t *testing.T) {
 	}
 }
 
+func TestSparkRenameValidationAndPersistence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "panel.db")
+	handler, closeDB := openAPI(t, path)
+
+	response := request(handler, "POST", "/api/v1/sparks", `{"name":"Original node","description":"Keep this description"}`)
+	if response.Code != http.StatusCreated {
+		t.Fatal(response.Code, response.Body.String())
+	}
+
+	var original model.Spark
+	if err := json.Unmarshal(response.Body.Bytes(), &original); err != nil {
+		t.Fatal(err)
+	}
+
+	endpoint := "/api/v1/sparks/" + original.ID
+	for _, body := range []string{`{"name":"  Renamed node  "}`, `{"name":"renamed node"}`} {
+		response = request(handler, "PATCH", endpoint, body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("rename: %d %s", response.Code, response.Body)
+		}
+	}
+
+	for _, body := range []string{
+		`{"name":""}`, `{"name":"  "}`, `{"name":"bad\nname"}`, `{"name":false}`,
+		`{"name":"bad\u0000name"}`, `{"name":null}`,
+		fmt.Sprintf(`{"name":%q}`, strings.Repeat("a", 101)),
+	} {
+		response = request(handler, "PATCH", endpoint, body)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("invalid name %s: %d %s", body, response.Code, response.Body)
+		}
+	}
+
+	response = request(handler, "POST", "/api/v1/sparks", `{"name":"Other node"}`)
+	if response.Code != http.StatusCreated {
+		t.Fatal(response.Code, response.Body.String())
+	}
+
+	response = request(handler, "PATCH", endpoint, `{"name":"OTHER NODE","description":"Must not be saved"}`)
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), service.ErrSparkConflict.Error()) {
+		t.Fatalf("duplicate rename: %d %s", response.Code, response.Body)
+	}
+
+	closeDB()
+
+	handler, _ = openAPI(t, path)
+
+	response = request(handler, "GET", endpoint, "")
+	if response.Code != http.StatusOK {
+		t.Fatal(response.Code, response.Body.String())
+	}
+
+	var renamed model.Spark
+	if err := json.Unmarshal(response.Body.Bytes(), &renamed); err != nil {
+		t.Fatal(err)
+	}
+
+	original.Name = "renamed node"
+	if !reflect.DeepEqual(renamed, original) {
+		t.Fatalf("rename changed other fields or did not persist: %+v", renamed)
+	}
+}
+
 func TestSparkCapacityAndNetworking(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "panel.db")
 	handler, closeDB := openAPI(t, path)

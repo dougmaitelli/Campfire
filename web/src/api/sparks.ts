@@ -130,7 +130,7 @@ export async function createSpark(input: CreateSparkInput): Promise<Spark> {
 
 export async function updateSpark(
   id: string,
-  input: Partial<Omit<CreateSparkInput, "name">>,
+  input: Partial<CreateSparkInput>,
 ): Promise<Spark> {
   const response = await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}`, {
     method: "PATCH",

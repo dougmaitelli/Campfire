@@ -82,10 +82,9 @@ func NewSparkService(store SparkStore, connectivity SparkConnectivity) *SparkSer
 
 // Create validates input and assigns the identifier and creation timestamp.
 func (s *SparkService) Create(ctx context.Context, input CreateSparkInput) (model.Spark, error) {
-	name := strings.TrimSpace(input.Name)
-	if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > 100 ||
-		strings.ContainsFunc(name, unicode.IsControl) {
-		return model.Spark{}, ErrInvalidSpark
+	name, err := validateSparkName(input.Name)
+	if err != nil {
+		return model.Spark{}, err
 	}
 
 	description, err := validateDescription(input.Description)
@@ -137,10 +136,19 @@ func (s *SparkService) Get(ctx context.Context, id string) (model.Spark, error) 
 	return s.withConnectivity(spark), err
 }
 
-// Update changes description or disabled state without changing node identity.
+// Update changes operator fields without changing node identity.
 func (s *SparkService) Update(ctx context.Context, id string, input UpdateSparkInput) (model.Spark, error) {
-	if input.Description == nil && input.Disabled == nil && input.GameAddress == nil && input.CPULimit == nil && input.MemoryMB == nil && input.DiskMB == nil && input.PortAllocations == nil {
+	if input.Name == nil && input.Description == nil && input.Disabled == nil && input.GameAddress == nil && input.CPULimit == nil && input.MemoryMB == nil && input.DiskMB == nil && input.PortAllocations == nil {
 		return model.Spark{}, ErrEmptySparkUpdate
+	}
+
+	if input.Name != nil {
+		name, err := validateSparkName(*input.Name)
+		if err != nil {
+			return model.Spark{}, err
+		}
+
+		input.Name = &name
 	}
 
 	if input.Description != nil {
@@ -157,6 +165,10 @@ func (s *SparkService) Update(ctx context.Context, id string, input UpdateSparkI
 	}
 
 	spark, err := s.store.Update(ctx, id, input)
+	if errors.Is(err, repository.ErrConflict) {
+		return model.Spark{}, ErrSparkConflict
+	}
+
 	if errors.Is(err, repository.ErrSparkReservations) {
 		return model.Spark{}, ErrSparkReservations
 	}
@@ -190,6 +202,15 @@ func (s *SparkService) withConnectivity(spark model.Spark) model.Spark {
 	}
 
 	return spark
+}
+
+func validateSparkName(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" || !utf8.ValidString(value) || utf8.RuneCountInString(value) > 100 || strings.ContainsFunc(value, unicode.IsControl) {
+		return "", ErrInvalidSpark
+	}
+
+	return value, nil
 }
 
 func validateDescription(value string) (string, error) {

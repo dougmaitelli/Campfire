@@ -40,6 +40,7 @@ type PortAllocation struct {
 
 // SparkChanges contains mutable fields; nil values leave stored values unchanged.
 type SparkChanges struct {
+	Name            *string           `json:"name"`
 	Description     *string           `json:"description"`
 	Disabled        *bool             `json:"disabled"`
 	GameAddress     *string           `json:"game_address"`
