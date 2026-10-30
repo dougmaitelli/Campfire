@@ -1,7 +1,93 @@
 import { test, expect, screenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
 
-test("role presets add dependencies and removing file writing removes restore", async ({
+test("server permission presets replace the selection with their complete grants", async ({
+  page,
+}) => {
+  await login(page);
+  await openScreen(page, "roles", "Roles");
+  await page
+    .getByRole("button", { name: "+ Create role", exact: true })
+    .click();
+  const drawer = page.getByRole("dialog", { name: "Create role", exact: true });
+  const preset = drawer.getByRole("combobox", {
+    name: "Apply a permission preset",
+    exact: true,
+  });
+  await preset.click();
+  await expect(page.getByRole("option")).toHaveText([
+    "Choose a preset…",
+    "Log viewer",
+    "Basic operator",
+    "Backup maintainer",
+    "Server administrator",
+  ]);
+  await page.getByRole("option", { name: "Log viewer", exact: true }).click();
+  async function selectedPermissions() {
+    return drawer
+      .locator('input[type="checkbox"]:checked')
+      .evaluateAll((boxes) =>
+        boxes
+          .map((box) => box.closest("li")!.getAttribute("data-permission")!)
+          .sort(),
+      );
+  }
+  expect(await selectedPermissions()).toEqual([
+    "server.console.read",
+    "server.view",
+  ]);
+  await preset.click();
+  await page
+    .getByRole("option", { name: "Basic operator", exact: true })
+    .click();
+  expect(await selectedPermissions()).toEqual([
+    "server.console.read",
+    "server.operate",
+    "server.view",
+  ]);
+  await preset.click();
+  await page
+    .getByRole("option", { name: "Backup maintainer", exact: true })
+    .click();
+  expect(await selectedPermissions()).toEqual([
+    "server.backups.create",
+    "server.backups.download",
+    "server.backups.read",
+    "server.backups.restore",
+    "server.console.read",
+    "server.operate",
+    "server.view",
+  ]);
+  await preset.click();
+  await screenshot(page, "role-permission-presets.png");
+  await page
+    .getByRole("option", { name: "Server administrator", exact: true })
+    .click();
+  const catalogResponse = await page.request.get("/api/v1/permissions");
+  expect(catalogResponse.ok()).toBeTruthy();
+  const catalog = (await catalogResponse.json()) as { id: string }[];
+  const administratorPermissions = catalog
+    .filter((item) => item.id !== "server.delete")
+    .map((item) => item.id)
+    .sort();
+  expect(await selectedPermissions()).toEqual(administratorPermissions);
+  await drawer
+    .getByLabel("Name", { exact: true })
+    .fill("Server administrators");
+  await drawer.getByRole("button", { name: "Save role", exact: true }).click();
+  await expect(drawer).toHaveCount(0);
+  const response = await page.request.get("/api/v1/roles");
+  const roles = (await response.json()) as {
+    name: string;
+    scope: string;
+    permissions: string[];
+  }[];
+  const saved = roles.find((role) => role.name === "Server administrators");
+  expect(saved?.scope).toBe("server");
+  expect(saved?.permissions.slice().sort()).toEqual(administratorPermissions);
+});
+
+test("permission tree adds prerequisites and clears dependent grants without confirmation", async ({
   page,
 }) => {
   await login(page);
@@ -10,6 +96,34 @@ test("role presets add dependencies and removing file writing removes restore", 
     .getByRole("button", { name: "+ Create role", exact: true })
     .click();
   const dialog = page.getByRole("dialog", { name: "Create role", exact: true });
+  async function expectConnectedBranches() {
+    const gaps = await dialog
+      .locator(".permission-tree li:has(> .permission-tree)")
+      .evaluateAll((parents) =>
+        parents.map((parent) => {
+          const node = parent.querySelector(":scope > .permission-tree-node")!;
+          const checkbox = node.querySelector("label > input")!;
+          const children = parent.querySelector(":scope > .permission-tree")!;
+          const connector = getComputedStyle(node, "::after");
+          const lineTop =
+            node.getBoundingClientRect().top + Number.parseFloat(connector.top);
+          const lineBottom = lineTop + Number.parseFloat(connector.height);
+          return {
+            checkbox: Math.abs(
+              lineTop - checkbox.getBoundingClientRect().bottom,
+            ),
+            children: Math.abs(
+              lineBottom - children.getBoundingClientRect().top,
+            ),
+          };
+        }),
+      );
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const gap of gaps) {
+      expect(gap.checkbox).toBeLessThanOrEqual(1);
+      expect(gap.children).toBeLessThanOrEqual(1);
+    }
+  }
   await dialog
     .getByLabel("Name", { exact: true })
     .fill("Backup restoration crew");
@@ -17,24 +131,152 @@ test("role presets add dependencies and removing file writing removes restore", 
     .getByRole("combobox", { name: "Apply a permission preset", exact: true })
     .click();
   await page
-    .getByRole("option", { name: "Backup restorer", exact: true })
+    .getByRole("option", { name: "Backup maintainer", exact: true })
     .click();
-  const restore = dialog.getByRole("checkbox", { name: /^Restore game files/ });
-  const write = dialog.getByRole("checkbox", { name: /^Create, upload, edit/ });
-  await expect(restore).toBeChecked();
-  await expect(write).toBeChecked();
+  for (const name of ["Create backups", "Download backups"]) {
+    await dialog.getByRole("checkbox", { name, exact: true }).uncheck();
+  }
+  const restore = dialog.getByRole("checkbox", {
+    name: "Restore backups",
+    exact: true,
+  });
+  const write = dialog.getByRole("checkbox", {
+    name: "Write files",
+    exact: true,
+  });
+  const operate = dialog.getByRole("checkbox", {
+    name: "Operate server",
+    exact: true,
+  });
+  const confirmations: string[] = [];
+  page.on("dialog", async (confirmation) => {
+    confirmations.push(confirmation.message());
+    await confirmation.accept();
+  });
+  await expect(dialog.getByRole("checkbox")).toHaveCount(18);
+  const mainBranches = dialog.locator(
+    'li[data-permission="server.view"] > ul > li',
+  );
+  expect(
+    await mainBranches.evaluateAll((branches) =>
+      branches.map((branch) => branch.getAttribute("data-permission")),
+    ),
+  ).toEqual(["server.console.read"]);
+  const operationBranches = dialog.locator(
+    'li[data-permission="server.operate"] > ul > li',
+  );
+  expect(
+    await operationBranches.evaluateAll((branches) =>
+      branches.map((branch) => branch.getAttribute("data-permission")),
+    ),
+  ).toEqual([
+    "server.console.write",
+    "server.configure",
+    "server.reinstall",
+    "server.files.read",
+    "server.backups.read",
+    "server.schedules.read",
+    "server.delete",
+  ]);
+  const deleteServer = dialog.getByRole("checkbox", {
+    name: "Delete server",
+    exact: true,
+  });
+  await expect(deleteServer).toHaveClass(/selection-control-danger/);
+  for (const name of ["Delete files", "Delete backups"]) {
+    await expect(
+      dialog.getByRole("checkbox", { name, exact: true }),
+    ).toHaveClass(/selection-control-danger/);
+  }
+  expect(
+    await dialog
+      .locator('li[data-permission="server.backups.read"] > ul > li')
+      .evaluateAll((branches) =>
+        branches.map((branch) => branch.getAttribute("data-permission")),
+      ),
+  ).toEqual([
+    "server.backups.create",
+    "server.backups.restore",
+    "server.backups.download",
+    "server.backups.delete",
+  ]);
+  expect(
+    await deleteServer.evaluate(
+      (box) => getComputedStyle(box.closest("label")!).color,
+    ),
+  ).not.toBe(
+    await operate.evaluate(
+      (box) => getComputedStyle(box.closest("label")!).color,
+    ),
+  );
   await expect(
-    dialog.getByRole("checkbox", { name: /^Install, start/ }),
+    dialog.locator(
+      'li[data-permission="server.files.read"] > ul > li[data-permission="server.files.write"] > .permission-tree-node > label > input',
+    ),
+  ).not.toBeChecked();
+  await expect(
+    dialog.locator(
+      'li[data-permission="server.files.write"] > ul > li[data-permission="server.files.delete"] > .permission-tree-node > label > input',
+    ),
+  ).not.toBeChecked();
+  await expect(restore).toHaveAccessibleDescription(
+    "Restore game files from a backup",
+  );
+  await expect(dialog.getByText(/Also requires:/)).toHaveCount(0);
+  await expect(restore).toBeChecked();
+  await expect(write).not.toBeChecked();
+  const reinstall = dialog.getByRole("checkbox", {
+    name: "Update or reinstall",
+    exact: true,
+  });
+  const configure = dialog.getByRole("checkbox", {
+    name: "Configure server",
+    exact: true,
+  });
+  await reinstall.check();
+  await expect(configure).not.toBeChecked();
+  await configure.check();
+  await configure.uncheck();
+  await expect(reinstall).toBeChecked();
+  await reinstall.uncheck();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Operate server", exact: true }),
   ).toBeChecked();
   await expect(
-    dialog.getByRole("checkbox", { name: /^Delete files/ }),
+    dialog.getByRole("checkbox", { name: "Delete files", exact: true }),
   ).not.toBeChecked();
+  await expectConnectedBranches();
   await screenshot(page, "role-permissions.png");
   await page.setViewportSize({ width: 390, height: 844 });
+  await expectConnectedBranches();
   await screenshot(page, "role-permissions-mobile.png");
-  page.once("dialog", (confirmation) => confirmation.accept());
+  await expect(
+    dialog.locator(".permission-tree-node").first(),
+  ).toHaveScreenshot("permission-parent-connector-mobile.png");
+  await restore.scrollIntoViewIfNeeded();
+  await screenshot(page, "role-permissions-backups-mobile.png");
+  await deleteServer.scrollIntoViewIfNeeded();
+  await screenshot(page, "role-permissions-danger-mobile.png");
+  await write.check();
   await write.uncheck();
+  await expect(restore).toBeChecked();
+  await operate.uncheck();
   await expect(restore).not.toBeChecked();
+  for (const name of [
+    "Configure server",
+    "Update or reinstall",
+    "Read files",
+    "Write files",
+    "View backups",
+    "View schedules",
+  ]) {
+    await expect(
+      dialog.getByRole("checkbox", { name, exact: true }),
+    ).not.toBeChecked();
+  }
+  await operate.check();
+  await expect(restore).not.toBeChecked();
+  expect(confirmations).toEqual([]);
   await dialog.getByRole("button", { name: "Save role", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const response = await page.request.get("/api/v1/roles");
@@ -56,7 +298,7 @@ test("role presets add dependencies and removing file writing removes restore", 
   ).toBeDisabled();
 });
 
-test("file readers browse and open files without console or write controls", async ({
+test("file readers inherit operation and logs without file writing or console commands", async ({
   page,
   request,
   baseURL,
@@ -96,7 +338,7 @@ test("file readers browse and open files without console or write controls", asy
   ).toBeVisible();
   await expect(
     tabs.getByRole("link", { name: "Console", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(
     tabs.getByRole("link", { name: "Backups", exact: true }),
   ).toHaveCount(0);
@@ -117,5 +359,9 @@ test("file readers browse and open files without console or write controls", asy
   ).toBeDisabled();
   expect(
     (await page.request.get("/api/v1/servers/survival/console")).status(),
-  ).toBe(403);
+  ).toBe(200);
+  await page.goto("/#servers/survival/console");
+  await expect(
+    page.getByRole("textbox", { name: "Command", exact: true }),
+  ).toHaveCount(0);
 });

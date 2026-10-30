@@ -18,36 +18,102 @@ for viewing, operating, or configuring that server. Only its owner and panel
 administrators can change its access grants.
 
 Server roles separate power controls, console access, files, backups, schedules,
-configuration, installation, and deletion. The role editor groups these grants
-and offers presets. Selecting a grant also selects its prerequisites; removing
-a prerequisite removes dependent grants after confirmation.
+configuration, installation, and deletion. The role editor shows these grants in
+a dependency tree and offers presets. Selecting a grant also selects its
+prerequisites; removing a prerequisite immediately removes its dependent grants
+without an additional confirmation. `server.view` is always selected for a
+server role. Parent permissions do not automatically select their children.
 
-| Grant                                           | Access and prerequisites                                                                                                        |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `server.view`                                   | Server overview and status                                                                                                      |
-| `server.console.read`                           | Read logs; requires server viewing                                                                                              |
-| `server.operate`                                | Power controls; includes console reading                                                                                        |
-| `server.console.write`                          | Send console commands; requires operation                                                                                       |
-| `server.files.read`                             | Browse, read, and download files, including SFTP                                                                                |
-| `server.files.write`                            | Upload, edit, rename, archive, extract, and chmod; includes file reading                                                        |
-| `server.files.delete`                           | Delete files; includes file writing                                                                                             |
-| `server.backups.read`                           | List backups                                                                                                                    |
-| `server.backups.create`, `.download`, `.delete` | Separate backup actions; each includes backup listing                                                                           |
-| `server.backups.restore`                        | Restore backups; requires backup listing, file writing, and operation                                                           |
-| `server.configure`                              | Server settings and backup policy                                                                                               |
-| `server.reinstall`                              | Game update/reinstallation; requires configuration, operation, and file writing. Clean installation also requires file deletion |
-| `server.delete`                                 | Delete the server                                                                                                               |
-| `server.schedules.read`                         | View schedules and execution history                                                                                            |
-| `server.schedules.manage`, `.run`               | Manage schedules or run them immediately; includes schedule reading and requires the underlying action's grant when used        |
+### Permission hierarchy
 
-Every server grant ultimately requires `server.view`. File writing, console
-commands, and backup access are independent of power controls unless explicitly
-listed as prerequisites. Having the prerequisites alone does not grant an action:
-file writing and operation, for example, do not grant backup restoration.
+Each child requires its parent and all of that parent's ancestors. The role
+editor uses this same tree:
 
-On upgrade, existing roles and API token scopes receive explicit grants matching
-their previous capabilities. This migration runs once; newly created roles can
-use the narrower grants. The built-in Operator role retains its existing access.
+```text
+server.view
+└── server.console.read
+    └── server.operate
+        ├── server.console.write
+        ├── server.configure
+        ├── server.reinstall
+        ├── server.files.read
+        │   └── server.files.write
+        │       └── server.files.delete
+        ├── server.backups.read
+        │   ├── server.backups.create
+        │   ├── server.backups.restore
+        │   ├── server.backups.download
+        │   └── server.backups.delete
+        ├── server.schedules.read
+        │   ├── server.schedules.manage
+        │   └── server.schedules.run
+        └── server.delete
+```
+
+| Grant                     | Access and prerequisites                                                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `server.view`             | Server overview and status                                                                                       |
+| `server.console.read`     | Read logs; requires server viewing                                                                               |
+| `server.operate`          | Initial installation, start, stop, restart, and kill; includes console reading                                   |
+| `server.console.write`    | Send console commands; requires operation                                                                        |
+| `server.files.read`       | Browse, read, and download files, including SFTP; requires operation                                             |
+| `server.files.write`      | Upload, edit, rename, archive, extract, and chmod; includes file reading                                         |
+| `server.files.delete`     | Delete files; includes file writing                                                                              |
+| `server.backups.read`     | List backups; requires operation                                                                                 |
+| `server.backups.create`   | Create backups; requires backup listing                                                                          |
+| `server.backups.restore`  | Restore backups; requires backup listing and inherits operation                                                  |
+| `server.backups.download` | Download backup archives; requires backup listing                                                                |
+| `server.backups.delete`   | Delete backups; requires backup listing                                                                          |
+| `server.configure`        | Server settings and backup policy; requires operation                                                            |
+| `server.reinstall`        | Game update and reinstallation, including clean installation; requires operation                                 |
+| `server.delete`           | Delete the server; requires operation                                                                            |
+| `server.schedules.read`   | View schedules and execution history; requires operation                                                         |
+| `server.schedules.manage` | Create, edit, enable, and delete schedules; requires schedule reading and the scheduled action's grant when used |
+| `server.schedules.run`    | Run schedules and retry executions; requires schedule reading and the scheduled action's grant when used         |
+
+Every server grant except `server.view` has one parent and ultimately requires
+`server.view`.
+Configuration, reinstallation, files, backups, and schedules are branches under
+`server.operate`, which inherits console reading. Reinstallation does not require
+configuration; restoration is under backup viewing. Their grants authorize those
+operations without file browser grants. Clean reinstallation uses the same
+`server.reinstall` grant and does not require file deletion. Selecting a child
+selects its complete chain of ancestors;
+selecting a parent does not grant its children or other branches.
+
+File deletion, backup deletion, and server deletion remain separate grants, shown
+in red in the role editor. Server deletion requires operation, but operation
+alone does not allow deletion. File permission changes such as chmod are part of
+file writing. Backup storage and retention settings are part of configuration.
+
+### Permission presets
+
+Applying a preset replaces the current checkbox selection. Each preset selects
+the following grants and their ancestors; you can then adjust individual boxes.
+
+| Preset               | Selected grants                                                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Log viewer           | `server.console.read`: logs and live console output                                                                                           |
+| Basic operator       | `server.operate`: initial installation and basic power controls, with console reading                                                         |
+| Backup maintainer    | `server.backups.create`, `server.backups.restore`, and `server.backups.download`, with backup viewing and operation; excludes backup deletion |
+| Server administrator | Every server grant except `server.delete`; includes file and backup deletion                                                                  |
+
+Server administrator applies only to assigned servers. It does not grant
+platform administration, ownership, or permission to change server access grants.
+The built-in platform **Admin** role retains exclusive Spark, user, and role
+administration. There is no separate sharing grant.
+
+Basic operator grants only overview access, console reading, and basic operation.
+The built-in **Operator** role has broader grants: console commands, file
+management including deletion, backup viewing, creation, restoration and
+downloading, and schedule viewing.
+
+### Existing roles on upgrade
+
+On upgrade, existing operator roles and API token scopes receive explicit feature
+grants. This migration runs once. Overview-only grants remain overview-only;
+viewing schedules requires operation access under the new hierarchy. The built-in
+Operator role retains its existing access.
 
 ## OpenID Connect
 

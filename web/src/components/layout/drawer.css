@@ -144,6 +144,11 @@
   margin-left: auto;
   justify-content: flex-end;
 }
+.drawer-footer .button-primary:disabled {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background-color: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+}
 .drawer-actions {
   display: flex;
   flex-wrap: wrap;

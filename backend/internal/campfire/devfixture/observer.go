@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// SeedObserver adds a read-only account without changing an existing account.
+// SeedObserver adds a schedule-viewing account without changing an existing account.
 func SeedObserver(ctx context.Context, db *gorm.DB, now time.Time) error {
 	tx := db.WithContext(ctx)
 
@@ -26,7 +26,11 @@ func SeedObserver(ctx context.Context, db *gorm.DB, now time.Time) error {
 		return err
 	}
 
-	role := database.Role{Name: "Observers", Scope: "server", Permissions: []database.RolePermission{{Permission: accessperm.ServerView}, {Permission: accessperm.ServerSchedulesRead}}}
+	role := database.Role{Name: "Observers", Scope: "server"}
+	for _, action := range accessperm.Expand([]string{accessperm.ServerSchedulesRead}) {
+		role.Permissions = append(role.Permissions, database.RolePermission{Permission: action})
+	}
+
 	if err := tx.Where("lower(name) = ? AND scope = ?", "observers", "server").FirstOrCreate(&role).Error; err != nil {
 		return err
 	}

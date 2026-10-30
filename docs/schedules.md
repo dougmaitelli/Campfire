@@ -25,7 +25,7 @@ scheduled work, and the Spark must be available to execute it.
 
 Open a schedule from its row to view its settings and execution history. The
 drawer shows only that schedule's runs and can load older attempts.
-`server.schedules.read` allows inspection. Editing requires
+`server.schedules.read` allows inspection and requires `server.operate`. Editing requires
 `server.schedules.manage` and the permission for the scheduled action, such as
 `server.operate` for a restart or `server.backups.create` for a backup.
 

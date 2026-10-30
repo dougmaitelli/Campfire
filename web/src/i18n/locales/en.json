@@ -537,17 +537,15 @@
     "saveRole": "Save role",
     "saving": "Saving…",
     "scope": "Scope",
-    "serverPermissionsNeverGrantAccessToUnassignedServersSparkUser": "Server permissions never grant access to unassigned servers. Spark, user, and role administration remain exclusive to the built-in Admin role.",
     "shareAccessWithOperators": "Share access with operators",
     "unableToSaveRole": "Unable to save role.",
     "viewRole": "View role",
     "viewTheServerAndRuntimeStatus": "View the server and runtime status",
     "applyPreset": "Apply a permission preset",
     "choosePreset": "Choose a preset…",
-    "requires": "Requires: {{permissions}}.",
-    "permissionGuidance": "Server access is managed by its owner or an administrator. Console reading is included with operation access. Restoring backups requires file writing and operation access.",
-    "unableToLoadPermissions": "Unable to load permissions.",
-    "removeDependencies": "Also remove dependent permissions: {{permissions}}?"
+    "treeGuidance": "Indented permissions depend on the permission above them. Selecting a permission also selects its prerequisites; selecting a parent does not select its children.",
+    "permissionGuidance": "Server access is managed by its owner or an administrator. Console reading is included with operation access.",
+    "unableToLoadPermissions": "Unable to load permissions."
   },
   "rolesPage": {
     "accessRoles": "Access roles",
@@ -1294,13 +1292,30 @@
     "Platform": "Platform"
   },
   "permissionPresets": {
-    "Observer": "Observer",
+    "Basic operator": "Basic operator",
     "Log viewer": "Log viewer",
-    "Power operator": "Power operator",
-    "Console operator": "Console operator",
-    "File maintainer": "File maintainer",
-    "Backup creator": "Backup creator",
-    "Backup restorer": "Backup restorer"
+    "Backup maintainer": "Backup maintainer",
+    "Server administrator": "Server administrator"
+  },
+  "permissionNames": {
+    "server_view": "View server",
+    "server_console_read": "Read console",
+    "server_operate": "Operate server",
+    "server_console_write": "Send console commands",
+    "server_files_read": "Read files",
+    "server_files_write": "Write files",
+    "server_files_delete": "Delete files",
+    "server_backups_read": "View backups",
+    "server_backups_create": "Create backups",
+    "server_backups_download": "Download backups",
+    "server_backups_delete": "Delete backups",
+    "server_backups_restore": "Restore backups",
+    "server_configure": "Configure server",
+    "server_reinstall": "Update or reinstall",
+    "server_delete": "Delete server",
+    "server_schedules_read": "View schedules",
+    "server_schedules_manage": "Manage schedules",
+    "server_schedules_run": "Run schedules"
   },
   "permissionLabels": {
     "server_view": "View overview, status, and metrics",

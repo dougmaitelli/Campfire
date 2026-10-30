@@ -27,7 +27,7 @@ func checkObserverAccess(t *testing.T, db *database.Database, auth *service.Auth
 
 	for _, id := range []string{"survival", "creative"} {
 		permissions, err := auth.Access().ServerPermissions(t.Context(), principal, id)
-		if err != nil || id == "survival" && !slices.Equal(permissions, []string{accessperm.ServerSchedulesRead, accessperm.ServerView}) || id == "creative" && len(permissions) != 0 {
+		if err != nil || id == "survival" && !slices.Equal(permissions, []string{accessperm.ServerConsoleRead, accessperm.ServerOperate, accessperm.ServerSchedulesRead, accessperm.ServerView}) || id == "creative" && len(permissions) != 0 {
 			t.Fatal("unexpected observer access", id, permissions, err)
 		}
 	}
@@ -48,7 +48,7 @@ func checkObserverAccess(t *testing.T, db *database.Database, auth *service.Auth
 	}
 }
 
-func TestObserverFixtureHasOnlyReadAccess(t *testing.T) {
+func TestObserverFixtureCanViewSchedulesAndOperate(t *testing.T) {
 	_, db, auth, _ := fixture(t)
 	checkObserverAccess(t, db, auth)
 }

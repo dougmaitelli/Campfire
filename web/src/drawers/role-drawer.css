@@ -7,3 +7,76 @@
   display: block;
   margin-top: 0.3rem;
 }
+
+.permission-tree {
+  --permission-indent: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.permission-tree .permission-tree {
+  margin-inline-start: 8px;
+  padding-inline-start: var(--permission-indent);
+  border-inline-start: 1px solid var(--border);
+}
+
+.permission-tree li {
+  position: relative;
+  min-width: 0;
+  padding-block-start: 16px;
+}
+
+.permission-tree-node {
+  display: flow-root;
+  position: relative;
+}
+
+.permission-tree li:has(> .permission-tree) > .permission-tree-node::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 8px;
+  top: 19px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.permission-tree .permission-tree > li::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(-1 * var(--permission-indent));
+  top: 25px;
+  width: var(--permission-indent);
+  border-block-start: 1px solid var(--border);
+}
+
+.permission-tree .checkbox-field {
+  align-items: flex-start;
+  margin: 0;
+  line-height: 20px;
+}
+
+.permission-tree .selection-control {
+  margin-top: 1px;
+}
+
+.permission-tree-description {
+  margin-inline-start: 28px;
+}
+
+.permission-tree .field-help {
+  display: block;
+  margin-top: 4px;
+}
+
+.permission-tree-guidance {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .permission-tree {
+    --permission-indent: 12px;
+  }
+}

@@ -13,3 +13,7 @@
     cursor: default;
   }
 }
+
+.checkbox-field-danger {
+  color: var(--danger);
+}

@@ -436,9 +436,6 @@ export function ServerOperationsPage({
               <RadioField
                 name="reinstall-mode"
                 value="clean"
-                disabled={
-                  !server.permissions.includes(Permission.ServerFilesDelete)
-                }
                 checked={reinstallMode === "clean"}
                 onChange={() => setReinstallMode("clean")}
                 tone="danger"

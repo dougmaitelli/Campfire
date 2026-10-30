@@ -259,10 +259,6 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Action == "reinstall" && input.Mode == "clean" && !a.requireServer(w, r, accessperm.ServerFilesDelete) {
-		return
-	}
-
 	if a.deployment == nil {
 		writeError(w, service.ErrDeploymentUnavailable)
 		return

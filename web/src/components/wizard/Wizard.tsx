@@ -4,7 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Fieldset } from "../forms/Fieldset";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import "./wizard.css";
 
@@ -41,7 +48,42 @@ export function Wizard({
   );
   const [validationError, setValidationError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [form, setForm] = useState<HTMLFormElement | null>(null);
+  const subscribeValidity = useCallback(
+    (changed: () => void) => {
+      if (!form) return () => {};
+      form.addEventListener("input", changed);
+      form.addEventListener("change", changed);
+      const observer = new MutationObserver(changed);
+      observer.observe(form, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+      return () => {
+        form.removeEventListener("input", changed);
+        form.removeEventListener("change", changed);
+        observer.disconnect();
+      };
+    },
+    [form],
+  );
+  const fieldsValid = useSyncExternalStore(
+    subscribeValidity,
+    () =>
+      form !== null &&
+      Array.from(form.elements).every((control) => {
+        if (
+          control instanceof HTMLInputElement ||
+          control instanceof HTMLSelectElement ||
+          control instanceof HTMLTextAreaElement
+        ) {
+          return !control.willValidate || control.validity.valid;
+        }
+        return true;
+      }),
+    () => false,
+  );
   const formID = useId();
   const step = steps[index];
   const finalStep = index === steps.length - 1;
@@ -51,9 +93,11 @@ export function Wizard({
   }, [index]);
 
   if (!step) throw new Error(t("wizard.aWizardMustContainAtLeastOneStep"));
+  const stepError = step.validate?.() ?? null;
+  const message = validationError ?? error ?? (fieldsValid ? stepError : null);
 
   function validateCurrentStep() {
-    if (busy || !formRef.current?.reportValidity()) return false;
+    if (busy || !form?.reportValidity()) return false;
     const message = step?.validate?.() ?? null;
     setValidationError(message);
     if (message) return false;
@@ -96,7 +140,7 @@ export function Wizard({
   const content = (
     <form
       id={formID}
-      ref={formRef}
+      ref={setForm}
       className="wizard"
       onSubmit={advance}
       aria-busy={busy}
@@ -145,9 +189,7 @@ export function Wizard({
         <h3 className="wizard-heading" ref={headingRef} tabIndex={-1}>
           {step.title}
         </h3>
-        {(validationError ?? error) && (
-          <InlineMessage role="alert">{validationError ?? error}</InlineMessage>
-        )}
+        {message && <InlineMessage role="alert">{message}</InlineMessage>}
         <Fieldset
           disabled={busy}
           onChangeCapture={invalidateCurrentStep}
@@ -184,7 +226,7 @@ export function Wizard({
         type="submit"
         form={formID}
         variant="primary"
-        disabled={busy}
+        disabled={busy || !fieldsValid || stepError !== null}
         loading={busy}
         loadingLabel={t("wizard.saving")}
       >

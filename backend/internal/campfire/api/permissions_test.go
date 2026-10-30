@@ -31,10 +31,14 @@ func TestServerFeaturePermissionsAndOwnerOnlyAccess(t *testing.T) {
 	}{
 		{"power", []string{accessperm.ServerOperate}, 200, 403, 403, 403, 403, 403, 202},
 		{"logs", []string{accessperm.ServerConsoleRead}, 200, 403, 403, 403, 403, 403, 403},
-		{"reader", []string{accessperm.ServerFilesRead}, 403, 403, 200, 403, 403, 403, 403},
-		{"writer", []string{accessperm.ServerFilesWrite}, 403, 403, 200, 200, 403, 403, 403},
-		{"backup-reader", []string{accessperm.ServerBackupsRead}, 403, 403, 403, 403, 403, 200, 403},
-		{"restore", []string{accessperm.ServerBackupsRestore}, 200, 403, 200, 200, 403, 200, 202},
+		{"reader", []string{accessperm.ServerFilesRead}, 200, 403, 200, 403, 403, 403, 202},
+		{"writer", []string{accessperm.ServerFilesWrite}, 200, 403, 200, 200, 403, 403, 202},
+		{"backup-reader", []string{accessperm.ServerBackupsRead}, 200, 403, 403, 403, 403, 200, 202},
+		{"restore", []string{accessperm.ServerBackupsRestore}, 200, 403, 403, 403, 403, 200, 202},
+		{"schedule-reader", []string{accessperm.ServerSchedulesRead}, 200, 403, 403, 403, 403, 403, 202},
+		{"configurer", []string{accessperm.ServerConfigure}, 200, 403, 403, 403, 403, 403, 202},
+		{"installer", []string{accessperm.ServerReinstall}, 200, 403, 403, 403, 403, 403, 202},
+		{"deleter", []string{accessperm.ServerDelete}, 200, 403, 403, 403, 403, 403, 202},
 		{"all-grants", accessperm.All(), 200, 200, 200, 200, 200, 200, 202},
 	}
 	for _, check := range cases {
@@ -86,7 +90,40 @@ func TestServerFeaturePermissionsAndOwnerOnlyAccess(t *testing.T) {
 	expectAccess(t, f.admin, "GET", endpoint+"/access", "", http.StatusOK)
 }
 
-func TestWriteAndOperateDoNotImplicitlyGrantRestore(t *testing.T) {
+func TestInstallationAndDeletionUseDedicatedGrants(t *testing.T) {
+	f := newAccessFixture(t)
+	_, _, input := serverFixture(t, f.admin)
+	response := request(f.admin, "POST", "/api/v1/servers", configJSON(t, input))
+
+	var server model.Server
+	if response.Code != http.StatusCreated || json.Unmarshal(response.Body.Bytes(), &server) != nil {
+		t.Fatal(response.Code, response.Body)
+	}
+
+	endpoint := "/api/v1/servers/" + server.ID
+	_, configurer := createTestAPIToken(t, f.admin, fmt.Sprintf(`[%q,%q]`, accessperm.ServerView, accessperm.ServerConfigure))
+	expectAccess(t, bearerAPI(f.panel, configurer), "POST", endpoint+"/actions", `{"action":"reinstall","mode":"clean"}`, http.StatusForbidden)
+
+	_, installer := createTestAPIToken(t, f.admin, fmt.Sprintf(`[%q,%q]`, accessperm.ServerView, accessperm.ServerReinstall))
+	handler := bearerAPI(f.panel, installer)
+
+	for _, action := range []string{`{"action":"update"}`, `{"action":"reinstall","mode":"keep"}`, `{"action":"reinstall","mode":"clean"}`} {
+		expectAccess(t, handler, "POST", endpoint+"/actions", action, http.StatusAccepted)
+	}
+
+	expectAccess(t, handler, "PUT", endpoint, configJSON(t, input), http.StatusForbidden)
+	expectAccess(t, handler, "GET", endpoint+"/files", "", http.StatusForbidden)
+	expectAccess(t, handler, "POST", endpoint+"/files", `{"operation":"delete","path":"config.txt"}`, http.StatusForbidden)
+	expectAccess(t, handler, "DELETE", endpoint, "", http.StatusForbidden)
+
+	_, deletion := createTestAPIToken(t, f.admin, fmt.Sprintf(`[%q,%q]`, accessperm.ServerView, accessperm.ServerDelete))
+	deleter := bearerAPI(f.panel, deletion)
+	expectAccess(t, deleter, "POST", endpoint+"/actions", `{"action":"stop"}`, http.StatusAccepted)
+	expectAccess(t, deleter, "GET", endpoint+"/files", "", http.StatusForbidden)
+	expectAccess(t, deleter, "DELETE", endpoint, "", http.StatusNoContent)
+}
+
+func TestRestorePermissionIsIndependentOfFileAccess(t *testing.T) {
 	f := newAccessFixture(t)
 	_, _, input := serverFixture(t, f.admin)
 	response := request(f.admin, "POST", "/api/v1/servers", configJSON(t, input))
@@ -103,4 +140,10 @@ func TestWriteAndOperateDoNotImplicitlyGrantRestore(t *testing.T) {
 	if f.runtime.calls.Load() != before {
 		t.Fatal("denied restore reached Spark")
 	}
+
+	_, restoreToken := createTestAPIToken(t, f.admin, `["server.view","server.backups.restore"]`)
+	restorer := bearerAPI(f.panel, restoreToken)
+	expectAccess(t, restorer, "POST", "/api/v1/servers/"+server.ID+"/actions", `{"action":"restore","backup":"snapshot.tar.gz"}`, http.StatusAccepted)
+	expectAccess(t, restorer, "GET", "/api/v1/servers/"+server.ID+"/files", "", http.StatusForbidden)
+	expectAccess(t, restorer, "POST", "/api/v1/servers/"+server.ID+"/files", `{"operation":"write","path":"config.txt","data":"dGVzdA==","revision":"absent"}`, http.StatusForbidden)
 }

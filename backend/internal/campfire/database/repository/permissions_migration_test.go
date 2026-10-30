@@ -32,6 +32,11 @@ func TestFinePermissionsMigrationPreservesLegacyAccessAndRunsOnce(t *testing.T) 
 		t.Fatal(err)
 	}
 
+	viewer := database.Role{Name: "Legacy viewer", Scope: "server", Permissions: []database.RolePermission{{Permission: accessperm.ServerView}}}
+	if err := db.ORM().Create(&viewer).Error; err != nil {
+		t.Fatal(err)
+	}
+
 	token := database.APIToken{UserID: user.ID, CredentialVersion: 1, Name: "Legacy", Hash: "preserved-token-hash", Prefix: "cf_legacy", Scopes: []string{accessperm.ServerView, accessperm.ServerOperate}}
 	if err := db.ORM().Create(&token).Error; err != nil {
 		t.Fatal(err)
@@ -61,6 +66,14 @@ func TestFinePermissionsMigrationPreservesLegacyAccessAndRunsOnce(t *testing.T) 
 	db, err = database.Open(t.Context(), source)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if err := db.ORM().Preload("Permissions").Take(&viewer, viewer.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if len(viewer.Permissions) != 1 || viewer.Permissions[0].Permission != accessperm.ServerView {
+		t.Fatal("overview-only role acquired operation through schedules", viewer.Permissions)
 	}
 
 	if err := db.ORM().Preload("Permissions").Take(&role, role.ID).Error; err != nil {

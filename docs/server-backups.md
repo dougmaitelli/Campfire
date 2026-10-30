@@ -6,10 +6,14 @@ Use a server's **Backups** tab to create, download, restore, or delete snapshots
 The main **Backups** page lists archives across the servers you can access.
 Storage indicators distinguish local archives on Spark from off-host S3 copies.
 
-`server.backups.read` allows listing backups. Creation, downloading, deletion,
-and restoration each have separate grants. Restoration also requires file
-writing and server operation. Backup storage and retention settings remain part
-of `server.configure`. See [accounts and access](/Campfire/authentication/) for
+`server.backups.read` allows listing backups and requires `server.operate`.
+Creation, restoration, downloading, and deletion each have separate grants under
+backup viewing: `server.backups.create`, `server.backups.restore`,
+`server.backups.download`, and `server.backups.delete`. Restoration inherits server
+operation without requiring file reading or writing. The Backup maintainer preset
+selects backup creation, restoration, and downloading, with their prerequisites;
+backup deletion must be granted separately. Backup storage and retention
+settings remain part of `server.configure`. See [accounts and access](/Campfire/authentication/) for
 the complete permission hierarchy.
 
 ## Create and restore

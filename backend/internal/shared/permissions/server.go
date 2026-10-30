@@ -16,20 +16,20 @@ var server = []Definition{
 	{ServerConsoleRead, "Console", "Read logs and live console output", []string{ServerView}},
 	{ServerOperate, "Server", "Install, start, stop, restart, and kill; includes console reading", []string{ServerConsoleRead}},
 	{ServerConsoleWrite, "Console", "Send console commands", []string{ServerOperate}},
-	{ServerFilesRead, "Files", "Browse, read, and download files", []string{ServerView}},
+	{ServerConfigure, "Server", "Edit configuration, resource reservations, and backup policy", []string{ServerOperate}},
+	{ServerReinstall, "Server", "Update or reinstall game files", []string{ServerOperate}},
+	{ServerFilesRead, "Files", "Browse, read, and download files", []string{ServerOperate}},
 	{ServerFilesWrite, "Files", "Create, upload, edit, move, archive, extract, and change file permissions", []string{ServerFilesRead}},
 	{ServerFilesDelete, "Files", "Delete files and folders", []string{ServerFilesWrite}},
-	{ServerBackupsRead, "Backups", "View backup lists and metadata", []string{ServerView}},
+	{ServerBackupsRead, "Backups", "View backup lists and metadata", []string{ServerOperate}},
 	{ServerBackupsCreate, "Backups", "Create backups", []string{ServerBackupsRead}},
+	{ServerBackupsRestore, "Backups", "Restore game files from a backup", []string{ServerBackupsRead}},
 	{ServerBackupsDownload, "Backups", "Download archives containing server data", []string{ServerBackupsRead}},
 	{ServerBackupsDelete, "Backups", "Delete backups", []string{ServerBackupsRead}},
-	{ServerBackupsRestore, "Backups", "Restore game files from a backup", []string{ServerBackupsRead, ServerFilesWrite, ServerOperate}},
-	{ServerConfigure, "Server", "Edit configuration, resource reservations, and backup policy", []string{ServerView}},
-	{ServerReinstall, "Server", "Update or reinstall game files", []string{ServerConfigure, ServerOperate, ServerFilesWrite}},
-	{ServerDelete, "Server", "Delete the server and its game data", []string{ServerView}},
-	{ServerSchedulesRead, "Schedules", "View schedules and execution history", []string{ServerView}},
+	{ServerSchedulesRead, "Schedules", "View schedules and execution history", []string{ServerOperate}},
 	{ServerSchedulesManage, "Schedules", "Create, edit, enable, and remove schedules", []string{ServerSchedulesRead}},
 	{ServerSchedulesRun, "Schedules", "Run schedules and retry their executions", []string{ServerSchedulesRead}},
+	{ServerDelete, "Server", "Delete the server and its game data", []string{ServerOperate}},
 }
 
 // Catalog returns a private copy so consumers cannot change authorization rules.
@@ -110,12 +110,8 @@ func Restrict(actions []string) []string {
 // Legacy converts the old broad grants once during database migration.
 func Legacy(actions []string) []string {
 	result := slices.DeleteFunc(slices.Clone(actions), func(value string) bool { return value == LegacyServerShare })
-	if slices.Contains(actions, ServerView) {
-		result = append(result, ServerSchedulesRead)
-	}
-
 	if slices.Contains(actions, ServerOperate) {
-		result = append(result, ServerConsoleWrite, ServerFilesDelete, ServerBackupsCreate, ServerBackupsDownload, ServerBackupsRestore)
+		result = append(result, ServerConsoleWrite, ServerFilesDelete, ServerBackupsCreate, ServerBackupsDownload, ServerBackupsRestore, ServerSchedulesRead)
 	}
 
 	if slices.Contains(actions, ServerConfigure) {

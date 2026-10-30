@@ -9,7 +9,9 @@ Spark's private metadata.
 
 Browsing and downloading require `server.files.read`. Editing, uploads, moving,
 archives, and chmod require `server.files.write`; deletion requires
-`server.files.delete`. The role editor includes their prerequisites automatically.
+`server.files.delete`. File reading is a child of `server.operate`, so all file
+grants also include power controls and console reading. The role editor selects
+their ancestor permissions automatically.
 
 Browsing, downloads, and file changes work while a game is running. Stopping the
 game before changing files is recommended to avoid conflicts with the game's
@@ -64,7 +66,8 @@ publish that TCP port separately from HTTP. Connect to the panel's SFTP address,
 use the server ID shown in **Files** as the username, and use a personal API
 token as the password. Verify the panel's SSH host-key fingerprint in your client.
 
-The account and token need `server.view` and `server.files.read` access. Add
+The account and token need `server.files.read` and its ancestors, including
+`server.operate`, console reading, and server viewing. Add
 `server.files.write` for uploads and file changes, and `server.files.delete` for
 deletion. SFTP exposes only that server's game files and checks current access on
 each operation. Shell access, forwarding, upload resume, and in-place editing are

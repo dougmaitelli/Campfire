@@ -53,6 +53,10 @@ func (d *accessRuntime) Action(_ context.Context, _ string, action model.Runtime
 		return d.metrics(action)
 	}
 
+	if action.Action == "delete" {
+		return model.RuntimeStatus{ServerID: action.ServerID, State: "deleted"}, nil
+	}
+
 	return model.RuntimeStatus{ServerID: action.ServerID, State: "not_installed"}, nil
 }
 func (d *accessRuntime) Files(_ context.Context, _ string, input model.FileRequest) (model.FileResult, error) {
