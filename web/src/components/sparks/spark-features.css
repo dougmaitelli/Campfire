@@ -24,6 +24,10 @@
 .spark-feature-available svg {
   color: var(--success);
 }
+.spark-feature-partial svg,
+.spark-feature-partial .spark-feature-state {
+  color: var(--warning);
+}
 .spark-feature-state {
   margin-left: auto;
   color: var(--muted);

@@ -1076,10 +1076,9 @@
     "waitForServerCreationAccessToLoad": "Wait for server creation access to load."
   },
   "sparkFeatures": {
-    "remoteSparkReinstall": "Remote Spark force updates",
-    "resourceCleanup": "Unused resource cleanup",
-    "gameIntegration": "Local game publishing",
-    "gameEvents": "Durable game events",
+    "resourceCleanup": "Unused Docker resource cleanup",
+    "gameIntegration": "Server state and event publishing",
+    "customStartupCommand": "Custom startup command",
     "gameMedia": "Game screenshots and clips",
     "archiveCreationAndExtraction": "Archive creation and extraction",
     "available": "Available",
@@ -1090,15 +1089,17 @@
     "fileUploadsAndDownloads": "File uploads and downloads",
     "liveConsole": "Live console",
     "localBackups": "Local backups",
-    "remoteBackups": "Remote backups",
+    "remoteBackupRestore": "Remote backup restore",
+    "partialSupport": "Partial support",
     "remoteSparkUpdates": "Remote Spark updates",
     "serverConfiguration": "Server configuration",
+    "serverUpdateAndReinstall": "Server Update and reinstall",
     "serverControls": "Server controls",
     "serverTransfers": "Server transfers",
     "sparkFeatures": "Spark features",
     "sparkWireProtocol": "Spark {{sparkAgentVersion}} · Wire protocol {{sparkProtocol}}",
     "unknownVersion": "unknown version",
-    "usageMonitoring": "Usage monitoring"
+    "resourceMonitoring": "Resource monitoring"
   },
   "sparkResourceReadings": {
     "combinedGameServerUsageAgainstThisSparkSConfiguredLimit": "Combined game-server usage against this Spark's configured limit. Excludes host processes, backups, and container images.",

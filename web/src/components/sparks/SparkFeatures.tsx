@@ -4,10 +4,8 @@ import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
 const featureTranslationKeys = {
-  "server.files.permissions.v1": "serverFilesDrawer.permissions",
-  "server.startup-override.v1": "serverDrawer.customStartupCommand",
+  "server.startup-override.v1": "sparkFeatures.customStartupCommand",
   "server.game-media.v1": "sparkFeatures.gameMedia",
-  "server.game-events.v1": "sparkFeatures.gameEvents",
   "server.game-integration.v1": "sparkFeatures.gameIntegration",
   "spark.prune.v1": "sparkFeatures.resourceCleanup",
   "server.configure.v1": "sparkFeatures.serverConfiguration",
@@ -16,27 +14,49 @@ const featureTranslationKeys = {
   "server.files.transfer.v1": "sparkFeatures.fileUploadsAndDownloads",
   "server.files.archive.v1": "sparkFeatures.archiveCreationAndExtraction",
   "server.backups.v1": "sparkFeatures.localBackups",
-  "server.backups.remote.v1": "sparkFeatures.remoteBackups",
-  "server.metrics.v1": "sparkFeatures.usageMonitoring",
+  "server.backups.remote.v1": "sparkFeatures.remoteBackupRestore",
+  "server.metrics.v1": "sparkFeatures.resourceMonitoring",
   "server.console.stream.v1": "sparkFeatures.liveConsole",
   "server.disk-quota.v1": "sparkFeatures.diskQuotas",
   "server.transfer.v1": "sparkFeatures.serverTransfers",
-  "server.reinstall.v1": "common.reinstall",
+  "server.reinstall.v1": "sparkFeatures.serverUpdateAndReinstall",
   "spark.self-update.v1": "sparkFeatures.remoteSparkUpdates",
-  "spark.self-reinstall.v1": "sparkFeatures.remoteSparkReinstall",
 } as const;
+
+const featureRequirements: Record<string, readonly string[]> = {
+  "server.files.v1": ["server.files.v1", "server.files.permissions.v1"],
+  "spark.self-update.v1": ["spark.self-update.v1", "spark.self-reinstall.v1"],
+  "server.game-integration.v1": [
+    "server.game-integration.v1",
+    "server.game-events.v1",
+  ],
+};
 
 export function SparkFeatures({ spark }: { spark: Spark }) {
   const { t } = useTranslation();
   const available = new Set(spark.capabilities ?? []);
-  const features = [
-    ...Object.entries(featureTranslationKeys).map(
-      ([feature, key]): [string, string] => [feature, t(key)],
-    ),
-    ...(spark.capabilities ?? [])
-      .filter((feature) => !Object.hasOwn(featureTranslationKeys, feature))
-      .map((feature): [string, string] => [feature, feature]),
-  ];
+  const features = Object.entries(featureTranslationKeys).map(
+    ([feature, key]) => ({
+      id: feature,
+      label: t(key),
+      capabilities: featureRequirements[feature] ?? [feature],
+    }),
+  );
+  const knownCapabilities = new Set(
+    features.flatMap((feature) => feature.capabilities),
+  );
+  features.push(
+    ...[...available]
+      .filter((feature) => !knownCapabilities.has(feature))
+      .map((feature) => ({
+        id: feature,
+        label: feature,
+        capabilities: [feature],
+      })),
+  );
+  const supportedCount = features.filter((feature) =>
+    feature.capabilities.every((capability) => available.has(capability)),
+  ).length;
   return (
     <section
       className="spark-features"
@@ -50,7 +70,7 @@ export function SparkFeatures({ spark }: { spark: Spark }) {
             sparkConnectedAvailable: (
               <>
                 {spark.connected
-                  ? ` (${available.size}/${features.length})`
+                  ? ` (${supportedCount}/${features.length})`
                   : ""}
               </>
             ),
@@ -67,33 +87,39 @@ export function SparkFeatures({ spark }: { spark: Spark }) {
           : t("sparkFeatures.connectThisSparkToCheckFeatureAvailability")}
       </p>
       <ul className="spark-feature-checklist">
-        {features.map(([feature, label]) => {
-          const supported = spark.connected && available.has(feature);
+        {features.map(({ id, label, capabilities }) => {
+          const supported = capabilities.filter((capability) =>
+            available.has(capability),
+          ).length;
           const state = !spark.connected
             ? "unknown"
-            : supported
+            : supported === capabilities.length
               ? "available"
-              : "unavailable";
+              : supported > 0
+                ? "partial"
+                : "unavailable";
           return (
             <li
-              key={feature}
+              key={id}
               className={`spark-feature spark-feature-${state}`}
-              title={feature}
+              title={capabilities.join(", ")}
             >
-              {supported ? (
+              {state === "available" ? (
                 <SquareCheck aria-hidden="true" />
-              ) : spark.connected ? (
+              ) : state === "unavailable" ? (
                 <SquareX aria-hidden="true" />
               ) : (
                 <SquareMinus aria-hidden="true" />
               )}
               <span>{label}</span>
               <span className="spark-feature-state">
-                {!spark.connected
+                {state === "unknown"
                   ? t("common.unknown")
-                  : supported
+                  : state === "available"
                     ? t("sparkFeatures.available")
-                    : t("common.unavailable")}
+                    : state === "partial"
+                      ? t("sparkFeatures.partialSupport")
+                      : t("common.unavailable")}
               </span>
             </li>
           );
