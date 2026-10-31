@@ -94,13 +94,13 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, service.ErrSparkPrune):
 		status, message = http.StatusConflict, "Spark must be connected and enabled before pruning."
-	case errors.As(err, &commandError) && commandError.Code == "spark_prune_failed":
+	case errors.As(err, &commandError) && commandError.Code == protocol.ErrorPruneFailed:
 		status, message = http.StatusConflict, commandError.Message
 	case errors.Is(err, service.ErrSparkUpdate):
 		status, message = http.StatusConflict, err.Error()
-	case errors.As(err, &commandError) && commandError.Code == "spark_update_failed":
+	case errors.As(err, &commandError) && commandError.Code == protocol.ErrorUpdateFailed:
 		status, message = http.StatusConflict, commandError.Message
-	case errors.As(err, &commandError) && commandError.Code == "unsupported_capability":
+	case errors.As(err, &commandError) && commandError.Code == protocol.ErrorUnsupportedCapability:
 		status, message = http.StatusConflict, commandError.Message
 	case errors.Is(err, repository.ErrAccessDenied):
 		status, message = http.StatusForbidden, err.Error()

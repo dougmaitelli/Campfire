@@ -1,5 +1,12 @@
+import {
+  ScheduleAction,
+  ServerAction,
+  ExecutionState,
+  AuditOutcome,
+} from "../contracts/domains";
+import { isRecord as object, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, apiJSON } from "./client";
 import { isUser, type User } from "./access";
 import type { BackupMode } from "./backups";
 
@@ -8,7 +15,7 @@ export interface Schedule {
   id: string;
   server_id: string;
   name: string;
-  action: string;
+  action: ScheduleAction;
   cron_expression: string;
   time_zone: string;
   only_when_running: boolean;
@@ -23,7 +30,7 @@ export interface ScheduleInput {
   next_run_at?: number;
   server_id: string;
   name: string;
-  action: string;
+  action: ScheduleAction;
   command: string;
   cron_expression: string;
   time_zone: string;
@@ -40,8 +47,8 @@ export interface Execution {
   server_name: string;
   user_id: number;
   username: string;
-  action: string;
-  state: string;
+  action: ServerAction;
+  state: ExecutionState;
   message: string;
   created_at: number;
   started_at: number;
@@ -55,7 +62,7 @@ export interface AuditEvent {
   username: string;
   action: string;
   target: string;
-  outcome: string;
+  outcome: AuditOutcome;
   status: number;
   created_at: number;
 }
@@ -65,9 +72,7 @@ export function activityCursor(
 ): string {
   return item ? `${item.created_at}:${item.id}` : "";
 }
-function object(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+
 function strings(value: Record<string, unknown>, keys: string[]) {
   return keys.every((key) => typeof value[key] === "string");
 }
@@ -92,6 +97,7 @@ function isSchedule(value: unknown): value is Schedule {
       "time_zone",
     ]) &&
     numbers(value, ["next_run_at", "run_as_user_id", "created_at"]) &&
+    isEnumValue(ScheduleAction, value.action) &&
     typeof value.enabled === "boolean" &&
     typeof value.only_when_running === "boolean"
   );
@@ -111,6 +117,8 @@ function isExecution(value: unknown): value is Execution {
       "message",
     ]) &&
     numbers(value, ["user_id", "created_at", "started_at", "finished_at"]) &&
+    isEnumValue(ServerAction, value.action) &&
+    isEnumValue(ExecutionState, value.state) &&
     typeof value.recurring === "boolean"
   );
 }
@@ -125,6 +133,7 @@ function isAudit(value: unknown): value is AuditEvent {
       (typeof value.user_id === "number" &&
         Number.isSafeInteger(value.user_id))) &&
     (value.user === undefined || isUser(value.user)) &&
+    isEnumValue(AuditOutcome, value.outcome) &&
     numbers(value, ["status", "created_at"])
   );
 }
@@ -179,15 +188,14 @@ export async function previewSchedule(
   signal: AbortSignal,
 ): Promise<number[]> {
   const body = await readJSON(
-    await apiFetch("/api/v1/schedules/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    await apiJSON(
+      "/api/v1/schedules/preview",
+      {
         cron_expression: expression,
         time_zone: timeZone,
-      }),
-      signal,
-    }),
+      },
+      { method: "POST", signal },
+    ),
   );
   if (
     !object(body) ||

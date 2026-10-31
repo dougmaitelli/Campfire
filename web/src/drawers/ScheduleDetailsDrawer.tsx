@@ -1,3 +1,4 @@
+import { ScheduleAction, BackupMode } from "../contracts/domains";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Schedule } from "../api/activity";
@@ -12,7 +13,11 @@ import { operationLabel } from "../components/servers/operationMessage";
 import { StatusPill } from "../components/status/StatusPill";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ScheduleDrawer } from "./ScheduleDrawer";
-import { Permission, serverActionPermission } from "../api/permissions";
+import {
+  Permission,
+  serverActionPermission,
+  hasPermission,
+} from "../api/permissions";
 
 export function ScheduleDetailsDrawer({
   schedule,
@@ -35,7 +40,7 @@ export function ScheduleDetailsDrawer({
   const canEdit = managed.some(
     (item) =>
       item.id === schedule.server_id &&
-      item.permissions.includes(serverActionPermission(schedule.action)),
+      hasPermission(item.permissions, serverActionPermission(schedule.action)),
   );
   if (editing && canEdit)
     return (
@@ -72,10 +77,10 @@ export function ScheduleDetailsDrawer({
           <DetailItem label={t("scheduleDrawer.action")}>
             {operationLabel(schedule.action)}
           </DetailItem>
-          {schedule.action === "backup" && (
+          {schedule.action === ScheduleAction.Backup && (
             <DetailItem label={t("backupModes.label")}>
               {t(
-                schedule.backup_mode === "savedata"
+                schedule.backup_mode === BackupMode.Savedata
                   ? "backupModes.savedata"
                   : "backupModes.full",
               )}
@@ -129,7 +134,7 @@ export function ScheduleDetailsDrawer({
             )}
           </DetailItem>
         </DetailsList>
-        {schedule.action === "command" && (
+        {schedule.action === ScheduleAction.Command && (
           <p className="field-help">
             {t("scheduleDetailsDrawer.privateCommand")}
           </p>

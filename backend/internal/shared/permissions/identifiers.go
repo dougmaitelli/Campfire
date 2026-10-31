@@ -1,5 +1,10 @@
 package permissions
 
+import "campfire/internal/shared/model"
+
+// ID identifies a validated permission.
+type ID = model.PermissionID
+
 // Permission identifiers are shared by roles, tokens, API checks, and migrations.
 const (
 	AllAccess             = "*"

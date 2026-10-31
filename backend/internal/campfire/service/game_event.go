@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
@@ -23,12 +24,12 @@ type GameEventService struct {
 
 // NewGameEventService defaults to 30 days and 10,000 events per server.
 func NewGameEventService(store *repository.GameEventRepository) *GameEventService {
-	return &GameEventService{Store: store, Retention: 30 * 24 * time.Hour, MaxPerServer: 10000}
+	return &GameEventService{Store: store, Retention: limits.DefaultGameEventRetention, MaxPerServer: limits.DefaultGameEventLimit}
 }
 
 // Validate bounds policy and query work independently of publisher input.
 func (s *GameEventService) Validate() error {
-	if s.Retention < 24*time.Hour || s.Retention > 3650*24*time.Hour || s.MaxPerServer < 1 || s.MaxPerServer > 100000 {
+	if s.Retention < 24*time.Hour || s.Retention > limits.MaxGameEventRetentionDays*24*time.Hour || s.MaxPerServer < 1 || s.MaxPerServer > limits.MaxGameEventLimit {
 		return errors.New("game event retention must be 1–3650 days and limit 1–100000 per server")
 	}
 
@@ -43,7 +44,7 @@ func (s *GameEventService) Receive(ctx context.Context, sparkID, serverID string
 
 	err := s.Store.Append(ctx, sparkID, serverID, event, time.Now(), s.Retention, s.MaxPerServer)
 	if errors.Is(err, repository.ErrGameEventPlacement) {
-		return &protocol.CommandError{Code: "publication_rejected", Message: "Game event source no longer owns this server."}
+		return &protocol.CommandError{Code: protocol.ErrorPublicationRejected, Message: "Game event source no longer owns this server."}
 	}
 
 	return err

@@ -22,7 +22,7 @@ func editorEmbers(embers []model.Ember) []model.Ember {
 
 func visibleServer(server model.Server, ember model.Ember) model.Server {
 	variables := make(map[string]string)
-	types := make(map[string]string)
+	types := make(map[string]model.VariableType)
 
 	for _, variable := range ember.Variables {
 		if value, ok := server.Variables[variable.Name]; ok && !variable.Hidden {

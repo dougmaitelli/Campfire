@@ -67,7 +67,7 @@ type FileEntry struct {
 	BackupMode BackupMode `json:"backup_mode,omitempty"`
 	Mode       uint32     `json:"mode"`
 	Name       string     `json:"name"`
-	Kind       string     `json:"kind"`
+	Kind       FileKind   `json:"kind"`
 	Size       int64      `json:"size"`
 	ModifiedAt time.Time  `json:"modified_at"`
 }
@@ -85,7 +85,7 @@ type FileResult struct {
 
 // FileError is a transport-independent, safe error exposed to operators.
 type FileError struct {
-	Code    string
+	Code    FileErrorCode
 	Message string
 }
 

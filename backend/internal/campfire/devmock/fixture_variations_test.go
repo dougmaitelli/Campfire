@@ -26,8 +26,8 @@ func TestMockFixturesCoverDistinctServerStatesAndAccess(t *testing.T) {
 		serverID  string
 		sparkID   string
 		provision bool
-		allowed   string
-		denied    string
+		allowed   model.PermissionID
+		denied    model.PermissionID
 	}{
 		{"alex", "survival", "mock-europe", true, accessperm.ServerDelete, ""},
 		{"sam", "creative", "mock-america", true, accessperm.ServerBackupsCreate, accessperm.ServerConfigure},
@@ -75,7 +75,7 @@ func TestMockFixturesCoverDistinctServerStatesAndAccess(t *testing.T) {
 		t.Fatal("expected successful and failed executions for the same schedule", runs, err)
 	}
 
-	states := make(map[string]bool)
+	states := make(map[model.ExecutionState]bool)
 	for _, run := range runs {
 		states[run.State] = true
 	}

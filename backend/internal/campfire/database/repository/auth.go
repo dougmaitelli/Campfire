@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/limits"
 
 	"gorm.io/gorm"
 )
@@ -92,12 +93,12 @@ func (r *AuthRepository) CreateSession(ctx context.Context, session database.Use
 			return ErrAuthentication
 		}
 
-		if err := tx.Where("hash = ? OR expires_at <= ? OR last_seen_at <= ?", previous, now.Unix(), now.Add(-30*time.Minute).Unix()).Delete(&database.UserSession{}).Error; err != nil {
+		if err := tx.Where("hash = ? OR expires_at <= ? OR last_seen_at <= ?", previous, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Delete(&database.UserSession{}).Error; err != nil {
 			return err
 		}
 
 		var oldest []string
-		if err := tx.Model(&database.UserSession{}).Where("user_id = ?", session.UserID).Order("last_seen_at DESC, hash").Offset(19).Pluck("hash", &oldest).Error; err != nil {
+		if err := tx.Model(&database.UserSession{}).Where("user_id = ?", session.UserID).Order("last_seen_at DESC, hash").Offset(limits.MaxSessionsPerUser-1).Pluck("hash", &oldest).Error; err != nil {
 			return err
 		}
 
@@ -118,7 +119,7 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 	var username string
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		if err := tx.Where("hash = ? AND expires_at > ? AND last_seen_at > ?", hash, now.Unix(), now.Add(-30*time.Minute).Unix()).Take(&session).Error; err != nil {
+		if err := tx.Where("hash = ? AND expires_at > ? AND last_seen_at > ?", hash, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Take(&session).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrAuthentication
 			}
@@ -138,7 +139,7 @@ func (r *AuthRepository) Session(ctx context.Context, hash string, now time.Time
 		username = admin.Username
 		session.User = admin
 
-		if now.Unix()-session.LastSeenAt >= 60 {
+		if now.Unix()-session.LastSeenAt >= int64(limits.SessionTouchInterval.Seconds()) {
 			return tx.Model(&session).Omit("User").Update("last_seen_at", now.Unix()).Error
 		}
 

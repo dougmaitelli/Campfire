@@ -1,3 +1,5 @@
+import { RuntimeState } from "../contracts/domains";
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import { Permission } from "../api/permissions";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
@@ -156,7 +158,10 @@ export function ServersPage() {
     try {
       setDraftOptions(
         server.permissions.includes(Permission.ServerConfigure) || revision
-          ? await serverOptions(AbortSignal.timeout(15000), server.id)
+          ? await serverOptions(
+              AbortSignal.timeout(API_READ_TIMEOUT_MS),
+              server.id,
+            )
           : { s3_available: false, sparks: [], embers: [] },
       );
       setEditing(server);
@@ -343,15 +348,21 @@ export function ServersPage() {
                         (monitoring.snapshot?.collected_at ?? 0) +
                         monitoring.elapsed
                       }
-                      state={runtime.statuses[server.id]?.state ?? "unknown"}
+                      state={
+                        runtime.statuses[server.id]?.state ??
+                        RuntimeState.Unknown
+                      }
                       ready={runtime.statuses[server.id]?.ready ?? true}
                       startedAt={
-                        usage?.state === "running"
+                        usage?.state === RuntimeState.Running
                           ? usage.started_at
                           : undefined
                       }
                       stoppedAt={
-                        usage && ["stopped", "exited"].includes(usage.state)
+                        usage &&
+                        [RuntimeState.Stopped, RuntimeState.Exited].some(
+                          (value) => value === usage.state,
+                        )
                           ? usage.stopped_at
                           : undefined
                       }
@@ -486,7 +497,9 @@ export function ServersPage() {
             <>
               <span>{details.name}</span>
               <ServerState
-                state={runtime.statuses[details.id]?.state ?? "unknown"}
+                state={
+                  runtime.statuses[details.id]?.state ?? RuntimeState.Unknown
+                }
                 ready={runtime.statuses[details.id]?.ready ?? true}
               />
             </>
@@ -511,8 +524,12 @@ export function ServersPage() {
                   disabled={
                     deleting !== null ||
                     runtime.statuses[details.id]?.busy === true ||
-                    !["stopped", "not_installed", "deleted"].includes(
-                      runtime.statuses[details.id]?.state ?? "unknown",
+                    ![
+                      RuntimeState.Stopped,
+                      RuntimeState.NotInstalled,
+                      RuntimeState.Deleted,
+                    ].some(
+                      (value) => value === runtime.statuses[details.id]?.state,
                     )
                   }
                   onClick={() => {

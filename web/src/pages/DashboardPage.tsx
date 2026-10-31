@@ -1,5 +1,14 @@
+import {
+  RuntimeState,
+  ServerTab,
+  BackupState as BackupStatus,
+} from "../contracts/domains";
 import i18n from "../i18n";
-import { Permission, serverActionPermission } from "../api/permissions";
+import {
+  Permission,
+  serverActionPermission,
+  hasPermission,
+} from "../api/permissions";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
@@ -76,7 +85,9 @@ export function DashboardPage() {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [serverSearch, setServerSearch] = useState("");
   const failedBackups = backups.items.filter((backup) =>
-    ["failed", "error", "unavailable"].includes(backup.state),
+    [BackupStatus.Failed, BackupStatus.Error, BackupStatus.Unavailable].some(
+      (value) => value === backup.state,
+    ),
   ).length;
   const recentBackups = [...backups.items]
     .sort((a, b) => Date.parse(b.modified_at) - Date.parse(a.modified_at))
@@ -112,7 +123,7 @@ export function DashboardPage() {
   );
   const running = servers.filter(
     (server) =>
-      server.usage.state === "running" &&
+      server.usage.state === RuntimeState.Running &&
       containerFresh(server.usage, monitor.elapsed),
   ).length;
   const cpu = cpuKnown.reduce(
@@ -248,7 +259,7 @@ export function DashboardPage() {
                   ? "…"
                   : backups.items.length === 0
                     ? 0
-                    : `${backups.items.filter((backup) => backup.state === "available").length} / ${backups.items.length}`
+                    : `${backups.items.filter((backup) => backup.state === BackupStatus.Available).length} / ${backups.items.length}`
             }
             detail={
               !canReadBackups ? (
@@ -428,12 +439,14 @@ export function DashboardPage() {
                           server.usage.state
                         }
                         startedAt={
-                          server.usage.state === "running"
+                          server.usage.state === RuntimeState.Running
                             ? server.usage.started_at
                             : undefined
                         }
                         stoppedAt={
-                          ["stopped", "exited"].includes(server.usage.state)
+                          [RuntimeState.Stopped, RuntimeState.Exited].some(
+                            (value) => value === server.usage.state,
+                          )
                             ? server.usage.stopped_at
                             : undefined
                         }
@@ -521,7 +534,10 @@ export function DashboardPage() {
                         <tr key={backup.id}>
                           <td>
                             <ResourceLink
-                              href={links.server(backup.server_id, "backups")}
+                              href={links.server(
+                                backup.server_id,
+                                ServerTab.Backups,
+                              )}
                             >
                               {backup.server_name}
                             </ResourceLink>
@@ -619,7 +635,8 @@ export function DashboardPage() {
                                 server.permissions.includes(
                                   Permission.ServerSchedulesManage,
                                 ) &&
-                                server.permissions.includes(
+                                hasPermission(
+                                  server.permissions,
                                   serverActionPermission(schedule.action),
                                 ),
                             )

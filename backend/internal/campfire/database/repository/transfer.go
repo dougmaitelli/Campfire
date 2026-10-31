@@ -237,16 +237,16 @@ func (r *TransferRepository) Cancel(ctx context.Context, id string) error {
 		}
 
 		phase := transfer.Phase
-		if phase == "failed" {
+		if phase == model.TransferPhaseFailed {
 			phase = transfer.ResumePhase
 		}
 
-		if !transfer.Active || phase == "committing" || phase == "cleanup" {
+		if !transfer.Active || phase == model.TransferPhaseCommitting || phase == model.TransferPhaseCleanup {
 			return ErrTransferState
 		}
 
 		cancelFrom := transfer.CancelFrom
-		if phase != "cancelling" {
+		if phase != model.TransferPhaseCancelling {
 			cancelFrom = phase
 		}
 

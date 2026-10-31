@@ -1,5 +1,14 @@
+import {
+  ServerAction,
+  ExecutionState as ExecutionStatus,
+} from "../contracts/domains";
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
-import { Permission, serverActionPermission } from "../api/permissions";
+import {
+  Permission,
+  serverActionPermission,
+  hasPermission,
+} from "../api/permissions";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
@@ -126,7 +135,7 @@ export function SchedulesPage() {
       await work();
       await schedules.refresh();
       const items = await listExecutions(
-        AbortSignal.timeout(15000),
+        AbortSignal.timeout(API_READ_TIMEOUT_MS),
         "",
         filter,
       );
@@ -153,7 +162,7 @@ export function SchedulesPage() {
     setBusy(true);
     try {
       const items = await listExecutions(
-        AbortSignal.timeout(15000),
+        AbortSignal.timeout(API_READ_TIMEOUT_MS),
         activityCursor(runs.at(-1)),
         filter,
       );
@@ -327,7 +336,8 @@ export function SchedulesPage() {
                         !managed.some(
                           (server) =>
                             server.id === item.server_id &&
-                            server.permissions.includes(
+                            hasPermission(
+                              server.permissions,
                               serverActionPermission(item.action),
                             ),
                         )
@@ -343,7 +353,8 @@ export function SchedulesPage() {
                         server.permissions.includes(
                           Permission.ServerSchedulesRun,
                         ) &&
-                        server.permissions.includes(
+                        hasPermission(
+                          server.permissions,
                           serverActionPermission(item.action),
                         ),
                     ) && (
@@ -433,19 +444,22 @@ export function SchedulesPage() {
                 </td>
                 <td>{when(run.finished_at)}</td>
                 <td className="table-actions">
-                  {["failed", "interrupted"].includes(run.state) &&
+                  {[ExecutionStatus.Failed, ExecutionStatus.Interrupted].some(
+                    (value) => value === run.state,
+                  ) &&
                     [
-                      "install",
-                      "start",
-                      "stop",
-                      "restart",
-                      "kill",
-                      "backup",
-                    ].includes(run.action) &&
+                      ServerAction.Install,
+                      ServerAction.Start,
+                      ServerAction.Stop,
+                      ServerAction.Restart,
+                      ServerAction.Kill,
+                      ServerAction.Backup,
+                    ].some((value) => value === run.action) &&
                     servers.items.some(
                       (server) =>
                         server.id === run.server_id &&
-                        server.permissions.includes(
+                        hasPermission(
+                          server.permissions,
                           serverActionPermission(run.action),
                         ) &&
                         (!run.schedule_id ||

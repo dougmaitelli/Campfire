@@ -173,7 +173,7 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 		record.Logs = devfixture.ConsoleLogs
 
 		record.StartedAt = now.Add(-time.Duration(i+1) * 24 * time.Hour).Unix()
-		if fixture.State == "stopped" {
+		if fixture.State == model.RuntimeStateStopped {
 			record.StoppedAt = now.Add(-2 * time.Hour).Unix()
 		}
 

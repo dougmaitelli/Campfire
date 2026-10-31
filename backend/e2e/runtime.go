@@ -63,7 +63,7 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 	switch input.Operation {
 	case "upload.begin":
 		if _, exists := files[name]; exists {
-			return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+			return result, &model.FileError{Code: model.FileConflict, Message: "Destination already exists."}
 		}
 
 		if r.uploads == nil {
@@ -75,23 +75,23 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 	case "upload.chunk", "upload.commit", "upload.cancel":
 		upload := r.uploads[input.UploadID]
 		if upload == nil || upload.serverID != input.ServerID || upload.path != name {
-			return result, &model.FileError{Code: "invalid_file", Message: "Upload session not found."}
+			return result, &model.FileError{Code: model.FileInvalid, Message: "Upload session not found."}
 		}
 
 		switch input.Operation {
 		case "upload.chunk":
 			if input.Offset != int64(len(upload.data)) || input.Offset+int64(len(input.Data)) > upload.size {
-				return result, &model.FileError{Code: "invalid_file", Message: "Invalid upload offset or size."}
+				return result, &model.FileError{Code: model.FileInvalid, Message: "Invalid upload offset or size."}
 			}
 
 			upload.data = append(upload.data, input.Data...)
 		case "upload.commit":
 			if int64(len(upload.data)) != upload.size {
-				return result, &model.FileError{Code: "invalid_file", Message: "Upload is incomplete."}
+				return result, &model.FileError{Code: model.FileInvalid, Message: "Upload is incomplete."}
 			}
 
 			if _, exists := files[name]; exists {
-				return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+				return result, &model.FileError{Code: model.FileConflict, Message: "Destination already exists."}
 			}
 
 			files[name] = string(upload.data)
@@ -105,7 +105,7 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 	case "backup.read":
 		data, exists := r.archives[input.ServerID+"/"+input.Path]
 		if !exists || input.Offset < 0 || input.Offset > int64(len(data)) {
-			return result, &model.FileError{Code: "file_not_found", Message: "Backup not found."}
+			return result, &model.FileError{Code: model.FileNotFound, Message: "Backup not found."}
 		}
 		result.Size = int64(len(data))
 		result.Data = data[input.Offset:min(int64(len(data)), input.Offset+model.FileLimit)]
@@ -125,9 +125,9 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 			if child == "" || strings.Contains(child, "/") {
 				continue
 			}
-			kind := "file"
+			kind := model.FileKindFile
 			if directory {
-				kind = "directory"
+				kind = model.FileKindDirectory
 			}
 			mode, ok := modes[filename]
 			if !ok {
@@ -143,15 +143,15 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 	case "rename":
 		destination := path.Clean(input.Destination)
 		if name == "." || destination == "." || destination == name || strings.HasPrefix(destination, name+"/") {
-			return result, &model.FileError{Code: "invalid_file", Message: "Invalid move destination."}
+			return result, &model.FileError{Code: model.FileInvalid, Message: "Invalid move destination."}
 		}
 
 		if _, exists := files[destination]; exists {
-			return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+			return result, &model.FileError{Code: model.FileConflict, Message: "Destination already exists."}
 		}
 
 		if _, exists := files[destination+"/"]; exists {
-			return result, &model.FileError{Code: "file_conflict", Message: "Destination already exists."}
+			return result, &model.FileError{Code: model.FileConflict, Message: "Destination already exists."}
 		}
 
 		_, directory := files[name+"/"]
@@ -161,7 +161,7 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 		}
 
 		if _, exists := files[name]; !exists {
-			return result, &model.FileError{Code: "file_not_found", Message: "File not found."}
+			return result, &model.FileError{Code: model.FileNotFound, Message: "File not found."}
 		}
 
 		for filename, contents := range files {
@@ -185,25 +185,25 @@ func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (m
 		}
 
 		if _, exists := files[name]; !exists || input.Mode > 0777 {
-			return result, &model.FileError{Code: "invalid_file", Message: "Invalid permissions or file."}
+			return result, &model.FileError{Code: model.FileInvalid, Message: "Invalid permissions or file."}
 		}
 
 		modes[name] = input.Mode
 	case "read":
 		contents, exists := files[name]
 		if !exists {
-			return result, &model.FileError{Code: "file_not_found", Message: "File not found."}
+			return result, &model.FileError{Code: model.FileNotFound, Message: "File not found."}
 		}
 		result.Data, result.Revision, result.Size = []byte(contents), revision(contents), int64(len(contents))
 	case "write":
 		contents, exists := files[name]
 		if !exists || input.Revision != revision(contents) {
-			return result, &model.FileError{Code: "file_conflict", Message: "The file changed; reopen it before saving."}
+			return result, &model.FileError{Code: model.FileConflict, Message: "The file changed; reopen it before saving."}
 		}
 		files[name] = string(input.Data)
 		result.Revision = revision(files[name])
 	default:
-		return result, &model.FileError{Code: "invalid_file", Message: "This operation is not provided by the browser-test fixture."}
+		return result, &model.FileError{Code: model.FileInvalid, Message: "This operation is not provided by the browser-test fixture."}
 	}
 	return result, nil
 }

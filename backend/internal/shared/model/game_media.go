@@ -6,6 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/utils"
 )
 
@@ -44,7 +45,7 @@ type GameMedia struct {
 
 // Valid checks metadata without trusting a producer-supplied filename or MIME type.
 func (m GameMedia) Valid() bool {
-	if len(m.ID) > 64 || !utils.IsValidResourceID(m.ID) || len(m.Name) < 1 || len(m.Name) > 128 || !utf8.ValidString(m.Name) || strings.ContainsAny(m.Name, "/\\") || strings.ContainsFunc(m.Name, unicode.IsControl) {
+	if len(m.ID) > limits.GameMediaIDLength || !utils.IsValidResourceID(m.ID) || len(m.Name) < 1 || len(m.Name) > limits.GameMediaNameLength || !utf8.ValidString(m.Name) || strings.ContainsAny(m.Name, "/\\") || strings.ContainsFunc(m.Name, unicode.IsControl) {
 		return false
 	}
 

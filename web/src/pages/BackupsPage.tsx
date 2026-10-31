@@ -1,3 +1,8 @@
+import {
+  BackupMode,
+  ServerTab,
+  BackupState as BackupStatus,
+} from "../contracts/domains";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -93,7 +98,7 @@ export function BackupsPage() {
                     </a>
                     <span className="row-description">
                       {t(
-                        item.mode === "savedata"
+                        item.mode === BackupMode.Savedata
                           ? "backupModes.savedata"
                           : "backupModes.full",
                       )}
@@ -104,7 +109,7 @@ export function BackupsPage() {
                   </td>
                   <td>
                     <ResourceLink
-                      href={links.server(item.server_id, "backups")}
+                      href={links.server(item.server_id, ServerTab.Backups)}
                     >
                       {item.server_name}
                     </ResourceLink>
@@ -123,7 +128,7 @@ export function BackupsPage() {
                     <BackupState state={item.state} />
                   </td>
                   <td className="table-actions">
-                    {item.state !== "deleting" &&
+                    {item.state !== BackupStatus.Deleting &&
                       (item.local || item.remote) && (
                         <ButtonLink
                           href={`/api/v1/servers/${encodeURIComponent(item.server_id)}/backups/${encodeURIComponent(item.name)}`}

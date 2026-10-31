@@ -1,7 +1,8 @@
+import { RuntimeState, type LifecycleAction } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
-import type { RuntimeStatus, ServerAction } from "../../api/runtime";
+import { type RuntimeStatus, ServerAction } from "../../api/runtime";
 import { lifecycleControlState } from "./lifecycleControlState";
 
 export function ServerLifecycleControls({
@@ -13,11 +14,11 @@ export function ServerLifecycleControls({
   status: RuntimeStatus | undefined;
   disabled: boolean;
   canConfigure: boolean;
-  onAction: (action: ServerAction) => void;
+  onAction: (action: LifecycleAction) => void;
 }) {
   const { t } = useTranslation();
   const startupPending =
-    status?.state === "starting" || status?.state === "restarting";
+    status?.state === RuntimeState.Starting || status?.state === "restarting";
   const { canInterrupt, blocked, running, install } = lifecycleControlState(
     status,
     disabled,
@@ -31,7 +32,7 @@ export function ServerLifecycleControls({
         aria-label={t("common.start")}
         disabled={blocked || install || running}
         aria-busy={startupPending}
-        onClick={() => onAction("start")}
+        onClick={() => onAction(ServerAction.Start)}
       >
         <NavigationIcon name="play" filled />
       </Button>
@@ -41,7 +42,7 @@ export function ServerLifecycleControls({
         title={t("common.stop")}
         aria-label={t("common.stop")}
         disabled={!canInterrupt && (blocked || !running)}
-        onClick={() => onAction("stop")}
+        onClick={() => onAction(ServerAction.Stop)}
       >
         <NavigationIcon name="stop" filled />
       </Button>
@@ -51,7 +52,7 @@ export function ServerLifecycleControls({
         title={t("common.restart")}
         aria-label={t("common.restart")}
         disabled={blocked || !running}
-        onClick={() => onAction("restart")}
+        onClick={() => onAction(ServerAction.Restart)}
       >
         <NavigationIcon name="restart" />
       </Button>
@@ -61,7 +62,7 @@ export function ServerLifecycleControls({
         title={t("common.kill")}
         aria-label={t("common.kill")}
         disabled={!canInterrupt && (blocked || !running)}
-        onClick={() => onAction("kill")}
+        onClick={() => onAction(ServerAction.Kill)}
       >
         <NavigationIcon name="kill" />
       </Button>
@@ -69,7 +70,9 @@ export function ServerLifecycleControls({
         <Button
           variant={install ? "primary" : "warning"}
           disabled={blocked || running}
-          onClick={() => onAction(install ? "install" : "reinstall")}
+          onClick={() =>
+            onAction(install ? ServerAction.Install : ServerAction.Reinstall)
+          }
         >
           {install ? t("common.install") : t("common.reinstall")}
         </Button>

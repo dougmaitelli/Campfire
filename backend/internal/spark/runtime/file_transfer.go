@@ -34,21 +34,21 @@ func chunkFile(root *os.Root, q model.FileRequest) (model.FileResult, error) {
 
 	file, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
-		return result, fileFailure("file_not_found", "File not found.")
+		return result, fileFailure(model.FileNotFound, "File not found.")
 	}
 
 	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()
 	if err != nil || (!info.IsDir() && !info.Mode().IsRegular()) {
-		return result, fileFailure("invalid_file", "Select a regular file or directory.")
+		return result, fileFailure(model.FileInvalid, "Select a regular file or directory.")
 	}
 
 	result.Size, result.Revision = info.Size(), statRevision(info)
 
-	kind := "file"
+	kind := model.FileKindFile
 	if info.IsDir() {
-		kind = "directory"
+		kind = model.FileKindDirectory
 	}
 
 	result.Entries = []model.FileEntry{{Name: info.Name(), Kind: kind, Mode: uint32(info.Mode().Perm()), Size: info.Size(), ModifiedAt: info.ModTime().UTC()}}
@@ -57,11 +57,11 @@ func chunkFile(root *os.Root, q model.FileRequest) (model.FileResult, error) {
 	}
 
 	if !info.Mode().IsRegular() || q.Offset < 0 || q.Offset > info.Size() || info.Size() > model.FileTransferLimit {
-		return result, fileFailure("file_limit", "Invalid download offset or file exceeds 100 GiB.")
+		return result, fileFailure(model.FileLimitExceeded, "Invalid download offset or file exceeds 100 GiB.")
 	}
 
 	if q.Revision == "" || q.Revision != result.Revision {
-		return result, fileFailure("file_conflict", "File changed; restart the download.")
+		return result, fileFailure(model.FileConflict, "File changed; restart the download.")
 	}
 
 	count := int64(model.FileLimit)
@@ -73,12 +73,12 @@ func chunkFile(root *os.Root, q model.FileRequest) (model.FileResult, error) {
 
 	result.Data = make([]byte, int(count))
 	if _, err := file.ReadAt(result.Data, q.Offset); err != nil && (err != io.EOF || count != 0) {
-		return result, fileFailure("file_io", "Could not read download chunk.")
+		return result, fileFailure(model.FileIO, "Could not read download chunk.")
 	}
 
 	after, err := file.Stat()
 	if err != nil || statRevision(after) != result.Revision {
-		return result, fileFailure("file_conflict", "File changed; restart the download.")
+		return result, fileFailure(model.FileConflict, "File changed; restart the download.")
 	}
 
 	return result, nil
@@ -129,11 +129,11 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		}
 
 		if len(e.uploads) >= 8 {
-			return result, fileFailure("file_busy", "At most eight uploads may be open per server.")
+			return result, fileFailure(model.FileBusy, "At most eight uploads may be open per server.")
 		}
 
 		if q.Size < -1 || q.Size > limit || !filePath(q.Path, false) {
-			return result, fileFailure("file_limit", "Upload exceeds the configured maximum file size.")
+			return result, fileFailure(model.FileLimitExceeded, "Upload exceeds the configured maximum file size.")
 		}
 
 		if err := containedPath(root, q.Path, true); err != nil {
@@ -144,16 +144,16 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 
 		if info, err := root.Lstat(q.Path); err == nil {
 			if !info.Mode().IsRegular() {
-				return result, fileFailure("invalid_file", "Select a regular file.")
+				return result, fileFailure(model.FileInvalid, "Select a regular file.")
 			}
 
 			revision, mode = statRevision(info), info.Mode().Perm()
 		} else if !os.IsNotExist(err) {
-			return result, fileFailure("file_io", "Could not inspect upload destination.")
+			return result, fileFailure(model.FileIO, "Could not inspect upload destination.")
 		}
 
 		if q.Revision != revision {
-			return result, fileFailure("file_conflict", "Destination changed or already exists.")
+			return result, fileFailure(model.FileConflict, "Destination changed or already exists.")
 		}
 
 		if err := checkWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, max(0, q.Size)); err != nil {
@@ -165,7 +165,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 
 		file, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err != nil {
-			return result, fileFailure("file_io", "Could not prepare upload.")
+			return result, fileFailure(model.FileIO, "Could not prepare upload.")
 		}
 
 		_ = file.Close()
@@ -177,7 +177,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 
 	upload := e.uploads[q.UploadID]
 	if upload == nil || upload.path != q.Path {
-		return result, fileFailure("file_not_found", "Upload expired or is unavailable.")
+		return result, fileFailure(model.FileNotFound, "Upload expired or is unavailable.")
 	}
 
 	upload.touched = time.Now()
@@ -201,19 +201,19 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 
 	file, err := root.OpenFile(upload.temporary, os.O_RDWR|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return result, fileFailure("file_io", "Upload staging file unavailable.")
+		return result, fileFailure(model.FileIO, "Upload staging file unavailable.")
 	}
 
 	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		return result, fileFailure("invalid_file", "Invalid upload staging file.")
+		return result, fileFailure(model.FileInvalid, "Invalid upload staging file.")
 	}
 
 	if q.Operation == model.FileOperationUploadChunk {
 		if q.Offset < 0 || q.Offset > limit-int64(len(q.Data)) || upload.size >= 0 && q.Offset+int64(len(q.Data)) > upload.size {
-			return result, fileFailure("file_limit", "Upload chunk exceeds the declared size or configured upload limit.")
+			return result, fileFailure(model.FileLimitExceeded, "Upload chunk exceeds the declared size or configured upload limit.")
 		}
 
 		newSize := max(info.Size(), q.Offset+int64(len(q.Data)))
@@ -221,11 +221,11 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		// walking the full game tree for each SFTP packet; verify logical usage
 		// at admission and publication, and bound sparse-file growth here.
 		if d.Configuration.DiskMB > 0 && newSize > d.Configuration.DiskMB*1048576 {
-			return result, fileFailure("file_limit", "Upload exceeds the server disk allocation.")
+			return result, fileFailure(model.FileLimitExceeded, "Upload exceeds the server disk allocation.")
 		}
 
 		if _, err := file.WriteAt(q.Data, q.Offset); err != nil {
-			return result, fileFailure("file_io", "Could not write upload chunk.")
+			return result, fileFailure(model.FileIO, "Could not write upload chunk.")
 		}
 
 		if len(q.Data) > 0 {
@@ -246,7 +246,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 
 			merged = append(merged, interval)
 			if len(merged) > 100000 {
-				return result, fileFailure("file_limit", "Upload has too many disjoint ranges.")
+				return result, fileFailure(model.FileLimitExceeded, "Upload has too many disjoint ranges.")
 			}
 
 			upload.ranges = merged
@@ -258,11 +258,11 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 	}
 
 	if upload.size >= 0 && (info.Size() != upload.size || upload.size > 0 && (len(upload.ranges) != 1 || upload.ranges[0][0] != 0 || upload.ranges[0][1] != upload.size)) {
-		return result, fileFailure("file_conflict", "Upload is incomplete.")
+		return result, fileFailure(model.FileConflict, "Upload is incomplete.")
 	}
 
 	if info.Size() > limit {
-		return result, fileFailure("file_limit", "Upload exceeds the configured maximum file size.")
+		return result, fileFailure(model.FileLimitExceeded, "Upload exceeds the configured maximum file size.")
 	}
 
 	if err := containedPath(root, q.Path, true); err != nil {
@@ -273,11 +273,11 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 	if current, err := root.Lstat(q.Path); err == nil {
 		revision = statRevision(current)
 	} else if !os.IsNotExist(err) {
-		return result, fileFailure("file_io", "Could not inspect upload destination.")
+		return result, fileFailure(model.FileIO, "Could not inspect upload destination.")
 	}
 
 	if revision != upload.revision {
-		return result, fileFailure("file_conflict", "Destination changed during upload.")
+		return result, fileFailure(model.FileConflict, "Destination changed during upload.")
 	}
 
 	if err := checkWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, 0); err != nil {
@@ -285,7 +285,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 	}
 
 	if m.FileOwner(file, d.Ember.User) != nil || file.Chmod(upload.mode) != nil || file.Sync() != nil {
-		return result, fileFailure("file_io", "Could not finalize upload ownership or contents.")
+		return result, fileFailure(model.FileIO, "Could not finalize upload ownership or contents.")
 	}
 
 	if err := ctx.Err(); err != nil {
@@ -293,7 +293,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 	}
 
 	if err := root.Rename(upload.temporary, q.Path); err != nil {
-		return result, fileFailure("file_io", "Could not publish upload.")
+		return result, fileFailure(model.FileIO, "Could not publish upload.")
 	}
 
 	delete(e.uploads, q.UploadID)

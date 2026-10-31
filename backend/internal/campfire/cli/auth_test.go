@@ -88,7 +88,7 @@ func TestStartupLogsSetupTokenOnlyBeforeFirstAccount(t *testing.T) {
 	}
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
-	_, createErr := auth.Access().CreateUser(context.Background(), "admin", "a long administrator test password", database.AdminRole, false, "", "")
+	_, createErr := auth.Access().CreateUser(context.Background(), service.CreateUserInput{Username: "admin", Password: "a long administrator test password", RoleID: database.AdminRole, Disabled: false, Name: "", Email: ""})
 
 	closeErr := db.Close()
 	if createErr != nil || closeErr != nil {

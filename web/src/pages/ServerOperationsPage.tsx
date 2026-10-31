@@ -1,3 +1,9 @@
+import {
+  ReinstallMode,
+  OperationState,
+  ServerAction,
+  RuntimeState,
+} from "../contracts/domains";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -9,10 +15,16 @@ import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useRef, useState } from "react";
-import { APIError, apiFetch, readJSON } from "../api/client";
+import {
+  APIError,
+  apiFetch,
+  readJSON,
+  API_READ_TIMEOUT_MS,
+} from "../api/client";
 import { replaceCurrentRoute } from "../routing/useCurrentPage";
 import { isServer, type Server } from "../api/servers";
-import { serverAction, type ServerAction } from "../api/runtime";
+import { serverAction } from "../api/runtime";
+import type { LifecycleAction } from "../contracts/domains";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ServerState } from "../components/servers/ServerState";
@@ -69,10 +81,11 @@ export function ServerOperationsPage({
   const [currentOperationID, setCurrentOperationID] = useState<string | null>(
     null,
   );
-  const [requestedAction, setRequestedAction] = useState<ServerAction | null>(
-    null,
+  const [requestedAction, setRequestedAction] =
+    useState<LifecycleAction | null>(null);
+  const [reinstallMode, setReinstallMode] = useState<ReinstallMode>(
+    ReinstallMode.Keep,
   );
-  const [reinstallMode, setReinstallMode] = useState<"keep" | "clean">("keep");
   const [confirmation, setConfirmation] = useState<ConfirmedAction | null>(
     null,
   );
@@ -89,7 +102,7 @@ export function ServerOperationsPage({
           error,
           error_code: "operation_failed",
           busy: false,
-          operation_state: "failed",
+          operation_state: OperationState.Failed,
           ...(requestedAction ? { operation: requestedAction } : {}),
         }
       : status,
@@ -118,7 +131,7 @@ export function ServerOperationsPage({
           await apiFetch(`/api/v1/servers/${encodeURIComponent(serverID)}`, {
             signal: AbortSignal.any([
               controller.signal,
-              AbortSignal.timeout(15000),
+              AbortSignal.timeout(API_READ_TIMEOUT_MS),
             ]),
           }),
         );
@@ -155,7 +168,7 @@ export function ServerOperationsPage({
     void load();
     return () => controller.abort();
   }, [serverID]);
-  async function act(action: ServerAction) {
+  async function act(action: LifecycleAction) {
     if (!server || pending.current) return;
     pending.current = true;
     setActing(true);
@@ -167,7 +180,7 @@ export function ServerOperationsPage({
         server.id,
         action,
         undefined,
-        action === "reinstall" ? reinstallMode : undefined,
+        action === ServerAction.Reinstall ? reinstallMode : undefined,
       );
       setCurrentOperationID(result.operation_id ?? null);
       runtime.upsert(result);
@@ -202,16 +215,21 @@ export function ServerOperationsPage({
         badge={
           server && (
             <ServerState
-              state={status?.state ?? "unknown"}
+              state={status?.state ?? RuntimeState.Unknown}
               ready={status?.ready ?? true}
               now={
                 (monitoring.snapshot?.collected_at ?? 0) + monitoring.elapsed
               }
               startedAt={
-                usage?.state === "running" ? usage.started_at : undefined
+                usage?.state === RuntimeState.Running
+                  ? usage.started_at
+                  : undefined
               }
               stoppedAt={
-                usage && ["stopped", "exited"].includes(usage.state)
+                usage &&
+                [RuntimeState.Stopped, RuntimeState.Exited].some(
+                  (value) => value === usage.state,
+                )
                   ? usage.stopped_at
                   : undefined
               }
@@ -246,9 +264,9 @@ export function ServerOperationsPage({
                 Permission.ServerReinstall,
               )}
               onAction={(action) => {
-                if (action === "kill" || action === "reinstall") {
+                if (action === ServerAction.Kill || action === "reinstall") {
                   setError(null);
-                  setReinstallMode("keep");
+                  setReinstallMode(ReinstallMode.Keep);
                   setConfirmation(action);
                 } else void act(action);
               }}
@@ -361,9 +379,12 @@ export function ServerOperationsPage({
                   embedded
                   server={server}
                   canWrite={
-                    ["running", "stopped", "not_installed"].includes(
-                      status?.state ?? "unknown",
-                    ) && status?.busy !== true
+                    [
+                      RuntimeState.Running,
+                      RuntimeState.Stopped,
+                      RuntimeState.NotInstalled,
+                    ].some((value) => value === status?.state) &&
+                    status?.busy !== true
                   }
                   onClose={back}
                 />
@@ -400,10 +421,12 @@ export function ServerOperationsPage({
             !status ||
             status.busy ||
             (confirmation === "kill"
-              ? status.state !== "running"
-              : !["stopped", "not_installed", "deleted"].includes(
-                  status.state,
-                )) ||
+              ? status.state !== RuntimeState.Running
+              : ![
+                  RuntimeState.Stopped,
+                  RuntimeState.NotInstalled,
+                  RuntimeState.Deleted,
+                ].some((value) => value === status.state)) ||
             monitoring.snapshot?.sparks?.some(
               (spark) => spark.id === server.spark_id && spark.disabled,
             ) === true
@@ -426,7 +449,7 @@ export function ServerOperationsPage({
                 name="reinstall-mode"
                 value="keep"
                 checked={reinstallMode === "keep"}
-                onChange={() => setReinstallMode("keep")}
+                onChange={() => setReinstallMode(ReinstallMode.Keep)}
                 description={t(
                   "serverOperationsPage.keepsExistingGameFilesWorldsAndConfigurationTheInstallerMay",
                 )}
@@ -437,7 +460,7 @@ export function ServerOperationsPage({
                 name="reinstall-mode"
                 value="clean"
                 checked={reinstallMode === "clean"}
-                onChange={() => setReinstallMode("clean")}
+                onChange={() => setReinstallMode(ReinstallMode.Clean)}
                 tone="danger"
                 description={t(
                   "serverOperationsPage.permanentlyDeletesAllGameFilesIncludingWorldsModsAndIn",

@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"campfire/internal/shared/limits"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -29,7 +31,7 @@ func definitionDocument(data []byte) ([]byte, error) {
 		decoder := json.NewDecoder(bytes.NewReader(data))
 		decoder.UseNumber()
 
-		remaining := 100000
+		remaining := limits.DocumentNodes
 
 		value, err = jsonDocumentValue(decoder, 0, &remaining)
 		if err != nil {
@@ -52,7 +54,7 @@ func definitionDocument(data []byte) ([]byte, error) {
 			return nil, errors.New("use exactly one YAML document")
 		}
 
-		remaining := 100000
+		remaining := limits.DocumentNodes
 
 		value, err = yamlDocumentValue(&node, 0, &remaining)
 		if err != nil {

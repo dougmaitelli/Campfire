@@ -1,3 +1,4 @@
+import { BrowserEvent, StorageKey } from "../config/browser";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import {
@@ -16,7 +17,7 @@ import {
   type AuthState,
   type Credentials,
 } from "../api/auth";
-import { setCSRFToken } from "../api/client";
+import { setCSRFToken, API_READ_TIMEOUT_MS } from "../api/client";
 
 interface Authentication {
   session: AuthState | null;
@@ -72,17 +73,22 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     const expired = () => {
       accept({ authenticated: false, setup_required: false });
-      void load(AbortSignal.timeout(15000));
+      void load(AbortSignal.timeout(API_READ_TIMEOUT_MS));
     };
-    window.addEventListener("campfire:unauthenticated", expired);
+    window.addEventListener(BrowserEvent.Unauthenticated, expired);
     function viewAsChanged(event: StorageEvent) {
-      if (event.key === "campfire:view-as-changed") window.location.reload();
+      if (event.key === StorageKey.ViewAsChanged) window.location.reload();
     }
     window.addEventListener("storage", viewAsChanged);
-    void load(AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]));
+    void load(
+      AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(API_READ_TIMEOUT_MS),
+      ]),
+    );
     return () => {
       controller.abort();
-      window.removeEventListener("campfire:unauthenticated", expired);
+      window.removeEventListener(BrowserEvent.Unauthenticated, expired);
       window.removeEventListener("storage", viewAsChanged);
     };
   }, [accept, load]);
@@ -92,11 +98,11 @@ export function AuthenticationProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     await logout();
     accept({ authenticated: false, setup_required: false });
-    await load(AbortSignal.timeout(15000));
+    await load(AbortSignal.timeout(API_READ_TIMEOUT_MS));
   }
   async function reload() {
     setError(null);
-    await load(AbortSignal.timeout(15000));
+    await load(AbortSignal.timeout(API_READ_TIMEOUT_MS));
   }
   return (
     <AuthenticationContext.Provider

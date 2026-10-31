@@ -40,7 +40,7 @@ func TestOIDCAutoLinkRejectsUnsafeAccounts(t *testing.T) {
 				}
 			}
 
-			_, err := store.OIDCAccount(t.Context(), "issuer", "unknown", "new-user", 0, 0, "", "", user.Email, "", repository.OIDCAccountOptions{AutoLinkEmail: true, EmailVerified: true})
+			_, err := store.OIDCAccount(t.Context(), repository.OIDCAccountInput{Issuer: "issuer", Subject: "unknown", Username: "new-user", LinkUserID: 0, CredentialVersion: 0, LinkSessionHash: "", Name: "", Email: user.Email, Picture: "", Options: repository.OIDCAccountOptions{AutoLinkEmail: true, EmailVerified: true}})
 			if !errors.Is(err, repository.ErrAuthentication) && !errors.Is(err, repository.ErrAccessConflict) {
 				t.Fatal("unsafe account match was not rejected", err)
 			}
@@ -79,7 +79,7 @@ func TestOIDCAutoLinkRaceAcrossConnections(t *testing.T) {
 
 			<-start
 
-			linked, err := store.OIDCAccount(t.Context(), "issuer", []string{"first", "second"}[i], "unused", 0, 0, "", "", "PERSON@example.com", "", repository.OIDCAccountOptions{AutoLinkEmail: true, EmailVerified: true})
+			linked, err := store.OIDCAccount(t.Context(), repository.OIDCAccountInput{Issuer: "issuer", Subject: []string{"first", "second"}[i], Username: "unused", LinkUserID: 0, CredentialVersion: 0, LinkSessionHash: "", Name: "", Email: "PERSON@example.com", Picture: "", Options: repository.OIDCAccountOptions{AutoLinkEmail: true, EmailVerified: true}})
 			if err == nil && (linked.ID != user.ID || linked.RoleID != user.RoleID || linked.CredentialVersion != user.CredentialVersion || linked.PasswordHash != user.PasswordHash) {
 				t.Error("automatic link changed account identity or credentials", linked)
 			}

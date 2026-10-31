@@ -17,8 +17,8 @@ import (
 
 type localTransfer struct {
 	model.TransferResult
-	Role      string `json:"role"`
-	Installed bool   `json:"installed"`
+	Role      model.TransferRole `json:"role"`
+	Installed bool               `json:"installed"`
 }
 
 func (m *Manager) localTransfer(id string) (*localTransfer, error) {
@@ -36,7 +36,7 @@ func (m *Manager) localTransfer(id string) (*localTransfer, error) {
 		return nil, errors.New("invalid transfer state; operator recovery required")
 	}
 
-	if !utils.IsValidResourceID(transfer.ID) || transfer.ServerID != id || (transfer.Role != "source" && transfer.Role != "target") {
+	if !utils.IsValidResourceID(transfer.ID) || transfer.ServerID != id || (transfer.Role != model.TransferSource && transfer.Role != model.TransferTarget) {
 		return nil, errors.New("invalid transfer identity")
 	}
 
@@ -128,15 +128,15 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 				return model.TransferResult{}, err
 			}
 
-			t.Role, t.State, t.Installed = "source", model.TransferStateExporting, e.Installed
+			t.Role, t.State, t.Installed = model.TransferSource, model.TransferStateExporting, e.Installed
 		case model.TransferOperationPrepare:
 			if err := m.prepareTransfer(ctx, d, q, e, t); err != nil {
 				return model.TransferResult{}, err
 			}
 		case model.TransferOperationRelease:
-			t.Role, t.State = "source", model.TransferStateReleased
+			t.Role, t.State = model.TransferSource, model.TransferStateReleased
 		case model.TransferOperationDiscard:
-			t.Role, t.State = "target", model.TransferStateDiscarded
+			t.Role, t.State = model.TransferTarget, model.TransferStateDiscarded
 		default:
 			return model.TransferResult{}, errors.New("prepare the transfer first")
 		}
@@ -152,7 +152,7 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 
 	switch q.Operation {
 	case model.TransferOperationExport:
-		if t.Role != "source" {
+		if t.Role != model.TransferSource {
 			return model.TransferResult{}, errors.New("transfer role mismatch")
 		}
 
@@ -162,7 +162,7 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 
 		return m.launchTransfer(d, e, t, model.TransferStateExporting)
 	case model.TransferOperationPrepare:
-		if t.Role != "target" || t.Size != q.Size || t.Digest != q.Digest {
+		if t.Role != model.TransferTarget || t.Size != q.Size || t.Digest != q.Digest {
 			return model.TransferResult{}, errors.New("transfer archive identity mismatch")
 		}
 
@@ -191,7 +191,7 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 	case model.TransferOperationRead:
 		return m.readTransfer(t, q)
 	case model.TransferOperationImport:
-		if t.Role != "target" {
+		if t.Role != model.TransferTarget {
 			return model.TransferResult{}, errors.New("transfer role mismatch")
 		}
 
@@ -201,7 +201,7 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 
 		return m.launchTransfer(d, e, t, model.TransferStateImporting)
 	case model.TransferOperationActivate:
-		if t.Role != "target" || (t.State != model.TransferStateImported && t.State != model.TransferStateActive) {
+		if t.Role != model.TransferTarget || (t.State != model.TransferStateImported && t.State != model.TransferStateActive) {
 			return model.TransferResult{}, errors.New("transfer is not imported")
 		}
 
@@ -258,14 +258,14 @@ func (m *Manager) prepareTransfer(ctx context.Context, d model.Deployment, q mod
 		return err
 	}
 
-	t.Role, t.State, t.Size, t.Digest = "target", model.TransferStateReceiving, q.Size, q.Digest
+	t.Role, t.State, t.Size, t.Digest = model.TransferTarget, model.TransferStateReceiving, q.Size, q.Digest
 
 	return nil
 }
 
 func (m *Manager) transferProgress(t *localTransfer) (model.TransferResult, error) {
 	result := t.TransferResult
-	if t.Role == "target" && (t.State == model.TransferStateReceiving || t.State == model.TransferStateFailed || t.State == model.TransferStateImporting) {
+	if t.Role == model.TransferTarget && (t.State == model.TransferStateReceiving || t.State == model.TransferStateFailed || t.State == model.TransferStateImporting) {
 		info, err := os.Stat(m.transferArchive(t.ServerID, t.ID))
 		if errors.Is(err, os.ErrNotExist) {
 			return result, nil
@@ -282,7 +282,7 @@ func (m *Manager) transferProgress(t *localTransfer) (model.TransferResult, erro
 }
 
 func (m *Manager) writeTransfer(t *localTransfer, q model.TransferRequest) (model.TransferResult, error) {
-	if t.Role != "target" || t.State != "receiving" || len(q.Data) == 0 || q.Offset > t.Size-int64(len(q.Data)) {
+	if t.Role != model.TransferTarget || t.State != model.TransferStateReceiving || len(q.Data) == 0 || q.Offset > t.Size-int64(len(q.Data)) {
 		return model.TransferResult{}, errors.New("invalid transfer write")
 	}
 
@@ -325,7 +325,7 @@ func (m *Manager) writeTransfer(t *localTransfer, q model.TransferRequest) (mode
 }
 
 func (m *Manager) readTransfer(t *localTransfer, q model.TransferRequest) (model.TransferResult, error) {
-	if t.Role != "source" || t.State != "ready" || q.Offset > t.Size {
+	if t.Role != model.TransferSource || t.State != model.TransferStateReady || q.Offset > t.Size {
 		return model.TransferResult{}, errors.New("transfer archive is not ready")
 	}
 
@@ -431,7 +431,7 @@ func (m *Manager) launchTransfer(d model.Deployment, e *entry, t *localTransfer,
 }
 
 func (m *Manager) finishTransfer(ctx context.Context, d model.Deployment, e *entry, t *localTransfer, operation model.TransferOperation) (model.TransferResult, error) {
-	if (operation == model.TransferOperationRelease || operation == model.TransferOperationCleanup) && t.Role != "source" || operation == model.TransferOperationDiscard && t.Role != "target" {
+	if (operation == model.TransferOperationRelease || operation == model.TransferOperationCleanup) && t.Role != model.TransferSource || operation == model.TransferOperationDiscard && t.Role != model.TransferTarget {
 		return model.TransferResult{}, errors.New("transfer role mismatch")
 	}
 

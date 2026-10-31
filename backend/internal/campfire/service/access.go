@@ -10,32 +10,34 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 )
 
 // Principal is derived from persisted credentials, never from client-supplied roles.
 type Principal struct {
-	APITokenID        int64    `json:"api_token_id,omitempty"`
-	TokenScopes       []string `json:"-"`
-	ScopeLimit        []string `json:"-"`
-	CredentialVersion int64    `json:"-"`
-	UserID            int64    `json:"user_id"`
-	Username          string   `json:"username"`
-	Name              string   `json:"name"`
-	Picture           string   `json:"picture"`
-	RoleID            int64    `json:"role_id"`
-	Role              string   `json:"role"`
-	Admin             bool     `json:"admin"`
-	Permissions       []string `json:"permissions"`
+	APITokenID        int64                `json:"api_token_id,omitempty"`
+	TokenScopes       []model.PermissionID `json:"-"`
+	ScopeLimit        []model.PermissionID `json:"-"`
+	CredentialVersion int64                `json:"-"`
+	UserID            int64                `json:"user_id"`
+	Username          string               `json:"username"`
+	Name              string               `json:"name"`
+	Picture           string               `json:"picture"`
+	RoleID            int64                `json:"role_id"`
+	Role              string               `json:"role"`
+	Admin             bool                 `json:"admin"`
+	Permissions       []model.PermissionID `json:"permissions"`
 }
 
 // RoleView exposes action names without ORM association details.
 type RoleView struct {
-	ID          int64    `json:"id"`
-	Name        string   `json:"name"`
-	Scope       string   `json:"scope"`
-	Builtin     bool     `json:"builtin"`
-	Permissions []string `json:"permissions"`
+	ID          int64                `json:"id"`
+	Name        string               `json:"name"`
+	Scope       model.RoleScope      `json:"scope"`
+	Builtin     bool                 `json:"builtin"`
+	Permissions []model.PermissionID `json:"permissions"`
 }
 
 // PrincipalFromSession uses the account and permission set freshly loaded during authentication.
@@ -44,11 +46,11 @@ func PrincipalFromSession(session database.UserSession) Principal {
 }
 
 // Allows checks a platform action against the user's permissions and token scopes.
-func (p Principal) Allows(action string) bool {
+func (p Principal) Allows(action model.PermissionID) bool {
 	return p.tokenAllows(action) && (p.Admin || slices.Contains(p.Permissions, action))
 }
 
-func (p Principal) tokenAllows(action string) bool {
+func (p Principal) tokenAllows(action model.PermissionID) bool {
 	if p.ScopeLimit != nil && !slices.Contains(p.ScopeLimit, accessperm.AllAccess) && !slices.Contains(p.ScopeLimit, action) {
 		return false
 	}
@@ -56,17 +58,17 @@ func (p Principal) tokenAllows(action string) bool {
 	return p.APITokenID == 0 || slices.Contains(p.TokenScopes, accessperm.AllAccess) || slices.Contains(p.TokenScopes, action)
 }
 
-func (p Principal) restrictServer(actions []string) []string {
+func (p Principal) restrictServer(actions []model.PermissionID) []model.PermissionID {
 	actions = accessperm.Expand(actions)
 	if p.APITokenID == 0 && p.ScopeLimit == nil {
 		return actions
 	}
 
-	return accessperm.Restrict(slices.DeleteFunc(slices.Clone(actions), func(action string) bool { return !p.tokenAllows(action) }))
+	return accessperm.Restrict(slices.DeleteFunc(slices.Clone(actions), func(action model.PermissionID) bool { return !p.tokenAllows(action) }))
 }
 
-func roleActions(role database.Role) []string {
-	actions := make([]string, 0, len(role.Permissions))
+func roleActions(role database.Role) []model.PermissionID {
+	actions := make([]model.PermissionID, 0, len(role.Permissions))
 	for _, permission := range role.Permissions {
 		actions = append(actions, permission.Permission)
 	}
@@ -93,7 +95,7 @@ func (s *AuthService) Access() *AccessService {
 }
 
 // ServerPermissions calculates effective access from ownership or a current membership.
-func (s *AccessService) ServerPermissions(ctx context.Context, principal Principal, id string) ([]string, error) {
+func (s *AccessService) ServerPermissions(ctx context.Context, principal Principal, id string) ([]model.PermissionID, error) {
 	owner, err := s.store.Owner(ctx, id)
 	if err != nil {
 		return nil, err
@@ -160,19 +162,19 @@ func (s *AccessService) ViewAsPrincipal(ctx context.Context, actor Principal, us
 }
 
 // SaveRole permits platform creation grants or server-scoped actions, never custom admin bypasses.
-func (s *AccessService) SaveRole(ctx context.Context, id int64, name, scope string, permissions []string) (RoleView, error) {
+func (s *AccessService) SaveRole(ctx context.Context, id int64, name string, scope model.RoleScope, permissions []model.PermissionID) (RoleView, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || utf8.RuneCountInString(name) > 64 || strings.ContainsFunc(name, unicode.IsControl) || scope != "platform" && scope != "server" {
+	if name == "" || utf8.RuneCountInString(name) > 64 || strings.ContainsFunc(name, unicode.IsControl) || scope != model.RoleScopePlatform && scope != model.RoleScopeServer {
 		return RoleView{}, repository.ErrAccessInput
 	}
 
-	allowed := []string{accessperm.ServersCreate}
-	if scope == "server" {
+	allowed := []model.PermissionID{accessperm.ServersCreate}
+	if scope == model.RoleScopeServer {
 		allowed = accessperm.All()
 	}
 
 	role := database.Role{ID: id, Name: name, Scope: scope}
-	if scope == "server" {
+	if scope == model.RoleScopeServer {
 		for _, action := range permissions {
 			if !slices.Contains(allowed, action) {
 				return RoleView{}, repository.ErrAccessInput
@@ -192,7 +194,7 @@ func (s *AccessService) SaveRole(ctx context.Context, id int64, name, scope stri
 		role.Permissions = append(role.Permissions, database.RolePermission{Permission: permission})
 	}
 
-	if scope == "server" && !slices.Contains(permissions, accessperm.ServerView) {
+	if scope == model.RoleScopeServer && !slices.Contains(permissions, accessperm.ServerView) {
 		return RoleView{}, repository.ErrAccessInput
 	}
 
@@ -214,16 +216,16 @@ func (s *AccessService) Users(ctx context.Context) ([]database.User, error) {
 }
 
 // CreateUser validates and hashes a new account password.
-func (s *AccessService) CreateUser(ctx context.Context, username, password string, roleID int64, disabled bool, name, email string) (database.User, error) {
-	name = strings.TrimSpace(name)
+func (s *AccessService) CreateUser(ctx context.Context, input CreateUserInput) (database.User, error) {
+	input.Name = strings.TrimSpace(input.Name)
 
-	email = strings.TrimSpace(email)
-	if !validDisplayName(name) || !validEmail(email) {
+	input.Email = strings.TrimSpace(input.Email)
+	if !validDisplayName(input.Name) || !validEmail(input.Email) {
 		return database.User{}, repository.ErrAccessInput
 	}
 
-	username = strings.ToLower(strings.TrimSpace(username))
-	if !validAccountInput(username, password) {
+	input.Username = strings.ToLower(strings.TrimSpace(input.Username))
+	if !validAccountInput(input.Username, input.Password) {
 		return database.User{}, ErrAuthInput
 	}
 
@@ -233,17 +235,25 @@ func (s *AccessService) CreateUser(ctx context.Context, username, password strin
 	}
 	defer release()
 
-	encoded, err := passwordHash(password)
+	encoded, err := passwordHash(input.Password)
 	if err != nil {
 		return database.User{}, err
 	}
 
-	user := database.User{Username: username, Name: name, Email: email, PasswordHash: encoded, CredentialVersion: 1, RoleID: roleID, Disabled: disabled}
+	user := database.User{Username: input.Username, Name: input.Name, Email: input.Email, PasswordHash: encoded, CredentialVersion: 1, RoleID: input.RoleID, Disabled: input.Disabled}
 	if err := s.store.CreateUser(ctx, &user); err != nil {
 		return database.User{}, err
 	}
 
 	return s.store.User(ctx, user.ID)
+}
+
+// CreateUserInput contains the account details supplied by an administrator.
+type CreateUserInput struct {
+	Username, Password string
+	RoleID             int64
+	Disabled           bool
+	Name, Email        string
 }
 
 // UpdateUser changes account privileges and revokes that user's sessions.
@@ -293,7 +303,7 @@ func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabl
 }
 
 func validDisplayName(name string) bool {
-	return utf8.ValidString(name) && utf8.RuneCountInString(name) <= 100 && !strings.ContainsFunc(name, unicode.IsControl)
+	return utf8.ValidString(name) && utf8.RuneCountInString(name) <= limits.DisplayNameMax && !strings.ContainsFunc(name, unicode.IsControl)
 }
 
 func validEmail(email string) bool {
@@ -301,7 +311,7 @@ func validEmail(email string) bool {
 		return true
 	}
 
-	if len(email) > 254 || !utf8.ValidString(email) || strings.ContainsFunc(email, unicode.IsControl) {
+	if len(email) > limits.EmailMax || !utf8.ValidString(email) || strings.ContainsFunc(email, unicode.IsControl) {
 		return false
 	}
 

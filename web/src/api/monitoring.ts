@@ -1,3 +1,11 @@
+import { MonitoringPolicy, sampleFreshSeconds } from "../config/policies";
+import { ResourceState } from "../contracts/domains";
+import {
+  isRecord as object,
+  isEnumValue,
+  isNonnegativeNumber as nonnegative,
+  isNonnegativeInteger as integer,
+} from "../utils/validation";
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 import { isSpark, type Spark } from "./sparks";
@@ -7,7 +15,8 @@ export interface ResourceUsage {
   // Presentation lifetime supplied by the shared collector's cadence.
   fresh_for_seconds?: number;
   server_id: string;
-  state: string;
+  // Spark totals use connection state; server samples use runtime state.
+  state: ResourceState | "";
   started_at?: number;
   stopped_at?: number;
   cpu_percent: number | null;
@@ -44,15 +53,7 @@ export interface MonitoringSnapshot {
   servers: MonitoredServer[];
   sparks?: MonitoredSpark[] | undefined;
 }
-function object(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function nonnegative(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0;
-}
-function integer(value: unknown): value is number {
-  return nonnegative(value) && Number.isSafeInteger(value);
-}
+
 function nullable(value: unknown) {
   return value === null || nonnegative(value);
 }
@@ -60,7 +61,7 @@ export function isResourceUsage(value: unknown): value is ResourceUsage {
   return (
     object(value) &&
     typeof value.server_id === "string" &&
-    typeof value.state === "string" &&
+    (value.state === "" || isEnumValue(ResourceState, value.state)) &&
     (value.started_at === undefined || integer(value.started_at)) &&
     (value.stopped_at === undefined || integer(value.stopped_at)) &&
     nullable(value.cpu_percent) &&
@@ -122,14 +123,14 @@ export async function readMonitoring(
       ...spark,
       usage: {
         ...spark.usage,
-        fresh_for_seconds: Math.max(15, snapshot.sample_interval_seconds * 3),
+        fresh_for_seconds: sampleFreshSeconds(snapshot.sample_interval_seconds),
       },
     })),
     servers: snapshot.servers.map((server) => ({
       ...server,
       usage: {
         ...server.usage,
-        fresh_for_seconds: Math.max(15, snapshot.sample_interval_seconds * 3),
+        fresh_for_seconds: sampleFreshSeconds(snapshot.sample_interval_seconds),
       },
     })),
   };
@@ -142,7 +143,8 @@ export function containerFresh(
   return (
     usage !== undefined &&
     usage.sampled_at > 0 &&
-    usage.sample_age_seconds + elapsed <= (usage.fresh_for_seconds ?? 15) &&
+    usage.sample_age_seconds + elapsed <=
+      (usage.fresh_for_seconds ?? MonitoringPolicy.MinimumFreshSeconds) &&
     !usage.container_error
   );
 }
@@ -151,7 +153,10 @@ export function diskFresh(usage: ResourceUsage | undefined, elapsed: number) {
     usage !== undefined &&
     usage.disk_sampled_at > 0 &&
     usage.disk_age_seconds + elapsed <=
-      Math.max(90, usage.fresh_for_seconds ?? 0) &&
+      Math.max(
+        MonitoringPolicy.DiskFreshSeconds,
+        usage.fresh_for_seconds ?? 0,
+      ) &&
     !usage.disk_error
   );
 }

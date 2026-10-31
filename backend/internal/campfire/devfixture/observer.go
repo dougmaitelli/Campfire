@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
@@ -26,8 +27,8 @@ func SeedObserver(ctx context.Context, db *gorm.DB, now time.Time) error {
 		return err
 	}
 
-	role := database.Role{Name: "Observers", Scope: "server"}
-	for _, action := range accessperm.Expand([]string{accessperm.ServerSchedulesRead}) {
+	role := database.Role{Name: "Observers", Scope: model.RoleScopeServer}
+	for _, action := range accessperm.Expand([]model.PermissionID{accessperm.ServerSchedulesRead}) {
 		role.Permissions = append(role.Permissions, database.RolePermission{Permission: action})
 	}
 

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/settings"
 )
@@ -67,7 +68,7 @@ type boundedOutput struct{ bytes.Buffer }
 func (b *boundedOutput) Write(value []byte) (int, error) {
 	n := len(value)
 
-	const limit = 65536
+	const limit = limits.LogCaptureBytes
 
 	if n >= limit {
 		b.Reset()

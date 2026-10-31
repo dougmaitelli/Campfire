@@ -1,5 +1,11 @@
+import {
+  NetworkProtocol,
+  VariableType,
+  VariableFormat,
+} from "../contracts/domains";
+import { isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
-import { API_REQUEST_TIMEOUT_MS, apiFetch, readJSON } from "./client";
+import { API_REQUEST_TIMEOUT_MS, apiFetch, readJSON, apiJSON } from "./client";
 
 export interface EmberVariable {
   name: string;
@@ -8,7 +14,7 @@ export interface EmberVariable {
   editable: boolean;
   hidden?: boolean;
   pattern?: string;
-  validation?: { type: "string" | "integer" | "numeric" | "boolean" };
+  validation?: { type: VariableType; format?: VariableFormat };
 }
 
 export interface Ember {
@@ -30,7 +36,7 @@ export interface Ember {
   required_ports?:
     | {
         container: number;
-        protocol: "tcp" | "udp";
+        protocol: NetworkProtocol;
         description?: string;
       }[]
     | null;
@@ -107,9 +113,10 @@ function isVariable(value: unknown): value is EmberVariable {
       (typeof value.validation === "object" &&
         value.validation !== null &&
         "type" in value.validation &&
-        ["string", "integer", "numeric", "boolean"].includes(
-          String(value.validation.type),
-        )))
+        isEnumValue(VariableType, value.validation.type) &&
+        (!("format" in value.validation) ||
+          (value.validation.type === VariableType.String &&
+            isEnumValue(VariableFormat, value.validation.format)))))
   );
 }
 
@@ -121,7 +128,7 @@ function isRequiredPort(value: unknown): boolean {
     typeof value.container === "number" &&
     Number.isInteger(value.container) &&
     "protocol" in value &&
-    (value.protocol === "tcp" || value.protocol === "udp") &&
+    isEnumValue(NetworkProtocol, value.protocol) &&
     (!("description" in value) || typeof value.description === "string")
   );
 }
@@ -147,19 +154,16 @@ export async function importEmber(
   replaceID?: string,
 ): Promise<Ember> {
   const body = await readJSON(
-    await apiFetch(
+    await apiJSON(
       replaceID
         ? `/api/v1/embers/${encodeURIComponent(replaceID)}`
         : "/api/v1/embers",
       {
-        method: replaceID ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          definition,
-          acknowledge_warnings: acknowledgeWarnings,
-          source_url: sourceURL,
-        }),
+        definition,
+        acknowledge_warnings: acknowledgeWarnings,
+        source_url: sourceURL,
       },
+      { method: replaceID ? "PUT" : "POST" },
     ),
   );
   if (!isEmber(body))
@@ -226,27 +230,28 @@ export async function previewEmberDefinition(
   signal?: AbortSignal,
 ): Promise<EmberPreview> {
   return readPreview(
-    await apiFetch("/api/v1/embers/preview", {
-      method: "POST",
-      signal: signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(API_REQUEST_TIMEOUT_MS)])
-        : null,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    await apiJSON(
+      "/api/v1/embers/preview",
+      {
         definition,
         source_url: sourceURL,
-      }),
-    }),
+      },
+      {
+        method: "POST",
+        signal: signal
+          ? AbortSignal.any([
+              signal,
+              AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
+            ])
+          : null,
+      },
+    ),
   );
 }
 
 export async function previewEmberURL(url: string): Promise<EmberPreview> {
   return readPreview(
-    await apiFetch("/api/v1/embers/preview-url", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    }),
+    await apiJSON("/api/v1/embers/preview-url", { url }, { method: "POST" }),
   );
 }
 
@@ -294,23 +299,21 @@ export async function listEmberUpdates(
 export async function checkEmberUpdate(id: string): Promise<EmberUpdate> {
   return readEmberUpdate(
     await readJSON(
-      await apiFetch(`/api/v1/embers/${encodeURIComponent(id)}/check-update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-        signal: AbortSignal.timeout(30000),
-      }),
+      await apiJSON(
+        `/api/v1/embers/${encodeURIComponent(id)}/check-update`,
+        {},
+        { method: "POST", signal: AbortSignal.timeout(30000) },
+      ),
     ),
   );
 }
 
 export async function downloadEmberUpdate(id: string): Promise<EmberPreview> {
   return readPreview(
-    await apiFetch(`/api/v1/embers/${encodeURIComponent(id)}/download-update`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-      signal: AbortSignal.timeout(30000),
-    }),
+    await apiJSON(
+      `/api/v1/embers/${encodeURIComponent(id)}/download-update`,
+      {},
+      { method: "POST", signal: AbortSignal.timeout(30000) },
+    ),
   );
 }

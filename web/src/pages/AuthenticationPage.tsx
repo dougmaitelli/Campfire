@@ -1,3 +1,4 @@
+import { AccountLimits } from "../config/policies";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
@@ -199,7 +200,7 @@ export function AuthenticationPage() {
                       spellCheck={false}
                       value={username}
                       minLength={setup ? 3 : 1}
-                      maxLength={64}
+                      maxLength={AccountLimits.UsernameMax}
                       required
                       disabled={busy}
                       onChange={(event) => setUsername(event.target.value)}
@@ -210,8 +211,8 @@ export function AuthenticationPage() {
                       autoComplete={setup ? "new-password" : "current-password"}
                       name="password"
                       value={password}
-                      minLength={setup ? 15 : 1}
-                      maxLength={1024}
+                      minLength={setup ? AccountLimits.PasswordMin : 1}
+                      maxLength={AccountLimits.PasswordMax}
                       required
                       disabled={busy}
                       onChange={(event) => setPassword(event.target.value)}
@@ -235,8 +236,8 @@ export function AuthenticationPage() {
                         autoComplete="new-password"
                         name="confirmation"
                         value={confirmation}
-                        minLength={15}
-                        maxLength={1024}
+                        minLength={AccountLimits.PasswordMin}
+                        maxLength={AccountLimits.PasswordMax}
                         required
                         disabled={busy}
                         onChange={(event) =>

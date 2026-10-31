@@ -1,5 +1,8 @@
+import { RequestTimeout } from "../config/policies";
+import { isEnumValue } from "../utils/validation";
+import { FileKind, FileOperation } from "../contracts/domains";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, apiJSON } from "./client";
 
 export const fileLimit = 1024 * 1024;
 export const fileTransferLimit = 100 * 1024 ** 3;
@@ -29,7 +32,7 @@ export async function uploadLimit(
 export interface FileEntry {
   mode?: number;
   name: string;
-  kind: "file" | "directory" | "unsupported";
+  kind: FileKind;
   size: number;
   modified_at: string;
 }
@@ -43,7 +46,7 @@ export function fileExtension(name: string): string {
 // Filename hints avoid fetching known binary formats just to reject them.
 // Unknown formats still go through the editor's UTF-8 and NUL checks.
 export function canOpenFile(entry: FileEntry): boolean {
-  if (entry.kind === "directory") return true;
+  if (entry.kind === FileKind.Directory) return true;
   if (entry.kind !== "file" || entry.size > fileLimit) return false;
   return !new Set([
     "jar",
@@ -98,20 +101,7 @@ export interface FileResult {
   upload_id?: string;
 }
 export interface FileRequest {
-  operation:
-    | "list"
-    | "read"
-    | "write"
-    | "mkdir"
-    | "rename"
-    | "delete"
-    | "chmod"
-    | "upload.begin"
-    | "upload.chunk"
-    | "upload.commit"
-    | "upload.cancel"
-    | "compress"
-    | "extract";
+  operation: FileOperation;
   path: string;
   mode?: number;
   paths?: string[];
@@ -130,7 +120,7 @@ function isEntry(value: unknown): value is FileEntry {
     "name" in value &&
     typeof value.name === "string" &&
     "kind" in value &&
-    ["file", "directory", "unsupported"].includes(String(value.kind)) &&
+    isEnumValue(FileKind, value.kind) &&
     "size" in value &&
     typeof value.size === "number" &&
     Number.isSafeInteger(value.size) &&
@@ -163,14 +153,12 @@ export async function manageFiles(
   signal?: AbortSignal,
 ): Promise<FileResult> {
   const timeout =
-    input.operation === "compress" || input.operation === "extract"
-      ? 30 * 60 * 1000
-      : 15000;
+    input.operation === FileOperation.Compress || input.operation === "extract"
+      ? RequestTimeout.Archive
+      : RequestTimeout.Read;
   const body = await readJSON(
-    await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/files`, {
+    await apiJSON(`/api/v1/servers/${encodeURIComponent(id)}/files`, input, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
       signal: signal
         ? AbortSignal.any([signal, AbortSignal.timeout(timeout)])
         : AbortSignal.timeout(timeout),
@@ -179,7 +167,7 @@ export async function manageFiles(
   if (
     !isResult(body) ||
     body.server_id !== id ||
-    (input.operation === "list" && !body.path.endsWith("/"))
+    (input.operation === FileOperation.List && !body.path.endsWith("/"))
   )
     throw new Error(i18n.t("files.unexpectedFileResponse"));
   return body;

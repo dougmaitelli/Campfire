@@ -29,24 +29,24 @@ func (r *Runtime) uploadFile(record runtimeRecord, request model.FileRequest, re
 
 	if request.Operation == model.FileOperationUploadBegin {
 		if request.Size < 0 || request.Size > request.UploadLimit {
-			return result, fileError("file_limit", "File exceeds the upload limit.")
+			return result, fileError(model.FileLimitExceeded, "File exceeds the upload limit.")
 		}
 
 		_, exists := record.Files[result.Path]
 		_, directory := record.Files[result.Path+"/"]
 
 		if exists || directory || result.Path == "." || request.Revision != "absent" {
-			return result, fileError("file_conflict", "Destination already exists.")
+			return result, fileError(model.FileConflict, "Destination already exists.")
 		}
 
 		if parent := path.Dir(result.Path); parent != "." {
 			if _, ok := record.Files[parent+"/"]; !ok {
-				return result, fileError("file_not_found", "Parent directory not found.")
+				return result, fileError(model.FileNotFound, "Parent directory not found.")
 			}
 		}
 
 		if len(r.uploads) >= 64 {
-			return result, fileError("file_limit", "Too many mock uploads are active.")
+			return result, fileError(model.FileLimitExceeded, "Too many mock uploads are active.")
 		}
 
 		if r.uploads == nil {
@@ -61,27 +61,27 @@ func (r *Runtime) uploadFile(record runtimeRecord, request model.FileRequest, re
 
 	upload := r.uploads[request.UploadID]
 	if upload == nil || upload.serverID != request.ServerID || upload.path != result.Path {
-		return result, fileError("invalid_file", "Upload session not found.")
+		return result, fileError(model.FileInvalid, "Upload session not found.")
 	}
 
 	switch request.Operation {
 	case model.FileOperationUploadChunk:
 		if request.Offset != upload.offset || len(request.Data) > model.FileLimit || upload.offset+int64(len(request.Data)) > upload.size {
-			return result, fileError("invalid_file", "Invalid upload offset or size.")
+			return result, fileError(model.FileInvalid, "Invalid upload offset or size.")
 		}
 
 		upload.offset += int64(len(request.Data))
 		upload.expires = time.Now().Add(15 * time.Minute)
 	case model.FileOperationUploadCommit:
 		if upload.offset != upload.size {
-			return result, fileError("invalid_file", "Upload is incomplete.")
+			return result, fileError(model.FileInvalid, "Upload is incomplete.")
 		}
 
 		delete(r.uploads, request.UploadID)
 	case model.FileOperationUploadCancel:
 		delete(r.uploads, request.UploadID)
 	default:
-		return result, fileError("invalid_file", "Unknown upload operation.")
+		return result, fileError(model.FileInvalid, "Unknown upload operation.")
 	}
 
 	return result, nil

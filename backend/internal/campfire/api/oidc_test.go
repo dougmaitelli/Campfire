@@ -64,7 +64,7 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	user, err := auth.Access().CreateUser(ctx, "admin", testAdminPassword, database.AdminRole, false, "", "")
+	user, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "admin", Password: testAdminPassword, RoleID: database.AdminRole, Disabled: false, Name: "", Email: ""})
 	if err != nil {
 		t.Fatal(err)
 	}

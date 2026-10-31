@@ -4,12 +4,14 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+
+	"campfire/internal/shared/model"
 )
 
 // checkZIPDirectory bounds entry count before archive/zip allocates metadata.
 // Scan the directory too: ZIP's declared count alone is not trustworthy.
 func checkZIPDirectory(file *os.File, size int64) error {
-	failure := fileFailure("invalid_file", "ZIP directory is invalid or exceeds 100,000 entries or 128 MiB of metadata.")
+	failure := fileFailure(model.FileInvalid, "ZIP directory is invalid or exceeds 100,000 entries or 128 MiB of metadata.")
 	if size < 22 {
 		return failure
 	}

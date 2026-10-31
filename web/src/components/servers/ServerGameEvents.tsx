@@ -1,3 +1,4 @@
+import { API_READ_TIMEOUT_MS } from "../../api/client";
 import { useCallback, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -117,7 +118,7 @@ function GameEventResults({
       const page = await readGameEvents(
         serverID,
         filter,
-        AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+        AbortSignal.any([signal, AbortSignal.timeout(API_READ_TIMEOUT_MS)]),
       );
       if (!signal.aborted) setNextBefore(page.next_before);
       return page.items;

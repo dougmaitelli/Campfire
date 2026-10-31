@@ -74,7 +74,7 @@ func (m *Manager) Prune(ctx context.Context) (model.PruneResult, error) {
 			return result, errors.New("could not read Campfire resource inventory")
 		}
 
-		deleted[dir.Name()] = saved.Status.State == "deleted"
+		deleted[dir.Name()] = saved.Status.State == model.RuntimeStateDeleted
 		for _, id := range saved.Images {
 			if dockerImageID.MatchString(id) {
 				images[id] = true

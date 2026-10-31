@@ -31,15 +31,15 @@ type schemaMigration struct {
 type Role struct {
 	ID          int64            `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name        string           `gorm:"type:text;not null;uniqueIndex:roles_name_scope,expression:lower(name)" json:"name"`
-	Scope       string           `gorm:"type:text;not null;check:roles_scope,scope IN ('platform','server');uniqueIndex:roles_name_scope" json:"scope"`
+	Scope       model.RoleScope  `gorm:"type:text;not null;check:roles_scope,scope IN ('platform','server');uniqueIndex:roles_name_scope" json:"scope"`
 	Builtin     bool             `gorm:"not null" json:"builtin"`
 	Permissions []RolePermission `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE" json:"-"`
 }
 
 // RolePermission grants one action to a role.
 type RolePermission struct {
-	RoleID     int64  `gorm:"primaryKey;autoIncrement:false"`
-	Permission string `gorm:"type:text;primaryKey"`
+	RoleID     int64              `gorm:"primaryKey;autoIncrement:false"`
+	Permission model.PermissionID `gorm:"type:text;primaryKey"`
 }
 
 // User stores a panel account with one platform role.

@@ -58,23 +58,23 @@ func NumericBound(value string) (float64, error) {
 
 // VariableValidation preserves the supported Egg validation rules in native Embers.
 type VariableValidation struct {
-	Type      string   `json:"type"`
-	Format    string   `json:"format,omitempty"`
-	Nullable  bool     `json:"nullable,omitempty"`
-	Min       *float64 `json:"min,omitempty"`
-	Max       *float64 `json:"max,omitempty"`
-	MinLength *int     `json:"min_length,omitempty"`
-	MaxLength *int     `json:"max_length,omitempty"`
-	Choices   []string `json:"choices,omitempty"`
+	Type      VariableType   `json:"type"`
+	Format    VariableFormat `json:"format,omitempty"`
+	Nullable  bool           `json:"nullable,omitempty"`
+	Min       *float64       `json:"min,omitempty"`
+	Max       *float64       `json:"max,omitempty"`
+	MinLength *int           `json:"min_length,omitempty"`
+	MaxLength *int           `json:"max_length,omitempty"`
+	Choices   []string       `json:"choices,omitempty"`
 }
 
 // Validate checks that constraints are finite, bounded and internally consistent.
 func (v VariableValidation) Validate() error {
-	if !slices.Contains([]string{"string", "integer", "numeric", "boolean"}, v.Type) {
+	if !slices.Contains([]VariableType{VariableString, VariableInteger, VariableNumeric, VariableBoolean}, v.Type) {
 		return errors.New("unsupported variable type")
 	}
 
-	if v.Format != "" && (v.Format != "url" || v.Type != "string") {
+	if v.Format != "" && (v.Format != VariableFormatURL || v.Type != VariableString) {
 		return errors.New("unsupported variable format for this type")
 	}
 
@@ -84,7 +84,7 @@ func (v VariableValidation) Validate() error {
 		}
 	}
 
-	if (v.Min != nil || v.Max != nil) && v.Type != "integer" && v.Type != "numeric" {
+	if (v.Min != nil || v.Max != nil) && v.Type != VariableInteger && v.Type != VariableNumeric {
 		return errors.New("numeric bounds require a numeric variable")
 	}
 
@@ -98,7 +98,7 @@ func (v VariableValidation) Validate() error {
 		}
 	}
 
-	if (v.MinLength != nil || v.MaxLength != nil) && v.Type != "string" {
+	if (v.MinLength != nil || v.MaxLength != nil) && v.Type != VariableString {
 		return errors.New("length bounds require a string variable")
 	}
 
@@ -139,7 +139,7 @@ func (v Variable) ValidateValue(value string) error {
 		return err
 	}
 
-	if rules.Format == "url" && value != "" {
+	if rules.Format == VariableFormatURL && value != "" {
 		parsed, err := url.Parse(value)
 		if err != nil || !parsed.IsAbs() || parsed.Hostname() == "" || parsed.Opaque != "" || strings.Contains(value, "\\") || strings.ContainsFunc(value, func(ch rune) bool { return unicode.IsSpace(ch) || unicode.IsControl(ch) }) {
 			return errors.New("value must be an absolute URL with a host")
@@ -155,16 +155,16 @@ func (v Variable) ValidateValue(value string) error {
 		return errors.New("value is outside its length bounds")
 	}
 
-	if rules.Type == "boolean" && value != "0" && value != "1" {
+	if rules.Type == VariableBoolean && value != "0" && value != "1" {
 		return errors.New("boolean value must be 0 or 1")
 	}
 
-	if rules.Type == "integer" || rules.Type == "numeric" {
+	if rules.Type == VariableInteger || rules.Type == VariableNumeric {
 		var number *big.Rat
 
 		text := strings.Trim(value, " \t\r\n\v\f")
 
-		if rules.Type == "integer" {
+		if rules.Type == VariableInteger {
 			if !integerValue.MatchString(text) {
 				return errors.New("value must be an integer")
 			}

@@ -1,3 +1,5 @@
+import { NetworkProtocol } from "../contracts/domains";
+import { ResourceLimits } from "../config/policies";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { Fieldset } from "../components/forms/Fieldset";
@@ -177,7 +179,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   required
-                  maxLength={100}
+                  maxLength={ResourceLimits.NameLength}
                   placeholder={t("sparkDrawer.eGHomeServer")}
                   autoComplete="off"
                 />
@@ -204,7 +206,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                   name="description"
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  maxLength={1000}
+                  maxLength={ResourceLimits.DescriptionLength}
                   placeholder={t("common.descriptionPlaceholder")}
                 />
               </FormField>
@@ -237,7 +239,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                       id="spark-cpu"
                       type="number"
                       min={0}
-                      max={1024}
+                      max={ResourceLimits.MaxCPU}
                       step="any"
                       required
                       value={
@@ -370,7 +372,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                       id={`allocation-start-${index}`}
                       type="number"
                       min={1}
-                      max={65535}
+                      max={ResourceLimits.MaxPort}
                       step={1}
                       required
                       value={
@@ -388,7 +390,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                       id={`allocation-end-${index}`}
                       type="number"
                       min={allocation.start}
-                      max={65535}
+                      max={ResourceLimits.MaxPort}
                       step={1}
                       required
                       value={Number.isNaN(allocation.end) ? "" : allocation.end}
@@ -405,7 +407,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                       value={allocation.protocol}
                       onValueChange={(selectedValue) =>
                         changeAllocation(index, {
-                          protocol: selectedValue === "udp" ? "udp" : "tcp",
+                          protocol: selectedValue,
                         })
                       }
                     >
@@ -427,7 +429,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                         bind_ip: "0.0.0.0",
                         start: 25565,
                         end: 25565,
-                        protocol: "tcp",
+                        protocol: NetworkProtocol.TCP,
                       },
                     ],
                   })

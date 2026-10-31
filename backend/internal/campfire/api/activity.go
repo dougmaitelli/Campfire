@@ -19,7 +19,7 @@ import (
 
 type auditKey struct{}
 
-func auditDetail(r *http.Request, action, target string) {
+func auditDetail(r *http.Request, action model.AuditAction, target string) {
 	if event, ok := r.Context().Value(auditKey{}).(*database.AuditEvent); ok {
 		if action != "" {
 			event.Action = action
@@ -95,7 +95,7 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 			}
 		}
 
-		event := database.AuditEvent{ID: rand.Text(), Action: action, Target: target, Outcome: "pending", CreatedAt: time.Now().Unix()}
+		event := database.AuditEvent{ID: rand.Text(), Action: model.AuditAction(action), Target: target, Outcome: model.AuditPending, CreatedAt: time.Now().Unix()}
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 3*time.Second)
 		err := a.activity.Store.BeginAudit(ctx, &event)
 
@@ -116,15 +116,15 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 			}
 
 			if !complete {
-				event.Outcome = "interrupted"
+				event.Outcome = model.AuditInterrupted
 				event.Status = http.StatusInternalServerError
-			} else if event.Outcome == "pending" {
+			} else if event.Outcome == model.AuditPending {
 				if event.Status >= 400 {
-					event.Outcome = "failed"
+					event.Outcome = model.AuditFailed
 				} else if event.Status == http.StatusAccepted {
-					event.Outcome = "accepted"
+					event.Outcome = model.AuditAccepted
 				} else {
-					event.Outcome = "succeeded"
+					event.Outcome = model.AuditSucceeded
 				}
 			}
 
@@ -182,16 +182,16 @@ func (a *API) previewSchedule(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) saveSchedule(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		ServerID        string           `json:"server_id"`
-		Name            string           `json:"name"`
-		Action          string           `json:"action"`
-		Command         string           `json:"command"`
-		Enabled         bool             `json:"enabled"`
-		OnlyWhenRunning bool             `json:"only_when_running"`
-		BackupMode      model.BackupMode `json:"backup_mode,omitempty"`
-		Cron            string           `json:"cron_expression"`
-		NextRunAt       int64            `json:"next_run_at"`
-		TimeZone        string           `json:"time_zone"`
+		ServerID        string             `json:"server_id"`
+		Name            string             `json:"name"`
+		Action          model.ServerAction `json:"action"`
+		Command         string             `json:"command"`
+		Enabled         bool               `json:"enabled"`
+		OnlyWhenRunning bool               `json:"only_when_running"`
+		BackupMode      model.BackupMode   `json:"backup_mode,omitempty"`
+		Cron            string             `json:"cron_expression"`
+		NextRunAt       int64              `json:"next_run_at"`
+		TimeZone        string             `json:"time_zone"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return

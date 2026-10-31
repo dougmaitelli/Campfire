@@ -18,14 +18,15 @@ import {
   Permission,
   togglePermission,
   type PermissionDefinition,
+  type PermissionID,
 } from "../api/permissions";
 
 export function APITokensDrawer({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [tokens, setTokens] = useState<APIToken[]>([]);
-  const [choices, setChoices] = useState<string[]>([]);
+  const [choices, setChoices] = useState<PermissionID[]>([]);
   const [catalog, setCatalog] = useState<PermissionDefinition[]>([]);
-  const [scopes, setScopes] = useState<string[]>([Permission.AllAccess]);
+  const [scopes, setScopes] = useState<PermissionID[]>([Permission.AllAccess]);
   const [name, setName] = useState("");
   const [days, setDays] = useState(90);
   const [secret, setSecret] = useState("");
@@ -76,7 +77,7 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
       setBusy(false);
     }
   }
-  function toggle(scope: string, checked: boolean) {
+  function toggle(scope: PermissionID, checked: boolean) {
     setScopes((current) => {
       let next = togglePermission(current, scope, checked, catalog);
       if (

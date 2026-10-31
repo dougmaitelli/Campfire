@@ -9,7 +9,6 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-
 	"campfire/internal/shared/model"
 )
 
@@ -19,13 +18,13 @@ type RuntimeDispatcher interface {
 }
 
 // Action delivers current configuration before submitting a lifecycle operation.
-func (s *DeploymentService) Action(ctx context.Context, id, action string) (model.RuntimeStatus, error) {
+func (s *DeploymentService) Action(ctx context.Context, id string, action model.ServerAction) (model.RuntimeStatus, error) {
 	return s.runAction(ctx, id, action, "")
 }
 
 // Backup creates a snapshot with a mode chosen for this invocation.
 func (s *DeploymentService) Backup(ctx context.Context, id string, mode model.BackupMode) (model.RuntimeStatus, error) {
-	return s.runAction(ctx, id, "backup", string(mode.Normalized()))
+	return s.runAction(ctx, id, model.ServerActionBackup, string(mode.Normalized()))
 }
 
 func (s *DeploymentService) backupOptions(ctx context.Context, id string, mode model.BackupMode) (model.BackupOptions, error) {
@@ -59,30 +58,30 @@ func (s *DeploymentService) backupOptions(ctx context.Context, id string, mode m
 }
 
 // Reinstall reruns the installer, optionally clearing game files first.
-func (s *DeploymentService) Reinstall(ctx context.Context, id, mode string) (model.RuntimeStatus, error) {
-	if mode != "" && mode != "keep" && mode != "clean" {
+func (s *DeploymentService) Reinstall(ctx context.Context, id string, mode model.ReinstallMode) (model.RuntimeStatus, error) {
+	if !mode.Valid() {
 		return model.RuntimeStatus{}, ErrInvalidServer
 	}
 
-	return s.runAction(ctx, id, "reinstall", mode)
+	return s.runAction(ctx, id, model.ServerActionReinstall, string(mode))
 }
 
 // Restore restores a named archive on the server's saved execution node.
 func (s *DeploymentService) Restore(ctx context.Context, id, name string) (model.RuntimeStatus, error) {
-	return s.runAction(ctx, id, "restore", name)
+	return s.runAction(ctx, id, model.ServerActionRestore, name)
 }
 
 // Console reads bounded logs or sends one line of game console input.
 func (s *DeploymentService) Console(ctx context.Context, id, content string, read bool) (model.RuntimeStatus, error) {
-	action := "command"
+	action := model.ServerActionCommand
 	if read {
-		action = "logs"
+		action = model.ServerActionLogs
 	}
 
 	return s.runAction(ctx, id, action, content)
 }
 
-func (s *DeploymentService) runAction(ctx context.Context, id, action, content string) (model.RuntimeStatus, error) {
+func (s *DeploymentService) runAction(ctx context.Context, id string, action model.ServerAction, content string) (model.RuntimeStatus, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
@@ -95,39 +94,39 @@ func (s *DeploymentService) runAction(ctx context.Context, id, action, content s
 	return s.runActionUnlocked(ctx, id, action, content)
 }
 
-func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, content string) (model.RuntimeStatus, error) {
-	if s.Transfers != nil && action != "status" && action != "logs" {
+func (s *DeploymentService) runActionUnlocked(ctx context.Context, id string, action model.ServerAction, content string) (model.RuntimeStatus, error) {
+	if s.Transfers != nil && action != model.ServerActionStatus && action != model.ServerActionLogs {
 		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}
 	}
 
-	if action == "update" || action == "reinstall" {
-		status, err := s.dispatchAction(ctx, id, "status", "", "")
+	if action == model.ServerActionUpdate || action == model.ServerActionReinstall {
+		status, err := s.dispatchAction(ctx, id, model.ServerActionStatus, "", "")
 		if err != nil {
 			return model.RuntimeStatus{}, err
 		}
 
-		if status.Busy || (status.State != "stopped" && status.State != "not_installed" && status.State != "deleted") {
+		if status.Busy || (status.State != model.RuntimeStateStopped && status.State != model.RuntimeStateNotInstalled && status.State != model.RuntimeStateDeleted) {
 			return model.RuntimeStatus{}, ErrServerActive
 		}
 	}
 
-	if s.Activity == nil || action == "logs" || action == "status" || action == "command" {
+	if s.Activity == nil || action == model.ServerActionLogs || action == model.ServerActionStatus || action == model.ServerActionCommand {
 		status, err := s.dispatchAction(ctx, id, action, content, "")
-		if err == nil && s.Activity != nil && action == "status" {
+		if err == nil && s.Activity != nil && action == model.ServerActionStatus {
 			err = s.recordObservation(ctx, id, status)
 		}
 
 		return status, err
 	}
 
-	if status, err := s.dispatchAction(ctx, id, "status", "", ""); err == nil {
+	if status, err := s.dispatchAction(ctx, id, model.ServerActionStatus, "", ""); err == nil {
 		if err := s.recordObservation(ctx, id, status); err != nil {
 			return model.RuntimeStatus{}, err
 		}
 
-		if status.Busy && (action == "stop" || action == "kill") && (status.Operation == "install" || status.Operation == "reinstall" || status.Operation == "update") {
+		if status.Busy && (action == model.ServerActionStop || action == model.ServerActionKill) && (status.Operation == model.ServerActionInstall || status.Operation == model.ServerActionReinstall || status.Operation == model.ServerActionUpdate) {
 			status, err := s.dispatchAction(ctx, id, action, content, "")
 			if err == nil {
 				err = s.recordObservation(ctx, id, status)
@@ -148,7 +147,7 @@ func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, c
 	defer cancel()
 
 	if err != nil {
-		if recordErr := s.Activity.finish(recordCtx, run, "interrupted", "Dispatch failed; verify server state before retrying."); recordErr != nil {
+		if recordErr := s.Activity.finish(recordCtx, run, model.ExecutionInterrupted, "Dispatch failed; verify server state before retrying."); recordErr != nil {
 			return model.RuntimeStatus{}, errors.Join(err, recordErr)
 		}
 
@@ -156,7 +155,7 @@ func (s *DeploymentService) runActionUnlocked(ctx context.Context, id, action, c
 	}
 
 	if status.Busy {
-		if err := s.Activity.Store.UpdateRun(recordCtx, run.ID, "running", "", time.Now()); err != nil {
+		if err := s.Activity.Store.UpdateRun(recordCtx, run.ID, model.ExecutionRunning, "", time.Now()); err != nil {
 			return model.RuntimeStatus{}, err
 		}
 	}
@@ -182,7 +181,7 @@ func (s *DeploymentService) recordObservation(ctx context.Context, id string, st
 		return err
 	}
 
-	if run.ServerID == id && run.State == "running" {
+	if run.ServerID == id && run.State == model.ExecutionRunning {
 		return s.Activity.observe(ctx, run, status)
 	}
 
@@ -203,8 +202,8 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 		return model.RuntimeStatus{}, err
 	}
 
-	if status, err := s.dispatchAction(ctx, run.ServerID, "status", "", ""); err == nil {
-		if run.OnlyWhenRunning && status.State != "running" {
+	if status, err := s.dispatchAction(ctx, run.ServerID, model.ServerActionStatus, "", ""); err == nil {
+		if run.OnlyWhenRunning && status.State != model.RuntimeStateRunning {
 			return model.RuntimeStatus{}, errServerNotRunning
 		}
 
@@ -220,16 +219,16 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 	}
 
 	content := run.Content
-	if run.Action == "backup" {
+	if run.Action == model.ServerActionBackup {
 		content = string(run.BackupMode.Normalized())
 	}
 
 	return s.dispatchAction(ctx, run.ServerID, run.Action, content, run.ID)
 }
 
-func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, content, operationID string) (model.RuntimeStatus, error) {
+func (s *DeploymentService) dispatchAction(ctx context.Context, id string, action model.ServerAction, content, operationID string) (model.RuntimeStatus, error) {
 	switch action {
-	case "install", "update", "reinstall", "start", "stop", "restart", "kill", "delete", "status", "logs", "command", "backup", "restore":
+	case model.ServerActionInstall, model.ServerActionUpdate, model.ServerActionReinstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionDelete, model.ServerActionStatus, model.ServerActionLogs, model.ServerActionCommand, model.ServerActionBackup, model.ServerActionRestore:
 	default:
 		return model.RuntimeStatus{}, ErrInvalidServer
 	}
@@ -255,8 +254,8 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		return model.RuntimeStatus{}, ErrDeploymentUnavailable
 	}
 
-	request := model.RuntimeRequest{ServerID: id, Action: model.ServerAction(action), Content: content}
-	if action == "backup" {
+	request := model.RuntimeRequest{ServerID: id, Action: action, Content: content}
+	if action == model.ServerActionBackup {
 		request.BackupOptions, err = s.backupOptions(ctx, id, model.BackupMode(content))
 		if err != nil {
 			return model.RuntimeStatus{}, err
@@ -265,7 +264,7 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		request.Content = ""
 	}
 
-	if action == "restore" && s.Backups != nil {
+	if action == model.ServerActionRestore && s.Backups != nil {
 		request.BackupSource, err = s.Backups.Source(ctx, id, content)
 		if err != nil {
 			return model.RuntimeStatus{}, err
@@ -280,17 +279,17 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		}
 	}
 
-	if server.EmberUpdateAvailable && (action == "install" || action == "update" || action == "reinstall") {
+	if server.EmberUpdateAvailable && (action == model.ServerActionInstall || action == model.ServerActionUpdate || action == model.ServerActionReinstall) {
 		return model.RuntimeStatus{}, fmt.Errorf("%w: apply the current Ember before installing game files", ErrInvalidServer)
 	}
 
-	if !server.EmberUpdateAvailable && action != "status" && action != "logs" && action != "command" && action != "stop" && action != "kill" {
+	if !server.EmberUpdateAvailable && action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionCommand && action != model.ServerActionStop && action != model.ServerActionKill {
 		if _, err := s.sync(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}
 	}
 
-	if action != "status" && action != "logs" && action != "command" {
+	if action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionCommand {
 		request.OperationID = operationID
 		if request.OperationID == "" {
 			request.OperationID = rand.Text()
@@ -299,7 +298,7 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 
 	if s.Games != nil {
 		switch action {
-		case "install", "update", "reinstall", "start", "stop", "restart", "kill", "delete", "restore":
+		case model.ServerActionInstall, model.ServerActionUpdate, model.ServerActionReinstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionDelete, model.ServerActionRestore:
 			s.Games.Invalidate(id)
 		}
 	}
@@ -319,7 +318,7 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		s.observed = make(map[string]time.Time)
 	}
 
-	if action == "status" || status.Busy {
+	if action == model.ServerActionStatus || status.Busy {
 		s.statuses[id] = status
 		s.observed[id] = time.Now()
 	}
@@ -365,7 +364,7 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 			return err
 		}
 
-		if err := checker.CheckRuntime(server.SparkID, model.RuntimeRequest{ServerID: id, Action: "delete"}); err != nil {
+		if err := checker.CheckRuntime(server.SparkID, model.RuntimeRequest{ServerID: id, Action: model.ServerActionDelete}); err != nil {
 			return errors.Join(ErrDeploymentUnavailable, err)
 		}
 	}
@@ -378,7 +377,7 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 		defer releaseBackups()
 	}
 
-	status, err := s.runActionUnlocked(ctx, id, "delete", "")
+	status, err := s.runActionUnlocked(ctx, id, model.ServerActionDelete, "")
 	if err != nil {
 		return err
 	}
@@ -393,13 +392,13 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 		case <-ticker.C:
 		}
 
-		status, err = s.runActionUnlocked(ctx, id, "status", "")
+		status, err = s.runActionUnlocked(ctx, id, model.ServerActionStatus, "")
 		if err != nil {
 			return err
 		}
 	}
 
-	if status.Error != "" || status.State != "deleted" {
+	if status.Error != "" || status.State != model.RuntimeStateDeleted {
 		return ErrDeploymentUnavailable
 	}
 

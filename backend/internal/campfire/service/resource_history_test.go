@@ -75,7 +75,7 @@ func TestResourceCollectionSharedAcrossReadersAndPersistsFailures(t *testing.T) 
 
 	blocked := owner
 	blocked.APITokenID = 1
-	blocked.TokenScopes = []string{"server.operate"}
+	blocked.TokenScopes = []model.PermissionID{"server.operate"}
 
 	snapshot, err := deployment.Monitoring(t.Context(), blocked)
 	if err != nil || len(snapshot.Servers) != 0 || len(snapshot.Sparks) != 0 {
@@ -114,7 +114,7 @@ func TestMonitoringExposesStoredSparkTotalsWithoutServerAccess(t *testing.T) {
 
 	// Node totals must not depend on a token's ability to list individual servers.
 	admin.APITokenID = 1
-	admin.TokenScopes = []string{"sparks.manage"}
+	admin.TokenScopes = []model.PermissionID{"sparks.manage"}
 
 	read := func() model.ResourceUsage {
 		t.Helper()

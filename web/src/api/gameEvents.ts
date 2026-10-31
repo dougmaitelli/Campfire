@@ -1,3 +1,5 @@
+import { GameLimits } from "../config/policies";
+import { isRecord as object } from "../utils/validation";
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
@@ -40,9 +42,6 @@ export interface GameEventFilter {
   before?: number;
 }
 
-function object(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 function positive(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
@@ -53,13 +52,13 @@ function isAttachment(value: unknown): value is GameAttachment {
     /^[A-Za-z0-9_-]{1,64}$/.test(value.id) &&
     typeof value.name === "string" &&
     value.name.length > 0 &&
-    value.name.length <= 128 &&
+    value.name.length <= GameLimits.MediaNameLength &&
     typeof value.content_type === "string" &&
     ["image/png", "image/jpeg", "video/mp4", "video/webm"].includes(
       value.content_type,
     ) &&
     positive(value.size) &&
-    value.size <= 25 * 1024 * 1024
+    value.size <= GameLimits.MediaBytes
   );
 }
 function isEvent(value: unknown, serverID: string): value is GameEvent {

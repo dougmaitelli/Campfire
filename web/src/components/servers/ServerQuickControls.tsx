@@ -1,3 +1,4 @@
+import { RuntimeState } from "../../contracts/domains";
 import { useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { serverAction, type RuntimeStatus } from "../../api/runtime";
@@ -32,7 +33,7 @@ export function ServerQuickControls({
   const pending = useRef(false);
   const startupPending =
     action === "start" ||
-    status?.state === "starting" ||
+    status?.state === RuntimeState.Starting ||
     status?.state === "restarting";
   const { blocked, running, install, canInterrupt } = lifecycleControlState(
     status,

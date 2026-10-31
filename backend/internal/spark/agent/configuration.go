@@ -61,12 +61,12 @@ func (s *ConfigurationStore) capabilities() []string {
 // Files resolves the saved game definition and invokes the shared file manager.
 func (s *ConfigurationStore) Files(ctx context.Context, id string, request model.FileRequest) (model.FileResult, error) {
 	if !utils.IsValidResourceID(id) || !utils.IsValidResourceID(request.ServerID) {
-		return model.FileResult{}, &model.FileError{Code: "invalid_file", Message: "Invalid server identity."}
+		return model.FileResult{}, &model.FileError{Code: model.FileInvalid, Message: "Invalid server identity."}
 	}
 
 	data, err := os.ReadFile(filepath.Join(s.Directory, id, request.ServerID+".json"))
 	if err != nil {
-		return model.FileResult{}, &model.FileError{Code: "file_not_found", Message: "Install the server before managing its files."}
+		return model.FileResult{}, &model.FileError{Code: model.FileNotFound, Message: "Install the server before managing its files."}
 	}
 
 	deployment, err := model.DecodeStoredDeployment(data)
@@ -92,12 +92,12 @@ func (s *ConfigurationStore) Action(ctx context.Context, id string, request mode
 	}
 
 	data, err := os.ReadFile(filepath.Join(s.Directory, id, request.ServerID+".json"))
-	if errors.Is(err, os.ErrNotExist) && request.Action == "status" {
-		return model.RuntimeStatus{ServerID: request.ServerID, State: "not_installed"}, nil
+	if errors.Is(err, os.ErrNotExist) && request.Action == model.ServerActionStatus {
+		return model.RuntimeStatus{ServerID: request.ServerID, State: model.RuntimeStateNotInstalled}, nil
 	}
 
-	if errors.Is(err, os.ErrNotExist) && request.Action == "metrics" {
-		return model.RuntimeStatus{ServerID: request.ServerID, State: "not_installed", Metrics: &model.ResourceUsage{ServerID: request.ServerID, State: "not_installed", ContainerError: "Deliver configuration before collecting usage.", DiskError: "Deliver configuration before collecting usage."}}, nil
+	if errors.Is(err, os.ErrNotExist) && request.Action == model.ServerActionMetrics {
+		return model.RuntimeStatus{ServerID: request.ServerID, State: model.RuntimeStateNotInstalled, Metrics: &model.ResourceUsage{ServerID: request.ServerID, State: model.RuntimeStateNotInstalled, ContainerError: "Deliver configuration before collecting usage.", DiskError: "Deliver configuration before collecting usage."}}, nil
 	}
 
 	if err != nil {
@@ -175,7 +175,7 @@ func (s *ConfigurationStore) executeNegotiated(ctx context.Context, id string, c
 func (s *ConfigurationStore) execute(ctx context.Context, id string, command protocol.Command) protocol.CommandResponse {
 	result := protocol.CommandResponse{ID: command.ID}
 	if command.ID == "" || len(command.ID) > 128 || command.Deadline.IsZero() || !command.Deadline.After(time.Now()) || command.Deadline.After(time.Now().Add(protocol.CommandTimeout(command)+time.Second)) {
-		result.Error = &protocol.CommandError{Code: "invalid_deadline", Message: "command deadline is invalid or expired"}
+		result.Error = &protocol.CommandError{Code: protocol.ErrorInvalidDeadline, Message: "command deadline is invalid or expired"}
 		return result
 	}
 
@@ -184,7 +184,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 			Prune(context.Context) (model.PruneResult, error)
 		})
 		if !ok {
-			result.Error = &protocol.CommandError{Code: "unsupported_capability", Message: "Docker cleanup is unavailable on this node."}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "Docker cleanup is unavailable on this node."}
 			return result
 		}
 
@@ -193,7 +193,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 
 		pruned, err := pruner.Prune(ctx)
 		if err != nil {
-			result.Error = &protocol.CommandError{Code: "spark_prune_failed", Message: err.Error()}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorPruneFailed, Message: err.Error()}
 		} else {
 			result.Prune = &pruned
 		}
@@ -203,7 +203,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 
 	if command.Name == protocol.UpdateSpark || command.Name == protocol.ReinstallSpark {
 		if s.Update == nil {
-			result.Error = &protocol.CommandError{Code: "unsupported_capability", Message: "Restart Spark without an enrollment token before using remote updates."}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "Restart Spark without an enrollment token before using remote updates."}
 			return result
 		}
 
@@ -212,7 +212,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 
 		filename, err := s.Update(ctx, command.SparkVersion, command.Name == protocol.ReinstallSpark)
 		if err != nil {
-			result.Error = &protocol.CommandError{Code: "spark_update_failed", Message: fmt.Sprintf("%.1024s", err.Error())}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorUpdateFailed, Message: fmt.Sprintf("%.1024s", err.Error())}
 			return result
 		}
 
@@ -227,13 +227,13 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 		defer cancel()
 
 		if command.Transfer == nil {
-			result.Error = &protocol.CommandError{Code: "invalid_transfer", Message: "Transfer request required."}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorInvalidTransfer, Message: "Transfer request required."}
 			return result
 		}
 
 		transfer, err := s.Transfer(ctx, id, *command.Transfer)
 		if err != nil {
-			result.Error = &protocol.CommandError{Code: "transfer_failed", Message: fmt.Sprintf("%.1024s", err.Error())}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorTransferFailed, Message: fmt.Sprintf("%.1024s", err.Error())}
 		} else {
 			result.Transfer = &transfer
 		}
@@ -243,7 +243,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 
 	if command.Name == protocol.ServerFiles {
 		if command.Files == nil {
-			result.Error = &protocol.CommandError{Code: "invalid_file", Message: "File request required."}
+			result.Error = &protocol.CommandError{Code: protocol.CommandErrorCode(model.FileInvalid), Message: "File request required."}
 			return result
 		}
 
@@ -254,9 +254,9 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 		if err != nil {
 			var failure *model.FileError
 			if errors.As(err, &failure) {
-				result.Error = &protocol.CommandError{Code: failure.Code, Message: failure.Message}
+				result.Error = &protocol.CommandError{Code: protocol.CommandErrorCode(failure.Code), Message: failure.Message}
 			} else {
-				result.Error = &protocol.CommandError{Code: "file_io", Message: "File operation unavailable."}
+				result.Error = &protocol.CommandError{Code: protocol.CommandErrorCode(model.FileIO), Message: "File operation unavailable."}
 			}
 
 			return result
@@ -269,7 +269,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 
 	if command.Name == protocol.ServerAction {
 		if command.Runtime == nil {
-			result.Error = &protocol.CommandError{Code: "invalid_operation", Message: "runtime request is required"}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorInvalidOperation, Message: "runtime request is required"}
 			return result
 		}
 
@@ -281,7 +281,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 
 		status, err := s.Action(ctx, id, *command.Runtime)
 		if err != nil {
-			result.Error = &protocol.CommandError{Code: "runtime_rejected", Message: err.Error()}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorRuntimeRejected, Message: err.Error()}
 			return result
 		}
 
@@ -291,12 +291,12 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 	}
 
 	if command.Name != protocol.ConfigureServer {
-		result.Error = &protocol.CommandError{Code: "unsupported_command", Message: "unsupported agent operation"}
+		result.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCommand, Message: "unsupported agent operation"}
 		return result
 	}
 
 	if command.Deployment == nil {
-		result.Error = &protocol.CommandError{Code: "invalid_configuration", Message: "configuration is required"}
+		result.Error = &protocol.CommandError{Code: protocol.ErrorInvalidConfiguration, Message: "configuration is required"}
 		return result
 	}
 
@@ -306,7 +306,7 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 	receipt, err := s.Deploy(ctx, id, *command.Deployment)
 	if err != nil {
 		// Configuration may contain secrets; never return storage paths or raw payloads.
-		result.Error = &protocol.CommandError{Code: "configuration_rejected", Message: "could not validate or persist configuration"}
+		result.Error = &protocol.CommandError{Code: protocol.ErrorConfigurationRejected, Message: "could not validate or persist configuration"}
 		return result
 	}
 

@@ -67,7 +67,7 @@ func (h *fileHandler) call(q model.FileRequest) (model.FileResult, error) {
 
 	audit := h.server.Audit != nil && q.Operation != model.FileOperationList && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadChunk
 	if audit {
-		event = database.AuditEvent{ID: rand.Text(), UserID: &principal.UserID, Username: principal.Username, APITokenID: principal.APITokenID, Action: "server.files.sftp." + string(q.Operation), Target: "server:" + h.id, Outcome: "pending", CreatedAt: time.Now().Unix()}
+		event = database.AuditEvent{ID: rand.Text(), UserID: &principal.UserID, Username: principal.Username, APITokenID: principal.APITokenID, Action: model.ResourceAuditAction("server.files.sftp", string(q.Operation)), Target: "server:" + h.id, Outcome: model.AuditPending, CreatedAt: time.Now().Unix()}
 		if err := h.server.Audit.BeginAudit(ctx, &event); err != nil {
 			return model.FileResult{}, sftp.ErrSSHFxFailure
 		}
@@ -100,7 +100,7 @@ func (h *fileHandler) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 		return nil, err
 	}
 
-	if len(info.Entries) != 1 || info.Entries[0].Kind != "file" || info.Size > model.FileTransferLimit {
+	if len(info.Entries) != 1 || info.Entries[0].Kind != model.FileKindFile || info.Size > model.FileTransferLimit {
 		return nil, sftp.ErrSSHFxFailure
 	}
 
@@ -181,18 +181,18 @@ type fileInfo struct{ model.FileEntry }
 func (f fileInfo) Name() string { return f.FileEntry.Name }
 func (f fileInfo) Size() int64  { return f.FileEntry.Size }
 func (f fileInfo) Mode() fs.FileMode {
-	if f.Kind == "directory" {
+	if f.Kind == model.FileKindDirectory {
 		return fs.ModeDir | 0700
 	}
 
-	if f.Kind == "unsupported" {
+	if f.Kind == model.FileKindUnsupported {
 		return fs.ModeIrregular
 	}
 
 	return 0600
 }
 func (f fileInfo) ModTime() time.Time { return f.ModifiedAt }
-func (f fileInfo) IsDir() bool        { return f.Kind == "directory" }
+func (f fileInfo) IsDir() bool        { return f.Kind == model.FileKindDirectory }
 func (f fileInfo) Sys() any           { return nil }
 
 type fileListing []os.FileInfo

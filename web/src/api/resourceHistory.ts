@@ -1,3 +1,4 @@
+import { isRecord as object } from "../utils/validation";
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
@@ -28,8 +29,6 @@ export async function readResourceHistory(
       { signal },
     ),
   );
-  const object = (input: unknown): input is Record<string, unknown> =>
-    typeof input === "object" && input !== null;
   const timestamp = (input: unknown): input is number =>
     typeof input === "number" && Number.isSafeInteger(input) && input >= 0;
   const measurement = (input: unknown) =>

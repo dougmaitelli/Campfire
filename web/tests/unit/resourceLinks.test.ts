@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { formatVersion } from "../../src/utils/formatVersion";
 import { createResourceLinks } from "../../src/routing/resourceLinks";
+import type { ResourceKind } from "../../src/contracts/domains";
 import {
   getRoute,
   getResourceRoute,
@@ -25,7 +26,7 @@ test("registry resolves page access and resource inspection destinations", () =>
   expect(getResourceRoute("server")?.[1].resource?.Drawer).toBeDefined();
   for (const unknown of ["missing", "constructor", "toString", "__proto__"]) {
     expect(getRoute(unknown)).toBeUndefined();
-    expect(getResourceRoute(unknown)).toBeUndefined();
+    expect(getResourceRoute(unknown as ResourceKind)).toBeUndefined();
   }
 });
 

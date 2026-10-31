@@ -12,13 +12,13 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import "./form-controls.css";
 import "./select.css";
 
-type Props = Omit<
+type Props<T extends string = string> = Omit<
   ComponentProps<typeof SelectPrimitive.Trigger>,
   "value" | "defaultValue" | "onChange" | "children" | "ref"
 > & {
-  value?: string | number;
-  defaultValue?: string | number;
-  onValueChange?: (value: string) => void;
+  value?: T | number;
+  defaultValue?: T | number;
+  onValueChange?: (value: NoInfer<T>) => void;
   children: ReactNode;
   name?: string;
   required?: boolean;
@@ -45,7 +45,7 @@ function optionValue(option: ComponentProps<"option">): string {
     .join("");
 }
 
-export function Select({
+export function Select<T extends string = string>({
   className,
   children,
   value,
@@ -58,7 +58,7 @@ export function Select({
   form,
   dir,
   ...props
-}: Props) {
+}: Props<T>) {
   const [trigger, setTrigger] = useState<HTMLButtonElement | null>(null);
   const emptyValue = `${useId()}-empty`;
   const options = optionsFrom(children);
@@ -74,7 +74,7 @@ export function Select({
           "",
       )}
       onValueChange={(value) =>
-        onValueChange?.(value === emptyValue ? "" : value)
+        onValueChange?.((value === emptyValue ? "" : value) as T)
       }
       name={name}
       required={required}

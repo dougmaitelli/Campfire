@@ -1,5 +1,12 @@
+import { type PermissionID, isPermissionID } from "./permissions";
+import { StorageKey } from "../config/browser";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import {
+  apiFetch,
+  readJSON,
+  API_REQUEST_TIMEOUT_MS,
+  jsonRequest,
+} from "./client";
 
 export interface AuthState {
   authenticated: boolean;
@@ -13,7 +20,7 @@ export interface AuthState {
   role_id?: number;
   role?: string;
   admin?: boolean;
-  permissions?: string[];
+  permissions?: PermissionID[];
   csrf_token?: string;
   expires_at?: number;
   view_as?: {
@@ -70,9 +77,7 @@ function isAuthState(value: unknown): value is AuthState {
         typeof value.admin === "boolean" &&
         "permissions" in value &&
         Array.isArray(value.permissions) &&
-        value.permissions.every(
-          (entry: unknown) => typeof entry === "string",
-        ) &&
+        value.permissions.every(isPermissionID) &&
         "csrf_token" in value &&
         typeof value.csrf_token === "string" &&
         "expires_at" in value &&
@@ -103,9 +108,8 @@ export async function authenticate(
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(credentials),
-      signal: AbortSignal.timeout(35000),
+      ...jsonRequest(credentials),
+      signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
     }),
   );
   if (!isAuthState(body) || !body.authenticated)
@@ -122,16 +126,11 @@ export async function logout(): Promise<void> {
 async function changeViewAs(userID?: number): Promise<void> {
   const response = await apiFetch("/api/v1/auth/view-as", {
     method: userID === undefined ? "DELETE" : "POST",
-    ...(userID === undefined
-      ? {}
-      : {
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userID }),
-        }),
+    ...(userID === undefined ? {} : jsonRequest({ user_id: userID })),
   });
   if (response.status !== 204) await readJSON(response);
   try {
-    localStorage.setItem("campfire:view-as-changed", crypto.randomUUID());
+    localStorage.setItem(StorageKey.ViewAsChanged, crypto.randomUUID());
   } catch {
     // The session-bound cookie also applies when browser storage is unavailable.
   }

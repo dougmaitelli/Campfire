@@ -20,11 +20,7 @@ export function BackupModeField({
       label={t("backupModes.label")}
       description={!available ? t("backupModes.unavailable") : undefined}
     >
-      <Select
-        value={value}
-        disabled={disabled}
-        onValueChange={(selected) => onChange(selected as BackupMode)}
-      >
+      <Select value={value} disabled={disabled} onValueChange={onChange}>
         <option value="full">{t("backupModes.full")}</option>
         <option value="savedata" disabled={!available}>
           {t("backupModes.savedata")}

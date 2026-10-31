@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 )
 
@@ -21,7 +22,7 @@ func TestFinePermissionsMigrationPreservesLegacyAccessAndRunsOnce(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	for _, action := range []string{accessperm.ServerView, accessperm.ServerOperate, accessperm.ServerConfigure, accessperm.LegacyServerShare} {
+	for _, action := range []model.PermissionID{accessperm.ServerView, accessperm.ServerOperate, accessperm.ServerConfigure, accessperm.LegacyServerShare} {
 		if err := db.ORM().Create(&database.RolePermission{RoleID: role.ID, Permission: action}).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -37,7 +38,7 @@ func TestFinePermissionsMigrationPreservesLegacyAccessAndRunsOnce(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	token := database.APIToken{UserID: user.ID, CredentialVersion: 1, Name: "Legacy", Hash: "preserved-token-hash", Prefix: "cf_legacy", Scopes: []string{accessperm.ServerView, accessperm.ServerOperate}}
+	token := database.APIToken{UserID: user.ID, CredentialVersion: 1, Name: "Legacy", Hash: "preserved-token-hash", Prefix: "cf_legacy", Scopes: []model.PermissionID{accessperm.ServerView, accessperm.ServerOperate}}
 	if err := db.ORM().Create(&token).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -80,12 +81,12 @@ func TestFinePermissionsMigrationPreservesLegacyAccessAndRunsOnce(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	actions := make([]string, 0, len(role.Permissions))
+	actions := make([]model.PermissionID, 0, len(role.Permissions))
 	for _, action := range role.Permissions {
 		actions = append(actions, action.Permission)
 	}
 
-	for _, action := range []string{accessperm.ServerFilesWrite, accessperm.ServerFilesDelete, accessperm.ServerConsoleWrite, accessperm.ServerBackupsRestore, accessperm.ServerReinstall, accessperm.ServerSchedulesManage} {
+	for _, action := range []model.PermissionID{accessperm.ServerFilesWrite, accessperm.ServerFilesDelete, accessperm.ServerConsoleWrite, accessperm.ServerBackupsRestore, accessperm.ServerReinstall, accessperm.ServerSchedulesManage} {
 		if !slices.Contains(actions, action) {
 			t.Fatal("legacy role lost access", action, actions)
 		}
@@ -107,7 +108,7 @@ func TestFinePermissionsMigrationPreservesLegacyAccessAndRunsOnce(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	for _, action := range accessperm.Expand([]string{accessperm.ServerOperate}) {
+	for _, action := range accessperm.Expand([]model.PermissionID{accessperm.ServerOperate}) {
 		if err := db.ORM().Create(&database.RolePermission{RoleID: role.ID, Permission: action}).Error; err != nil {
 			t.Fatal(err)
 		}

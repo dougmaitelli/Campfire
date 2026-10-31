@@ -6,10 +6,11 @@ import (
 
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 )
 
-func (a *API) platformPermission(permission string, next http.HandlerFunc) http.HandlerFunc {
+func (a *API) platformPermission(permission model.PermissionID, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !currentUser(r).Allows(permission) {
 			writeError(w, repository.ErrAccessDenied)
@@ -20,7 +21,7 @@ func (a *API) platformPermission(permission string, next http.HandlerFunc) http.
 	}
 }
 
-func (a *API) requireServer(w http.ResponseWriter, r *http.Request, action string) bool {
+func (a *API) requireServer(w http.ResponseWriter, r *http.Request, action model.PermissionID) bool {
 	permissions, err := a.access.ServerPermissions(r.Context(), currentUser(r), r.PathValue("id"))
 	if err != nil {
 		writeError(w, err)
@@ -61,7 +62,7 @@ func (a *API) serverOwner(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (a *API) serverPermission(permission string, next http.HandlerFunc) http.HandlerFunc {
+func (a *API) serverPermission(permission model.PermissionID, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		permissions, err := a.access.ServerPermissions(r.Context(), currentUser(r), r.PathValue("id"))
 		if err != nil {

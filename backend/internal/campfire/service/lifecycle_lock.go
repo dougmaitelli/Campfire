@@ -40,22 +40,22 @@ func (s *DeploymentService) BeforeEdit(ctx context.Context, id string, input mod
 		}
 	}
 
-	status, err := s.runActionUnlocked(ctx, id, "status", "")
+	status, err := s.runActionUnlocked(ctx, id, model.ServerActionStatus, "")
 	if err != nil {
 		if !errors.Is(err, ErrDeploymentUnavailable) || ctx.Err() != nil {
 			release()
 			return nil, err
 		}
 
-		status.State = "unknown"
+		status.State = model.RuntimeStateUnknown
 	}
 
-	if status.Busy || (status.State != "unknown" && status.State != "unavailable" && status.State != "running" && status.State != "stopped" && status.State != "not_installed" && status.State != "deleted") {
+	if status.Busy || (status.State != model.RuntimeStateUnknown && status.State != "unavailable" && status.State != model.RuntimeStateRunning && status.State != model.RuntimeStateStopped && status.State != model.RuntimeStateNotInstalled && status.State != model.RuntimeStateDeleted) {
 		release()
 		return nil, ErrServerActive
 	}
 
-	if status.State == "running" || status.State == "unknown" || status.State == "unavailable" {
+	if status.State == model.RuntimeStateRunning || status.State == model.RuntimeStateUnknown || status.State == "unavailable" {
 		server, err := s.Servers.Get(ctx, id)
 		if err != nil {
 			release()
@@ -138,13 +138,13 @@ func (s *DeploymentService) BeforeUpdate(ctx context.Context, id string) (func()
 		}
 	}
 
-	status, err := s.runActionUnlocked(ctx, id, "status", "")
+	status, err := s.runActionUnlocked(ctx, id, model.ServerActionStatus, "")
 	if err != nil {
 		release()
 		return nil, err
 	}
 
-	if status.Busy || (status.State != "stopped" && status.State != "not_installed" && status.State != "deleted") {
+	if status.Busy || (status.State != model.RuntimeStateStopped && status.State != model.RuntimeStateNotInstalled && status.State != model.RuntimeStateDeleted) {
 		release()
 		return nil, ErrServerActive
 	}

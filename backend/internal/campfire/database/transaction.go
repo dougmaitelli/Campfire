@@ -2,8 +2,10 @@ package database
 
 import "gorm.io/gorm"
 
+const transactionLockKey = 1128353094 // CAMF namespace, stable across panel processes.
+
 func lockTransaction(tx *gorm.DB) error {
-	return tx.Session(&gorm.Session{NewDB: true}).Exec("SELECT pg_advisory_xact_lock(1128353094)").Error
+	return tx.Session(&gorm.Session{NewDB: true}).Exec("SELECT pg_advisory_xact_lock(?)", transactionLockKey).Error
 }
 
 // Standalone writes use GORM's default transaction and must obey the same lock

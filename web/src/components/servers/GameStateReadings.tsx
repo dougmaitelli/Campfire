@@ -1,3 +1,4 @@
+import { RuntimeState } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { gameStateFresh, type GameStateView } from "../../api/gameState";
 import { containerFresh, type ResourceUsage } from "../../api/monitoring";
@@ -22,7 +23,7 @@ export function GameStateReadings({
   if (!game) return null;
   const available =
     !busy &&
-    usage?.state === "running" &&
+    usage?.state === RuntimeState.Running &&
     (runtimeState ?? usage.state) === "running" &&
     containerFresh(usage, elapsed) &&
     gameStateFresh(game, now);

@@ -15,7 +15,7 @@ import (
 	"campfire/internal/shared/model"
 )
 
-func fileError(code, message string) error {
+func fileError(code model.FileErrorCode, message string) error {
 	return &model.FileError{Code: code, Message: message}
 }
 
@@ -38,7 +38,7 @@ func mockFileContent(data string) string {
 func cleanPath(value string) (string, error) {
 	value = path.Clean(value)
 	if path.IsAbs(value) || value == ".." || strings.HasPrefix(value, "../") || strings.ContainsAny(value, "\x00\\") {
-		return "", fileError("invalid_file", "Use a relative game file path.")
+		return "", fileError(model.FileInvalid, "Use a relative game file path.")
 	}
 
 	return value, nil
@@ -94,7 +94,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 	switch request.Operation {
 	case model.FileOperationList:
 		if !directory {
-			return result, fileError("file_not_found", "Directory not found.")
+			return result, fileError(model.FileNotFound, "Directory not found.")
 		}
 
 		result.Entries = []model.FileEntry{}
@@ -104,11 +104,11 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 				continue
 			}
 
-			entry := model.FileEntry{Name: path.Base(key), Kind: "file", Size: int64(len(mockFileContent(value))), ModifiedAt: time.Unix(1700000000, 0).UTC()}
+			entry := model.FileEntry{Name: path.Base(key), Kind: model.FileKindFile, Size: int64(len(mockFileContent(value))), ModifiedAt: time.Unix(1700000000, 0).UTC()}
 
 			entry.Mode = 0600
 			if strings.HasSuffix(key, "/") {
-				entry.Kind = "directory"
+				entry.Kind = model.FileKindDirectory
 				entry.Mode = 0700
 			}
 
@@ -126,12 +126,12 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		data = mockFileContent(data)
 
 		if !exists {
-			return result, fileError("file_not_found", "File not found.")
+			return result, fileError(model.FileNotFound, "File not found.")
 		}
 
 		result.Revision, result.Size = revision(data), int64(len(data))
 		if request.Revision != "" && request.Revision != result.Revision {
-			return result, fileError("file_conflict", "File changed. Reload before reading.")
+			return result, fileError(model.FileConflict, "File changed. Reload before reading.")
 		}
 
 		switch request.Operation {
@@ -139,7 +139,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			result.Data = []byte(data)
 		case model.FileOperationReadChunk:
 			if request.Offset < 0 || request.Offset > int64(len(data)) {
-				return result, fileError("invalid_file", "Invalid file offset.")
+				return result, fileError(model.FileInvalid, "Invalid file offset.")
 			}
 
 			result.Data = []byte(data[request.Offset:min(int64(len(data)), request.Offset+model.FileLimit)])
@@ -153,50 +153,50 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		if directory || request.Revision != expected {
-			return result, fileError("file_conflict", "File changed or already exists. Reload before saving.")
+			return result, fileError(model.FileConflict, "File changed or already exists. Reload before saving.")
 		}
 
 		if len(request.Data) > model.FileLimit || len(record.Files) >= 256 && !exists {
-			return result, fileError("file_limit", "Mock mode supports up to 256 files of 1 MiB each.")
+			return result, fileError(model.FileLimitExceeded, "Mock mode supports up to 256 files of 1 MiB each.")
 		}
 
 		if parent := path.Dir(name); parent != "." {
 			if _, ok := record.Files[parent+"/"]; !ok {
-				return result, fileError("file_not_found", "Parent directory not found.")
+				return result, fileError(model.FileNotFound, "Parent directory not found.")
 			}
 		}
 
 		record.Files[name] = string(request.Data)
 		if quotaEnforced(record) && diskUsage(record) > record.Deployment.Configuration.DiskMB*(1<<20) {
-			return result, fileError("file_limit", "Mock server's game-data allocation would be exceeded.")
+			return result, fileError(model.FileLimitExceeded, "Mock server's game-data allocation would be exceeded.")
 		}
 
 		result.Revision = revision(string(request.Data))
 	case model.FileOperationMkdir:
 		if exists || directory || len(record.Files) >= 256 {
-			return result, fileError("file_conflict", "Directory already exists or mock file limit reached.")
+			return result, fileError(model.FileConflict, "Directory already exists or mock file limit reached.")
 		}
 
 		if parent := path.Dir(name); parent != "." {
 			if _, ok := record.Files[parent+"/"]; !ok {
-				return result, fileError("file_not_found", "Parent directory not found.")
+				return result, fileError(model.FileNotFound, "Parent directory not found.")
 			}
 		}
 
 		record.Files[name+"/"] = ""
 	case model.FileOperationChmod:
 		if name == "." || !exists && !directory || request.Mode > 0777 {
-			return result, fileError("invalid_file", "Select a file or folder and permissions between 000 and 777 (octal).")
+			return result, fileError(model.FileInvalid, "Select a file or folder and permissions between 000 and 777 (octal).")
 		}
 
 		record.FileModes[name] = request.Mode
 	case model.FileOperationDelete:
 		if name == "." {
-			return result, fileError("invalid_file", "The server root cannot be deleted.")
+			return result, fileError(model.FileInvalid, "The server root cannot be deleted.")
 		}
 
 		if !exists && !directory {
-			return result, fileError("file_not_found", "File not found.")
+			return result, fileError(model.FileNotFound, "File not found.")
 		}
 
 		if directory {
@@ -220,24 +220,24 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		if (!exists && !directory) || name == "." {
-			return result, fileError("file_not_found", "File or folder not found.")
+			return result, fileError(model.FileNotFound, "File or folder not found.")
 		}
 
 		if destination == name || strings.HasPrefix(destination, name+"/") {
-			return result, fileError("invalid_file", "Choose a destination outside the source folder.")
+			return result, fileError(model.FileInvalid, "Choose a destination outside the source folder.")
 		}
 
 		if _, ok := record.Files[destination]; ok || destination == "." {
-			return result, fileError("file_conflict", "Destination already exists.")
+			return result, fileError(model.FileConflict, "Destination already exists.")
 		}
 
 		if _, ok := record.Files[destination+"/"]; ok {
-			return result, fileError("file_conflict", "Destination already exists.")
+			return result, fileError(model.FileConflict, "Destination already exists.")
 		}
 
 		if parent := path.Dir(destination); parent != "." {
 			if _, ok := record.Files[parent+"/"]; !ok {
-				return result, fileError("file_not_found", "Parent directory not found.")
+				return result, fileError(model.FileNotFound, "Parent directory not found.")
 			}
 		}
 
@@ -271,12 +271,12 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			record.Files[destination] = data
 			delete(record.Files, name)
 		}
-	case "compress":
+	case model.FileOperationCompress:
 		if err := mockCompress(&record, request); err != nil {
 			return result, err
 		}
 	default:
-		return result, fileError("unsupported_capability", "This file operation is not simulated in mock mode. Use the text editor for small files.")
+		return result, fileError(model.FileUnsupportedCapability, "This file operation is not simulated in mock mode. Use the text editor for small files.")
 	}
 
 	return result, r.db.WithContext(ctx).Save(&record).Error

@@ -5,6 +5,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
 )
 
 type accessGrantView struct {
@@ -71,7 +72,7 @@ func (a *API) subjectRoles(r *http.Request) ([]service.RoleView, error) {
 	items := []service.RoleView{}
 
 	for _, role := range roles {
-		if role.Scope == "platform" && role.ID != database.AdminRole {
+		if role.Scope == model.RoleScopePlatform && role.ID != database.AdminRole {
 			items = append(items, role)
 		}
 	}

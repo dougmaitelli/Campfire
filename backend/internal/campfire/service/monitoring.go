@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 )
@@ -39,7 +40,7 @@ type MonitoringSnapshot struct {
 }
 
 func unknownUsage(id string) model.ResourceUsage {
-	return model.ResourceUsage{ServerID: id, State: "unknown", ContainerError: "Spark, Docker or usage sampling unavailable.", DiskError: "Game-data size unavailable."}
+	return model.ResourceUsage{ServerID: id, State: model.RuntimeStateUnknown, ContainerError: "Spark, Docker or usage sampling unavailable.", DiskError: "Game-data size unavailable."}
 }
 
 func validUsage(usage model.ResourceUsage) bool {
@@ -104,7 +105,7 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal)
 			}
 
 			if s.Games != nil {
-				fresh := current.Usage.State == "running" && current.Usage.SampledAt > 0 && current.Usage.ContainerError == "" && current.Usage.SampleAgeSeconds <= max(15, 3*snapshot.SampleIntervalSeconds)
+				fresh := current.Usage.State == model.RuntimeStateRunning && current.Usage.SampledAt > 0 && current.Usage.ContainerError == "" && current.Usage.SampleAgeSeconds <= limits.SampleFreshSeconds(snapshot.SampleIntervalSeconds)
 				if s.Sparks.connectivity == nil || !s.Sparks.connectivity.Connected(target.SparkID) {
 					fresh = false
 				}

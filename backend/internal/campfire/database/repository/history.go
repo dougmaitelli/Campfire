@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
 )
@@ -23,7 +24,7 @@ func (r *ActivityRepository) PruneHistory(ctx context.Context, auditBefore, oper
 	more := false
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if !auditBefore.IsZero() {
-			expired := tx.Model(&database.AuditEvent{}).Select("id").Where("created_at < ? AND outcome IN ?", auditBefore.Unix(), []string{"succeeded", "failed", "accepted", "interrupted", "cancelled", "skipped"}).Order("created_at, id").Limit(batch)
+			expired := tx.Model(&database.AuditEvent{}).Select("id").Where("created_at < ? AND outcome IN ?", auditBefore.Unix(), []model.AuditOutcome{model.AuditSucceeded, model.AuditFailed, model.AuditAccepted, model.AuditInterrupted, model.AuditCancelled, model.AuditSkipped}).Order("created_at, id").Limit(batch)
 
 			result := tx.Where("id IN (?)", expired).Delete(&database.AuditEvent{})
 			if result.Error != nil {
@@ -34,7 +35,7 @@ func (r *ActivityRepository) PruneHistory(ctx context.Context, auditBefore, oper
 		}
 
 		if !operationsBefore.IsZero() {
-			expired := tx.Model(&database.ScheduleRun{}).Select("id").Where("finished_at > 0 AND finished_at < ? AND state IN ?", operationsBefore.Unix(), []string{"succeeded", "failed", "interrupted", "cancelled", "skipped"}).Order("finished_at, id").Limit(batch)
+			expired := tx.Model(&database.ScheduleRun{}).Select("id").Where("finished_at > 0 AND finished_at < ? AND state IN ?", operationsBefore.Unix(), []model.ExecutionState{model.ExecutionSucceeded, model.ExecutionFailed, model.ExecutionInterrupted, model.ExecutionCancelled, model.ExecutionSkipped}).Order("finished_at, id").Limit(batch)
 
 			result := tx.Where("id IN (?)", expired).Delete(&database.ScheduleRun{})
 			if result.Error != nil {

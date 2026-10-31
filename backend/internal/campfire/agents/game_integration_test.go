@@ -87,7 +87,7 @@ func TestGameEventAcknowledgementWaitsForCommitAndClassifiesFailures(t *testing.
 
 	for _, test := range []struct {
 		failure error
-		code    string
+		code    protocol.CommandErrorCode
 	}{
 		{errors.New("storage unavailable"), "ingestion_unavailable"},
 		{&protocol.CommandError{Code: "publication_rejected", Message: "Server moved"}, "publication_rejected"},

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
 
@@ -80,7 +81,7 @@ func (a *API) updateSparkClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	operation := a.sparks.Updates.Update
-	action := "spark.update"
+	action := model.ResourceAuditAction("spark", "update")
 
 	if input.Force {
 		operation = a.sparks.Updates.Reinstall

@@ -1,8 +1,13 @@
+import {
+  OperationState,
+  type ServerAction,
+  RuntimeErrorCode,
+} from "../../contracts/domains";
 import i18n from "../../i18n";
 import type { RuntimeStatus } from "../../api/runtime";
 import { formatErrorMessage } from "../../utils/errors";
 
-const operationNames: Record<string, string> = {
+const operationNames: Partial<Record<ServerAction, string>> = {
   get command() {
     return i18n.t("operationMessage.consoleCommand");
   },
@@ -41,9 +46,10 @@ const operationNames: Record<string, string> = {
   },
 };
 
-export function operationLabel(operation: string) {
+export function operationLabel(operation?: ServerAction) {
   return (
-    operationNames[operation] ?? i18n.t("operationMessage.serverOperation")
+    (operation ? operationNames[operation] : undefined) ??
+    i18n.t("operationMessage.serverOperation")
   );
 }
 
@@ -73,10 +79,10 @@ export function operationMessage(
     !status?.progress
   )
     return null;
-  const name = operationLabel(status.operation ?? "");
+  const name = operationLabel(status.operation);
   if (
-    status.operation_state === "interrupted" ||
-    status.error_code === "operation_interrupted"
+    status.operation_state === OperationState.Interrupted ||
+    status.error_code === RuntimeErrorCode.OperationInterrupted
   )
     return {
       title: i18n.t("operationMessage.interrupted", { name: name }),

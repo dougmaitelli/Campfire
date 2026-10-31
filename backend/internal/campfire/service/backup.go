@@ -13,6 +13,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 )
 
@@ -48,7 +49,7 @@ func (s *BackupService) acquire(id string) (func(), error) {
 	defer s.mu.Unlock()
 
 	if s.active[id] {
-		return nil, &model.FileError{Code: "file_busy", Message: "Wait for backup synchronization or deletion to finish."}
+		return nil, &model.FileError{Code: model.FileBusy, Message: "Wait for backup synchronization or deletion to finish."}
 	}
 
 	s.active[id] = true
@@ -121,26 +122,26 @@ func (s *BackupService) Close() {
 
 // SavePolicy validates opt-in limits. Zero means unlimited for that dimension.
 func (s *BackupService) SavePolicy(ctx context.Context, id string, p model.BackupPolicy) error {
-	if p.Storage != "local" && p.Storage != "s3" {
+	if p.Storage != model.BackupStorageLocal && p.Storage != model.BackupStorageS3 {
 		return repository.ErrAccessInput
 	}
 
 	for _, mode := range []model.BackupMode{model.BackupModeFull, model.BackupModeSavedata} {
-		limits := p.Retention(mode)
-		if limits.LocalKeepLast < 0 || limits.LocalKeepLast > 1000 || limits.RemoteKeepLast < 0 || limits.RemoteKeepLast > 1000 || limits.LocalMaxAgeDays < 0 || limits.LocalMaxAgeDays > 36500 || limits.RemoteMaxAgeDays < 0 || limits.RemoteMaxAgeDays > 36500 {
+		retention := p.Retention(mode)
+		if retention.LocalKeepLast < 0 || retention.LocalKeepLast > limits.BackupRetentionCopies || retention.RemoteKeepLast < 0 || retention.RemoteKeepLast > limits.BackupRetentionCopies || retention.LocalMaxAgeDays < 0 || retention.LocalMaxAgeDays > limits.BackupRetentionDays || retention.RemoteMaxAgeDays < 0 || retention.RemoteMaxAgeDays > limits.BackupRetentionDays {
 			return repository.ErrAccessInput
 		}
 	}
 
-	if p.Storage == "s3" && s.Remote == nil {
-		return &model.FileError{Code: "invalid_file", Message: "S3 backup storage is not configured."}
+	if p.Storage == model.BackupStorageS3 && s.Remote == nil {
+		return &model.FileError{Code: model.FileInvalid, Message: "S3 backup storage is not configured."}
 	}
 
 	return s.Store.SavePolicy(ctx, id, p)
 }
 
 func (s *BackupService) discover(ctx context.Context, id string) error {
-	result, err := s.Deployment.Files(ctx, id, model.FileRequest{Operation: "backup.list", Path: "."})
+	result, err := s.Deployment.Files(ctx, id, model.FileRequest{Operation: model.FileOperationBackupList, Path: "."})
 	if err != nil {
 		return err
 	}
@@ -195,7 +196,7 @@ func (s *BackupService) List(ctx context.Context, id string) ([]model.Backup, er
 
 	var failure *model.FileError
 
-	busy := errors.As(discoverErr, &failure) && failure.Code == "file_busy"
+	busy := errors.As(discoverErr, &failure) && failure.Code == model.FileBusy
 	if discoverErr != nil && len(rows) == 0 && !busy {
 		return nil, discoverErr
 	}
@@ -213,21 +214,21 @@ func (s *BackupService) List(ctx context.Context, id string) ([]model.Backup, er
 }
 
 func backupView(row database.Backup, working bool) model.Backup {
-	state := "available"
+	state := model.BackupAvailable
 	if !row.Local && !row.Remote {
-		state = "unavailable"
+		state = model.BackupUnavailable
 	}
 
 	if row.Error != "" {
-		state = "error"
+		state = model.BackupError
 	}
 
 	if working && !row.Remote && row.Local {
-		state = "syncing"
+		state = model.BackupSyncing
 	}
 
 	if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
-		state = "deleting"
+		state = model.BackupDeleting
 	}
 
 	return model.Backup{Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
@@ -253,7 +254,7 @@ func (s *BackupService) Catalog(ctx context.Context) ([]model.CatalogBackup, err
 
 func (s *BackupService) storage(row database.Backup) (BackupStorage, error) {
 	if s.Remote == nil || row.StoreID != s.Remote.ID() {
-		return nil, &model.FileError{Code: "file_io", Message: "This backup's S3 storage configuration is unavailable."}
+		return nil, &model.FileError{Code: model.FileIO, Message: "This backup's S3 storage configuration is unavailable."}
 	}
 
 	return s.Remote, nil
@@ -267,7 +268,7 @@ func (s *BackupService) Read(ctx context.Context, id, name string, offset int64)
 
 	row, err := s.Store.Get(ctx, id, name)
 	if errors.Is(err, repository.ErrAccessNotFound) {
-		return s.Deployment.Files(ctx, id, model.FileRequest{Operation: "backup.read", Path: name, Offset: offset})
+		return s.Deployment.Files(ctx, id, model.FileRequest{Operation: model.FileOperationBackupRead, Path: name, Offset: offset})
 	}
 
 	if err != nil {
@@ -279,7 +280,7 @@ func (s *BackupService) Read(ctx context.Context, id, name string, offset int64)
 	}
 
 	if !row.Remote {
-		return s.Deployment.Files(ctx, id, model.FileRequest{Operation: "backup.read", Path: name, Offset: offset})
+		return s.Deployment.Files(ctx, id, model.FileRequest{Operation: model.FileOperationBackupRead, Path: name, Offset: offset})
 	}
 
 	remote, err := s.storage(row)
@@ -346,7 +347,7 @@ func (r *backupStream) Read(p []byte) (int, error) {
 			return 0, io.EOF
 		}
 
-		chunk, err := r.s.Deployment.Files(r.ctx, r.id, model.FileRequest{Operation: "backup.read", Path: r.name, Offset: r.offset})
+		chunk, err := r.s.Deployment.Files(r.ctx, r.id, model.FileRequest{Operation: model.FileOperationBackupRead, Path: r.name, Offset: r.offset})
 		if err != nil {
 			return 0, err
 		}

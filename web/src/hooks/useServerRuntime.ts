@@ -1,3 +1,4 @@
+import { RuntimeState } from "../contracts/domains";
 import i18n from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { serverStatus } from "../api/runtime";
@@ -40,7 +41,7 @@ export function useServerRuntime(ids: string[]) {
                 id,
                 {
                   server_id: id,
-                  state: "unknown",
+                  state: RuntimeState.Unknown,
                   ready: false,
                   busy: false,
                   disk_quota_enforced: false,

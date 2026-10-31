@@ -1,7 +1,43 @@
 import { expect, test, vi } from "vitest";
-import { APIError, apiFetch, readJSON } from "../../src/api/client";
+import {
+  APIError,
+  apiFetch,
+  apiJSON,
+  jsonRequest,
+  readJSON,
+  setCSRFToken,
+} from "../../src/api/client";
 import { readResourceHistory } from "../../src/api/resourceHistory";
 import type { ResourceHistory } from "../../src/api/resourceHistory";
+
+test("JSON requests preserve methods, caller headers, cancellation and CSRF", async () => {
+  const fetch = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(Response.json({}));
+  const signal = new AbortController().signal;
+  setCSRFToken("session-token");
+  await apiJSON(
+    "/api/v1/example",
+    { enabled: false },
+    {
+      method: "PUT",
+      headers: { "X-Request-ID": "example" },
+      signal,
+    },
+  );
+  const request = fetch.mock.calls[0]?.[1];
+  expect(request).toMatchObject({
+    method: "PUT",
+    body: '{"enabled":false}',
+    signal,
+  });
+  const headers = new Headers(request?.headers);
+  expect(headers.get("Content-Type")).toBe("application/json");
+  expect(headers.get("X-CSRF-Token")).toBe("session-token");
+  expect(headers.get("X-Request-ID")).toBe("example");
+  expect(jsonRequest({}).method).toBeUndefined();
+  setCSRFToken("");
+});
 
 test.each([404, 403, 500])(
   "preserves HTTP status %i for missing-resource navigation",

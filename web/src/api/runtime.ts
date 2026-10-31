@@ -1,34 +1,33 @@
+import { isEnumValue } from "../utils/validation";
+import {
+  RuntimeState,
+  RuntimeErrorCode,
+  ServerAction,
+  OperationState,
+  type ReinstallMode,
+  type LifecycleAction,
+} from "../contracts/domains";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, API_REQUEST_TIMEOUT_MS, apiJSON } from "./client";
 import type { BackupMode } from "./backups";
 
-export type ServerAction =
-  | "install"
-  | "update"
-  | "reinstall"
-  | "start"
-  | "stop"
-  | "restart"
-  | "kill"
-  | "backup"
-  | "restore";
+export { ServerAction };
 
 export interface RuntimeStatus {
   server_id: string;
-  state: string;
+  state: RuntimeState;
   ready: boolean;
   busy: boolean;
   progress?: string;
   error?: string;
   operation_id?: string;
-  operation?: string;
-  operation_state?:
-    "queued" | "running" | "succeeded" | "failed" | "interrupted";
-  error_code?: string;
+  operation?: ServerAction;
+  operation_state?: OperationState;
+  error_code?: RuntimeErrorCode;
   logs?: string;
   disk_quota_enforced: boolean;
   disk_quota_error?: string;
-  disk_quota_error_code?: string;
+  disk_quota_error_code?: RuntimeErrorCode;
 }
 
 function isRuntimeStatus(value: unknown): value is RuntimeStatus {
@@ -38,26 +37,23 @@ function isRuntimeStatus(value: unknown): value is RuntimeStatus {
     "server_id" in value &&
     typeof value.server_id === "string" &&
     "state" in value &&
-    typeof value.state === "string" &&
+    isEnumValue(RuntimeState, value.state) &&
     "ready" in value &&
     typeof value.ready === "boolean" &&
     "busy" in value &&
     typeof value.busy === "boolean" &&
     "disk_quota_enforced" in value &&
     typeof value.disk_quota_enforced === "boolean" &&
-    [
-      "progress",
-      "error",
-      "operation_id",
-      "operation",
-      "operation_state",
-      "error_code",
-      "logs",
-      "disk_quota_error",
-      "disk_quota_error_code",
-    ].every(
+    ["progress", "error", "operation_id", "logs", "disk_quota_error"].every(
       (key) => !(key in value) || typeof Reflect.get(value, key) === "string",
-    )
+    ) &&
+    (!("operation" in value) || isEnumValue(ServerAction, value.operation)) &&
+    (!("error_code" in value) ||
+      isEnumValue(RuntimeErrorCode, value.error_code)) &&
+    (!("disk_quota_error_code" in value) ||
+      isEnumValue(RuntimeErrorCode, value.disk_quota_error_code)) &&
+    (!("operation_state" in value) ||
+      isEnumValue(OperationState, value.operation_state))
   );
 }
 
@@ -82,26 +78,25 @@ export function serverStatus(
 
 export function serverAction(
   id: string,
-  action: ServerAction,
+  action: LifecycleAction,
   backup?: string,
-  mode?: "keep" | "clean",
+  mode?: ReinstallMode,
   backupMode?: BackupMode,
 ): Promise<RuntimeStatus> {
-  return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/actions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, backup, mode, backup_mode: backupMode }),
-    signal: AbortSignal.timeout(35000),
-  }).then((response) => readStatus(response, id));
+  return apiJSON(
+    `/api/v1/servers/${encodeURIComponent(id)}/actions`,
+    { action, backup, mode, backup_mode: backupMode },
+    { method: "POST", signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS) },
+  ).then((response) => readStatus(response, id));
 }
 
 export function sendConsole(
   id: string,
   command: string,
 ): Promise<RuntimeStatus> {
-  return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/console`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ command }),
-  }).then((response) => readStatus(response, id));
+  return apiJSON(
+    `/api/v1/servers/${encodeURIComponent(id)}/console`,
+    { command },
+    { method: "POST" },
+  ).then((response) => readStatus(response, id));
 }

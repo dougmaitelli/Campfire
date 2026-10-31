@@ -120,7 +120,7 @@ test.each([
   },
 );
 
-test.each(["install", "reinstall", "update"])(
+test.each(["install", "reinstall", "update"] as const)(
   "%s allows stop and kill while blocking other mutations",
   async (operation) => {
     const action = vi.fn();

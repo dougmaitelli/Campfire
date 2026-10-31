@@ -1,3 +1,4 @@
+import { RoleScope } from "../contracts/domains";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
@@ -16,11 +17,12 @@ import {
   expandPermissions,
   togglePermission,
   type PermissionDefinition,
+  type PermissionID,
 } from "../api/permissions";
 import { Fieldset } from "../components/forms/Fieldset";
 import "./role-drawer.css";
 
-const deletePermissions = new Set<string>([
+const deletePermissions = new Set<PermissionID>([
   Permission.ServerFilesDelete,
   Permission.ServerBackupsDelete,
   Permission.ServerDelete,
@@ -44,7 +46,9 @@ export function RoleDrawer({
   const { t } = useTranslation();
   const permissionPrefix = useId();
   const [name, setName] = useState(role?.name ?? "");
-  const [scope, setScope] = useState<Role["scope"]>(role?.scope ?? "server");
+  const [scope, setScope] = useState<Role["scope"]>(
+    role?.scope ?? RoleScope.Server,
+  );
   const [permissions, setPermissions] = useState(
     role?.permissions ?? [Permission.ServerView],
   );
@@ -105,7 +109,7 @@ export function RoleDrawer({
     ] as const
   ).map(([id, label]) => ({ id, group: "Platform", label, requires: [] }));
   const choices =
-    scope === "server"
+    scope === RoleScope.Server
       ? catalog
       : platformChoices.filter((item) =>
           role?.builtin
@@ -131,10 +135,10 @@ export function RoleDrawer({
         .map((item) => item.id),
     ],
   ] as const;
-  function toggle(id: string, checked: boolean) {
+  function toggle(id: PermissionID, checked: boolean) {
     setPermissions(togglePermission(permissions, id, checked, catalog));
   }
-  function permissionName(id: string) {
+  function permissionName(id: PermissionID) {
     return t(`permissionNames.${id.replaceAll(".", "_")}`, {
       defaultValue: catalog.find((item) => item.id === id)?.label ?? id,
     });
@@ -215,7 +219,7 @@ export function RoleDrawer({
                 busy ||
                 deleting ||
                 !name.trim() ||
-                (scope === "server" && !catalog.length)
+                (scope === RoleScope.Server && !catalog.length)
               }
               onClick={() => {
                 void submit();
@@ -252,9 +256,12 @@ export function RoleDrawer({
             value={scope}
             disabled={role !== null}
             onValueChange={(selectedValue) => {
-              const next = selectedValue === "platform" ? "platform" : "server";
-              setScope(next);
-              setPermissions(next === "server" ? [Permission.ServerView] : []);
+              setScope(selectedValue);
+              setPermissions(
+                selectedValue === RoleScope.Server
+                  ? [Permission.ServerView]
+                  : [],
+              );
             }}
           >
             <option value="server">{t("common.server")}</option>
@@ -262,9 +269,9 @@ export function RoleDrawer({
           </Select>
         </FormField>
         <h3>{t("roleDrawer.permissions")}</h3>
-        {scope === "server" && !role?.builtin && (
+        {scope === RoleScope.Server && !role?.builtin && (
           <FormField label={t("roleDrawer.applyPreset")}>
-            <Select
+            <Select<(typeof presets)[number][0] | "">
               value=""
               disabled={busy || deleting || !catalog.length}
               onValueChange={(value) => {
@@ -282,7 +289,7 @@ export function RoleDrawer({
             </Select>
           </FormField>
         )}
-        {scope === "server" ? (
+        {scope === RoleScope.Server ? (
           <Fieldset disabled={busy || deleting || role?.builtin === true}>
             <legend className="visually-hidden">
               {t("roleDrawer.permissions")}
@@ -319,7 +326,7 @@ export function RoleDrawer({
             </Fieldset>
           ))
         )}
-        {scope === "server" && (
+        {scope === RoleScope.Server && (
           <p className="field-help">{t("roleDrawer.permissionGuidance")}</p>
         )}
       </div>

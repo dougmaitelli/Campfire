@@ -20,7 +20,9 @@ import (
 	"campfire/internal/shared/utils"
 )
 
-func fileFailure(code, message string) error { return &model.FileError{Code: code, Message: message} }
+func fileFailure(code model.FileErrorCode, message string) error {
+	return &model.FileError{Code: code, Message: message}
+}
 
 func filePath(value string, rootAllowed bool) bool {
 	if reservedFilePath(value) {
@@ -47,11 +49,11 @@ func containedPath(root *os.Root, value string, allowMissing bool) error {
 		}
 
 		if err != nil {
-			return fileFailure("file_not_found", "File or directory not found.")
+			return fileFailure(model.FileNotFound, "File or directory not found.")
 		}
 
 		if info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) {
-			return fileFailure("invalid_file", "Symbolic links and special files are not accessible.")
+			return fileFailure(model.FileInvalid, "Symbolic links and special files are not accessible.")
 		}
 	}
 
@@ -61,26 +63,26 @@ func containedPath(root *os.Root, value string, allowMissing bool) error {
 func readFile(root *os.Root, name string) ([]byte, os.FileInfo, error) {
 	file, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
-		return nil, nil, fileFailure("file_not_found", "File not found.")
+		return nil, nil, fileFailure(model.FileNotFound, "File not found.")
 	}
 	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		return nil, nil, fileFailure("invalid_file", "Select a regular file.")
+		return nil, nil, fileFailure(model.FileInvalid, "Select a regular file.")
 	}
 
 	if info.Size() > model.FileLimit {
-		return nil, nil, fileFailure("file_limit", "Text reads are limited to 1 MiB; use a chunked download for larger files.")
+		return nil, nil, fileFailure(model.FileLimitExceeded, "Text reads are limited to 1 MiB; use a chunked download for larger files.")
 	}
 
 	data, err := io.ReadAll(io.LimitReader(file, model.FileLimit+1))
 	if err != nil {
-		return nil, nil, fileFailure("file_io", "Could not read file.")
+		return nil, nil, fileFailure(model.FileIO, "Could not read file.")
 	}
 
 	if len(data) > model.FileLimit {
-		return nil, nil, fileFailure("file_limit", "Text reads are limited to 1 MiB; use a chunked download for larger files.")
+		return nil, nil, fileFailure(model.FileLimitExceeded, "Text reads are limited to 1 MiB; use a chunked download for larger files.")
 	}
 
 	return data, info, nil
@@ -102,53 +104,53 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	}
 
 	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || !filePath(q.Path, q.Operation == model.FileOperationList || q.Operation == model.FileOperationStat || q.Operation == model.FileOperationCompress) {
-		return model.FileResult{}, fileFailure("invalid_file", "Invalid file request.")
+		return model.FileResult{}, fileFailure(model.FileInvalid, "Invalid file request.")
 	}
 
 	if len(q.Data) > model.FileLimit {
-		return model.FileResult{}, fileFailure("file_limit", "File data is limited to 1 MiB per command; use chunked uploads for larger files.")
+		return model.FileResult{}, fileFailure(model.FileLimitExceeded, "File data is limited to 1 MiB per command; use chunked uploads for larger files.")
 	}
 
 	switch q.Operation {
 	case model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract:
 	default:
-		return model.FileResult{}, fileFailure("invalid_file", "Unsupported file operation.")
+		return model.FileResult{}, fileFailure(model.FileInvalid, "Unsupported file operation.")
 	}
 
 	e, err := m.load(q.ServerID)
 	if err != nil {
-		return model.FileResult{}, fileFailure("file_io", "Runtime unavailable.")
+		return model.FileResult{}, fileFailure(model.FileIO, "Runtime unavailable.")
 	}
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	if e.Status.Busy {
-		return model.FileResult{}, fileFailure("file_busy", "Wait for the current server operation to finish.")
+		return model.FileResult{}, fileFailure(model.FileBusy, "Wait for the current server operation to finish.")
 	}
 
 	mutate := q.Operation != model.FileOperationList && q.Operation != model.FileOperationRead && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadCancel
 	if mutate {
-		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != "active" && transfer.State != "released") {
-			return model.FileResult{}, fileFailure("file_busy", "Server files are locked for a Spark transfer.")
+		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased) {
+			return model.FileResult{}, fileFailure(model.FileBusy, "Server files are locked for a Spark transfer.")
 		}
 	}
 
 	volume, err := m.volume(q.ServerID)
 	if err != nil {
-		return model.FileResult{}, fileFailure("file_io", "Game data unavailable.")
+		return model.FileResult{}, fileFailure(model.FileIO, "Game data unavailable.")
 	}
 
 	root, err := os.OpenRoot(volume)
 	if err != nil {
-		return model.FileResult{}, fileFailure("file_not_found", "Install the server to prepare its game data directory.")
+		return model.FileResult{}, fileFailure(model.FileNotFound, "Install the server to prepare its game data directory.")
 	}
 
 	defer func() { _ = root.Close() }()
 
 	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || q.Operation.IsUpload() || q.Operation == model.FileOperationCompress || q.Operation == model.FileOperationExtract) {
 		if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
-			return model.FileResult{}, fileFailure("file_limit", err.Error())
+			return model.FileResult{}, fileFailure(model.FileLimitExceeded, err.Error())
 		}
 	}
 
@@ -173,17 +175,17 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	case model.FileOperationList:
 		directory, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 		if err != nil {
-			return result, fileFailure("file_not_found", "Directory not found.")
+			return result, fileFailure(model.FileNotFound, "Directory not found.")
 		}
 		defer func() { _ = directory.Close() }()
 
 		children, err := directory.ReadDir(1001)
 		if err != nil && !errors.Is(err, io.EOF) {
-			return result, fileFailure("invalid_file", "Select a directory.")
+			return result, fileFailure(model.FileInvalid, "Select a directory.")
 		}
 
 		if len(children) > 1000 {
-			return result, fileFailure("file_limit", "Directories are limited to 1000 entries per listing.")
+			return result, fileFailure(model.FileLimitExceeded, "Directories are limited to 1000 entries per listing.")
 		}
 
 		result.Entries = make([]model.FileEntry, 0, len(children))
@@ -194,14 +196,14 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 			info, err := root.Lstat(path.Join(q.Path, child.Name()))
 			if err != nil {
-				return result, fileFailure("file_io", "Directory changed; refresh and try again.")
+				return result, fileFailure(model.FileIO, "Directory changed; refresh and try again.")
 			}
 
-			kind := "file"
+			kind := model.FileKindFile
 			if info.IsDir() {
-				kind = "directory"
+				kind = model.FileKindDirectory
 			} else if !info.Mode().IsRegular() {
-				kind = "unsupported"
+				kind = model.FileKindUnsupported
 			}
 
 			result.Entries = append(result.Entries, model.FileEntry{Name: child.Name(), Kind: kind, Mode: uint32(info.Mode().Perm()), Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
@@ -209,8 +211,8 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 		sort.Slice(result.Entries, func(i, j int) bool {
 			a, b := result.Entries[i], result.Entries[j]
-			if (a.Kind == "directory") != (b.Kind == "directory") {
-				return a.Kind == "directory"
+			if (a.Kind == model.FileKindDirectory) != (b.Kind == model.FileKindDirectory) {
+				return a.Kind == model.FileKindDirectory
 			}
 
 			return a.Name < b.Name
@@ -238,11 +240,11 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 			mode = info.Mode().Perm()
 			oldSize = info.Size()
 		} else if !errors.Is(err, os.ErrNotExist) {
-			return result, fileFailure("file_io", "Could not inspect file.")
+			return result, fileFailure(model.FileIO, "Could not inspect file.")
 		}
 
 		if q.Revision != revision {
-			return result, fileFailure("file_conflict", "File changed or already exists. Reload before saving.")
+			return result, fileFailure(model.FileConflict, "File changed or already exists. Reload before saving.")
 		}
 
 		if err := checkWriteCapacity(ctx, volume, d.Configuration.DiskMB, oldSize, int64(len(q.Data))); err != nil {
@@ -253,7 +255,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 		file, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 		if err != nil {
-			return result, fileFailure("file_io", "Could not prepare file.")
+			return result, fileFailure(model.FileIO, "Could not prepare file.")
 		}
 		defer func() { _ = root.Remove(temporary) }()
 
@@ -263,7 +265,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 		closeErr := file.Close()
 		if writeErr != nil || ownerErr != nil || syncErr != nil || closeErr != nil {
-			return result, fileFailure("file_io", "Could not save file or assign game ownership.")
+			return result, fileFailure(model.FileIO, "Could not save file or assign game ownership.")
 		}
 
 		if err := ctx.Err(); err != nil {
@@ -271,18 +273,18 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		}
 
 		if err := root.Rename(temporary, q.Path); err != nil {
-			return result, fileFailure("file_io", "Could not replace file.")
+			return result, fileFailure(model.FileIO, "Could not replace file.")
 		}
 
 		result.Revision = fileRevision(q.Data)
 	case model.FileOperationMkdir:
 		if err := root.Mkdir(q.Path, 0700); err != nil {
-			return result, fileFailure("file_conflict", "Directory already exists or parent is unavailable.")
+			return result, fileFailure(model.FileConflict, "Directory already exists or parent is unavailable.")
 		}
 
 		directory, err := root.Open(q.Path)
 		if err != nil {
-			return result, fileFailure("file_io", "Could not open new directory.")
+			return result, fileFailure(model.FileIO, "Could not open new directory.")
 		}
 
 		ownerErr := m.FileOwner(directory, d.Ember.User)
@@ -290,11 +292,11 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 		if ownerErr != nil {
 			_ = root.Remove(q.Path)
-			return result, fileFailure("file_io", "Could not assign directory ownership.")
+			return result, fileFailure(model.FileIO, "Could not assign directory ownership.")
 		}
 	case model.FileOperationRename:
 		if !filePath(q.Destination, false) {
-			return result, fileFailure("invalid_file", "Invalid destination.")
+			return result, fileFailure(model.FileInvalid, "Invalid destination.")
 		}
 
 		if err := containedPath(root, q.Destination, true); err != nil {
@@ -302,36 +304,36 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		}
 
 		if _, err := root.Lstat(q.Destination); !errors.Is(err, os.ErrNotExist) {
-			return result, fileFailure("file_conflict", "Destination already exists.")
+			return result, fileFailure(model.FileConflict, "Destination already exists.")
 		}
 
 		if err := root.Rename(q.Path, q.Destination); err != nil {
-			return result, fileFailure("file_io", "Could not rename file or directory.")
+			return result, fileFailure(model.FileIO, "Could not rename file or directory.")
 		}
 
 		result.Path = q.Destination
 	case model.FileOperationDelete:
 		if err := root.RemoveAll(q.Path); err != nil {
-			return result, fileFailure("file_conflict", "Could not delete entry or all of its contents. Refresh and try again.")
+			return result, fileFailure(model.FileConflict, "Could not delete entry or all of its contents. Refresh and try again.")
 		}
 	case model.FileOperationChmod:
 		if q.Mode > 0777 {
-			return result, fileFailure("invalid_file", "Permissions must be between 000 and 777 (octal).")
+			return result, fileFailure(model.FileInvalid, "Permissions must be between 000 and 777 (octal).")
 		}
 
 		file, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 		if err != nil {
-			return result, fileFailure("file_io", "Could not open entry to change permissions.")
+			return result, fileFailure(model.FileIO, "Could not open entry to change permissions.")
 		}
 		defer func() { _ = file.Close() }()
 
 		info, err := file.Stat()
 		if err != nil || !info.IsDir() && !info.Mode().IsRegular() {
-			return result, fileFailure("invalid_file", "Select a regular file or directory.")
+			return result, fileFailure(model.FileInvalid, "Select a regular file or directory.")
 		}
 
 		if err := file.Chmod(fs.FileMode(q.Mode)); err != nil {
-			return result, fileFailure("file_io", "Could not change permissions.")
+			return result, fileFailure(model.FileIO, "Could not change permissions.")
 		}
 	}
 
@@ -368,7 +370,7 @@ func checkWriteCapacity(ctx context.Context, directory string, limitMB, oldSize,
 	}
 
 	if limitMB < 1 || used-oldSize+newSize > limitMB*1024*1024 {
-		return fileFailure("file_limit", "File would exceed the server disk allocation.")
+		return fileFailure(model.FileLimitExceeded, "File would exceed the server disk allocation.")
 	}
 
 	return nil
@@ -379,7 +381,7 @@ func fileUsage(ctx context.Context, directory string) (int64, error) {
 
 	root, err := os.OpenRoot(directory)
 	if err != nil {
-		return 0, fileFailure("file_io", "Could not verify disk allocation.")
+		return 0, fileFailure(model.FileIO, "Could not verify disk allocation.")
 	}
 
 	defer func() { _ = root.Close() }()
@@ -405,7 +407,7 @@ func fileUsage(ctx context.Context, directory string) (int64, error) {
 		return nil
 	})
 	if err != nil {
-		return 0, fileFailure("file_io", "Could not verify disk allocation.")
+		return 0, fileFailure(model.FileIO, "Could not verify disk allocation.")
 	}
 
 	return used, nil

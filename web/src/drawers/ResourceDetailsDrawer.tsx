@@ -4,7 +4,7 @@ import { Button } from "../components/forms/Button";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { useEffect, useEffectEvent, useState } from "react";
-import { APIError } from "../api/client";
+import { APIError, API_READ_TIMEOUT_MS } from "../api/client";
 import type { ReactNode } from "react";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
@@ -31,7 +31,10 @@ export function ResourceDetailsDrawer<T>({
   useEffect(() => {
     const controller = new AbortController();
     void loadDetails(
-      AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+      AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(API_READ_TIMEOUT_MS),
+      ]),
     )
       .then((value) => {
         if (!controller.signal.aborted) setDetails(value);

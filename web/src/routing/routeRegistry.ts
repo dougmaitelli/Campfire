@@ -1,13 +1,14 @@
-import { Permission } from "../api/permissions";
+import { Permission, type PermissionID } from "../api/permissions";
+import { ResourceKind, ServerTab } from "../contracts/domains";
 import { lazy, type ComponentType } from "react";
 
 export type InspectionProps = { id: string; onClose: () => void };
 
 interface ResourceDefinition {
-  kind: string;
-  permission?: string;
+  kind: ResourceKind;
+  permission?: PermissionID;
   numericID?: boolean;
-  defaultTab?: string;
+  defaultTab?: ServerTab;
   Drawer: ComponentType<InspectionProps>;
 }
 
@@ -34,7 +35,7 @@ export const routeRegistry = {
     ),
     adminOnly: true,
     resource: {
-      kind: "spark",
+      kind: ResourceKind.Spark,
       permission: Permission.SparksManage,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectSpark })),
@@ -47,7 +48,7 @@ export const routeRegistry = {
     ),
     adminOnly: true,
     resource: {
-      kind: "ember",
+      kind: ResourceKind.Ember,
       permission: Permission.EmbersManage,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectEmber })),
@@ -60,8 +61,8 @@ export const routeRegistry = {
     ),
     adminOnly: false,
     resource: {
-      kind: "server",
-      defaultTab: "console",
+      kind: ResourceKind.Server,
+      defaultTab: ServerTab.Console,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectServer })),
       ),
@@ -79,7 +80,7 @@ export const routeRegistry = {
     ),
     adminOnly: true,
     resource: {
-      kind: "user",
+      kind: ResourceKind.User,
       permission: Permission.UsersManage,
       numericID: true,
       Drawer: lazy(() =>
@@ -93,7 +94,7 @@ export const routeRegistry = {
     ),
     adminOnly: true,
     resource: {
-      kind: "role",
+      kind: ResourceKind.Role,
       permission: Permission.RolesManage,
       numericID: true,
       Drawer: lazy(() =>
@@ -109,7 +110,7 @@ export const routeRegistry = {
     ),
     adminOnly: false,
     resource: {
-      kind: "schedule",
+      kind: ResourceKind.Schedule,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({
           default: m.InspectSchedule,
@@ -141,7 +142,7 @@ export function getRoute(id: string): RouteDefinition | undefined {
     : undefined;
 }
 
-export function getResourceRoute(kind: string) {
+export function getResourceRoute(kind: ResourceKind) {
   return Object.entries(routeRegistry).find(
     ([, route]) => (route as RouteDefinition).resource?.kind === kind,
   ) as [PageID, RouteDefinition] | undefined;

@@ -103,7 +103,7 @@ func (m *Manager) metricEntry(id string) *metricsEntry {
 	}
 
 	if m.metrics[id] == nil {
-		m.metrics[id] = &metricsEntry{gate: make(chan struct{}, 1), usage: model.ResourceUsage{ServerID: id, State: "unknown"}}
+		m.metrics[id] = &metricsEntry{gate: make(chan struct{}, 1), usage: model.ResourceUsage{ServerID: id, State: model.RuntimeStateUnknown}}
 	}
 
 	return m.metrics[id]
@@ -151,7 +151,7 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 		entry.usage.StartedAt, entry.usage.StoppedAt = 0, 0
 
 		name := container(d.ServerID)
-		if busy && operation == "install" {
+		if busy && operation == model.ServerActionInstall {
 			name += "-install"
 		}
 
@@ -186,7 +186,7 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 
 		entry.usage.State = model.RuntimeState(actual)
 		if inspectErr != nil {
-			entry.usage.State = "unknown"
+			entry.usage.State = model.RuntimeStateUnknown
 			entry.usage.ContainerError = "Docker state unavailable."
 		} else if actual == "running" || actual == "paused" {
 			provider, ok := m.Docker.(interface {
@@ -218,22 +218,22 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 			entry.containerSampled = now
 			entry.previous = ContainerSample{}
 		} else {
-			entry.usage.State = "unknown"
+			entry.usage.State = model.RuntimeStateUnknown
 			entry.usage.ContainerError = "Docker state unavailable."
 		}
 
 		if actual == "exited" || actual == "created" || actual == "dead" {
-			entry.usage.State = "stopped"
+			entry.usage.State = model.RuntimeStateStopped
 		}
 
 		if actual == "missing" {
-			entry.usage.State = "not_installed"
+			entry.usage.State = model.RuntimeStateNotInstalled
 			if installed {
-				entry.usage.State = "stopped"
+				entry.usage.State = model.RuntimeStateStopped
 			}
 
-			if phase == "deleted" {
-				entry.usage.State = "deleted"
+			if phase == model.RuntimeStateDeleted {
+				entry.usage.State = model.RuntimeStateDeleted
 			}
 		}
 

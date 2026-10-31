@@ -1,7 +1,9 @@
+import { BackupMode, BackupStorage, BackupState } from "../contracts/domains";
+import { isRecord as object, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, API_READ_TIMEOUT_MS, apiJSON } from "./client";
 
-export type BackupMode = "full" | "savedata";
+export { BackupMode };
 
 export interface Backup {
   mode?: BackupMode;
@@ -10,7 +12,7 @@ export interface Backup {
   modified_at: string;
   local: boolean;
   remote: boolean;
-  state: string;
+  state: BackupState;
   error?: string;
 }
 
@@ -22,7 +24,7 @@ export interface BackupRetention {
 }
 
 export interface BackupPolicy extends BackupRetention {
-  storage: "local" | "s3";
+  storage: BackupStorage;
   savedata?: BackupRetention;
 }
 
@@ -79,10 +81,6 @@ export interface BackupListing {
   s3_available: boolean;
 }
 
-function object(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function isRetention(value: unknown): value is BackupRetention {
   return (
     object(value) &&
@@ -104,7 +102,7 @@ function isPolicy(value: unknown): value is BackupPolicy {
   return (
     object(value) &&
     isRetention(value) &&
-    (value.storage === "local" || value.storage === "s3") &&
+    isEnumValue(BackupStorage, value.storage) &&
     (!("savedata" in value) || isRetention(value.savedata))
   );
 }
@@ -112,9 +110,7 @@ function isPolicy(value: unknown): value is BackupPolicy {
 function isBackup(value: unknown): value is Backup {
   return (
     object(value) &&
-    (!("mode" in value) ||
-      value.mode === "full" ||
-      value.mode === "savedata") &&
+    (!("mode" in value) || isEnumValue(BackupMode, value.mode)) &&
     typeof value.name === "string" &&
     /^(?:(?:full|savedata)-)?[A-Za-z0-9_-]{1,128}\.tar\.gz$/.test(value.name) &&
     typeof value.size === "number" &&
@@ -124,7 +120,7 @@ function isBackup(value: unknown): value is Backup {
     Number.isFinite(Date.parse(value.modified_at)) &&
     typeof value.local === "boolean" &&
     typeof value.remote === "boolean" &&
-    typeof value.state === "string" &&
+    isEnumValue(BackupState, value.state) &&
     (!("error" in value) || typeof value.error === "string")
   );
 }
@@ -159,12 +155,11 @@ export async function saveBackupPolicy(
   policy: BackupPolicy,
 ): Promise<BackupPolicy> {
   const body = await readJSON(
-    await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/backup-policy`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(policy),
-      signal: AbortSignal.timeout(15000),
-    }),
+    await apiJSON(
+      `/api/v1/servers/${encodeURIComponent(id)}/backup-policy`,
+      policy,
+      { method: "PUT", signal: AbortSignal.timeout(API_READ_TIMEOUT_MS) },
+    ),
   );
   if (!isPolicy(body))
     throw new Error(i18n.t("backups.unexpectedBackupPolicyResponse"));
@@ -174,7 +169,7 @@ export async function saveBackupPolicy(
 export async function deleteBackup(
   id: string,
   name: string,
-  storage: "local" | "s3",
+  storage: BackupStorage,
 ): Promise<void> {
   await readJSON(
     await apiFetch(

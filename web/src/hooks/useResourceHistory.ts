@@ -1,3 +1,4 @@
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import { useEffect, useState } from "react";
 import i18n from "../i18n";
 import {
@@ -24,7 +25,10 @@ export function useResourceHistory(serverID: string | undefined) {
         const history = await readResourceHistory(
           id,
           HISTORY_HOURS,
-          AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+          AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(API_READ_TIMEOUT_MS),
+          ]),
         );
         if (!controller.signal.aborted) setResult({ id, history });
       } catch (cause) {

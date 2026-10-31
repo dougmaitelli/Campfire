@@ -11,6 +11,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 	"campfire/internal/shared/protocol"
@@ -25,7 +26,7 @@ type AlertConfig struct {
 
 // DefaultAlertConfig provides conservative sustained resource and health alerts.
 func DefaultAlertConfig() AlertConfig {
-	return AlertConfig{CPUPercent: 90, MemoryPercent: 90, DiskPercent: 90, Duration: 2 * time.Minute, Health: true}
+	return AlertConfig{CPUPercent: limits.DefaultAlertPercent, MemoryPercent: limits.DefaultAlertPercent, DiskPercent: limits.DefaultAlertPercent, Duration: limits.DefaultAlertDuration, Health: limits.DefaultAlertHealth}
 }
 
 // Validate bounds worker timing and rejects non-finite resource thresholds.
@@ -36,7 +37,7 @@ func (c AlertConfig) Validate() error {
 		}
 	}
 
-	if c.Duration < 0 || c.Duration > 24*time.Hour {
+	if c.Duration < 0 || c.Duration > limits.MaxAlertDuration {
 		return fmt.Errorf("alert duration must be 0–86400 seconds")
 	}
 
@@ -146,7 +147,7 @@ func (s *NotificationService) Test(ctx context.Context, p Principal) (int64, err
 		return 0, repository.ErrAccessDenied
 	}
 
-	item := database.Notification{TargetType: "account", TargetID: strconv.FormatInt(p.UserID, 10), Kind: "test", Severity: "info", Title: "Test notification", Body: "Campfire notifications are working. This message also tests Apprise when external delivery is configured.", CreatedAt: time.Now().Unix()}
+	item := database.Notification{TargetType: model.NotificationAccount, TargetID: strconv.FormatInt(p.UserID, 10), Kind: model.NotificationTest, Severity: model.NotificationInfo, Title: "Test notification", Body: "Campfire notifications are working. This message also tests Apprise when external delivery is configured.", CreatedAt: time.Now().Unix()}
 	err := s.Store.Emit(ctx, &item, s.Apprise != nil)
 
 	return item.ID, err
@@ -177,19 +178,19 @@ func (s *NotificationService) deliver(ctx context.Context) error {
 }
 
 // transitionAlert requires continuous observations and persists active episodes.
-func transitionAlert(state *database.AlertState, condition int, now int64, hold, gap int64) string {
-	if condition < 0 || now < state.LastObservedAt || now-state.LastObservedAt > gap {
+func transitionAlert(state *database.AlertState, condition model.AlertCondition, now int64, hold, gap int64) model.NotificationKind {
+	if condition == model.AlertUnknown || now < state.LastObservedAt || now-state.LastObservedAt > gap {
 		state.Since = 0
 		state.RecoverySince = 0
 	}
 
 	state.LastObservedAt = now
 
-	if condition < 0 {
+	if condition == model.AlertUnknown {
 		return ""
 	}
 
-	if condition > 0 {
+	if condition == model.AlertUnhealthy {
 		state.RecoverySince = 0
 		if state.Active {
 			return ""
@@ -203,7 +204,7 @@ func transitionAlert(state *database.AlertState, condition int, now int64, hold,
 			state.Active = true
 			state.Since = 0
 
-			return "alert"
+			return model.NotificationAlert
 		}
 	} else {
 		state.Since = 0
@@ -219,34 +220,46 @@ func transitionAlert(state *database.AlertState, condition int, now int64, hold,
 			state.Active = false
 			state.RecoverySince = 0
 
-			return "recovery"
+			return model.NotificationRecovery
 		}
 	}
 
 	return ""
 }
 
-func (s *NotificationService) observe(ctx context.Context, targetType, id, name, code string, condition int, body string, now time.Time) error {
-	return s.Store.Observe(ctx, targetType+":"+id+":"+code, s.Apprise != nil, func(state *database.AlertState) *database.Notification {
-		state.TargetType, state.TargetID = targetType, id
+type alertObservation struct {
+	TargetType           model.NotificationTarget
+	TargetID, Name, Code string
+	Condition            model.AlertCondition
+	Body                 string
+	At                   time.Time
+}
 
-		kind := transitionAlert(state, condition, now.Unix(), int64(s.Config.Duration.Seconds()), int64((3*s.deployment.History.Interval + resourceSampleTimeout).Seconds()))
+func (s *NotificationService) observe(ctx context.Context, observation alertObservation) error {
+	key := fmt.Sprintf("%s:%s:%s", observation.TargetType, observation.TargetID, observation.Code)
+
+	return s.Store.Observe(ctx, key, s.Apprise != nil, func(state *database.AlertState) *database.Notification {
+		state.TargetType, state.TargetID = observation.TargetType, observation.TargetID
+
+		kind := transitionAlert(state, observation.Condition, observation.At.Unix(), int64(s.Config.Duration.Seconds()), int64((3*s.deployment.History.Interval + resourceSampleTimeout).Seconds()))
 		if kind == "" {
 			return nil
 		}
 
-		title, severity := name+" — "+code+" alert", "warning"
-		if code == "health" || code == "quota" {
-			severity = "failure"
+		title := fmt.Sprintf("%s — %s alert", observation.Name, observation.Code)
+
+		severity := model.NotificationWarning
+		if observation.Code == "health" || observation.Code == "quota" {
+			severity = model.NotificationFailure
 		}
 
-		if kind == "recovery" {
-			title = name + " — " + code + " recovered"
-			body = "The " + code + " condition has remained healthy for the configured recovery period."
-			severity = "success"
+		if kind == model.NotificationRecovery {
+			title = fmt.Sprintf("%s — %s recovered", observation.Name, observation.Code)
+			observation.Body = "The " + observation.Code + " condition has remained healthy for the configured recovery period."
+			severity = model.NotificationSuccess
 		}
 
-		return &database.Notification{TargetType: targetType, TargetID: id, Kind: kind, Severity: severity, Title: title, Body: body, CreatedAt: now.Unix()}
+		return &database.Notification{TargetType: observation.TargetType, TargetID: observation.TargetID, Kind: kind, Severity: severity, Title: title, Body: observation.Body, CreatedAt: observation.At.Unix()}
 	})
 }
 
@@ -267,12 +280,12 @@ func (s *NotificationService) scan(ctx context.Context) error {
 		}
 
 		if s.Config.Health {
-			condition := 0
+			condition := model.AlertHealthy
 			if !node.Connected {
-				condition = 1
+				condition = model.AlertUnhealthy
 			}
 
-			if err := s.observe(ctx, "spark", node.ID, node.Name, "health", condition, "Spark is disconnected from Campfire.", now); err != nil {
+			if err := s.observe(ctx, alertObservation{TargetType: model.NotificationSpark, TargetID: node.ID, Name: node.Name, Code: "health", Condition: condition, Body: "Spark is disconnected from Campfire.", At: now}); err != nil {
 				return err
 			}
 		} else if err := s.Store.ClearAlert(ctx, "spark:"+node.ID+":health"); err != nil {
@@ -288,31 +301,31 @@ func (s *NotificationService) scan(ctx context.Context) error {
 
 		supported := node.Protocol == 0 || containsCapability(node.Capabilities, protocol.CapabilityMetrics)
 		usage := server.Usage
-		expectedIdle := usage.State == "not_installed" || usage.State == "deleted"
+		expectedIdle := usage.State == model.RuntimeStateNotInstalled || usage.State == model.RuntimeStateDeleted
 
 		if s.Config.Health {
-			condition := 0
+			condition := model.AlertHealthy
 			if !supported {
-				condition = -1
-			} else if !node.Connected || usage.State == "unknown" || usage.State == "dead" || usage.State == "failed" || usage.State == "error" || usage.ContainerError != "" && !expectedIdle {
-				condition = 1
+				condition = model.AlertUnknown
+			} else if !node.Connected || usage.State == model.RuntimeStateUnknown || usage.State == model.RuntimeStateDead || usage.State == "failed" || usage.State == "error" || usage.ContainerError != "" && !expectedIdle {
+				condition = model.AlertUnhealthy
 			} else if !expectedIdle && (usage.SampledAt == 0 || usage.SampleAgeSeconds > freshFor) {
-				condition = -1
+				condition = model.AlertUnknown
 			}
 
-			if err := s.observe(ctx, "server", server.ID, server.Name, "health", condition, "Server health or monitoring is unavailable. Check its Spark, Docker runtime and server status.", now); err != nil {
+			if err := s.observe(ctx, alertObservation{TargetType: model.NotificationServer, TargetID: server.ID, Name: server.Name, Code: "health", Condition: condition, Body: "Server health or monitoring is unavailable. Check its Spark, Docker runtime and server status.", At: now}); err != nil {
 				return err
 			}
 
-			condition = -1
-			if usage.State == "running" && usage.SampledAt > 0 && usage.SampleAgeSeconds <= freshFor {
-				condition = 0
+			condition = model.AlertUnknown
+			if usage.State == model.RuntimeStateRunning && usage.SampledAt > 0 && usage.SampleAgeSeconds <= freshFor {
+				condition = model.AlertHealthy
 				if !usage.DiskQuotaEnforced && usage.DiskQuotaError != "" {
-					condition = 1
+					condition = model.AlertUnhealthy
 				}
 			}
 
-			if err := s.observe(ctx, "server", server.ID, server.Name, "quota", condition, "Game filesystem quota enforcement could not be verified while the server is running.", now); err != nil {
+			if err := s.observe(ctx, alertObservation{TargetType: model.NotificationServer, TargetID: server.ID, Name: server.Name, Code: "quota", Condition: condition, Body: "Game filesystem quota enforcement could not be verified while the server is running.", At: now}); err != nil {
 				return err
 			}
 		} else {
@@ -352,15 +365,15 @@ func (s *NotificationService) scan(ctx context.Context) error {
 				continue
 			}
 			// A five-point dead band prevents flapping close to the threshold.
-			condition := -1
+			condition := model.AlertUnknown
 			if resource.value >= resource.threshold {
-				condition = 1
+				condition = model.AlertUnhealthy
 			} else if resource.value >= 0 && resource.value <= math.Max(0, resource.threshold-5) {
-				condition = 0
+				condition = model.AlertHealthy
 			}
 
 			body := fmt.Sprintf("%s usage is %.1f%% of the server's allocation (alert threshold %.1f%%).", resource.name, resource.value, resource.threshold)
-			if err := s.observe(ctx, "server", server.ID, server.Name, resource.name, condition, body, now); err != nil {
+			if err := s.observe(ctx, alertObservation{TargetType: model.NotificationServer, TargetID: server.ID, Name: server.Name, Code: resource.name, Condition: condition, Body: body, At: now}); err != nil {
 				return err
 			}
 		}

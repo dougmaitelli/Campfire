@@ -9,6 +9,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
 )
 
 const oidcCookie = "campfire_oidc"
@@ -78,7 +79,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if event, ok := r.Context().Value(auditKey{}).(*database.AuditEvent); ok {
-			event.Outcome = "failed"
+			event.Outcome = model.AuditFailed
 		}
 
 		http.Redirect(w, r, "/?oidc_error=1", http.StatusSeeOther)
@@ -94,7 +95,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	session, token, err := a.oidc.Complete(ctx, cookie.Value, r.URL.Query().Get("state"), r.URL.Query().Get("code"))
 	if err != nil {
 		if event, ok := r.Context().Value(auditKey{}).(*database.AuditEvent); ok {
-			event.Outcome = "failed"
+			event.Outcome = model.AuditFailed
 		}
 
 		http.Redirect(w, r, "/?oidc_error=1", http.StatusSeeOther)

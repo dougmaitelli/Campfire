@@ -1,14 +1,17 @@
+import { type PermissionID, isPermissionID } from "./permissions";
+import { RoleScope } from "../contracts/domains";
+import { isRecord as object, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, API_READ_TIMEOUT_MS, jsonRequest } from "./client";
 import { isSpark, type Spark } from "./sparks";
 import { isEmber, type Ember } from "./embers";
 
 export interface Role {
   id: number;
   name: string;
-  scope: "platform" | "server";
+  scope: RoleScope;
   builtin: boolean;
-  permissions: string[];
+  permissions: PermissionID[];
 }
 
 export interface User {
@@ -20,7 +23,7 @@ export interface User {
   name: string;
   email: string;
   role_id: number;
-  role: { id: number; name: string; scope: "platform" | "server" };
+  role: { id: number; name: string; scope: RoleScope };
   disabled: boolean;
   created_at: number;
 }
@@ -139,7 +142,9 @@ export async function saveAccessGrants(
   removedIDs: number[],
 ): Promise<void> {
   const body = await readJSON(
-    await apiFetch(endpoint, { signal: AbortSignal.timeout(15000) }),
+    await apiFetch(endpoint, {
+      signal: AbortSignal.timeout(API_READ_TIMEOUT_MS),
+    }),
   );
   if (
     !object(body) ||
@@ -181,9 +186,6 @@ export interface ServerOptions {
   embers: Ember[];
 }
 
-function object(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 function id(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
@@ -192,10 +194,10 @@ function isRole(value: unknown): value is Role {
     object(value) &&
     id(value.id) &&
     typeof value.name === "string" &&
-    (value.scope === "platform" || value.scope === "server") &&
+    isEnumValue(RoleScope, value.scope) &&
     typeof value.builtin === "boolean" &&
     Array.isArray(value.permissions) &&
-    value.permissions.every((entry: unknown) => typeof entry === "string")
+    value.permissions.every(isPermissionID)
   );
 }
 export function isUser(value: unknown): value is User {
@@ -213,7 +215,7 @@ export function isUser(value: unknown): value is User {
     object(value.role) &&
     id(value.role.id) &&
     typeof value.role.name === "string" &&
-    (value.role.scope === "platform" || value.role.scope === "server") &&
+    isEnumValue(RoleScope, value.role.scope) &&
     typeof value.disabled === "boolean" &&
     typeof value.created_at === "number" &&
     Number.isSafeInteger(value.created_at)
@@ -249,12 +251,7 @@ async function send(
 ): Promise<unknown> {
   const response = await apiFetch(url, {
     method,
-    ...(input === undefined
-      ? {}
-      : {
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(input),
-        }),
+    ...(input === undefined ? {} : jsonRequest(input)),
   });
   if (response.status === 204) return null;
   return readJSON(response);
@@ -373,7 +370,10 @@ export async function saveServerAccessDraft(
   serverID: string,
   draft: ServerAccessDraft,
 ): Promise<void> {
-  const current = await readServerAccess(serverID, AbortSignal.timeout(15000));
+  const current = await readServerAccess(
+    serverID,
+    AbortSignal.timeout(API_READ_TIMEOUT_MS),
+  );
   for (const member of draft.members) {
     if (member.username.toLowerCase() === current.owner?.username.toLowerCase())
       continue;

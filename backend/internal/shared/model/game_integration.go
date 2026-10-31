@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/utils"
 )
 
@@ -40,7 +41,7 @@ type GameEvent struct {
 func ValidGameEventType(value string) bool { return validGameFieldName(value) }
 
 func validGameFieldName(value string) bool {
-	return len(value) > 0 && len(value) <= 64 && value[0] >= 'a' && value[0] <= 'z' && utils.IsValidIdentifier(value)
+	return len(value) > 0 && len(value) <= limits.GameFieldNameLength && value[0] >= 'a' && value[0] <= 'z' && utils.IsValidIdentifier(value)
 }
 
 // Validate applies the same schema and size bounds at both ends of the wire.
@@ -50,7 +51,7 @@ func (p GamePublication) Validate() error {
 	}
 
 	if s := p.State; s != nil {
-		if s.Players != nil && (*s.Players < 0 || *s.Players > 1000000) || s.Capacity != nil && (*s.Capacity < 0 || *s.Capacity > 1000000) {
+		if s.Players != nil && (*s.Players < 0 || *s.Players > limits.GamePlayers) || s.Capacity != nil && (*s.Capacity < 0 || *s.Capacity > limits.GamePlayers) {
 			return errors.New("invalid player count or capacity")
 		}
 
@@ -74,7 +75,7 @@ func (p GamePublication) Validate() error {
 }
 
 func validGameFields(fields map[string]any) bool {
-	if len(fields) > 32 {
+	if len(fields) > limits.GameFields {
 		return false
 	}
 
@@ -85,7 +86,7 @@ func validGameFields(fields map[string]any) bool {
 
 		switch v := value.(type) {
 		case string:
-			if len(v) > 1024 {
+			if len(v) > limits.GameFieldStringLength {
 				return false
 			}
 		case float64:

@@ -1,4 +1,5 @@
 import i18n from "../i18n";
+import { ScheduleAction } from "../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
@@ -12,8 +13,8 @@ import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CronField } from "../components/schedules/CronField";
 import { CheckboxField } from "../components/forms/CheckboxField";
-import { serverActionPermission } from "../api/permissions";
-import type { BackupMode } from "../api/backups";
+import { serverActionPermission, hasPermission } from "../api/permissions";
+import { BackupMode } from "../api/backups";
 import { BackupModeField } from "../components/servers/BackupModeField";
 
 export function ScheduleDrawer({
@@ -30,28 +31,37 @@ export function ScheduleDrawer({
   const { t } = useTranslation();
   function allowedActions(id: string) {
     const selected = servers.find((item) => item.id === id);
-    return ["backup", "restart", "start", "stop", "kill", "command"].filter(
-      (item) => selected?.permissions.includes(serverActionPermission(item)),
+    return [
+      ScheduleAction.Backup,
+      ScheduleAction.Restart,
+      ScheduleAction.Start,
+      ScheduleAction.Stop,
+      ScheduleAction.Kill,
+      ScheduleAction.Command,
+    ].filter((item) =>
+      hasPermission(selected?.permissions, serverActionPermission(item)),
     );
   }
   const [serverID, setServerID] = useState(
     schedule?.server_id ?? servers[0]?.id ?? "",
   );
   const [name, setName] = useState(schedule?.name ?? "");
-  const [action, setAction] = useState(
+  const [action, setAction] = useState<ScheduleAction | "">(
     schedule?.action ??
       allowedActions(schedule?.server_id ?? servers[0]?.id ?? "")[0] ??
-      "backup",
+      "",
   );
   const [command, setCommand] = useState("");
   const [backupMode, setBackupMode] = useState<BackupMode>(
-    schedule?.backup_mode ?? "full",
+    schedule?.backup_mode ?? BackupMode.Full,
   );
   const savedataAvailable =
     servers.find((server) => server.id === serverID)?.savedata_available ===
     true;
   const invalidBackupMode =
-    action === "backup" && backupMode === "savedata" && !savedataAvailable;
+    action === ScheduleAction.Backup &&
+    backupMode === BackupMode.Savedata &&
+    !savedataAvailable;
   const [expression, setExpression] = useState(
     schedule?.cron_expression ?? "0 3 * * *",
   );
@@ -111,11 +121,7 @@ export function ScheduleDrawer({
     }
   }
   async function submit() {
-    if (pending.current || invalidBackupMode) return;
-    if (!allowedActions(serverID).includes(action)) {
-      setError(i18n.t("scheduleDrawer.actionNotAllowed"));
-      return;
-    }
+    if (pending.current || invalidBackupMode || action === "") return;
     if (once && enabled && new Date(runAt).getTime() <= Date.now()) {
       setError(i18n.t("scheduleDrawer.chooseAFutureDateAndTimeForThisOneOff"));
       return;
@@ -129,7 +135,9 @@ export function ScheduleDrawer({
           server_id: serverID,
           name,
           action,
-          ...(action === "backup" ? { backup_mode: backupMode } : {}),
+          ...(action === ScheduleAction.Backup
+            ? { backup_mode: backupMode }
+            : {}),
           command,
           cron_expression: once ? "" : expression,
           next_run_at: once ? Math.floor(new Date(runAt).getTime() / 1000) : 0,
@@ -192,9 +200,9 @@ export function ScheduleDrawer({
               (once
                 ? !runAt || !Number.isFinite(new Date(runAt).getTime())
                 : validated !== cronKey) ||
-              (action === "command" &&
+              (action === ScheduleAction.Command &&
                 !command.trim() &&
-                schedule?.action !== "command")
+                schedule?.action !== ScheduleAction.Command)
             }
             onClick={() => {
               void submit();
@@ -224,7 +232,10 @@ export function ScheduleDrawer({
             disabled={schedule !== null}
             onValueChange={(selectedValue) => {
               setServerID(selectedValue);
-              if (!allowedActions(selectedValue).includes(action))
+              if (
+                action === "" ||
+                !allowedActions(selectedValue).includes(action)
+              )
                 setAction(allowedActions(selectedValue)[0] ?? "");
             }}
           >
@@ -236,11 +247,7 @@ export function ScheduleDrawer({
           </Select>
         </FormField>
         <FormField label={t("scheduleDrawer.action")}>
-          <Select
-            id="schedule-action"
-            value={action}
-            onValueChange={(selectedValue) => setAction(selectedValue)}
-          >
+          <Select id="schedule-action" value={action} onValueChange={setAction}>
             {allowedActions(serverID).map((value) => (
               <option key={value} value={value}>
                 {value === "command"
@@ -250,7 +257,7 @@ export function ScheduleDrawer({
             ))}
           </Select>
         </FormField>
-        {action === "backup" && (
+        {action === ScheduleAction.Backup && (
           <BackupModeField
             value={backupMode}
             onChange={setBackupMode}
@@ -258,7 +265,7 @@ export function ScheduleDrawer({
             disabled={busy}
           />
         )}
-        {action === "command" && (
+        {action === ScheduleAction.Command && (
           <>
             <FormField
               label={t("scheduleDrawer.consoleCommand")}

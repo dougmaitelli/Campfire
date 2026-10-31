@@ -1,3 +1,4 @@
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import { useCallback, useEffect, useState } from "react";
 import { readMonitoring, type MonitoringSnapshot } from "../api/monitoring";
@@ -22,7 +23,10 @@ export function useMonitoring() {
     async function poll() {
       try {
         const value = await readMonitoring(
-          AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+          AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(API_READ_TIMEOUT_MS),
+          ]),
         );
         if (!controller.signal.aborted) {
           intervalSeconds = value.sample_interval_seconds;

@@ -1,9 +1,12 @@
 import i18n from "../i18n";
 import { formatErrorMessage } from "../utils/errors";
+import { RequestTimeout } from "../config/policies";
+import { BrowserEvent } from "../config/browser";
 
 let csrfToken = "";
 
-export const API_REQUEST_TIMEOUT_MS = 35000;
+export const API_REQUEST_TIMEOUT_MS = RequestTimeout.Default;
+export const API_READ_TIMEOUT_MS = RequestTimeout.Read;
 
 export class APIError extends Error {
   constructor(
@@ -38,9 +41,30 @@ export async function apiFetch(
   });
   if (response.status === 401) {
     csrfToken = "";
-    window.dispatchEvent(new Event("campfire:unauthenticated"));
+    window.dispatchEvent(new Event(BrowserEvent.Unauthenticated));
   }
   return response;
+}
+
+export function apiJSON(
+  url: string,
+  body: unknown,
+  init: Omit<RequestInit, "body"> = {},
+): Promise<Response> {
+  return apiFetch(url, jsonRequest(body, { method: "POST", ...init }));
+}
+
+export function jsonRequest(
+  body: unknown,
+  init: Omit<RequestInit, "body"> = {},
+): RequestInit {
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  return {
+    ...init,
+    headers,
+    body: JSON.stringify(body),
+  };
 }
 
 export async function readJSON(response: Response): Promise<unknown> {

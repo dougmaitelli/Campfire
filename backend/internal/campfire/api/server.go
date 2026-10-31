@@ -1,12 +1,13 @@
 package api
 
 import (
+	"net/http"
+	"slices"
+
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
-	"net/http"
-	"slices"
 )
 
 func (a *API) syncServerConfiguration(w http.ResponseWriter, r *http.Request) {
@@ -235,23 +236,23 @@ func (a *API) deleteServer(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Action     string           `json:"action"`
-		Backup     string           `json:"backup,omitempty"`
-		Mode       string           `json:"mode,omitempty"`
-		BackupMode model.BackupMode `json:"backup_mode,omitempty"`
+		Action     model.ServerAction  `json:"action"`
+		Backup     string              `json:"backup,omitempty"`
+		Mode       model.ReinstallMode `json:"mode,omitempty"`
+		BackupMode model.BackupMode    `json:"backup_mode,omitempty"`
 	}
 	if !decodeRequest(w, r, &input, 1024) {
 		return
 	}
 
 	switch input.Action {
-	case "install", "update", "reinstall", "start", "stop", "restart", "kill", "backup", "restore":
+	case model.ServerActionInstall, model.ServerActionUpdate, model.ServerActionReinstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionBackup, model.ServerActionRestore:
 	default:
 		writeError(w, service.ErrInvalidServer)
 		return
 	}
 
-	if input.Mode != "" && (input.Action != "reinstall" || (input.Mode != "keep" && input.Mode != "clean")) {
+	if input.Mode != "" && (input.Action != model.ServerActionReinstall || (input.Mode != model.ReinstallKeep && input.Mode != model.ReinstallClean)) {
 		writeError(w, service.ErrInvalidServer)
 		return
 	}
@@ -267,21 +268,21 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 
 	var status model.RuntimeStatus
 
-	if input.BackupMode != "" && input.Action != "backup" {
+	if input.BackupMode != "" && input.Action != model.ServerActionBackup {
 		writeError(w, service.ErrInvalidServer)
 		return
 	}
 
-	auditDetail(r, "server."+input.Action, "server:"+r.PathValue("id"))
+	auditDetail(r, model.ResourceAuditAction("server", string(input.Action)), "server:"+r.PathValue("id"))
 
 	var err error
 
 	switch input.Action {
-	case "backup":
+	case model.ServerActionBackup:
 		status, err = a.deployment.Backup(r.Context(), r.PathValue("id"), input.BackupMode)
-	case "restore":
+	case model.ServerActionRestore:
 		status, err = a.deployment.Restore(r.Context(), r.PathValue("id"), input.Backup)
-	case "reinstall":
+	case model.ServerActionReinstall:
 		status, err = a.deployment.Reinstall(r.Context(), r.PathValue("id"), input.Mode)
 	default:
 		status, err = a.deployment.Action(r.Context(), r.PathValue("id"), input.Action)
@@ -324,7 +325,7 @@ func (a *API) serverStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, err := a.deployment.Action(r.Context(), r.PathValue("id"), "status")
+	status, err := a.deployment.Action(r.Context(), r.PathValue("id"), model.ServerActionStatus)
 	if err != nil {
 		writeError(w, err)
 		return

@@ -27,7 +27,7 @@ func checkObserverAccess(t *testing.T, db *database.Database, auth *service.Auth
 
 	for _, id := range []string{"survival", "creative"} {
 		permissions, err := auth.Access().ServerPermissions(t.Context(), principal, id)
-		if err != nil || id == "survival" && !slices.Equal(permissions, []string{accessperm.ServerConsoleRead, accessperm.ServerOperate, accessperm.ServerSchedulesRead, accessperm.ServerView}) || id == "creative" && len(permissions) != 0 {
+		if err != nil || id == "survival" && !slices.Equal(permissions, []accessperm.ID{accessperm.ServerConsoleRead, accessperm.ServerOperate, accessperm.ServerSchedulesRead, accessperm.ServerView}) || id == "creative" && len(permissions) != 0 {
 			t.Fatal("unexpected observer access", id, permissions, err)
 		}
 	}

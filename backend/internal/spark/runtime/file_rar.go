@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/fs"
 
+	"campfire/internal/shared/model"
+
 	"github.com/nwaples/rardecode/v2"
 )
 
@@ -30,12 +32,12 @@ func extractRAR(input io.Reader, unpack func(string, int64, fs.FileMode, io.Read
 		}
 
 		if header.UnKnownSize || header.LinkType != 0 || header.LinkTarget != "" {
-			return fileFailure("invalid_file", "RAR entries must have known sizes and cannot contain links.")
+			return fileFailure(model.FileInvalid, "RAR entries must have known sizes and cannot contain links.")
 		}
 		// Mode() only identifies symlinks; reject other Unix special types explicitly.
 		unixType := header.Attributes & 0xf000
 		if header.HostOS == rardecode.HostOSUnix && unixType != 0 && unixType != 0x4000 && unixType != 0x8000 {
-			return fileFailure("invalid_file", "Archives cannot contain links or special files.")
+			return fileFailure(model.FileInvalid, "Archives cannot contain links or special files.")
 		}
 
 		if err := unpack(header.Name, header.UnPackedSize, header.Mode(), archive); err != nil {
@@ -50,7 +52,7 @@ func extractRAR(input io.Reader, unpack func(string, int64, fs.FileMode, io.Read
 				return rarFailure(end)
 			}
 
-			return fileFailure("invalid_file", "Invalid RAR entry length.")
+			return fileFailure(model.FileInvalid, "Invalid RAR entry length.")
 		}
 	}
 }
@@ -58,11 +60,11 @@ func extractRAR(input io.Reader, unpack func(string, int64, fs.FileMode, io.Read
 func rarFailure(err error) error {
 	switch {
 	case errors.Is(err, rardecode.ErrArchiveEncrypted), errors.Is(err, rardecode.ErrArchivedFileEncrypted):
-		return fileFailure("invalid_file", "Password-protected RAR archives are not supported.")
+		return fileFailure(model.FileInvalid, "Password-protected RAR archives are not supported.")
 	case errors.Is(err, rardecode.ErrMultiVolume), errors.Is(err, rardecode.ErrFileNameRequired):
-		return fileFailure("invalid_file", "Split RAR archives are not supported. Use a single-volume archive.")
+		return fileFailure(model.FileInvalid, "Split RAR archives are not supported. Use a single-volume archive.")
 	case errors.Is(err, rardecode.ErrDictionaryTooLarge):
-		return fileFailure("file_limit", "RAR decoder dictionaries are limited to 128 MiB.")
+		return fileFailure(model.FileLimitExceeded, "RAR decoder dictionaries are limited to 128 MiB.")
 	default:
 		return err
 	}

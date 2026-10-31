@@ -231,7 +231,7 @@ func (g *gameIntegrations) deliverEvents() {
 		var rejection *protocol.CommandError
 		if err == nil {
 			g.finishEvent(key, item, "")
-		} else if errors.As(err, &rejection) && (rejection.Code == "publication_rejected" || rejection.Code == "invalid_publication") {
+		} else if errors.As(err, &rejection) && (rejection.Code == protocol.ErrorPublicationRejected || rejection.Code == "invalid_publication") {
 			g.finishEvent(key, item, "Campfire permanently rejected the event.")
 		} else {
 			g.mu.Lock()

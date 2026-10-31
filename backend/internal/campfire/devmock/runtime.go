@@ -106,7 +106,7 @@ func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, er
 	err := r.db.WithContext(ctx).Where("server_id = ? AND spark_id = ?", id, spark).Take(&record).Error
 	if err == nil && record.TransitionAt != 0 && r.now().UnixNano() >= record.TransitionAt {
 		finishedAt := time.Unix(0, record.TransitionAt).Unix()
-		if record.State == "stopping" {
+		if record.State == model.RuntimeStateStopping {
 			record.State = model.RuntimeStateStopped
 			record.StoppedAt = finishedAt
 		} else {
@@ -182,7 +182,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 
 		record.State = model.RuntimeStateStopped
 	case model.ServerActionStart, model.ServerActionRestart:
-		if record.State == "not_installed" || record.State == "deleted" {
+		if record.State == model.RuntimeStateNotInstalled || record.State == model.RuntimeStateDeleted {
 			return model.RuntimeStatus{}, errors.New("install the mock server before starting it")
 		}
 
@@ -193,12 +193,12 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 
 		record.TransitionAt = r.now().Add(lifecycleDuration).UnixNano()
 	case model.ServerActionStop:
-		if record.State == "running" {
+		if record.State == model.RuntimeStateRunning {
 			record.State = model.RuntimeStateStopping
 			record.TransitionAt = r.now().Add(lifecycleDuration).UnixNano()
 		}
 	case model.ServerActionKill:
-		if record.State != "stopped" {
+		if record.State != model.RuntimeStateStopped {
 			record.StoppedAt = r.now().Unix()
 		}
 
@@ -211,7 +211,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 	case model.ServerActionDelete:
 		record.State = model.RuntimeStateDeleted
 	case model.ServerActionCommand:
-		if record.State != "running" {
+		if record.State != model.RuntimeStateRunning {
 			return model.RuntimeStatus{}, errors.New("mock server is not running")
 		}
 
@@ -242,7 +242,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		}
 	}
 
-	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == "running", Busy: record.TransitionAt != 0, OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
+	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == model.RuntimeStateRunning, Busy: record.TransitionAt != 0, OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
 	if status.Busy {
 		status.OperationState = model.OperationRunning
 		status.Progress = "Mock server is " + string(record.State) + "."
@@ -256,11 +256,11 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		status.DiskQuotaError = "Hard disk quotas are unavailable on this mock Spark. Game-data usage is still monitored."
 	}
 
-	if request.Action == "logs" {
+	if request.Action == model.ServerActionLogs {
 		status.Logs = record.Logs
 	}
 
-	if request.Action == "metrics" {
+	if request.Action == model.ServerActionMetrics {
 		status.Metrics = metrics(record)
 	}
 
@@ -273,7 +273,7 @@ func metrics(record runtimeRecord) *model.ResourceUsage {
 	memory := int64(0)
 	disk := diskUsage(record)
 
-	if record.State == "running" {
+	if record.State == model.RuntimeStateRunning {
 		cpu = 35 + 15*math.Sin(float64(now%360)/12)
 		memory = record.Deployment.Configuration.MemoryMB * (1 << 20) / 3
 	}
@@ -282,7 +282,7 @@ func metrics(record runtimeRecord) *model.ResourceUsage {
 }
 
 func quotaEnforced(record runtimeRecord) bool {
-	return record.SparkID != "mock-america" && record.Deployment.Configuration.DiskMB > 0 && record.State != "not_installed" && record.State != "deleted"
+	return record.SparkID != "mock-america" && record.Deployment.Configuration.DiskMB > 0 && record.State != model.RuntimeStateNotInstalled && record.State != model.RuntimeStateDeleted
 }
 
 func diskUsage(record runtimeRecord) int64 {
@@ -304,7 +304,7 @@ func (r *Runtime) Console(ctx context.Context, spark, id string, emit func(model
 	connected := false
 
 	for {
-		status, err := r.Action(ctx, spark, model.RuntimeRequest{ServerID: id, Action: "logs"})
+		status, err := r.Action(ctx, spark, model.RuntimeRequest{ServerID: id, Action: model.ServerActionLogs})
 		if err != nil {
 			return err
 		}

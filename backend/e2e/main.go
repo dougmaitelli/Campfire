@@ -85,7 +85,7 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 			}
 
 			r.archives[input.ServerID+"/"+name] = data
-			r.backups[input.ServerID] = append(r.backups[input.ServerID], model.FileEntry{BackupMode: input.BackupOptions.Mode.Normalized(), Name: name, Kind: "file", Size: int64(len(data)), ModifiedAt: fixed})
+			r.backups[input.ServerID] = append(r.backups[input.ServerID], model.FileEntry{BackupMode: input.BackupOptions.Mode.Normalized(), Name: name, Kind: model.FileKindFile, Size: int64(len(data)), ModifiedAt: fixed})
 		}
 		r.statuses[input.ServerID] = status
 		close(r.updates)

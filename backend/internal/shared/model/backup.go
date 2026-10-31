@@ -10,7 +10,7 @@ import (
 // BackupPolicy selects storage and opt-in retention for one server.
 type BackupPolicy struct {
 	Savedata         BackupRetention `json:"savedata"`
-	Storage          string          `json:"storage"`
+	Storage          BackupStorage   `json:"storage"`
 	LocalKeepLast    int             `json:"local_keep_last"`
 	LocalMaxAgeDays  int             `json:"local_max_age_days"`
 	RemoteKeepLast   int             `json:"remote_keep_last"`
@@ -44,14 +44,14 @@ type BackupSource struct {
 
 // Backup describes a cataloged archive and its available copies.
 type Backup struct {
-	Mode       BackupMode `json:"mode"`
-	Name       string     `json:"name"`
-	Size       int64      `json:"size"`
-	ModifiedAt time.Time  `json:"modified_at"`
-	Local      bool       `json:"local"`
-	Remote     bool       `json:"remote"`
-	State      string     `json:"state"`
-	Error      string     `json:"error,omitempty"`
+	Mode       BackupMode  `json:"mode"`
+	Name       string      `json:"name"`
+	Size       int64       `json:"size"`
+	ModifiedAt time.Time   `json:"modified_at"`
+	Local      bool        `json:"local"`
+	Remote     bool        `json:"remote"`
+	State      BackupState `json:"state"`
+	Error      string      `json:"error,omitempty"`
 }
 
 // CatalogBackup identifies an archive and its owning server in the admin catalog.

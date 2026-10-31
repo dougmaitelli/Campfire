@@ -6,34 +6,35 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/limits"
 
 	"gorm.io/gorm"
 )
 
 // OIDCAccount finds or provisions an identity, or links it to an authenticated account.
 // Email matching requires an explicit opt-in and a verified provider claim.
-func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, username string, linkID, version int64, linkHash, name, email, picture string, options OIDCAccountOptions) (database.User, error) {
+func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput) (database.User, error) {
 	var user database.User
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		if linkID != 0 {
+		if input.LinkUserID != 0 {
 			var login database.UserSession
 
 			now := time.Now()
-			if err := tx.Take(&login, "hash = ? AND user_id = ? AND credential_version = ? AND expires_at > ? AND last_seen_at > ?", linkHash, linkID, version, now.Unix(), now.Add(-30*time.Minute).Unix()).Error; err != nil {
+			if err := tx.Take(&login, "hash = ? AND user_id = ? AND credential_version = ? AND expires_at > ? AND last_seen_at > ?", input.LinkSessionHash, input.LinkUserID, input.CredentialVersion, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Error; err != nil {
 				return ErrAuthentication
 			}
 		}
 
 		var identity database.OIDCIdentity
 
-		err := tx.Take(&identity, "issuer = ? AND subject = ?", issuer, subject).Error
+		err := tx.Take(&identity, "issuer = ? AND subject = ?", input.Issuer, input.Subject).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
 		if err == nil {
-			if linkID != 0 && identity.UserID != linkID {
+			if input.LinkUserID != 0 && identity.UserID != input.LinkUserID {
 				return ErrAccessConflict
 			}
 
@@ -41,12 +42,12 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 				return err
 			}
 		} else {
-			if linkID != 0 {
-				if err := tx.Take(&user, linkID).Error; err != nil {
+			if input.LinkUserID != 0 {
+				if err := tx.Take(&user, input.LinkUserID).Error; err != nil {
 					return err
 				}
-			} else if options.AutoLinkEmail && email != "" {
-				user, err = oidcEmailAccount(tx, email, options.EmailVerified)
+			} else if input.Options.AutoLinkEmail && input.Email != "" {
+				user, err = oidcEmailAccount(tx, input.Email, input.Options.EmailVerified)
 				if err != nil {
 					return err
 				}
@@ -62,41 +63,41 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 					return ErrAuthentication
 				}
 
-				user = database.User{Username: username, CredentialVersion: 1, RoleID: database.UserRole}
+				user = database.User{Username: input.Username, CredentialVersion: 1, RoleID: database.UserRole}
 				if err := tx.Omit("Role").Create(&user).Error; err != nil {
 					return err
 				}
 			}
 
-			if user.Disabled || linkID != 0 && user.CredentialVersion != version {
+			if user.Disabled || input.LinkUserID != 0 && user.CredentialVersion != input.CredentialVersion {
 				return ErrAuthentication
 			}
 
-			if err := tx.Omit("User").Create(&database.OIDCIdentity{Issuer: issuer, Subject: subject, UserID: user.ID}).Error; err != nil {
+			if err := tx.Omit("User").Create(&database.OIDCIdentity{Issuer: input.Issuer, Subject: input.Subject, UserID: user.ID}).Error; err != nil {
 				return err
 			}
 		}
 
-		if user.Disabled || linkID != 0 && user.CredentialVersion != version {
+		if user.Disabled || input.LinkUserID != 0 && user.CredentialVersion != input.CredentialVersion {
 			return ErrAuthentication
 		}
 
-		user.OIDCNameManaged, user.OIDCEmailManaged = name != "", email != ""
+		user.OIDCNameManaged, user.OIDCEmailManaged = input.Name != "", input.Email != ""
 		updates := map[string]any{"oidc_name_managed": user.OIDCNameManaged, "oidc_email_managed": user.OIDCEmailManaged}
 
-		if name != "" {
-			user.Name = name
-			updates["name"] = name
+		if input.Name != "" {
+			user.Name = input.Name
+			updates["name"] = input.Name
 		}
 
-		if email != "" {
-			user.Email = email
-			updates["email"] = email
+		if input.Email != "" {
+			user.Email = input.Email
+			updates["email"] = input.Email
 		}
 
-		if picture != "" {
-			user.Picture = picture
-			updates["picture"] = picture
+		if input.Picture != "" {
+			user.Picture = input.Picture
+			updates["picture"] = input.Picture
 		}
 
 		return tx.Model(&user).Updates(updates).Error
@@ -109,6 +110,15 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, issuer, subject, usern
 type OIDCAccountOptions struct {
 	AutoLinkEmail bool
 	EmailVerified bool
+}
+
+// OIDCAccountInput binds provider claims and optional local-session authorization.
+type OIDCAccountInput struct {
+	Issuer, Subject, Username     string
+	LinkUserID, CredentialVersion int64
+	LinkSessionHash               string
+	Name, Email, Picture          string
+	Options                       OIDCAccountOptions
 }
 
 func oidcEmailAccount(tx *gorm.DB, email string, verified bool) (database.User, error) {

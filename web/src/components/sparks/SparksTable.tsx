@@ -1,3 +1,4 @@
+import { Capability } from "../../contracts/capabilities";
 import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
@@ -125,7 +126,7 @@ export function SparksTable({
                   variant="primary"
                   disabled={
                     updating !== null ||
-                    !spark.capabilities?.includes("spark.self-update.v1")
+                    !spark.capabilities?.includes(Capability.SelfUpdate)
                   }
                   onClick={() => onUpdate(spark)}
                   title={

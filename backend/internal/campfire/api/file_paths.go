@@ -12,7 +12,7 @@ import (
 // protocol's relative paths. Validate before any cleaning can hide traversal.
 func relativeDataPath(value string) (string, error) {
 	if len(value) > 1026 || strings.ContainsAny(value, "\\\x00") || strings.ContainsFunc(value, unicode.IsControl) {
-		return "", &model.FileError{Code: "invalid_file", Message: "Use a path within the server data directory."}
+		return "", &model.FileError{Code: model.FileInvalid, Message: "Use a path within the server data directory."}
 	}
 
 	value = strings.Trim(value, "/")
@@ -21,7 +21,7 @@ func relativeDataPath(value string) (string, error) {
 	}
 
 	if len(value) > 1024 || !fs.ValidPath(value) {
-		return "", &model.FileError{Code: "invalid_file", Message: "Use a path within the server data directory."}
+		return "", &model.FileError{Code: model.FileInvalid, Message: "Use a path within the server data directory."}
 	}
 
 	return value, nil

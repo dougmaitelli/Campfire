@@ -1,3 +1,5 @@
+import { FileKind, FileOperation } from "../contracts/domains";
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
@@ -103,7 +105,9 @@ export function ServerFilesDrawer({
   const [bulkAction, setBulkAction] = useState<"compress" | "move" | null>(
     null,
   );
-  const selectable = entries.filter((entry) => entry.kind !== "unsupported");
+  const selectable = entries.filter(
+    (entry) => entry.kind !== FileKind.Unsupported,
+  );
   const selectedEntries = selectable.filter((entry) =>
     selected.includes(entry.name),
   );
@@ -139,7 +143,7 @@ export function ServerFilesDrawer({
     async (path: string, signal?: AbortSignal, preserveSelection = false) => {
       const result = await manageFiles(
         server.id,
-        { operation: "list", path },
+        { operation: FileOperation.List, path },
         signal,
       );
       if (!signal?.aborted && alive.current) {
@@ -163,7 +167,10 @@ export function ServerFilesDrawer({
       hasWritePermission
         ? uploadLimit(
             server.id,
-            AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+            AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(API_READ_TIMEOUT_MS),
+            ]),
           ).then((limit) => {
             if (!controller.signal.aborted) setMaxUploadBytes(limit);
           })
@@ -214,7 +221,7 @@ export function ServerFilesDrawer({
     onClose();
   }
   async function open(entry: FileEntry) {
-    if (entry.kind === "directory") {
+    if (entry.kind === FileKind.Directory) {
       await load(join(directory, entry.name));
       return;
     }
@@ -223,7 +230,7 @@ export function ServerFilesDrawer({
         i18n.t("serverFilesDrawer.textEditingIsLimitedTo1MiBDownloadThisFile"),
       );
     const result = await manageFiles(server.id, {
-      operation: "read",
+      operation: FileOperation.Read,
       path: join(directory, entry.name),
     });
     let text: string;
@@ -257,7 +264,7 @@ export function ServerFilesDrawer({
   async function save() {
     if (!editor) return;
     const result = await manageFiles(server.id, {
-      operation: "write",
+      operation: FileOperation.Write,
       path: editor.path,
       data: encodeBytes(new TextEncoder().encode(editor.text)),
       revision: editor.revision,
@@ -271,7 +278,7 @@ export function ServerFilesDrawer({
     if (name === null) return;
     if (folder) {
       await manageFiles(server.id, {
-        operation: "mkdir",
+        operation: FileOperation.Mkdir,
         path: join(directory, name),
       });
       await load(directory);
@@ -288,7 +295,7 @@ export function ServerFilesDrawer({
     const name = entryName(value);
     if (name === null || name === entry.name) return;
     await manageFiles(server.id, {
-      operation: "rename",
+      operation: FileOperation.Rename,
       path: join(directory, entry.name),
       destination: join(directory, name),
     });
@@ -303,7 +310,7 @@ export function ServerFilesDrawer({
     try {
       for (const entry of items) {
         await manageFiles(server.id, {
-          operation: "delete",
+          operation: FileOperation.Delete,
           path: join(directory, entry.name),
         });
         remaining = remaining.slice(1);
@@ -419,7 +426,7 @@ export function ServerFilesDrawer({
       const started = await manageFiles(
         server.id,
         {
-          operation: "upload.begin",
+          operation: FileOperation.UploadBegin,
           path: target,
           revision: "absent",
           size: file.size,
@@ -440,7 +447,7 @@ export function ServerFilesDrawer({
         await manageFiles(
           server.id,
           {
-            operation: "upload.chunk",
+            operation: FileOperation.UploadChunk,
             path: target,
             upload_id: uploadID,
             offset,
@@ -454,7 +461,11 @@ export function ServerFilesDrawer({
       onProgress(file.size, "saving");
       await manageFiles(
         server.id,
-        { operation: "upload.commit", path: target, upload_id: uploadID },
+        {
+          operation: FileOperation.UploadCommit,
+          path: target,
+          upload_id: uploadID,
+        },
         controller.signal,
       );
       committed = true;
@@ -462,7 +473,7 @@ export function ServerFilesDrawer({
       if (uploadID && !committed) {
         try {
           await manageFiles(server.id, {
-            operation: "upload.cancel",
+            operation: FileOperation.UploadCancel,
             path: target,
             upload_id: uploadID,
           });
@@ -476,7 +487,7 @@ export function ServerFilesDrawer({
     const destination = entryName(value);
     if (!destination) return;
     await manageFiles(server.id, {
-      operation: extract ? "extract" : "compress",
+      operation: extract ? FileOperation.Extract : FileOperation.Compress,
       path: join(directory, entry.name),
       destination: join(directory, destination),
     });
@@ -493,14 +504,14 @@ export function ServerFilesDrawer({
         const name = entryName(value);
         if (!name) return;
         await manageFiles(server.id, {
-          operation: "compress",
+          operation: FileOperation.Compress,
           path: directory,
           paths: selectedEntries.map((entry) => join(directory, entry.name)),
           destination: join(directory, name),
         });
       } else {
         const target = await manageFiles(server.id, {
-          operation: "list",
+          operation: FileOperation.List,
           path: value,
         });
         const destination = target.path;
@@ -515,7 +526,7 @@ export function ServerFilesDrawer({
         }
         for (const entry of selectedEntries) {
           await manageFiles(server.id, {
-            operation: "rename",
+            operation: FileOperation.Rename,
             path: join(directory, entry.name),
             destination: join(destination, entry.name),
           });
@@ -767,7 +778,7 @@ export function ServerFilesDrawer({
                 throw new Error(t("serverFilesDrawer.invalidPermissions"));
               for (const entry of permissionsEntries)
                 await manageFiles(server.id, {
-                  operation: "chmod",
+                  operation: FileOperation.Chmod,
                   path: join(directory, entry.name),
                   mode: Number.parseInt(value, 8),
                 });
@@ -963,7 +974,7 @@ export function ServerFilesDrawer({
                     <td className="table-fit">
                       <CheckboxField
                         checked={selected.includes(entry.name)}
-                        disabled={busy || entry.kind === "unsupported"}
+                        disabled={busy || entry.kind === FileKind.Unsupported}
                         onChange={(event) =>
                           setSelected((current) =>
                             event.target.checked
@@ -981,11 +992,11 @@ export function ServerFilesDrawer({
                     </td>
                     <td className="file-icon-cell">
                       <span
-                        className={`file-entry-icon${entry.kind === "directory" ? " file-entry-folder" : ""}`}
+                        className={`file-entry-icon${entry.kind === FileKind.Directory ? " file-entry-folder" : ""}`}
                       >
                         <NavigationIcon
                           name={
-                            entry.kind === "directory"
+                            entry.kind === FileKind.Directory
                               ? "folder"
                               : entry.kind === "file"
                                 ? "file"
@@ -1003,7 +1014,7 @@ export function ServerFilesDrawer({
                         }}
                       >
                         <span className="file-entry-name">{entry.name}</span>
-                        {entry.kind === "unsupported" && (
+                        {entry.kind === FileKind.Unsupported && (
                           <span className="file-entry-meta">
                             {t("serverFilesDrawer.symbolicLinkOrSpecialFile")}
                           </span>
@@ -1011,7 +1022,7 @@ export function ServerFilesDrawer({
                       </button>
                     </td>
                     <td className="table-fit file-entry-meta">
-                      {entry.kind === "directory"
+                      {entry.kind === FileKind.Directory
                         ? t("serverFilesDrawer.folderType")
                         : entry.kind === "unsupported"
                           ? t("serverFilesDrawer.specialType")
@@ -1019,7 +1030,9 @@ export function ServerFilesDrawer({
                             t("serverFilesDrawer.fileTypeFallback")}
                     </td>
                     <td className="file-size file-entry-meta">
-                      {entry.kind === "file" ? bytes(entry.size) : EMPTY_VALUE}
+                      {entry.kind === FileKind.File
+                        ? bytes(entry.size)
+                        : EMPTY_VALUE}
                     </td>
                     <td className="table-fit file-entry-meta">
                       <time dateTime={entry.modified_at}>
@@ -1028,7 +1041,7 @@ export function ServerFilesDrawer({
                     </td>
                     <td className="table-actions">
                       <ActionGroup>
-                        {entry.kind === "file" &&
+                        {entry.kind === FileKind.File &&
                           /\.(zip|tar\.gz|tgz|rar)$/i.test(entry.name) && (
                             <Button
                               iconOnly
@@ -1045,7 +1058,7 @@ export function ServerFilesDrawer({
                               <NavigationIcon name="extract" />
                             </Button>
                           )}
-                        {entry.kind === "file" && (
+                        {entry.kind === FileKind.File && (
                           <Button
                             iconOnly
                             size="small"

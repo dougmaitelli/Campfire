@@ -100,7 +100,7 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 	owner := service.Principal{UserID: 2, CredentialVersion: 1}
 
-	token, raw, err := auth.CreateAPIToken(ctx, owner, "SFTP", 1, []string{"server.view", "server.files.delete"})
+	token, raw, err := auth.CreateAPIToken(ctx, owner, "SFTP", 1, []model.PermissionID{"server.view", "server.files.delete"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 		return ssh.Dial("tcp", listener.Addr().String(), &ssh.ClientConfig{User: "game", Auth: []ssh.AuthMethod{ssh.Password(secret)}, HostKeyCallback: ssh.FixedHostKey(key.PublicKey()), Timeout: 5 * time.Second})
 	}
 
-	_, restricted, err := auth.CreateAPIToken(ctx, owner, "read only", 1, []string{"server.view"})
+	_, restricted, err := auth.CreateAPIToken(ctx, owner, "read only", 1, []model.PermissionID{"server.view"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, readSecret, err := auth.CreateAPIToken(ctx, owner, "file reader", 1, []string{accessperm.ServerView, accessperm.ServerFilesRead})
+	_, readSecret, err := auth.CreateAPIToken(ctx, owner, "file reader", 1, []model.PermissionID{accessperm.ServerView, accessperm.ServerFilesRead})
 	if err != nil {
 		t.Fatal(err)
 	}

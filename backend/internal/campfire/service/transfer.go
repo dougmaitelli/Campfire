@@ -143,12 +143,12 @@ func (s *TransferService) Begin(ctx context.Context, serverID, targetID string, 
 		ports[i].BindIP = ip.Unmap().String()
 	}
 
-	status, err := s.Deployment.runActionUnlocked(ctx, serverID, "status", "")
+	status, err := s.Deployment.runActionUnlocked(ctx, serverID, model.ServerActionStatus, "")
 	if err != nil {
 		return database.ServerTransfer{}, err
 	}
 
-	if status.Busy || (status.State != "stopped" && status.State != "not_installed") {
+	if status.Busy || (status.State != model.RuntimeStateStopped && status.State != model.RuntimeStateNotInstalled) {
 		return database.ServerTransfer{}, ErrServerActive
 	}
 
@@ -191,7 +191,7 @@ func (s *TransferService) run(id string) {
 
 			resume := transfer.Phase
 			if errors.Is(err, errTransferCorrupt) {
-				resume = "copying"
+				resume = model.TransferPhaseCopying
 			}
 
 			_ = s.Store.Advance(recordCtx, id, transfer.Phase, map[string]any{"phase": model.TransferPhaseFailed, "resume_phase": resume, "error": fmt.Sprintf("%.1024s", err.Error())})

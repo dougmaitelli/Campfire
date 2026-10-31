@@ -1,9 +1,10 @@
 package database
 
 import (
-	"gorm.io/gorm"
-
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
+
+	"gorm.io/gorm"
 )
 
 // Built-in role identifiers are stable so authorization does not depend on display names.
@@ -17,11 +18,11 @@ const (
 
 func seedRoles(tx *gorm.DB) error {
 	roles := []Role{
-		{ID: AdminRole, Name: "Admin", Scope: "platform", Builtin: true},
-		{ID: CreatorRole, Name: "Server creator", Scope: "platform", Builtin: true},
-		{ID: UserRole, Name: "User", Scope: "platform", Builtin: true},
-		{ID: OwnerRole, Name: "Owner", Scope: "server", Builtin: true},
-		{ID: OperatorRole, Name: "Operator", Scope: "server", Builtin: true},
+		{ID: AdminRole, Name: "Admin", Scope: model.RoleScopePlatform, Builtin: true},
+		{ID: CreatorRole, Name: "Server creator", Scope: model.RoleScopePlatform, Builtin: true},
+		{ID: UserRole, Name: "User", Scope: model.RoleScopePlatform, Builtin: true},
+		{ID: OwnerRole, Name: "Owner", Scope: model.RoleScopeServer, Builtin: true},
+		{ID: OperatorRole, Name: "Operator", Scope: model.RoleScopeServer, Builtin: true},
 	}
 	for _, role := range roles {
 		if err := tx.Create(&role).Error; err != nil {
@@ -29,11 +30,11 @@ func seedRoles(tx *gorm.DB) error {
 		}
 	}
 
-	permissions := map[int64][]string{
+	permissions := map[int64][]model.PermissionID{
 		AdminRole:    {accessperm.UsersManage, accessperm.RolesManage, accessperm.SparksManage, accessperm.EmbersManage, accessperm.ServersCreate, accessperm.ServersManageAll},
 		CreatorRole:  {accessperm.ServersCreate},
 		OwnerRole:    accessperm.All(),
-		OperatorRole: accessperm.Legacy([]string{accessperm.ServerView, accessperm.ServerOperate}),
+		OperatorRole: accessperm.Legacy([]model.PermissionID{accessperm.ServerView, accessperm.ServerOperate}),
 	}
 	for roleID, actions := range permissions {
 		for _, action := range actions {

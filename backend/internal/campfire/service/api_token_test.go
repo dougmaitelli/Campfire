@@ -11,6 +11,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/model"
 )
 
 func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
@@ -25,7 +26,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	user, err := auth.Access().CreateUser(ctx, "token-user", "a private long test password", database.UserRole, false, "", "")
+	user, err := auth.Access().CreateUser(ctx, CreateUserInput{Username: "token-user", Password: "a private long test password", RoleID: database.UserRole, Disabled: false, Name: "", Email: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +45,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 	now := time.Now()
 	auth.now = func() time.Time { return now }
 
-	token, raw, err := auth.CreateAPIToken(ctx, principal, " automation ", 1, []string{"*"})
+	token, raw, err := auth.CreateAPIToken(ctx, principal, " automation ", 1, []model.PermissionID{"*"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +73,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 		t.Fatal("token granted excess permissions", err)
 	}
 
-	if _, _, err := auth.CreateAPIToken(ctx, bearer, "nested", 1, []string{"*"}); !errors.Is(err, repository.ErrAccessDenied) {
+	if _, _, err := auth.CreateAPIToken(ctx, bearer, "nested", 1, []model.PermissionID{"*"}); !errors.Is(err, repository.ErrAccessDenied) {
 		t.Fatal("bearer created a token", err)
 	}
 
@@ -100,7 +101,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 		t.Fatal("expired token listed", err)
 	}
 
-	_, raw, err = auth.CreateAPIToken(ctx, principal, "replacement", 1, []string{"server.view"})
+	_, raw, err = auth.CreateAPIToken(ctx, principal, "replacement", 1, []model.PermissionID{"server.view"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +114,7 @@ func TestAPITokenLifecycleAndAccountRevocation(t *testing.T) {
 		t.Fatal("changed credentials did not revoke token", err)
 	}
 
-	if _, _, err := auth.CreateAPIToken(ctx, principal, "stale", 1, []string{"*"}); !errors.Is(err, ErrAuthentication) {
+	if _, _, err := auth.CreateAPIToken(ctx, principal, "stale", 1, []model.PermissionID{"*"}); !errors.Is(err, ErrAuthentication) {
 		t.Fatal("stale principal minted token", err)
 	}
 
@@ -139,20 +140,20 @@ func TestAPITokenScopeValidationAndLimit(t *testing.T) {
 
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	user, err := auth.Access().CreateUser(ctx, "token-user", "a private long test password", database.UserRole, false, "", "")
+	user, err := auth.Access().CreateUser(ctx, CreateUserInput{Username: "token-user", Password: "a private long test password", RoleID: database.UserRole, Disabled: false, Name: "", Email: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	principal := PrincipalFromSession(database.UserSession{UserID: user.ID, User: user})
-	for _, scopes := range [][]string{nil, {"*", "server.view"}, {"unknown"}, {"server.operate"}} {
+	for _, scopes := range [][]model.PermissionID{nil, {"*", "server.view"}, {"unknown"}, {"server.operate"}} {
 		if _, _, err := auth.CreateAPIToken(ctx, principal, "invalid", 1, scopes); !errors.Is(err, repository.ErrAccessInput) {
 			t.Fatal("invalid scope accepted", scopes, err)
 		}
 	}
 
 	for _, days := range []int{0, 366} {
-		if _, _, err := auth.CreateAPIToken(ctx, principal, "invalid", days, []string{"*"}); !errors.Is(err, repository.ErrAccessInput) {
+		if _, _, err := auth.CreateAPIToken(ctx, principal, "invalid", days, []model.PermissionID{"*"}); !errors.Is(err, repository.ErrAccessInput) {
 			t.Fatal("invalid expiry accepted", err)
 		}
 	}
@@ -162,7 +163,7 @@ func TestAPITokenScopeValidationAndLimit(t *testing.T) {
 	var secret string
 
 	for i := range 50 {
-		token, raw, err := auth.CreateAPIToken(ctx, principal, "automation", 1, []string{"server.view"})
+		token, raw, err := auth.CreateAPIToken(ctx, principal, "automation", 1, []model.PermissionID{"server.view"})
 		if err != nil {
 			t.Fatal(i, err)
 		}
@@ -172,7 +173,7 @@ func TestAPITokenScopeValidationAndLimit(t *testing.T) {
 		}
 	}
 
-	if _, _, err := auth.CreateAPIToken(ctx, principal, "overflow", 1, []string{"*"}); !errors.Is(err, repository.ErrAccessConflict) {
+	if _, _, err := auth.CreateAPIToken(ctx, principal, "overflow", 1, []model.PermissionID{"*"}); !errors.Is(err, repository.ErrAccessConflict) {
 		t.Fatal("active token limit not enforced", err)
 	}
 
@@ -188,7 +189,7 @@ func TestAPITokenScopeValidationAndLimit(t *testing.T) {
 		t.Fatal("revoked token accepted", err)
 	}
 
-	if _, _, err := auth.CreateAPIToken(ctx, principal, "replacement", 1, []string{"*"}); err != nil {
+	if _, _, err := auth.CreateAPIToken(ctx, principal, "replacement", 1, []model.PermissionID{"*"}); err != nil {
 		t.Fatal(err)
 	}
 }

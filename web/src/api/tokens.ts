@@ -1,24 +1,24 @@
+import { isRecord as object } from "../utils/validation";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
-import { isPermissionCatalog } from "./permissions";
+import { apiFetch, readJSON, apiJSON } from "./client";
+import {
+  isPermissionCatalog,
+  type PermissionID,
+  isPermissionID,
+} from "./permissions";
 
 export interface APIToken {
   id: number;
   name: string;
   prefix: string;
-  scopes: string[];
+  scopes: PermissionID[];
   created_at: number;
   expires_at: number;
   last_used_at: number;
 }
 
-function object(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-function strings(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === "string")
-  );
+function permissionIDs(value: unknown): value is PermissionID[] {
+  return Array.isArray(value) && value.every(isPermissionID);
 }
 function isToken(value: unknown): value is APIToken {
   return (
@@ -29,7 +29,7 @@ function isToken(value: unknown): value is APIToken {
     ) &&
     typeof value.name === "string" &&
     typeof value.prefix === "string" &&
-    strings(value.scopes)
+    permissionIDs(value.scopes)
   );
 }
 export async function listTokens(signal: AbortSignal) {
@@ -38,7 +38,7 @@ export async function listTokens(signal: AbortSignal) {
     !object(body) ||
     !Array.isArray(body.tokens) ||
     !body.tokens.every(isToken) ||
-    !strings(body.scopes)
+    !permissionIDs(body.scopes)
   )
     throw new Error(i18n.t("tokens.unexpectedAPITokenResponse"));
   if (!isPermissionCatalog(body.permissions))
@@ -52,14 +52,14 @@ export async function listTokens(signal: AbortSignal) {
 export async function createToken(
   name: string,
   days: number,
-  scopes: string[],
+  scopes: PermissionID[],
 ) {
   const body = await readJSON(
-    await apiFetch("/api/v1/tokens", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, expires_in_days: days, scopes }),
-    }),
+    await apiJSON(
+      "/api/v1/tokens",
+      { name, expires_in_days: days, scopes },
+      { method: "POST" },
+    ),
   );
   if (!object(body) || !isToken(body.token) || typeof body.secret !== "string")
     throw new Error(i18n.t("tokens.unexpectedAPITokenResponse"));

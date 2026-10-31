@@ -124,7 +124,7 @@ func ValidateWelcome(welcome Message, offered []string) error {
 func Require(negotiated []string, required ...string) error {
 	for _, capability := range required {
 		if !slices.Contains(negotiated, capability) {
-			return &CommandError{Code: "unsupported_capability", Message: "Spark does not support required capability " + capability + ". Update the Spark or use a compatible node."}
+			return &CommandError{Code: ErrorUnsupportedCapability, Message: "Spark does not support required capability " + capability + ". Update the Spark or use a compatible node."}
 		}
 	}
 

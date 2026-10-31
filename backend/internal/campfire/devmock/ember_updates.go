@@ -22,7 +22,7 @@ const mockImportedUpdateID = "mock-minecraft"
 const mockUpdateServerName = "Ember update ready · Mock"
 
 func mockUpdateCandidate(current bool) model.Ember {
-	ember := model.Ember{Schema: 1, Name: "Minecraft · Mock", Description: "Updated development fixture. No image is pulled and no game process runs.", UpdateURL: mockPendingUpdateURL, ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp", Description: "Main"}}, Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo 'Mock updated installer; no game downloads.'"}}
+	ember := model.Ember{Schema: 1, Name: "Minecraft · Mock", Description: "Updated development fixture. No image is pulled and no game process runs.", UpdateURL: mockPendingUpdateURL, ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: model.NetworkTCP, Description: "Main"}}, Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo 'Mock updated installer; no game downloads.'"}}
 	if current {
 		ember.Name = "Minecraft · Current"
 		ember.UpdateURL = mockCurrentUpdateURL
@@ -128,7 +128,7 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 			Name: mockUpdateServerName, Description: "Stopped on an older mock Minecraft definition. Choose Update Ember to apply the current local definition; no download is needed.",
 			SparkID: "mock-europe", EmberID: original.ID, Image: original.Images["Java 21"],
 			Variables: map[string]string{}, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480,
-			Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25569, ContainerPort: 25565, Protocol: "tcp"}},
+			Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25569, ContainerPort: 25565, Protocol: model.NetworkTCP}},
 		}
 		servers := service.NewServerService(repository.NewServerRepository(tx), service.NewEmberService(emberStore))
 
@@ -147,7 +147,7 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 		}
 
 		record := newRecord(configuration.SparkID, deployment)
-		record.State = "stopped"
+		record.State = model.RuntimeStateStopped
 
 		record.Logs += "[Mock Spark] The current local Ember definition is ready to apply.\n"
 		if err := tx.Create(&record).Error; err != nil {

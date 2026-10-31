@@ -1,3 +1,5 @@
+import { RoleScope } from "../contracts/domains";
+import { AccountLimits, BuiltinRole } from "../config/policies";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
@@ -30,7 +32,7 @@ export function UserDrawer({
   const [email, setEmail] = useState(user?.email ?? "");
   const emailInput = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
-  const [roleID, setRoleID] = useState(user?.role_id ?? 3);
+  const [roleID, setRoleID] = useState(user?.role_id ?? BuiltinRole.User);
   const [disabled, setDisabled] = useState(user?.disabled ?? false);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -71,7 +73,10 @@ export function UserDrawer({
   async function submit() {
     if (pending.current) return;
     if (emailInput.current && !emailInput.current.reportValidity()) return;
-    if ((!user && !password) || (password && [...password].length < 15)) {
+    if (
+      (!user && !password) ||
+      (password && [...password].length < AccountLimits.PasswordMin)
+    ) {
       setError(i18n.t("userDrawer.useAPasswordOfAtLeast15Characters"));
       return;
     }
@@ -151,7 +156,7 @@ export function UserDrawer({
             id="user-name"
             value={username}
             readOnly={user !== null}
-            maxLength={64}
+            maxLength={AccountLimits.UsernameMax}
             autoComplete="off"
             onChange={(event) => setUsername(event.target.value)}
           />
@@ -208,7 +213,7 @@ export function UserDrawer({
             id="user-password"
             type="password"
             value={password}
-            maxLength={1024}
+            maxLength={AccountLimits.PasswordMax}
             autoComplete="new-password"
             onChange={(event) => setPassword(event.target.value)}
           />
@@ -220,7 +225,7 @@ export function UserDrawer({
             onValueChange={(selectedValue) => setRoleID(Number(selectedValue))}
           >
             {roles
-              .filter((role) => role.scope === "platform")
+              .filter((role) => role.scope === RoleScope.Platform)
               .map((role) => (
                 <option key={role.id} value={role.id}>
                   {role.name}

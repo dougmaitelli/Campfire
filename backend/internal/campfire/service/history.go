@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"time"
+
+	"campfire/internal/shared/limits"
 )
 
 // HistoryRetention holds independent age limits. Zero keeps a collection forever.
@@ -16,7 +18,7 @@ type HistoryRetention struct {
 
 // Validate rejects negative ages and bounds duration arithmetic to 100 years.
 func (r HistoryRetention) Validate() error {
-	if r.AuditDays < 0 || r.AuditDays > 36500 || r.OperationDays < 0 || r.OperationDays > 36500 {
+	if r.AuditDays < 0 || r.AuditDays > limits.BackupRetentionDays || r.OperationDays < 0 || r.OperationDays > limits.BackupRetentionDays {
 		return errors.New("history retention days must be between 0 and 36500 (0 keeps records forever)")
 	}
 

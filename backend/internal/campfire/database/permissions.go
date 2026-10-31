@@ -1,9 +1,10 @@
 package database
 
 import (
-	"gorm.io/gorm"
-
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
+
+	"gorm.io/gorm"
 )
 
 func migratePermissions(tx *gorm.DB) error {
@@ -13,11 +14,11 @@ func migratePermissions(tx *gorm.DB) error {
 	}
 
 	for _, role := range roles {
-		if role.Scope != "server" {
+		if role.Scope != model.RoleScopeServer {
 			continue
 		}
 
-		actions := make([]string, 0, len(role.Permissions))
+		actions := make([]model.PermissionID, 0, len(role.Permissions))
 		for _, item := range role.Permissions {
 			actions = append(actions, item.Permission)
 		}

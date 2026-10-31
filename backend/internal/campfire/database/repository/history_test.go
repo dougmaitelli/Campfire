@@ -8,6 +8,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/model"
 )
 
 func historyStore(t *testing.T) (*database.Database, *repository.ActivityRepository) {
@@ -104,8 +105,8 @@ func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 	cutoff := time.Now().UTC().Truncate(time.Second).Add(-30 * 24 * time.Hour)
 
 	old := cutoff.Add(-time.Hour).Unix()
-	for _, state := range []string{"succeeded", "failed", "interrupted", "cancelled", "skipped", "queued", "dispatching", "running", "unknown"} {
-		if err := store.CreateRun(ctx, &database.ScheduleRun{ID: state, State: state, CreatedAt: old, FinishedAt: old}); err != nil {
+	for _, state := range []model.ExecutionState{"succeeded", "failed", "interrupted", "cancelled", "skipped", "queued", "dispatching", "running", "unknown"} {
+		if err := store.CreateRun(ctx, &database.ScheduleRun{ID: string(state), State: state, CreatedAt: old, FinishedAt: old}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -120,8 +121,8 @@ func TestHistoryPruningPreservesActiveAndRecentlyFinishedRecords(t *testing.T) {
 		}
 	}
 
-	for _, outcome := range []string{"succeeded", "failed", "accepted", "interrupted", "cancelled", "skipped", "pending", "unknown"} {
-		if err := store.BeginAudit(ctx, &database.AuditEvent{ID: outcome, Outcome: outcome, CreatedAt: old}); err != nil {
+	for _, outcome := range []model.AuditOutcome{"succeeded", "failed", "accepted", "interrupted", "cancelled", "skipped", "pending", "unknown"} {
+		if err := store.BeginAudit(ctx, &database.AuditEvent{ID: string(outcome), Outcome: outcome, CreatedAt: old}); err != nil {
 			t.Fatal(err)
 		}
 	}

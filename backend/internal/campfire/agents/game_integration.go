@@ -25,17 +25,17 @@ func (h *Hub) gameFrame(ctx context.Context, sparkID string, current *peer, fram
 
 	ack := &protocol.GameAck{ID: frame.ID}
 	if frame.Publication.Event != nil && protocol.Require(current.info.Capabilities, protocol.CapabilityGameEvents) != nil {
-		ack.Error = &protocol.CommandError{Code: "unsupported_capability", Message: "Durable game events were not negotiated."}
+		ack.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "Durable game events were not negotiated."}
 	} else if frame.Publication.Validate() != nil {
-		ack.Error = &protocol.CommandError{Code: "invalid_publication", Message: "Invalid game publication."}
+		ack.Error = &protocol.CommandError{Code: protocol.ErrorInvalidPublication, Message: "Invalid game publication."}
 	} else if h.receiveGame == nil {
-		ack.Error = &protocol.CommandError{Code: "integration_unavailable", Message: "Game ingestion is unavailable."}
+		ack.Error = &protocol.CommandError{Code: protocol.ErrorIntegrationUnavailable, Message: "Game ingestion is unavailable."}
 	} else if err := h.receiveGame(receiveCtx, sparkID, *frame); err != nil {
 		var rejection *protocol.CommandError
-		if errors.As(err, &rejection) && rejection.Code == "publication_rejected" {
-			ack.Error = &protocol.CommandError{Code: "publication_rejected", Message: "Game publication was rejected."}
+		if errors.As(err, &rejection) && rejection.Code == protocol.ErrorPublicationRejected {
+			ack.Error = &protocol.CommandError{Code: protocol.ErrorPublicationRejected, Message: "Game publication was rejected."}
 		} else {
-			ack.Error = &protocol.CommandError{Code: "ingestion_unavailable", Message: "Game ingestion is temporarily unavailable."}
+			ack.Error = &protocol.CommandError{Code: protocol.ErrorIngestionUnavailable, Message: "Game ingestion is temporarily unavailable."}
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 )
@@ -129,7 +130,7 @@ func (m *Manager) StreamConsole(ctx context.Context, d model.Deployment, emit fu
 
 			name := container(d.ServerID)
 
-			installer := !installed || operation == "install" || operation == "update" || operation == "reinstall"
+			installer := !installed || operation == model.ServerActionInstall || operation == model.ServerActionUpdate || operation == model.ServerActionReinstall
 			if installer {
 				name += "-install"
 
@@ -138,7 +139,7 @@ func (m *Manager) StreamConsole(ctx context.Context, d model.Deployment, emit fu
 					if err == nil {
 						defer func() { _ = file.Close() }()
 
-						data, err := io.ReadAll(io.LimitReader(file, 65536))
+						data, err := io.ReadAll(io.LimitReader(file, limits.LogCaptureBytes))
 						if err != nil {
 							return errors.New("installer output unavailable")
 						}

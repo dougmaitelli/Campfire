@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"campfire/internal/shared/limits"
 )
 
 // Deployment contains execution instructions, independent of panel authoring models.
@@ -103,13 +105,13 @@ func NewDeployment(serverID string, c ServerConfiguration, e Ember) (Deployment,
 // Validate checks execution inputs at the Spark trust boundary.
 func (d Deployment) Validate() error {
 	c := d.Configuration
-	if c.EmberID == "" || Image(c.Image) != nil || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < 0.1 || c.CPULimit > 1024 || c.MemoryMB < 64 || c.MemoryMB > 1048576 || c.DiskMB < 0 || c.DiskMB > 1073741824 || len(c.Ports) > 32 {
+	if c.EmberID == "" || Image(c.Image) != nil || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < limits.ServerMinCPU || c.CPULimit > limits.MaxCPU || c.MemoryMB < limits.MinMemoryMiB || c.MemoryMB > limits.MaxMemoryMiB || c.DiskMB < 0 || c.DiskMB > limits.MaxDiskMiB || len(c.Ports) > limits.MaxServerPorts {
 		return errors.New("invalid server image or resources")
 	}
 
 	for _, port := range c.Ports {
 		ip, err := netip.ParseAddr(port.BindIP)
-		if err != nil || ip.Zone() != "" || ip.IsMulticast() || port.HostPort < 1 || port.HostPort > 65535 || port.ContainerPort < 1 || port.ContainerPort > 65535 || (port.Protocol != "tcp" && port.Protocol != "udp") {
+		if err != nil || ip.Zone() != "" || ip.IsMulticast() || port.HostPort < limits.MinPort || port.HostPort > limits.MaxPort || port.ContainerPort < limits.MinPort || port.ContainerPort > limits.MaxPort || (port.Protocol != NetworkTCP && port.Protocol != NetworkUDP) {
 			return errors.New("invalid server port")
 		}
 	}

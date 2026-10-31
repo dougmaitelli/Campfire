@@ -9,6 +9,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 	"campfire/internal/shared/utils"
@@ -44,7 +45,7 @@ func (s *ConfigurationStore) streamConsole(ctx context.Context, id, server strin
 		text = strings.ToValidUTF8(text, "\uFFFD")
 
 		for len(text) > 0 {
-			n := min(len(text), 8192)
+			n := min(len(text), limits.ConsoleFrameBytes)
 			for n > 0 && n < len(text) && !utf8.RuneStart(text[n]) {
 				n--
 			}

@@ -1,3 +1,5 @@
+import { BackupStorage, VariableType } from "../contracts/domains";
+import { ResourceLimits } from "../config/policies";
 import i18n from "../i18n";
 import { BackupRetentionFields } from "../components/servers/BackupRetentionFields";
 import { useTranslation, Trans } from "react-i18next";
@@ -151,7 +153,7 @@ export function ServerDrawer({
     const spark = sparks.find((item) => !item.disabled);
     const ember = embers[0];
     return {
-      name: ember?.name.slice(0, 100) ?? "",
+      name: ember?.name.slice(0, ResourceLimits.NameLength) ?? "",
       description: "",
       spark_id: spark?.id ?? "",
       ember_id: ember?.id ?? "",
@@ -174,7 +176,7 @@ export function ServerDrawer({
     server
       ? null
       : {
-          storage: "local",
+          storage: BackupStorage.Local,
           local_keep_last: 0,
           local_max_age_days: 0,
           remote_keep_last: 0,
@@ -401,8 +403,12 @@ export function ServerDrawer({
                       name:
                         !server &&
                         (!value.name.trim() ||
-                          value.name === ember?.name.slice(0, 100))
-                          ? (selected?.name.slice(0, 100) ?? "")
+                          value.name ===
+                            ember?.name.slice(0, ResourceLimits.NameLength))
+                          ? (selected?.name.slice(
+                              0,
+                              ResourceLimits.NameLength,
+                            ) ?? "")
                           : value.name,
                       ember_id: selectedValue,
                       startup_override: undefined,
@@ -448,7 +454,7 @@ export function ServerDrawer({
                 <TextInput
                   id="server-name"
                   required
-                  maxLength={100}
+                  maxLength={ResourceLimits.NameLength}
                   value={value.name}
                   onChange={(event) =>
                     setValue({ ...value, name: event.target.value })
@@ -460,7 +466,7 @@ export function ServerDrawer({
                 <Textarea
                   id="server-description"
                   placeholder={t("common.descriptionPlaceholder")}
-                  maxLength={1000}
+                  maxLength={ResourceLimits.DescriptionLength}
                   value={value.description}
                   onChange={(event) =>
                     setValue({ ...value, description: event.target.value })
@@ -670,8 +676,8 @@ export function ServerDrawer({
                 <TextInput
                   id="server-cpu"
                   type="number"
-                  min={0.1}
-                  max={1024}
+                  min={ResourceLimits.ServerMinCPU}
+                  max={ResourceLimits.MaxCPU}
                   step="any"
                   required
                   value={Number.isNaN(value.cpu_limit) ? "" : value.cpu_limit}
@@ -689,8 +695,8 @@ export function ServerDrawer({
                     <TextInput
                       id="server-memory"
                       type="number"
-                      min={64}
-                      max={1048576}
+                      min={ResourceLimits.MinMemoryMiB}
+                      max={ResourceLimits.MaxMemoryMiB}
                       step={1}
                       required
                       value={
@@ -716,7 +722,7 @@ export function ServerDrawer({
                       id="server-disk"
                       type="number"
                       min={0}
-                      max={1073741824}
+                      max={ResourceLimits.MaxDiskMiB}
                       step={1}
                       required
                       value={Number.isNaN(value.disk_mb) ? "" : value.disk_mb}
@@ -812,7 +818,7 @@ export function ServerDrawer({
                         id={`mapping-container-${index}`}
                         type="number"
                         min={1}
-                        max={65535}
+                        max={ResourceLimits.MaxPort}
                         step={1}
                         required
                         value={
@@ -871,7 +877,7 @@ export function ServerDrawer({
                         onValueChange={(selectedValue) =>
                           changeBackupPolicy({
                             ...backupPolicy,
-                            storage: selectedValue as BackupPolicy["storage"],
+                            storage: selectedValue,
                           })
                         }
                       >
@@ -1081,7 +1087,7 @@ export function ServerDrawer({
                   variableTypes={Object.fromEntries(
                     (ember?.variables ?? []).map((variable) => [
                       variable.name,
-                      variable.validation?.type ?? "string",
+                      variable.validation?.type ?? VariableType.String,
                     ]),
                   )}
                   portDescriptions={Object.fromEntries(

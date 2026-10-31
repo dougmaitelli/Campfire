@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 )
@@ -137,11 +138,11 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("invalid server identity")
 	}
 
-	if q.Action == "reinstall" && q.Content != "" && q.Content != "keep" && q.Content != "clean" {
+	if q.Action == model.ServerActionReinstall && q.Content != "" && q.Content != "keep" && q.Content != "clean" {
 		return model.RuntimeStatus{}, errors.New("invalid reinstall mode")
 	}
 
-	if q.Action == "metrics" {
+	if q.Action == model.ServerActionMetrics {
 		usage, err := m.Measure(ctx, d)
 
 		busy := true
@@ -163,14 +164,14 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 	if transfer, err := m.localTransfer(q.ServerID); err != nil {
 		return model.RuntimeStatus{}, err
-	} else if transfer != nil && transfer.State != "active" && transfer.State != "released" {
-		if q.Action != "status" && q.Action != "logs" {
+	} else if transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased {
+		if q.Action != model.ServerActionStatus && q.Action != model.ServerActionLogs {
 			return model.RuntimeStatus{}, errors.New("server is locked for a Spark transfer")
 		}
 
-		if q.Action == "status" {
+		if q.Action == model.ServerActionStatus {
 			status, err := m.observe(ctx, d, e)
-			status.Busy = transfer.State != "retired" && transfer.State != "discarded"
+			status.Busy = transfer.State != model.TransferStateRetired && transfer.State != model.TransferStateDiscarded
 			status.Progress, status.Operation, status.OperationID = "Spark transfer: "+string(transfer.State), model.ServerActionTransfer, transfer.ID
 			status.Error = transfer.Error
 
@@ -178,7 +179,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		}
 	}
 
-	if q.Action == "status" {
+	if q.Action == model.ServerActionStatus {
 		if e.Status.Busy {
 			return e.Status, nil
 		}
@@ -196,13 +197,13 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return e.Status, nil
 	}
 
-	if q.Action == "logs" {
+	if q.Action == model.ServerActionLogs {
 		if !e.Installed {
 			result := e.Status
 
 			data, err := os.ReadFile(filepath.Join(m.root(d.ServerID), "installer.log"))
 			if err == nil {
-				result.Logs = string(data[:min(len(data), 65536)])
+				result.Logs = string(data[:min(len(data), limits.LogCaptureBytes)])
 				return result, nil
 			}
 
@@ -227,7 +228,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return result, nil
 	}
 
-	if q.Action == "command" {
+	if q.Action == model.ServerActionCommand {
 		if q.Content == "" || len(q.Content) > 4096 || strings.ContainsAny(q.Content, "\r\n\x00") {
 			return model.RuntimeStatus{}, errors.New("console command must be a single line of at most 4096 bytes")
 		}
@@ -270,13 +271,13 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	if e.Status.Busy {
-		if (q.Action == "stop" || q.Action == "kill") && (e.Status.Operation == "install" || e.Status.Operation == "reinstall" || e.Status.Operation == "update") {
+		if (q.Action == model.ServerActionStop || q.Action == model.ServerActionKill) && (e.Status.Operation == model.ServerActionInstall || e.Status.Operation == model.ServerActionReinstall || e.Status.Operation == model.ServerActionUpdate) {
 			e.interrupted = true
 			cancel := e.cancel
 			e.mu.Unlock()
 
 			args := []string{"stop", "--time", "10", container(d.ServerID) + "-install"}
-			if q.Action == "kill" {
+			if q.Action == model.ServerActionKill {
 				args = []string{"stop", "--signal", "SIGKILL", "--time", "0", container(d.ServerID) + "-install"}
 			}
 			// Cleanup removes the container even if stopping fails or preparation
@@ -292,8 +293,8 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("another server operation is in progress")
 	}
 
-	if q.Action == "backup" || q.Action == "restore" || q.Action == "install" || q.Action == "update" || q.Action == "reinstall" {
-		if q.Action == "restore" && !backupName(q.Content) {
+	if q.Action == model.ServerActionBackup || q.Action == model.ServerActionRestore || q.Action == model.ServerActionInstall || q.Action == model.ServerActionUpdate || q.Action == model.ServerActionReinstall {
+		if q.Action == model.ServerActionRestore && !backupName(q.Content) {
 			return model.RuntimeStatus{}, errors.New("select a valid backup")
 		}
 
@@ -302,17 +303,17 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		}
 	}
 
-	if q.Action != "install" && q.Action != "update" && q.Action != "reinstall" && q.Action != "delete" && !e.Installed {
+	if q.Action != model.ServerActionInstall && q.Action != model.ServerActionUpdate && q.Action != model.ServerActionReinstall && q.Action != model.ServerActionDelete && !e.Installed {
 		return model.RuntimeStatus{}, errors.New("install the server first")
 	}
 
-	if q.Action == "install" && e.Installed {
+	if q.Action == model.ServerActionInstall && e.Installed {
 		return model.RuntimeStatus{}, errors.New("server is already installed")
 	}
 
 	phase := map[model.ServerAction]model.RuntimeState{model.ServerActionInstall: model.RuntimeStateInstalling, model.ServerActionUpdate: model.RuntimeStateUpdating, model.ServerActionReinstall: model.RuntimeStateReinstalling, model.ServerActionStart: model.RuntimeStateStarting, model.ServerActionStop: model.RuntimeStateStopping, model.ServerActionRestart: model.RuntimeStateRestarting, model.ServerActionKill: model.RuntimeStateStopping, model.ServerActionDelete: model.RuntimeStateDeleting}[q.Action]
-	if q.Action == "backup" || q.Action == "restore" {
-		phase = "stopped"
+	if q.Action == model.ServerActionBackup || q.Action == model.ServerActionRestore {
+		phase = model.RuntimeStateStopped
 	}
 
 	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, OperationState: model.OperationQueued, Progress: "Queued", Busy: true}
@@ -423,7 +424,7 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 		}
 	}
 
-	if q.Action == "delete" && err == nil {
+	if q.Action == model.ServerActionDelete && err == nil {
 		e.Status.State = model.RuntimeStateDeleted
 	}
 
@@ -477,7 +478,7 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 			status.State = model.RuntimeStateStopped
 		}
 
-		if e.Status.State == "deleted" {
+		if e.Status.State == model.RuntimeStateDeleted {
 			status.State = model.RuntimeStateDeleted
 		}
 	}
@@ -502,7 +503,7 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 	case model.ServerActionInstall:
 		return m.install(ctx, d, e)
 	case model.ServerActionUpdate, model.ServerActionReinstall:
-		return m.reinstall(ctx, d, e, action == "update")
+		return m.reinstall(ctx, d, e, action == model.ServerActionUpdate)
 	case model.ServerActionStart:
 		return m.start(ctx, d, e)
 	case model.ServerActionRestart:

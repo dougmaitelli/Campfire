@@ -1,9 +1,6 @@
 package api
 
 import (
-	"campfire/internal/campfire/service"
-	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 	"errors"
 	"fmt"
 	"mime"
@@ -11,6 +8,10 @@ import (
 	"path"
 	"slices"
 	"time"
+
+	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 )
 
 func (a *API) fileLimits(w http.ResponseWriter, _ *http.Request) {
@@ -45,7 +46,7 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 
 	required := accessperm.File(input.Operation)
 	if required == "" {
-		writeFileError(w, &model.FileError{Code: "invalid_file", Message: "Invalid game file operation."})
+		writeFileError(w, &model.FileError{Code: model.FileInvalid, Message: "Invalid game file operation."})
 		return
 	}
 
@@ -59,13 +60,13 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !slices.Contains([]model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract}, input.Operation) {
-			writeFileError(w, &model.FileError{Code: "invalid_file", Message: "Invalid game file operation."})
+			writeFileError(w, &model.FileError{Code: model.FileInvalid, Message: "Invalid game file operation."})
 			return
 		}
 
 		for _, operation := range []model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationUploadBegin, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract} {
 			if input.Operation == operation {
-				auditDetail(r, "server.files."+string(operation), "server:"+r.PathValue("id"))
+				auditDetail(r, model.ResourceAuditAction("server.files", string(operation)), "server:"+r.PathValue("id"))
 			}
 		}
 	}
@@ -105,12 +106,12 @@ func (a *API) downloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(info.Entries) != 1 || info.Entries[0].Kind != "file" || info.Size < 0 || info.Size > model.FileTransferLimit {
-		writeFileError(w, &model.FileError{Code: "file_limit", Message: "Select a file of at most 100 GiB."})
+	if len(info.Entries) != 1 || info.Entries[0].Kind != model.FileKindFile || info.Size < 0 || info.Size > model.FileTransferLimit {
+		writeFileError(w, &model.FileError{Code: model.FileLimitExceeded, Message: "Select a file of at most 100 GiB."})
 		return
 	}
 
-	request.Operation, request.Revision = "read.chunk", info.Revision
+	request.Operation, request.Revision = model.FileOperationReadChunk, info.Revision
 	// Fetch before sending headers so the first Spark error remains actionable.
 	result, err := a.deployment.Files(r.Context(), r.PathValue("id"), request)
 	if err != nil {
@@ -162,13 +163,13 @@ func writeFileError(w http.ResponseWriter, err error) {
 	status := http.StatusBadGateway
 
 	switch failure.Code {
-	case "invalid_file":
+	case model.FileInvalid:
 		status = http.StatusBadRequest
-	case "file_not_found":
+	case model.FileNotFound:
 		status = http.StatusNotFound
-	case "file_conflict", "file_busy", "unsupported_capability":
+	case model.FileConflict, model.FileBusy, model.FileUnsupportedCapability:
 		status = http.StatusConflict
-	case "file_limit":
+	case model.FileLimitExceeded:
 		status = http.StatusRequestEntityTooLarge
 	}
 

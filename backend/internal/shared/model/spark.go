@@ -32,10 +32,10 @@ type SparkSettings struct {
 
 // PortAllocation is a pool of game ports available on one node interface.
 type PortAllocation struct {
-	BindIP   string `json:"bind_ip"`
-	Start    int    `json:"start"`
-	End      int    `json:"end"`
-	Protocol string `json:"protocol"`
+	BindIP   string          `json:"bind_ip"`
+	Start    int             `json:"start"`
+	End      int             `json:"end"`
+	Protocol NetworkProtocol `json:"protocol"`
 }
 
 // SparkChanges contains mutable fields; nil values leave stored values unchanged.

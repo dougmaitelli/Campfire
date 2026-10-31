@@ -124,7 +124,7 @@ func (h *Hub) Files(ctx context.Context, id string, request model.FileRequest) (
 	if err != nil {
 		var failure *protocol.CommandError
 		if errors.As(err, &failure) {
-			return model.FileResult{}, &model.FileError{Code: failure.Code, Message: failure.Message}
+			return model.FileResult{}, &model.FileError{Code: model.FileErrorCode(failure.Code), Message: failure.Message}
 		}
 
 		return model.FileResult{}, err

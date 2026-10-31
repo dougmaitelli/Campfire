@@ -24,7 +24,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 	sources := []string{q.Path}
 	if len(q.Paths) > 0 {
 		if q.Operation != model.FileOperationCompress || len(q.Paths) > 1000 {
-			return result, fileFailure("invalid_file", "Select at most 1,000 archive items.")
+			return result, fileFailure(model.FileInvalid, "Select at most 1,000 archive items.")
 		}
 
 		sources = q.Paths
@@ -32,7 +32,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 		seen := make(map[string]bool, len(sources))
 		for _, source := range sources {
 			if !filePath(source, false) || path.Dir(source) != q.Path || seen[source] {
-				return result, fileFailure("invalid_file", "Select distinct items from the current directory.")
+				return result, fileFailure(model.FileInvalid, "Select distinct items from the current directory.")
 			}
 
 			seen[source] = true
@@ -41,7 +41,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 
 	for _, source := range sources {
 		if source == q.Destination || strings.HasPrefix(q.Destination, source+"/") {
-			return result, fileFailure("invalid_file", "Choose a destination outside the selected items.")
+			return result, fileFailure(model.FileInvalid, "Choose a destination outside the selected items.")
 		}
 
 		if err := containedPath(root, source, false); err != nil {
@@ -50,7 +50,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 	}
 
 	if !filePath(q.Destination, false) {
-		return result, fileFailure("invalid_file", "Choose a new destination outside the source directory.")
+		return result, fileFailure(model.FileInvalid, "Choose a new destination outside the source directory.")
 	}
 
 	if err := containedPath(root, q.Path, false); err != nil {
@@ -62,7 +62,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 	}
 
 	if _, err := root.Lstat(q.Destination); !errors.Is(err, os.ErrNotExist) {
-		return result, fileFailure("file_conflict", "Archive destination already exists.")
+		return result, fileFailure(model.FileConflict, "Archive destination already exists.")
 	}
 
 	temporary := ".campfire-archive-" + rand.Text()
@@ -72,7 +72,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 
 	if q.Operation == model.FileOperationCompress {
 		if !strings.HasSuffix(q.Destination, ".tar.gz") {
-			return result, fileFailure("invalid_file", "Compressed archives must end in .tar.gz.")
+			return result, fileFailure(model.FileInvalid, "Compressed archives must end in .tar.gz.")
 		}
 
 		err = m.compressFiles(ctx, d, root, sources, temporary)
@@ -89,7 +89,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 			return result, err
 		}
 
-		return result, fileFailure("file_io", "Archive operation failed. Check the archive, disk allocation and Spark logs.")
+		return result, fileFailure(model.FileIO, "Archive operation failed. Check the archive, disk allocation and Spark logs.")
 	}
 
 	if err := checkWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, 0); err != nil {
@@ -101,7 +101,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 	}
 
 	if err := root.Rename(temporary, q.Destination); err != nil {
-		return result, fileFailure("file_io", "Could not publish archive result.")
+		return result, fileFailure(model.FileIO, "Could not publish archive result.")
 	}
 
 	return result, nil
@@ -146,7 +146,7 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 
 			count++
 			if count > backupEntries || !filePath(name, false) {
-				return fileFailure("file_limit", "Archives are limited to 100,000 entries.")
+				return fileFailure(model.FileLimitExceeded, "Archives are limited to 100,000 entries.")
 			}
 
 			if err := containedPath(root, name, false); err != nil {
@@ -166,12 +166,12 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 			}
 
 			if !info.IsDir() && !info.Mode().IsRegular() {
-				return fileFailure("invalid_file", "Archives cannot contain links or special files.")
+				return fileFailure(model.FileInvalid, "Archives cannot contain links or special files.")
 			}
 
 			total += info.Size()
 			if total > model.FileTransferLimit {
-				return fileFailure("file_limit", "Archive contents exceed 100 GiB.")
+				return fileFailure(model.FileLimitExceeded, "Archive contents exceed 100 GiB.")
 			}
 
 			header, err := tar.FileInfoHeader(info, "")
@@ -232,11 +232,11 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 
 	info, err := input.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		return fileFailure("invalid_file", "Select a regular archive file.")
+		return fileFailure(model.FileInvalid, "Select a regular archive file.")
 	}
 
 	if info.Size() > model.FileTransferLimit {
-		return fileFailure("file_limit", "Archive exceeds 100 GiB.")
+		return fileFailure(model.FileLimitExceeded, "Archive exceeds 100 GiB.")
 	}
 
 	used, err := fileUsage(ctx, root.Name())
@@ -264,7 +264,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 	unpack := func(name string, size int64, mode fs.FileMode, reader io.Reader) error {
 		count++
 		if count > backupEntries || size < 0 || size > model.FileTransferLimit-total {
-			return fileFailure("file_limit", "Archive expands beyond 100 GiB or 100,000 entries.")
+			return fileFailure(model.FileLimitExceeded, "Archive expands beyond 100 GiB or 100,000 entries.")
 		}
 
 		if err := ctx.Err(); err != nil {
@@ -272,7 +272,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		}
 
 		if mode.IsDir() && size != 0 {
-			return fileFailure("invalid_file", "Archive directories cannot carry file contents.")
+			return fileFailure(model.FileInvalid, "Archive directories cannot carry file contents.")
 		}
 
 		name = strings.TrimSuffix(name, "/")
@@ -285,7 +285,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		}
 
 		if !filePath(name, false) || seen[name] || !mode.IsDir() && !mode.IsRegular() {
-			return fileFailure("invalid_file", "Archive contains unsafe, duplicate or unsupported entries.")
+			return fileFailure(model.FileInvalid, "Archive contains unsafe, duplicate or unsupported entries.")
 		}
 
 		seen[name] = true
@@ -298,7 +298,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		}
 
 		if total > budget {
-			return fileFailure("file_limit", "Extracted files would exceed the server disk allocation.")
+			return fileFailure(model.FileLimitExceeded, "Extracted files would exceed the server disk allocation.")
 		}
 
 		if err := target.MkdirAll(path.Dir(name), 0700); err != nil {
@@ -334,12 +334,12 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		}
 
 		if len(archive.File) > backupEntries {
-			return fileFailure("file_limit", "Archive has too many entries.")
+			return fileFailure(model.FileLimitExceeded, "Archive has too many entries.")
 		}
 
 		for _, item := range archive.File {
 			if item.UncompressedSize64 > uint64(model.FileTransferLimit) {
-				return fileFailure("file_limit", "Archive expands beyond 100 GiB.")
+				return fileFailure(model.FileLimitExceeded, "Archive expands beyond 100 GiB.")
 			}
 
 			reader, err := item.Open()
@@ -394,7 +394,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 			case tar.TypeReg, 0:
 				mode = fs.FileMode(header.Mode) & 0777
 			default:
-				return fileFailure("invalid_file", "Archives cannot contain links or special files.")
+				return fileFailure(model.FileInvalid, "Archives cannot contain links or special files.")
 			}
 
 			if err := unpack(header.Name, header.Size, mode, archive); err != nil {
@@ -408,10 +408,10 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		}
 
 		if n > model.FileLimit {
-			return fileFailure("invalid_file", "Unexpected trailing archive data.")
+			return fileFailure(model.FileInvalid, "Unexpected trailing archive data.")
 		}
 	} else {
-		return fileFailure("invalid_file", "Extract supports .zip, .tar.gz, .tgz and .rar archives.")
+		return fileFailure(model.FileInvalid, "Extract supports .zip, .tar.gz, .tgz and .rar archives.")
 	}
 	// Assign all implicitly created directories as well as files to the game's user.
 	err = fs.WalkDir(target.FS(), ".", func(name string, _ fs.DirEntry, walkErr error) error {

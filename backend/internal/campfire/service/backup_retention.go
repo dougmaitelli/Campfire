@@ -25,7 +25,7 @@ func remoteCandidates(rows []database.Backup, p model.BackupPolicy, now time.Tim
 		mode := row.Mode.Normalized()
 		limits := p.Retention(mode)
 
-		if p.Storage == "s3" && (limits.RemoteKeepLast == 0 || index[mode] < limits.RemoteKeepLast) && !expiredBackup(row, limits.RemoteMaxAgeDays, now) {
+		if p.Storage == model.BackupStorageS3 && (limits.RemoteKeepLast == 0 || index[mode] < limits.RemoteKeepLast) && !expiredBackup(row, limits.RemoteMaxAgeDays, now) {
 			result[row.Name] = true
 		}
 
@@ -132,9 +132,9 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 
 // Delete persists intent before deleting either copy. Failed cleanup is retried
 // by the background worker without rediscovering and reuploading the archive.
-func (s *BackupService) Delete(ctx context.Context, id, name, location string) error {
-	if !model.BackupName(name) || (location != "all" && location != "local" && location != "s3") {
-		return &model.FileError{Code: "invalid_file", Message: "Select a backup and storage location."}
+func (s *BackupService) Delete(ctx context.Context, id, name string, location model.BackupStorage) error {
+	if !model.BackupName(name) || (location != model.BackupStorageAll && location != model.BackupStorageLocal && location != model.BackupStorageS3) {
+		return &model.FileError{Code: model.FileInvalid, Message: "Select a backup and storage location."}
 	}
 
 	release, err := s.acquire(id)
@@ -157,13 +157,13 @@ func (s *BackupService) Delete(ctx context.Context, id, name, location string) e
 	}
 
 	if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
-		return &model.FileError{Code: "file_busy", Message: "Backup deletion is already pending."}
+		return &model.FileError{Code: model.FileBusy, Message: "Backup deletion is already pending."}
 	}
 
-	row.Deleting = location == "all"
-	row.LocalDeleting = location == "all" || location == "local"
+	row.Deleting = location == model.BackupStorageAll
+	row.LocalDeleting = location == model.BackupStorageAll || location == model.BackupStorageLocal
 
-	row.RemoteDeleting = location == "all" || location == "s3"
+	row.RemoteDeleting = location == model.BackupStorageAll || location == model.BackupStorageS3
 	if err := s.Store.Update(ctx, id, name, map[string]any{"deleting": row.Deleting, "local_deleting": row.LocalDeleting, "remote_deleting": row.RemoteDeleting, "no_remote": row.NoRemote || row.RemoteDeleting, "error": ""}); err != nil {
 		return err
 	}
@@ -188,9 +188,9 @@ func (s *BackupService) deleteCopies(ctx context.Context, row database.Backup) e
 		}
 	}
 
-	status, statusErr := s.Deployment.runActionUnlocked(ctx, row.ServerID, "status", "")
+	status, statusErr := s.Deployment.runActionUnlocked(ctx, row.ServerID, model.ServerActionStatus, "")
 	if statusErr == nil && status.Busy {
-		return &model.FileError{Code: "file_busy", Message: "Wait for the current server operation to finish."}
+		return &model.FileError{Code: model.FileBusy, Message: "Wait for the current server operation to finish."}
 	}
 
 	if row.RemoteDeleting && row.StoreID != "" {
@@ -211,11 +211,11 @@ func (s *BackupService) deleteCopies(ctx context.Context, row database.Backup) e
 			return statusErr
 		}
 
-		_, err := s.Deployment.filesUnlocked(ctx, row.ServerID, model.FileRequest{Operation: "backup.delete", Path: row.Name})
+		_, err := s.Deployment.filesUnlocked(ctx, row.ServerID, model.FileRequest{Operation: model.FileOperationBackupDelete, Path: row.Name})
 
 		var failure *model.FileError
 
-		missing := errors.As(err, &failure) && failure.Code == "file_not_found"
+		missing := errors.As(err, &failure) && failure.Code == model.FileNotFound
 		if err != nil && !missing {
 			return err
 		}

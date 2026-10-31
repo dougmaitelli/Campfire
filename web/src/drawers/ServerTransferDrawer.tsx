@@ -1,3 +1,5 @@
+import { RuntimeState, TransferPhase } from "../contracts/domains";
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -102,7 +104,7 @@ export function ServerTransferDrawer({
       try {
         const signal = AbortSignal.any([
           controller.signal,
-          AbortSignal.timeout(15000),
+          AbortSignal.timeout(API_READ_TIMEOUT_MS),
         ]);
         const [history, observed] = await Promise.all([
           listTransfers(server.id, signal),
@@ -155,7 +157,9 @@ export function ServerTransferDrawer({
     target !== undefined &&
     status !== undefined &&
     !status.busy &&
-    ["stopped", "not_installed"].includes(status.state) &&
+    [RuntimeState.Stopped, RuntimeState.NotInstalled].some(
+      (value) => value === status.state,
+    ) &&
     ports.every((port) => port.bind_ip !== "" && port.host_port > 0);
   function selectTarget(id: string) {
     setTargetID(id);
@@ -257,7 +261,9 @@ export function ServerTransferDrawer({
           />
         </p>
         {status !== undefined &&
-          !["stopped", "not_installed"].includes(status.state) && (
+          ![RuntimeState.Stopped, RuntimeState.NotInstalled].some(
+            (value) => value === status.state,
+          ) && (
             <p className="field-help">
               {t("serverTransferDrawer.stopTheServerBeforeBeginningATransfer")}
             </p>
@@ -431,7 +437,7 @@ export function ServerTransferDrawer({
             )}
             {item.active && (
               <ActionGroup>
-                {item.phase === "failed" && (
+                {item.phase === TransferPhase.Failed && (
                   <Button
                     disabled={busy}
                     onClick={() => {
@@ -451,13 +457,14 @@ export function ServerTransferDrawer({
                     {i18n.t("serverTransferDrawer.cancelTransfer")}
                   </Button>
                 )}
-                {!item.can_cancel && item.phase !== "cancelling" && (
-                  <p className="field-help">
-                    {i18n.t(
-                      "serverTransferDrawer.placementIsBeingCommittedOrHasChangedRetryAnyFailed",
-                    )}
-                  </p>
-                )}
+                {!item.can_cancel &&
+                  item.phase !== TransferPhase.Cancelling && (
+                    <p className="field-help">
+                      {i18n.t(
+                        "serverTransferDrawer.placementIsBeingCommittedOrHasChangedRetryAnyFailed",
+                      )}
+                    </p>
+                  )}
               </ActionGroup>
             )}
           </section>

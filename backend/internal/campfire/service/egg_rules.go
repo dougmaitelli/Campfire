@@ -131,17 +131,17 @@ func convertEggRules(raw json.RawMessage) (model.Variable, error) {
 		}
 	}
 
-	variable := model.Variable{Validation: &model.VariableValidation{Type: "string"}}
+	variable := model.Variable{Validation: &model.VariableValidation{Type: model.VariableString}}
 	validation := variable.Validation
 
 	for _, rule := range rules {
 		switch rule {
 		case "integer", "numeric", "boolean":
-			if validation.Type != "string" && validation.Type != rule {
+			if validation.Type != model.VariableString && validation.Type != model.VariableType(rule) {
 				return variable, errors.New("conflicting variable types")
 			}
 
-			validation.Type = rule
+			validation.Type = model.VariableType(rule)
 		}
 	}
 
@@ -154,7 +154,7 @@ func convertEggRules(raw json.RawMessage) (model.Variable, error) {
 			validation.Nullable = true
 		case "string", "integer", "numeric", "boolean":
 		case "url":
-			validation.Format = "url"
+			validation.Format = model.VariableFormatURL
 		case "regex":
 			if !hasArg || variable.Pattern != "" {
 				return variable, errors.New("only one delimited regex rule is supported")
@@ -194,7 +194,7 @@ func convertEggRules(raw json.RawMessage) (model.Variable, error) {
 				maximum := name == "max" || name == "between" && index == 1 || name == "size"
 
 				switch validation.Type {
-				case "integer", "numeric":
+				case model.VariableInteger, model.VariableNumeric:
 					value, err := model.NumericBound(bound)
 					if err != nil {
 						return variable, errors.New("invalid numeric bound")
@@ -207,7 +207,7 @@ func convertEggRules(raw json.RawMessage) (model.Variable, error) {
 					if maximum && (validation.Max == nil || value < *validation.Max) {
 						validation.Max = new(value)
 					}
-				case "string":
+				case model.VariableString:
 					value, err := strconv.Atoi(bound)
 					if err != nil {
 						return variable, errors.New("string bounds must be character counts")

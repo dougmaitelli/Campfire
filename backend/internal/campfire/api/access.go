@@ -46,7 +46,7 @@ func (a *API) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.access.CreateUser(r.Context(), input.Username, input.Password, input.RoleID, input.Disabled, input.Name, input.Email)
+	user, err := a.access.CreateUser(r.Context(), service.CreateUserInput{Username: input.Username, Password: input.Password, RoleID: input.RoleID, Disabled: input.Disabled, Name: input.Name, Email: input.Email})
 	if err != nil {
 		writeAuthError(w, err)
 		return
@@ -113,9 +113,9 @@ func (a *API) permissionCatalog(w http.ResponseWriter, _ *http.Request) {
 
 func (a *API) saveRole(w http.ResponseWriter, r *http.Request, id int64) {
 	var input struct {
-		Name        string   `json:"name"`
-		Scope       string   `json:"scope"`
-		Permissions []string `json:"permissions"`
+		Name        string               `json:"name"`
+		Scope       model.RoleScope      `json:"scope"`
+		Permissions []model.PermissionID `json:"permissions"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return
@@ -221,7 +221,7 @@ func (a *API) assignableServerRoles(r *http.Request) ([]service.RoleView, error)
 	allowed := []service.RoleView{}
 
 	for _, role := range roles {
-		if role.Scope == "server" && role.ID != database.OwnerRole {
+		if role.Scope == model.RoleScopeServer && role.ID != database.OwnerRole {
 			allowed = append(allowed, role)
 		}
 	}

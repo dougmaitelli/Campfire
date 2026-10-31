@@ -189,7 +189,7 @@ func convertEgg(data []byte, report *EmberPreview) model.Ember {
 			report.note(path+".rules", "Variable validation was converted to Go RE2. Unicode character and case-folding behavior can differ from PCRE.")
 		}
 
-		if converted.Validation != nil && converted.Validation.Format == "url" {
+		if converted.Validation != nil && converted.Validation.Format == model.VariableFormatURL {
 			report.note(path+".rules", "URL values are validated as absolute URLs with a host using Go's URL parser.")
 		}
 

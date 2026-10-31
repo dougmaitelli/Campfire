@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 )
 
@@ -189,10 +190,10 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 	}
 
 	server.Name = strings.TrimSpace(server.Name)
-	if server.Name == "" || !utf8.ValidString(server.Name) || utf8.RuneCountInString(server.Name) > 100 || strings.ContainsFunc(server.Name, unicode.IsControl) ||
-		math.IsNaN(server.CPULimit) || math.IsInf(server.CPULimit, 0) || server.CPULimit < 0.1 || server.CPULimit > 1024 ||
-		server.MemoryMB < 64 || server.MemoryMB > 1048576 || server.DiskMB < 0 || server.DiskMB > 1073741824 ||
-		len(server.Ports) > 32 {
+	if server.Name == "" || !utf8.ValidString(server.Name) || utf8.RuneCountInString(server.Name) > limits.ResourceNameLength || strings.ContainsFunc(server.Name, unicode.IsControl) ||
+		math.IsNaN(server.CPULimit) || math.IsInf(server.CPULimit, 0) || server.CPULimit < limits.ServerMinCPU || server.CPULimit > limits.MaxCPU ||
+		server.MemoryMB < limits.MinMemoryMiB || server.MemoryMB > limits.MaxMemoryMiB || server.DiskMB < 0 || server.DiskMB > limits.MaxDiskMiB ||
+		len(server.Ports) > limits.MaxServerPorts {
 		return model.Server{}, fmt.Errorf("%w: provide a name, 0.1–1024 CPU cores, at least 64 MiB memory, positive disk capacity, and at most 32 ports", ErrInvalidServer)
 	}
 
@@ -253,7 +254,7 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 		port := &server.Ports[i]
 
 		ip, err := netip.ParseAddr(port.BindIP)
-		if err != nil || ip.Zone() != "" || ip.IsMulticast() || port.HostPort < 1 || port.HostPort > 65535 || port.ContainerPort < 1 || port.ContainerPort > 65535 || (port.Protocol != "tcp" && port.Protocol != "udp") {
+		if err != nil || ip.Zone() != "" || ip.IsMulticast() || port.HostPort < limits.MinPort || port.HostPort > limits.MaxPort || port.ContainerPort < limits.MinPort || port.ContainerPort > limits.MaxPort || (port.Protocol != model.NetworkTCP && port.Protocol != model.NetworkUDP) {
 			return model.Server{}, fmt.Errorf("%w: invalid port mapping", ErrInvalidServer)
 		}
 

@@ -1,14 +1,20 @@
+import {
+  NotificationTarget,
+  NotificationKind,
+  NotificationSeverity,
+} from "../contracts/domains";
+import { isRecord as object, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, apiJSON } from "./client";
 
 export const NOTIFICATIONS_REFRESH_INTERVAL_MS = 5000;
 
 export interface Notification {
   id: number;
-  target_type: string;
+  target_type: NotificationTarget;
   target_id: string;
-  kind: string;
-  severity: string;
+  kind: NotificationKind;
+  severity: NotificationSeverity;
   title: string;
   body: string;
   created_at: number;
@@ -25,9 +31,7 @@ export interface NotificationStatus {
   interval_seconds: number;
   health_enabled: boolean;
 }
-function object(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+
 function isNotification(value: unknown): value is Notification {
   return (
     object(value) &&
@@ -35,6 +39,9 @@ function isNotification(value: unknown): value is Notification {
       (key) =>
         typeof value[key] === "number" && Number.isSafeInteger(value[key]),
     ) &&
+    isEnumValue(NotificationTarget, value.target_type) &&
+    isEnumValue(NotificationKind, value.kind) &&
+    isEnumValue(NotificationSeverity, value.severity) &&
     ["target_type", "target_id", "kind", "severity", "title", "body"].every(
       (key) => typeof value[key] === "string",
     )
@@ -69,19 +76,19 @@ export async function unreadNotifications(
   return body.unread;
 }
 export async function markNotificationRead(id: number, read: boolean) {
-  const response = await apiFetch(`/api/v1/notifications/${id}/read`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ read }),
-  });
+  const response = await apiJSON(
+    `/api/v1/notifications/${id}/read`,
+    { read },
+    { method: "PUT" },
+  );
   if (response.status !== 204) await readJSON(response);
 }
 export async function markAllNotificationsRead(through: number) {
-  const response = await apiFetch("/api/v1/notifications/read-all", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ through_id: through }),
-  });
+  const response = await apiJSON(
+    "/api/v1/notifications/read-all",
+    { through_id: through },
+    { method: "POST" },
+  );
   if (response.status !== 204) await readJSON(response);
 }
 export async function notificationStatus(

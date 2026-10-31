@@ -201,7 +201,7 @@ func (s *ActivityService) principal(ctx context.Context, userID int64) (Principa
 	return PrincipalFromSession(database.UserSession{UserID: user.ID, User: user}), nil
 }
 
-func (s *ActivityService) authorize(ctx context.Context, principal Principal, serverID, required string) error {
+func (s *ActivityService) authorize(ctx context.Context, principal Principal, serverID string, required model.PermissionID) error {
 	permissions, err := s.auth.Access().ServerPermissions(ctx, principal, serverID)
 	if err != nil {
 		return err
@@ -241,7 +241,7 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 		}
 
 		item.CreatedAt = old.CreatedAt
-		if item.Action == "command" && old.Action == "command" && item.Command == "" {
+		if item.Action == model.ServerActionCommand && old.Action == model.ServerActionCommand && item.Command == "" {
 			item.Command = old.Command
 		}
 	}
@@ -271,11 +271,11 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 		item.NextRunAt = next[0]
 	}
 
-	if !slices.Contains([]string{"start", "stop", "restart", "kill", "backup", "command"}, item.Action) {
+	if !slices.Contains([]model.ServerAction{model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionBackup, model.ServerActionCommand}, item.Action) {
 		return database.Schedule{}, repository.ErrAccessInput
 	}
 
-	if item.Action == "command" {
+	if item.Action == model.ServerActionCommand {
 		if strings.TrimSpace(item.Command) == "" || len(item.Command) > 4096 || strings.ContainsAny(item.Command, "\r\n\x00") {
 			return database.Schedule{}, repository.ErrAccessInput
 		}
@@ -284,7 +284,7 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 	}
 
 	item.RunAsUserID, item.Username = principal.UserID, principal.Username
-	if item.Action == "backup" {
+	if item.Action == model.ServerActionBackup {
 		item.BackupMode = item.BackupMode.Normalized()
 		if _, err := s.deployment.backupOptions(ctx, item.ServerID, item.BackupMode); err != nil {
 			return database.Schedule{}, err
@@ -377,10 +377,10 @@ func (s *ActivityService) attempt(ctx context.Context, principal Principal, old 
 
 	now := time.Now().Unix()
 
-	run := database.ScheduleRun{ID: rand.Text(), ScheduleID: old.ScheduleID, RetryOf: old.ID, ServerID: server.ID, ServerName: server.Name, Action: old.Action, UserID: principal.UserID, Username: principal.Username, State: "dispatching", CreatedAt: now, StartedAt: now}
+	run := database.ScheduleRun{ID: rand.Text(), ScheduleID: old.ScheduleID, RetryOf: old.ID, ServerID: server.ID, ServerName: server.Name, Action: old.Action, UserID: principal.UserID, Username: principal.Username, State: model.ExecutionDispatching, CreatedAt: now, StartedAt: now}
 
 	run.AuthorizationScopes = principal.TokenScopes
-	if old.Action == "backup" {
+	if old.Action == model.ServerActionBackup {
 		run.BackupMode = old.BackupMode.Normalized()
 	}
 
@@ -416,14 +416,14 @@ func (s *ActivityService) Retry(ctx context.Context, principal Principal, id str
 		}
 	}
 
-	if !slices.Contains([]string{"failed", "interrupted"}, old.State) || !slices.Contains([]string{"install", "start", "stop", "restart", "kill", "backup"}, old.Action) {
+	if !slices.Contains([]model.ExecutionState{model.ExecutionFailed, model.ExecutionInterrupted}, old.State) || !slices.Contains([]model.ServerAction{model.ServerActionInstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionBackup}, old.Action) {
 		return database.ScheduleRun{}, repository.ErrAccessInput
 	}
 
 	return s.attempt(ctx, principal, old)
 }
 
-func (s *ActivityService) finish(ctx context.Context, run database.ScheduleRun, state, message string) error {
+func (s *ActivityService) finish(ctx context.Context, run database.ScheduleRun, state model.ExecutionState, message string) error {
 	return s.Store.FinishRun(ctx, run, state, message, time.Now())
 }
 
@@ -470,22 +470,22 @@ func (s *ActivityService) checkExecution(ctx context.Context, run database.Sched
 
 func (s *ActivityService) rejectAttempt(ctx context.Context, run database.ScheduleRun, err error) error {
 	if errors.Is(err, errServerNotRunning) {
-		return s.finish(ctx, run, "skipped", "Server is not running; this schedule only runs while the server is running.")
+		return s.finish(ctx, run, model.ExecutionSkipped, "Server is not running; this schedule only runs while the server is running.")
 	}
 
 	if errors.Is(err, errSparkOffline) {
-		return s.finish(ctx, run, "failed", "Spark became unavailable before dispatch.")
+		return s.finish(ctx, run, model.ExecutionFailed, "Spark became unavailable before dispatch.")
 	}
 
 	if errors.Is(err, errSparkDisabled) {
-		return s.finish(ctx, run, "failed", "Hosting Spark is disabled; execution was skipped.")
+		return s.finish(ctx, run, model.ExecutionFailed, "Hosting Spark is disabled; execution was skipped.")
 	}
 
 	if !errors.Is(err, repository.ErrAccessDenied) && !errors.Is(err, repository.ErrAccessNotFound) && !errors.Is(err, ErrServerNotFound) {
 		return err
 	}
 
-	return s.finish(ctx, run, "failed", "Execution permission was revoked or the server was removed.")
+	return s.finish(ctx, run, model.ExecutionFailed, "Execution permission was revoked or the server was removed.")
 }
 
 func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun) error {
@@ -493,7 +493,7 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 		return err
 	}
 
-	if run.State == "dispatching" {
+	if run.State == model.ExecutionDispatching {
 		principal, err := s.checkExecution(ctx, run)
 		if err != nil {
 			return s.rejectAttempt(ctx, run, err)
@@ -501,7 +501,7 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 
 		status, err := s.deployment.executeTracked(WithActor(ctx, principal), run)
 		if errors.Is(err, ErrServerActive) {
-			return s.finish(ctx, run, "failed", "Server already has an active operation; this execution was skipped.")
+			return s.finish(ctx, run, model.ExecutionFailed, "Server already has an active operation; this execution was skipped.")
 		}
 
 		if err != nil {
@@ -509,11 +509,11 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 				return s.rejectAttempt(ctx, run, err)
 			}
 
-			return s.finish(ctx, run, "interrupted", "Dispatch failed; verify server state before retrying.")
+			return s.finish(ctx, run, model.ExecutionInterrupted, "Dispatch failed; verify server state before retrying.")
 		}
 
-		if status.Busy && run.Action != "command" {
-			if err := s.Store.UpdateRun(ctx, run.ID, "running", "", time.Now()); err != nil {
+		if status.Busy && run.Action != model.ServerActionCommand {
+			if err := s.Store.UpdateRun(ctx, run.ID, model.ExecutionRunning, "", time.Now()); err != nil {
 				return err
 			}
 		}
@@ -521,10 +521,10 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 		return s.observe(ctx, run, status)
 	}
 
-	status, err := s.deployment.runAction(ctx, run.ServerID, "status", "")
+	status, err := s.deployment.runAction(ctx, run.ServerID, model.ServerActionStatus, "")
 	if err != nil {
 		if time.Since(time.Unix(run.StartedAt, 0)) > 46*time.Minute {
-			return s.finish(ctx, run, "interrupted", "Could not confirm the result; verify server state before retrying.")
+			return s.finish(ctx, run, model.ExecutionInterrupted, "Could not confirm the result; verify server state before retrying.")
 		}
 
 		return nil
@@ -534,31 +534,31 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 }
 
 func (s *ActivityService) observe(ctx context.Context, run database.ScheduleRun, status model.RuntimeStatus) error {
-	if run.Action == "command" {
-		return s.finish(ctx, run, "succeeded", "")
+	if run.Action == model.ServerActionCommand {
+		return s.finish(ctx, run, model.ExecutionSucceeded, "")
 	}
 
 	if status.OperationID != run.ID {
-		return s.finish(ctx, run, "interrupted", "The node reports a different operation; verify server state before retrying.")
+		return s.finish(ctx, run, model.ExecutionInterrupted, "The node reports a different operation; verify server state before retrying.")
 	}
 
 	if !status.Busy && status.ErrorCode == model.RuntimeOperationInterrupted {
-		return s.finish(ctx, run, "interrupted", "Node operation was interrupted.")
+		return s.finish(ctx, run, model.ExecutionInterrupted, "Node operation was interrupted.")
 	}
 
 	if status.Error != "" {
-		return s.finish(ctx, run, "failed", "Node operation failed; inspect server status and logs.")
+		return s.finish(ctx, run, model.ExecutionFailed, "Node operation failed; inspect server status and logs.")
 	}
 
 	if !status.Busy {
-		return s.finish(ctx, run, "succeeded", "")
+		return s.finish(ctx, run, model.ExecutionSucceeded, "")
 	}
 
 	return nil
 }
 
 // BeginManual records a directly requested mutation before dispatch while preserving the API contract.
-func (s *ActivityService) BeginManual(ctx context.Context, serverID, action, content string) (database.ScheduleRun, error) {
+func (s *ActivityService) BeginManual(ctx context.Context, serverID string, action model.ServerAction, content string) (database.ScheduleRun, error) {
 	principal, ok := ctx.Value(actorKey{}).(Principal)
 	if !ok {
 		return database.ScheduleRun{}, errors.New("execution requires an authenticated actor")
@@ -569,10 +569,10 @@ func (s *ActivityService) BeginManual(ctx context.Context, serverID, action, con
 		return database.ScheduleRun{}, err
 	}
 
-	run := database.ScheduleRun{ID: rand.Text(), ServerID: serverID, ServerName: server.Name, UserID: principal.UserID, Username: principal.Username, Action: action, Content: content, State: "dispatching", CreatedAt: time.Now().Unix(), StartedAt: time.Now().Unix()}
+	run := database.ScheduleRun{ID: rand.Text(), ServerID: serverID, ServerName: server.Name, UserID: principal.UserID, Username: principal.Username, Action: action, Content: content, State: model.ExecutionDispatching, CreatedAt: time.Now().Unix(), StartedAt: time.Now().Unix()}
 	run.AuthorizationScopes = principal.TokenScopes
 
-	if action == "backup" {
+	if action == model.ServerActionBackup {
 		run.BackupMode = model.BackupMode(content).Normalized()
 	}
 

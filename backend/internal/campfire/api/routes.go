@@ -3,16 +3,17 @@ package api
 import (
 	"net/http"
 
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 )
 
 // Handler builds the versioned application routes.
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
-	platform := func(pattern, permission string, handler http.HandlerFunc) {
+	platform := func(pattern string, permission model.PermissionID, handler http.HandlerFunc) {
 		mux.HandleFunc(pattern, a.platformPermission(permission, handler))
 	}
-	server := func(pattern, permission string, handler http.HandlerFunc) {
+	server := func(pattern string, permission model.PermissionID, handler http.HandlerFunc) {
 		mux.HandleFunc(pattern, a.serverPermission(permission, handler))
 	}
 

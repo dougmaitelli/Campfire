@@ -23,7 +23,7 @@ func (r *BackupRepository) Policy(ctx context.Context, id string) (model.BackupP
 
 	err := r.db.WithContext(ctx).Where("server_id = ?", id).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.BackupPolicy{Storage: "local"}, nil
+		return model.BackupPolicy{Storage: model.BackupStorageLocal}, nil
 	}
 
 	return model.BackupPolicy{Storage: row.Storage, LocalKeepLast: row.LocalKeepLast, LocalMaxAgeDays: row.LocalMaxAgeDays, RemoteKeepLast: row.RemoteKeepLast, RemoteMaxAgeDays: row.RemoteMaxAgeDays, Savedata: model.BackupRetention{LocalKeepLast: row.SavedataLocalKeepLast, LocalMaxAgeDays: row.SavedataLocalMaxAgeDays, RemoteKeepLast: row.SavedataRemoteKeepLast, RemoteMaxAgeDays: row.SavedataRemoteMaxAgeDays}}, err

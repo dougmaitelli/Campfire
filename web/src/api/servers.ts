@@ -1,11 +1,18 @@
+import { type PermissionID, isPermissionID } from "./permissions";
+import { isEnumValue } from "../utils/validation";
+import {
+  NetworkProtocol,
+  RuntimeState,
+  VariableType,
+} from "../contracts/domains";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, API_REQUEST_TIMEOUT_MS, apiJSON } from "./client";
 
 export interface ServerPort {
   bind_ip: string;
   host_port: number;
   container_port: number;
-  protocol: "tcp" | "udp";
+  protocol: NetworkProtocol;
 }
 
 export interface ServerConfiguration {
@@ -30,15 +37,15 @@ export interface Server extends ServerConfiguration {
   ember_update_available: boolean;
   id: string;
   owner_user_id: number;
-  permissions: string[];
+  permissions: PermissionID[];
   can_manage_access?: boolean;
   spark_name: string;
   ember_name: string;
   ember_art_url?: string;
   game_address: string;
   port_descriptions?: Record<string, string>;
-  variable_types?: Record<string, string>;
-  status: string;
+  variable_types?: Record<string, VariableType>;
+  status: RuntimeState;
   created_at: string;
 }
 
@@ -65,7 +72,7 @@ export function isServer(value: unknown): value is Server {
     Number.isSafeInteger(value.owner_user_id) &&
     "permissions" in value &&
     Array.isArray(value.permissions) &&
-    value.permissions.every((entry: unknown) => typeof entry === "string") &&
+    value.permissions.every(isPermissionID) &&
     "name" in value &&
     typeof value.name === "string" &&
     "description" in value &&
@@ -76,8 +83,8 @@ export function isServer(value: unknown): value is Server {
       (typeof value.variable_types === "object" &&
         value.variable_types !== null &&
         !Array.isArray(value.variable_types) &&
-        Object.values(value.variable_types).every(
-          (type: unknown) => typeof type === "string",
+        Object.values(value.variable_types).every((type: unknown) =>
+          isEnumValue(VariableType, type),
         ))) &&
     (!("port_descriptions" in value) ||
       (typeof value.port_descriptions === "object" &&
@@ -119,7 +126,7 @@ export function isServer(value: unknown): value is Server {
       (entry: unknown) => typeof entry === "string",
     ) &&
     "status" in value &&
-    typeof value.status === "string" &&
+    isEnumValue(RuntimeState, value.status) &&
     "created_at" in value &&
     typeof value.created_at === "string" &&
     Number.isFinite(Date.parse(value.created_at))
@@ -139,7 +146,7 @@ function isServerPort(value: unknown): value is ServerPort {
     typeof value.container_port === "number" &&
     Number.isInteger(value.container_port) &&
     "protocol" in value &&
-    (value.protocol === "tcp" || value.protocol === "udp")
+    isEnumValue(NetworkProtocol, value.protocol)
   );
 }
 
@@ -155,13 +162,10 @@ export async function saveServer(
   id?: string,
 ): Promise<Server> {
   const body = await readJSON(
-    await apiFetch(
+    await apiJSON(
       id ? `/api/v1/servers/${encodeURIComponent(id)}` : "/api/v1/servers",
-      {
-        method: id ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      },
+      input,
+      { method: id ? "PUT" : "POST" },
     ),
   );
   if (!isServer(body))
@@ -182,12 +186,11 @@ export async function applyServerEmber(
   input: ServerConfiguration,
 ): Promise<Server> {
   const body = await readJSON(
-    await apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/ember`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...input, expected_ember_id: expectedEmberID }),
-      signal: AbortSignal.timeout(35000),
-    }),
+    await apiJSON(
+      `/api/v1/servers/${encodeURIComponent(id)}/ember`,
+      { ...input, expected_ember_id: expectedEmberID },
+      { method: "POST", signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS) },
+    ),
   );
   if (!isServer(body))
     throw new Error(i18n.t("servers.unexpectedServerResponse"));

@@ -15,22 +15,22 @@ func SameRuntimeConfiguration(a, b ServerConfiguration) bool {
 
 // Server is a saved game server configuration; runtime state is not persisted.
 type Server struct {
-	ID              string   `json:"id"`
-	OwnerUserID     int64    `json:"owner_user_id"`
-	Permissions     []string `json:"permissions,omitempty"`
-	CanManageAccess bool     `json:"can_manage_access"`
+	ID              string         `json:"id"`
+	OwnerUserID     int64          `json:"owner_user_id"`
+	Permissions     []PermissionID `json:"permissions,omitempty"`
+	CanManageAccess bool           `json:"can_manage_access"`
 	ServerConfiguration
-	SparkName            string            `json:"spark_name"`
-	EmberName            string            `json:"ember_name"`
-	EmberArtURL          string            `json:"ember_art_url,omitempty"`
-	EmberHash            string            `json:"ember_hash"`
-	EmberUpdateAvailable bool              `json:"ember_update_available"`
-	GameAddress          string            `json:"game_address"`
-	PortDescriptions     map[string]string `json:"port_descriptions,omitempty"`
-	VariableTypes        map[string]string `json:"variable_types,omitempty"`
-	SavedataAvailable    bool              `json:"savedata_available"`
-	Status               RuntimeState      `json:"status"`
-	CreatedAt            time.Time         `json:"created_at"`
+	SparkName            string                  `json:"spark_name"`
+	EmberName            string                  `json:"ember_name"`
+	EmberArtURL          string                  `json:"ember_art_url,omitempty"`
+	EmberHash            string                  `json:"ember_hash"`
+	EmberUpdateAvailable bool                    `json:"ember_update_available"`
+	GameAddress          string                  `json:"game_address"`
+	PortDescriptions     map[string]string       `json:"port_descriptions,omitempty"`
+	VariableTypes        map[string]VariableType `json:"variable_types,omitempty"`
+	SavedataAvailable    bool                    `json:"savedata_available"`
+	Status               RuntimeState            `json:"status"`
+	CreatedAt            time.Time               `json:"created_at"`
 }
 
 // ServerConfiguration contains the operator-configured placement and reservations.
@@ -52,8 +52,8 @@ type ServerConfiguration struct {
 
 // ServerPort reserves a host port and maps it to a container port.
 type ServerPort struct {
-	BindIP        string `json:"bind_ip"`
-	HostPort      int    `json:"host_port"`
-	ContainerPort int    `json:"container_port"`
-	Protocol      string `json:"protocol"`
+	BindIP        string          `json:"bind_ip"`
+	HostPort      int             `json:"host_port"`
+	ContainerPort int             `json:"container_port"`
+	Protocol      NetworkProtocol `json:"protocol"`
 }

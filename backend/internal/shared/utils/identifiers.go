@@ -1,6 +1,8 @@
 // Package utils provides shared validation helpers.
 package utils
 
+import "campfire/internal/shared/limits"
+
 // IsValidIdentifier accepts nonempty identifiers containing lowercase ASCII
 // letters, digits, dots, hyphens, and underscores.
 func IsValidIdentifier(value string) bool {
@@ -40,7 +42,7 @@ func IsValidResourceID(value string) bool {
 // IsValidUsername accepts 3–64 lowercase identifier characters, starting with
 // an ASCII letter or digit.
 func IsValidUsername(value string) bool {
-	return len(value) >= 3 && len(value) <= 64 && IsValidIdentifier(value) && isASCIIAlphanumeric(rune(value[0]))
+	return len(value) >= limits.UsernameMin && len(value) <= limits.UsernameMax && IsValidIdentifier(value) && isASCIIAlphanumeric(rune(value[0]))
 }
 
 func isASCIIAlphanumeric(r rune) bool {

@@ -48,7 +48,7 @@ func (c *AppriseClient) Send(ctx context.Context, item database.Notification) er
 		Type  string   `json:"type"`
 		URLs  []string `json:"urls,omitempty"`
 		Tags  []string `json:"tag,omitempty"`
-	}{"Campfire — " + item.Title, item.Body, item.Severity, c.config.URLs, c.config.Tags}
+	}{"Campfire — " + item.Title, item.Body, string(item.Severity), c.config.URLs, c.config.Tags}
 
 	body, err := json.Marshal(payload)
 	if err != nil {

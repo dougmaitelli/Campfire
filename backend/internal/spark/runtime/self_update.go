@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 )
 
@@ -51,7 +52,7 @@ func (m *Manager) CanUpdate() error {
 			return err
 		}
 
-		if transfer != nil && transfer.State != "active" && transfer.State != "released" && transfer.State != "retired" && transfer.State != "discarded" {
+		if transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased && transfer.State != model.TransferStateRetired && transfer.State != model.TransferStateDiscarded {
 			return errors.New("finish the server transfer before updating Spark")
 		}
 	}

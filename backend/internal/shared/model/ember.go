@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	"campfire/internal/shared/limits"
 )
 
 var envName = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
@@ -57,9 +59,9 @@ type Readiness struct {
 
 // RequiredPort identifies a container port required by a game.
 type RequiredPort struct {
-	Container   int    `json:"container"`
-	Protocol    string `json:"protocol"`
-	Description string `json:"description,omitempty"`
+	Container   int             `json:"container"`
+	Protocol    NetworkProtocol `json:"protocol"`
+	Description string          `json:"description,omitempty"`
 }
 
 // PortDescriptions returns display metadata keyed by container port and protocol.
@@ -169,7 +171,7 @@ func (e Ember) Validate() error {
 	}
 
 	for _, p := range e.RequiredPorts {
-		if p.Container < 1 || p.Container > 65535 || (p.Protocol != "tcp" && p.Protocol != "udp") {
+		if p.Container < limits.MinPort || p.Container > limits.MaxPort || (p.Protocol != NetworkTCP && p.Protocol != NetworkUDP) {
 			return errors.New("invalid Ember required port")
 		}
 

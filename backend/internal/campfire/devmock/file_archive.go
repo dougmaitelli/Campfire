@@ -17,16 +17,16 @@ import (
 func mockCompress(record *runtimeRecord, request model.FileRequest) error {
 	destination, err := cleanPath(request.Destination)
 	if err != nil || !strings.HasSuffix(destination, ".tar.gz") {
-		return fileError("invalid_file", "Choose a .tar.gz archive destination.")
+		return fileError(model.FileInvalid, "Choose a .tar.gz archive destination.")
 	}
 
 	if _, exists := record.Files[destination]; exists {
-		return fileError("file_conflict", "Archive destination already exists.")
+		return fileError(model.FileConflict, "Archive destination already exists.")
 	}
 
 	if parent := path.Dir(destination); parent != "." {
 		if _, exists := record.Files[parent+"/"]; !exists {
-			return fileError("file_not_found", "Destination folder not found.")
+			return fileError(model.FileNotFound, "Destination folder not found.")
 		}
 	}
 
@@ -36,7 +36,7 @@ func mockCompress(record *runtimeRecord, request model.FileRequest) error {
 	}
 
 	if len(sources) > 1000 {
-		return fileError("file_limit", "Select at most 1,000 archive items.")
+		return fileError(model.FileLimitExceeded, "Select at most 1,000 archive items.")
 	}
 
 	selected := make(map[string]bool)
@@ -44,7 +44,7 @@ func mockCompress(record *runtimeRecord, request model.FileRequest) error {
 	for _, source := range sources {
 		name, err := cleanPath(source)
 		if err != nil || name != source || (len(request.Paths) > 0 && path.Dir(name) != request.Path) || destination == name || strings.HasPrefix(destination, name+"/") {
-			return fileError("invalid_file", "Choose items in the current directory and a destination outside them.")
+			return fileError(model.FileInvalid, "Choose items in the current directory and a destination outside them.")
 		}
 
 		found := false
@@ -57,7 +57,7 @@ func mockCompress(record *runtimeRecord, request model.FileRequest) error {
 		}
 
 		if !found {
-			return fileError("file_not_found", "Selected item not found.")
+			return fileError(model.FileNotFound, "Selected item not found.")
 		}
 	}
 

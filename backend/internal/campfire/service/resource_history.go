@@ -242,7 +242,7 @@ func (s *ResourceHistoryService) sample(ctx context.Context, target model.Resour
 		return model.ResourceUsage{}, ErrDeploymentUnavailable
 	}
 
-	status, err := dispatch.Action(ctx, target.SparkID, model.RuntimeRequest{ServerID: target.ID, Action: "metrics"})
+	status, err := dispatch.Action(ctx, target.SparkID, model.RuntimeRequest{ServerID: target.ID, Action: model.ServerActionMetrics})
 	if err != nil || status.ServerID != target.ID || status.Metrics == nil || status.Metrics.ServerID != target.ID || !validUsage(*status.Metrics) {
 		return model.ResourceUsage{}, ErrDeploymentUnavailable
 	}

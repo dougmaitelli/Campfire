@@ -1,3 +1,4 @@
+import { RuntimeState } from "../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/forms/Button";
 import { lazy, Suspense, useState } from "react";
@@ -34,7 +35,7 @@ export function ServerConsoleDrawer({
         serverID={server.id}
         streamKey={`${status?.operation_id ?? ""}:${status?.busy ?? false}`}
         streamMode={
-          !status || status.state === "unknown"
+          !status || status.state === RuntimeState.Unknown
             ? "waiting"
             : status.busy ||
                 ["running", "restarting", "starting"].includes(status.state)

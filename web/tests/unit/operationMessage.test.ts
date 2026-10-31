@@ -74,7 +74,7 @@ test("interrupted operations keep their own state", () => {
 
 test("success messages only appear for the operation started in this page session", () => {
   const status = {
-    operation: "start",
+    operation: "start" as const,
     operation_id: "start-1",
     operation_state: "succeeded" as const,
     busy: false,

@@ -1,3 +1,4 @@
+import { Capability } from "../contracts/capabilities";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -275,7 +276,7 @@ export function SparksPage() {
                   pruning ||
                   deleting !== null ||
                   updating !== null ||
-                  !details.capabilities?.includes("spark.prune.v1")
+                  !details.capabilities?.includes(Capability.Prune)
                 }
                 onClick={() => {
                   setPruneError(null);
@@ -290,7 +291,7 @@ export function SparksPage() {
                   variant="primary"
                   disabled={
                     updating !== null ||
-                    !details.capabilities?.includes("spark.self-update.v1")
+                    !details.capabilities?.includes(Capability.SelfUpdate)
                   }
                   onClick={() => setConfirmUpdate(details)}
                   loading={updating === details.id}
@@ -306,7 +307,7 @@ export function SparksPage() {
                   !details.connected ||
                   details.disabled ||
                   !details.latest_agent_version ||
-                  !details.capabilities?.includes("spark.self-reinstall.v1") ||
+                  !details.capabilities?.includes(Capability.SelfReinstall) ||
                   pruning ||
                   deleting !== null ||
                   updating !== null

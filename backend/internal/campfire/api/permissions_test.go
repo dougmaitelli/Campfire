@@ -26,26 +26,26 @@ func TestServerFeaturePermissionsAndOwnerOnlyAccess(t *testing.T) {
 
 	cases := []struct {
 		name                                                                      string
-		grants                                                                    []string
+		grants                                                                    []model.PermissionID
 		console, writeConsole, readFiles, writeFiles, deleteFiles, backups, power int
 	}{
-		{"power", []string{accessperm.ServerOperate}, 200, 403, 403, 403, 403, 403, 202},
-		{"logs", []string{accessperm.ServerConsoleRead}, 200, 403, 403, 403, 403, 403, 403},
-		{"reader", []string{accessperm.ServerFilesRead}, 200, 403, 200, 403, 403, 403, 202},
-		{"writer", []string{accessperm.ServerFilesWrite}, 200, 403, 200, 200, 403, 403, 202},
-		{"backup-reader", []string{accessperm.ServerBackupsRead}, 200, 403, 403, 403, 403, 200, 202},
-		{"restore", []string{accessperm.ServerBackupsRestore}, 200, 403, 403, 403, 403, 200, 202},
-		{"schedule-reader", []string{accessperm.ServerSchedulesRead}, 200, 403, 403, 403, 403, 403, 202},
-		{"configurer", []string{accessperm.ServerConfigure}, 200, 403, 403, 403, 403, 403, 202},
-		{"installer", []string{accessperm.ServerReinstall}, 200, 403, 403, 403, 403, 403, 202},
-		{"deleter", []string{accessperm.ServerDelete}, 200, 403, 403, 403, 403, 403, 202},
+		{"power", []model.PermissionID{accessperm.ServerOperate}, 200, 403, 403, 403, 403, 403, 202},
+		{"logs", []model.PermissionID{accessperm.ServerConsoleRead}, 200, 403, 403, 403, 403, 403, 403},
+		{"reader", []model.PermissionID{accessperm.ServerFilesRead}, 200, 403, 200, 403, 403, 403, 202},
+		{"writer", []model.PermissionID{accessperm.ServerFilesWrite}, 200, 403, 200, 200, 403, 403, 202},
+		{"backup-reader", []model.PermissionID{accessperm.ServerBackupsRead}, 200, 403, 403, 403, 403, 200, 202},
+		{"restore", []model.PermissionID{accessperm.ServerBackupsRestore}, 200, 403, 403, 403, 403, 200, 202},
+		{"schedule-reader", []model.PermissionID{accessperm.ServerSchedulesRead}, 200, 403, 403, 403, 403, 403, 202},
+		{"configurer", []model.PermissionID{accessperm.ServerConfigure}, 200, 403, 403, 403, 403, 403, 202},
+		{"installer", []model.PermissionID{accessperm.ServerReinstall}, 200, 403, 403, 403, 403, 403, 202},
+		{"deleter", []model.PermissionID{accessperm.ServerDelete}, 200, 403, 403, 403, 403, 403, 202},
 		{"all-grants", accessperm.All(), 200, 200, 200, 200, 200, 200, 202},
 	}
 	for _, check := range cases {
 		t.Run(check.name, func(t *testing.T) {
 			user, handler := f.user(check.name, database.UserRole)
 
-			body, err := json.Marshal(map[string]any{"name": check.name, "scope": "server", "permissions": append([]string{accessperm.ServerView}, check.grants...)})
+			body, err := json.Marshal(map[string]any{"name": check.name, "scope": "server", "permissions": append([]model.PermissionID{accessperm.ServerView}, check.grants...)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -76,8 +76,8 @@ func TestServerFeaturePermissionsAndOwnerOnlyAccess(t *testing.T) {
 		})
 	}
 
-	for _, invalid := range []string{accessperm.LegacyServerShare, "server.files.permissions", "server.backups.configure"} {
-		body, err := json.Marshal(map[string]any{"name": "Invalid", "scope": "server", "permissions": []string{accessperm.ServerView, invalid}})
+	for _, invalid := range []model.PermissionID{accessperm.LegacyServerShare, "server.files.permissions", "server.backups.configure"} {
+		body, err := json.Marshal(map[string]any{"name": "Invalid", "scope": "server", "permissions": []model.PermissionID{accessperm.ServerView, invalid}})
 		if err != nil {
 			t.Fatal(err)
 		}

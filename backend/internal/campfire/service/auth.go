@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/utils"
 )
 
@@ -29,7 +31,7 @@ var (
 )
 
 // SessionLifetime bounds a login even while its browser continues polling.
-const SessionLifetime = 12 * time.Hour
+const SessionLifetime = limits.SessionLifetime
 
 type authAttempts struct {
 	start time.Time
@@ -123,12 +125,12 @@ func (s *AuthService) AllowAttempt(key string) bool {
 	defer s.mu.Unlock()
 
 	now := s.now()
-	if now.Sub(s.global.start) >= time.Minute {
+	if now.Sub(s.global.start) >= limits.LoginWindow {
 		s.global = authAttempts{start: now}
 	}
 
 	for address, entry := range s.attempts {
-		if now.Sub(entry.start) >= time.Minute {
+		if now.Sub(entry.start) >= limits.LoginWindow {
 			delete(s.attempts, address)
 		}
 	}
@@ -138,7 +140,7 @@ func (s *AuthService) AllowAttempt(key string) bool {
 		entry.start = now
 	}
 
-	if s.global.count >= 100 || entry.count >= 10 || len(s.attempts) >= 4096 {
+	if s.global.count >= limits.LoginGlobalAttempts || entry.count >= limits.LoginClientAttempts || len(s.attempts) >= limits.LoginClients {
 		return false
 	}
 
@@ -150,23 +152,23 @@ func (s *AuthService) AllowAttempt(key string) bool {
 }
 
 func validAccountInput(username, password string) bool {
-	return utils.IsValidUsername(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= 15 && len(password) <= 1024
+	return utils.IsValidUsername(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= limits.PasswordMin && len(password) <= limits.PasswordMax
 }
 
 func passwordHash(password string) (string, error) {
 	salt := authToken()
 
-	key, err := pbkdf2.Key(sha256.New, password, []byte(salt), 600000, 32)
+	key, err := pbkdf2.Key(sha256.New, password, []byte(salt), limits.PasswordIterations, limits.PasswordKeyBytes)
 	if err != nil {
 		return "", err
 	}
 
-	return "$pbkdf2-sha256$600000$" + salt + "$" + base64.RawURLEncoding.EncodeToString(key), nil
+	return "$" + limits.PasswordAlgorithm + "$" + strconv.Itoa(limits.PasswordIterations) + "$" + salt + "$" + base64.RawURLEncoding.EncodeToString(key), nil
 }
 
 func verifyPassword(encoded, password string) bool {
 	parts := strings.Split(encoded, "$")
-	valid := len(parts) == 5 && parts[1] == "pbkdf2-sha256" && parts[2] == "600000"
+	valid := len(parts) == 5 && parts[1] == limits.PasswordAlgorithm && parts[2] == strconv.Itoa(limits.PasswordIterations)
 	salt := "campfire-dummy-salt-for-invalid-login"
 
 	var expected []byte
@@ -176,7 +178,7 @@ func verifyPassword(encoded, password string) bool {
 		expected, _ = base64.RawURLEncoding.DecodeString(parts[4])
 	}
 
-	key, err := pbkdf2.Key(sha256.New, password, []byte(salt), 600000, 32)
+	key, err := pbkdf2.Key(sha256.New, password, []byte(salt), limits.PasswordIterations, limits.PasswordKeyBytes)
 
 	return err == nil && subtle.ConstantTimeCompare(key, expected) == 1 && valid
 }
@@ -238,7 +240,7 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 		return database.UserSession{}, "", ErrAuthentication
 	}
 
-	if len(username) > 64 || len(password) > 1024 {
+	if len(username) > limits.UsernameMax || len(password) > limits.PasswordMax {
 		return database.UserSession{}, "", ErrAuthentication
 	}
 

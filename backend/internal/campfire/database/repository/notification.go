@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/limits"
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
@@ -37,7 +39,7 @@ type NotificationView struct {
 
 func notificationVisible(tx *gorm.DB, access NotificationAccess) *gorm.DB {
 	return tx.Model(&database.Notification{}).Joins("JOIN notification_recipients ON notification_recipients.notification_id = notifications.id AND notification_recipients.user_id = ?", access.UserID).
-		Where("(notifications.target_type = 'account' AND notifications.target_id = ?) OR (notifications.target_type = 'server' AND ? AND (? OR notifications.target_id IN (?))) OR (notifications.target_type = 'spark' AND ?)", strconv.FormatInt(access.UserID, 10), access.ServerView, access.Admin, visibleServers(tx, access.UserID), access.SparkView)
+		Where("(notifications.target_type = ? AND notifications.target_id = ?) OR (notifications.target_type = ? AND ? AND (? OR notifications.target_id IN (?))) OR (notifications.target_type = ? AND ?)", model.NotificationAccount, strconv.FormatInt(access.UserID, 10), model.NotificationServer, access.ServerView, access.Admin, visibleServers(tx, access.UserID), model.NotificationSpark, access.SparkView)
 }
 
 // List applies live access before pagination and never returns another inbox.
@@ -106,11 +108,11 @@ func emitNotification(tx *gorm.DB, item *database.Notification, queue bool) erro
 	users := tx.Model(&database.User{}).Where("disabled = false")
 
 	switch item.TargetType {
-	case "account":
+	case model.NotificationAccount:
 		users = users.Where("id = ?", item.TargetID)
-	case "spark":
+	case model.NotificationSpark:
 		users = users.Where("role_id = ?", database.AdminRole)
-	case "server":
+	case model.NotificationServer:
 		users = users.Where("users.role_id = ? OR users.id IN (SELECT owner_user_id FROM servers WHERE id = ?) OR EXISTS (SELECT 1 FROM server_access_grants JOIN role_permissions ON role_permissions.role_id = server_access_grants.access_role_id WHERE server_id = ? AND permission = ? AND (server_access_grants.user_id = users.id OR server_access_grants.role_id = users.role_id))", database.AdminRole, item.TargetID, item.TargetID, accessperm.ServerView)
 	default:
 		return ErrAccessInput
@@ -133,7 +135,7 @@ func emitNotification(tx *gorm.DB, item *database.Notification, queue bool) erro
 	}
 
 	if queue {
-		return tx.Omit("Notification").Create(&database.NotificationDelivery{NotificationID: item.ID, State: "pending", NextAttemptAt: item.CreatedAt}).Error
+		return tx.Omit("Notification").Create(&database.NotificationDelivery{NotificationID: item.ID, State: model.DeliveryPending, NextAttemptAt: item.CreatedAt}).Error
 	}
 
 	return nil
@@ -174,17 +176,17 @@ func (r *NotificationRepository) ClearAlert(ctx context.Context, key string) err
 
 // PruneAlertTargets removes state for targets that were deleted or disabled.
 func (r *NotificationRepository) PruneAlertTargets(ctx context.Context) error {
-	if err := r.db.WithContext(ctx).Where("target_type = 'spark' AND target_id NOT IN (SELECT id FROM sparks WHERE disabled = false)").Delete(&database.AlertState{}).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("target_type = ? AND target_id NOT IN (SELECT id FROM sparks WHERE disabled = false)", model.NotificationSpark).Delete(&database.AlertState{}).Error; err != nil {
 		return err
 	}
 
-	return r.db.WithContext(ctx).Where("target_type = 'server' AND target_id NOT IN (SELECT servers.id FROM servers JOIN sparks ON sparks.id = servers.spark_id WHERE sparks.disabled = false)").Delete(&database.AlertState{}).Error
+	return r.db.WithContext(ctx).Where("target_type = ? AND target_id NOT IN (SELECT servers.id FROM servers JOIN sparks ON sparks.id = servers.spark_id WHERE sparks.disabled = false)", model.NotificationServer).Delete(&database.AlertState{}).Error
 }
 
 // DueDeliveries loads a bounded batch; only the single panel delivery worker sends it.
 func (r *NotificationRepository) DueDeliveries(ctx context.Context, now time.Time) ([]database.NotificationDelivery, error) {
 	items := make([]database.NotificationDelivery, 0)
-	err := r.db.WithContext(ctx).Preload("Notification").Where("state = 'pending' AND next_attempt_at <= ?", now.Unix()).Order("next_attempt_at, notification_id").Limit(10).Find(&items).Error
+	err := r.db.WithContext(ctx).Preload("Notification").Where("state = ? AND next_attempt_at <= ?", model.DeliveryPending, now.Unix()).Order("next_attempt_at, notification_id").Limit(10).Find(&items).Error
 
 	return items, err
 }
@@ -195,30 +197,30 @@ func (r *NotificationRepository) FinishDelivery(ctx context.Context, item databa
 
 	item.Error = message
 	if message == "" {
-		item.State = "delivered"
+		item.State = model.DeliveryDelivered
 		item.DeliveredAt = now.Unix()
-	} else if item.Attempts >= 5 {
-		item.State = "failed"
+	} else if item.Attempts >= limits.DeliveryAttempts {
+		item.State = model.DeliveryFailed
 	} else {
-		item.NextAttemptAt = now.Add(time.Duration(30*(1<<(item.Attempts-1))) * time.Second).Unix()
+		item.NextAttemptAt = now.Add(limits.DeliveryRetryBase * time.Duration(1<<(item.Attempts-1))).Unix()
 	}
 
-	return r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("notification_id = ? AND state = 'pending'", item.NotificationID).Select("State", "Attempts", "NextAttemptAt", "DeliveredAt", "Error").Updates(item).Error
+	return r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("notification_id = ? AND state = ?", item.NotificationID, model.DeliveryPending).Select("State", "Attempts", "NextAttemptAt", "DeliveredAt", "Error").Updates(item).Error
 }
 
 // DeliveryCounts exposes only aggregate status, never endpoint credentials.
 func (r *NotificationRepository) DeliveryCounts(ctx context.Context) (int64, int64, error) {
 	var pending, failed int64
-	if err := r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("state = 'pending'").Count(&pending).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("state = ?", model.DeliveryPending).Count(&pending).Error; err != nil {
 		return 0, 0, err
 	}
 
-	err := r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("state = 'failed'").Count(&failed).Error
+	err := r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("state = ?", model.DeliveryFailed).Count(&failed).Error
 
 	return pending, failed, err
 }
 
 // RetryDeliveries explicitly requeues exhausted external deliveries.
 func (r *NotificationRepository) RetryDeliveries(ctx context.Context, now time.Time) error {
-	return r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("state = 'failed'").Updates(map[string]any{"state": "pending", "attempts": 0, "error": "", "next_attempt_at": now.Unix()}).Error
+	return r.db.WithContext(ctx).Model(&database.NotificationDelivery{}).Where("state = ?", model.DeliveryFailed).Updates(map[string]any{"state": model.DeliveryPending, "attempts": 0, "error": "", "next_attempt_at": now.Unix()}).Error
 }

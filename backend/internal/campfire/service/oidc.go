@@ -290,7 +290,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		picture = claims.Picture
 	}
 
-	user, err := s.auth.store.OIDCAccount(ctx, s.issuer, id.Subject, name+"-"+tokenHash(authToken())[:12], attempt.userID, attempt.version, attempt.sessionHash, displayName, email, picture, repository.OIDCAccountOptions{AutoLinkEmail: s.autoLinkEmail, EmailVerified: claims.EmailVerified})
+	user, err := s.auth.store.OIDCAccount(ctx, repository.OIDCAccountInput{Issuer: s.issuer, Subject: id.Subject, Username: name + "-" + tokenHash(authToken())[:12], LinkUserID: attempt.userID, CredentialVersion: attempt.version, LinkSessionHash: attempt.sessionHash, Name: displayName, Email: email, Picture: picture, Options: repository.OIDCAccountOptions{AutoLinkEmail: s.autoLinkEmail, EmailVerified: claims.EmailVerified}})
 	if err != nil {
 		return database.UserSession{}, "", err
 	}

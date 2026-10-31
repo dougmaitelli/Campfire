@@ -78,11 +78,11 @@ type Command struct {
 
 // CommandError describes a failed operation independently of transport failure.
 type CommandError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    CommandErrorCode `json:"code"`
+	Message string           `json:"message"`
 }
 
-func (e *CommandError) Error() string { return e.Code + ": " + e.Message }
+func (e *CommandError) Error() string { return string(e.Code) + ": " + e.Message }
 
 // CommandResponse completes exactly one request on the originating session.
 type CommandResponse struct {

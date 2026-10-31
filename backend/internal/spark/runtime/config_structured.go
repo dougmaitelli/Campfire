@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 
 	"gopkg.in/yaml.v3"
@@ -75,7 +76,7 @@ func structuredConfig(old []byte, config model.ConfigFile, values map[string]str
 
 	sort.Strings(keys)
 
-	budget := 100000
+	budget := limits.DocumentNodes
 
 	for _, key := range keys {
 		if err := model.ConfigKey(config.Parser, key); err != nil {

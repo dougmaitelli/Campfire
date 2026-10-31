@@ -38,10 +38,10 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 		return nil, err
 	}
 
-	team := database.Role{Name: "Community managers", Scope: "platform", Permissions: []database.RolePermission{{Permission: accessperm.ServersCreate}, {Permission: accessperm.AuditView}}}
+	team := database.Role{Name: "Community managers", Scope: model.RoleScopePlatform, Permissions: []database.RolePermission{{Permission: accessperm.ServersCreate}, {Permission: accessperm.AuditView}}}
 
-	maintainers := database.Role{Name: "World maintainers", Scope: "server"}
-	for _, action := range accessperm.Legacy([]string{accessperm.ServerView, accessperm.ServerOperate, accessperm.ServerConfigure}) {
+	maintainers := database.Role{Name: "World maintainers", Scope: model.RoleScopeServer}
+	for _, action := range accessperm.Legacy([]model.PermissionID{accessperm.ServerView, accessperm.ServerOperate, accessperm.ServerConfigure}) {
 		maintainers.Permissions = append(maintainers.Permissions, database.RolePermission{Permission: action})
 	}
 
@@ -83,14 +83,14 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 	} {
 		input := model.Spark{ID: node.id, Name: node.name, Description: node.description, CreatedAt: now, SparkSettings: model.SparkSettings{
 			GameAddress: "127.0.0.1", CPULimit: 16, MemoryMB: 32768, DiskMB: 409600,
-			PortAllocations: []model.PortAllocation{{BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: "tcp"}, {BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: "udp"}},
+			PortAllocations: []model.PortAllocation{{BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: model.NetworkTCP}, {BindIP: "0.0.0.0", Start: 25565, End: 25600, Protocol: model.NetworkUDP}},
 		}}
 		if err := repository.NewSparkRepository(tx).Create(ctx, input); err != nil {
 			return nil, err
 		}
 	}
 
-	ember := model.Ember{Schema: 1, ID: "mock-minecraft", Name: "Minecraft", Description: "A Minecraft Java Edition server", ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: MinecraftVariables(), RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp", Description: "Main"}}}
+	ember := model.Ember{Schema: 1, ID: "mock-minecraft", Name: "Minecraft", Description: "A Minecraft Java Edition server", ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: MinecraftVariables(), RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: model.NetworkTCP, Description: "Main"}}}
 	ember.SavedataPaths = []model.SavedataPath{{Path: "world", Required: true}, {Path: "server.properties"}}
 
 	if err := repository.NewEmberRepository(tx).Create(ctx, ember); err != nil {
@@ -107,7 +107,7 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 			variables[variable.Name] = variable.Default
 		}
 
-		configuration := model.ServerConfiguration{Name: item.name, Description: "Community Minecraft server", SparkID: item.spark, EmberID: ember.ID, Image: ember.Images["Java 21"], Variables: variables, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480, Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565 + i, ContainerPort: 25565, Protocol: "tcp"}}}
+		configuration := model.ServerConfiguration{Name: item.name, Description: "Community Minecraft server", SparkID: item.spark, EmberID: ember.ID, Image: ember.Images["Java 21"], Variables: variables, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480, Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565 + i, ContainerPort: 25565, Protocol: model.NetworkTCP}}}
 
 		server := model.Server{ID: item.id, ServerConfiguration: configuration, EmberHash: model.EmberHash(ember), CreatedAt: now, OwnerUserID: 1}
 
@@ -139,13 +139,13 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 		return nil, err
 	}
 
-	if err := tx.Omit("Server").Create(&database.Schedule{ID: "nightly-restart", ServerID: "survival", Name: "Nightly restart", Action: "restart", CronExpression: "0 3 * * *", TimeZone: "UTC", OnlyWhenRunning: true, NextRunAt: next[0], Enabled: true, RunAsUserID: 1, CreatedAt: now.Add(-24 * time.Hour).Unix()}).Error; err != nil {
+	if err := tx.Omit("Server").Create(&database.Schedule{ID: "nightly-restart", ServerID: "survival", Name: "Nightly restart", Action: model.ServerActionRestart, CronExpression: "0 3 * * *", TimeZone: "UTC", OnlyWhenRunning: true, NextRunAt: next[0], Enabled: true, RunAsUserID: 1, CreatedAt: now.Add(-24 * time.Hour).Unix()}).Error; err != nil {
 		return nil, err
 	}
 
 	for _, run := range []database.ScheduleRun{
-		{ID: "scheduled-run", ScheduleID: "nightly-restart", ServerID: "survival", ServerName: "Survival", UserID: 1, Username: "admin", Action: "restart", Recurring: true, State: "succeeded", CreatedAt: now.Add(-9 * time.Hour).Unix(), StartedAt: now.Add(-9 * time.Hour).Unix(), FinishedAt: now.Add(-9*time.Hour + time.Minute).Unix()},
-		{ID: "direct-operation", ServerID: "survival", ServerName: "Survival", UserID: 1, Username: "admin", Action: "stop", State: "succeeded", CreatedAt: now.Add(-time.Hour).Unix(), FinishedAt: now.Add(-time.Hour).Unix()},
+		{ID: "scheduled-run", ScheduleID: "nightly-restart", ServerID: "survival", ServerName: "Survival", UserID: 1, Username: "admin", Action: model.ServerActionRestart, Recurring: true, State: model.ExecutionSucceeded, CreatedAt: now.Add(-9 * time.Hour).Unix(), StartedAt: now.Add(-9 * time.Hour).Unix(), FinishedAt: now.Add(-9*time.Hour + time.Minute).Unix()},
+		{ID: "direct-operation", ServerID: "survival", ServerName: "Survival", UserID: 1, Username: "admin", Action: model.ServerActionStop, State: model.ExecutionSucceeded, CreatedAt: now.Add(-time.Hour).Unix(), FinishedAt: now.Add(-time.Hour).Unix()},
 	} {
 		if err := repository.NewActivityRepository(tx).CreateRun(ctx, &run); err != nil {
 			return nil, err
@@ -153,16 +153,16 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 	}
 
 	actor := int64(1)
-	if err := repository.NewActivityRepository(tx).BeginAudit(ctx, &database.AuditEvent{ID: "server-started", UserID: &actor, Username: "admin", Action: "server.start", Target: "server:survival", Outcome: "succeeded", Status: 202, CreatedAt: now.Add(-time.Hour).Unix()}); err != nil {
+	if err := repository.NewActivityRepository(tx).BeginAudit(ctx, &database.AuditEvent{ID: "server-started", UserID: &actor, Username: "admin", Action: "server.start", Target: "server:survival", Outcome: model.AuditSucceeded, Status: 202, CreatedAt: now.Add(-time.Hour).Unix()}); err != nil {
 		return nil, err
 	}
 
 	inbox := repository.NewNotificationRepository(tx)
 
 	for i, item := range []database.Notification{
-		{TargetType: "server", TargetID: "survival", Kind: "backup", Severity: "info", Title: "Nightly backup completed", Body: "Survival was backed up successfully. The local archive is ready to download."},
-		{TargetType: "spark", TargetID: "mock-offline", Kind: "health", Severity: "warning", Title: "Offline Spark", Body: "The node is not reporting. Check its Spark connection before scheduling new work."},
-		{TargetType: "account", TargetID: "1", Kind: "schedule", Severity: "info", Title: "Nightly restart scheduled", Body: "Survival will restart daily at 03:00 UTC."},
+		{TargetType: model.NotificationServer, TargetID: "survival", Kind: model.NotificationBackup, Severity: model.NotificationInfo, Title: "Nightly backup completed", Body: "Survival was backed up successfully. The local archive is ready to download."},
+		{TargetType: model.NotificationSpark, TargetID: "mock-offline", Kind: model.NotificationHealth, Severity: model.NotificationWarning, Title: "Offline Spark", Body: "The node is not reporting. Check its Spark connection before scheduling new work."},
+		{TargetType: model.NotificationAccount, TargetID: "1", Kind: model.NotificationSchedule, Severity: model.NotificationInfo, Title: "Nightly restart scheduled", Body: "Survival will restart daily at 03:00 UTC."},
 	} {
 		item.CreatedAt = now.Add(-time.Duration(3-i) * time.Hour).Unix()
 		if err := inbox.Emit(ctx, &item, false); err != nil {
@@ -186,7 +186,7 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 // Backups identifies the same initial archives in both simulators.
 func Backups(now time.Time) []model.FileEntry {
 	return []model.FileEntry{
-		{Name: "mock-nightly.tar.gz", Kind: "file", ModifiedAt: now.Add(-24 * time.Hour)},
-		{Name: "mock-before-update.tar.gz", Kind: "file", ModifiedAt: now.Add(-48 * time.Hour)},
+		{Name: "mock-nightly.tar.gz", Kind: model.FileKindFile, ModifiedAt: now.Add(-24 * time.Hour)},
+		{Name: "mock-before-update.tar.gz", Kind: model.FileKindFile, ModifiedAt: now.Add(-48 * time.Hour)},
 	}
 }

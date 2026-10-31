@@ -323,7 +323,7 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, action := range []string{"start", "update", "reinstall"} {
+	for _, action := range []model.ServerAction{model.ServerActionStart, model.ServerActionUpdate, model.ServerActionReinstall} {
 		if _, err := f.service.Deployment.Action(ctx, f.server.ID, action); !errors.Is(err, repository.ErrTransferActive) {
 			t.Fatal("transfer did not fence server actions", action, err)
 		}

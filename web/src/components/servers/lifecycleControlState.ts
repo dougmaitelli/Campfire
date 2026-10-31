@@ -1,3 +1,4 @@
+import { RuntimeState, ServerAction } from "../../contracts/domains";
 import type { RuntimeStatus } from "../../api/runtime";
 
 export function lifecycleControlState(
@@ -6,7 +7,9 @@ export function lifecycleControlState(
 ) {
   const installing =
     status?.busy === true &&
-    ["install", "reinstall", "update"].includes(status.operation ?? "");
+    [ServerAction.Install, ServerAction.Reinstall, ServerAction.Update].some(
+      (value) => value === status.operation,
+    );
   return {
     installing,
     canInterrupt: !disabled && installing,
@@ -15,13 +18,16 @@ export function lifecycleControlState(
       !status ||
       status.busy ||
       ![
-        "running",
-        "restarting",
-        "stopped",
-        "not_installed",
-        "deleted",
-      ].includes(status.state),
-    running: status?.state === "running" || status?.state === "restarting",
-    install: status?.state === "not_installed" || status?.state === "deleted",
+        RuntimeState.Running,
+        RuntimeState.Restarting,
+        RuntimeState.Stopped,
+        RuntimeState.NotInstalled,
+        RuntimeState.Deleted,
+      ].some((value) => value === status.state),
+    running:
+      status?.state === RuntimeState.Running || status?.state === "restarting",
+    install:
+      status?.state === RuntimeState.NotInstalled ||
+      status?.state === "deleted",
   };
 }

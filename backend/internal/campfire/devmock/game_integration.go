@@ -72,7 +72,7 @@ func (r *Runtime) gameTick(ctx context.Context, now time.Time) error {
 	var failures []error
 
 	for _, record := range records {
-		if !r.Connected(record.SparkID) || record.State != "running" || !record.Deployment.Configuration.GameIntegration {
+		if !r.Connected(record.SparkID) || record.State != model.RuntimeStateRunning || !record.Deployment.Configuration.GameIntegration {
 			delete(r.gameSessions, record.ServerID)
 			continue
 		}

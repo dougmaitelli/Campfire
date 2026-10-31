@@ -1,46 +1,49 @@
+import { Capability } from "../../contracts/capabilities";
 import { SquareCheck, SquareMinus, SquareX } from "lucide-react";
 import { useTranslation, Trans } from "react-i18next";
 import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
 const featureTranslationKeys = {
-  "server.game-media.v1": "sparkFeatures.gameMedia",
-  "server.game-integration.v1": "sparkFeatures.gameIntegration",
-  "spark.prune.v1": "sparkFeatures.resourceCleanup",
-  "server.configure.v2": "sparkFeatures.serverConfiguration",
-  "server.lifecycle.v1": "sparkFeatures.serverControls",
-  "server.files.v1": "sparkFeatures.fileManagement",
-  "server.files.transfer.v1": "sparkFeatures.fileUploadsAndDownloads",
-  "server.files.archive.v1": "sparkFeatures.archiveCreationAndExtraction",
-  "server.backups.v2": "sparkFeatures.localBackups",
-  "server.backups.remote.v1": "sparkFeatures.remoteBackupRestore",
-  "server.metrics.v1": "sparkFeatures.resourceMonitoring",
-  "server.console.stream.v1": "sparkFeatures.liveConsole",
-  "server.disk-quota.v1": "sparkFeatures.diskQuotas",
-  "server.transfer.v1": "sparkFeatures.serverTransfers",
-  "server.reinstall.v1": "sparkFeatures.serverUpdateAndReinstall",
-  "spark.self-update.v1": "sparkFeatures.remoteSparkUpdates",
+  [Capability.GameMedia]: "sparkFeatures.gameMedia",
+  [Capability.GameIntegration]: "sparkFeatures.gameIntegration",
+  [Capability.Prune]: "sparkFeatures.resourceCleanup",
+  [Capability.Configure]: "sparkFeatures.serverConfiguration",
+  [Capability.Lifecycle]: "sparkFeatures.serverControls",
+  [Capability.Files]: "sparkFeatures.fileManagement",
+  [Capability.FileTransfer]: "sparkFeatures.fileUploadsAndDownloads",
+  [Capability.FileArchive]: "sparkFeatures.archiveCreationAndExtraction",
+  [Capability.Backups]: "sparkFeatures.localBackups",
+  [Capability.RemoteBackups]: "sparkFeatures.remoteBackupRestore",
+  [Capability.Metrics]: "sparkFeatures.resourceMonitoring",
+  [Capability.Console]: "sparkFeatures.liveConsole",
+  [Capability.DiskQuota]: "sparkFeatures.diskQuotas",
+  [Capability.Transfer]: "sparkFeatures.serverTransfers",
+  [Capability.Reinstall]: "sparkFeatures.serverUpdateAndReinstall",
+  [Capability.SelfUpdate]: "sparkFeatures.remoteSparkUpdates",
 } as const;
 
 const featureRequirements: Record<string, readonly string[]> = {
-  "server.files.v1": ["server.files.v1", "server.files.permissions.v1"],
-  "spark.self-update.v1": ["spark.self-update.v1", "spark.self-reinstall.v1"],
-  "server.game-integration.v1": [
-    "server.game-integration.v1",
-    "server.game-events.v1",
+  [Capability.Files]: [Capability.Files, Capability.FilePermissions],
+  [Capability.SelfUpdate]: [Capability.SelfUpdate, Capability.SelfReinstall],
+  [Capability.GameIntegration]: [
+    Capability.GameIntegration,
+    Capability.GameEvents,
   ],
 };
 
 export function SparkFeatures({ spark }: { spark: Spark }) {
   const { t } = useTranslation();
   const available = new Set(spark.capabilities ?? []);
-  const features = Object.entries(featureTranslationKeys).map(
-    ([feature, key]) => ({
-      id: feature,
-      label: t(key),
-      capabilities: featureRequirements[feature] ?? [feature],
-    }),
-  );
+  const features: {
+    id: string;
+    label: string;
+    capabilities: readonly string[];
+  }[] = Object.entries(featureTranslationKeys).map(([feature, key]) => ({
+    id: feature,
+    label: t(key),
+    capabilities: featureRequirements[feature] ?? [feature],
+  }));
   const knownCapabilities = new Set(
     features.flatMap((feature) => feature.capabilities),
   );

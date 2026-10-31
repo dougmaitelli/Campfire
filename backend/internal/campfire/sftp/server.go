@@ -234,13 +234,13 @@ func safeError(err error) error {
 	var failure *model.FileError
 	if errors.As(err, &failure) {
 		switch failure.Code {
-		case "file_not_found":
+		case model.FileNotFound:
 			return os.ErrNotExist
-		case "invalid_file":
+		case model.FileInvalid:
 			return sftp.ErrSSHFxBadMessage
-		case "file_conflict", "file_busy":
+		case model.FileConflict, model.FileBusy:
 			return sftp.ErrSSHFxFailure
-		case "file_limit":
+		case model.FileLimitExceeded:
 			return sftp.ErrSSHFxFailure
 		}
 	}

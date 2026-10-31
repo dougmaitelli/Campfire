@@ -1,3 +1,4 @@
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import {
   createContext,
   useCallback,
@@ -26,7 +27,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     async function load() {
       try {
         const value = await unreadNotifications(
-          AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+          AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(API_READ_TIMEOUT_MS),
+          ]),
         );
         if (!controller.signal.aborted) setUnread(value);
       } catch {

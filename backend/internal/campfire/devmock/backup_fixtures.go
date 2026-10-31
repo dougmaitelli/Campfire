@@ -91,7 +91,7 @@ func seedBackupModes(ctx context.Context, db *gorm.DB) error {
 			}
 		}
 
-		if err := repository.NewBackupRepository(tx).SavePolicy(ctx, server.ID, model.BackupPolicy{Storage: "local", LocalKeepLast: 3, LocalMaxAgeDays: 30, Savedata: model.BackupRetention{LocalKeepLast: 12, LocalMaxAgeDays: 7}}); err != nil {
+		if err := repository.NewBackupRepository(tx).SavePolicy(ctx, server.ID, model.BackupPolicy{Storage: model.BackupStorageLocal, LocalKeepLast: 3, LocalMaxAgeDays: 30, Savedata: model.BackupRetention{LocalKeepLast: 12, LocalMaxAgeDays: 7}}); err != nil {
 			return err
 		}
 

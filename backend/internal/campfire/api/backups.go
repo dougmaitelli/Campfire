@@ -73,7 +73,7 @@ func (a *API) serverBackups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := a.deployment.Files(r.Context(), r.PathValue("id"), model.FileRequest{Operation: "backup.list", Path: "."})
+	result, err := a.deployment.Files(r.Context(), r.PathValue("id"), model.FileRequest{Operation: model.FileOperationBackupList, Path: "."})
 	if err != nil {
 		writeFileError(w, err)
 		return
@@ -93,7 +93,7 @@ func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Minute)
 	defer cancel()
 
-	request := model.FileRequest{Operation: "backup.read", Path: r.PathValue("name")}
+	request := model.FileRequest{Operation: model.FileOperationBackupRead, Path: r.PathValue("name")}
 	read := func() (model.FileResult, error) {
 		if a.deployment.Backups != nil {
 			return a.deployment.Backups.Read(ctx, r.PathValue("id"), request.Path, request.Offset)
@@ -188,9 +188,9 @@ func (a *API) deleteBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location := r.URL.Query().Get("storage")
+	location := model.BackupStorage(r.URL.Query().Get("storage"))
 	if location == "" {
-		location = "all"
+		location = model.BackupStorageAll
 	}
 
 	if err := a.deployment.Backups.Delete(r.Context(), r.PathValue("id"), r.PathValue("name"), location); err != nil {
@@ -198,6 +198,6 @@ func (a *API) deleteBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	auditDetail(r, "server.backup.delete", "server:"+r.PathValue("id")+" backup:"+r.PathValue("name")+" storage:"+location)
+	auditDetail(r, "server.backup.delete", "server:"+r.PathValue("id")+" backup:"+r.PathValue("name")+" storage:"+string(location))
 	writeJSON(w, http.StatusAccepted, map[string]string{"state": "deleting"})
 }

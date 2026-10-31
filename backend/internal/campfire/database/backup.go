@@ -4,16 +4,16 @@ import "campfire/internal/shared/model"
 
 // BackupPolicy holds opt-in retention and the chosen storage backend.
 type BackupPolicy struct {
-	SavedataLocalKeepLast    int    `gorm:"not null;default:0"`
-	SavedataLocalMaxAgeDays  int    `gorm:"not null;default:0"`
-	SavedataRemoteKeepLast   int    `gorm:"not null;default:0"`
-	SavedataRemoteMaxAgeDays int    `gorm:"not null;default:0"`
-	ServerID                 string `gorm:"type:text;primaryKey"`
-	Storage                  string `gorm:"type:text;not null"`
-	LocalKeepLast            int    `gorm:"not null"`
-	LocalMaxAgeDays          int    `gorm:"not null"`
-	RemoteKeepLast           int    `gorm:"not null"`
-	RemoteMaxAgeDays         int    `gorm:"not null"`
+	SavedataLocalKeepLast    int                 `gorm:"not null;default:0"`
+	SavedataLocalMaxAgeDays  int                 `gorm:"not null;default:0"`
+	SavedataRemoteKeepLast   int                 `gorm:"not null;default:0"`
+	SavedataRemoteMaxAgeDays int                 `gorm:"not null;default:0"`
+	ServerID                 string              `gorm:"type:text;primaryKey"`
+	Storage                  model.BackupStorage `gorm:"type:text;not null"`
+	LocalKeepLast            int                 `gorm:"not null"`
+	LocalMaxAgeDays          int                 `gorm:"not null"`
+	RemoteKeepLast           int                 `gorm:"not null"`
+	RemoteMaxAgeDays         int                 `gorm:"not null"`
 }
 
 // Backup retains archive identity across Spark moves and panel restarts.

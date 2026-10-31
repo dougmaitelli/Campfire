@@ -1,3 +1,5 @@
+import { ServerAction } from "../contracts/domains";
+import { isEnumValue } from "../utils/validation";
 import { apiFetch, readJSON } from "./client";
 
 export const Permission = {
@@ -32,32 +34,47 @@ export const Permission = {
   ServerSchedulesRun: "server.schedules.run",
 } as const;
 
-export interface PermissionDefinition {
-  id: string;
-  group: string;
-  label: string;
-  requires: string[];
+export type PermissionID = (typeof Permission)[keyof typeof Permission];
+
+export function isPermissionID(value: unknown): value is PermissionID {
+  return isEnumValue(Permission, value);
 }
 
-export function serverActionPermission(action: string): string {
+export function hasPermission(
+  values: readonly PermissionID[] | undefined,
+  permission: PermissionID | undefined,
+): boolean {
+  return permission !== undefined && values?.includes(permission) === true;
+}
+
+export interface PermissionDefinition {
+  id: PermissionID;
+  group: string;
+  label: string;
+  requires: PermissionID[];
+}
+
+export function serverActionPermission(
+  action: ServerAction,
+): PermissionID | undefined {
   switch (action) {
-    case "install":
-    case "start":
-    case "stop":
-    case "restart":
-    case "kill":
+    case ServerAction.Install:
+    case ServerAction.Start:
+    case ServerAction.Stop:
+    case ServerAction.Restart:
+    case ServerAction.Kill:
       return Permission.ServerOperate;
-    case "update":
-    case "reinstall":
+    case ServerAction.Update:
+    case ServerAction.Reinstall:
       return Permission.ServerReinstall;
-    case "backup":
+    case ServerAction.Backup:
       return Permission.ServerBackupsCreate;
-    case "restore":
+    case ServerAction.Restore:
       return Permission.ServerBackupsRestore;
-    case "command":
+    case ServerAction.Command:
       return Permission.ServerConsoleWrite;
     default:
-      return "";
+      return undefined;
   }
 }
 
@@ -70,11 +87,11 @@ export function isPermissionCatalog(
       if (typeof entry !== "object" || entry === null) return false;
       const item = entry as Record<string, unknown>;
       return (
-        typeof item.id === "string" &&
+        isPermissionID(item.id) &&
         typeof item.group === "string" &&
         typeof item.label === "string" &&
         Array.isArray(item.requires) &&
-        item.requires.every((id: unknown) => typeof id === "string")
+        item.requires.every(isPermissionID)
       );
     })
   );
@@ -92,9 +109,9 @@ export async function permissionCatalog(
 }
 
 export function expandPermissions(
-  selected: string[],
+  selected: PermissionID[],
   catalog: PermissionDefinition[],
-): string[] {
+): PermissionID[] {
   const result = new Set(selected);
   for (;;) {
     const before = result.size;
@@ -107,11 +124,11 @@ export function expandPermissions(
 }
 
 export function togglePermission(
-  selected: string[],
-  id: string,
+  selected: PermissionID[],
+  id: PermissionID,
   checked: boolean,
   catalog: PermissionDefinition[],
-): string[] {
+): PermissionID[] {
   if (checked) return expandPermissions([...selected, id], catalog);
   let result = selected.filter((item) => item !== id);
   for (;;) {

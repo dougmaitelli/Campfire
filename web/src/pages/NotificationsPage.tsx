@@ -1,3 +1,4 @@
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -52,7 +53,10 @@ export function NotificationsPage() {
       const current = ++generation.current;
       try {
         const next = await listNotifications(
-          AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+          AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(API_READ_TIMEOUT_MS),
+          ]),
         );
         if (!controller.signal.aborted && current === generation.current) {
           setItems((previous) =>
@@ -122,7 +126,7 @@ export function NotificationsPage() {
     const current = ++generation.current;
     try {
       const next = await listNotifications(
-        AbortSignal.timeout(15000),
+        AbortSignal.timeout(API_READ_TIMEOUT_MS),
         items.at(-1)?.id,
       );
       if (current === generation.current) {

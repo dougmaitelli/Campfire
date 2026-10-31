@@ -102,7 +102,7 @@ func TestScheduledExecutionKeepsTokenScopeLimit(t *testing.T) {
 	s, _, _, owner := activityFixture(t)
 	limited := owner
 	limited.APITokenID = 99
-	limited.TokenScopes = accessperm.Expand([]string{accessperm.ServerSchedulesManage, accessperm.ServerBackupsCreate})
+	limited.TokenScopes = accessperm.Expand([]model.PermissionID{accessperm.ServerSchedulesManage, accessperm.ServerBackupsCreate})
 
 	item := savedSchedule(t, s, limited, "backup")
 	if _, err := s.Save(t.Context(), limited, database.Schedule{ServerID: "game", Name: "Command", Action: "command", Command: "save-all", CronExpression: "0 3 * * *", TimeZone: "UTC"}, true); !errors.Is(err, repository.ErrAccessDenied) {
@@ -127,7 +127,7 @@ func TestScheduledExecutionKeepsTokenScopeLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, denied := range []string{accessperm.ServerConsoleWrite, accessperm.ServerFilesWrite, accessperm.ServerSchedulesRun} {
+	for _, denied := range []model.PermissionID{accessperm.ServerConsoleWrite, accessperm.ServerFilesWrite, accessperm.ServerSchedulesRun} {
 		if err := s.authorize(t.Context(), principal, "game", denied); !errors.Is(err, repository.ErrAccessDenied) {
 			t.Fatalf("scheduled execution escaped token scope for %s: %v", denied, err)
 		}
@@ -171,7 +171,7 @@ func TestStopInstallationRecordsInterruption(t *testing.T) {
 	}
 }
 
-func savedSchedule(t *testing.T, s *ActivityService, p Principal, action string) database.Schedule {
+func savedSchedule(t *testing.T, s *ActivityService, p Principal, action model.ServerAction) database.Schedule {
 	t.Helper()
 
 	item, err := s.Save(context.Background(), p, database.Schedule{ServerID: "game", Name: "Nightly", Action: action, Command: "private-console-command", CronExpression: "0 3 * * *", TimeZone: "UTC", Enabled: true}, true)
@@ -213,9 +213,11 @@ func TestCronSaveValidatesAndComputesNextRun(t *testing.T) {
 
 func TestScheduleRunningCondition(t *testing.T) {
 	for _, test := range []struct {
-		name, state, want string
-		only              bool
-		calls             int
+		name  string
+		state model.RuntimeState
+		want  model.ExecutionState
+		only  bool
+		calls int
 	}{
 		{"stopped skips", "stopped", "skipped", true, 0},
 		{"running dispatches", "running", "succeeded", true, 1},
@@ -230,7 +232,7 @@ func TestScheduleRunningCondition(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			runtime.status.State = model.RuntimeState(test.state)
+			runtime.status.State = test.state
 
 			run, err := s.RunNow(t.Context(), owner, item.ID)
 			if err != nil {

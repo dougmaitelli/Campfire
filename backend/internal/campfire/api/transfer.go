@@ -1,9 +1,10 @@
 package api
 
 import (
+	"net/http"
+
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	"net/http"
 )
 
 func (a *API) transfers(w http.ResponseWriter) *service.TransferService {
@@ -87,7 +88,7 @@ func (a *API) changeTransfer(w http.ResponseWriter, r *http.Request, cancel bool
 		return
 	}
 
-	auditDetail(r, "server.transfer."+action, "server:"+item.ServerID)
+	auditDetail(r, model.ResourceAuditAction("server.transfer", action), "server:"+item.ServerID)
 
 	updated, err := transfers.Store.Get(r.Context(), item.ID)
 	if err != nil {

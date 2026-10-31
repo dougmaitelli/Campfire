@@ -1,0 +1,22 @@
+export const Capability = {
+  GameMedia: "server.game-media.v1",
+  GameIntegration: "server.game-integration.v1",
+  GameEvents: "server.game-events.v1",
+  Prune: "spark.prune.v1",
+  Configure: "server.configure.v2",
+  Lifecycle: "server.lifecycle.v1",
+  Files: "server.files.v1",
+  FilePermissions: "server.files.permissions.v1",
+  FileTransfer: "server.files.transfer.v1",
+  FileArchive: "server.files.archive.v1",
+  Backups: "server.backups.v2",
+  RemoteBackups: "server.backups.remote.v1",
+  Metrics: "server.metrics.v1",
+  Console: "server.console.stream.v1",
+  DiskQuota: "server.disk-quota.v1",
+  Transfer: "server.transfer.v1",
+  Reinstall: "server.reinstall.v1",
+  SelfUpdate: "spark.self-update.v1",
+  SelfReinstall: "spark.self-reinstall.v1",
+} as const;
+export type Capability = (typeof Capability)[keyof typeof Capability];

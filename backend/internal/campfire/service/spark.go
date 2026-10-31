@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/sparkrelease"
 )
@@ -215,7 +216,7 @@ func validateSparkName(value string) (string, error) {
 
 func validateDescription(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	if !utf8.ValidString(value) || utf8.RuneCountInString(value) > 1000 ||
+	if !utf8.ValidString(value) || utf8.RuneCountInString(value) > limits.DescriptionLength ||
 		strings.ContainsFunc(value, func(r rune) bool { return unicode.IsControl(r) && r != '\n' && r != '\r' && r != '\t' }) {
 		return "", ErrInvalidDescription
 	}

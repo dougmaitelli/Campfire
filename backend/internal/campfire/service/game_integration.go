@@ -42,10 +42,10 @@ type gameStateRecord struct {
 
 // GameStateView deliberately omits expired or invalidated values.
 type GameStateView struct {
-	State           *model.GameState `json:"state,omitempty"`
-	UpdatedAt       int64            `json:"updated_at"`
-	FreshForSeconds int64            `json:"fresh_for_seconds"`
-	Status          string           `json:"status"`
+	State           *model.GameState      `json:"state,omitempty"`
+	UpdatedAt       int64                 `json:"updated_at"`
+	FreshForSeconds int64                 `json:"fresh_for_seconds"`
+	Status          model.GameStateStatus `json:"status"`
 }
 
 func (s *GameIntegrationService) clock() time.Time {
@@ -83,7 +83,7 @@ func (s *GameIntegrationService) Receive(ctx context.Context, sparkID string, fr
 
 	server, err := s.Servers.Get(ctx, frame.ServerID)
 	if errors.Is(err, ErrServerNotFound) || err == nil && (server.SparkID != sparkID || !server.GameIntegration) {
-		return &protocol.CommandError{Code: "publication_rejected", Message: "Invalid game publication placement."}
+		return &protocol.CommandError{Code: protocol.ErrorPublicationRejected, Message: "Invalid game publication placement."}
 	}
 
 	if err != nil {
@@ -151,7 +151,7 @@ func (s *GameIntegrationService) Observe(id, sparkID string, usage model.Resourc
 		return
 	}
 
-	if usage.State == "running" && usage.ContainerError == "" {
+	if usage.State == model.RuntimeStateRunning && usage.ContainerError == "" {
 		delete(s.blocked, id)
 	}
 
@@ -172,7 +172,7 @@ func (s *GameIntegrationService) Observe(id, sparkID string, usage model.Resourc
 	// Compare Docker timestamps with prior Docker timestamps, never the panel's
 	// receive clock: Sparks and Campfire may have different clock offsets.
 	restarted := previous.sparkID == sparkID && previous.at > 0 && usage.StartedAt > 0 && previous.at != usage.StartedAt
-	if usage.State != "running" || restarted {
+	if usage.State != model.RuntimeStateRunning || restarted {
 		record.state = nil
 		s.states[id] = record
 	}
@@ -188,7 +188,7 @@ func (s *GameIntegrationService) Snapshot(id, sparkID string, runtimeFresh bool,
 		return nil
 	}
 
-	view := &GameStateView{UpdatedAt: record.received.Unix(), FreshForSeconds: int64(gameStateFreshFor.Seconds()), Status: "unavailable"}
+	view := &GameStateView{UpdatedAt: record.received.Unix(), FreshForSeconds: int64(gameStateFreshFor.Seconds()), Status: model.GameStateUnavailable}
 
 	_, blocked := s.blocked[id]
 	if record.state == nil || blocked || !runtimeFresh {
@@ -196,11 +196,11 @@ func (s *GameIntegrationService) Snapshot(id, sparkID string, runtimeFresh bool,
 	}
 
 	if now-record.received.Unix() >= view.FreshForSeconds {
-		view.Status = "stale"
+		view.Status = model.GameStateStale
 		return view
 	}
 
-	view.State, view.Status = cloneGameState(record.state), "fresh"
+	view.State, view.Status = cloneGameState(record.state), model.GameStateFresh
 
 	return view
 }

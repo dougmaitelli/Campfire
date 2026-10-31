@@ -43,7 +43,7 @@ func (m *Manager) backupStopped(ctx context.Context, id string) error {
 func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Path}
 	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || (q.Operation != model.FileOperationBackupList && q.Operation != model.FileOperationBackupRead && q.Operation != model.FileOperationBackupDelete) || q.Offset < 0 {
-		return result, fileFailure("invalid_file", "Invalid backup request.")
+		return result, fileFailure(model.FileInvalid, "Invalid backup request.")
 	}
 
 	if err := ctx.Err(); err != nil {
@@ -52,19 +52,19 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 
 	e, err := m.load(q.ServerID)
 	if err != nil {
-		return result, fileFailure("file_io", "Backup storage unavailable.")
+		return result, fileFailure(model.FileIO, "Backup storage unavailable.")
 	}
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	if e.Status.Busy {
-		return result, fileFailure("file_busy", "Wait for the current server operation to finish.")
+		return result, fileFailure(model.FileBusy, "Wait for the current server operation to finish.")
 	}
 
 	if q.Operation == model.FileOperationBackupDelete {
-		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != "active" && transfer.State != "released") {
-			return result, fileFailure("file_busy", "Finish the Spark transfer before deleting backups.")
+		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased) {
+			return result, fileFailure(model.FileBusy, "Finish the Spark transfer before deleting backups.")
 		}
 	}
 
@@ -74,7 +74,7 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 	}
 
 	if err != nil {
-		return result, fileFailure("file_not_found", "Backup not found.")
+		return result, fileFailure(model.FileNotFound, "Backup not found.")
 	}
 
 	defer func() { _ = root.Close() }()
@@ -82,23 +82,23 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 	if q.Operation == model.FileOperationBackupList {
 		dir, err := root.Open(".")
 		if err != nil {
-			return result, fileFailure("file_io", "Could not list backups.")
+			return result, fileFailure(model.FileIO, "Could not list backups.")
 		}
 		defer func() { _ = dir.Close() }()
 
 		entries, err := dir.ReadDir(1002)
 		if err != nil && !errors.Is(err, io.EOF) {
-			return result, fileFailure("file_io", "Could not list backups.")
+			return result, fileFailure(model.FileIO, "Could not list backups.")
 		}
 
 		if len(entries) > 1000 {
-			return result, fileFailure("file_limit", "Backup storage exceeds the 1000-entry limit.")
+			return result, fileFailure(model.FileLimitExceeded, "Backup storage exceeds the 1000-entry limit.")
 		}
 
 		for _, item := range entries {
 			info, err := item.Info()
 			if err != nil {
-				return result, fileFailure("file_io", "Could not inspect backup.")
+				return result, fileFailure(model.FileIO, "Could not inspect backup.")
 			}
 
 			if backupName(item.Name()) && info.Mode().IsRegular() {
@@ -114,7 +114,7 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 					manifest.Mode = model.BackupModeFull
 				}
 
-				result.Entries = append(result.Entries, model.FileEntry{BackupMode: manifest.Mode, Name: item.Name(), Kind: "file", Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
+				result.Entries = append(result.Entries, model.FileEntry{BackupMode: manifest.Mode, Name: item.Name(), Kind: model.FileKindFile, Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
 			}
 		}
 
@@ -124,7 +124,7 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 	}
 
 	if !backupName(q.Path) {
-		return result, fileFailure("invalid_file", "Invalid backup name.")
+		return result, fileFailure(model.FileInvalid, "Invalid backup name.")
 	}
 
 	if q.Operation == model.FileOperationBackupDelete {
@@ -134,15 +134,15 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 		}
 
 		if err != nil || !info.Mode().IsRegular() {
-			return result, fileFailure("invalid_file", "Select a regular backup archive.")
+			return result, fileFailure(model.FileInvalid, "Select a regular backup archive.")
 		}
 
 		if err := root.Remove(q.Path); err != nil {
-			return result, fileFailure("file_io", "Could not delete backup.")
+			return result, fileFailure(model.FileIO, "Could not delete backup.")
 		}
 
 		if err := syncBackupDirectory(filepath.Join(m.root(q.ServerID), "backups")); err != nil {
-			return result, fileFailure("file_io", "Could not synchronize backup deletion.")
+			return result, fileFailure(model.FileIO, "Could not synchronize backup deletion.")
 		}
 
 		return result, nil
@@ -150,20 +150,20 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 
 	file, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return result, fileFailure("file_not_found", "Backup not found.")
+		return result, fileFailure(model.FileNotFound, "Backup not found.")
 	}
 	defer func() { _ = file.Close() }()
 
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || q.Offset > info.Size() {
-		return result, fileFailure("invalid_file", "Invalid backup or offset.")
+		return result, fileFailure(model.FileInvalid, "Invalid backup or offset.")
 	}
 
 	result.Size = info.Size()
 
 	result.Data = make([]byte, min(int64(model.FileLimit), info.Size()-q.Offset))
 	if n, err := file.ReadAt(result.Data, q.Offset); err != nil || n != len(result.Data) {
-		return result, fileFailure("file_io", "Could not read backup.")
+		return result, fileFailure(model.FileIO, "Could not read backup.")
 	}
 
 	return result, nil

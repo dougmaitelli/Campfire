@@ -1,3 +1,9 @@
+import {
+  RuntimeState,
+  type BackupStorage,
+  ServerAction,
+  BackupState as BackupStatus,
+} from "../contracts/domains";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ActionGroup } from "../components/layout/ActionGroup";
@@ -8,7 +14,7 @@ import {
   deleteBackup,
   listBackups,
   type Backup,
-  type BackupMode,
+  BackupMode,
 } from "../api/backups";
 import { BackupModeField } from "../components/servers/BackupModeField";
 import { serverAction, serverStatus, type RuntimeStatus } from "../api/runtime";
@@ -32,9 +38,9 @@ export function ServerBackupsDrawer({
 }) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<Backup[]>([]);
-  const [backupMode, setBackupMode] = useState<BackupMode>("full");
+  const [backupMode, setBackupMode] = useState<BackupMode>(BackupMode.Full);
   const invalidBackupMode =
-    backupMode === "savedata" && !server.savedata_available;
+    backupMode === BackupMode.Savedata && !server.savedata_available;
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const canDelete = server.permissions.includes(Permission.ServerBackupsDelete);
   const canCreate = server.permissions.includes(Permission.ServerBackupsCreate);
@@ -109,8 +115,11 @@ export function ServerBackupsDrawer({
     };
   }, [server.id, refresh]);
   const canChange =
-    status?.state === "stopped" && !status.busy && !busy && loadError === null;
-  async function remove(entry: Backup, location: "local" | "s3") {
+    status?.state === RuntimeState.Stopped &&
+    !status.busy &&
+    !busy &&
+    loadError === null;
+  async function remove(entry: Backup, location: BackupStorage) {
     if (
       pending.current ||
       !canDelete ||
@@ -155,7 +164,8 @@ export function ServerBackupsDrawer({
       action === "restore" &&
       !window.confirm(
         i18n.t(
-          entries.find((entry) => entry.name === name)?.mode === "savedata"
+          entries.find((entry) => entry.name === name)?.mode ===
+            BackupMode.Savedata
             ? "backupModes.restoreSavedata"
             : "serverBackupsDrawer.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
           { serverName: server.name },
@@ -242,7 +252,7 @@ export function ServerBackupsDrawer({
         )}
         {!status?.busy &&
           !status?.error &&
-          (status?.operation === "backup" ||
+          (status?.operation === ServerAction.Backup ||
             status?.operation === "restore") && (
             <InlineMessage tone="success">
               {status.operation === "backup"
@@ -282,7 +292,7 @@ export function ServerBackupsDrawer({
                   {entry.name}
                   <span className="row-description">
                     {t(
-                      entry.mode === "savedata"
+                      entry.mode === BackupMode.Savedata
                         ? "backupModes.savedata"
                         : "backupModes.full",
                     )}
@@ -310,7 +320,7 @@ export function ServerBackupsDrawer({
                   <ActionGroup>
                     {canDownload &&
                       !busy &&
-                      entry.state !== "deleting" &&
+                      entry.state !== BackupStatus.Deleting &&
                       (entry.remote ||
                         (entry.local && status && !status.busy)) && (
                         <ButtonLink
@@ -329,7 +339,7 @@ export function ServerBackupsDrawer({
                       disabled={
                         !canChange ||
                         !canRestore ||
-                        entry.state === "deleting" ||
+                        entry.state === BackupStatus.Deleting ||
                         (!entry.local && !entry.remote)
                       }
                       onClick={() => {
@@ -344,7 +354,7 @@ export function ServerBackupsDrawer({
                         disabled={
                           busy ||
                           status?.busy === true ||
-                          entry.state === "deleting"
+                          entry.state === BackupStatus.Deleting
                         }
                         onClick={() => {
                           void remove(entry, "local");
@@ -359,7 +369,7 @@ export function ServerBackupsDrawer({
                         disabled={
                           busy ||
                           status?.busy === true ||
-                          entry.state === "deleting"
+                          entry.state === BackupStatus.Deleting
                         }
                         onClick={() => {
                           void remove(entry, "s3");

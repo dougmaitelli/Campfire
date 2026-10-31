@@ -1,3 +1,4 @@
+import { RoleScope } from "../contracts/domains";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -194,7 +195,8 @@ export function RolesPage() {
                 </td>
                 <td>{role.scope}</td>
                 <td>
-                  {role.scope === "server" && role.permissions.length > 6
+                  {role.scope === RoleScope.Server &&
+                  role.permissions.length > 6
                     ? t("rolesPage.permissionSummary", {
                         count: role.permissions.length,
                         groups: [

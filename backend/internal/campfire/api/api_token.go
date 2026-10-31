@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 )
 
@@ -20,9 +21,9 @@ func (a *API) listAPITokens(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createAPIToken(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name          string   `json:"name"`
-		ExpiresInDays int      `json:"expires_in_days"`
-		Scopes        []string `json:"scopes"`
+		Name          string               `json:"name"`
+		ExpiresInDays int                  `json:"expires_in_days"`
+		Scopes        []model.PermissionID `json:"scopes"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return

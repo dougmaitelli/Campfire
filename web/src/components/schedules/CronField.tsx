@@ -1,3 +1,4 @@
+import { API_READ_TIMEOUT_MS } from "../../api/client";
 import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
 import { Fieldset } from "../forms/Fieldset";
@@ -103,7 +104,10 @@ export function CronField({
       void previewSchedule(
         normalized,
         timeZone,
-        AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+        AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(API_READ_TIMEOUT_MS),
+        ]),
       )
         .then((next) => {
           if (!controller.signal.aborted) {

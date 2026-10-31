@@ -6,6 +6,8 @@ import (
 	"net/netip"
 	"net/url"
 	"strconv"
+
+	"campfire/internal/shared/limits"
 )
 
 const defaultAgentListen = "0.0.0.0:8443"
@@ -21,7 +23,7 @@ func agentPublicAddress(listen, advertised, panel string) (string, error) {
 		return "", errors.New("agent listener must be a host:port address")
 	}
 
-	if number, err := strconv.Atoi(port); err != nil || number < 0 || number > 65535 {
+	if number, err := strconv.Atoi(port); err != nil || number < 0 || number > limits.MaxPort {
 		return "", errors.New("agent listener port must be between 0 and 65535")
 	}
 
@@ -36,7 +38,7 @@ func agentPublicAddress(listen, advertised, panel string) (string, error) {
 		}
 
 		if target.Port() != "" {
-			if number, err := strconv.Atoi(target.Port()); err != nil || number < 1 || number > 65535 {
+			if number, err := strconv.Atoi(target.Port()); err != nil || number < 1 || number > limits.MaxPort {
 				return "", errors.New("agent public URL port must be between 1 and 65535")
 			}
 		}

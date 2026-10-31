@@ -26,6 +26,7 @@ import (
 	filesftp "campfire/internal/campfire/sftp"
 	"campfire/internal/campfire/webui"
 	"campfire/internal/shared/cliutil"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/settings"
 )
 
@@ -75,8 +76,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	version := flags.Bool(settings.Version.FlagName, false, "print release version and exit")
 	auditRetention := settings.CampfireAuditRetentionDays.String(flags, "0", "audit record age limit in days; 0 keeps forever")
 	operationRetention := settings.CampfireOperationRetentionDays.String(flags, "0", "completed operation history age limit in days; 0 keeps forever")
-	gameEventRetention := settings.CampfireGameEventRetentionDays.String(flags, "30", "game event retention in days, 1–3650")
-	gameEventLimit := settings.CampfireGameEventLimit.String(flags, "10000", "retained game events per server, 1–100000")
+	gameEventRetention := settings.CampfireGameEventRetentionDays.String(flags, strconv.Itoa(int(limits.DefaultGameEventRetention/(24*time.Hour))), "game event retention in days, 1–3650")
+	gameEventLimit := settings.CampfireGameEventLimit.String(flags, strconv.Itoa(limits.DefaultGameEventLimit), "retained game events per server, 1–100000")
 
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -95,12 +96,12 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 
 	eventDays, err := strconv.Atoi(*gameEventRetention)
-	if err != nil || eventDays < 1 || eventDays > 3650 {
+	if err != nil || eventDays < limits.MinGameEventRetentionDays || eventDays > limits.MaxGameEventRetentionDays {
 		return errors.New("game event retention must be 1–3650 days")
 	}
 
 	eventMaximum, err := strconv.Atoi(*gameEventLimit)
-	if err != nil || eventMaximum < 1 || eventMaximum > 100000 {
+	if err != nil || eventMaximum < 1 || eventMaximum > limits.MaxGameEventLimit {
 		return errors.New("game event limit must be 1–100000 per server")
 	}
 

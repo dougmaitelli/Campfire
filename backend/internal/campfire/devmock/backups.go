@@ -66,7 +66,7 @@ func seedBackupFixtures(ctx context.Context, db *gorm.DB) error {
 		}
 
 		for _, record := range records {
-			if record.State == "not_installed" || record.State == "deleted" {
+			if record.State == model.RuntimeStateNotInstalled || record.State == model.RuntimeStateDeleted {
 				continue
 			}
 
@@ -131,11 +131,11 @@ func upgradeBackupSizes(ctx context.Context, db *gorm.DB) error {
 }
 
 func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, request model.RuntimeRequest) error {
-	if record.State != "stopped" {
-		return fileError("file_busy", "Stop the server before creating or restoring backups.")
+	if record.State != model.RuntimeStateStopped {
+		return fileError(model.FileBusy, "Stop the server before creating or restoring backups.")
 	}
 
-	if request.Action == "backup" {
+	if request.Action == model.ServerActionBackup {
 		options := request.BackupOptions
 		options.Mode = options.Mode.Normalized()
 
@@ -145,7 +145,7 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 
 		name := options.Mode.ArchiveName(request.OperationID)
 		if request.OperationID == "" || !model.BackupName(name) {
-			return fileError("invalid_file", "Invalid backup operation ID.")
+			return fileError(model.FileInvalid, "Invalid backup operation ID.")
 		}
 
 		backup := backupRecord{ServerID: record.ServerID, Name: name, Files: maps.Clone(record.Files), CreatedAt: time.Now().UTC()}
@@ -178,13 +178,13 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 	}
 
 	if request.BackupSource != nil {
-		return fileError("unsupported_capability", "Off-host restores are not simulated in mock mode.")
+		return fileError(model.FileUnsupportedCapability, "Off-host restores are not simulated in mock mode.")
 	}
 
 	var backup backupRecord
 
 	if err := r.db.WithContext(ctx).Where("server_id = ? AND name = ?", record.ServerID, request.Content).Take(&backup).Error; err != nil {
-		return fileError("file_not_found", "Backup not found.")
+		return fileError(model.FileNotFound, "Backup not found.")
 	}
 
 	restored := *record
@@ -199,7 +199,7 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 	}
 
 	if quotaEnforced(restored) && diskUsage(restored) > record.Deployment.Configuration.DiskMB*(1<<20) {
-		return fileError("file_limit", "Restored files would exceed the game-data allocation.")
+		return fileError(model.FileLimitExceeded, "Restored files would exceed the game-data allocation.")
 	}
 
 	record.Files = restored.Files
@@ -224,14 +224,14 @@ func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request
 				return result, err
 			}
 
-			result.Entries = append(result.Entries, model.FileEntry{BackupMode: backup.Options.Mode.Normalized(), Name: backup.Name, Kind: "file", Size: int64(len(data)), ModifiedAt: backup.CreatedAt})
+			result.Entries = append(result.Entries, model.FileEntry{BackupMode: backup.Options.Mode.Normalized(), Name: backup.Name, Kind: model.FileKindFile, Size: int64(len(data)), ModifiedAt: backup.CreatedAt})
 		}
 
 		return result, nil
 	}
 
 	if !model.BackupName(request.Path) || request.Offset < 0 {
-		return result, fileError("invalid_file", "Invalid backup request.")
+		return result, fileError(model.FileInvalid, "Invalid backup request.")
 	}
 
 	if request.Operation == model.FileOperationBackupDelete {
@@ -239,13 +239,13 @@ func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request
 	}
 
 	if request.Operation != model.FileOperationBackupRead {
-		return result, fileError("invalid_file", "Invalid backup operation.")
+		return result, fileError(model.FileInvalid, "Invalid backup operation.")
 	}
 
 	var backup backupRecord
 
 	if err := r.db.WithContext(ctx).Where("server_id = ? AND name = ?", record.ServerID, request.Path).Take(&backup).Error; err != nil {
-		return result, fileError("file_not_found", "Backup not found.")
+		return result, fileError(model.FileNotFound, "Backup not found.")
 	}
 
 	data, err := backupArchive(backup)
@@ -255,7 +255,7 @@ func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request
 
 	result.Size = int64(len(data))
 	if request.Offset > result.Size {
-		return result, fileError("invalid_file", "Invalid backup offset.")
+		return result, fileError(model.FileInvalid, "Invalid backup offset.")
 	}
 
 	result.Data = data[request.Offset:min(result.Size, request.Offset+model.FileLimit)]

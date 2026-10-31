@@ -9,31 +9,31 @@ import (
 
 // Definition describes a grant shown by role and token editors.
 type Definition struct {
-	ID       string   `json:"id"`
-	Group    string   `json:"group"`
-	Label    string   `json:"label"`
-	Requires []string `json:"requires"`
+	ID       ID     `json:"id"`
+	Group    string `json:"group"`
+	Label    string `json:"label"`
+	Requires []ID   `json:"requires"`
 }
 
 var server = []Definition{
-	{ServerView, "Server", "View overview, status, and metrics", []string{}},
-	{ServerConsoleRead, "Console", "Read logs and live console output", []string{ServerView}},
-	{ServerOperate, "Server", "Install, start, stop, restart, and kill; includes console reading", []string{ServerConsoleRead}},
-	{ServerConsoleWrite, "Console", "Send console commands", []string{ServerOperate}},
-	{ServerConfigure, "Server", "Edit configuration, resource reservations, and backup policy", []string{ServerOperate}},
-	{ServerReinstall, "Server", "Update or reinstall game files", []string{ServerOperate}},
-	{ServerFilesRead, "Files", "Browse, read, and download files", []string{ServerOperate}},
-	{ServerFilesWrite, "Files", "Create, upload, edit, move, archive, extract, and change file permissions", []string{ServerFilesRead}},
-	{ServerFilesDelete, "Files", "Delete files and folders", []string{ServerFilesWrite}},
-	{ServerBackupsRead, "Backups", "View backup lists and metadata", []string{ServerOperate}},
-	{ServerBackupsCreate, "Backups", "Create backups", []string{ServerBackupsRead}},
-	{ServerBackupsRestore, "Backups", "Restore game files from a backup", []string{ServerBackupsRead}},
-	{ServerBackupsDownload, "Backups", "Download archives containing server data", []string{ServerBackupsRead}},
-	{ServerBackupsDelete, "Backups", "Delete backups", []string{ServerBackupsRead}},
-	{ServerSchedulesRead, "Schedules", "View schedules and execution history", []string{ServerOperate}},
-	{ServerSchedulesManage, "Schedules", "Create, edit, enable, and remove schedules", []string{ServerSchedulesRead}},
-	{ServerSchedulesRun, "Schedules", "Run schedules and retry their executions", []string{ServerSchedulesRead}},
-	{ServerDelete, "Server", "Delete the server and its game data", []string{ServerOperate}},
+	{ServerView, "Server", "View overview, status, and metrics", []ID{}},
+	{ServerConsoleRead, "Console", "Read logs and live console output", []ID{ServerView}},
+	{ServerOperate, "Server", "Install, start, stop, restart, and kill; includes console reading", []ID{ServerConsoleRead}},
+	{ServerConsoleWrite, "Console", "Send console commands", []ID{ServerOperate}},
+	{ServerConfigure, "Server", "Edit configuration, resource reservations, and backup policy", []ID{ServerOperate}},
+	{ServerReinstall, "Server", "Update or reinstall game files", []ID{ServerOperate}},
+	{ServerFilesRead, "Files", "Browse, read, and download files", []ID{ServerOperate}},
+	{ServerFilesWrite, "Files", "Create, upload, edit, move, archive, extract, and change file permissions", []ID{ServerFilesRead}},
+	{ServerFilesDelete, "Files", "Delete files and folders", []ID{ServerFilesWrite}},
+	{ServerBackupsRead, "Backups", "View backup lists and metadata", []ID{ServerOperate}},
+	{ServerBackupsCreate, "Backups", "Create backups", []ID{ServerBackupsRead}},
+	{ServerBackupsRestore, "Backups", "Restore game files from a backup", []ID{ServerBackupsRead}},
+	{ServerBackupsDownload, "Backups", "Download archives containing server data", []ID{ServerBackupsRead}},
+	{ServerBackupsDelete, "Backups", "Delete backups", []ID{ServerBackupsRead}},
+	{ServerSchedulesRead, "Schedules", "View schedules and execution history", []ID{ServerOperate}},
+	{ServerSchedulesManage, "Schedules", "Create, edit, enable, and remove schedules", []ID{ServerSchedulesRead}},
+	{ServerSchedulesRun, "Schedules", "Run schedules and retry their executions", []ID{ServerSchedulesRead}},
+	{ServerDelete, "Server", "Delete the server and its game data", []ID{ServerOperate}},
 }
 
 // Catalog returns a private copy so consumers cannot change authorization rules.
@@ -47,8 +47,8 @@ func Catalog() []Definition {
 }
 
 // All lists the grants available to server owners.
-func All() []string {
-	result := make([]string, 0, len(server))
+func All() []ID {
+	result := make([]ID, 0, len(server))
 	for _, item := range server {
 		result = append(result, item.ID)
 	}
@@ -57,10 +57,10 @@ func All() []string {
 }
 
 // Valid reports whether an identifier is a supported server grant.
-func Valid(action string) bool { return slices.Contains(All(), action) }
+func Valid(action ID) bool { return slices.Contains(All(), action) }
 
 // Expand adds prerequisite grants, preserving other validated scope names.
-func Expand(actions []string) []string {
+func Expand(actions []ID) []ID {
 	result := slices.Clone(actions)
 	for {
 		before := len(result)
@@ -88,7 +88,7 @@ func Expand(actions []string) []string {
 
 // Restrict removes incomplete grants after intersecting user access and token scopes.
 // It never restores a prerequisite excluded by a token.
-func Restrict(actions []string) []string {
+func Restrict(actions []ID) []ID {
 	result := slices.Clone(actions)
 	for {
 		before := len(result)
@@ -99,7 +99,7 @@ func Restrict(actions []string) []string {
 
 			for _, dependency := range item.Requires {
 				if !slices.Contains(result, dependency) {
-					result = slices.DeleteFunc(result, func(value string) bool { return value == item.ID })
+					result = slices.DeleteFunc(result, func(value ID) bool { return value == item.ID })
 					break
 				}
 			}
@@ -112,8 +112,8 @@ func Restrict(actions []string) []string {
 }
 
 // Legacy converts the old broad grants once during database migration.
-func Legacy(actions []string) []string {
-	result := slices.DeleteFunc(slices.Clone(actions), func(value string) bool { return value == LegacyServerShare })
+func Legacy(actions []ID) []ID {
+	result := slices.DeleteFunc(slices.Clone(actions), func(value ID) bool { return value == LegacyServerShare })
 	if slices.Contains(actions, ServerOperate) {
 		result = append(result, ServerConsoleWrite, ServerFilesDelete, ServerBackupsCreate, ServerBackupsDownload, ServerBackupsRestore, ServerSchedulesRead)
 	}
@@ -129,7 +129,7 @@ func Legacy(actions []string) []string {
 }
 
 // File maps public HTTP and SFTP operations to the same grant.
-func File(operation model.FileOperation) string {
+func File(operation model.FileOperation) ID {
 	switch operation {
 	case model.FileOperationList, model.FileOperationStat, model.FileOperationRead, model.FileOperationReadChunk:
 		return ServerFilesRead
@@ -143,8 +143,8 @@ func File(operation model.FileOperation) string {
 }
 
 // Action maps runtime operations, including scheduled operations, to their grant.
-func Action(action string) string {
-	switch model.ServerAction(action) {
+func Action(action model.ServerAction) ID {
+	switch action {
 	case model.ServerActionInstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill:
 		return ServerOperate
 	case model.ServerActionUpdate, model.ServerActionReinstall:

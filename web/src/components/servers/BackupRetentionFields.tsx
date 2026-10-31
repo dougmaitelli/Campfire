@@ -1,3 +1,5 @@
+import { BackupRetentionLimits } from "../../config/policies";
+import { BackupMode } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import type { BackupRetention } from "../../api/backups";
 import { Fieldset } from "../forms/Fieldset";
@@ -10,7 +12,7 @@ export function BackupRetentionFields({
   value,
   onChange,
 }: {
-  mode: "full" | "savedata";
+  mode: BackupMode;
   value: BackupRetention;
   onChange: (value: BackupRetention) => void;
 }) {
@@ -18,15 +20,35 @@ export function BackupRetentionFields({
   return (
     <Fieldset>
       <legend>
-        {t(mode === "full" ? "backupModes.full" : "backupModes.savedata")}
+        {t(
+          mode === BackupMode.Full
+            ? "backupModes.full"
+            : "backupModes.savedata",
+        )}
       </legend>
       <div className="backup-retention-grid">
         {(
           [
-            ["local_keep_last", "serverDrawer.localCopiesToKeep", 1000],
-            ["local_max_age_days", "serverDrawer.localMaximumAgeDays", 36500],
-            ["remote_keep_last", "serverDrawer.s3CopiesToKeep", 1000],
-            ["remote_max_age_days", "serverDrawer.s3MaximumAgeDays", 36500],
+            [
+              "local_keep_last",
+              "serverDrawer.localCopiesToKeep",
+              BackupRetentionLimits.Copies,
+            ],
+            [
+              "local_max_age_days",
+              "serverDrawer.localMaximumAgeDays",
+              BackupRetentionLimits.AgeDays,
+            ],
+            [
+              "remote_keep_last",
+              "serverDrawer.s3CopiesToKeep",
+              BackupRetentionLimits.Copies,
+            ],
+            [
+              "remote_max_age_days",
+              "serverDrawer.s3MaximumAgeDays",
+              BackupRetentionLimits.AgeDays,
+            ],
           ] as const
         ).map(([key, label, max]) => (
           <FormField key={key} label={t(label)}>

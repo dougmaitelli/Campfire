@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 )
@@ -24,7 +25,7 @@ func validateSettings(settings *model.SparkSettings) error {
 
 	settings.GameAddress = address
 
-	if math.IsNaN(settings.CPULimit) || math.IsInf(settings.CPULimit, 0) || settings.CPULimit < 0 || settings.CPULimit > 1024 ||
+	if math.IsNaN(settings.CPULimit) || math.IsInf(settings.CPULimit, 0) || settings.CPULimit < 0 || settings.CPULimit > limits.MaxCPU ||
 		settings.MemoryMB < 0 || settings.MemoryMB > 9007199254740991 || settings.DiskMB < 0 || settings.DiskMB > 9007199254740991 {
 		return fmt.Errorf("%w: CPU must be 0–1024 cores; memory and disk must be nonnegative whole MiB", ErrInvalidSettings)
 	}
@@ -48,8 +49,8 @@ func validateSettings(settings *model.SparkSettings) error {
 		ip = ip.Unmap()
 
 		allocation.BindIP = ip.String()
-		if allocation.Start < 1 || allocation.End > 65535 || allocation.End < allocation.Start ||
-			(allocation.Protocol != "tcp" && allocation.Protocol != "udp") {
+		if allocation.Start < limits.MinPort || allocation.End > limits.MaxPort || allocation.End < allocation.Start ||
+			(allocation.Protocol != model.NetworkTCP && allocation.Protocol != model.NetworkUDP) {
 			return fmt.Errorf("%w: allocation ports must be 1–65535 with start ≤ end, using TCP or UDP", ErrInvalidSettings)
 		}
 

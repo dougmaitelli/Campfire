@@ -1,5 +1,7 @@
+import { isEnumValue } from "../utils/validation";
+import { NetworkProtocol } from "../contracts/domains";
 import i18n from "../i18n";
-import { apiFetch, readJSON } from "./client";
+import { apiFetch, readJSON, apiJSON } from "./client";
 
 const SPARK_UPDATE_REQUEST_TIMEOUT_MS = 330000;
 const SPARK_PRUNE_REQUEST_TIMEOUT_MS = 330000;
@@ -8,7 +10,7 @@ export interface PortAllocation {
   bind_ip: string;
   start: number;
   end: number;
-  protocol: "tcp" | "udp";
+  protocol: NetworkProtocol;
 }
 
 export interface SparkSettings {
@@ -98,7 +100,7 @@ function isAllocation(value: unknown): value is PortAllocation {
     typeof value.end === "number" &&
     Number.isInteger(value.end) &&
     "protocol" in value &&
-    (value.protocol === "tcp" || value.protocol === "udp")
+    isEnumValue(NetworkProtocol, value.protocol)
   );
 }
 
@@ -116,11 +118,7 @@ export async function listSparks(signal: AbortSignal): Promise<Spark[]> {
 }
 
 export async function createSpark(input: CreateSparkInput): Promise<Spark> {
-  const response = await apiFetch("/api/v1/sparks", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+  const response = await apiJSON("/api/v1/sparks", input, { method: "POST" });
   const body = await readResponse(response);
   if (!isSpark(body)) {
     throw new Error(i18n.t("sparks.unexpectedResponseWhileAddingTheSpark"));
@@ -132,11 +130,11 @@ export async function updateSpark(
   id: string,
   input: Partial<CreateSparkInput>,
 ): Promise<Spark> {
-  const response = await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+  const response = await apiJSON(
+    `/api/v1/sparks/${encodeURIComponent(id)}`,
+    input,
+    { method: "PATCH" },
+  );
   const body = await readResponse(response);
   if (!isSpark(body))
     throw new Error(i18n.t("sparks.unexpectedResponseWhileUpdatingTheSpark"));
@@ -158,12 +156,14 @@ export interface SparkPruneResult {
 
 export async function pruneSpark(id: string): Promise<SparkPruneResult> {
   const result = await readJSON(
-    await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}/prune`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-      signal: AbortSignal.timeout(SPARK_PRUNE_REQUEST_TIMEOUT_MS),
-    }),
+    await apiJSON(
+      `/api/v1/sparks/${encodeURIComponent(id)}/prune`,
+      {},
+      {
+        method: "POST",
+        signal: AbortSignal.timeout(SPARK_PRUNE_REQUEST_TIMEOUT_MS),
+      },
+    ),
   );
   if (
     !result ||
@@ -185,12 +185,14 @@ export async function updateSparkClient(
   force = false,
 ): Promise<void> {
   await readJSON(
-    await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}/update`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(force ? { version, force: true } : { version }),
-      signal: AbortSignal.timeout(SPARK_UPDATE_REQUEST_TIMEOUT_MS),
-    }),
+    await apiJSON(
+      `/api/v1/sparks/${encodeURIComponent(id)}/update`,
+      force ? { version, force: true } : { version },
+      {
+        method: "POST",
+        signal: AbortSignal.timeout(SPARK_UPDATE_REQUEST_TIMEOUT_MS),
+      },
+    ),
   );
 }
 
@@ -205,11 +207,11 @@ export async function createSparkEnrollment(
   id: string,
 ): Promise<SparkEnrollment> {
   const body = await readResponse(
-    await apiFetch(`/api/v1/sparks/${encodeURIComponent(id)}/enrollment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    }),
+    await apiJSON(
+      `/api/v1/sparks/${encodeURIComponent(id)}/enrollment`,
+      {},
+      { method: "POST" },
+    ),
   );
   if (
     typeof body !== "object" ||

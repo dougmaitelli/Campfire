@@ -8,6 +8,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/recurrence"
+	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
@@ -78,7 +79,7 @@ func (r *ActivityRepository) SaveSchedule(ctx context.Context, item *database.Sc
 }
 
 // SetScheduleEnabled changes only scheduling state and execution ownership.
-func (r *ActivityRepository) SetScheduleEnabled(ctx context.Context, id, serverID string, enabled bool, userID int64, scopes ...[]string) (database.Schedule, error) {
+func (r *ActivityRepository) SetScheduleEnabled(ctx context.Context, id, serverID string, enabled bool, userID int64, scopes ...[]model.PermissionID) (database.Schedule, error) {
 	var item database.Schedule
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -146,7 +147,7 @@ func (r *ActivityRepository) DueAfter(ctx context.Context, now time.Time, after 
 
 // ClaimSchedule snapshots the current definition and atomically consumes its due occurrence.
 // A non-nil actor requests an immediate attempt, including for a paused schedule.
-func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now time.Time, actor *int64, scopes ...[]string) (database.ScheduleRun, error) {
+func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now time.Time, actor *int64, scopes ...[]model.PermissionID) (database.ScheduleRun, error) {
 	var run database.ScheduleRun
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -160,7 +161,7 @@ func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now t
 		}
 
 		var active int64
-		if err := tx.Model(&database.ScheduleRun{}).Where("schedule_id = ? AND state IN ('dispatching','running')", id).Count(&active).Error; err != nil {
+		if err := tx.Model(&database.ScheduleRun{}).Where("schedule_id = ? AND state IN ?", id, []model.ExecutionState{model.ExecutionDispatching, model.ExecutionRunning}).Count(&active).Error; err != nil {
 			return err
 		}
 
@@ -184,10 +185,10 @@ func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now t
 			return err
 		}
 
-		run = database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, OnlyWhenRunning: item.OnlyWhenRunning, Recurring: actor == nil && item.CronExpression != "", ServerID: item.ServerID, ServerName: server.Name, UserID: userID, Username: username, Action: item.Action, Content: item.Command, State: "dispatching", CreatedAt: now.Unix(), StartedAt: now.Unix()}
+		run = database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, OnlyWhenRunning: item.OnlyWhenRunning, Recurring: actor == nil && item.CronExpression != "", ServerID: item.ServerID, ServerName: server.Name, UserID: userID, Username: username, Action: item.Action, Content: item.Command, State: model.ExecutionDispatching, CreatedAt: now.Unix(), StartedAt: now.Unix()}
 		run.AuthorizationScopes = item.AuthorizationScopes
 
-		if item.Action == "backup" {
+		if item.Action == model.ServerActionBackup {
 			run.BackupMode = item.BackupMode.Normalized()
 		}
 
@@ -278,7 +279,7 @@ func (r *ActivityRepository) runs(ctx context.Context, userID int64, admin bool,
 // Pending returns a bounded batch for the single panel worker.
 func (r *ActivityRepository) Pending(ctx context.Context) ([]database.ScheduleRun, error) {
 	items := []database.ScheduleRun{}
-	err := r.db.WithContext(ctx).Where("state = 'running'").Order("polled_at, created_at, id").Limit(100).Find(&items).Error
+	err := r.db.WithContext(ctx).Where("state = ?", model.ExecutionRunning).Order("polled_at, created_at, id").Limit(100).Find(&items).Error
 
 	return items, err
 }
@@ -289,23 +290,23 @@ func (r *ActivityRepository) TouchRun(ctx context.Context, id string) error {
 }
 
 // UpdateRun transitions an execution without allowing a terminal result to be overwritten.
-func (r *ActivityRepository) UpdateRun(ctx context.Context, id, state, message string, now time.Time) error {
+func (r *ActivityRepository) UpdateRun(ctx context.Context, id string, state model.ExecutionState, message string, now time.Time) error {
 	updates := map[string]any{"state": state, "message": message}
 	switch state {
-	case "running", "dispatching":
+	case model.ExecutionRunning, model.ExecutionDispatching:
 		updates["started_at"] = now.Unix()
 	default:
 		updates["finished_at"] = now.Unix()
 		updates["content"] = ""
 	}
 
-	return r.db.WithContext(ctx).Model(&database.ScheduleRun{}).Where("id = ? AND state IN ('dispatching','running')", id).Updates(updates).Error
+	return r.db.WithContext(ctx).Model(&database.ScheduleRun{}).Where("id = ? AND state IN ?", id, []model.ExecutionState{model.ExecutionDispatching, model.ExecutionRunning}).Updates(updates).Error
 }
 
 // FinishRun atomically retains a terminal result and its audit record exactly once.
-func (r *ActivityRepository) FinishRun(ctx context.Context, run database.ScheduleRun, state, message string, now time.Time) error {
+func (r *ActivityRepository) FinishRun(ctx context.Context, run database.ScheduleRun, state model.ExecutionState, message string, now time.Time) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		result := tx.Model(&database.ScheduleRun{}).Where("id = ? AND state IN ('dispatching','running')", run.ID).Updates(map[string]any{"state": state, "message": message, "finished_at": now.Unix(), "content": ""})
+		result := tx.Model(&database.ScheduleRun{}).Where("id = ? AND state IN ?", run.ID, []model.ExecutionState{model.ExecutionDispatching, model.ExecutionRunning}).Updates(map[string]any{"state": state, "message": message, "finished_at": now.Unix(), "content": ""})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -325,24 +326,24 @@ func (r *ActivityRepository) FinishRun(ctx context.Context, run database.Schedul
 			return err
 		}
 
-		return tx.Create(&database.AuditEvent{ID: rand.Text(), UserID: actorID, Username: run.Username, Action: "server." + run.Action, Target: "server:" + run.ServerID, Outcome: state, CreatedAt: now.Unix()}).Error
+		return tx.Create(&database.AuditEvent{ID: rand.Text(), UserID: actorID, Username: run.Username, Action: model.ResourceAuditAction("server", string(run.Action)), Target: "server:" + run.ServerID, Outcome: model.AuditOutcome(state), CreatedAt: now.Unix()}).Error
 	})
 }
 
 // Recover marks uncertain in-flight operations explicitly instead of replaying mutations.
 func (r *ActivityRepository) Recover(ctx context.Context, now time.Time) error {
 	var runs []database.ScheduleRun
-	if err := r.db.WithContext(ctx).Where("state IN ('running','dispatching')").Find(&runs).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("state IN ?", []model.ExecutionState{model.ExecutionRunning, model.ExecutionDispatching}).Find(&runs).Error; err != nil {
 		return err
 	}
 
 	for _, run := range runs {
-		if err := r.FinishRun(ctx, run, "interrupted", "Panel restarted; verify server state before retrying.", now); err != nil {
+		if err := r.FinishRun(ctx, run, model.ExecutionInterrupted, "Panel restarted; verify server state before retrying.", now); err != nil {
 			return err
 		}
 	}
 
-	return r.db.WithContext(ctx).Model(&database.AuditEvent{}).Where("outcome = 'pending'").Update("outcome", "interrupted").Error
+	return r.db.WithContext(ctx).Model(&database.AuditEvent{}).Where("outcome = ?", model.AuditPending).Update("outcome", model.AuditInterrupted).Error
 }
 
 // BeginAudit durably records intent before an authenticated mutation.

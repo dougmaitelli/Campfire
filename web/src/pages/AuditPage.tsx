@@ -1,3 +1,4 @@
+import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -43,7 +44,10 @@ export function AuditPage() {
         return;
       }
       await listAudit(
-        AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+        AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(API_READ_TIMEOUT_MS),
+        ]),
         "",
         filters.action,
         filters.target,
@@ -93,7 +97,7 @@ export function AuditPage() {
     setBusy(true);
     try {
       const next = await listAudit(
-        AbortSignal.timeout(15000),
+        AbortSignal.timeout(API_READ_TIMEOUT_MS),
         activityCursor(items.at(-1)),
         filters.action,
         filters.target,

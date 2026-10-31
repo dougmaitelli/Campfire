@@ -1,10 +1,11 @@
 package service
 
 import (
-	"campfire/internal/shared/model"
 	"context"
 	"errors"
 	"time"
+
+	"campfire/internal/shared/model"
 )
 
 // FileDispatcher delivers file operations to an authenticated Spark agent.
@@ -26,7 +27,7 @@ func (s *DeploymentService) Files(ctx context.Context, id string, request model.
 	// Only panel configuration can set the limit sent to Spark, never API input.
 	request.UploadLimit = s.UploadLimit()
 	if request.Operation == model.FileOperationUploadBegin && (request.Size < -1 || request.Size > request.UploadLimit) || request.Operation == model.FileOperationUploadChunk && (request.Offset < 0 || request.Offset > request.UploadLimit-int64(len(request.Data))) {
-		return model.FileResult{}, &model.FileError{Code: "file_limit", Message: "Upload exceeds the configured maximum file size."}
+		return model.FileResult{}, &model.FileError{Code: model.FileLimitExceeded, Message: "Upload exceeds the configured maximum file size."}
 	}
 
 	timeout := 10 * time.Second

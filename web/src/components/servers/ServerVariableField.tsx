@@ -1,3 +1,4 @@
+import { VariableType } from "../../contracts/domains";
 import type { EmberVariable } from "../../api/embers";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
@@ -16,7 +17,7 @@ export function ServerVariableField({
 }) {
   return (
     <FormField label={variable.name}>
-      {variable.validation?.type === "boolean" ? (
+      {variable.validation?.type === VariableType.Boolean ? (
         <ToggleSwitch
           id={`variable-${variable.name}`}
           aria-label={variable.name}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
@@ -17,7 +18,7 @@ type consoleSubscription struct {
 }
 
 func (p *peer) consoleFrame(frame *protocol.ConsoleFrame) bool {
-	if frame == nil || frame.ID == "" || len(frame.ID) > 128 || len(frame.Event.Content) > 8192 || len(frame.Event.Error) > 256 {
+	if frame == nil || frame.ID == "" || len(frame.ID) > limits.ConsoleStreamIDLength || len(frame.Event.Content) > limits.ConsoleFrameBytes || len(frame.Event.Error) > limits.ConsoleErrorBytes {
 		return false
 	}
 
