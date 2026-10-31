@@ -147,7 +147,7 @@
     "setUpYourAdministrator": "Set up your administrator",
     "signIn": "Sign in",
     "signInToAccessYourGameServers": "Sign in to access your game servers.",
-    "signInWithOpenIDConnect": "Sign in with OpenID Connect",
+    "signInWithOpenIDConnect": "Sign in with OIDC",
     "thePasswordsDoNotMatch": "The passwords do not match.",
     "unableToSignIn": "Unable to sign in.",
     "useAtLeast15CharactersSpacesAndPassphrasesAreWelcome": "Use at least 15 characters. Spaces and passphrases are welcome.",

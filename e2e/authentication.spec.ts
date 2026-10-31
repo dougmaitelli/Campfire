@@ -43,7 +43,7 @@ for (const localLogin of [false, true]) {
     );
     await page.goto("/");
     const provider = page.getByRole("link", {
-      name: "Sign in with OpenID Connect",
+      name: "Sign in with OIDC",
     });
     await expect(provider).toHaveAttribute("href", "/api/v1/auth/oidc/start");
     await expect(page.getByLabel("Username", { exact: true })).toHaveCount(
@@ -100,7 +100,7 @@ test("administrator setup keeps all fields accessible on desktop and mobile", as
     page.getByRole("heading", { name: "Set up your administrator" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Sign in with OpenID Connect" }),
+    page.getByRole("link", { name: "Sign in with OIDC" }),
   ).toHaveCount(0);
   await screenshot(page, "login-setup.png");
   await page.setViewportSize({ width: 375, height: 812 });
