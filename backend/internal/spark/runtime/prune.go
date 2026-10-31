@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 var dockerImageID = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
@@ -59,7 +60,7 @@ func (m *Manager) Prune(ctx context.Context) (model.PruneResult, error) {
 	}
 
 	for _, dir := range dirs {
-		if !dir.IsDir() || !safeID.MatchString(dir.Name()) {
+		if !dir.IsDir() || !utils.IsValidResourceID(dir.Name()) {
 			continue
 		}
 
@@ -92,7 +93,7 @@ func (m *Manager) Prune(ctx context.Context) (model.PruneResult, error) {
 		}
 
 		var row struct{ ID, Names, State string }
-		if json.Unmarshal([]byte(line), &row) != nil || !safeID.MatchString(row.ID) {
+		if json.Unmarshal([]byte(line), &row) != nil || !utils.IsValidResourceID(row.ID) {
 			return result, errors.New("invalid Docker container inventory")
 		}
 
@@ -142,7 +143,7 @@ func (m *Manager) Prune(ctx context.Context) (model.PruneResult, error) {
 	}
 
 	for _, volume := range strings.Fields(output) {
-		if !safeID.MatchString(volume) {
+		if !utils.IsValidResourceID(volume) {
 			return result, errors.New("invalid Docker volume inventory")
 		}
 

@@ -6,12 +6,11 @@ test("Spark features group related capabilities and report partial support", asy
 }) => {
   await login(page);
   const capabilities = [
-    "server.startup-override.v1",
     "server.game-media.v1",
     "server.game-events.v1",
     "server.game-integration.v1",
     "spark.prune.v1",
-    "server.configure.v1",
+    "server.configure.v2",
     "server.lifecycle.v1",
     "server.files.v1",
     "server.files.permissions.v1",
@@ -65,9 +64,9 @@ test("Spark features group related capabilities and report partial support", asy
     exact: true,
   });
   await expect(
-    features.getByRole("heading", { name: "Features (17/17)", exact: true }),
+    features.getByRole("heading", { name: "Features (16/16)", exact: true }),
   ).toBeVisible();
-  await expect(features.getByRole("listitem")).toHaveCount(17);
+  await expect(features.getByRole("listitem")).toHaveCount(16);
   await page.setViewportSize({ width: 1400, height: 1400 });
   await features.scrollIntoViewIfNeeded();
   await prepareScreenshot(page);
@@ -85,7 +84,7 @@ test("Spark features group related capabilities and report partial support", asy
   await page.reload();
   await details.click();
   await expect(
-    features.getByRole("heading", { name: "Features (14/17)", exact: true }),
+    features.getByRole("heading", { name: "Features (13/16)", exact: true }),
   ).toBeVisible();
   for (const label of [
     "File management",

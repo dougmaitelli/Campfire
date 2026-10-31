@@ -11,9 +11,9 @@ type ServerTransfer struct {
 	TargetSparkID       string                    `gorm:"type:text;not null;index" json:"target_spark_id"`
 	SourceConfiguration model.ServerConfiguration `gorm:"serializer:json;type:text;not null" json:"-"`
 	TargetConfiguration model.ServerConfiguration `gorm:"serializer:json;type:text;not null" json:"-"`
-	Phase               string                    `gorm:"type:text;not null;index" json:"phase"`
-	ResumePhase         string                    `gorm:"type:text;not null;default:''" json:"-"`
-	CancelFrom          string                    `gorm:"type:text;not null;default:''" json:"-"`
+	Phase               model.TransferPhase       `gorm:"type:text;not null;index" json:"phase"`
+	ResumePhase         model.TransferPhase       `gorm:"type:text;not null;default:''" json:"-"`
+	CancelFrom          model.TransferPhase       `gorm:"type:text;not null;default:''" json:"-"`
 	Active              bool                      `gorm:"not null;index" json:"active"`
 	Error               string                    `gorm:"type:text;not null;default:''" json:"error"`
 	TransferredBytes    int64                     `gorm:"not null;default:0" json:"transferred_bytes"`

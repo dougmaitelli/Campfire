@@ -1,5 +1,53 @@
 package model
 
+// RuntimeState describes the server state exposed by Spark and the panel.
+type RuntimeState string
+
+// Runtime states are separate from Docker's container inspection states.
+const (
+	RuntimeStateNotInstalled RuntimeState = "not_installed"
+	RuntimeStateInstalling   RuntimeState = "installing"
+	RuntimeStateUpdating     RuntimeState = "updating"
+	RuntimeStateReinstalling RuntimeState = "reinstalling"
+	RuntimeStateStarting     RuntimeState = "starting"
+	RuntimeStateRunning      RuntimeState = "running"
+	RuntimeStateStopping     RuntimeState = "stopping"
+	RuntimeStateStopped      RuntimeState = "stopped"
+	RuntimeStateRestarting   RuntimeState = "restarting"
+	RuntimeStateDeleting     RuntimeState = "deleting"
+	RuntimeStateDeleted      RuntimeState = "deleted"
+	RuntimeStateUnknown      RuntimeState = "unknown"
+	RuntimeStateOffline      RuntimeState = "offline"
+	RuntimeStateCreated      RuntimeState = "created"
+	RuntimeStatePaused       RuntimeState = "paused"
+	RuntimeStateExited       RuntimeState = "exited"
+	RuntimeStateDead         RuntimeState = "dead"
+	RuntimeStateRemoving     RuntimeState = "removing"
+	RuntimeStateMissing      RuntimeState = "missing"
+)
+
+// ServerAction identifies a lifecycle operation or runtime inspection.
+type ServerAction string
+
+// Server actions keep their JSON values across panel and Spark transports.
+const (
+	ServerActionInstall   ServerAction = "install"
+	ServerActionUpdate    ServerAction = "update"
+	ServerActionReinstall ServerAction = "reinstall"
+	ServerActionStart     ServerAction = "start"
+	ServerActionStop      ServerAction = "stop"
+	ServerActionRestart   ServerAction = "restart"
+	ServerActionKill      ServerAction = "kill"
+	ServerActionDelete    ServerAction = "delete"
+	ServerActionStatus    ServerAction = "status"
+	ServerActionLogs      ServerAction = "logs"
+	ServerActionCommand   ServerAction = "command"
+	ServerActionMetrics   ServerAction = "metrics"
+	ServerActionBackup    ServerAction = "backup"
+	ServerActionRestore   ServerAction = "restore"
+	ServerActionTransfer  ServerAction = "transfer"
+)
+
 // OperationState identifies the lifecycle state of an asynchronous operation.
 type OperationState string
 
@@ -27,7 +75,7 @@ const (
 // RuntimeRequest identifies a server lifecycle operation; status is read-only.
 type RuntimeRequest struct {
 	ServerID     string        `json:"server_id"`
-	Action       string        `json:"action"`
+	Action       ServerAction  `json:"action"`
 	OperationID  string        `json:"operation_id,omitempty"`
 	Content      string        `json:"content,omitempty"`
 	BackupSource *BackupSource `json:"backup_source,omitempty"`
@@ -36,10 +84,10 @@ type RuntimeRequest struct {
 // RuntimeStatus reports observed state and the latest asynchronous operation.
 type RuntimeStatus struct {
 	ServerID           string           `json:"server_id"`
-	State              string           `json:"state"`
+	State              RuntimeState     `json:"state"`
 	Ready              bool             `json:"ready"`
 	OperationID        string           `json:"operation_id,omitempty"`
-	Operation          string           `json:"operation,omitempty"`
+	Operation          ServerAction     `json:"operation,omitempty"`
 	OperationState     OperationState   `json:"operation_state,omitempty"`
 	Progress           string           `json:"progress,omitempty"`
 	Error              string           `json:"error,omitempty"`

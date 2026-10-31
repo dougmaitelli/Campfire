@@ -47,7 +47,7 @@ func cleanPath(value string) (string, error) {
 // Files keeps small editable game files in SQLite, never on the host filesystem.
 // Directory keys end in a slash; game-file keys do not.
 func (r *Runtime) Files(ctx context.Context, spark string, request model.FileRequest) (model.FileResult, error) {
-	if request.Operation == "upload.chunk" || request.Operation == "upload.commit" {
+	if request.Operation == model.FileOperationUploadChunk || request.Operation == model.FileOperationUploadCommit {
 		timer := time.NewTimer(250 * time.Millisecond)
 		defer timer.Stop()
 
@@ -66,7 +66,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		return model.FileResult{}, err
 	}
 
-	if strings.HasPrefix(request.Operation, "backup.") {
+	if request.Operation.IsBackup() {
 		return r.backupFiles(ctx, record, request)
 	}
 
@@ -76,7 +76,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 	}
 
 	result := model.FileResult{ServerID: request.ServerID, Path: name}
-	if strings.HasPrefix(request.Operation, "upload.") {
+	if request.Operation.IsUpload() {
 		return r.uploadFile(record, request, result)
 	}
 
@@ -92,7 +92,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 	}
 
 	switch request.Operation {
-	case "list":
+	case model.FileOperationList:
 		if !directory {
 			return result, fileError("file_not_found", "Directory not found.")
 		}
@@ -122,7 +122,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		sort.Slice(result.Entries, func(i, j int) bool { return result.Entries[i].Name < result.Entries[j].Name })
 
 		return result, nil
-	case "read", "stat", "read.chunk":
+	case model.FileOperationRead, model.FileOperationStat, model.FileOperationReadChunk:
 		data = mockFileContent(data)
 
 		if !exists {
@@ -135,9 +135,9 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		switch request.Operation {
-		case "read":
+		case model.FileOperationRead:
 			result.Data = []byte(data)
-		case "read.chunk":
+		case model.FileOperationReadChunk:
 			if request.Offset < 0 || request.Offset > int64(len(data)) {
 				return result, fileError("invalid_file", "Invalid file offset.")
 			}
@@ -146,7 +146,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		return result, nil
-	case "write":
+	case model.FileOperationWrite:
 		expected := "absent"
 		if exists {
 			expected = revision(data)
@@ -172,7 +172,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		result.Revision = revision(string(request.Data))
-	case "mkdir":
+	case model.FileOperationMkdir:
 		if exists || directory || len(record.Files) >= 256 {
 			return result, fileError("file_conflict", "Directory already exists or mock file limit reached.")
 		}
@@ -184,13 +184,13 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		record.Files[name+"/"] = ""
-	case "chmod":
+	case model.FileOperationChmod:
 		if name == "." || !exists && !directory || request.Mode > 0777 {
 			return result, fileError("invalid_file", "Select a file or folder and permissions between 000 and 777 (octal).")
 		}
 
 		record.FileModes[name] = request.Mode
-	case "delete":
+	case model.FileOperationDelete:
 		if name == "." {
 			return result, fileError("invalid_file", "The server root cannot be deleted.")
 		}
@@ -213,7 +213,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		}
 
 		delete(record.FileModes, name)
-	case "rename":
+	case model.FileOperationRename:
 		destination, err := cleanPath(request.Destination)
 		if err != nil {
 			return result, err

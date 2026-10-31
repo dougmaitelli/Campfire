@@ -381,7 +381,7 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 		path := "config.files." + name
 
 		var file struct {
-			Parser string                     `json:"parser"`
+			Parser model.ConfigParser         `json:"parser"`
 			Find   map[string]json.RawMessage `json:"find"`
 		}
 		if err := strictDefinition(files[name], &file); err != nil {
@@ -390,10 +390,10 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 		}
 
 		if file.Parser == "yml" {
-			file.Parser = "yaml"
+			file.Parser = model.ConfigParserYAML
 		}
 
-		if !slices.Contains([]string{"properties", "json", "yaml", "ini", "file"}, file.Parser) {
+		if !slices.Contains([]model.ConfigParser{model.ConfigParserProperties, model.ConfigParserJSON, model.ConfigParserYAML, model.ConfigParserINI, model.ConfigParserFile}, file.Parser) {
 			report.fail(path+".parser", "Supported parsers are properties, JSON, YAML, INI and file.")
 			continue
 		}
@@ -413,7 +413,7 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 				continue
 			}
 
-			if (file.Parser == "json" || file.Parser == "yaml") && len(value) > 0 && value[0] == '"' {
+			if (file.Parser == model.ConfigParserJSON || file.Parser == model.ConfigParserYAML) && len(value) > 0 && value[0] == '"' {
 				config.Strings = append(config.Strings, key)
 			}
 

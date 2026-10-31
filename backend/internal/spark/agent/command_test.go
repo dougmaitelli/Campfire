@@ -21,8 +21,8 @@ import (
 func deploymentFixture(id, server string) model.Deployment {
 	return model.Deployment{
 		ServerID:      server,
-		Configuration: model.ServerConfiguration{Name: "Game", SparkID: id, EmberID: "ember", Image: "alpine:3.22", CPULimit: 1, MemoryMB: 128, DiskMB: 1024, Variables: map[string]string{"PASSWORD": "private-value"}, Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565, ContainerPort: 25565, Protocol: "tcp"}}},
-		Ember:         model.Ember{ID: "ember", Schema: 1, Name: "Game", Images: map[string]string{"Alpine": "alpine:3.22"}, Startup: "sleep 3600", WorkDir: "/home/container", User: "1000:1000", Variables: []model.Variable{{Name: "PASSWORD", Required: true}}, Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo install"}},
+		Configuration: model.RuntimeConfiguration{SparkID: id, EmberID: "ember", Image: "alpine:3.22", CPULimit: 1, MemoryMB: 128, DiskMB: 1024, Variables: map[string]string{"PASSWORD": "private-value"}, Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565, ContainerPort: 25565, Protocol: "tcp"}}},
+		Ember:         model.RuntimeDefinition{Startup: "sleep 3600", WorkDir: "/home/container", User: "1000:1000", Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo install"}},
 	}
 }
 
@@ -36,24 +36,23 @@ func TestConfigurationAllowsNoPorts(t *testing.T) {
 	}
 }
 
-func TestConfigurationValidatesNamedStartupSelection(t *testing.T) {
+func TestConfigurationValidatesResolvedStartup(t *testing.T) {
 	d := deploymentFixture("node", "game")
-	d.Ember.Startup = ""
-	d.Ember.StartupCommands = map[string]string{"Normal": "sleep 3600", "Debug": "echo debug; sleep 3600"}
+	d.Ember.Startup = "sleep {{MISSING}}"
 
 	store := &ConfigurationStore{Directory: t.TempDir()}
 	if _, err := store.Deploy(t.Context(), "node", d); err == nil {
-		t.Fatal("missing startup selection was accepted by the node")
+		t.Fatal("unknown startup environment variable was accepted by the node")
 	}
 
-	d.Configuration.StartupCommand = "removed"
+	d.Ember.Startup = "sleep 3600\x00"
 	if _, err := store.Deploy(t.Context(), "node", d); err == nil {
-		t.Fatal("unknown startup selection was accepted by the node")
+		t.Fatal("startup containing a null character was accepted by the node")
 	}
 
-	d.Configuration.StartupCommand = "Debug"
+	d.Ember.Startup = "echo debug; sleep 3600"
 	if _, err := store.Deploy(t.Context(), "node", d); err != nil {
-		t.Fatal("valid startup selection was rejected", err)
+		t.Fatal("resolved startup was rejected", err)
 	}
 }
 
@@ -175,18 +174,19 @@ func TestConfigurationIdempotencyAndValidation(t *testing.T) {
 	}
 }
 
-func TestEggRulesEnforcedOnSpark(t *testing.T) {
+func TestExecutionEnvironmentValidatedOnSpark(t *testing.T) {
 	store := &ConfigurationStore{Directory: t.TempDir()}
-	d := deploymentFixture("node", "egg-rules")
-	d.Ember.Variables = []model.Variable{{Name: "PLAYERS", Default: "20", Required: true, Editable: true, Validation: &model.VariableValidation{Type: "integer", Min: new(float64(1)), Max: new(float64(128))}}}
 
-	d.Configuration.Variables = map[string]string{"PLAYERS": "129"}
-	if _, err := store.Deploy(context.Background(), "node", d); err == nil {
-		t.Fatal("Spark ignored imported maximum")
+	d := deploymentFixture("node", "environment")
+	for name, value := range map[string]string{"INVALID=KEY": "value", "STARTUP": "injected", "PASSWORD": "nul\x00value"} {
+		d.Configuration.Variables = map[string]string{name: value}
+		if _, err := store.Deploy(t.Context(), "node", d); err == nil {
+			t.Fatal("invalid execution environment accepted", name)
+		}
 	}
 
-	d.Configuration.Variables["PLAYERS"] = "20"
+	d.Configuration.Variables = map[string]string{"PASSWORD": "literal $(value)"}
 	if _, err := store.Deploy(context.Background(), "node", d); err != nil {
-		t.Fatal("valid imported constraints rejected", err)
+		t.Fatal("literal environment value rejected", err)
 	}
 }

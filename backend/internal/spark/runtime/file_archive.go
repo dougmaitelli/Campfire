@@ -23,7 +23,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 
 	sources := []string{q.Path}
 	if len(q.Paths) > 0 {
-		if q.Operation != "compress" || len(q.Paths) > 1000 {
+		if q.Operation != model.FileOperationCompress || len(q.Paths) > 1000 {
 			return result, fileFailure("invalid_file", "Select at most 1,000 archive items.")
 		}
 
@@ -70,7 +70,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 
 	var err error
 
-	if q.Operation == "compress" {
+	if q.Operation == model.FileOperationCompress {
 		if !strings.HasSuffix(q.Destination, ".tar.gz") {
 			return result, fileFailure("invalid_file", "Compressed archives must end in .tar.gz.")
 		}

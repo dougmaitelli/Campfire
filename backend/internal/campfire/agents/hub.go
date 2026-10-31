@@ -214,7 +214,7 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var hello protocol.Message
-	if err := conn.ReadJSON(&hello); err != nil || hello.Type != "hello" || hello.SparkID != id || len(hello.Hostname) > 253 || len(hello.Version) > 128 {
+	if err := conn.ReadJSON(&hello); err != nil || hello.Type != protocol.MessageTypeHello || hello.SparkID != id || len(hello.Hostname) > 253 || len(hello.Version) > 128 {
 		return
 	}
 
@@ -231,7 +231,7 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := conn.WriteJSON(protocol.Message{Type: "welcome", Protocol: version, Capabilities: capabilities}); err != nil {
+	if err := conn.WriteJSON(protocol.Message{Type: protocol.MessageTypeWelcome, Protocol: version, Capabilities: capabilities}); err != nil {
 		return
 	}
 
@@ -288,7 +288,7 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				outgoing = protocol.Message{Type: "heartbeat", Protocol: version}
+				outgoing = protocol.Message{Type: protocol.MessageTypeHeartbeat, Protocol: version}
 			}
 
 			if err := conn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
@@ -314,16 +314,16 @@ func (h *Hub) connect(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch message.Type {
-		case "heartbeat":
-		case "game.publish":
+		case protocol.MessageTypeHeartbeat:
+		case protocol.MessageTypeGamePublish:
 			if h.gameFrame(ctx, id, current, message.Game) != nil {
 				return
 			}
-		case "console":
+		case protocol.MessageTypeConsole:
 			if protocol.Require(capabilities, protocol.CapabilityConsole) != nil || !current.consoleFrame(message.Console) {
 				return
 			}
-		case "response":
+		case protocol.MessageTypeResponse:
 			if message.Response == nil || message.Response.ID == "" || !validResponse(*message.Response) {
 				return
 			}
@@ -387,7 +387,7 @@ func (h *Hub) CheckCapabilities(id string, required ...string) error {
 // CheckRuntime validates lifecycle features before configuration delivery.
 func (h *Hub) CheckRuntime(id string, request model.RuntimeRequest) error {
 	required := protocol.RequiredCapabilities(protocol.Command{Name: protocol.ServerAction, Runtime: &request})
-	if request.Action != "status" && request.Action != "logs" && request.Action != "command" && request.Action != "metrics" {
+	if request.Action != model.ServerActionStatus && request.Action != model.ServerActionLogs && request.Action != model.ServerActionCommand && request.Action != model.ServerActionMetrics {
 		required = append(required, protocol.CapabilityConfigure)
 	}
 

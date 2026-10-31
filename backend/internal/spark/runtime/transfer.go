@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 type localTransfer struct {
@@ -35,7 +36,7 @@ func (m *Manager) localTransfer(id string) (*localTransfer, error) {
 		return nil, errors.New("invalid transfer state; operator recovery required")
 	}
 
-	if !safeID.MatchString(transfer.ID) || transfer.ServerID != id || (transfer.Role != "source" && transfer.Role != "target") {
+	if !utils.IsValidResourceID(transfer.ID) || transfer.ServerID != id || (transfer.Role != "source" && transfer.Role != "target") {
 		return nil, errors.New("invalid transfer identity")
 	}
 
@@ -79,7 +80,7 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 		return model.TransferResult{}, err
 	}
 
-	if !safeID.MatchString(q.ID) || !safeID.MatchString(q.ServerID) || d.ServerID != q.ServerID || len(q.Data) > model.FileLimit || q.Offset < 0 {
+	if !utils.IsValidResourceID(q.ID) || !utils.IsValidResourceID(q.ServerID) || d.ServerID != q.ServerID || len(q.Data) > model.FileLimit || q.Offset < 0 {
 		return model.TransferResult{}, errors.New("invalid transfer request")
 	}
 
@@ -97,9 +98,9 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 	}
 
 	if t != nil && t.ID != q.ID {
-		newSource := q.Operation == "export" && (t.State == "active" || t.State == "released")
+		newSource := q.Operation == model.TransferOperationExport && (t.State == model.TransferStateActive || t.State == model.TransferStateReleased)
 
-		newTarget := q.Operation == "prepare" && (t.State == "retired" || t.State == "discarded")
+		newTarget := q.Operation == model.TransferOperationPrepare && (t.State == model.TransferStateRetired || t.State == model.TransferStateDiscarded)
 		if !newSource && !newTarget {
 			return model.TransferResult{}, errors.New("another transfer owns this server")
 		}
@@ -107,9 +108,9 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 		t = nil
 	}
 
-	if q.Operation == "status" {
+	if q.Operation == model.TransferOperationStatus {
 		if t == nil {
-			return model.TransferResult{ID: q.ID, ServerID: q.ServerID, State: "absent"}, nil
+			return model.TransferResult{ID: q.ID, ServerID: q.ServerID, State: model.TransferStateAbsent}, nil
 		}
 
 		return m.transferProgress(t)
@@ -122,20 +123,20 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 	if t == nil {
 		t = &localTransfer{TransferResult: model.TransferResult{ID: q.ID, ServerID: q.ServerID}}
 		switch q.Operation {
-		case "export":
+		case model.TransferOperationExport:
 			if err := m.backupStopped(ctx, q.ServerID); err != nil {
 				return model.TransferResult{}, err
 			}
 
-			t.Role, t.State, t.Installed = "source", "exporting", e.Installed
-		case "prepare":
+			t.Role, t.State, t.Installed = "source", model.TransferStateExporting, e.Installed
+		case model.TransferOperationPrepare:
 			if err := m.prepareTransfer(ctx, d, q, e, t); err != nil {
 				return model.TransferResult{}, err
 			}
-		case "release":
-			t.Role, t.State = "source", "released"
-		case "discard":
-			t.Role, t.State = "target", "discarded"
+		case model.TransferOperationRelease:
+			t.Role, t.State = "source", model.TransferStateReleased
+		case model.TransferOperationDiscard:
+			t.Role, t.State = "target", model.TransferStateDiscarded
 		default:
 			return model.TransferResult{}, errors.New("prepare the transfer first")
 		}
@@ -144,28 +145,28 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 			return model.TransferResult{}, err
 		}
 
-		if q.Operation == "release" || q.Operation == "discard" {
+		if q.Operation == model.TransferOperationRelease || q.Operation == model.TransferOperationDiscard {
 			return t.TransferResult, nil
 		}
 	}
 
 	switch q.Operation {
-	case "export":
+	case model.TransferOperationExport:
 		if t.Role != "source" {
 			return model.TransferResult{}, errors.New("transfer role mismatch")
 		}
 
-		if t.State == "ready" || t.State == "released" || t.State == "retired" {
+		if t.State == model.TransferStateReady || t.State == model.TransferStateReleased || t.State == model.TransferStateRetired {
 			return m.transferProgress(t)
 		}
 
-		return m.launchTransfer(d, e, t, "exporting")
-	case "prepare":
+		return m.launchTransfer(d, e, t, model.TransferStateExporting)
+	case model.TransferOperationPrepare:
 		if t.Role != "target" || t.Size != q.Size || t.Digest != q.Digest {
 			return model.TransferResult{}, errors.New("transfer archive identity mismatch")
 		}
 
-		if t.State == "corrupt" {
+		if t.State == model.TransferStateCorrupt {
 			file, err := os.OpenFile(m.transferArchive(t.ServerID, t.ID), os.O_WRONLY|os.O_TRUNC, 0600)
 			if err != nil {
 				return model.TransferResult{}, err
@@ -178,33 +179,33 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 				return model.TransferResult{}, err
 			}
 
-			t.State, t.Error = "receiving", ""
+			t.State, t.Error = model.TransferStateReceiving, ""
 			if err := m.saveTransfer(t); err != nil {
 				return model.TransferResult{}, err
 			}
 		}
 
 		return m.transferProgress(t)
-	case "write":
+	case model.TransferOperationWrite:
 		return m.writeTransfer(t, q)
-	case "read":
+	case model.TransferOperationRead:
 		return m.readTransfer(t, q)
-	case "import":
+	case model.TransferOperationImport:
 		if t.Role != "target" {
 			return model.TransferResult{}, errors.New("transfer role mismatch")
 		}
 
-		if t.State == "imported" || t.State == "active" || t.State == "discarded" || t.State == "corrupt" {
+		if t.State == model.TransferStateImported || t.State == model.TransferStateActive || t.State == model.TransferStateDiscarded || t.State == model.TransferStateCorrupt {
 			return m.transferProgress(t)
 		}
 
-		return m.launchTransfer(d, e, t, "importing")
-	case "activate":
-		if t.Role != "target" || (t.State != "imported" && t.State != "active") {
+		return m.launchTransfer(d, e, t, model.TransferStateImporting)
+	case model.TransferOperationActivate:
+		if t.Role != "target" || (t.State != model.TransferStateImported && t.State != model.TransferStateActive) {
 			return model.TransferResult{}, errors.New("transfer is not imported")
 		}
 
-		t.State, t.Error = "active", ""
+		t.State, t.Error = model.TransferStateActive, ""
 		if err := m.saveTransfer(t); err != nil {
 			return model.TransferResult{}, err
 		}
@@ -214,7 +215,7 @@ func (m *Manager) Transfer(ctx context.Context, d model.Deployment, q model.Tran
 		}
 
 		return t.TransferResult, nil
-	case "release", "discard", "cleanup":
+	case model.TransferOperationRelease, model.TransferOperationDiscard, model.TransferOperationCleanup:
 		return m.finishTransfer(ctx, d, e, t, q.Operation)
 	default:
 		return model.TransferResult{}, errors.New("unsupported transfer operation")
@@ -257,14 +258,14 @@ func (m *Manager) prepareTransfer(ctx context.Context, d model.Deployment, q mod
 		return err
 	}
 
-	t.Role, t.State, t.Size, t.Digest = "target", "receiving", q.Size, q.Digest
+	t.Role, t.State, t.Size, t.Digest = "target", model.TransferStateReceiving, q.Size, q.Digest
 
 	return nil
 }
 
 func (m *Manager) transferProgress(t *localTransfer) (model.TransferResult, error) {
 	result := t.TransferResult
-	if t.Role == "target" && (t.State == "receiving" || t.State == "failed" || t.State == "importing") {
+	if t.Role == "target" && (t.State == model.TransferStateReceiving || t.State == model.TransferStateFailed || t.State == model.TransferStateImporting) {
 		info, err := os.Stat(m.transferArchive(t.ServerID, t.ID))
 		if errors.Is(err, os.ErrNotExist) {
 			return result, nil
@@ -352,12 +353,12 @@ func (m *Manager) readTransfer(t *localTransfer, q model.TransferRequest) (model
 	return result, nil
 }
 
-func (m *Manager) launchTransfer(d model.Deployment, e *entry, t *localTransfer, phase string) (model.TransferResult, error) {
+func (m *Manager) launchTransfer(d model.Deployment, e *entry, t *localTransfer, phase model.TransferState) (model.TransferResult, error) {
 	if m.taskRunning(d.ServerID, false) {
 		return t.TransferResult, nil
 	}
 
-	if phase == "importing" {
+	if phase == model.TransferStateImporting {
 		progress, err := m.transferProgress(t)
 		if err != nil || progress.Offset != t.Size {
 			return model.TransferResult{}, errors.New("incoming transfer archive is incomplete")
@@ -394,7 +395,7 @@ func (m *Manager) launchTransfer(d model.Deployment, e *entry, t *localTransfer,
 		defer cancel()
 
 		var err error
-		if phase == "importing" {
+		if phase == model.TransferStateImporting {
 			err = m.importTransfer(ctx, d, &work)
 		} else {
 			err = m.exportTransfer(ctx, d, &work)
@@ -404,19 +405,19 @@ func (m *Manager) launchTransfer(d model.Deployment, e *entry, t *localTransfer,
 		defer e.mu.Unlock()
 
 		if err != nil {
-			work.State, work.Error = "failed", fmt.Sprintf("Transfer failed: %.900s", err.Error())
+			work.State, work.Error = model.TransferStateFailed, fmt.Sprintf("Transfer failed: %.900s", err.Error())
 		}
 
 		if errors.Is(err, errTransferChecksum) {
-			work.State = "corrupt"
+			work.State = model.TransferStateCorrupt
 		}
 
-		if err == nil && phase == "importing" {
+		if err == nil && phase == model.TransferStateImporting {
 			e.Installed = work.Installed
 
-			e.Status = model.RuntimeStatus{ServerID: d.ServerID, State: "stopped"}
+			e.Status = model.RuntimeStatus{ServerID: d.ServerID, State: model.RuntimeStateStopped}
 			if err := m.persist(d.ServerID, e); err != nil {
-				work.State, work.Error = "failed", "Could not persist imported runtime state."
+				work.State, work.Error = model.TransferStateFailed, "Could not persist imported runtime state."
 			}
 		}
 
@@ -429,21 +430,21 @@ func (m *Manager) launchTransfer(d model.Deployment, e *entry, t *localTransfer,
 	return t.TransferResult, nil
 }
 
-func (m *Manager) finishTransfer(ctx context.Context, d model.Deployment, e *entry, t *localTransfer, operation string) (model.TransferResult, error) {
-	if (operation == "release" || operation == "cleanup") && t.Role != "source" || operation == "discard" && t.Role != "target" {
+func (m *Manager) finishTransfer(ctx context.Context, d model.Deployment, e *entry, t *localTransfer, operation model.TransferOperation) (model.TransferResult, error) {
+	if (operation == model.TransferOperationRelease || operation == model.TransferOperationCleanup) && t.Role != "source" || operation == model.TransferOperationDiscard && t.Role != "target" {
 		return model.TransferResult{}, errors.New("transfer role mismatch")
 	}
 
-	if t.State == "active" {
+	if t.State == model.TransferStateActive {
 		return model.TransferResult{}, errors.New("committed destination cannot be discarded")
 	}
 
-	terminal := map[string]string{"release": "released", "discard": "discarded", "cleanup": "retired"}[operation]
+	terminal := map[model.TransferOperation]model.TransferState{model.TransferOperationRelease: model.TransferStateReleased, model.TransferOperationDiscard: model.TransferStateDiscarded, model.TransferOperationCleanup: model.TransferStateRetired}[operation]
 	if t.State == terminal {
 		return t.TransferResult, nil
 	}
 
-	if t.State == "released" || t.State == "retired" || t.State == "discarded" {
+	if t.State == model.TransferStateReleased || t.State == model.TransferStateRetired || t.State == model.TransferStateDiscarded {
 		return model.TransferResult{}, errors.New("transfer has already finished")
 	}
 
@@ -455,7 +456,7 @@ func (m *Manager) finishTransfer(ctx context.Context, d model.Deployment, e *ent
 		return model.TransferResult{}, err
 	}
 
-	if operation != "release" {
+	if operation != model.TransferOperationRelease {
 		for _, name := range []string{container(d.ServerID), container(d.ServerID) + "-install"} {
 			output, err := m.Docker.Run(ctx, nil, "rm", "--force", name)
 			if err != nil && !bytes.Contains(bytes.ToLower([]byte(output)), []byte("no such")) {
@@ -471,7 +472,7 @@ func (m *Manager) finishTransfer(ctx context.Context, d model.Deployment, e *ent
 
 		e.Installed, e.Revision = false, ""
 
-		e.Status = model.RuntimeStatus{ServerID: d.ServerID, State: "not_installed"}
+		e.Status = model.RuntimeStatus{ServerID: d.ServerID, State: model.RuntimeStateNotInstalled}
 		if err := m.persist(d.ServerID, e); err != nil {
 			return model.TransferResult{}, err
 		}
@@ -481,7 +482,7 @@ func (m *Manager) finishTransfer(ctx context.Context, d model.Deployment, e *ent
 		return model.TransferResult{}, err
 	}
 
-	t.State = map[string]string{"release": "released", "discard": "discarded", "cleanup": "retired"}[operation]
+	t.State = terminal
 
 	t.Error = ""
 	if err := m.saveTransfer(t); err != nil {

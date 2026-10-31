@@ -37,11 +37,11 @@ type runtimeRecord struct {
 	ServerID           string `gorm:"primaryKey"`
 	SparkID            string
 	Deployment         model.Deployment `gorm:"serializer:json"`
-	State              string
+	State              model.RuntimeState
 	StartedAt          int64 `gorm:"not null;default:0"`
 	StoppedAt          int64 `gorm:"not null;default:0"`
 	OperationID        string
-	Operation          string
+	Operation          model.ServerAction
 	TransitionAt       int64 `gorm:"not null;default:0"`
 	Logs               string
 	Files              map[string]string `gorm:"serializer:json"`
@@ -50,7 +50,7 @@ type runtimeRecord struct {
 }
 
 func newRecord(spark string, deployment model.Deployment) runtimeRecord {
-	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: "not_installed", Logs: timestampLog("[Mock Spark] Configuration received. No Docker containers are used.\n"), FileFixtureVersion: 2, Files: mockFiles()}
+	return runtimeRecord{ServerID: deployment.ServerID, SparkID: spark, Deployment: deployment, State: model.RuntimeStateNotInstalled, Logs: timestampLog("[Mock Spark] Configuration received. No Docker containers are used.\n"), FileFixtureVersion: 2, Files: mockFiles()}
 }
 
 func timestampLog(content string) string {
@@ -81,8 +81,6 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 
 	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilitySelfReinstall, protocol.CapabilityPrune}
 
-	features = append(features, protocol.CapabilityStartupOverride)
-
 	features = append(features, protocol.CapabilityFilePermissions)
 	if r.games != nil {
 		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)
@@ -109,10 +107,10 @@ func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, er
 	if err == nil && record.TransitionAt != 0 && r.now().UnixNano() >= record.TransitionAt {
 		finishedAt := time.Unix(0, record.TransitionAt).Unix()
 		if record.State == "stopping" {
-			record.State = "stopped"
+			record.State = model.RuntimeStateStopped
 			record.StoppedAt = finishedAt
 		} else {
-			record.State = "running"
+			record.State = model.RuntimeStateRunning
 			record.StartedAt, record.StoppedAt = finishedAt, 0
 		}
 
@@ -170,49 +168,49 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		return model.RuntimeStatus{}, err
 	}
 
-	readOnly := request.Action == "status" || request.Action == "logs" || request.Action == "metrics"
-	if record.TransitionAt != 0 && !readOnly && request.Action != "kill" {
+	readOnly := request.Action == model.ServerActionStatus || request.Action == model.ServerActionLogs || request.Action == model.ServerActionMetrics
+	if record.TransitionAt != 0 && !readOnly && request.Action != model.ServerActionKill {
 		return model.RuntimeStatus{}, service.ErrServerActive
 	}
 
 	switch request.Action {
-	case "status", "logs", "metrics":
-	case "install", "update", "reinstall":
-		if request.Action == "reinstall" && request.Content == "clean" {
+	case model.ServerActionStatus, model.ServerActionLogs, model.ServerActionMetrics:
+	case model.ServerActionInstall, model.ServerActionUpdate, model.ServerActionReinstall:
+		if request.Action == model.ServerActionReinstall && request.Content == "clean" {
 			record.Files = mockFiles()
 		}
 
-		record.State = "stopped"
-	case "start", "restart":
+		record.State = model.RuntimeStateStopped
+	case model.ServerActionStart, model.ServerActionRestart:
 		if record.State == "not_installed" || record.State == "deleted" {
 			return model.RuntimeStatus{}, errors.New("install the mock server before starting it")
 		}
 
-		record.State = "starting"
-		if request.Action == "restart" {
-			record.State = "restarting"
+		record.State = model.RuntimeStateStarting
+		if request.Action == model.ServerActionRestart {
+			record.State = model.RuntimeStateRestarting
 		}
 
 		record.TransitionAt = r.now().Add(lifecycleDuration).UnixNano()
-	case "stop":
+	case model.ServerActionStop:
 		if record.State == "running" {
-			record.State = "stopping"
+			record.State = model.RuntimeStateStopping
 			record.TransitionAt = r.now().Add(lifecycleDuration).UnixNano()
 		}
-	case "kill":
+	case model.ServerActionKill:
 		if record.State != "stopped" {
 			record.StoppedAt = r.now().Unix()
 		}
 
 		record.TransitionAt = 0
-		record.State = "stopped"
-	case "backup", "restore":
+		record.State = model.RuntimeStateStopped
+	case model.ServerActionBackup, model.ServerActionRestore:
 		if err := r.backupAction(ctx, &record, request); err != nil {
 			return model.RuntimeStatus{}, err
 		}
-	case "delete":
-		record.State = "deleted"
-	case "command":
+	case model.ServerActionDelete:
+		record.State = model.RuntimeStateDeleted
+	case model.ServerActionCommand:
 		if record.State != "running" {
 			return model.RuntimeStatus{}, errors.New("mock server is not running")
 		}
@@ -239,7 +237,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 			return model.RuntimeStatus{}, err
 		}
 
-		if request.Action != "command" && request.Action != "backup" {
+		if request.Action != model.ServerActionCommand && request.Action != model.ServerActionBackup {
 			delete(r.gameSessions, record.ServerID)
 		}
 	}
@@ -247,7 +245,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == "running", Busy: record.TransitionAt != 0, OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
 	if status.Busy {
 		status.OperationState = model.OperationRunning
-		status.Progress = "Mock server is " + record.State + "."
+		status.Progress = "Mock server is " + string(record.State) + "."
 	} else if record.OperationID != "" {
 		status.OperationState = model.OperationSucceeded
 		status.Progress = "Complete"

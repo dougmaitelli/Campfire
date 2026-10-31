@@ -18,7 +18,7 @@ import (
 func liveOperation(ctx context.Context, t *testing.T, m *Manager, d model.Deployment, action string) model.RuntimeStatus {
 	t.Helper()
 
-	status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: rand.Text()})
+	status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: rand.Text()})
 	if err != nil {
 		t.Fatal(err)
 	}

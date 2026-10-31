@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 const consoleContainerPollInterval = 250 * time.Millisecond
@@ -96,7 +97,7 @@ func followCommand(ctx context.Context, command *exec.Cmd, emit func(string) err
 
 // StreamConsole follows the current game or installer without holding lifecycle locks.
 func (m *Manager) StreamConsole(ctx context.Context, d model.Deployment, emit func(string) error) error {
-	if !safeID.MatchString(d.ServerID) {
+	if !utils.IsValidResourceID(d.ServerID) {
 		return errors.New("invalid server identity")
 	}
 

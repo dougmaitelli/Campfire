@@ -230,7 +230,7 @@ func TestScheduleRunningCondition(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			runtime.status.State = test.state
+			runtime.status.State = model.RuntimeState(test.state)
 
 			run, err := s.RunNow(t.Context(), owner, item.ID)
 			if err != nil {

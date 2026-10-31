@@ -63,7 +63,7 @@ func TestLiveDockerLifecycle(t *testing.T) {
 			operationID = backupID
 		}
 
-		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: operationID, Content: backupID + ".tar.gz"})
+		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: operationID, Content: backupID + ".tar.gz"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -156,7 +156,7 @@ func TestLiveDockerDiskQuota(t *testing.T) {
 	})
 
 	for _, action := range []string{"install", "start"} {
-		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: action + rand.Text()})
+		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: action + rand.Text()})
 		if err != nil {
 			t.Fatal(err)
 		}

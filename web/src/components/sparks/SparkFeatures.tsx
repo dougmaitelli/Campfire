@@ -4,11 +4,10 @@ import type { Spark } from "../../api/sparks";
 import "./spark-features.css";
 
 const featureTranslationKeys = {
-  "server.startup-override.v1": "sparkFeatures.customStartupCommand",
   "server.game-media.v1": "sparkFeatures.gameMedia",
   "server.game-integration.v1": "sparkFeatures.gameIntegration",
   "spark.prune.v1": "sparkFeatures.resourceCleanup",
-  "server.configure.v1": "sparkFeatures.serverConfiguration",
+  "server.configure.v2": "sparkFeatures.serverConfiguration",
   "server.lifecycle.v1": "sparkFeatures.serverControls",
   "server.files.v1": "sparkFeatures.fileManagement",
   "server.files.transfer.v1": "sparkFeatures.fileUploadsAndDownloads",

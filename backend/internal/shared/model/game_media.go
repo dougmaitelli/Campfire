@@ -2,10 +2,11 @@ package model
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"campfire/internal/shared/utils"
 )
 
 // Game media is transferred separately from the bounded JSON control messages.
@@ -31,7 +32,6 @@ var (
 	ErrGameMediaNotFound = errors.New("media not found")
 	// ErrGameMediaBusy bounds simultaneous uploads.
 	ErrGameMediaBusy = errors.New("media uploads busy; retry later")
-	gameMediaID      = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
 // GameMedia describes one immutable attachment scoped to an event.
@@ -44,7 +44,7 @@ type GameMedia struct {
 
 // Valid checks metadata without trusting a producer-supplied filename or MIME type.
 func (m GameMedia) Valid() bool {
-	if !gameMediaID.MatchString(m.ID) || len(m.Name) < 1 || len(m.Name) > 128 || !utf8.ValidString(m.Name) || strings.ContainsAny(m.Name, "/\\") || strings.ContainsFunc(m.Name, unicode.IsControl) {
+	if len(m.ID) > 64 || !utils.IsValidResourceID(m.ID) || len(m.Name) < 1 || len(m.Name) > 128 || !utf8.ValidString(m.Name) || strings.ContainsAny(m.Name, "/\\") || strings.ContainsFunc(m.Name, unicode.IsControl) {
 		return false
 	}
 

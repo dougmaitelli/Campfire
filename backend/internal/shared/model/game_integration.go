@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"regexp"
 	"time"
+
+	"campfire/internal/shared/utils"
 )
 
 // GamePublicationLimit bounds local requests and forwarded publications.
 const GamePublicationLimit = 16 << 10
-
-var gameFieldName = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
 
 // GamePublication is a versioned snapshot or event, without a publisher-selected
 // server identity. Spark derives identity from the container's private socket.
@@ -38,7 +37,11 @@ type GameEvent struct {
 }
 
 // ValidGameEventType bounds namespaced event filter input.
-func ValidGameEventType(value string) bool { return gameFieldName.MatchString(value) }
+func ValidGameEventType(value string) bool { return validGameFieldName(value) }
+
+func validGameFieldName(value string) bool {
+	return len(value) > 0 && len(value) <= 64 && value[0] >= 'a' && value[0] <= 'z' && utils.IsValidIdentifier(value)
+}
 
 // Validate applies the same schema and size bounds at both ends of the wire.
 func (p GamePublication) Validate() error {
@@ -57,7 +60,7 @@ func (p GamePublication) Validate() error {
 	}
 
 	if e := p.Event; e != nil {
-		if len(e.ID) < 1 || len(e.ID) > 128 || !gameFieldName.MatchString(e.Type) || e.OccurredAt.IsZero() || len(e.Title) < 1 || len(e.Title) > 256 || !validGameFields(e.Data) {
+		if len(e.ID) < 1 || len(e.ID) > 128 || !ValidGameEventType(e.Type) || e.OccurredAt.IsZero() || len(e.Title) < 1 || len(e.Title) > 256 || !validGameFields(e.Data) {
 			return errors.New("invalid game event")
 		}
 	}
@@ -76,7 +79,7 @@ func validGameFields(fields map[string]any) bool {
 	}
 
 	for key, value := range fields {
-		if !gameFieldName.MatchString(key) {
+		if !validGameFieldName(key) {
 			return false
 		}
 

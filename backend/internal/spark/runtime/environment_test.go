@@ -18,7 +18,7 @@ func TestEnvironmentWithoutPublishedPorts(t *testing.T) {
 		t.Fatalf("configured internal port = %q", got)
 	}
 
-	d.Ember.RequiredPorts = []model.RequiredPort{{Container: 25565, Protocol: "tcp"}}
+	d.Configuration.Variables["SERVER_PORT"] = "25565"
 	if got := environment(d)["SERVER_PORT"]; got != "25565" {
 		t.Fatalf("ember internal port = %q", got)
 	}

@@ -65,9 +65,9 @@ func (h *fileHandler) call(q model.FileRequest) (model.FileResult, error) {
 
 	var event database.AuditEvent
 
-	audit := h.server.Audit != nil && q.Operation != "list" && q.Operation != "stat" && q.Operation != "read.chunk" && q.Operation != "upload.chunk"
+	audit := h.server.Audit != nil && q.Operation != model.FileOperationList && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadChunk
 	if audit {
-		event = database.AuditEvent{ID: rand.Text(), UserID: &principal.UserID, Username: principal.Username, APITokenID: principal.APITokenID, Action: "server.files.sftp." + q.Operation, Target: "server:" + h.id, Outcome: "pending", CreatedAt: time.Now().Unix()}
+		event = database.AuditEvent{ID: rand.Text(), UserID: &principal.UserID, Username: principal.Username, APITokenID: principal.APITokenID, Action: "server.files.sftp." + string(q.Operation), Target: "server:" + h.id, Outcome: "pending", CreatedAt: time.Now().Unix()}
 		if err := h.server.Audit.BeginAudit(ctx, &event); err != nil {
 			return model.FileResult{}, sftp.ErrSSHFxFailure
 		}
@@ -95,7 +95,7 @@ func (h *fileHandler) call(q model.FileRequest) (model.FileResult, error) {
 }
 
 func (h *fileHandler) Fileread(r *sftp.Request) (io.ReaderAt, error) {
-	info, err := h.call(model.FileRequest{Operation: "stat", Path: r.Filepath})
+	info, err := h.call(model.FileRequest{Operation: model.FileOperationStat, Path: r.Filepath})
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (h *fileHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 
 	revision := "absent"
 
-	info, err := h.call(model.FileRequest{Operation: "stat", Path: r.Filepath})
+	info, err := h.call(model.FileRequest{Operation: model.FileOperationStat, Path: r.Filepath})
 	if err == nil {
 		if flags.Excl || !flags.Trunc {
 			return nil, sftp.ErrSSHFxOpUnsupported
@@ -128,7 +128,7 @@ func (h *fileHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 		return nil, os.ErrNotExist
 	}
 
-	result, err := h.call(model.FileRequest{Operation: "upload.begin", Path: r.Filepath, Revision: revision, Size: -1})
+	result, err := h.call(model.FileRequest{Operation: model.FileOperationUploadBegin, Path: r.Filepath, Revision: revision, Size: -1})
 	if err != nil {
 		return nil, err
 	}
@@ -137,15 +137,15 @@ func (h *fileHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 }
 
 func (h *fileHandler) Filecmd(r *sftp.Request) error {
-	operation := ""
+	var operation model.FileOperation
 
 	switch r.Method {
 	case "Mkdir":
-		operation = "mkdir"
+		operation = model.FileOperationMkdir
 	case "Rename":
-		operation = "rename"
+		operation = model.FileOperationRename
 	case "Remove", "Rmdir":
-		operation = "delete"
+		operation = model.FileOperationDelete
 	default:
 		return sftp.ErrSSHFxOpUnsupported
 	}
@@ -156,9 +156,9 @@ func (h *fileHandler) Filecmd(r *sftp.Request) error {
 }
 
 func (h *fileHandler) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
-	operation := "stat"
+	operation := model.FileOperationStat
 	if r.Method == "List" {
-		operation = "list"
+		operation = model.FileOperationList
 	} else if r.Method != "Stat" && r.Method != "Lstat" {
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
@@ -237,7 +237,7 @@ func (f *remoteFile) ReadAt(data []byte, offset int64) (int, error) {
 	read := 0
 	for read < len(data) {
 		// Speculative SFTP reads beyond EOF still authenticate against the live file.
-		result, err := f.handler.call(model.FileRequest{Operation: "read.chunk", Path: f.path, Revision: f.revision, Offset: min(offset, f.size), Size: int64(min(len(data)-read, model.FileLimit))})
+		result, err := f.handler.call(model.FileRequest{Operation: model.FileOperationReadChunk, Path: f.path, Revision: f.revision, Offset: min(offset, f.size), Size: int64(min(len(data)-read, model.FileLimit))})
 		if err != nil {
 			return read, err
 		}
@@ -267,7 +267,7 @@ func (f *remoteFile) WriteAt(data []byte, offset int64) (int, error) {
 	for len(data) > 0 {
 		count := min(len(data), model.FileLimit)
 
-		_, err := f.handler.call(model.FileRequest{Operation: "upload.chunk", Path: f.path, UploadID: f.upload, Offset: offset, Data: data[:count]})
+		_, err := f.handler.call(model.FileRequest{Operation: model.FileOperationUploadChunk, Path: f.path, UploadID: f.upload, Offset: offset, Data: data[:count]})
 		if err != nil {
 			f.failed = true
 			return written, err
@@ -296,14 +296,14 @@ func (f *remoteFile) Close() error {
 		return nil
 	}
 
-	operation := "upload.commit"
+	operation := model.FileOperationUploadCommit
 	if f.failed {
-		operation = "upload.cancel"
+		operation = model.FileOperationUploadCancel
 	}
 
 	_, err := f.handler.call(model.FileRequest{Operation: operation, Path: f.path, UploadID: f.upload})
 	if err != nil {
-		_, _ = f.handler.call(model.FileRequest{Operation: "upload.cancel", Path: f.path, UploadID: f.upload})
+		_, _ = f.handler.call(model.FileRequest{Operation: model.FileOperationUploadCancel, Path: f.path, UploadID: f.upload})
 	}
 
 	return err

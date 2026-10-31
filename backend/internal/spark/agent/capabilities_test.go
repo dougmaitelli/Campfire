@@ -32,7 +32,7 @@ func TestQuotaCapabilityReflectsRuntimeSupport(t *testing.T) {
 	}
 
 	for _, action := range []string{"install", "start", "restart", "restore", "update", "reinstall"} {
-		command := protocol.Command{Name: protocol.ServerAction, Runtime: &model.RuntimeRequest{Action: action}}
+		command := protocol.Command{Name: protocol.ServerAction, Runtime: &model.RuntimeRequest{Action: model.ServerAction(action)}}
 		if err := protocol.Require(selected, protocol.RequiredCapabilities(command)...); err != nil {
 			t.Fatal("optional quotas blocked server operation", action, err)
 		}

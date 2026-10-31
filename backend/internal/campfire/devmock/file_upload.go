@@ -27,7 +27,7 @@ func (r *Runtime) uploadFile(record runtimeRecord, request model.FileRequest, re
 		}
 	}
 
-	if request.Operation == "upload.begin" {
+	if request.Operation == model.FileOperationUploadBegin {
 		if request.Size < 0 || request.Size > request.UploadLimit {
 			return result, fileError("file_limit", "File exceeds the upload limit.")
 		}
@@ -65,20 +65,20 @@ func (r *Runtime) uploadFile(record runtimeRecord, request model.FileRequest, re
 	}
 
 	switch request.Operation {
-	case "upload.chunk":
+	case model.FileOperationUploadChunk:
 		if request.Offset != upload.offset || len(request.Data) > model.FileLimit || upload.offset+int64(len(request.Data)) > upload.size {
 			return result, fileError("invalid_file", "Invalid upload offset or size.")
 		}
 
 		upload.offset += int64(len(request.Data))
 		upload.expires = time.Now().Add(15 * time.Minute)
-	case "upload.commit":
+	case model.FileOperationUploadCommit:
 		if upload.offset != upload.size {
 			return result, fileError("invalid_file", "Upload is incomplete.")
 		}
 
 		delete(r.uploads, request.UploadID)
-	case "upload.cancel":
+	case model.FileOperationUploadCancel:
 		delete(r.uploads, request.UploadID)
 	default:
 		return result, fileError("invalid_file", "Unknown upload operation.")

@@ -63,7 +63,7 @@ func (m *Manager) exportTransfer(ctx context.Context, d model.Deployment, t *loc
 	compressed := gzip.NewWriter(output)
 	archive := tar.NewWriter(compressed)
 
-	manifest, err := json.Marshal(transferManifest{Version: 1, ID: t.ID, ServerID: d.ServerID, EmberID: d.Ember.ID, Installed: t.Installed})
+	manifest, err := json.Marshal(transferManifest{Version: 1, ID: t.ID, ServerID: d.ServerID, EmberID: d.Configuration.EmberID, Installed: t.Installed})
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (m *Manager) exportTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
-	t.Size, t.Digest, t.State = output.written, hex.EncodeToString(hash.Sum(nil)), "ready"
+	t.Size, t.Digest, t.State = output.written, hex.EncodeToString(hash.Sum(nil)), model.TransferStateReady
 
 	return nil
 }
@@ -342,7 +342,7 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
-	t.Installed, t.State = installed, "imported"
+	t.Installed, t.State = installed, model.TransferStateImported
 
 	return nil
 }
@@ -373,7 +373,7 @@ func extractTransfer(ctx context.Context, input io.Reader, directory string, d m
 		return false, err
 	}
 
-	if manifest.Version != 1 || manifest.ID != transferID || manifest.ServerID != d.ServerID || manifest.EmberID != d.Ember.ID {
+	if manifest.Version != 1 || manifest.ID != transferID || manifest.ServerID != d.ServerID || manifest.EmberID != d.Configuration.EmberID {
 		return false, errors.New("transfer manifest identity mismatch")
 	}
 

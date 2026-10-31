@@ -19,7 +19,7 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 	files := func(operation, name string) model.FileResult {
 		t.Helper()
 
-		result, err := runtime.Files(t.Context(), server.SparkID, model.FileRequest{ServerID: server.ID, Operation: operation, Path: name})
+		result, err := runtime.Files(t.Context(), server.SparkID, model.FileRequest{ServerID: server.ID, Operation: model.FileOperation(operation), Path: name})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,7 +51,7 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 	}
 
 	for _, action := range []string{"stop", "backup", "backup"} {
-		status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: action, OperationID: "snapshot"})
+		status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: model.ServerAction(action), OperationID: "snapshot"})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -56,9 +56,9 @@ func TestPrunePreservesServersSharedImagesAndData(t *testing.T) {
 	m.Docker = docker
 
 	for _, id := range []string{"existing", "deleted"} {
-		state := "stopped"
+		state := model.RuntimeStateStopped
 		if id == "deleted" {
-			state = "deleted"
+			state = model.RuntimeStateDeleted
 		}
 
 		e := &entry{Images: []string{docker.image, docker.shared}, Status: model.RuntimeStatus{State: state}}

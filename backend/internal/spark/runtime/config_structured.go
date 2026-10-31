@@ -15,7 +15,7 @@ import (
 )
 
 func structuredConfig(old []byte, config model.ConfigFile, values map[string]string) ([]byte, error) {
-	if config.Parser == "yaml" {
+	if config.Parser == model.ConfigParserYAML {
 		decoder := yaml.NewDecoder(bytes.NewReader(old))
 
 		var document yaml.Node
@@ -116,7 +116,7 @@ func structuredConfig(old []byte, config model.ConfigFile, values map[string]str
 		return nil, err
 	}
 
-	if config.Parser == "yaml" {
+	if config.Parser == model.ConfigParserYAML {
 		node := configYAMLNode(object)
 
 		var output bytes.Buffer

@@ -18,6 +18,7 @@ import (
 	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/utils"
 )
 
 const gameQueueMaximum = 4096
@@ -75,7 +76,7 @@ func (g *gameIntegrations) loadEvents() error {
 		}
 
 		var item queuedGameEvent
-		if json.Unmarshal(data, &item) != nil || !configurationID.MatchString(item.ServerID) || item.Publication.Event == nil || item.Publication.Validate() != nil || item.QueuedAt.IsZero() {
+		if json.Unmarshal(data, &item) != nil || !utils.IsValidResourceID(item.ServerID) || item.Publication.Event == nil || item.Publication.Validate() != nil || item.QueuedAt.IsZero() {
 			return errors.New("invalid persisted game event")
 		}
 

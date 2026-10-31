@@ -109,7 +109,7 @@ func TestUpdateAndReinstallPreserveFilesAndFenceFailedInstall(t *testing.T) {
 	}
 
 	for _, action := range []string{"update", "reinstall"} {
-		if _, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: action + "-running"}); err == nil {
+		if _, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: action + "-running"}); err == nil {
 			t.Fatal("accepted installer against running game")
 		}
 	}

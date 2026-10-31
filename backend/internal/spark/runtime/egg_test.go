@@ -45,8 +45,7 @@ func TestEmberRuntimeEnvironmentAndTypedConfiguration(t *testing.T) {
 
 	d.Ember.Startup = "sleep {{SERVER_MEMORY}}"
 
-	d.Ember.Variables = nil
-	if err := d.Ember.Validate(); err != nil {
+	if err := d.Validate(); err != nil {
 		t.Fatal(err)
 	}
 }

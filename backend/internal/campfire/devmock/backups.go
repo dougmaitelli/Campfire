@@ -150,7 +150,7 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 
 func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: record.ServerID, Path: request.Path}
-	if request.Operation == "backup.list" {
+	if request.Operation == model.FileOperationBackupList {
 		var backups []backupRecord
 
 		if err := r.db.WithContext(ctx).Where("server_id = ?", record.ServerID).Order("created_at DESC").Find(&backups).Error; err != nil {
@@ -175,11 +175,11 @@ func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request
 		return result, fileError("invalid_file", "Invalid backup request.")
 	}
 
-	if request.Operation == "backup.delete" {
+	if request.Operation == model.FileOperationBackupDelete {
 		return result, r.db.WithContext(ctx).Where("server_id = ? AND name = ?", record.ServerID, request.Path).Delete(&backupRecord{}).Error
 	}
 
-	if request.Operation != "backup.read" {
+	if request.Operation != model.FileOperationBackupRead {
 		return result, fileError("invalid_file", "Invalid backup operation.")
 	}
 

@@ -61,6 +61,26 @@ func TestWelcomeCannotExpandAnOffer(t *testing.T) {
 	}
 }
 
+func TestExecutionConfigurationRequiresNewContractOnly(t *testing.T) {
+	_, capabilities, err := Negotiate(Message{Protocol: ProtocolVersion, Capabilities: []string{"server.configure.v1", "server.startup-override.v1", CapabilityLifecycle, CapabilitySelfUpdate}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	command := Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.RuntimeDefinition{Startup: "echo custom"}}}
+	if err := Require(capabilities, RequiredCapabilities(command)...); err == nil {
+		t.Fatal("old Spark was allowed to receive the new configuration format")
+	}
+
+	if err := Require([]string{CapabilityConfigure}, RequiredCapabilities(command)...); err != nil {
+		t.Fatal("resolved custom startup required a separate capability", err)
+	}
+
+	if err := Require(capabilities, RequiredCapabilities(Command{Name: UpdateSpark})...); err != nil {
+		t.Fatal("old Spark cannot be remotely upgraded", err)
+	}
+}
+
 func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 	cases := []struct {
 		command    Command
@@ -68,10 +88,9 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 	}{
 		{Command{Name: ConfigureServer}, CapabilityConfigure},
 		{Command{Name: ReinstallSpark}, CapabilitySelfReinstall},
-		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.ServerConfiguration{StartupOverride: "sleep 10"}}}, CapabilityStartupOverride},
-		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.ServerConfiguration{GameIntegration: true}}}, CapabilityGameIntegration},
-		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Readiness: &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready"}}}}}}, CapabilityConfigure},
-		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.Ember{Configs: []model.ConfigFile{{Parser: "json", Create: true}}}}}, CapabilityConfigure},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.RuntimeConfiguration{GameIntegration: true}}}, CapabilityGameIntegration},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.RuntimeDefinition{Readiness: &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready"}}}}}}, CapabilityConfigure},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Ember: model.RuntimeDefinition{Configs: []model.ConfigFile{{Parser: "json", Create: true}}}}}, CapabilityConfigure},
 		{Command{Name: ServerFiles}, CapabilityFiles},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "chmod"}}, CapabilityFilePermissions},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "upload.begin"}}, CapabilityFileTransfer},
@@ -104,5 +123,48 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 
 	if err := Require([]string{CapabilityLifecycle}, RequiredCapabilities(Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "stop"}})...); err != nil {
 		t.Fatal("quota capability unnecessarily blocked stop", err)
+	}
+}
+
+func TestRequiredCapabilitiesKeepOperationSpecificRules(t *testing.T) {
+	for _, test := range []struct {
+		command Command
+		want    []string
+	}{
+		{Command{Name: "unknown", Files: &model.FileRequest{Operation: "chmod"}}, nil},
+		{Command{Name: PruneSpark}, []string{CapabilityPrune}},
+		{Command{Name: UpdateSpark}, []string{CapabilitySelfUpdate}},
+		{Command{Name: ReinstallSpark}, []string{CapabilitySelfReinstall}},
+		{Command{Name: ServerTransfer}, []string{CapabilityTransfer}},
+		{Command{Name: ConfigureServer}, []string{CapabilityConfigure}},
+		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.RuntimeConfiguration{GameIntegration: true}}}, []string{CapabilityConfigure, CapabilityGameIntegration}},
+		{Command{Name: ServerFiles}, []string{CapabilityFiles}},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "unknown"}}, []string{CapabilityFiles}},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "chmod"}}, []string{CapabilityFiles, CapabilityFilePermissions}},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "upload.chunk"}}, []string{CapabilityFiles, CapabilityFileTransfer}},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "extract"}}, []string{CapabilityFiles, CapabilityFileArchive}},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.list"}}, []string{CapabilityBackups}},
+		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.unknown"}}, []string{CapabilityBackups}},
+		{Command{Name: ServerAction}, []string{CapabilityLifecycle}},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "unknown"}}, []string{CapabilityLifecycle}},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "stop", BackupSource: &model.BackupSource{}}}, []string{CapabilityLifecycle}},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "metrics"}}, []string{CapabilityMetrics}},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "backup"}}, []string{CapabilityLifecycle, CapabilityBackups}},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "restore"}}, []string{CapabilityLifecycle, CapabilityBackups}},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "restore", BackupSource: &model.BackupSource{}}}, []string{CapabilityLifecycle, CapabilityBackups, CapabilityBackupRemote}},
+		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall"}}, []string{CapabilityLifecycle, CapabilityReinstall}},
+	} {
+		got := RequiredCapabilities(test.command)
+		if !slices.Equal(got, test.want) {
+			t.Errorf("command %+v: got %v, want %v", test.command, got, test.want)
+		}
+
+		for i := range got {
+			got[i] = "mutated"
+		}
+
+		if !slices.Equal(RequiredCapabilities(test.command), test.want) {
+			t.Errorf("caller mutated shared capability requirements for %+v", test.command)
+		}
 	}
 }

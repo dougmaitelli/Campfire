@@ -98,7 +98,7 @@ func (h *Hub) Console(ctx context.Context, node, server string, emit func(model.
 		p.mu.Unlock()
 		// Failure to enqueue cancellation closes this session rather than leaking a producer.
 		select {
-		case p.outbound <- protocol.Message{Type: "console.close", Protocol: p.info.Protocol, Console: frame}:
+		case p.outbound <- protocol.Message{Type: protocol.MessageTypeConsoleClose, Protocol: p.info.Protocol, Console: frame}:
 		case <-p.done:
 		default:
 			_ = p.conn.Close()
@@ -106,7 +106,7 @@ func (h *Hub) Console(ctx context.Context, node, server string, emit func(model.
 	}()
 
 	select {
-	case p.outbound <- protocol.Message{Type: "console.open", Protocol: p.info.Protocol, Console: frame}:
+	case p.outbound <- protocol.Message{Type: protocol.MessageTypeConsoleOpen, Protocol: p.info.Protocol, Console: frame}:
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-p.done:
@@ -148,7 +148,7 @@ func (h *Hub) Console(ctx context.Context, node, server string, emit func(model.
 			}
 
 			select {
-			case p.outbound <- protocol.Message{Type: "console.ack", Protocol: p.info.Protocol, Console: frame}:
+			case p.outbound <- protocol.Message{Type: protocol.MessageTypeConsoleAck, Protocol: p.info.Protocol, Console: frame}:
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-p.done:

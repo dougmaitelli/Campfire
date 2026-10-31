@@ -18,6 +18,7 @@ import (
 
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/utils"
 )
 
 // Each read-only directory mount exposes exactly one server's endpoint. No game
@@ -90,7 +91,7 @@ func (g *gameIntegrations) unmount(id string) {
 }
 
 func (g *gameIntegrations) mount(id string) (string, error) {
-	if !configurationID.MatchString(id) || !g.authorize(id) {
+	if !utils.IsValidResourceID(id) || !g.authorize(id) {
 		return "", errors.New("invalid game integration server")
 	}
 
@@ -297,7 +298,7 @@ func (g *gameIntegrations) forward(ctx context.Context, serverID string, publica
 		g.mu.Unlock()
 	}()
 
-	if err := session.send(protocol.Message{Type: "game.publish", Game: &protocol.GameFrame{ID: requestID, ServerID: serverID, Publication: publication}}); err != nil {
+	if err := session.send(protocol.Message{Type: protocol.MessageTypeGamePublish, Game: &protocol.GameFrame{ID: requestID, ServerID: serverID, Publication: publication}}); err != nil {
 		return err
 	}
 
@@ -353,7 +354,7 @@ func (g *gameIntegrations) acknowledge(ack *protocol.GameAck) error {
 // savedGame checks local placement on every request; panel ingestion independently
 // checks authoritative placement, including transfers away from this Spark.
 func (s *ConfigurationStore) savedGame(sparkID, serverID string) bool {
-	if !configurationID.MatchString(sparkID) || !configurationID.MatchString(serverID) {
+	if !utils.IsValidResourceID(sparkID) || !utils.IsValidResourceID(serverID) {
 		return false
 	}
 
@@ -362,7 +363,7 @@ func (s *ConfigurationStore) savedGame(sparkID, serverID string) bool {
 		return false
 	}
 
-	var deployment model.Deployment
+	deployment, err := model.DecodeStoredDeployment(data)
 
-	return json.Unmarshal(data, &deployment) == nil && deployment.ServerID == serverID && deployment.Configuration.SparkID == sparkID && deployment.Configuration.GameIntegration
+	return err == nil && deployment.ServerID == serverID && deployment.Configuration.SparkID == sparkID && deployment.Configuration.GameIntegration
 }

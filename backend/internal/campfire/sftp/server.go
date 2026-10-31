@@ -19,6 +19,7 @@ import (
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
+	"campfire/internal/shared/utils"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -144,14 +145,8 @@ func (s *Server) connection(ctx context.Context, conn net.Conn) {
 		defer cancel()
 
 		id := metadata.User()
-		if len(id) == 0 || len(id) > 128 {
+		if !utils.IsValidResourceID(id) {
 			return nil, os.ErrPermission
-		}
-
-		for _, r := range id {
-			if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_' {
-				return nil, os.ErrPermission
-			}
 		}
 
 		principal, err := s.Auth.AuthenticateAPIToken(authCtx, string(password))

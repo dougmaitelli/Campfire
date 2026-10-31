@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 func validateSettings(settings *model.SparkSettings) error {
@@ -14,7 +15,7 @@ func validateSettings(settings *model.SparkSettings) error {
 	if address != "" {
 		if ip, err := netip.ParseAddr(address); err == nil && ip.Zone() == "" {
 			address = ip.Unmap().String()
-		} else if !validHostname(address) {
+		} else if !utils.IsValidHostname(address) {
 			return fmt.Errorf("%w: game address must be an IP or hostname without a scheme, path, or port", ErrInvalidSettings)
 		} else {
 			address = strings.ToLower(address)
@@ -64,7 +65,6 @@ func validateSettings(settings *model.SparkSettings) error {
 
 	return nil
 }
-
 func validateChanges(input *model.SparkChanges) error {
 	settings := model.SparkSettings{}
 	if input.GameAddress != nil {
@@ -100,25 +100,4 @@ func validateChanges(input *model.SparkChanges) error {
 	}
 
 	return nil
-}
-
-func validHostname(host string) bool {
-	host = strings.TrimSuffix(host, ".")
-	if len(host) == 0 || len(host) > 253 {
-		return false
-	}
-
-	for _, label := range strings.Split(host, ".") {
-		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
-			return false
-		}
-
-		for _, c := range label {
-			if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
-				return false
-			}
-		}
-	}
-
-	return true
 }

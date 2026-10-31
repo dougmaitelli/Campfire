@@ -28,7 +28,7 @@ type Server struct {
 	GameAddress          string            `json:"game_address"`
 	PortDescriptions     map[string]string `json:"port_descriptions,omitempty"`
 	VariableTypes        map[string]string `json:"variable_types,omitempty"`
-	Status               string            `json:"status"`
+	Status               RuntimeState      `json:"status"`
 	CreatedAt            time.Time         `json:"created_at"`
 }
 

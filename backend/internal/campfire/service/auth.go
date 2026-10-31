@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +17,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/utils"
 )
 
 // Authentication errors are safe to expose without leaking stored credentials.
@@ -30,8 +30,6 @@ var (
 
 // SessionLifetime bounds a login even while its browser continues polling.
 const SessionLifetime = 12 * time.Hour
-
-var accountName = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{2,63}$`)
 
 type authAttempts struct {
 	start time.Time
@@ -152,7 +150,7 @@ func (s *AuthService) AllowAttempt(key string) bool {
 }
 
 func validAccountInput(username, password string) bool {
-	return accountName.MatchString(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= 15 && len(password) <= 1024
+	return utils.IsValidUsername(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= 15 && len(password) <= 1024
 }
 
 func passwordHash(password string) (string, error) {

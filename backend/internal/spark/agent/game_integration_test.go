@@ -109,7 +109,7 @@ func testWireGameIntegration(t *testing.T, hub *agents.Hub, sparkID, directory s
 	}
 
 	for _, action := range []string{"install", "start", "stop"} {
-		status, err := hub.Action(ctx, sparkID, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: "game-" + action})
+		status, err := hub.Action(ctx, sparkID, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: "game-" + action})
 		if err != nil {
 			t.Fatal(err)
 		}

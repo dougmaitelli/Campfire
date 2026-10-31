@@ -215,7 +215,7 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 		return model.RuntimeStatus{}, ErrDeploymentUnavailable
 	}
 
-	request := model.RuntimeRequest{ServerID: id, Action: action, Content: content}
+	request := model.RuntimeRequest{ServerID: id, Action: model.ServerAction(action), Content: content}
 	if action == "restore" && s.Backups != nil {
 		request.BackupSource, err = s.Backups.Source(ctx, id, content)
 		if err != nil {
@@ -280,7 +280,7 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 }
 
 // CachedState supplies the latest observed state without blocking collection requests.
-func (s *DeploymentService) CachedState(id string) string {
+func (s *DeploymentService) CachedState(id string) model.RuntimeState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -288,7 +288,7 @@ func (s *DeploymentService) CachedState(id string) string {
 		return status.State
 	}
 
-	return "unknown"
+	return model.RuntimeStateUnknown
 }
 
 // Delete removes the node runtime before releasing resource and port reservations.

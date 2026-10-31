@@ -72,8 +72,9 @@ func TestConfigurationDeliveryPlacementAndSnapshot(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if !reflect.DeepEqual(saved.Configuration, server.ServerConfiguration) || !reflect.DeepEqual(saved.Ember, ember) || saved.ServerID != server.ID {
-				t.Fatal("incomplete delivered definition")
+			expected, err := model.NewDeployment(server.ID, server.ServerConfiguration, ember)
+			if err != nil || !reflect.DeepEqual(saved, expected) {
+				t.Fatal("incorrect execution instructions", err)
 			}
 
 			current, err := servers.Get(context.Background(), server.ID)

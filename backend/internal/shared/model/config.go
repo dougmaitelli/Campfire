@@ -6,13 +6,25 @@ import (
 	"unicode"
 )
 
+// ConfigParser identifies a supported game configuration file format.
+type ConfigParser string
+
+// Configuration parsers define how replacement keys and values are interpreted.
+const (
+	ConfigParserProperties ConfigParser = "properties"
+	ConfigParserJSON       ConfigParser = "json"
+	ConfigParserYAML       ConfigParser = "yaml"
+	ConfigParserINI        ConfigParser = "ini"
+	ConfigParserFile       ConfigParser = "file"
+)
+
 // ConfigKey validates the supported parser-specific path syntax before dispatch.
-func ConfigKey(parser, key string) error {
+func ConfigKey(parser ConfigParser, key string) error {
 	if key == "" || len(key) > 1024 || strings.ContainsFunc(key, unicode.IsControl) {
 		return errors.New("invalid config replacement key")
 	}
 
-	if parser == "json" || parser == "yaml" {
+	if parser == ConfigParserJSON || parser == ConfigParserYAML {
 		parts := strings.Split(key, ".")
 		if len(parts) > 32 {
 			return errors.New("config paths are limited to 32 components")
@@ -25,7 +37,7 @@ func ConfigKey(parser, key string) error {
 		}
 	}
 
-	if parser == "ini" {
+	if parser == ConfigParserINI {
 		if _, _, err := INIKey(key); err != nil {
 			return err
 		}

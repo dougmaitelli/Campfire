@@ -7,12 +7,31 @@ import (
 	"campfire/internal/shared/model"
 )
 
-// ProtocolVersion is the newest supported panel-agent wire format, independent
-// of optional features advertised by each peer.
+// ProtocolVersion versions the shared handshake, message envelopes, correlation,
+// and error semantics. Bump it for incompatible changes to that common contract;
+// individual feature changes are versioned through capabilities instead.
 const ProtocolVersion = 1
 
 // MinimumProtocolVersion bounds wire compatibility, not feature availability.
 const MinimumProtocolVersion = 1
+
+// MessageType identifies the envelope's handshake, control, or stream message.
+type MessageType string
+
+// Message types describe the shared wire envelope independently of capabilities.
+const (
+	MessageTypeHello        MessageType = "hello"
+	MessageTypeWelcome      MessageType = "welcome"
+	MessageTypeHeartbeat    MessageType = "heartbeat"
+	MessageTypeCommand      MessageType = "command"
+	MessageTypeResponse     MessageType = "response"
+	MessageTypeConsole      MessageType = "console"
+	MessageTypeConsoleOpen  MessageType = "console.open"
+	MessageTypeConsoleClose MessageType = "console.close"
+	MessageTypeConsoleAck   MessageType = "console.ack"
+	MessageTypeGamePublish  MessageType = "game.publish"
+	MessageTypeGameAck      MessageType = "game.ack"
+)
 
 // CommandName identifies an explicitly supported agent operation.
 type CommandName string
@@ -88,7 +107,7 @@ type Enrollment struct {
 type Message struct {
 	MinimumProtocol int              `json:"minimum_protocol,omitempty"`
 	Capabilities    []string         `json:"capabilities,omitempty"`
-	Type            string           `json:"type"`
+	Type            MessageType      `json:"type"`
 	Protocol        int              `json:"protocol"`
 	SparkID         string           `json:"spark_id,omitempty"`
 	Hostname        string           `json:"hostname,omitempty"`

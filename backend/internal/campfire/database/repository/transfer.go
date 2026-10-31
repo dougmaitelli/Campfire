@@ -149,15 +149,15 @@ func (r *TransferRepository) List(ctx context.Context, serverID string, active b
 
 func canCancelTransfer(transfer database.ServerTransfer) bool {
 	phase := transfer.Phase
-	if phase == "failed" {
+	if phase == model.TransferPhaseFailed {
 		phase = transfer.ResumePhase
 	}
 
-	return transfer.Active && phase != "committing" && phase != "cleanup" && phase != "cancelling"
+	return transfer.Active && phase != model.TransferPhaseCommitting && phase != model.TransferPhaseCleanup && phase != model.TransferPhaseCancelling
 }
 
 // Advance persists progress only while the expected phase remains current.
-func (r *TransferRepository) Advance(ctx context.Context, id, phase string, changes map[string]any) error {
+func (r *TransferRepository) Advance(ctx context.Context, id string, phase model.TransferPhase, changes map[string]any) error {
 	changes["updated_at"] = time.Now().Unix()
 
 	result := r.db.WithContext(ctx).Model(&database.ServerTransfer{}).Where("id = ? AND active = ? AND phase = ?", id, true, phase).Updates(changes)
@@ -176,7 +176,7 @@ func (r *TransferRepository) Advance(ctx context.Context, id, phase string, chan
 func (r *TransferRepository) Commit(ctx context.Context, id string) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var transfer database.ServerTransfer
-		if err := tx.Where("id = ? AND active = ? AND phase = ?", id, true, "committing").Take(&transfer).Error; err != nil {
+		if err := tx.Where("id = ? AND active = ? AND phase = ?", id, true, model.TransferPhaseCommitting).Take(&transfer).Error; err != nil {
 			return ErrTransferState
 		}
 
@@ -208,7 +208,7 @@ func (r *TransferRepository) Commit(ctx context.Context, id string) error {
 			return ErrTransferState
 		}
 
-		return tx.Model(&transfer).Updates(map[string]any{"phase": "cleanup", "error": "", "updated_at": time.Now().Unix()}).Error
+		return tx.Model(&transfer).Updates(map[string]any{"phase": model.TransferPhaseCleanup, "error": "", "updated_at": time.Now().Unix()}).Error
 	})
 }
 
@@ -220,7 +220,7 @@ func (r *TransferRepository) Retry(ctx context.Context, id string) error {
 			return err
 		}
 
-		if !transfer.Active || transfer.Phase != "failed" || transfer.ResumePhase == "" {
+		if !transfer.Active || transfer.Phase != model.TransferPhaseFailed || transfer.ResumePhase == "" {
 			return ErrTransferState
 		}
 
@@ -250,6 +250,6 @@ func (r *TransferRepository) Cancel(ctx context.Context, id string) error {
 			cancelFrom = phase
 		}
 
-		return tx.Model(&transfer).Updates(map[string]any{"phase": "cancelling", "cancel_from": cancelFrom, "error": "", "updated_at": time.Now().Unix()}).Error
+		return tx.Model(&transfer).Updates(map[string]any{"phase": model.TransferPhaseCancelling, "cancel_from": cancelFrom, "error": "", "updated_at": time.Now().Unix()}).Error
 	})
 }

@@ -5,11 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
-	"net/netip"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sync"
 	"time"
@@ -17,9 +14,8 @@ import (
 	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/utils"
 )
-
-var configurationID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 // ConfigurationStore stores desired state on standalone Spark agents.
 type ConfigurationStore struct {
@@ -64,7 +60,7 @@ func (s *ConfigurationStore) capabilities() []string {
 
 // Files resolves the saved game definition and invokes the shared file manager.
 func (s *ConfigurationStore) Files(ctx context.Context, id string, request model.FileRequest) (model.FileResult, error) {
-	if !configurationID.MatchString(id) || !configurationID.MatchString(request.ServerID) {
+	if !utils.IsValidResourceID(id) || !utils.IsValidResourceID(request.ServerID) {
 		return model.FileResult{}, &model.FileError{Code: "invalid_file", Message: "Invalid server identity."}
 	}
 
@@ -73,8 +69,8 @@ func (s *ConfigurationStore) Files(ctx context.Context, id string, request model
 		return model.FileResult{}, &model.FileError{Code: "file_not_found", Message: "Install the server before managing its files."}
 	}
 
-	var deployment model.Deployment
-	if err := json.Unmarshal(data, &deployment); err != nil {
+	deployment, err := model.DecodeStoredDeployment(data)
+	if err != nil {
 		return model.FileResult{}, errors.New("invalid stored configuration")
 	}
 
@@ -91,7 +87,7 @@ func (s *ConfigurationStore) Files(ctx context.Context, id string, request model
 
 // Action loads the locally saved definition and invokes the shared runtime.
 func (s *ConfigurationStore) Action(ctx context.Context, id string, request model.RuntimeRequest) (model.RuntimeStatus, error) {
-	if !configurationID.MatchString(id) || !configurationID.MatchString(request.ServerID) {
+	if !utils.IsValidResourceID(id) || !utils.IsValidResourceID(request.ServerID) {
 		return model.RuntimeStatus{}, errors.New("invalid server identity")
 	}
 
@@ -108,8 +104,8 @@ func (s *ConfigurationStore) Action(ctx context.Context, id string, request mode
 		return model.RuntimeStatus{}, errors.New("deliver server configuration first")
 	}
 
-	var deployment model.Deployment
-	if err := json.Unmarshal(data, &deployment); err != nil {
+	deployment, err := model.DecodeStoredDeployment(data)
+	if err != nil {
 		return model.RuntimeStatus{}, err
 	}
 
@@ -124,49 +120,18 @@ func (s *ConfigurationStore) Action(ctx context.Context, id string, request mode
 	return s.Runtime.Execute(ctx, deployment, request)
 }
 
-// Deploy validates placement and atomically persists a complete server definition.
+// Deploy validates placement and atomically persists execution instructions.
 func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment model.Deployment) (model.ConfigurationReceipt, error) {
 	if err := ctx.Err(); err != nil {
 		return model.ConfigurationReceipt{}, err
 	}
 
-	if s.Directory == "" || !configurationID.MatchString(deployment.ServerID) || !configurationID.MatchString(id) || deployment.Configuration.SparkID != id || deployment.Configuration.EmberID != deployment.Ember.ID {
+	if s.Directory == "" || !utils.IsValidResourceID(deployment.ServerID) || !utils.IsValidResourceID(id) || deployment.Configuration.SparkID != id {
 		return model.ConfigurationReceipt{}, errors.New("invalid configuration identity or placement")
 	}
 
-	if err := deployment.Ember.Validate(); err != nil {
+	if err := deployment.Validate(); err != nil {
 		return model.ConfigurationReceipt{}, err
-	}
-
-	c := deployment.Configuration
-	if _, _, err := deployment.Ember.ServerStartup(c); err != nil {
-		return model.ConfigurationReceipt{}, err
-	}
-
-	allowed := false
-
-	for _, image := range deployment.Ember.Images {
-		if c.Image == image {
-			allowed = true
-		}
-	}
-
-	if !allowed || c.Name == "" || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < 0.1 || c.CPULimit > 1024 || c.MemoryMB < 64 || c.MemoryMB > 1048576 || c.DiskMB < 0 || c.DiskMB > 1073741824 || len(c.Ports) > 32 {
-		return model.ConfigurationReceipt{}, errors.New("invalid server image or resources")
-	}
-
-	for _, port := range c.Ports {
-		ip, err := netip.ParseAddr(port.BindIP)
-		if err != nil || ip.Zone() != "" || ip.IsMulticast() || port.HostPort < 1 || port.HostPort > 65535 || port.ContainerPort < 1 || port.ContainerPort > 65535 || (port.Protocol != "tcp" && port.Protocol != "udp") {
-			return model.ConfigurationReceipt{}, errors.New("invalid server port")
-		}
-	}
-
-	for _, variable := range deployment.Ember.Variables {
-		value := c.Variables[variable.Name]
-		if variable.ValidateValue(value) != nil {
-			return model.ConfigurationReceipt{}, errors.New("invalid server variable")
-		}
 	}
 
 	data, err := json.Marshal(deployment)

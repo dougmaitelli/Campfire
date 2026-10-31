@@ -156,7 +156,7 @@ func (s *TransferService) Begin(ctx context.Context, serverID, targetID string, 
 	target.SparkID, target.Ports = targetID, ports
 	now := time.Now().Unix()
 
-	transfer := database.ServerTransfer{ID: rand.Text(), ServerID: serverID, SourceSparkID: server.SparkID, TargetSparkID: targetID, SourceConfiguration: server.ServerConfiguration, TargetConfiguration: target, Phase: "queued", Active: true, CanCancel: true, CreatedAt: now, UpdatedAt: now}
+	transfer := database.ServerTransfer{ID: rand.Text(), ServerID: serverID, SourceSparkID: server.SparkID, TargetSparkID: targetID, SourceConfiguration: server.ServerConfiguration, TargetConfiguration: target, Phase: model.TransferPhaseQueued, Active: true, CanCancel: true, CreatedAt: now, UpdatedAt: now}
 	if err := s.Store.Create(ctx, transfer); err != nil {
 		return database.ServerTransfer{}, err
 	}
@@ -173,7 +173,7 @@ func (s *TransferService) run(id string) {
 
 	for ctx.Err() == nil {
 		transfer, err := s.Store.Get(ctx, id)
-		if err != nil || !transfer.Active || transfer.Phase == "failed" {
+		if err != nil || !transfer.Active || transfer.Phase == model.TransferPhaseFailed {
 			return
 		}
 
@@ -194,7 +194,7 @@ func (s *TransferService) run(id string) {
 				resume = "copying"
 			}
 
-			_ = s.Store.Advance(recordCtx, id, transfer.Phase, map[string]any{"phase": "failed", "resume_phase": resume, "error": fmt.Sprintf("%.1024s", err.Error())})
+			_ = s.Store.Advance(recordCtx, id, transfer.Phase, map[string]any{"phase": model.TransferPhaseFailed, "resume_phase": resume, "error": fmt.Sprintf("%.1024s", err.Error())})
 
 			stop()
 
@@ -218,65 +218,70 @@ func (s *TransferService) step(ctx context.Context, t database.ServerTransfer) (
 		return false, ErrDeploymentUnavailable
 	}
 
-	call := func(node, operation string) (model.TransferResult, error) {
+	call := func(node string, operation model.TransferOperation) (model.TransferResult, error) {
 		return remote.Transfer(ctx, node, model.TransferRequest{ID: t.ID, ServerID: t.ServerID, Operation: operation, Size: t.TotalBytes, Digest: t.Digest})
 	}
-	next := func(phase string) (bool, error) {
+	next := func(phase model.TransferPhase) (bool, error) {
 		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": phase, "error": ""})
 	}
 
 	switch t.Phase {
-	case "queued":
+	case model.TransferPhaseQueued:
 		ember, err := s.Deployment.Embers.Get(ctx, t.SourceConfiguration.EmberID)
 		if err != nil {
 			return false, err
 		}
 
 		for _, configuration := range []model.ServerConfiguration{t.SourceConfiguration, t.TargetConfiguration} {
-			if _, err := s.Deployment.Remote.Deploy(ctx, configuration.SparkID, model.Deployment{ServerID: t.ServerID, Configuration: configuration, Ember: ember}); err != nil {
+			deployment, err := model.NewDeployment(t.ServerID, configuration, ember)
+			if err != nil {
+				return false, err
+			}
+
+			if _, err := s.Deployment.Remote.Deploy(ctx, configuration.SparkID, deployment); err != nil {
 				return false, err
 			}
 		}
 
-		return next("exporting")
-	case "exporting":
-		result, err := call(t.SourceSparkID, "export")
+		return next(model.TransferPhaseExporting)
+	case model.TransferPhaseExporting:
+		result, err := call(t.SourceSparkID, model.TransferOperationExport)
 		if err != nil {
 			return false, err
 		}
 
-		if result.State == "failed" {
+		if result.State == model.TransferStateFailed {
 			return false, errors.New(result.Error)
 		}
 
-		if result.State != "ready" {
+		if result.State != model.TransferStateReady {
 			return true, nil
 		}
 
-		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": "copying", "total_bytes": result.Size, "digest": result.Digest, "transferred_bytes": 0})
-	case "copying":
-		result, err := call(t.TargetSparkID, "prepare")
+		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": model.TransferPhaseCopying, "total_bytes": result.Size, "digest": result.Digest, "transferred_bytes": 0})
+	case model.TransferPhaseCopying:
+		result, err := call(t.TargetSparkID, model.TransferOperationPrepare)
 		if err != nil {
 			return false, err
 		}
 
-		if result.State == "failed" {
+		if result.State == model.TransferStateFailed {
 			return false, errors.New(result.Error)
 		}
 
-		if result.State == "imported" || result.State == "active" {
-			return next("importing")
+		if result.State == model.TransferStateImported || result.State == model.TransferStateActive {
+			return next(model.TransferPhaseImporting)
 		}
 
-		if result.State != "receiving" || result.Offset > t.TotalBytes {
+		if result.State != model.TransferStateReceiving || result.Offset > t.TotalBytes {
 			return false, errors.New("unexpected destination transfer state")
 		}
 
 		if result.Offset == t.TotalBytes {
-			return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": "importing", "transferred_bytes": t.TotalBytes})
+			return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": model.TransferPhaseImporting, "transferred_bytes": t.TotalBytes})
 		}
 
-		chunk, err := remote.Transfer(ctx, t.SourceSparkID, model.TransferRequest{ID: t.ID, ServerID: t.ServerID, Operation: "read", Offset: result.Offset})
+		chunk, err := remote.Transfer(ctx, t.SourceSparkID, model.TransferRequest{ID: t.ID, ServerID: t.ServerID, Operation: model.TransferOperationRead, Offset: result.Offset})
 		if err != nil {
 			return false, err
 		}
@@ -285,7 +290,7 @@ func (s *TransferService) step(ctx context.Context, t database.ServerTransfer) (
 			return false, errors.New("source transfer archive changed")
 		}
 
-		ack, err := remote.Transfer(ctx, t.TargetSparkID, model.TransferRequest{ID: t.ID, ServerID: t.ServerID, Operation: "write", Offset: result.Offset, Data: chunk.Data})
+		ack, err := remote.Transfer(ctx, t.TargetSparkID, model.TransferRequest{ID: t.ID, ServerID: t.ServerID, Operation: model.TransferOperationWrite, Offset: result.Offset, Data: chunk.Data})
 		if err != nil {
 			return false, err
 		}
@@ -295,43 +300,43 @@ func (s *TransferService) step(ctx context.Context, t database.ServerTransfer) (
 		}
 
 		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"transferred_bytes": ack.Offset})
-	case "importing":
-		result, err := call(t.TargetSparkID, "import")
+	case model.TransferPhaseImporting:
+		result, err := call(t.TargetSparkID, model.TransferOperationImport)
 		if err != nil {
 			return false, err
 		}
 
-		if result.State == "corrupt" {
+		if result.State == model.TransferStateCorrupt {
 			return false, errTransferCorrupt
 		}
 
-		if result.State == "failed" {
+		if result.State == model.TransferStateFailed {
 			return false, errors.New(result.Error)
 		}
 
-		if result.State != "imported" && result.State != "active" {
+		if result.State != model.TransferStateImported && result.State != model.TransferStateActive {
 			return true, nil
 		}
 
-		return next("committing")
-	case "committing":
+		return next(model.TransferPhaseCommitting)
+	case model.TransferPhaseCommitting:
 		return false, s.Store.Commit(ctx, t.ID)
-	case "cleanup":
-		result, err := call(t.TargetSparkID, "activate")
+	case model.TransferPhaseCleanup:
+		result, err := call(t.TargetSparkID, model.TransferOperationActivate)
 		if err != nil {
 			return false, err
 		}
 
-		if result.State != "active" {
+		if result.State != model.TransferStateActive {
 			return false, errors.New("destination activation incomplete")
 		}
 
-		result, err = call(t.SourceSparkID, "cleanup")
+		result, err = call(t.SourceSparkID, model.TransferOperationCleanup)
 		if err != nil {
 			return false, err
 		}
 
-		if result.State != "retired" {
+		if result.State != model.TransferStateRetired {
 			return true, nil
 		}
 
@@ -340,29 +345,29 @@ func (s *TransferService) step(ctx context.Context, t database.ServerTransfer) (
 		delete(s.Deployment.observed, t.ServerID)
 		s.Deployment.mu.Unlock()
 
-		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": "complete", "active": false, "error": ""})
-	case "cancelling":
-		if t.CancelFrom != "queued" && t.CancelFrom != "exporting" {
-			result, err := call(t.TargetSparkID, "discard")
+		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": model.TransferPhaseComplete, "active": false, "error": ""})
+	case model.TransferPhaseCancelling:
+		if t.CancelFrom != model.TransferPhaseQueued && t.CancelFrom != model.TransferPhaseExporting {
+			result, err := call(t.TargetSparkID, model.TransferOperationDiscard)
 			if err != nil {
 				return false, err
 			}
 
-			if result.State != "discarded" && result.State != "absent" {
+			if result.State != model.TransferStateDiscarded && result.State != model.TransferStateAbsent {
 				return true, nil
 			}
 		}
 
-		result, err := call(t.SourceSparkID, "release")
+		result, err := call(t.SourceSparkID, model.TransferOperationRelease)
 		if err != nil {
 			return false, err
 		}
 
-		if result.State != "released" {
+		if result.State != model.TransferStateReleased {
 			return true, nil
 		}
 
-		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": "cancelled", "active": false, "error": ""})
+		return false, s.Store.Advance(ctx, t.ID, t.Phase, map[string]any{"phase": model.TransferPhaseCancelled, "active": false, "error": ""})
 	default:
 		return false, errors.New("invalid persisted transfer phase")
 	}

@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,10 +11,11 @@ import (
 
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/utils"
 )
 
 func (s *ConfigurationStore) streamConsole(ctx context.Context, id, server string, emit func(model.ConsoleEvent) error) error {
-	if !configurationID.MatchString(id) || !configurationID.MatchString(server) {
+	if !utils.IsValidResourceID(id) || !utils.IsValidResourceID(server) {
 		return errors.New("invalid server identity")
 	}
 
@@ -24,8 +24,8 @@ func (s *ConfigurationStore) streamConsole(ctx context.Context, id, server strin
 		return errors.New("deliver server configuration first")
 	}
 
-	var d model.Deployment
-	if err := json.Unmarshal(data, &d); err != nil || d.ServerID != server || d.Configuration.SparkID != id {
+	d, err := model.DecodeStoredDeployment(data)
+	if err != nil || d.ServerID != server || d.Configuration.SparkID != id {
 		return errors.New("invalid console placement")
 	}
 
@@ -101,7 +101,7 @@ func (s *consoleStreams) acknowledge(id string) {
 }
 
 func (s *consoleStreams) open(ctx context.Context, node string, frame protocol.ConsoleFrame, store *ConfigurationStore, send func(protocol.Message) error) error {
-	if frame.ID == "" || len(frame.ID) > 128 || !configurationID.MatchString(frame.ServerID) || frame.Event != (model.ConsoleEvent{}) {
+	if frame.ID == "" || len(frame.ID) > 128 || !utils.IsValidResourceID(frame.ServerID) || frame.Event != (model.ConsoleEvent{}) {
 		return errors.New("invalid console open")
 	}
 
@@ -120,7 +120,7 @@ func (s *consoleStreams) open(ctx context.Context, node string, frame protocol.C
 
 		frame.Event = model.ConsoleEvent{End: true, Error: "Spark console stream limit reached."}
 
-		return send(protocol.Message{Type: "console", Console: &frame})
+		return send(protocol.Message{Type: protocol.MessageTypeConsole, Console: &frame})
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -150,7 +150,7 @@ func (s *consoleStreams) open(ctx context.Context, node string, frame protocol.C
 			packet := frame
 			packet.Event = event
 
-			return send(protocol.Message{Type: "console", Console: &packet})
+			return send(protocol.Message{Type: protocol.MessageTypeConsole, Console: &packet})
 		}
 
 		err := store.streamConsole(ctx, node, frame.ServerID, emit)

@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 const backupBytes int64 = 100 << 30
@@ -39,7 +40,7 @@ func (m *Manager) backupStopped(ctx context.Context, id string) error {
 // backupFiles lists immutable archives and reads bounded chunks over the file protocol.
 func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Path}
-	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID || (q.Operation != "backup.list" && q.Operation != "backup.read" && q.Operation != "backup.delete") || q.Offset < 0 {
+	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || (q.Operation != model.FileOperationBackupList && q.Operation != model.FileOperationBackupRead && q.Operation != model.FileOperationBackupDelete) || q.Offset < 0 {
 		return result, fileFailure("invalid_file", "Invalid backup request.")
 	}
 
@@ -59,14 +60,14 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 		return result, fileFailure("file_busy", "Wait for the current server operation to finish.")
 	}
 
-	if q.Operation == "backup.delete" {
+	if q.Operation == model.FileOperationBackupDelete {
 		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != "active" && transfer.State != "released") {
 			return result, fileFailure("file_busy", "Finish the Spark transfer before deleting backups.")
 		}
 	}
 
 	root, err := os.OpenRoot(filepath.Join(m.root(q.ServerID), "backups"))
-	if errors.Is(err, os.ErrNotExist) && q.Operation == "backup.list" {
+	if errors.Is(err, os.ErrNotExist) && q.Operation == model.FileOperationBackupList {
 		return result, nil
 	}
 
@@ -76,7 +77,7 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 
 	defer func() { _ = root.Close() }()
 
-	if q.Operation == "backup.list" {
+	if q.Operation == model.FileOperationBackupList {
 		dir, err := root.Open(".")
 		if err != nil {
 			return result, fileFailure("file_io", "Could not list backups.")
@@ -112,7 +113,7 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 		return result, fileFailure("invalid_file", "Invalid backup name.")
 	}
 
-	if q.Operation == "backup.delete" {
+	if q.Operation == model.FileOperationBackupDelete {
 		info, err := root.Lstat(q.Path)
 		if errors.Is(err, os.ErrNotExist) {
 			return result, nil

@@ -3,6 +3,8 @@ package model
 import (
 	"strings"
 	"time"
+
+	"campfire/internal/shared/utils"
 )
 
 // BackupPolicy selects storage and opt-in retention for one server.
@@ -47,16 +49,6 @@ func BackupName(name string) bool {
 	}
 
 	id := strings.TrimSuffix(name, ".tar.gz")
-	if len(id) < 1 || len(id) > 128 {
-		return false
-	}
 
-	for _, c := range id {
-		valid := c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-'
-		if !valid {
-			return false
-		}
-	}
-
-	return true
+	return utils.IsValidResourceID(id)
 }

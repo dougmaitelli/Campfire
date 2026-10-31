@@ -39,7 +39,7 @@ func updateWithHeartbeats(ctx context.Context, execute func() protocol.CommandRe
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if send(protocol.Message{Type: "heartbeat"}) != nil {
+				if send(protocol.Message{Type: protocol.MessageTypeHeartbeat}) != nil {
 					return
 				}
 			}

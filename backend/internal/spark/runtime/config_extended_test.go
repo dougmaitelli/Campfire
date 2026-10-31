@@ -95,7 +95,7 @@ func TestConfigParsersCreateMissingFilesAndPreserveValues(t *testing.T) {
 }
 
 func TestReadinessAlternativesRegexANSIAndStopTemplates(t *testing.T) {
-	ember := model.Ember{Readiness: &model.Readiness{StripANSI: true, Any: []model.ReadinessMatch{{Value: "Ready for connections"}, {Value: "(?i)^Listening on port [0-9]+$", Regex: true}}}}
+	ember := model.RuntimeDefinition{Readiness: &model.Readiness{StripANSI: true, Any: []model.ReadinessMatch{{Value: "Ready for connections"}, {Value: "(?i)^Listening on port [0-9]+$", Regex: true}}}}
 	if !readinessMatches(ember, "noise\n\x1b[32mLISTENING on port 25565\x1b[0m\n") || !readinessMatches(ember, "Ready for connections") || readinessMatches(ember, "not ready") {
 		t.Fatal("readiness matching failed")
 	}

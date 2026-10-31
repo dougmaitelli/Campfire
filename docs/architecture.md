@@ -23,6 +23,41 @@ The panel stores application records in SQLite or PostgreSQL, with private
 identity material in its persistent data directory. Each Spark keeps its own
 identity, delivered configuration, game data, and local backups on the game host.
 
+## Spark execution configuration
+
+The panel keeps the full `ServerConfiguration` and imported `Ember`. Before
+delivery, `model.NewDeployment` projects them into `RuntimeConfiguration` and
+`RuntimeDefinition`. The same projection is used for ordinary synchronization and
+both ends of a server transfer.
+
+| Execution data                                                           | Purpose                                                                      |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Server, Spark, and Ember IDs                                             | Placement checks and transfer identity                                       |
+| Selected image, variable values, CPU, memory, disk, and port bindings    | Container execution and resource enforcement                                 |
+| One resolved startup command, shell, working directory, and numeric user | Starting the selected game process                                           |
+| Installer, stop command, readiness matchers, and file patch instructions | Installation, shutdown, readiness detection, and local configuration changes |
+| Game integration flag                                                    | Access to the local game publishing socket                                   |
+
+Startup selection and custom overrides are resolved by the panel. Spark receives
+one command template and expands its variable placeholders through the container
+environment; variable contents remain literal values. Image alternatives,
+variable defaults and editing policies, display names, descriptions, artwork,
+source attribution, and import warnings stay on the panel. If no port is
+published, the panel resolves any required-port fallback into `SERVER_PORT`.
+
+Spark validates execution inputs before saving them, including numeric users,
+container paths, image references, resource limits, port bindings, environment
+names, and configuration patch paths. The panel validates Ember policies and
+variable constraints before projection.
+
+The execution-only payload uses `server.configure.v2`. Custom startup commands
+are part of this contract and have no separate capability. The wire protocol
+version remains unchanged. Older Sparks can still connect and receive remote
+Spark updates, but must be upgraded before receiving this configuration format.
+Upgraded Sparks can read their existing full-definition snapshots from disk,
+including named startup selections and custom overrides. New deliveries replace
+those snapshots with the execution-only format.
+
 ## Repository layout
 
 | Path                         | Contents                                                                       |

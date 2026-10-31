@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/utils"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -245,7 +246,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 
 	// A suffix prevents a claim from selecting an existing local account.
 	name := strings.Map(func(r rune) rune {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-' {
+		if utils.IsValidIdentifierCharacter(r) {
 			return r
 		}
 

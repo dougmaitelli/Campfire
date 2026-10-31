@@ -10,7 +10,7 @@ import (
 
 var terminalEscapes = regexp.MustCompile("\x1b(?:\\[[0-?]*[ -/]*[@-~]|\\][^\x07\x1b]*(?:\x07|\x1b\\\\))")
 
-func readinessMatches(ember model.Ember, logs string) bool {
+func readinessMatches(ember model.RuntimeDefinition, logs string) bool {
 	if ember.Readiness == nil {
 		return ember.Ready == "" || strings.Contains(logs, ember.Ready)
 	}

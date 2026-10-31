@@ -95,7 +95,12 @@ func (s *DeploymentService) sync(ctx context.Context, id string) (model.Configur
 		return model.ConfigurationReceipt{}, ErrDeploymentUnavailable
 	}
 
-	receipt, err := dispatch.Deploy(ctx, node.ID, model.Deployment{ServerID: server.ID, Configuration: server.ServerConfiguration, Ember: ember})
+	deployment, err := model.NewDeployment(server.ID, server.ServerConfiguration, ember)
+	if err != nil {
+		return model.ConfigurationReceipt{}, errors.Join(ErrInvalidServer, err)
+	}
+
+	receipt, err := dispatch.Deploy(ctx, node.ID, deployment)
 	if err != nil {
 		return model.ConfigurationReceipt{}, errors.Join(ErrDeploymentUnavailable, err)
 	}

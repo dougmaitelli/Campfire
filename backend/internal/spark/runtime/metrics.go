@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 // ContainerSample is an unrounded Docker counters snapshot, injectable in tests.
@@ -110,7 +111,7 @@ func (m *Manager) metricEntry(id string) *metricsEntry {
 
 // Measure samples usage independently of lifecycle locks and coalesces concurrent readers.
 func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.ResourceUsage, error) {
-	if !safeID.MatchString(d.ServerID) {
+	if !utils.IsValidResourceID(d.ServerID) {
 		return model.ResourceUsage{}, errors.New("invalid server identity")
 	}
 
@@ -183,7 +184,7 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 			inspectErr = nil
 		}
 
-		entry.usage.State = actual
+		entry.usage.State = model.RuntimeState(actual)
 		if inspectErr != nil {
 			entry.usage.State = "unknown"
 			entry.usage.ContainerError = "Docker state unavailable."

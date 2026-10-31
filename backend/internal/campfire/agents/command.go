@@ -175,7 +175,7 @@ func (h *Hub) execute(ctx context.Context, id string, command protocol.Command, 
 		return protocol.CommandResponse{}, err
 	}
 
-	message := protocol.Message{Type: "command", Protocol: current.info.Protocol, Command: &command}
+	message := protocol.Message{Type: protocol.MessageTypeCommand, Protocol: current.info.Protocol, Command: &command}
 
 	encoded, err := json.Marshal(message)
 	if err != nil || len(encoded) > 2<<20 {

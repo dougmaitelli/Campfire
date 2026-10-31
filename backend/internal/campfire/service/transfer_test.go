@@ -287,7 +287,7 @@ func newTransferFixture(t *testing.T) *transferFixture {
 	return &transferFixture{service: service, db: db, router: router, source: source, target: target, server: server, ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25566, ContainerPort: 25565, Protocol: "tcp"}}, world: world}
 }
 
-func waitTransfer(t *testing.T, s *TransferService, id, phase string) database.ServerTransfer {
+func waitTransfer(t *testing.T, s *TransferService, id string, phase model.TransferPhase) database.ServerTransfer {
 	t.Helper()
 
 	deadline := time.Now().Add(10 * time.Second)

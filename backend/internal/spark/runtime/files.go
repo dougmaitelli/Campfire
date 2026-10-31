@@ -187,7 +187,7 @@ func configure(directory string, d model.Deployment) error {
 			if readErr != nil {
 				return readErr
 			}
-		} else if config.Parser == "json" || config.Parser == "yaml" {
+		} else if config.Parser == model.ConfigParserJSON || config.Parser == model.ConfigParserYAML {
 			old = []byte("{}")
 		}
 
@@ -213,7 +213,7 @@ func configure(directory string, d model.Deployment) error {
 		}
 
 		switch config.Parser {
-		case "properties":
+		case model.ConfigParserProperties:
 			lines := strings.Split(string(old), "\n")
 			for i, line := range lines {
 				key, _, ok := strings.Cut(line, "=")
@@ -246,11 +246,11 @@ func configure(directory string, d model.Deployment) error {
 			}
 
 			updated = []byte(strings.Join(lines, "\n"))
-		case "json", "yaml":
+		case model.ConfigParserJSON, model.ConfigParserYAML:
 			updated, err = structuredConfig(old, config, values)
-		case "ini":
+		case model.ConfigParserINI:
 			updated, err = iniConfig(old, values)
-		case "file":
+		case model.ConfigParserFile:
 			updated, err = textConfig(old, values)
 		default:
 			return errors.New("unsupported configuration parser")

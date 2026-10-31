@@ -70,7 +70,7 @@ func TestTransferArchiveRejectsUnsafeEntries(t *testing.T) {
 			}
 
 			deployment := model.Deployment{ServerID: "server"}
-			deployment.Ember.ID = "ember"
+			deployment.Configuration.EmberID = "ember"
 
 			deployment.Configuration.DiskMB = 1
 			if _, err := extractTransfer(context.Background(), &buffer, t.TempDir(), deployment, "transfer"); err == nil {

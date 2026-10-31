@@ -462,7 +462,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 
 	offered := configurations.capabilities()
 
-	if err := conn.WriteJSON(protocol.Message{Type: "hello", Protocol: protocol.ProtocolVersion, MinimumProtocol: protocol.MinimumProtocolVersion, Capabilities: offered, SparkID: id, Hostname: hostname, Version: buildinfo.SparkVersion()}); err != nil {
+	if err := conn.WriteJSON(protocol.Message{Type: protocol.MessageTypeHello, Protocol: protocol.ProtocolVersion, MinimumProtocol: protocol.MinimumProtocolVersion, Capabilities: offered, SparkID: id, Hostname: hostname, Version: buildinfo.SparkVersion()}); err != nil {
 		return err
 	}
 
@@ -513,10 +513,10 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			return errors.New("unsupported panel message")
 		}
 
-		outgoing := protocol.Message{Type: "heartbeat"}
+		outgoing := protocol.Message{Type: protocol.MessageTypeHeartbeat}
 		switch message.Type {
-		case "heartbeat":
-		case "game.ack":
+		case protocol.MessageTypeHeartbeat:
+		case protocol.MessageTypeGameAck:
 			if configurations.games == nil || protocol.Require(welcome.Capabilities, protocol.CapabilityGameIntegration) != nil {
 				return errors.New("unnegotiated game acknowledgement")
 			}
@@ -526,7 +526,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			}
 
 			continue
-		case "console.open":
+		case protocol.MessageTypeConsoleOpen:
 			if err := protocol.Require(welcome.Capabilities, protocol.CapabilityConsole); err != nil {
 				return err
 			}
@@ -540,7 +540,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			}
 
 			continue
-		case "console.close":
+		case protocol.MessageTypeConsoleClose:
 			if err := protocol.Require(welcome.Capabilities, protocol.CapabilityConsole); err != nil {
 				return err
 			}
@@ -552,7 +552,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			streams.stop(message.Console.ID)
 
 			continue
-		case "console.ack":
+		case protocol.MessageTypeConsoleAck:
 			if err := protocol.Require(welcome.Capabilities, protocol.CapabilityConsole); err != nil {
 				return err
 			}
@@ -564,7 +564,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 			streams.acknowledge(message.Console.ID)
 
 			continue
-		case "command":
+		case protocol.MessageTypeCommand:
 			if message.Command == nil {
 				return errors.New("missing command")
 			}
@@ -578,7 +578,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 				response = configurations.executeNegotiated(ctx, id, *message.Command, welcome.Capabilities)
 			}
 
-			outgoing = protocol.Message{Type: "response", Response: &response}
+			outgoing = protocol.Message{Type: protocol.MessageTypeResponse, Response: &response}
 		default:
 			return errors.New("unsupported panel message")
 		}

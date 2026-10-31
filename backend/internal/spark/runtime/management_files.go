@@ -17,6 +17,7 @@ import (
 	"unicode"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 func fileFailure(code, message string) error { return &model.FileError{Code: code, Message: message} }
@@ -92,7 +93,7 @@ func fileRevision(data []byte) string {
 
 // Files executes contained file operations serialized against server lifecycle work.
 func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileRequest) (model.FileResult, error) {
-	if strings.HasPrefix(q.Operation, "backup.") {
+	if q.Operation.IsBackup() {
 		return m.backupFiles(ctx, d, q)
 	}
 
@@ -100,7 +101,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, err
 	}
 
-	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID || !filePath(q.Path, q.Operation == "list" || q.Operation == "stat" || q.Operation == "compress") {
+	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || !filePath(q.Path, q.Operation == model.FileOperationList || q.Operation == model.FileOperationStat || q.Operation == model.FileOperationCompress) {
 		return model.FileResult{}, fileFailure("invalid_file", "Invalid file request.")
 	}
 
@@ -109,7 +110,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	}
 
 	switch q.Operation {
-	case "list", "read", "write", "mkdir", "rename", "delete", "chmod", "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel", "compress", "extract":
+	case model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract:
 	default:
 		return model.FileResult{}, fileFailure("invalid_file", "Unsupported file operation.")
 	}
@@ -126,7 +127,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, fileFailure("file_busy", "Wait for the current server operation to finish.")
 	}
 
-	mutate := q.Operation != "list" && q.Operation != "read" && q.Operation != "stat" && q.Operation != "read.chunk" && q.Operation != "upload.cancel"
+	mutate := q.Operation != model.FileOperationList && q.Operation != model.FileOperationRead && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadCancel
 	if mutate {
 		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != "active" && transfer.State != "released") {
 			return model.FileResult{}, fileFailure("file_busy", "Server files are locked for a Spark transfer.")
@@ -145,7 +146,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 	defer func() { _ = root.Close() }()
 
-	if mutate && (q.Operation == "write" || q.Operation == "mkdir" || strings.HasPrefix(q.Operation, "upload.") || q.Operation == "compress" || q.Operation == "extract") {
+	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || q.Operation.IsUpload() || q.Operation == model.FileOperationCompress || q.Operation == model.FileOperationExtract) {
 		if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 			return model.FileResult{}, fileFailure("file_limit", err.Error())
 		}
@@ -153,23 +154,23 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 	m.pruneUploads(root, e)
 
-	if strings.HasPrefix(q.Operation, "upload.") {
+	if q.Operation.IsUpload() {
 		return m.uploadFile(ctx, d, root, volume, e, q)
 	}
 
-	if q.Operation == "compress" || q.Operation == "extract" {
+	if q.Operation == model.FileOperationCompress || q.Operation == model.FileOperationExtract {
 		return m.archiveFiles(ctx, d, root, volume, q)
 	}
 
-	if err := containedPath(root, q.Path, q.Operation == "write" || q.Operation == "mkdir"); err != nil {
+	if err := containedPath(root, q.Path, q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir); err != nil {
 		return model.FileResult{}, err
 	}
 
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Path}
 	switch q.Operation {
-	case "stat", "read.chunk":
+	case model.FileOperationStat, model.FileOperationReadChunk:
 		return chunkFile(root, q)
-	case "list":
+	case model.FileOperationList:
 		directory, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 		if err != nil {
 			return result, fileFailure("file_not_found", "Directory not found.")
@@ -214,7 +215,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 			return a.Name < b.Name
 		})
-	case "read":
+	case model.FileOperationRead:
 		data, _, err := readFile(root, q.Path)
 		if err != nil {
 			return result, err
@@ -222,7 +223,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 		result.Data = data
 		result.Revision = fileRevision(data)
-	case "write":
+	case model.FileOperationWrite:
 		revision := "absent"
 		mode := fs.FileMode(0600)
 		oldSize := int64(0)
@@ -274,7 +275,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		}
 
 		result.Revision = fileRevision(q.Data)
-	case "mkdir":
+	case model.FileOperationMkdir:
 		if err := root.Mkdir(q.Path, 0700); err != nil {
 			return result, fileFailure("file_conflict", "Directory already exists or parent is unavailable.")
 		}
@@ -291,7 +292,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 			_ = root.Remove(q.Path)
 			return result, fileFailure("file_io", "Could not assign directory ownership.")
 		}
-	case "rename":
+	case model.FileOperationRename:
 		if !filePath(q.Destination, false) {
 			return result, fileFailure("invalid_file", "Invalid destination.")
 		}
@@ -309,11 +310,11 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		}
 
 		result.Path = q.Destination
-	case "delete":
+	case model.FileOperationDelete:
 		if err := root.RemoveAll(q.Path); err != nil {
 			return result, fileFailure("file_conflict", "Could not delete entry or all of its contents. Refresh and try again.")
 		}
-	case "chmod":
+	case model.FileOperationChmod:
 		if q.Mode > 0777 {
 			return result, fileFailure("invalid_file", "Permissions must be between 000 and 777 (octal).")
 		}

@@ -7,18 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
-
-var safeID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
-
-var startupVariables = regexp.MustCompile(`\{\{([A-Z][A-Z0-9_]*)\}\}`)
 
 // Manager shares lifecycle behavior between the panel and remote Spark processes.
 type Manager struct {
@@ -86,7 +82,7 @@ func (m *Manager) load(id string) (*entry, error) {
 		return e, nil
 	}
 
-	e := &entry{Status: model.RuntimeStatus{ServerID: id, State: "not_installed"}}
+	e := &entry{Status: model.RuntimeStatus{ServerID: id, State: model.RuntimeStateNotInstalled}}
 
 	data, err := os.ReadFile(filepath.Join(m.root(id), "state.json"))
 	if err == nil {
@@ -137,7 +133,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, err
 	}
 
-	if !safeID.MatchString(q.ServerID) || q.ServerID != d.ServerID {
+	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID {
 		return model.RuntimeStatus{}, errors.New("invalid server identity")
 	}
 
@@ -175,7 +171,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		if q.Action == "status" {
 			status, err := m.observe(ctx, d, e)
 			status.Busy = transfer.State != "retired" && transfer.State != "discarded"
-			status.Progress, status.Operation, status.OperationID = "Spark transfer: "+transfer.State, "transfer", transfer.ID
+			status.Progress, status.Operation, status.OperationID = "Spark transfer: "+string(transfer.State), model.ServerActionTransfer, transfer.ID
 			status.Error = transfer.Error
 
 			return status, err
@@ -260,12 +256,12 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	switch q.Action {
-	case "install", "update", "reinstall", "start", "stop", "restart", "kill", "delete", "backup", "restore":
+	case model.ServerActionInstall, model.ServerActionUpdate, model.ServerActionReinstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionDelete, model.ServerActionBackup, model.ServerActionRestore:
 	default:
 		return model.RuntimeStatus{}, errors.New("unsupported runtime operation")
 	}
 
-	if !safeID.MatchString(q.OperationID) {
+	if !utils.IsValidResourceID(q.OperationID) {
 		return model.RuntimeStatus{}, errors.New("operation ID is required")
 	}
 
@@ -314,7 +310,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("server is already installed")
 	}
 
-	phase := map[string]string{"install": "installing", "update": "updating", "reinstall": "reinstalling", "start": "starting", "stop": "stopping", "restart": "restarting", "kill": "stopping", "delete": "deleting"}[q.Action]
+	phase := map[model.ServerAction]model.RuntimeState{model.ServerActionInstall: model.RuntimeStateInstalling, model.ServerActionUpdate: model.RuntimeStateUpdating, model.ServerActionReinstall: model.RuntimeStateReinstalling, model.ServerActionStart: model.RuntimeStateStarting, model.ServerActionStop: model.RuntimeStateStopping, model.ServerActionRestart: model.RuntimeStateRestarting, model.ServerActionKill: model.RuntimeStateStopping, model.ServerActionDelete: model.RuntimeStateDeleting}[q.Action]
 	if q.Action == "backup" || q.Action == "restore" {
 		phase = "stopped"
 	}
@@ -363,11 +359,11 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 	var err error
 
 	switch q.Action {
-	case "reinstall":
+	case model.ServerActionReinstall:
 		err = m.reinstallMode(ctx, d, e, true, q.Content == "clean")
-	case "backup":
+	case model.ServerActionBackup:
 		err = m.createBackup(ctx, d, q.OperationID, e)
-	case "restore":
+	case model.ServerActionRestore:
 		if q.BackupSource != nil {
 			err = m.downloadBackup(ctx, d, q.Content, q.BackupSource, e)
 		}
@@ -419,7 +415,7 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 			e.Status.DiskQuotaErrorCode = status.DiskQuotaErrorCode
 		}
 	} else {
-		e.Status.State = "unknown"
+		e.Status.State = model.RuntimeStateUnknown
 		if e.Status.Error == "" {
 			e.Status.Error = "could not inspect Docker state"
 			e.Status.ErrorCode = model.RuntimeDockerFailed
@@ -428,7 +424,7 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 	}
 
 	if q.Action == "delete" && err == nil {
-		e.Status.State = "deleted"
+		e.Status.State = model.RuntimeStateDeleted
 	}
 
 	if err := m.persist(d.ServerID, e); err != nil {
@@ -459,7 +455,7 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 		return model.RuntimeStatus{}, err
 	}
 
-	status := model.RuntimeStatus{ServerID: d.ServerID, State: state}
+	status := model.RuntimeStatus{ServerID: d.ServerID, State: model.RuntimeState(state)}
 	if d.Configuration.DiskMB > 0 && m.Quota == nil {
 		status.DiskQuotaError = m.quotaUnavailable
 		if status.DiskQuotaError != "" {
@@ -476,18 +472,18 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	if state == "missing" {
-		status.State = "not_installed"
+		status.State = model.RuntimeStateNotInstalled
 		if e.Installed {
-			status.State = "stopped"
+			status.State = model.RuntimeStateStopped
 		}
 
 		if e.Status.State == "deleted" {
-			status.State = "deleted"
+			status.State = model.RuntimeStateDeleted
 		}
 	}
 
 	if state == "exited" || state == "created" {
-		status.State = "stopped"
+		status.State = model.RuntimeStateStopped
 	}
 
 	if state == "running" {
@@ -501,23 +497,23 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	return status, nil
 }
 
-func (m *Manager) perform(ctx context.Context, d model.Deployment, action string, e *entry) error {
+func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.ServerAction, e *entry) error {
 	switch action {
-	case "install":
+	case model.ServerActionInstall:
 		return m.install(ctx, d, e)
-	case "update", "reinstall":
+	case model.ServerActionUpdate, model.ServerActionReinstall:
 		return m.reinstall(ctx, d, e, action == "update")
-	case "start":
+	case model.ServerActionStart:
 		return m.start(ctx, d, e)
-	case "restart":
+	case model.ServerActionRestart:
 		if err := m.stop(ctx, d); err != nil {
 			return err
 		}
 
 		return m.start(ctx, d, e)
-	case "stop":
+	case model.ServerActionStop:
 		return m.stop(ctx, d)
-	case "kill":
+	case model.ServerActionKill:
 		state, err := m.inspect(ctx, d.ServerID)
 		if err != nil {
 			return err
@@ -534,7 +530,7 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action string
 		_, err = m.Docker.Run(ctx, nil, "stop", "--signal", "SIGKILL", "--time", "0", container(d.ServerID))
 
 		return err
-	case "delete":
+	case model.ServerActionDelete:
 		m.progress(d.ServerID, e, "Removing containers")
 
 		for _, name := range []string{container(d.ServerID) + "-install", container(d.ServerID)} {
@@ -562,15 +558,13 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action string
 }
 
 func environment(d model.Deployment) map[string]string {
-	env := make(map[string]string, len(d.Configuration.Variables)+3)
+	env := model.BuiltinEnvironment()
 	for key, value := range d.Configuration.Variables {
 		env[key] = value
 	}
 
 	if len(d.Configuration.Ports) > 0 {
 		env["SERVER_PORT"] = strconv.Itoa(d.Configuration.Ports[0].ContainerPort)
-	} else if len(d.Ember.RequiredPorts) > 0 {
-		env["SERVER_PORT"] = strconv.Itoa(d.Ember.RequiredPorts[0].Container)
 	}
 
 	env["SERVER_IP"] = "0.0.0.0"
@@ -703,7 +697,7 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 }
 
 func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error {
-	_, command, err := d.Ember.ServerStartup(d.Configuration)
+	command, err := model.Startup(d.Ember.Startup, environment(d))
 	if err != nil {
 		return err
 	}
@@ -763,7 +757,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 		return err
 	}
 
-	startup := startupVariables.ReplaceAllStringFunc(command, func(value string) string { return "${" + value[2:len(value)-2] + "}" })
+	startup := command
 	env["STARTUP"] = startup
 	// Images may launch their own Tini beneath Docker's PID 1 init process.
 	env["TINI_SUBREAPER"] = "1"

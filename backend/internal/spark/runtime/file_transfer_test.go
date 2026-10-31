@@ -260,7 +260,7 @@ func TestArchivesRoundTripAndContainment(t *testing.T) {
 	}
 
 	call := func(operation, source, destination string) error {
-		_, err := m.Files(context.Background(), d, model.FileRequest{ServerID: d.ServerID, Operation: operation, Path: source, Destination: destination})
+		_, err := m.Files(context.Background(), d, model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperation(operation), Path: source, Destination: destination})
 		return err
 	}
 	if err := call("compress", "config", "config.tar.gz"); err != nil {

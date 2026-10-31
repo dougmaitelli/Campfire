@@ -29,7 +29,7 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := model.FileRequest{Operation: "list", Path: r.URL.Query().Get("path")}
+	input := model.FileRequest{Operation: model.FileOperationList, Path: r.URL.Query().Get("path")}
 	if input.Path == "" {
 		input.Path = "."
 	}
@@ -54,18 +54,18 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
-		if input.Operation == "compress" || input.Operation == "extract" {
+		if input.Operation == model.FileOperationCompress || input.Operation == model.FileOperationExtract {
 			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(30 * time.Minute))
 		}
 
-		if !slices.Contains([]string{"list", "read", "write", "mkdir", "rename", "delete", "chmod", "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel", "compress", "extract"}, input.Operation) {
+		if !slices.Contains([]model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract}, input.Operation) {
 			writeFileError(w, &model.FileError{Code: "invalid_file", Message: "Invalid game file operation."})
 			return
 		}
 
-		for _, operation := range []string{"list", "read", "write", "mkdir", "rename", "delete", "chmod", "upload.begin", "upload.commit", "upload.cancel", "compress", "extract"} {
+		for _, operation := range []model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationUploadBegin, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract} {
 			if input.Operation == operation {
-				auditDetail(r, "server.files."+operation, "server:"+r.PathValue("id"))
+				auditDetail(r, "server.files."+string(operation), "server:"+r.PathValue("id"))
 			}
 		}
 	}
@@ -82,7 +82,7 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		result.Path = input.Path
 	}
 
-	result.Path = publicDataPath(result.Path, input.Operation == "list" || input.Operation == "mkdir" || input.Operation == "extract")
+	result.Path = publicDataPath(result.Path, input.Operation == model.FileOperationList || input.Operation == model.FileOperationMkdir || input.Operation == model.FileOperationExtract)
 	writeJSON(w, http.StatusOK, result)
 }
 
@@ -93,7 +93,7 @@ func (a *API) downloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request := model.FileRequest{Operation: "stat", Path: r.URL.Query().Get("path")}
+	request := model.FileRequest{Operation: model.FileOperationStat, Path: r.URL.Query().Get("path")}
 	if err := normalizeFileRequest(&request); err != nil {
 		writeFileError(w, err)
 		return

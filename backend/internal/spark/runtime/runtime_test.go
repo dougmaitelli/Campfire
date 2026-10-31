@@ -124,12 +124,12 @@ func (f *fakeDocker) Input(ctx context.Context, id, text string) error {
 }
 
 func runtimeFixture() model.Deployment {
-	return model.Deployment{ServerID: "test-server", Configuration: model.ServerConfiguration{Name: "Game", SparkID: "node", EmberID: "ember", Image: "alpine:3.22", CPULimit: 0.5, MemoryMB: 128, DiskMB: 1024, Variables: map[string]string{"SECONDS": "3600"}, Ports: []model.ServerPort{{BindIP: "127.0.0.1", HostPort: 25565, ContainerPort: 25565, Protocol: "tcp"}}}, Ember: model.Ember{ID: "ember", Schema: 1, Name: "Game", Images: map[string]string{"Alpine": "alpine:3.22"}, Startup: "sleep {{SECONDS}}", WorkDir: "/home/container", User: "1000:1000", Ready: "Ready", Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo install"}}}
+	return model.Deployment{ServerID: "test-server", Configuration: model.RuntimeConfiguration{SparkID: "node", EmberID: "ember", Image: "alpine:3.22", CPULimit: 0.5, MemoryMB: 128, DiskMB: 1024, Variables: map[string]string{"SECONDS": "3600"}, Ports: []model.ServerPort{{BindIP: "127.0.0.1", HostPort: 25565, ContainerPort: 25565, Protocol: "tcp"}}}, Ember: model.RuntimeDefinition{Startup: "sleep {{SECONDS}}", WorkDir: "/home/container", User: "1000:1000", Ready: "Ready", Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo install"}}}
 }
 
 func awaitOperation(t *testing.T, m *Manager, d model.Deployment, action, id string) model.RuntimeStatus {
 	t.Helper()
-	return awaitRequest(t, m, d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: id})
+	return awaitRequest(t, m, d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: id})
 }
 
 func awaitRequest(t *testing.T, m *Manager, d model.Deployment, request model.RuntimeRequest) model.RuntimeStatus {
@@ -406,7 +406,7 @@ func TestInterruptInstaller(t *testing.T) {
 				t.Fatal("installer did not start")
 			}
 
-			if _, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: "interrupt"}); err != nil {
+			if _, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: "interrupt"}); err != nil {
 				t.Fatal(err)
 			}
 

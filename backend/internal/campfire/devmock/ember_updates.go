@@ -140,7 +140,12 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 
-		record := newRecord(configuration.SparkID, model.Deployment{ServerID: server.ID, Configuration: configuration, Ember: original})
+		deployment, err := model.NewDeployment(server.ID, server.ServerConfiguration, original)
+		if err != nil {
+			return err
+		}
+
+		record := newRecord(configuration.SparkID, deployment)
 		record.State = "stopped"
 
 		record.Logs += "[Mock Spark] The current local Ember definition is ready to apply.\n"

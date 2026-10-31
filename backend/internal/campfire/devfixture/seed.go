@@ -22,7 +22,7 @@ const AdminName = "Developer"
 // Server combines a saved server with its initial simulated lifecycle state.
 type Server struct {
 	model.Server
-	State string
+	State model.RuntimeState
 }
 
 // Seed populates a fresh database after administrator setup. The caller chooses
@@ -114,7 +114,7 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 			return nil, err
 		}
 
-		servers = append(servers, Server{Server: server, State: item.state})
+		servers = append(servers, Server{Server: server, State: model.RuntimeState(item.state)})
 	}
 
 	for i, event := range []model.GameEvent{

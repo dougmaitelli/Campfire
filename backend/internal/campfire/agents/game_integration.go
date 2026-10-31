@@ -40,7 +40,7 @@ func (h *Hub) gameFrame(ctx context.Context, sparkID string, current *peer, fram
 	}
 
 	select {
-	case current.outbound <- protocol.Message{Type: "game.ack", Protocol: current.info.Protocol, GameAck: ack}:
+	case current.outbound <- protocol.Message{Type: protocol.MessageTypeGameAck, Protocol: current.info.Protocol, GameAck: ack}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()

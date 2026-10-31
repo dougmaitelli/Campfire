@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"campfire/internal/shared/model"
 	"context"
 	"encoding/json"
 	"os"
@@ -109,26 +108,25 @@ func TestValheimBashStartupAndLiteralVariableValues(t *testing.T) {
 }
 
 func TestNativeStartupShellValidation(t *testing.T) {
-	ember := runtimeFixture().Ember
+	d := runtimeFixture()
 
-	ember.Startup = "sleep 60"
+	d.Ember.Startup = "sleep 60"
 	for _, shell := range []string{"", "sh", "bash", "ash"} {
-		ember.StartupShell = shell
-		if err := ember.Validate(); err != nil {
+		d.Ember.StartupShell = shell
+		if err := d.Validate(); err != nil {
 			t.Fatal(shell, err)
 		}
 	}
 
-	ember.StartupShell = "bash -c injected"
-	if err := ember.Validate(); err == nil {
+	d.Ember.StartupShell = "bash -c injected"
+	if err := d.Validate(); err == nil {
 		t.Fatal("unsupported startup shell accepted")
 	}
 }
 
-func TestRuntimeStartsCustomCommand(t *testing.T) {
+func TestRuntimeStartsResolvedCommand(t *testing.T) {
 	d := runtimeFixture()
-	d.Ember.Variables = []model.Variable{{Name: "SECONDS"}}
-	d.Configuration.StartupOverride = "echo custom; sleep {{SECONDS}}"
+	d.Ember.Startup = "echo custom; sleep {{SECONDS}}"
 	m := newTestManager(t.Context(), t.TempDir())
 	t.Cleanup(m.Close)
 
@@ -152,36 +150,4 @@ func TestRuntimeStartsCustomCommand(t *testing.T) {
 	}
 
 	t.Fatal("custom command was not used for shell arguments and STARTUP", docker.calls)
-}
-
-func TestRuntimeStartsSelectedNamedCommand(t *testing.T) {
-	d := runtimeFixture()
-	d.Ember.Startup = ""
-	d.Ember.StartupCommands = map[string]string{"Normal": "sleep {{SECONDS}}", "Debug": "echo debug; sleep {{SECONDS}}"}
-	d.Configuration.StartupCommand = "Debug"
-	m := newTestManager(t.Context(), t.TempDir())
-	t.Cleanup(m.Close)
-
-	docker := &fakeDocker{states: map[string]string{}}
-	m.Docker = docker
-	m.Ownership = func(string, string) error { return nil }
-
-	if status := awaitOperation(t, m, d, "install", "install-named"); status.Error != "" {
-		t.Fatal(status)
-	}
-
-	if status := awaitOperation(t, m, d, "start", "start-named"); status.Error != "" {
-		t.Fatal(status)
-	}
-
-	docker.mu.Lock()
-	defer docker.mu.Unlock()
-
-	for _, args := range docker.calls {
-		if args[0] == "create" && args[len(args)-1] == "echo debug; sleep ${SECONDS}" && slices.Contains(args, "STARTUP=echo debug; sleep ${SECONDS}") {
-			return
-		}
-	}
-
-	t.Fatal("selected command was not used for shell arguments and STARTUP", docker.calls)
 }

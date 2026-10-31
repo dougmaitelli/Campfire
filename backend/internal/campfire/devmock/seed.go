@@ -155,7 +155,12 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 	}
 
 	for i, fixture := range fixtures {
-		record := newRecord(fixture.SparkID, model.Deployment{ServerID: fixture.ID, Configuration: fixture.ServerConfiguration, Ember: ember})
+		deployment, err := model.NewDeployment(fixture.ID, fixture.ServerConfiguration, ember)
+		if err != nil {
+			return err
+		}
+
+		record := newRecord(fixture.SparkID, deployment)
 		record.State = fixture.State
 		record.Logs = devfixture.ConsoleLogs
 

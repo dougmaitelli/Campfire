@@ -1,7 +1,11 @@
 // Package permissions defines server actions and their permission dependencies.
 package permissions
 
-import "slices"
+import (
+	"slices"
+
+	"campfire/internal/shared/model"
+)
 
 // Definition describes a grant shown by role and token editors.
 type Definition struct {
@@ -125,13 +129,13 @@ func Legacy(actions []string) []string {
 }
 
 // File maps public HTTP and SFTP operations to the same grant.
-func File(operation string) string {
+func File(operation model.FileOperation) string {
 	switch operation {
-	case "list", "stat", "read", "read.chunk":
+	case model.FileOperationList, model.FileOperationStat, model.FileOperationRead, model.FileOperationReadChunk:
 		return ServerFilesRead
-	case "write", "mkdir", "rename", "chmod", "compress", "extract", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel":
+	case model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationChmod, model.FileOperationCompress, model.FileOperationExtract, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel:
 		return ServerFilesWrite
-	case "delete":
+	case model.FileOperationDelete:
 		return ServerFilesDelete
 	default:
 		return ""
@@ -140,16 +144,16 @@ func File(operation string) string {
 
 // Action maps runtime operations, including scheduled operations, to their grant.
 func Action(action string) string {
-	switch action {
-	case "install", "start", "stop", "restart", "kill":
+	switch model.ServerAction(action) {
+	case model.ServerActionInstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill:
 		return ServerOperate
-	case "update", "reinstall":
+	case model.ServerActionUpdate, model.ServerActionReinstall:
 		return ServerReinstall
-	case "backup":
+	case model.ServerActionBackup:
 		return ServerBackupsCreate
-	case "restore":
+	case model.ServerActionRestore:
 		return ServerBackupsRestore
-	case "command":
+	case model.ServerActionCommand:
 		return ServerConsoleWrite
 	default:
 		return ""

@@ -1078,7 +1078,6 @@
   "sparkFeatures": {
     "resourceCleanup": "Unused Docker resource cleanup",
     "gameIntegration": "Server state and event publishing",
-    "customStartupCommand": "Custom startup command",
     "gameMedia": "Game screenshots and clips",
     "archiveCreationAndExtraction": "Archive creation and extraction",
     "available": "Available",

@@ -157,7 +157,7 @@ func TestLifecycleMetricsAndOffline(t *testing.T) {
 	server := onlineServer(t, runtime, servers)
 
 	for _, action := range []string{"metrics", "stop", "metrics", "install", "start", "restart", "command", "logs"} {
-		status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: action, Content: "say hello", OperationID: "operation-" + action})
+		status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: model.ServerAction(action), Content: "say hello", OperationID: "operation-" + action})
 		if err != nil {
 			t.Fatal(action, err)
 		}
@@ -205,13 +205,14 @@ func TestLifecycleTransitionsRemainObservableUntilCompletion(t *testing.T) {
 	runtime.now = func() time.Time { return now }
 
 	for _, step := range []struct {
-		action, pending, settled string
+		action           string
+		pending, settled model.RuntimeState
 	}{
 		{"stop", "stopping", "stopped"},
 		{"start", "starting", "running"},
 		{"restart", "restarting", "running"},
 	} {
-		request := model.RuntimeRequest{ServerID: server.ID, Action: step.action, OperationID: "test-" + step.action}
+		request := model.RuntimeRequest{ServerID: server.ID, Action: model.ServerAction(step.action), OperationID: "test-" + step.action}
 
 		status, err := runtime.Action(t.Context(), server.SparkID, request)
 		if err != nil || status.State != step.pending || !status.Busy || status.Ready || status.OperationState != model.OperationRunning {
@@ -219,7 +220,7 @@ func TestLifecycleTransitionsRemainObservableUntilCompletion(t *testing.T) {
 		}
 
 		logs, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "logs"})
-		if err != nil || !strings.Contains(logs.Logs, step.action+" in progress; state="+step.pending) {
+		if err != nil || !strings.Contains(logs.Logs, step.action+" in progress; state="+string(step.pending)) {
 			t.Fatal("pending action missing from console", logs, err)
 		}
 
@@ -242,7 +243,7 @@ func TestLifecycleTransitionsRemainObservableUntilCompletion(t *testing.T) {
 		}
 
 		logs, err = runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "logs"})
-		if err != nil || strings.Count(logs.Logs, step.action+" completed; state="+step.settled) != 1 {
+		if err != nil || strings.Count(logs.Logs, step.action+" completed; state="+string(step.settled)) != 1 {
 			t.Fatal("completion was missing or logged more than once", logs, err)
 		}
 	}
@@ -422,10 +423,15 @@ func TestFileEditsAndRevisionsPersist(t *testing.T) {
 		t.Fatal("invalid path accepted")
 	}
 
-	configuration := server.ServerConfiguration
-	configuration.DiskMB = 1
+	var record runtimeRecord
+	if err := db.ORM().First(&record, "server_id = ?", server.ID).Error; err != nil {
+		t.Fatal(err)
+	}
 
-	if _, err := runtime.Deploy(t.Context(), server.SparkID, model.Deployment{ServerID: server.ID, Configuration: configuration}); err != nil {
+	configuration := record.Deployment
+	configuration.Configuration.DiskMB = 1
+
+	if _, err := runtime.Deploy(t.Context(), server.SparkID, configuration); err != nil {
 		t.Fatal(err)
 	}
 
@@ -447,7 +453,7 @@ func TestFileEditsAndRevisionsPersist(t *testing.T) {
 }
 
 func TestConsoleDisconnectAndNewDeployments(t *testing.T) {
-	runtime, _, _, servers := fixture(t)
+	runtime, db, _, servers := fixture(t)
 	server := onlineServer(t, runtime, servers)
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -467,7 +473,14 @@ func TestConsoleDisconnectAndNewDeployments(t *testing.T) {
 		t.Fatal("console did not stream and cancel cleanly", output, err)
 	}
 
-	deployment := model.Deployment{ServerID: "new-server", Configuration: server.ServerConfiguration}
+	var record runtimeRecord
+	if err := db.ORM().First(&record, "server_id = ?", server.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	deployment := record.Deployment
+
+	deployment.ServerID = "new-server"
 	for range 2 {
 		receipt, err := runtime.Deploy(t.Context(), server.SparkID, deployment)
 		if err != nil || len(receipt.Revision) != 64 {

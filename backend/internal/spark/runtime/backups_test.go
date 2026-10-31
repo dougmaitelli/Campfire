@@ -319,7 +319,7 @@ func TestBackupGuardsAndOwnershipFailure(t *testing.T) {
 	awaitOperation(t, m, d, "start", "start")
 
 	for _, action := range []string{"backup", "restore"} {
-		_, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: action, OperationID: "blocked", Content: "snapshot.tar.gz"})
+		_, err := m.Execute(context.Background(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: "blocked", Content: "snapshot.tar.gz"})
 		if err == nil {
 			t.Fatal("running backup operation accepted", action)
 		}

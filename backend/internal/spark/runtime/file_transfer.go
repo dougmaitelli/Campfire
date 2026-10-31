@@ -52,7 +52,7 @@ func chunkFile(root *os.Root, q model.FileRequest) (model.FileResult, error) {
 	}
 
 	result.Entries = []model.FileEntry{{Name: info.Name(), Kind: kind, Mode: uint32(info.Mode().Perm()), Size: info.Size(), ModifiedAt: info.ModTime().UTC()}}
-	if q.Operation == "stat" {
+	if q.Operation == model.FileOperationStat {
 		return result, nil
 	}
 
@@ -122,7 +122,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		e.uploads = make(map[string]*fileUpload)
 	}
 
-	if q.Operation == "upload.begin" {
+	if q.Operation == model.FileOperationUploadBegin {
 		limit := model.DefaultUploadLimit
 		if q.UploadLimit > 0 {
 			limit = min(q.UploadLimit, model.FileTransferLimit)
@@ -187,7 +187,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		limit = min(limit, q.UploadLimit)
 	}
 
-	if q.Operation == "upload.cancel" {
+	if q.Operation == model.FileOperationUploadCancel {
 		_ = root.Remove(upload.temporary)
 
 		delete(e.uploads, q.UploadID)
@@ -211,7 +211,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		return result, fileFailure("invalid_file", "Invalid upload staging file.")
 	}
 
-	if q.Operation == "upload.chunk" {
+	if q.Operation == model.FileOperationUploadChunk {
 		if q.Offset < 0 || q.Offset > limit-int64(len(q.Data)) || upload.size >= 0 && q.Offset+int64(len(q.Data)) > upload.size {
 			return result, fileFailure("file_limit", "Upload chunk exceeds the declared size or configured upload limit.")
 		}

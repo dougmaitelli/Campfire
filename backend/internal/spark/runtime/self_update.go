@@ -3,6 +3,8 @@ package runtime
 import (
 	"errors"
 	"os"
+
+	"campfire/internal/shared/utils"
 )
 
 // CanUpdate requires all asynchronous work, uploads and transfer fences to be idle.
@@ -40,7 +42,7 @@ func (m *Manager) CanUpdate() error {
 	}
 
 	for _, item := range items {
-		if !item.IsDir() || !safeID.MatchString(item.Name()) {
+		if !item.IsDir() || !utils.IsValidResourceID(item.Name()) {
 			continue
 		}
 

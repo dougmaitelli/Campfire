@@ -3,8 +3,10 @@ package protocol
 import (
 	"errors"
 	"slices"
-	"strings"
 	"time"
+
+	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 // SparkUpdateTimeout bounds panel-hosted binary download and verification.
@@ -23,17 +25,18 @@ func CommandTimeout(command Command) time.Duration {
 		return SparkUpdateTimeout
 	}
 
-	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation == "compress" || command.Files.Operation == "extract") {
+	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation == model.FileOperationCompress || command.Files.Operation == model.FileOperationExtract) {
 		return 30 * time.Minute
 	}
 
 	return 30 * time.Second
 }
 
-// Capability names version the behavior of individual features independently.
+// Capability names version individual feature payloads and behavior independently
+// of the wire protocol. Incompatible feature changes require a new capability
+// version; only explicitly negotiated names are supported.
 const (
-	CapabilityStartupOverride = "server.startup-override.v1"
-	CapabilityConfigure       = "server.configure.v1"
+	CapabilityConfigure       = "server.configure.v2"
 	CapabilityLifecycle       = "server.lifecycle.v1"
 	CapabilityFiles           = "server.files.v1"
 	CapabilityFilePermissions = "server.files.permissions.v1"
@@ -56,7 +59,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityStartupOverride}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -67,14 +70,8 @@ func ValidCapabilities(items []string) bool {
 
 	seen := make(map[string]bool, len(items))
 	for _, item := range items {
-		if item == "" || len(item) > 64 || seen[item] {
+		if len(item) > 64 || seen[item] || !utils.IsValidIdentifier(item) {
 			return false
-		}
-
-		for _, r := range item {
-			if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '.' && r != '-' && r != '_' {
-				return false
-			}
 		}
 
 		seen[item] = true
@@ -110,7 +107,7 @@ func Negotiate(hello Message) (int, []string, error) {
 
 // ValidateWelcome rejects unoffered versions or capabilities from the panel.
 func ValidateWelcome(welcome Message, offered []string) error {
-	if welcome.Type != "welcome" || welcome.Protocol < MinimumProtocolVersion || welcome.Protocol > ProtocolVersion || !ValidCapabilities(welcome.Capabilities) {
+	if welcome.Type != MessageTypeWelcome || welcome.Protocol < MinimumProtocolVersion || welcome.Protocol > ProtocolVersion || !ValidCapabilities(welcome.Capabilities) {
 		return errors.New("invalid panel capability negotiation")
 	}
 
@@ -134,67 +131,62 @@ func Require(negotiated []string, required ...string) error {
 	return nil
 }
 
+var commandCapabilities = map[CommandName][]string{
+	PruneSpark:      {CapabilityPrune},
+	UpdateSpark:     {CapabilitySelfUpdate},
+	ReinstallSpark:  {CapabilitySelfReinstall},
+	ConfigureServer: {CapabilityConfigure},
+	ServerTransfer:  {CapabilityTransfer},
+	ServerFiles:     {CapabilityFiles},
+	ServerAction:    {CapabilityLifecycle},
+}
+
+var fileOperationCapabilities = map[model.FileOperation]string{
+	model.FileOperationChmod:        CapabilityFilePermissions,
+	model.FileOperationStat:         CapabilityFileTransfer,
+	model.FileOperationReadChunk:    CapabilityFileTransfer,
+	model.FileOperationUploadBegin:  CapabilityFileTransfer,
+	model.FileOperationUploadChunk:  CapabilityFileTransfer,
+	model.FileOperationUploadCommit: CapabilityFileTransfer,
+	model.FileOperationUploadCancel: CapabilityFileTransfer,
+	model.FileOperationCompress:     CapabilityFileArchive,
+	model.FileOperationExtract:      CapabilityFileArchive,
+}
+
+var runtimeActionCapabilities = map[model.ServerAction][]string{
+	model.ServerActionMetrics:   {CapabilityMetrics},
+	model.ServerActionBackup:    {CapabilityLifecycle, CapabilityBackups},
+	model.ServerActionRestore:   {CapabilityLifecycle, CapabilityBackups},
+	model.ServerActionUpdate:    {CapabilityLifecycle, CapabilityReinstall},
+	model.ServerActionReinstall: {CapabilityLifecycle, CapabilityReinstall},
+}
+
 // RequiredCapabilities covers every command extension at both dispatch boundaries.
 func RequiredCapabilities(command Command) []string {
-	switch command.Name {
-	case PruneSpark:
-		return []string{CapabilityPrune}
-	case UpdateSpark:
-		return []string{CapabilitySelfUpdate}
-	case ReinstallSpark:
-		return []string{CapabilitySelfReinstall}
-	case ConfigureServer:
-		required := []string{CapabilityConfigure}
-		if command.Deployment != nil && command.Deployment.Configuration.GameIntegration {
-			required = append(required, CapabilityGameIntegration)
-		}
+	required := slices.Clone(commandCapabilities[command.Name])
+	if command.Name == ConfigureServer && command.Deployment != nil && command.Deployment.Configuration.GameIntegration {
+		required = append(required, CapabilityGameIntegration)
+	}
 
-		if command.Deployment != nil && command.Deployment.Configuration.StartupOverride != "" {
-			required = append(required, CapabilityStartupOverride)
-		}
-
-		return required
-	case ServerTransfer:
-		return []string{CapabilityTransfer}
-	case ServerFiles:
-		if command.Files != nil {
-			switch command.Files.Operation {
-			case "chmod":
-				return []string{CapabilityFiles, CapabilityFilePermissions}
-			case "stat", "read.chunk", "upload.begin", "upload.chunk", "upload.commit", "upload.cancel":
-				return []string{CapabilityFiles, CapabilityFileTransfer}
-			case "compress", "extract":
-				return []string{CapabilityFiles, CapabilityFileArchive}
-			}
-		}
-
-		if command.Files != nil && strings.HasPrefix(command.Files.Operation, "backup.") {
+	if command.Name == ServerFiles && command.Files != nil {
+		if command.Files.Operation.IsBackup() {
 			return []string{CapabilityBackups}
 		}
 
-		return []string{CapabilityFiles}
-	case ServerAction:
-		requirements := []string{CapabilityLifecycle}
-		if command.Runtime == nil {
-			return requirements
+		if capability, ok := fileOperationCapabilities[command.Files.Operation]; ok {
+			required = append(required, capability)
 		}
-
-		switch command.Runtime.Action {
-		case "metrics":
-			return []string{CapabilityMetrics}
-		case "backup":
-			requirements = append(requirements, CapabilityBackups)
-		case "restore":
-			requirements = append(requirements, CapabilityBackups)
-			if command.Runtime.BackupSource != nil {
-				requirements = append(requirements, CapabilityBackupRemote)
-			}
-		case "update", "reinstall":
-			requirements = append(requirements, CapabilityReinstall)
-		}
-
-		return requirements
-	default:
-		return nil
 	}
+
+	if command.Name == ServerAction && command.Runtime != nil {
+		if capabilities, ok := runtimeActionCapabilities[command.Runtime.Action]; ok {
+			required = slices.Clone(capabilities)
+		}
+
+		if command.Runtime.Action == model.ServerActionRestore && command.Runtime.BackupSource != nil {
+			required = append(required, CapabilityBackupRemote)
+		}
+	}
+
+	return required
 }

@@ -76,7 +76,7 @@ func testWireConsole(t *testing.T, hub *agents.Hub, id string, docker *wireDocke
 	defer cancel()
 
 	for _, action := range []string{"install", "start"} {
-		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: action, OperationID: "console-" + action})
+		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: model.ServerAction(action), OperationID: "console-" + action})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -279,7 +279,7 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 			content = "backup-operation.tar.gz"
 		}
 
-		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: action, OperationID: action + "-operation", Content: content})
+		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: model.ServerAction(action), OperationID: action + "-operation", Content: content})
 		if err != nil {
 			t.Fatal(err)
 		}
