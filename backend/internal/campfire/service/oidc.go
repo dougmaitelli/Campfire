@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/utils"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -20,11 +21,12 @@ import (
 
 // OIDCConfig configures a single optional OpenID Connect provider.
 type OIDCConfig struct {
-	Issuer       string
-	ClientID     string
-	ClientSecret string
-	PublicURL    string
-	DisableLocal bool
+	Issuer        string
+	ClientID      string
+	ClientSecret  string
+	PublicURL     string
+	DisableLocal  bool
+	AutoLinkEmail bool
 }
 
 type oidcAttempt struct {
@@ -36,21 +38,22 @@ type oidcAttempt struct {
 
 // OIDCService owns provider validation and short-lived, single-use browser flows.
 type OIDCService struct {
-	auth     *AuthService
-	issuer   string
-	oauth    oauth2.Config
-	verifier *oidc.IDTokenVerifier
-	provider *oidc.Provider
-	userInfo bool
-	client   *http.Client
-	mu       sync.Mutex
-	attempts map[string]oidcAttempt
+	auth          *AuthService
+	issuer        string
+	oauth         oauth2.Config
+	verifier      *oidc.IDTokenVerifier
+	provider      *oidc.Provider
+	userInfo      bool
+	autoLinkEmail bool
+	client        *http.Client
+	mu            sync.Mutex
+	attempts      map[string]oidcAttempt
 }
 
 // NewOIDCService discovers the configured provider and checks that login remains possible.
 func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (*OIDCService, error) {
 	if config.Issuer == "" {
-		if config.ClientID != "" || config.ClientSecret != "" {
+		if config.ClientID != "" || config.ClientSecret != "" || config.AutoLinkEmail {
 			return nil, errors.New("OIDC issuer and client ID are required when configuring OIDC")
 		}
 
@@ -126,7 +129,7 @@ func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (
 	auth.loginProvider = config.Issuer
 	auth.disableLocal = config.DisableLocal
 
-	return &OIDCService{auth: auth, issuer: config.Issuer, client: client, provider: provider, userInfo: metadata.UserInfoURL != "", attempts: make(map[string]oidcAttempt), verifier: provider.Verifier(&oidc.Config{ClientID: config.ClientID}), oauth: oauth2.Config{
+	return &OIDCService{auth: auth, issuer: config.Issuer, client: client, provider: provider, userInfo: metadata.UserInfoURL != "", autoLinkEmail: config.AutoLinkEmail, attempts: make(map[string]oidcAttempt), verifier: provider.Verifier(&oidc.Config{ClientID: config.ClientID}), oauth: oauth2.Config{
 		ClientID: config.ClientID, ClientSecret: config.ClientSecret, Endpoint: endpoint,
 		RedirectURL: strings.TrimRight(config.PublicURL, "/") + "/api/v1/auth/oidc/callback",
 		Scopes:      []string{oidc.ScopeOpenID, "profile", "email"},
@@ -210,6 +213,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		Username        string `json:"preferred_username"`
 		Name            string `json:"name"`
 		Email           string `json:"email"`
+		EmailVerified   bool   `json:"email_verified"`
 		Picture         string `json:"picture"`
 	}
 	if err := id.Claims(&claims); err != nil || claims.AuthorizedParty != "" && claims.AuthorizedParty != s.oauth.ClientID || len(id.Audience) > 1 && claims.AuthorizedParty != s.oauth.ClientID {
@@ -223,9 +227,10 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		}
 
 		var profile struct {
-			Name    string `json:"name"`
-			Email   string `json:"email"`
-			Picture string `json:"picture"`
+			Name          string `json:"name"`
+			Email         string `json:"email"`
+			EmailVerified *bool  `json:"email_verified"`
+			Picture       string `json:"picture"`
 		}
 		if err := info.Claims(&profile); err != nil {
 			return database.UserSession{}, "", ErrAuthentication
@@ -236,6 +241,15 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		}
 
 		if profile.Email != "" {
+			// Verification applies only to the email asserted alongside it.
+			if !strings.EqualFold(strings.TrimSpace(profile.Email), strings.TrimSpace(claims.Email)) {
+				claims.EmailVerified = false
+			}
+
+			if profile.EmailVerified != nil {
+				claims.EmailVerified = *profile.EmailVerified
+			}
+
 			claims.Email = profile.Email
 		}
 
@@ -244,7 +258,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		}
 	}
 
-	// A suffix prevents a claim from selecting an existing local account.
+	// A suffix prevents the username claim from selecting an existing local account.
 	name := strings.Map(func(r rune) rune {
 		if utils.IsValidIdentifierCharacter(r) {
 			return r
@@ -276,7 +290,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		picture = claims.Picture
 	}
 
-	user, err := s.auth.store.OIDCAccount(ctx, s.issuer, id.Subject, name+"-"+tokenHash(authToken())[:12], attempt.userID, attempt.version, attempt.sessionHash, displayName, email, picture)
+	user, err := s.auth.store.OIDCAccount(ctx, s.issuer, id.Subject, name+"-"+tokenHash(authToken())[:12], attempt.userID, attempt.version, attempt.sessionHash, displayName, email, picture, repository.OIDCAccountOptions{AutoLinkEmail: s.autoLinkEmail, EmailVerified: claims.EmailVerified})
 	if err != nil {
 		return database.UserSession{}, "", err
 	}

@@ -4,14 +4,14 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"errors"
+	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/settings"
 )
 
 // Executor is the Docker command boundary, replaceable in tests.
@@ -34,18 +34,18 @@ func ValidateDockerConfiguration() error {
 }
 
 func dockerSocket() (string, error) {
-	if os.Getenv("DOCKER_CONTEXT") != "" {
-		return "", errors.New("node runtime requires a local Docker Unix socket; unset DOCKER_CONTEXT and use DOCKER_HOST=unix:///path/to/docker.sock if needed")
+	if settings.DockerContext.Value("") != "" {
+		return "", fmt.Errorf("node runtime requires a local Docker Unix socket; unset %s and use %s=unix:///path/to/docker.sock if needed", settings.DockerContext.EnvironmentName, settings.DockerHost.EnvironmentName)
 	}
 
-	host := os.Getenv("DOCKER_HOST")
+	host := settings.DockerHost.Value("")
 	if host == "" {
 		host = "unix:///var/run/docker.sock"
 	}
 
 	socket := strings.TrimPrefix(host, "unix://")
 	if !strings.HasPrefix(host, "unix://") || !filepath.IsAbs(socket) || strings.ContainsAny(socket, "\x00?#") {
-		return "", errors.New("node runtime requires DOCKER_HOST to be a local Unix socket URL with an absolute path")
+		return "", fmt.Errorf("node runtime requires %s to be a local Unix socket URL with an absolute path", settings.DockerHost.EnvironmentName)
 	}
 
 	return socket, nil

@@ -147,8 +147,8 @@ Configure the provider using the [panel environment example](/Campfire/configura
 and register `PUBLIC_URL/api/v1/auth/oidc/callback` as the callback URL.
 Complete local administrator setup first. Before setting
 `CAMPFIRE_DISABLE_LOCAL_LOGIN=true`, link an administrator to the provider and
-verify that OIDC signs in to that account. First-time OIDC users receive ordinary
-user access rather than administrator privileges.
+verify that OIDC signs in to that account. Newly provisioned OIDC users receive
+ordinary user access rather than administrator privileges.
 
 ```dotenv
 CAMPFIRE_OIDC_ISSUER=https://identity.example.com
@@ -158,6 +158,27 @@ CAMPFIRE_OIDC_CLIENT_SECRET=replace-with-provider-secret
 
 Restart or recreate the panel after changing its environment. Keep local login
 enabled until you have verified administrator access through your provider.
+
+### Automatic account linking
+
+By default, an unknown OIDC identity creates a new user, even when its email
+matches an existing account. Set `CAMPFIRE_OIDC_AUTO_LINK_EMAIL=true` (or
+`--oidc-auto-link-email`) to link it to an existing local password account instead.
+Matching ignores email casing and surrounding spaces and requires the provider's
+`email_verified` claim to be `true` for that email.
+
+The linked account keeps its username, password, role, server ownership, and
+access grants, including administrator privileges where applicable. Enable this
+only when you trust the provider's email verification and the email addresses
+assigned to existing accounts.
+
+If an email matches multiple accounts, a disabled account, an account without a
+password, or an account that already has an OIDC identity, automatic linking
+rejects the login. A matching email without verification also rejects the login.
+When no account matches, normal user provisioning continues. Existing OIDC links
+remain bound to their original accounts; this setting does not merge duplicates
+that were already created. Authenticated users can still link accounts explicitly
+without requiring a verified email claim.
 
 ## Personal API tokens
 

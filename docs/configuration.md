@@ -12,6 +12,7 @@ Command-line flags override environment values. The configuration examples list 
 | `CAMPFIRE_AGENT_PUBLIC_URL`                                                      | Spark connection URL when different from the default hostname and port                        |
 | `CAMPFIRE_OIDC_ISSUER`, `CAMPFIRE_OIDC_CLIENT_ID`, `CAMPFIRE_OIDC_CLIENT_SECRET` | Optional OpenID Connect provider                                                              |
 | `CAMPFIRE_DISABLE_LOCAL_LOGIN`                                                   | Require OIDC after an administrator has been linked                                           |
+| `CAMPFIRE_OIDC_AUTO_LINK_EMAIL`                                                  | Link first-time OIDC logins to local password accounts by verified email; default `false`     |
 | `CAMPFIRE_SFTP_LISTEN`                                                           | Enable the optional SFTP listener; publish its TCP port separately                            |
 | `CAMPFIRE_MAX_UPLOAD_MIB`                                                        | Per-file browser and SFTP upload limit; defaults to 1024 MiB                                  |
 | `CAMPFIRE_RESOURCE_INTERVAL_SECONDS`                                             | Resource collection and alert evaluation interval; defaults to `10` seconds                   |

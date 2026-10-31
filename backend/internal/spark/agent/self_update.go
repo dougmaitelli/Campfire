@@ -13,6 +13,7 @@ import (
 
 	"campfire/internal/shared/buildinfo"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/settings"
 	"campfire/internal/shared/sparkrelease"
 )
 
@@ -112,7 +113,7 @@ func verifySparkUpdate(ctx context.Context, executable, version string, wireVers
 	ctx, cancel := context.WithTimeout(ctx, updateVersionCheckTimeout)
 	defer cancel()
 
-	output, err := exec.CommandContext(ctx, executable, "--update-info").Output()
+	output, err := exec.CommandContext(ctx, executable, "--"+settings.SparkUpdateInfo.FlagName).Output()
 	if err != nil {
 		return errors.New("downloaded Spark does not support verified remote updates")
 	}

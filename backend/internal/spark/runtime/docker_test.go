@@ -3,6 +3,8 @@ package runtime
 import (
 	"slices"
 	"testing"
+
+	"campfire/internal/shared/settings"
 )
 
 func TestDockerConfigurationUsesOneLocalEndpoint(t *testing.T) {
@@ -23,8 +25,8 @@ func TestDockerConfigurationUsesOneLocalEndpoint(t *testing.T) {
 		{name: "context with socket", host: "unix:///run/docker.sock", context: "default"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			t.Setenv("DOCKER_HOST", test.host)
-			t.Setenv("DOCKER_CONTEXT", test.context)
+			t.Setenv(settings.DockerHost.EnvironmentName, test.host)
+			t.Setenv(settings.DockerContext.EnvironmentName, test.context)
 
 			socket, err := dockerSocket()
 			if test.socket == "" {

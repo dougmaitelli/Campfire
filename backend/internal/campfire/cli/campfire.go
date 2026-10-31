@@ -25,6 +25,8 @@ import (
 	"campfire/internal/campfire/service"
 	filesftp "campfire/internal/campfire/sftp"
 	"campfire/internal/campfire/webui"
+	"campfire/internal/shared/cliutil"
+	"campfire/internal/shared/settings"
 )
 
 // Run starts the admin API and the dedicated agent TLS listener.
@@ -46,31 +48,35 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 
 	flags := flag.NewFlagSet("campfire", flag.ContinueOnError)
 
-	disableLocalDefault, err := strconv.ParseBool(environment("CAMPFIRE_DISABLE_LOCAL_LOGIN", "false"))
+	disableLocal, err := settings.CampfireDisableLocalLogin.Bool(flags, false, "require OIDC instead of passwords")
 	if err != nil {
-		return errors.New("CAMPFIRE_DISABLE_LOCAL_LOGIN must be a boolean")
+		return err
 	}
 
-	listen := flags.String("listen", environment("CAMPFIRE_LISTEN", "127.0.0.1:8080"), "browser and API listen address (CAMPFIRE_LISTEN)")
-	dbSource := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite path or PostgreSQL URL (CAMPFIRE_DATABASE)")
-	dataDir := flags.String("data-dir", environment("CAMPFIRE_DATA", ""), "persistent state directory; defaults beside SQLite or ./data for PostgreSQL (CAMPFIRE_DATA)")
-	sftpListen := flags.String("sftp-listen", environment("CAMPFIRE_SFTP_LISTEN", ""), "optional SFTP listen address (CAMPFIRE_SFTP_LISTEN)")
-	sftpKey := flags.String("sftp-host-key", environment("CAMPFIRE_SFTP_HOST_KEY", ""), "persistent SFTP SSH host key (CAMPFIRE_SFTP_HOST_KEY)")
-	maxUpload := flags.String("max-upload-mib", environment("CAMPFIRE_MAX_UPLOAD_MIB", "1024"), "maximum upload size in MiB (CAMPFIRE_MAX_UPLOAD_MIB)")
-	publicURL := flags.String("public-url", environment("CAMPFIRE_PUBLIC_URL", ""), "browser origin for HTTPS reverse proxies (CAMPFIRE_PUBLIC_URL)")
-	oidcIssuer := flags.String("oidc-issuer", environment("CAMPFIRE_OIDC_ISSUER", ""), "optional OIDC issuer URL (CAMPFIRE_OIDC_ISSUER)")
-	oidcClient := flags.String("oidc-client-id", environment("CAMPFIRE_OIDC_CLIENT_ID", ""), "OIDC client ID (CAMPFIRE_OIDC_CLIENT_ID)")
-	oidcSecret := flags.String("oidc-client-secret", environment("CAMPFIRE_OIDC_CLIENT_SECRET", ""), "OIDC client secret (CAMPFIRE_OIDC_CLIENT_SECRET)")
-	disableLocal := flags.Bool("disable-local-login", disableLocalDefault, "require OIDC instead of passwords (CAMPFIRE_DISABLE_LOCAL_LOGIN)")
-	agentListen := flags.String("agent-listen", environment("CAMPFIRE_AGENT_LISTEN", defaultAgentListen), "dedicated agent HTTPS listener; empty disables it (CAMPFIRE_AGENT_LISTEN)")
-	agentPublicURL := flags.String("agent-public-url", environment("CAMPFIRE_AGENT_PUBLIC_URL", ""), "reachable agent HTTPS origin; defaults to the panel hostname and agent port (CAMPFIRE_AGENT_PUBLIC_URL)")
-	tlsCert := flags.String("agent-tls-cert", environment("CAMPFIRE_AGENT_TLS_CERT", ""), "agent HTTPS certificate (CAMPFIRE_AGENT_TLS_CERT)")
-	tlsKey := flags.String("agent-tls-key", environment("CAMPFIRE_AGENT_TLS_KEY", ""), "agent HTTPS private key (CAMPFIRE_AGENT_TLS_KEY)")
-	version := flags.Bool("version", false, "print release version and exit")
-	auditRetention := flags.String("audit-retention-days", environment("CAMPFIRE_AUDIT_RETENTION_DAYS", "0"), "audit record age limit in days; 0 keeps forever (CAMPFIRE_AUDIT_RETENTION_DAYS)")
-	operationRetention := flags.String("operation-retention-days", environment("CAMPFIRE_OPERATION_RETENTION_DAYS", "0"), "completed operation history age limit in days; 0 keeps forever (CAMPFIRE_OPERATION_RETENTION_DAYS)")
-	gameEventRetention := flags.String("game-event-retention-days", environment("CAMPFIRE_GAME_EVENT_RETENTION_DAYS", "30"), "game event retention in days (CAMPFIRE_GAME_EVENT_RETENTION_DAYS, 1–3650)")
-	gameEventLimit := flags.String("game-event-limit", environment("CAMPFIRE_GAME_EVENT_LIMIT", "10000"), "retained game events per server (CAMPFIRE_GAME_EVENT_LIMIT, 1–100000)")
+	autoLinkEmail, err := settings.CampfireOIDCAutoLinkEmail.Bool(flags, false, "link first-time OIDC logins to local accounts by verified email")
+	if err != nil {
+		return err
+	}
+
+	listen := settings.CampfireListen.String(flags, "127.0.0.1:8080", "browser and API listen address")
+	dbSource := settings.CampfireDatabase.String(flags, "data/panel.db", "SQLite path or PostgreSQL URL")
+	dataDir := settings.CampfireData.String(flags, "", "persistent state directory; defaults beside SQLite or ./data for PostgreSQL")
+	sftpListen := settings.CampfireSFTPListen.String(flags, "", "optional SFTP listen address")
+	sftpKey := settings.CampfireSFTPHostKey.String(flags, "", "persistent SFTP SSH host key")
+	maxUpload := settings.CampfireMaxUploadMiB.String(flags, "1024", "maximum upload size in MiB")
+	publicURL := settings.CampfirePublicURL.String(flags, "", "browser origin for HTTPS reverse proxies")
+	oidcIssuer := settings.CampfireOIDCIssuer.String(flags, "", "optional OIDC issuer URL")
+	oidcClient := settings.CampfireOIDCClientID.String(flags, "", "OIDC client ID")
+	oidcSecret := settings.CampfireOIDCClientSecret.String(flags, "", "OIDC client secret")
+	agentListen := settings.CampfireAgentListen.String(flags, defaultAgentListen, "dedicated agent HTTPS listener; empty disables it")
+	agentPublicURL := settings.CampfireAgentPublicURL.String(flags, "", "reachable agent HTTPS origin; defaults to the panel hostname and agent port")
+	tlsCert := settings.CampfireAgentTLSCert.String(flags, "", "agent HTTPS certificate")
+	tlsKey := settings.CampfireAgentTLSKey.String(flags, "", "agent HTTPS private key")
+	version := flags.Bool(settings.Version.FlagName, false, "print release version and exit")
+	auditRetention := settings.CampfireAuditRetentionDays.String(flags, "0", "audit record age limit in days; 0 keeps forever")
+	operationRetention := settings.CampfireOperationRetentionDays.String(flags, "0", "completed operation history age limit in days; 0 keeps forever")
+	gameEventRetention := settings.CampfireGameEventRetentionDays.String(flags, "30", "game event retention in days, 1–3650")
+	gameEventLimit := settings.CampfireGameEventLimit.String(flags, "10000", "retained game events per server, 1–100000")
 
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -85,7 +91,7 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 
 	if *version {
-		return printVersion("Campfire")
+		return cliutil.PrintVersion("Campfire")
 	}
 
 	eventDays, err := strconv.Atoi(*gameEventRetention)
@@ -124,7 +130,7 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 
 	if (*tlsCert == "") != (*tlsKey == "") {
-		return errors.New("provide both --agent-tls-cert and --agent-tls-key, or omit both for generated agent TLS")
+		return fmt.Errorf("provide both --%s and --%s, or omit both for generated agent TLS", settings.CampfireAgentTLSCert.FlagName, settings.CampfireAgentTLSKey.FlagName)
 	}
 
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
@@ -150,7 +156,7 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 		}
 	}
 
-	provider, err := service.NewOIDCService(ctx, auth, service.OIDCConfig{Issuer: *oidcIssuer, ClientID: *oidcClient, ClientSecret: *oidcSecret, PublicURL: *publicURL, DisableLocal: *disableLocal})
+	provider, err := service.NewOIDCService(ctx, auth, service.OIDCConfig{Issuer: *oidcIssuer, ClientID: *oidcClient, ClientSecret: *oidcSecret, PublicURL: *publicURL, DisableLocal: *disableLocal, AutoLinkEmail: *autoLinkEmail})
 	if err != nil {
 		return err
 	}
@@ -292,12 +298,12 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 	defer activity.Close()
 
-	pathStyle, err := strconv.ParseBool(environment("CAMPFIRE_S3_PATH_STYLE", "false"))
+	pathStyle, err := settings.CampfireS3PathStyle.BoolValue(false)
 	if err != nil {
-		return errors.New("CAMPFIRE_S3_PATH_STYLE must be a boolean")
+		return err
 	}
 
-	objectStore, err := backupstorage.New(ctx, backupstorage.Config{Bucket: environment("CAMPFIRE_S3_BUCKET", ""), Region: environment("CAMPFIRE_S3_REGION", "us-east-1"), Endpoint: environment("CAMPFIRE_S3_ENDPOINT", ""), Prefix: environment("CAMPFIRE_S3_PREFIX", ""), PathStyle: pathStyle})
+	objectStore, err := backupstorage.New(ctx, backupstorage.Config{Bucket: settings.CampfireS3Bucket.Value(""), Region: settings.CampfireS3Region.Value("us-east-1"), Endpoint: settings.CampfireS3Endpoint.Value(""), Prefix: settings.CampfireS3Prefix.Value(""), PathStyle: pathStyle})
 	if err != nil {
 		return fmt.Errorf("configure backup storage: %w", err)
 	}

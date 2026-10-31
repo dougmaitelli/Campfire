@@ -8,22 +8,23 @@ import (
 	"strings"
 	"testing"
 
+	"campfire/internal/shared/settings"
 	sparkcli "campfire/internal/spark/cli"
 )
 
 func TestVersionCommandsDoNotInitializePersistentState(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "panel.db")
-	t.Setenv("CAMPFIRE_DATABASE", path)
-	t.Setenv("CAMPFIRE_LISTEN", "invalid-listen-address")
-	t.Setenv("SPARK_DATA", filepath.Join(directory, "spark"))
-	t.Setenv("SPARK_TOKEN_FILE", filepath.Join(directory, "absent-token"))
+	t.Setenv(settings.CampfireDatabase.EnvironmentName, path)
+	t.Setenv(settings.CampfireListen.EnvironmentName, "invalid-listen-address")
+	t.Setenv(settings.SparkData.EnvironmentName, filepath.Join(directory, "spark"))
+	t.Setenv(settings.SparkTokenFile.EnvironmentName, filepath.Join(directory, "absent-token"))
 
-	if err := Run(context.Background(), []string{"--version"}); err != nil {
+	if err := Run(context.Background(), []string{"--" + settings.Version.FlagName}); err != nil {
 		t.Fatal("version unnecessarily validated runtime settings", err)
 	}
 
-	if err := sparkcli.Run(context.Background(), []string{"--version"}); err != nil {
+	if err := sparkcli.Run(context.Background(), []string{"--" + settings.Version.FlagName}); err != nil {
 		t.Fatal("Spark version attempted enrollment", err)
 	}
 
@@ -42,21 +43,29 @@ func TestCampfireRejectsRemovedEmbeddedRuntimeFlag(t *testing.T) {
 	}
 }
 
+func TestOIDCAutoLinkRejectsInvalidEnvironment(t *testing.T) {
+	t.Setenv(settings.CampfireOIDCAutoLinkEmail.EnvironmentName, "invalid")
+
+	if err := Run(t.Context(), nil); err == nil || !strings.Contains(err.Error(), settings.CampfireOIDCAutoLinkEmail.EnvironmentName+" must be a boolean") {
+		t.Fatal("invalid automatic linking policy reached startup", err)
+	}
+}
+
 func TestGameEventLimitsFailBeforePersistentStartup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "panel.db")
-	t.Setenv("CAMPFIRE_DATABASE", path)
-	t.Setenv("CAMPFIRE_GAME_EVENT_RETENTION_DAYS", "30")
-	t.Setenv("CAMPFIRE_GAME_EVENT_LIMIT", "10000")
+	t.Setenv(settings.CampfireDatabase.EnvironmentName, path)
+	t.Setenv(settings.CampfireGameEventRetentionDays.EnvironmentName, "30")
+	t.Setenv(settings.CampfireGameEventLimit.EnvironmentName, "10000")
 
-	for _, args := range [][]string{{"--game-event-retention-days", "0"}, {"--game-event-retention-days", "3651"}, {"--game-event-limit", "0"}, {"--game-event-limit", "100001"}} {
+	for _, args := range [][]string{{"--" + settings.CampfireGameEventRetentionDays.FlagName, "0"}, {"--" + settings.CampfireGameEventRetentionDays.FlagName, "3651"}, {"--" + settings.CampfireGameEventLimit.FlagName, "0"}, {"--" + settings.CampfireGameEventLimit.FlagName, "100001"}} {
 		if err := Run(t.Context(), args); err == nil || !strings.Contains(err.Error(), "game event") {
 			t.Fatal("invalid policy reached application startup", args, err)
 		}
 	}
 
-	t.Setenv("CAMPFIRE_GAME_EVENT_RETENTION_DAYS", "invalid")
+	t.Setenv(settings.CampfireGameEventRetentionDays.EnvironmentName, "invalid")
 
-	if err := Run(t.Context(), []string{"--game-event-retention-days", "30", "--game-event-limit", "0"}); err == nil || !strings.Contains(err.Error(), "game event limit") {
+	if err := Run(t.Context(), []string{"--" + settings.CampfireGameEventRetentionDays.FlagName, "30", "--" + settings.CampfireGameEventLimit.FlagName, "0"}); err == nil || !strings.Contains(err.Error(), "game event limit") {
 		t.Fatal("flag did not override environment", err)
 	}
 

@@ -1,11 +1,19 @@
 package cli
 
-import "testing"
+import (
+	"testing"
+
+	"campfire/internal/shared/cliutil"
+	"campfire/internal/shared/settings"
+)
 
 func TestNotificationConfigurationValidation(t *testing.T) {
-	for _, item := range []struct{ name, value string }{{"CAMPFIRE_ALERT_CPU_PERCENT", "NaN"}, {"CAMPFIRE_ALERT_MEMORY_PERCENT", "101"}, {"CAMPFIRE_ALERT_DISK_PERCENT", "-1"}, {"CAMPFIRE_ALERT_DURATION_SECONDS", "999999999999"}, {"CAMPFIRE_ALERT_DURATION_SECONDS", "-1"}, {"CAMPFIRE_ALERT_HEALTH_ENABLED", "bad"}, {"CAMPFIRE_APPRISE_URL", "file:///private-token"}} {
-		t.Run(item.name, func(t *testing.T) {
-			t.Setenv(item.name, item.value)
+	for _, item := range []struct {
+		setting cliutil.Setting
+		value   string
+	}{{settings.CampfireAlertCPUPercent, "NaN"}, {settings.CampfireAlertMemoryPercent, "101"}, {settings.CampfireAlertDiskPercent, "-1"}, {settings.CampfireAlertDurationSeconds, "999999999999"}, {settings.CampfireAlertDurationSeconds, "-1"}, {settings.CampfireAlertHealthEnabled, "bad"}, {settings.CampfireAppriseURL, "file:///private-token"}} {
+		t.Run(item.setting.EnvironmentName, func(t *testing.T) {
+			t.Setenv(item.setting.EnvironmentName, item.value)
 
 			if _, _, err := notificationConfig(); err == nil {
 				t.Fatal("invalid configuration accepted")

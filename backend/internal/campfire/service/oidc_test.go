@@ -403,6 +403,7 @@ func TestOIDCConfigurationValidation(t *testing.T) {
 
 	for _, config := range []OIDCConfig{
 		{ClientID: "orphan"},
+		{AutoLinkEmail: true},
 		{Issuer: "http://identity.example.com", ClientID: "campfire", PublicURL: "https://panel.example.com"},
 		{Issuer: "https://identity.example.com", ClientID: "campfire"},
 		{Issuer: "https://identity.example.com", PublicURL: "https://panel.example.com"},

@@ -28,6 +28,7 @@ import (
 	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/buildinfo"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/settings"
 	"campfire/internal/shared/sparkrelease"
 	"campfire/internal/spark/runtime"
 
@@ -298,7 +299,7 @@ func identityTLS(identity agentIdentity) (*tls.Config, error) {
 	}
 
 	if time.Now().After(leaf.NotAfter) {
-		return nil, errors.New("spark certificate expired; generate a new enrollment token for this Spark and run with --token-file using the same data directory")
+		return nil, fmt.Errorf("spark certificate expired; generate a new enrollment token for this Spark and run with --%s using the same data directory", settings.SparkTokenFile.FlagName)
 	}
 
 	if time.Now().Before(leaf.NotBefore) {
@@ -317,7 +318,7 @@ func enrollAgent(ctx context.Context, config Config) (agentIdentity, error) {
 	}
 
 	if config.Token == "" {
-		return agentIdentity{}, errors.New("first enrollment requires CAMPFIRE_ENROLLMENT_TOKEN or --token-file")
+		return agentIdentity{}, fmt.Errorf("first enrollment requires %s or --%s", settings.SparkEnrollmentToken.EnvironmentName, settings.SparkTokenFile.FlagName)
 	}
 
 	ca := config.serverCA

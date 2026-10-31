@@ -17,6 +17,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/settings"
 )
 
 func loopbackHost(host string) bool {
@@ -32,7 +33,7 @@ func adminOrigin(listen, publicURL string) (string, error) {
 
 	if publicURL == "" {
 		if !loopbackHost(host) {
-			return "", errors.New("non-loopback admin access requires --public-url https://HOST behind an HTTPS reverse proxy")
+			return "", fmt.Errorf("non-loopback admin access requires --%s https://HOST behind an HTTPS reverse proxy", settings.CampfirePublicURL.FlagName)
 		}
 
 		return "", nil
@@ -40,12 +41,12 @@ func adminOrigin(listen, publicURL string) (string, error) {
 
 	parsed, err := url.Parse(publicURL)
 	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" || parsed.Path != "" && parsed.Path != "/" {
-		return "", errors.New("--public-url must be an origin without credentials, path, query or fragment")
+		return "", fmt.Errorf("--%s must be an origin without credentials, path, query or fragment", settings.CampfirePublicURL.FlagName)
 	}
 
 	localHTTP := parsed.Scheme == "http" && loopbackHost(parsed.Hostname()) && loopbackHost(host)
 	if parsed.Scheme != "https" && !localHTTP {
-		return "", errors.New("--public-url requires HTTPS except for local loopback development")
+		return "", fmt.Errorf("--%s requires HTTPS except for local loopback development", settings.CampfirePublicURL.FlagName)
 	}
 
 	authority := strings.ToLower(parsed.Host)
@@ -61,9 +62,9 @@ func adminOrigin(listen, publicURL string) (string, error) {
 
 func resetPassword(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("campfire reset-password", flag.ContinueOnError)
-	dbSource := flags.String("database", environment("CAMPFIRE_DATABASE", "data/panel.db"), "SQLite path or PostgreSQL URL (CAMPFIRE_DATABASE)")
-	passwordFile := flags.String("password-file", "", "private regular file containing the new administrator password")
-	username := flags.String("username", "", "administrator to recover (defaults to the first administrator)")
+	dbSource := settings.CampfireDatabase.String(flags, "data/panel.db", "SQLite path or PostgreSQL URL")
+	passwordFile := settings.RecoveryPasswordFile.String(flags, "", "private regular file containing the new administrator password")
+	username := settings.RecoveryUsername.String(flags, "", "administrator to recover (defaults to the first administrator)")
 
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -74,7 +75,7 @@ func resetPassword(ctx context.Context, args []string) error {
 	}
 
 	if *passwordFile == "" || flags.NArg() != 0 {
-		return errors.New("usage: campfire reset-password --database PATH_OR_URL --password-file PRIVATE_FILE")
+		return fmt.Errorf("usage: campfire reset-password --%s PATH_OR_URL --%s PRIVATE_FILE", settings.CampfireDatabase.FlagName, settings.RecoveryPasswordFile.FlagName)
 	}
 
 	file, err := os.OpenFile(*passwordFile, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)

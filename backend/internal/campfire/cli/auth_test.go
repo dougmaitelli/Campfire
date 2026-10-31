@@ -14,6 +14,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/settings"
 )
 
 type startupLogWriter func([]byte) (int, error)
@@ -22,7 +23,7 @@ func (write startupLogWriter) Write(data []byte) (int, error) { return write(dat
 
 func TestStartupLogsSetupTokenOnlyBeforeFirstAccount(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "panel.db")
-	t.Setenv("CAMPFIRE_S3_BUCKET", "")
+	t.Setenv(settings.CampfireS3Bucket.EnvironmentName, "")
 
 	previous := slog.Default()
 
@@ -46,7 +47,7 @@ func TestStartupLogsSetupTokenOnlyBeforeFirstAccount(t *testing.T) {
 		})
 		slog.SetDefault(slog.New(slog.NewJSONHandler(writer, nil)))
 
-		if err := Run(ctx, []string{"--database", path, "--listen", "127.0.0.1:0", "--public-url", "", "--agent-listen", "", "--oidc-issuer", "", "--oidc-client-id", "", "--oidc-client-secret", "", "--disable-local-login=false"}); err != nil {
+		if err := Run(ctx, []string{"--" + settings.CampfireDatabase.FlagName, path, "--" + settings.CampfireListen.FlagName, "127.0.0.1:0", "--" + settings.CampfirePublicURL.FlagName, "", "--" + settings.CampfireAgentListen.FlagName, "", "--" + settings.CampfireOIDCIssuer.FlagName, "", "--" + settings.CampfireOIDCClientID.FlagName, "", "--" + settings.CampfireOIDCClientSecret.FlagName, "", "--" + settings.CampfireDisableLocalLogin.FlagName + "=false"}); err != nil {
 			t.Fatal(err)
 		}
 
@@ -150,7 +151,7 @@ func TestResetPasswordCommandRevokesSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Run(ctx, []string{"reset-password", "--database", path, "--password-file", file}); err != nil {
+	if err := Run(ctx, []string{"reset-password", "--" + settings.CampfireDatabase.FlagName, path, "--" + settings.RecoveryPasswordFile.FlagName, file}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,11 +167,11 @@ func TestResetPasswordCommandRevokesSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Run(ctx, []string{"reset-password", "--database", path, "--password-file", file}); err == nil {
+	if err := Run(ctx, []string{"reset-password", "--" + settings.CampfireDatabase.FlagName, path, "--" + settings.RecoveryPasswordFile.FlagName, file}); err == nil {
 		t.Fatal("public password file accepted")
 	}
 
-	if err := Run(ctx, []string{"reset-password", "--database", path}); err == nil {
+	if err := Run(ctx, []string{"reset-password", "--" + settings.CampfireDatabase.FlagName, path}); err == nil {
 		t.Fatal("missing password file accepted")
 	}
 }

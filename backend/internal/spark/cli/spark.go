@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,22 +15,23 @@ import (
 	"campfire/internal/shared/buildinfo"
 	"campfire/internal/shared/cliutil"
 	"campfire/internal/shared/protocol"
+	"campfire/internal/shared/settings"
 	"campfire/internal/spark/agent"
 )
 
 // Run parses agent configuration and manages graceful signal cancellation.
 func Run(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("spark", flag.ContinueOnError)
-	panel := flags.String("panel", cliutil.Environment("SPARK_PANEL", ""), "HTTPS agent URL for first enrollment (SPARK_PANEL)")
-	data := flags.String("data", cliutil.Environment("SPARK_DATA", "spark-data"), "persistent private agent state directory (SPARK_DATA)")
-	ca := flags.String("ca-file", cliutil.Environment("SPARK_CA_FILE", ""), "private panel HTTPS CA certificate (SPARK_CA_FILE)")
-	version := flags.Bool("version", false, "print release version and exit")
-	updateInfo := flags.Bool("update-info", false, "print version and wire compatibility for verified updates")
-	enrollOnly := flags.Bool("enroll-only", false, "enroll and save the agent identity, then exit")
+	panel := settings.SparkPanel.String(flags, "", "HTTPS agent URL for first enrollment")
+	data := settings.SparkData.String(flags, "spark-data", "persistent private agent state directory")
+	ca := settings.SparkCAFile.String(flags, "", "private panel HTTPS CA certificate")
+	version := flags.Bool(settings.Version.FlagName, false, "print release version and exit")
+	updateInfo := flags.Bool(settings.SparkUpdateInfo.FlagName, false, "print version and wire compatibility for verified updates")
+	enrollOnly := flags.Bool(settings.SparkEnrollOnly.FlagName, false, "enroll and save the agent identity, then exit")
 	// Accept existing service arguments while control moves to server configuration.
-	flags.Bool("game-integrations", true, "deprecated: game integrations are managed through the dashboard")
+	flags.Bool(settings.SparkGameIntegrations.FlagName, true, "deprecated: game integrations are managed through the dashboard")
 
-	tokenFile := flags.String("token-file", cliutil.Environment("SPARK_TOKEN_FILE", ""), "private one-time enrollment token file (SPARK_TOKEN_FILE)")
+	tokenFile := settings.SparkTokenFile.String(flags, "", "private one-time enrollment token file")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -50,10 +52,10 @@ func Run(ctx context.Context, args []string) error {
 		return json.NewEncoder(os.Stdout).Encode(protocol.SparkUpdateInfo{Version: buildinfo.SparkVersion(), MinimumProtocol: protocol.MinimumProtocolVersion, Protocol: protocol.ProtocolVersion})
 	}
 
-	token := strings.TrimSpace(os.Getenv("CAMPFIRE_ENROLLMENT_TOKEN"))
+	token := strings.TrimSpace(settings.SparkEnrollmentToken.Value(""))
 	if *tokenFile != "" {
 		if token != "" {
-			return errors.New("use either --token-file or CAMPFIRE_ENROLLMENT_TOKEN")
+			return fmt.Errorf("use either --%s or %s", settings.SparkTokenFile.FlagName, settings.SparkEnrollmentToken.EnvironmentName)
 		}
 
 		info, err := os.Stat(*tokenFile)
