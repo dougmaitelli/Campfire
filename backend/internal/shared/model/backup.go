@@ -9,11 +9,29 @@ import (
 
 // BackupPolicy selects storage and opt-in retention for one server.
 type BackupPolicy struct {
-	Storage          string `json:"storage"`
-	LocalKeepLast    int    `json:"local_keep_last"`
-	LocalMaxAgeDays  int    `json:"local_max_age_days"`
-	RemoteKeepLast   int    `json:"remote_keep_last"`
-	RemoteMaxAgeDays int    `json:"remote_max_age_days"`
+	Savedata         BackupRetention `json:"savedata"`
+	Storage          string          `json:"storage"`
+	LocalKeepLast    int             `json:"local_keep_last"`
+	LocalMaxAgeDays  int             `json:"local_max_age_days"`
+	RemoteKeepLast   int             `json:"remote_keep_last"`
+	RemoteMaxAgeDays int             `json:"remote_max_age_days"`
+}
+
+// BackupRetention limits local and remote copies of one backup mode.
+type BackupRetention struct {
+	LocalKeepLast    int `json:"local_keep_last"`
+	LocalMaxAgeDays  int `json:"local_max_age_days"`
+	RemoteKeepLast   int `json:"remote_keep_last"`
+	RemoteMaxAgeDays int `json:"remote_max_age_days"`
+}
+
+// Retention preserves the original policy fields as the full-backup limits.
+func (p BackupPolicy) Retention(mode BackupMode) BackupRetention {
+	if mode.Normalized() == BackupModeSavedata {
+		return p.Savedata
+	}
+
+	return BackupRetention{LocalKeepLast: p.LocalKeepLast, LocalMaxAgeDays: p.LocalMaxAgeDays, RemoteKeepLast: p.RemoteKeepLast, RemoteMaxAgeDays: p.RemoteMaxAgeDays}
 }
 
 // BackupSource grants one bounded download for an off-host restore. It is never
@@ -26,13 +44,14 @@ type BackupSource struct {
 
 // Backup describes a cataloged archive and its available copies.
 type Backup struct {
-	Name       string    `json:"name"`
-	Size       int64     `json:"size"`
-	ModifiedAt time.Time `json:"modified_at"`
-	Local      bool      `json:"local"`
-	Remote     bool      `json:"remote"`
-	State      string    `json:"state"`
-	Error      string    `json:"error,omitempty"`
+	Mode       BackupMode `json:"mode"`
+	Name       string     `json:"name"`
+	Size       int64      `json:"size"`
+	ModifiedAt time.Time  `json:"modified_at"`
+	Local      bool       `json:"local"`
+	Remote     bool       `json:"remote"`
+	State      string     `json:"state"`
+	Error      string     `json:"error,omitempty"`
 }
 
 // CatalogBackup identifies an archive and its owning server in the admin catalog.
@@ -49,6 +68,15 @@ func BackupName(name string) bool {
 	}
 
 	id := strings.TrimSuffix(name, ".tar.gz")
+	if utils.IsValidResourceID(id) {
+		return true
+	}
 
-	return utils.IsValidResourceID(id)
+	for _, mode := range []BackupMode{BackupModeFull, BackupModeSavedata} {
+		if suffix, ok := strings.CutPrefix(id, string(mode)+"-"); ok && utils.IsValidResourceID(suffix) {
+			return true
+		}
+	}
+
+	return false
 }

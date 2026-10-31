@@ -16,7 +16,7 @@ test("Spark features group related capabilities and report partial support", asy
     "server.files.permissions.v1",
     "server.files.transfer.v1",
     "server.files.archive.v1",
-    "server.backups.v1",
+    "server.backups.v2",
     "server.backups.remote.v1",
     "server.metrics.v1",
     "server.console.stream.v1",

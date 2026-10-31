@@ -12,7 +12,7 @@ const featureTranslationKeys = {
   "server.files.v1": "sparkFeatures.fileManagement",
   "server.files.transfer.v1": "sparkFeatures.fileUploadsAndDownloads",
   "server.files.archive.v1": "sparkFeatures.archiveCreationAndExtraction",
-  "server.backups.v1": "sparkFeatures.localBackups",
+  "server.backups.v2": "sparkFeatures.localBackups",
   "server.backups.remote.v1": "sparkFeatures.remoteBackupRestore",
   "server.metrics.v1": "sparkFeatures.resourceMonitoring",
   "server.console.stream.v1": "sparkFeatures.liveConsole",

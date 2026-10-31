@@ -25,8 +25,9 @@ func (list *eggList[T]) UnmarshalJSON(data []byte) error {
 }
 
 type eggDefinition struct {
-	Comment json.RawMessage `json:"_comment"`
-	Meta    struct {
+	SavedataPaths []model.SavedataPath `json:"savedata_paths,omitempty"`
+	Comment       json.RawMessage      `json:"_comment"`
+	Meta          struct {
 		Version   string `json:"version"`
 		UpdateURL string `json:"update_url"`
 	} `json:"meta"`
@@ -85,6 +86,8 @@ func convertEgg(data []byte, report *EmberPreview) model.Ember {
 	}
 
 	ember := model.Ember{Schema: 1, Name: egg.Name, Description: egg.Description, Images: egg.DockerImages, WorkDir: "/home/container", User: "1000:1000", Variables: []model.Variable{}, Stop: egg.Config.Stop, Origin: &model.EmberOrigin{Format: egg.Meta.Version, Author: egg.Author, UpdateURL: egg.Meta.UpdateURL, Warnings: []string{}}}
+	ember.SavedataPaths = egg.SavedataPaths
+
 	if egg.Meta.Version == "PTDL_v1" {
 		if len(egg.DockerImages) > 0 {
 			report.fail("docker_images", "PTDL_v1 uses image or images, not docker_images.")

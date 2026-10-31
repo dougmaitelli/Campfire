@@ -138,6 +138,14 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
+	if err := seedBackupModes(ctx, db); err != nil {
+		return nil, err
+	}
+
+	if err := seedFixtureVariations(ctx, db); err != nil {
+		return nil, err
+	}
+
 	return &Runtime{db: db, now: time.Now}, nil
 }
 

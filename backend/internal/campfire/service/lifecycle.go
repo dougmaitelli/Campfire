@@ -23,6 +23,41 @@ func (s *DeploymentService) Action(ctx context.Context, id, action string) (mode
 	return s.runAction(ctx, id, action, "")
 }
 
+// Backup creates a snapshot with a mode chosen for this invocation.
+func (s *DeploymentService) Backup(ctx context.Context, id string, mode model.BackupMode) (model.RuntimeStatus, error) {
+	return s.runAction(ctx, id, "backup", string(mode.Normalized()))
+}
+
+func (s *DeploymentService) backupOptions(ctx context.Context, id string, mode model.BackupMode) (model.BackupOptions, error) {
+	options := model.BackupOptions{Mode: mode.Normalized()}
+
+	server, err := s.Servers.Get(ctx, id)
+	if err != nil {
+		return options, err
+	}
+
+	options.EmberRevision = server.EmberHash
+
+	if options.Mode == model.BackupModeSavedata {
+		if server.EmberUpdateAvailable {
+			return options, fmt.Errorf("%w: apply the current Ember before using save-data backups", ErrInvalidServer)
+		}
+
+		ember, err := s.Embers.Get(ctx, server.EmberID)
+		if err != nil {
+			return options, err
+		}
+
+		options.Paths = ember.SavedataPaths
+	}
+
+	if err := options.Validate(); err != nil {
+		return options, fmt.Errorf("%w: %w", ErrInvalidServer, err)
+	}
+
+	return options, nil
+}
+
 // Reinstall reruns the installer, optionally clearing game files first.
 func (s *DeploymentService) Reinstall(ctx context.Context, id, mode string) (model.RuntimeStatus, error) {
 	if mode != "" && mode != "keep" && mode != "clean" {
@@ -184,7 +219,12 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 		return model.RuntimeStatus{}, err
 	}
 
-	return s.dispatchAction(ctx, run.ServerID, run.Action, run.Content, run.ID)
+	content := run.Content
+	if run.Action == "backup" {
+		content = string(run.BackupMode.Normalized())
+	}
+
+	return s.dispatchAction(ctx, run.ServerID, run.Action, content, run.ID)
 }
 
 func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, content, operationID string) (model.RuntimeStatus, error) {
@@ -216,6 +256,15 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id, action, cont
 	}
 
 	request := model.RuntimeRequest{ServerID: id, Action: model.ServerAction(action), Content: content}
+	if action == "backup" {
+		request.BackupOptions, err = s.backupOptions(ctx, id, model.BackupMode(content))
+		if err != nil {
+			return model.RuntimeStatus{}, err
+		}
+
+		request.Content = ""
+	}
+
 	if action == "restore" && s.Backups != nil {
 		request.BackupSource, err = s.Backups.Source(ctx, id, content)
 		if err != nil {

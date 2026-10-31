@@ -65,7 +65,7 @@ func (r *ActivityRepository) SaveSchedule(ctx context.Context, item *database.Sc
 	}
 
 	result := r.db.WithContext(ctx).Model(&database.Schedule{}).Where("id = ? AND server_id = ?", item.ID, item.ServerID).
-		Select("Name", "Action", "Command", "CronExpression", "TimeZone", "OnlyWhenRunning", "NextRunAt", "Enabled", "RunAsUserID", "AuthorizationScopes").Updates(item)
+		Select("Name", "Action", "Command", "BackupMode", "CronExpression", "TimeZone", "OnlyWhenRunning", "NextRunAt", "Enabled", "RunAsUserID", "AuthorizationScopes").Updates(item)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -186,6 +186,10 @@ func (r *ActivityRepository) ClaimSchedule(ctx context.Context, id string, now t
 
 		run = database.ScheduleRun{ID: rand.Text(), ScheduleID: item.ID, OnlyWhenRunning: item.OnlyWhenRunning, Recurring: actor == nil && item.CronExpression != "", ServerID: item.ServerID, ServerName: server.Name, UserID: userID, Username: username, Action: item.Action, Content: item.Command, State: "dispatching", CreatedAt: now.Unix(), StartedAt: now.Unix()}
 		run.AuthorizationScopes = item.AuthorizationScopes
+
+		if item.Action == "backup" {
+			run.BackupMode = item.BackupMode.Normalized()
+		}
 
 		run.AuthorizationPermission = accessperm.ServerSchedulesManage
 		if actor != nil {

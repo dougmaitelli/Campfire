@@ -37,7 +37,7 @@ for an example.
 - **Console and resource history** — stream game and installer output, send commands, and follow CPU and memory graphs
 - **File management** — browse game files, edit text, upload and download files, and compress or extract archives
 - **Optional SFTP gateway** — access game files through the panel using a personal API token and the same server permissions
-- **Backups and restoration** — create and restore local snapshots, with optional S3-compatible off-host storage and per-server retention
+- **Backups and restoration** — choose full-server or Ember-defined save-data snapshots for manual and scheduled backups, with optional S3-compatible off-host storage and per-server retention
 - **Recurring schedules** — configure future server actions with execution history separate from direct operations
 - **Ember imports and updates** — preview native definitions or supported Egg conversions, review warnings, and explicitly apply definition updates
 - **Users and roles** — combine platform roles, server ownership, and server memberships to control access; inspect linked resources in drawers without leaving the current page

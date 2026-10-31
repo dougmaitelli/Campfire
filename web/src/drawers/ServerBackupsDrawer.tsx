@@ -4,7 +4,13 @@ import { ActionGroup } from "../components/layout/ActionGroup";
 import { Button, ButtonLink } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
-import { deleteBackup, listBackups, type Backup } from "../api/backups";
+import {
+  deleteBackup,
+  listBackups,
+  type Backup,
+  type BackupMode,
+} from "../api/backups";
+import { BackupModeField } from "../components/servers/BackupModeField";
 import { serverAction, serverStatus, type RuntimeStatus } from "../api/runtime";
 import type { Server } from "../api/servers";
 import { Drawer } from "../components/layout/Drawer";
@@ -26,6 +32,9 @@ export function ServerBackupsDrawer({
 }) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<Backup[]>([]);
+  const [backupMode, setBackupMode] = useState<BackupMode>("full");
+  const invalidBackupMode =
+    backupMode === "savedata" && !server.savedata_available;
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const canDelete = server.permissions.includes(Permission.ServerBackupsDelete);
   const canCreate = server.permissions.includes(Permission.ServerBackupsCreate);
@@ -141,11 +150,14 @@ export function ServerBackupsDrawer({
       !(action === "backup" ? canCreate : canRestore)
     )
       return;
+    if (action === "backup" && invalidBackupMode) return;
     if (
       action === "restore" &&
       !window.confirm(
         i18n.t(
-          "serverBackupsDrawer.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
+          entries.find((entry) => entry.name === name)?.mode === "savedata"
+            ? "backupModes.restoreSavedata"
+            : "serverBackupsDrawer.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
           { serverName: server.name },
         ),
       )
@@ -155,7 +167,13 @@ export function ServerBackupsDrawer({
     setBusy(true);
     setError(null);
     try {
-      const next = await serverAction(server.id, action, name);
+      const next = await serverAction(
+        server.id,
+        action,
+        name,
+        undefined,
+        action === "backup" ? backupMode : undefined,
+      );
       if (mounted.current) {
         setStatus(next);
         setRefresh((value) => value + 1);
@@ -191,7 +209,7 @@ export function ServerBackupsDrawer({
       footerRight={
         <Button
           variant="primary"
-          disabled={!canChange || !canCreate}
+          disabled={!canChange || !canCreate || invalidBackupMode}
           onClick={() => {
             void submit("backup");
           }}
@@ -201,6 +219,14 @@ export function ServerBackupsDrawer({
       }
     >
       <div className="drawer-content">
+        {canCreate && (
+          <BackupModeField
+            value={backupMode}
+            onChange={setBackupMode}
+            available={server.savedata_available === true}
+            disabled={busy || status?.busy === true}
+          />
+        )}
         {runtimeError && (
           <InlineMessage tone="warning">{runtimeError}</InlineMessage>
         )}
@@ -254,6 +280,13 @@ export function ServerBackupsDrawer({
               <tr key={entry.name}>
                 <td>
                   {entry.name}
+                  <span className="row-description">
+                    {t(
+                      entry.mode === "savedata"
+                        ? "backupModes.savedata"
+                        : "backupModes.full",
+                    )}
+                  </span>
                   {entry.error && (
                     <span className="row-description" role="alert">
                       {entry.error}

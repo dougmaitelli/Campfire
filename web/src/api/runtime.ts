@@ -1,5 +1,6 @@
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
+import type { BackupMode } from "./backups";
 
 export type ServerAction =
   | "install"
@@ -84,11 +85,12 @@ export function serverAction(
   action: ServerAction,
   backup?: string,
   mode?: "keep" | "clean",
+  backupMode?: BackupMode,
 ): Promise<RuntimeStatus> {
   return apiFetch(`/api/v1/servers/${encodeURIComponent(id)}/actions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, backup, mode }),
+    body: JSON.stringify({ action, backup, mode, backup_mode: backupMode }),
     signal: AbortSignal.timeout(35000),
   }).then((response) => readStatus(response, id));
 }

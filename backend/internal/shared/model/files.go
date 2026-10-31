@@ -64,11 +64,12 @@ type FileRequest struct {
 
 // FileEntry describes a directory child without following symbolic links.
 type FileEntry struct {
-	Mode       uint32    `json:"mode"`
-	Name       string    `json:"name"`
-	Kind       string    `json:"kind"`
-	Size       int64     `json:"size"`
-	ModifiedAt time.Time `json:"modified_at"`
+	BackupMode BackupMode `json:"backup_mode,omitempty"`
+	Mode       uint32     `json:"mode"`
+	Name       string     `json:"name"`
+	Kind       string     `json:"kind"`
+	Size       int64      `json:"size"`
+	ModifiedAt time.Time  `json:"modified_at"`
 }
 
 // FileResult contains a listing, bounded bytes, or a successful mutation acknowledgement.

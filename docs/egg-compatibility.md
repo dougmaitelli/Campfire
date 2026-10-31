@@ -61,6 +61,38 @@ Eggs pass `BACKUP_INTERVAL`, `BACKUP_COUNT`, `BACKUP_SHORTTIME`, and `BACKUP_LON
 to the game's own save and backup flags. These remain ordinary game variables.
 Configure Campfire's backup schedules, storage, and retention separately.
 
+## Declaring save data
+
+Native Embers can declare `savedata_paths` to offer **Save data only** backups:
+
+```json
+"savedata_paths": [
+  { "path": "world", "required": true },
+  { "path": "server.properties", "required": true },
+  { "path": "plugins/config", "required": false }
+]
+```
+
+Each entry selects a file or an entire directory recursively. Paths are literal,
+relative to the server's game-data root, independently of `work_dir`. Include the
+worlds, player records, configuration, and custom content needed for recovery;
+omit binaries that the installer can recreate. A required path must exist or the
+backup fails. An absent optional path is recorded in the archive; restoring that
+snapshot removes a subsequently created path at that location.
+At least one selected path must exist for a save-data backup to succeed.
+
+Use at most 64 distinct, non-overlapping paths of at most 1024 bytes each. Absolute
+paths, `..`, glob patterns, shell expansion, symbolic links, special files, and
+the reserved `.campfire-backup.json` name are rejected. The game-data root itself
+cannot be selected; use a full backup for that.
+
+Imported Eggs may carry the same optional `savedata_paths` extension. Campfire
+does not infer these paths from game variables or installation scripts. Without
+an explicit declaration, only full backups are available. After changing the
+declaration, apply the updated Ember to the server before creating save-data
+backups. See [game backups](/Campfire/server-backups/) for restore and retention
+behavior.
+
 ## Warnings and blocking errors
 
 Warnings identify behavior that needs your review, such as port interpretation

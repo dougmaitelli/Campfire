@@ -1,4 +1,11 @@
 {
+  "backupModes": {
+    "label": "Backup type",
+    "full": "Full server",
+    "savedata": "Save data only",
+    "unavailable": "Save-data backups require paths declared by the server's applied Ember.",
+    "restoreSavedata": "Restore save data for {{serverName}}? This replaces the captured save-data paths and keeps other installed files."
+  },
   "overviewEmptyState": {
     "title": "Start your campfire",
     "description": "Connect a Spark and import an Ember to create your first server.",

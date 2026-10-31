@@ -1,7 +1,10 @@
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
 
+export type BackupMode = "full" | "savedata";
+
 export interface Backup {
+  mode?: BackupMode;
   name: string;
   size: number;
   modified_at: string;
@@ -11,12 +14,16 @@ export interface Backup {
   error?: string;
 }
 
-export interface BackupPolicy {
-  storage: "local" | "s3";
+export interface BackupRetention {
   local_keep_last: number;
   local_max_age_days: number;
   remote_keep_last: number;
   remote_max_age_days: number;
+}
+
+export interface BackupPolicy extends BackupRetention {
+  storage: "local" | "s3";
+  savedata?: BackupRetention;
 }
 
 export interface CatalogBackup extends Backup {
@@ -76,10 +83,9 @@ function object(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isPolicy(value: unknown): value is BackupPolicy {
+function isRetention(value: unknown): value is BackupRetention {
   return (
     object(value) &&
-    (value.storage === "local" || value.storage === "s3") &&
     [
       "local_keep_last",
       "local_max_age_days",
@@ -94,11 +100,23 @@ function isPolicy(value: unknown): value is BackupPolicy {
   );
 }
 
+function isPolicy(value: unknown): value is BackupPolicy {
+  return (
+    object(value) &&
+    isRetention(value) &&
+    (value.storage === "local" || value.storage === "s3") &&
+    (!("savedata" in value) || isRetention(value.savedata))
+  );
+}
+
 function isBackup(value: unknown): value is Backup {
   return (
     object(value) &&
+    (!("mode" in value) ||
+      value.mode === "full" ||
+      value.mode === "savedata") &&
     typeof value.name === "string" &&
-    /^[A-Za-z0-9_-]{1,128}\.tar\.gz$/.test(value.name) &&
+    /^(?:(?:full|savedata)-)?[A-Za-z0-9_-]{1,128}\.tar\.gz$/.test(value.name) &&
     typeof value.size === "number" &&
     Number.isSafeInteger(value.size) &&
     value.size >= 0 &&

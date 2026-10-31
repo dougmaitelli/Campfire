@@ -36,6 +36,7 @@ func visibleServer(server model.Server, ember model.Ember) model.Server {
 
 	server.Variables = variables
 	server.VariableTypes = types
+	server.SavedataAvailable = len(ember.SavedataPaths) > 0 && !server.EmberUpdateAvailable
 
 	return server
 }

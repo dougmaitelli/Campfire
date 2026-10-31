@@ -25,6 +25,7 @@ export interface ServerConfiguration {
 }
 
 export interface Server extends ServerConfiguration {
+  savedata_available?: boolean;
   ember_hash: string;
   ember_update_available: boolean;
   id: string;
@@ -45,6 +46,8 @@ export function isServer(value: unknown): value is Server {
   return (
     typeof value === "object" &&
     value !== null &&
+    (!("savedata_available" in value) ||
+      typeof value.savedata_available === "boolean") &&
     "id" in value &&
     typeof value.id === "string" &&
     (!("can_manage_access" in value) ||

@@ -12,6 +12,7 @@ export interface EmberVariable {
 }
 
 export interface Ember {
+  savedata_paths?: { path: string; required: boolean }[];
   revision?: string;
   id: string;
   schema: number;

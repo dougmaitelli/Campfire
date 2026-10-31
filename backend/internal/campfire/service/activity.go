@@ -284,6 +284,15 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 	}
 
 	item.RunAsUserID, item.Username = principal.UserID, principal.Username
+	if item.Action == "backup" {
+		item.BackupMode = item.BackupMode.Normalized()
+		if _, err := s.deployment.backupOptions(ctx, item.ServerID, item.BackupMode); err != nil {
+			return database.Schedule{}, err
+		}
+	} else {
+		item.BackupMode = model.BackupModeFull
+	}
+
 	if err := s.authorize(ctx, principal, item.ServerID, accessperm.Action(item.Action)); err != nil {
 		return database.Schedule{}, err
 	}
@@ -371,6 +380,10 @@ func (s *ActivityService) attempt(ctx context.Context, principal Principal, old 
 	run := database.ScheduleRun{ID: rand.Text(), ScheduleID: old.ScheduleID, RetryOf: old.ID, ServerID: server.ID, ServerName: server.Name, Action: old.Action, UserID: principal.UserID, Username: principal.Username, State: "dispatching", CreatedAt: now, StartedAt: now}
 
 	run.AuthorizationScopes = principal.TokenScopes
+	if old.Action == "backup" {
+		run.BackupMode = old.BackupMode.Normalized()
+	}
+
 	if old.ScheduleID != "" {
 		run.AuthorizationPermission = accessperm.ServerSchedulesRun
 	}
@@ -558,6 +571,10 @@ func (s *ActivityService) BeginManual(ctx context.Context, serverID, action, con
 
 	run := database.ScheduleRun{ID: rand.Text(), ServerID: serverID, ServerName: server.Name, UserID: principal.UserID, Username: principal.Username, Action: action, Content: content, State: "dispatching", CreatedAt: time.Now().Unix(), StartedAt: time.Now().Unix()}
 	run.AuthorizationScopes = principal.TokenScopes
+
+	if action == "backup" {
+		run.BackupMode = model.BackupMode(content).Normalized()
+	}
 
 	return run, s.Store.CreateRun(ctx, &run)
 }

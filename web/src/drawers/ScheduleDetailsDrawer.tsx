@@ -72,6 +72,15 @@ export function ScheduleDetailsDrawer({
           <DetailItem label={t("scheduleDrawer.action")}>
             {operationLabel(schedule.action)}
           </DetailItem>
+          {schedule.action === "backup" && (
+            <DetailItem label={t("backupModes.label")}>
+              {t(
+                schedule.backup_mode === "savedata"
+                  ? "backupModes.savedata"
+                  : "backupModes.full",
+              )}
+            </DetailItem>
+          )}
           <DetailItem label={t("common.status")}>
             <StatusPill tone={schedule.enabled ? "positive" : "warning"}>
               {t(schedule.enabled ? "common.enabled" : "common.disabled")}

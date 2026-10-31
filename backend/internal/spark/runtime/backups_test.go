@@ -116,7 +116,7 @@ func TestUnlimitedRestoreWithoutQuotaSupport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "restore", Content: "snapshot.tar.gz"})
+	status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "restore", Content: "full-snapshot.tar.gz"})
 	if status.Error != "" || status.DiskQuotaEnforced {
 		t.Fatal("unlimited restore failed or claimed enforcement", status)
 	}
@@ -154,11 +154,11 @@ func TestBackupRoundTripChunksAndDeletion(t *testing.T) {
 	awaitOperation(t, m, d, "backup", "snapshot")
 
 	listed, err := m.Files(context.Background(), d, model.FileRequest{ServerID: d.ServerID, Operation: "backup.list"})
-	if err != nil || len(listed.Entries) != 1 || listed.Entries[0].Name != "snapshot.tar.gz" {
+	if err != nil || len(listed.Entries) != 1 || listed.Entries[0].Name != "full-snapshot.tar.gz" {
 		t.Fatalf("backup list: %+v %v", listed, err)
 	}
 
-	chunk, err := m.Files(context.Background(), d, model.FileRequest{ServerID: d.ServerID, Operation: "backup.read", Path: "snapshot.tar.gz"})
+	chunk, err := m.Files(context.Background(), d, model.FileRequest{ServerID: d.ServerID, Operation: "backup.read", Path: "full-snapshot.tar.gz"})
 	if err != nil || chunk.Size != int64(len(chunk.Data)) {
 		t.Fatalf("backup read: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestBackupRoundTripChunksAndDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "restore", Content: "snapshot.tar.gz"})
+	status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "restore", Content: "full-snapshot.tar.gz"})
 	if status.Error != "" || status.State != "stopped" {
 		t.Fatalf("restore: %+v", status)
 	}
@@ -333,7 +333,7 @@ func TestBackupGuardsAndOwnershipFailure(t *testing.T) {
 	}
 
 	m.Ownership = func(string, string) error { return errors.New("ownership failed") }
-	if status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "restore", Content: "snapshot.tar.gz"}); status.Error == "" {
+	if status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "restore", Content: "full-snapshot.tar.gz"}); status.Error == "" {
 		t.Fatal("ownership failure ignored")
 	}
 
@@ -344,7 +344,7 @@ func TestBackupGuardsAndOwnershipFailure(t *testing.T) {
 	m.Ownership = func(string, string) error { return nil }
 
 	m.Docker = backupRemoveFailure{m.Docker}
-	if status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "remove-failure", Content: "snapshot.tar.gz"}); status.Error == "" {
+	if status := awaitBackup(t, m, d, model.RuntimeRequest{Action: "restore", OperationID: "remove-failure", Content: "full-snapshot.tar.gz"}); status.Error == "" {
 		t.Fatal("container removal failure ignored")
 	}
 
@@ -374,7 +374,7 @@ func TestBackupGuardsAndOwnershipFailure(t *testing.T) {
 		t.Fatal("backup of a symlink succeeded")
 	}
 
-	if _, err := os.Stat(filepath.Join(m.root(d.ServerID), "backups", "unsafe.tar.gz")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(m.root(d.ServerID), "backups", "full-unsafe.tar.gz")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("failed backup was published")
 	}
 }

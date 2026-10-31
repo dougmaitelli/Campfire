@@ -74,11 +74,12 @@ const (
 
 // RuntimeRequest identifies a server lifecycle operation; status is read-only.
 type RuntimeRequest struct {
-	ServerID     string        `json:"server_id"`
-	Action       ServerAction  `json:"action"`
-	OperationID  string        `json:"operation_id,omitempty"`
-	Content      string        `json:"content,omitempty"`
-	BackupSource *BackupSource `json:"backup_source,omitempty"`
+	BackupOptions BackupOptions `json:"backup_options,omitempty"`
+	ServerID      string        `json:"server_id"`
+	Action        ServerAction  `json:"action"`
+	OperationID   string        `json:"operation_id,omitempty"`
+	Content       string        `json:"content,omitempty"`
+	BackupSource  *BackupSource `json:"backup_source,omitempty"`
 }
 
 // RuntimeStatus reports observed state and the latest asynchronous operation.

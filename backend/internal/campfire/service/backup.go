@@ -121,8 +121,15 @@ func (s *BackupService) Close() {
 
 // SavePolicy validates opt-in limits. Zero means unlimited for that dimension.
 func (s *BackupService) SavePolicy(ctx context.Context, id string, p model.BackupPolicy) error {
-	if (p.Storage != "local" && p.Storage != "s3") || p.LocalKeepLast < 0 || p.LocalKeepLast > 1000 || p.RemoteKeepLast < 0 || p.RemoteKeepLast > 1000 || p.LocalMaxAgeDays < 0 || p.LocalMaxAgeDays > 36500 || p.RemoteMaxAgeDays < 0 || p.RemoteMaxAgeDays > 36500 {
+	if p.Storage != "local" && p.Storage != "s3" {
 		return repository.ErrAccessInput
+	}
+
+	for _, mode := range []model.BackupMode{model.BackupModeFull, model.BackupModeSavedata} {
+		limits := p.Retention(mode)
+		if limits.LocalKeepLast < 0 || limits.LocalKeepLast > 1000 || limits.RemoteKeepLast < 0 || limits.RemoteKeepLast > 1000 || limits.LocalMaxAgeDays < 0 || limits.LocalMaxAgeDays > 36500 || limits.RemoteMaxAgeDays < 0 || limits.RemoteMaxAgeDays > 36500 {
+			return repository.ErrAccessInput
+		}
 	}
 
 	if p.Storage == "s3" && s.Remote == nil {
@@ -146,7 +153,7 @@ func (s *BackupService) discover(ctx context.Context, id string) error {
 		}
 
 		seen[item.Name] = true
-		if err := s.Store.Discover(ctx, database.Backup{ServerID: id, Name: item.Name, Size: item.Size, CreatedAt: item.ModifiedAt.UnixNano(), Local: true, Key: id + "/" + rand.Text() + "/" + item.Name}); err != nil {
+		if err := s.Store.Discover(ctx, database.Backup{Mode: item.BackupMode.Normalized(), ServerID: id, Name: item.Name, Size: item.Size, CreatedAt: item.ModifiedAt.UnixNano(), Local: true, Key: id + "/" + rand.Text() + "/" + item.Name}); err != nil {
 			return err
 		}
 	}
@@ -223,7 +230,7 @@ func backupView(row database.Backup, working bool) model.Backup {
 		state = "deleting"
 	}
 
-	return model.Backup{Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
+	return model.Backup{Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
 }
 
 // Catalog lists known backups across servers, including disconnected placements.

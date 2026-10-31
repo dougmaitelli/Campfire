@@ -15,18 +15,21 @@ func expiredBackup(row database.Backup, days int, now time.Time) bool {
 
 func remoteCandidates(rows []database.Backup, p model.BackupPolicy, now time.Time) map[string]bool {
 	result := make(map[string]bool)
-	index := 0
+	index := make(map[model.BackupMode]int)
 
 	for _, row := range rows {
 		if row.Deleting || row.NoRemote || (!row.Local && !row.Remote) {
 			continue
 		}
 
-		if p.Storage == "s3" && (p.RemoteKeepLast == 0 || index < p.RemoteKeepLast) && !expiredBackup(row, p.RemoteMaxAgeDays, now) {
+		mode := row.Mode.Normalized()
+		limits := p.Retention(mode)
+
+		if p.Storage == "s3" && (limits.RemoteKeepLast == 0 || index[mode] < limits.RemoteKeepLast) && !expiredBackup(row, limits.RemoteMaxAgeDays, now) {
 			result[row.Name] = true
 		}
 
-		index++
+		index[mode]++
 	}
 
 	return result
@@ -87,7 +90,7 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 
 	eligible = remoteCandidates(rows, p, now)
 
-	var localIndex, remoteIndex int
+	localIndex, remoteIndex := make(map[model.BackupMode]int), make(map[model.BackupMode]int)
 
 	for _, row := range rows {
 		if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
@@ -95,9 +98,12 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 		}
 
 		removeLocal, removeRemote := false, false
+		mode := row.Mode.Normalized()
+		limits := p.Retention(mode)
+
 		if row.Local {
-			removeLocal = p.LocalKeepLast > 0 && localIndex >= p.LocalKeepLast || expiredBackup(row, p.LocalMaxAgeDays, now)
-			localIndex++
+			removeLocal = limits.LocalKeepLast > 0 && localIndex[mode] >= limits.LocalKeepLast || expiredBackup(row, limits.LocalMaxAgeDays, now)
+			localIndex[mode]++
 
 			if eligible[row.Name] && !row.Remote {
 				removeLocal = false
@@ -105,8 +111,8 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 		}
 
 		if row.Remote {
-			removeRemote = p.RemoteKeepLast > 0 && remoteIndex >= p.RemoteKeepLast || expiredBackup(row, p.RemoteMaxAgeDays, now)
-			remoteIndex++
+			removeRemote = limits.RemoteKeepLast > 0 && remoteIndex[mode] >= limits.RemoteKeepLast || expiredBackup(row, limits.RemoteMaxAgeDays, now)
+			remoteIndex[mode]++
 		}
 
 		if removeLocal || removeRemote {

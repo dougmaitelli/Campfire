@@ -276,7 +276,7 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 
 		content := ""
 		if action == "restore" {
-			content = "backup-operation.tar.gz"
+			content = "full-backup-operation.tar.gz"
 		}
 
 		status, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: model.ServerAction(action), OperationID: action + "-operation", Content: content})
@@ -379,7 +379,7 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 				t.Fatalf("remote backup listing: %+v %v", listed, err)
 			}
 
-			data, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.read", Path: "backup-operation.tar.gz"})
+			data, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.read", Path: "full-backup-operation.tar.gz"})
 			if err != nil || len(data.Data) == 0 || data.Size != int64(len(data.Data)) {
 				t.Fatal("remote backup download failed", err)
 			}
@@ -391,7 +391,7 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 				t.Fatal("remote restore failed", err)
 			}
 
-			archive, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.read", Path: "backup-operation.tar.gz"})
+			archive, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.read", Path: "full-backup-operation.tar.gz"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -399,13 +399,13 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 			objectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(archive.Data) }))
 			defer objectServer.Close()
 
-			if _, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.delete", Path: "backup-operation.tar.gz"}); err != nil {
+			if _, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "backup.delete", Path: "full-backup-operation.tar.gz"}); err != nil {
 				t.Fatal(err)
 			}
 
 			hash := sha256.Sum256(archive.Data)
 
-			remoteStatus, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: "restore", OperationID: "offhost-restore", Content: "backup-operation.tar.gz", BackupSource: &model.BackupSource{URL: objectServer.URL, Size: archive.Size, Digest: hex.EncodeToString(hash[:])}})
+			remoteStatus, err := hub.Action(ctx, id, model.RuntimeRequest{ServerID: deployment.ServerID, Action: "restore", OperationID: "offhost-restore", Content: "full-backup-operation.tar.gz", BackupSource: &model.BackupSource{URL: objectServer.URL, Size: archive.Size, Digest: hex.EncodeToString(hash[:])}})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -91,6 +91,8 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 	}
 
 	ember := model.Ember{Schema: 1, ID: "mock-minecraft", Name: "Minecraft", Description: "A Minecraft Java Edition server", ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: MinecraftVariables(), RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: "tcp", Description: "Main"}}}
+	ember.SavedataPaths = []model.SavedataPath{{Path: "world", Required: true}, {Path: "server.properties"}}
+
 	if err := repository.NewEmberRepository(tx).Create(ctx, ember); err != nil {
 		return nil, err
 	}

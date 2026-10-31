@@ -13,6 +13,8 @@ import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CronField } from "../components/schedules/CronField";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import { serverActionPermission } from "../api/permissions";
+import type { BackupMode } from "../api/backups";
+import { BackupModeField } from "../components/servers/BackupModeField";
 
 export function ScheduleDrawer({
   schedule,
@@ -42,6 +44,14 @@ export function ScheduleDrawer({
       "backup",
   );
   const [command, setCommand] = useState("");
+  const [backupMode, setBackupMode] = useState<BackupMode>(
+    schedule?.backup_mode ?? "full",
+  );
+  const savedataAvailable =
+    servers.find((server) => server.id === serverID)?.savedata_available ===
+    true;
+  const invalidBackupMode =
+    action === "backup" && backupMode === "savedata" && !savedataAvailable;
   const [expression, setExpression] = useState(
     schedule?.cron_expression ?? "0 3 * * *",
   );
@@ -101,7 +111,7 @@ export function ScheduleDrawer({
     }
   }
   async function submit() {
-    if (pending.current) return;
+    if (pending.current || invalidBackupMode) return;
     if (!allowedActions(serverID).includes(action)) {
       setError(i18n.t("scheduleDrawer.actionNotAllowed"));
       return;
@@ -119,6 +129,7 @@ export function ScheduleDrawer({
           server_id: serverID,
           name,
           action,
+          ...(action === "backup" ? { backup_mode: backupMode } : {}),
           command,
           cron_expression: once ? "" : expression,
           next_run_at: once ? Math.floor(new Date(runAt).getTime() / 1000) : 0,
@@ -175,6 +186,7 @@ export function ScheduleDrawer({
             variant="primary"
             disabled={
               busy ||
+              invalidBackupMode ||
               !name.trim() ||
               !serverID ||
               (once
@@ -238,6 +250,14 @@ export function ScheduleDrawer({
             ))}
           </Select>
         </FormField>
+        {action === "backup" && (
+          <BackupModeField
+            value={backupMode}
+            onChange={setBackupMode}
+            available={savedataAvailable}
+            disabled={busy}
+          />
+        )}
         {action === "command" && (
           <>
             <FormField

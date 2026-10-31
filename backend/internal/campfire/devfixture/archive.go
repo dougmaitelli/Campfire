@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"campfire/internal/shared/model"
 )
 
 // BackupFiles provides reproducible archive sizes backed by real fixture bytes.
@@ -45,7 +47,13 @@ func Archive(files map[string]string, createdAt time.Time) ([]byte, error) {
 		names = append(names, name)
 	}
 
-	sort.Strings(names)
+	sort.Slice(names, func(i, j int) bool {
+		if names[i] == model.BackupMetadataName || names[j] == model.BackupMetadataName {
+			return names[i] == model.BackupMetadataName
+		}
+
+		return names[i] < names[j]
+	})
 
 	for _, name := range names {
 		content := files[name]

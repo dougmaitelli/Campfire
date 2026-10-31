@@ -4,11 +4,13 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
@@ -100,7 +102,19 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 			}
 
 			if backupName(item.Name()) && info.Mode().IsRegular() {
-				result.Entries = append(result.Entries, model.FileEntry{Name: item.Name(), Kind: "file", Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
+				input, err := root.OpenFile(item.Name(), os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+				if err != nil {
+					return result, err
+				}
+
+				manifest, err := readBackupManifest(input)
+				_ = input.Close()
+
+				if err != nil {
+					manifest.Mode = model.BackupModeFull
+				}
+
+				result.Entries = append(result.Entries, model.FileEntry{BackupMode: manifest.Mode, Name: item.Name(), Kind: "file", Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
 			}
 		}
 
@@ -168,7 +182,11 @@ func (r backupReader) Read(p []byte) (int, error) {
 	return r.Reader.Read(p)
 }
 
-func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id string, e *entry) error {
+func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id string, e *entry, options model.BackupOptions) error {
+	if err := options.Validate(); err != nil {
+		return err
+	}
+
 	m.progress(d.ServerID, e, "Creating backup")
 
 	if err := m.backupStopped(ctx, d.ServerID); err != nil {
@@ -205,10 +223,17 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 	compressed := gzip.NewWriter(file)
 	archive := tar.NewWriter(compressed)
 
+	if err := writeBackupManifest(archive, root, options); err != nil {
+		_ = archive.Close()
+		_ = compressed.Close()
+
+		return err
+	}
+
 	var total int64
 
 	count := 0
-	err = fs.WalkDir(root.FS(), ".", func(name string, _ fs.DirEntry, walkErr error) error {
+	err = fs.WalkDir(root.FS(), ".", func(name string, item fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -219,6 +244,23 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 
 		if name == "." {
 			return nil
+		}
+
+		if !options.Includes(name) {
+			ancestor := false
+			for _, selected := range options.Paths {
+				ancestor = ancestor || strings.HasPrefix(selected.Path, name+"/")
+			}
+
+			if item.IsDir() && !ancestor {
+				return fs.SkipDir
+			}
+
+			return nil
+		}
+
+		if name == model.BackupMetadataName {
+			return errors.New("game data contains the reserved backup metadata filename")
 		}
 
 		count++
@@ -279,7 +321,7 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 		return err
 	}
 
-	if err := os.Rename(file.Name(), filepath.Join(directory, id+".tar.gz")); err != nil {
+	if err := os.Rename(file.Name(), filepath.Join(directory, options.Mode.ArchiveName(id))); err != nil {
 		return errors.New("could not publish backup")
 	}
 
@@ -325,6 +367,8 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 
 	var total int64
 
+	manifest := backupManifest{BackupOptions: model.BackupOptions{Mode: model.BackupModeFull}}
+
 	for count := 0; ; count++ {
 		header, err := archive.Next()
 		if errors.Is(err, io.EOF) {
@@ -336,7 +380,48 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 		}
 
 		name := strings.TrimSuffix(header.Name, "/")
-		if count >= backupEntries || !filePath(name, false) || seen[name] || (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeDir) || header.Size < 0 || header.Size > limit-total {
+		if name == model.BackupMetadataName && count == 0 {
+			if header.Typeflag != tar.TypeReg || header.Size < 1 || header.Size > backupMetadataLimit {
+				return errors.New("invalid backup metadata")
+			}
+
+			data, err := io.ReadAll(archive)
+			if err != nil {
+				return err
+			}
+
+			manifest = backupManifest{}
+			if err := json.Unmarshal(data, &manifest); err != nil {
+				return err
+			}
+
+			if manifest.Format != 1 || manifest.Mode == "" {
+				return errors.New("unsupported backup metadata format")
+			}
+
+			if err := manifest.Validate(); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		if name == model.BackupMetadataName || !manifest.Includes(name) {
+			return errors.New("backup entry is outside its captured paths")
+		}
+
+		for _, missing := range manifest.Missing {
+			if name == missing || strings.HasPrefix(name, missing+"/") {
+				return errors.New("backup contains a path recorded as missing")
+			}
+		}
+
+		entryLimit := backupEntries
+		if manifest.Format == 1 {
+			entryLimit++
+		}
+
+		if count >= entryLimit || !filePath(name, false) || seen[name] || (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeDir) || header.Size < 0 || header.Size > limit-total {
 			return errors.New("invalid backup entry or archive limit exceeded")
 		}
 
@@ -373,6 +458,13 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 		closeErr := file.Close()
 		if copyErr != nil || modeErr != nil || syncErr != nil || closeErr != nil {
 			return errors.New("could not extract backup file")
+		}
+	}
+
+	for _, item := range manifest.Paths {
+		missing := slices.Contains(manifest.Missing, item.Path)
+		if item.Required && !seen[item.Path] || missing && seen[item.Path] || !missing && !seen[item.Path] {
+			return errors.New("backup is missing a captured save-data root")
 		}
 	}
 
@@ -440,6 +532,26 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 
 	if err := extractBackup(ctx, file, stage, limit); err != nil {
 		return errors.New("backup validation failed; original game data was preserved")
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+
+	manifest, err := readBackupManifest(file)
+	if err != nil {
+		return err
+	}
+
+	if manifest.Mode == model.BackupModeSavedata {
+		volume, err := m.volume(d.ServerID)
+		if err != nil {
+			return err
+		}
+
+		if err := preserveInstallation(ctx, volume, stage, manifest.BackupOptions, limit); err != nil {
+			return errors.New("could not preserve installed files; original game data was preserved")
+		}
 	}
 
 	if err := m.Ownership(stage, d.Ember.User); err != nil {

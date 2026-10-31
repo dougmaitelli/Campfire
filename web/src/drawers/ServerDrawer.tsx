@@ -1,4 +1,5 @@
 import i18n from "../i18n";
+import { BackupRetentionFields } from "../components/servers/BackupRetentionFields";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
@@ -887,50 +888,30 @@ export function ServerDrawer({
                         )}
                       </p>
                     )}
-                    {(
-                      [
-                        [
-                          "local_keep_last",
-                          t("serverDrawer.localCopiesToKeep"),
-                          1000,
-                        ],
-                        [
-                          "local_max_age_days",
-                          t("serverDrawer.localMaximumAgeDays"),
-                          36500,
-                        ],
-                        [
-                          "remote_keep_last",
-                          t("serverDrawer.s3CopiesToKeep"),
-                          1000,
-                        ],
-                        [
-                          "remote_max_age_days",
-                          t("serverDrawer.s3MaximumAgeDays"),
-                          36500,
-                        ],
-                      ] as const
-                    ).map(([key, label, max]) => (
-                      <div key={key}>
-                        <FormField label={<>{label}</>}>
-                          <TextInput
-                            id={`backup-${key}`}
-                            type="number"
-                            min={0}
-                            max={max}
-                            step={1}
-                            required
-                            value={backupPolicy[key]}
-                            onChange={(event) =>
-                              changeBackupPolicy({
-                                ...backupPolicy,
-                                [key]: Number(event.target.value),
-                              })
-                            }
-                          />
-                        </FormField>
-                      </div>
-                    ))}
+                    <BackupRetentionFields
+                      mode="full"
+                      value={backupPolicy}
+                      onChange={(limits) =>
+                        changeBackupPolicy({ ...backupPolicy, ...limits })
+                      }
+                    />
+                    <BackupRetentionFields
+                      mode="savedata"
+                      value={
+                        backupPolicy.savedata ?? {
+                          local_keep_last: 0,
+                          local_max_age_days: 0,
+                          remote_keep_last: 0,
+                          remote_max_age_days: 0,
+                        }
+                      }
+                      onChange={(limits) =>
+                        changeBackupPolicy({
+                          ...backupPolicy,
+                          savedata: limits,
+                        })
+                      }
+                    />
                     <p className="field-help">
                       {t(
                         "serverDrawer.zeroDisablesALimitLocalAndS3CopiesExpireIndependently",

@@ -97,6 +97,7 @@ type Ember struct {
 	Readiness       *Readiness        `json:"readiness,omitempty"`
 	Configs         []ConfigFile      `json:"configs,omitempty"`
 	RequiredPorts   []RequiredPort    `json:"required_ports,omitempty"`
+	SavedataPaths   []SavedataPath    `json:"savedata_paths,omitempty"`
 	Origin          *EmberOrigin      `json:"origin,omitempty"`
 }
 
@@ -119,6 +120,10 @@ type EmberOrigin struct {
 
 // Validate checks a native Ember definition.
 func (e Ember) Validate() error {
+	if err := ValidateSavedataPaths(e.SavedataPaths); err != nil {
+		return err
+	}
+
 	if e.Schema != 1 || strings.TrimSpace(e.Name) == "" || len(e.Name) > 120 {
 		return errors.New("Ember requires schema 1 and a name of 1–120 characters")
 	}

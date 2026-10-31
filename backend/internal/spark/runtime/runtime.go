@@ -362,7 +362,7 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 	case model.ServerActionReinstall:
 		err = m.reinstallMode(ctx, d, e, true, q.Content == "clean")
 	case model.ServerActionBackup:
-		err = m.createBackup(ctx, d, q.OperationID, e)
+		err = m.createBackup(ctx, d, q.OperationID, e, q.BackupOptions)
 	case model.ServerActionRestore:
 		if q.BackupSource != nil {
 			err = m.downloadBackup(ctx, d, q.Content, q.BackupSource, e)

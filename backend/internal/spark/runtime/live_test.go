@@ -63,7 +63,7 @@ func TestLiveDockerLifecycle(t *testing.T) {
 			operationID = backupID
 		}
 
-		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: operationID, Content: backupID + ".tar.gz"})
+		status, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerAction(action), OperationID: operationID, Content: model.BackupModeFull.ArchiveName(backupID)})
 		if err != nil {
 			t.Fatal(err)
 		}

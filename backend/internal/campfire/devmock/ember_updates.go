@@ -31,6 +31,7 @@ func mockUpdateCandidate(current bool) model.Ember {
 			"Debug":    "java -Xmx{{SERVER_MEMORY}}M -Ddebug=true -jar server.jar",
 		}
 		ember.Startup = ""
+		ember.SavedataPaths = []model.SavedataPath{{Path: "world", Required: true}, {Path: "server.properties", Required: true}, {Path: "config"}}
 	}
 
 	ember.Variables = mockMinecraftVariables()

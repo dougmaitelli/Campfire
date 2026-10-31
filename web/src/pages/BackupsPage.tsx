@@ -91,6 +91,13 @@ export function BackupsPage() {
                     <a className="table-row-trigger" href={route}>
                       {item.name}
                     </a>
+                    <span className="row-description">
+                      {t(
+                        item.mode === "savedata"
+                          ? "backupModes.savedata"
+                          : "backupModes.full",
+                      )}
+                    </span>
                     {item.error && (
                       <span className="row-description">{item.error}</span>
                     )}

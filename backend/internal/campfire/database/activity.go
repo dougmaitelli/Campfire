@@ -1,45 +1,49 @@
 package database
 
+import "campfire/internal/shared/model"
+
 // Schedule defines a recurring server operation. History survives schedule deletion.
 type Schedule struct {
-	AuthorizationScopes []string `gorm:"serializer:json;type:text" json:"-"`
-	ID                  string   `gorm:"type:text;primaryKey" json:"id"`
-	ServerID            string   `gorm:"type:text;not null;index" json:"server_id"`
-	Server              Server   `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE" json:"-"`
-	Name                string   `gorm:"type:text;not null" json:"name"`
-	Action              string   `gorm:"type:text;not null" json:"action"`
-	Command             string   `gorm:"type:text;not null" json:"-"`
-	CronExpression      string   `gorm:"type:text;not null;default:''" json:"cron_expression"`
-	TimeZone            string   `gorm:"type:text;not null;default:'UTC'" json:"time_zone"`
-	OnlyWhenRunning     bool     `gorm:"not null;default:false" json:"only_when_running"`
-	NextRunAt           int64    `gorm:"not null;index" json:"next_run_at"`
-	Enabled             bool     `gorm:"not null" json:"enabled"`
-	RunAsUserID         int64    `gorm:"not null" json:"run_as_user_id"`
-	Username            string   `gorm:"->;-:migration" json:"username"` // Current user lookup; not a stored schedule column.
-	CreatedAt           int64    `gorm:"not null;autoCreateTime" json:"created_at"`
+	BackupMode          model.BackupMode `gorm:"type:text;not null;default:'full'" json:"backup_mode"`
+	AuthorizationScopes []string         `gorm:"serializer:json;type:text" json:"-"`
+	ID                  string           `gorm:"type:text;primaryKey" json:"id"`
+	ServerID            string           `gorm:"type:text;not null;index" json:"server_id"`
+	Server              Server           `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE" json:"-"`
+	Name                string           `gorm:"type:text;not null" json:"name"`
+	Action              string           `gorm:"type:text;not null" json:"action"`
+	Command             string           `gorm:"type:text;not null" json:"-"`
+	CronExpression      string           `gorm:"type:text;not null;default:''" json:"cron_expression"`
+	TimeZone            string           `gorm:"type:text;not null;default:'UTC'" json:"time_zone"`
+	OnlyWhenRunning     bool             `gorm:"not null;default:false" json:"only_when_running"`
+	NextRunAt           int64            `gorm:"not null;index" json:"next_run_at"`
+	Enabled             bool             `gorm:"not null" json:"enabled"`
+	RunAsUserID         int64            `gorm:"not null" json:"run_as_user_id"`
+	Username            string           `gorm:"->;-:migration" json:"username"` // Current user lookup; not a stored schedule column.
+	CreatedAt           int64            `gorm:"not null;autoCreateTime" json:"created_at"`
 }
 
 // ScheduleRun records manual and recurring operations without foreign-key cascades.
 type ScheduleRun struct {
-	AuthorizationPermission string   `gorm:"type:text;not null;default:''" json:"-"`
-	AuthorizationScopes     []string `gorm:"serializer:json;type:text" json:"-"`
-	OnlyWhenRunning         bool     `gorm:"not null;default:false" json:"-"`
-	ID                      string   `gorm:"type:text;primaryKey" json:"id"`
-	ScheduleID              string   `gorm:"type:text;not null;index" json:"schedule_id"`
-	Recurring               bool     `gorm:"not null" json:"recurring"`
-	RetryOf                 string   `gorm:"type:text;not null" json:"retry_of"`
-	ServerID                string   `gorm:"type:text;not null;index" json:"server_id"`
-	ServerName              string   `gorm:"type:text;not null" json:"server_name"`
-	UserID                  int64    `gorm:"not null" json:"user_id"`
-	Username                string   `gorm:"type:text;not null" json:"username"`
-	Action                  string   `gorm:"type:text;not null" json:"action"`
-	Content                 string   `gorm:"type:text;not null" json:"-"`
-	State                   string   `gorm:"type:text;not null;index" json:"state"`
-	Message                 string   `gorm:"type:text;not null" json:"message"`
-	CreatedAt               int64    `gorm:"not null;autoCreateTime:false;index" json:"created_at"`
-	StartedAt               int64    `gorm:"not null" json:"started_at"`
-	FinishedAt              int64    `gorm:"not null;index" json:"finished_at"`
-	PolledAt                int64    `gorm:"not null;index" json:"-"`
+	BackupMode              model.BackupMode `gorm:"type:text;not null;default:'full'" json:"backup_mode"`
+	AuthorizationPermission string           `gorm:"type:text;not null;default:''" json:"-"`
+	AuthorizationScopes     []string         `gorm:"serializer:json;type:text" json:"-"`
+	OnlyWhenRunning         bool             `gorm:"not null;default:false" json:"-"`
+	ID                      string           `gorm:"type:text;primaryKey" json:"id"`
+	ScheduleID              string           `gorm:"type:text;not null;index" json:"schedule_id"`
+	Recurring               bool             `gorm:"not null" json:"recurring"`
+	RetryOf                 string           `gorm:"type:text;not null" json:"retry_of"`
+	ServerID                string           `gorm:"type:text;not null;index" json:"server_id"`
+	ServerName              string           `gorm:"type:text;not null" json:"server_name"`
+	UserID                  int64            `gorm:"not null" json:"user_id"`
+	Username                string           `gorm:"type:text;not null" json:"username"`
+	Action                  string           `gorm:"type:text;not null" json:"action"`
+	Content                 string           `gorm:"type:text;not null" json:"-"`
+	State                   string           `gorm:"type:text;not null;index" json:"state"`
+	Message                 string           `gorm:"type:text;not null" json:"message"`
+	CreatedAt               int64            `gorm:"not null;autoCreateTime:false;index" json:"created_at"`
+	StartedAt               int64            `gorm:"not null" json:"started_at"`
+	FinishedAt              int64            `gorm:"not null;index" json:"finished_at"`
+	PolledAt                int64            `gorm:"not null;index" json:"-"`
 }
 
 // AuditEvent stores allowlisted metadata, never request or response bodies.

@@ -146,7 +146,7 @@ export async function openServerTab(page: Page, tab: string, label: string) {
   } else {
     await expect(page.locator("tbody tr")).toHaveCount(2);
     await expect(
-      page.getByRole("cell", { name: "mock-nightly.tar.gz", exact: true }),
+      page.getByRole("cell", { name: /^mock-nightly\.tar\.gz/ }),
     ).toBeVisible();
   }
 }

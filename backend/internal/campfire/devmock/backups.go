@@ -4,8 +4,10 @@ package devmock
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"maps"
+	"strings"
 	"time"
 
 	"campfire/internal/campfire/database"
@@ -17,16 +19,34 @@ import (
 )
 
 type backupRecord struct {
-	ServerID  string            `gorm:"primaryKey"`
-	Name      string            `gorm:"primaryKey"`
-	Files     map[string]string `gorm:"serializer:json"`
+	Missing   []string            `gorm:"serializer:json;type:text"`
+	Options   model.BackupOptions `gorm:"serializer:json;type:text"`
+	ServerID  string              `gorm:"primaryKey"`
+	Name      string              `gorm:"primaryKey"`
+	Files     map[string]string   `gorm:"serializer:json"`
 	CreatedAt time.Time
 }
 
 func (backupRecord) TableName() string { return "mock_backups" }
 
 func backupArchive(record backupRecord) ([]byte, error) {
-	return devfixture.Archive(record.Files, record.CreatedAt)
+	files := maps.Clone(record.Files)
+	if record.Options.Mode != "" {
+		metadata := struct {
+			Format int `json:"format"`
+			model.BackupOptions
+			Missing []string `json:"missing,omitempty"`
+		}{1, record.Options, record.Missing}
+
+		data, err := json.Marshal(metadata)
+		if err != nil {
+			return nil, err
+		}
+
+		files[model.BackupMetadataName] = string(data)
+	}
+
+	return devfixture.Archive(files, record.CreatedAt)
 }
 
 func seedBackupFixtures(ctx context.Context, db *gorm.DB) error {
@@ -116,12 +136,43 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 	}
 
 	if request.Action == "backup" {
-		name := request.OperationID + ".tar.gz"
-		if !model.BackupName(name) {
+		options := request.BackupOptions
+		options.Mode = options.Mode.Normalized()
+
+		if err := options.Validate(); err != nil {
+			return err
+		}
+
+		name := options.Mode.ArchiveName(request.OperationID)
+		if request.OperationID == "" || !model.BackupName(name) {
 			return fileError("invalid_file", "Invalid backup operation ID.")
 		}
 
 		backup := backupRecord{ServerID: record.ServerID, Name: name, Files: maps.Clone(record.Files), CreatedAt: time.Now().UTC()}
+		backup.Options = options
+
+		if options.Mode == model.BackupModeSavedata {
+			for _, item := range options.Paths {
+				found := false
+				for name := range record.Files {
+					found = found || name == item.Path || strings.HasPrefix(name, item.Path+"/")
+				}
+
+				if item.Required && !found {
+					return errors.New("required save-data path is missing")
+				}
+
+				if !found {
+					backup.Missing = append(backup.Missing, item.Path)
+				}
+			}
+
+			if len(backup.Missing) == len(options.Paths) {
+				return errors.New("no declared save-data paths exist")
+			}
+
+			maps.DeleteFunc(backup.Files, func(name, _ string) bool { return !options.Includes(strings.TrimSuffix(name, "/")) })
+		}
 
 		return r.db.WithContext(ctx).Where("server_id = ? AND name = ?", record.ServerID, name).FirstOrCreate(&backup).Error
 	}
@@ -138,6 +189,14 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 
 	restored := *record
 	restored.Files = maps.Clone(backup.Files)
+
+	if backup.Options.Mode == model.BackupModeSavedata {
+		for name, content := range record.Files {
+			if !backup.Options.Includes(strings.TrimSuffix(name, "/")) {
+				restored.Files[name] = content
+			}
+		}
+	}
 
 	if quotaEnforced(restored) && diskUsage(restored) > record.Deployment.Configuration.DiskMB*(1<<20) {
 		return fileError("file_limit", "Restored files would exceed the game-data allocation.")
@@ -165,7 +224,7 @@ func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request
 				return result, err
 			}
 
-			result.Entries = append(result.Entries, model.FileEntry{Name: backup.Name, Kind: "file", Size: int64(len(data)), ModifiedAt: backup.CreatedAt})
+			result.Entries = append(result.Entries, model.FileEntry{BackupMode: backup.Options.Mode.Normalized(), Name: backup.Name, Kind: "file", Size: int64(len(data)), ModifiedAt: backup.CreatedAt})
 		}
 
 		return result, nil

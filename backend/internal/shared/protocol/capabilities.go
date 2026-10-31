@@ -42,7 +42,7 @@ const (
 	CapabilityFilePermissions = "server.files.permissions.v1"
 	CapabilityFileTransfer    = "server.files.transfer.v1"
 	CapabilityFileArchive     = "server.files.archive.v1"
-	CapabilityBackups         = "server.backups.v1"
+	CapabilityBackups         = "server.backups.v2"
 	CapabilityBackupRemote    = "server.backups.remote.v1"
 	CapabilityMetrics         = "server.metrics.v1"
 	CapabilityConsole         = "server.console.stream.v1"

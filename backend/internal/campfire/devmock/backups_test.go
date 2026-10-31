@@ -65,7 +65,7 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 		t.Fatal("backup creation was not idempotent", listed)
 	}
 
-	download := files("backup.read", "snapshot.tar.gz")
+	download := files("backup.read", "full-snapshot.tar.gz")
 
 	zipped, err := gzip.NewReader(bytes.NewReader(download.Data))
 	if err != nil {
@@ -111,7 +111,7 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "restore", OperationID: "restore", Content: "snapshot.tar.gz"}); err != nil {
+	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "restore", OperationID: "restore", Content: "full-snapshot.tar.gz"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -119,8 +119,8 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 		t.Fatal("restore did not recover files")
 	}
 
-	files("backup.delete", "snapshot.tar.gz")
-	files("backup.delete", "snapshot.tar.gz")
+	files("backup.delete", "full-snapshot.tar.gz")
+	files("backup.delete", "full-snapshot.tar.gz")
 
 	runtime, err = New(t.Context(), db.ORM(), auth)
 	if err != nil {

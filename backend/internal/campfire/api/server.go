@@ -235,9 +235,10 @@ func (a *API) deleteServer(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Action string `json:"action"`
-		Backup string `json:"backup,omitempty"`
-		Mode   string `json:"mode,omitempty"`
+		Action     string           `json:"action"`
+		Backup     string           `json:"backup,omitempty"`
+		Mode       string           `json:"mode,omitempty"`
+		BackupMode model.BackupMode `json:"backup_mode,omitempty"`
 	}
 	if !decodeRequest(w, r, &input, 1024) {
 		return
@@ -266,11 +267,18 @@ func (a *API) serverAction(w http.ResponseWriter, r *http.Request) {
 
 	var status model.RuntimeStatus
 
+	if input.BackupMode != "" && input.Action != "backup" {
+		writeError(w, service.ErrInvalidServer)
+		return
+	}
+
 	auditDetail(r, "server."+input.Action, "server:"+r.PathValue("id"))
 
 	var err error
 
 	switch input.Action {
+	case "backup":
+		status, err = a.deployment.Backup(r.Context(), r.PathValue("id"), input.BackupMode)
 	case "restore":
 		status, err = a.deployment.Restore(r.Context(), r.PathValue("id"), input.Backup)
 	case "reinstall":

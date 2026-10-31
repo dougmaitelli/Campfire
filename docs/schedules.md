@@ -37,4 +37,8 @@ and recheck the account's current access before dispatch.
 
 Backup creation requires a stopped game. Arrange the stop and later start
 separately rather than expecting a backup action to stop the server itself.
+Each backup schedule selects **Full server** or **Save data only**. Save-data mode
+is available only when the server's applied Ember declares `savedata_paths`.
+If those declarations are later removed, a save-data schedule fails with an error;
+it never silently creates a full backup instead. Existing schedules use full mode.
 See [backups](/Campfire/server-backups/) for restoration and off-host storage.

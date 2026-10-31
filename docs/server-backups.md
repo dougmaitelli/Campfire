@@ -23,10 +23,30 @@ operation status until completion; closing the console does not cancel the work.
 For recurring backups, configure a schedule and arrange for the game to be
 stopped before the backup action runs.
 
-Restoration replaces the game files and leaves the server stopped. Choose the
-snapshot carefully, and keep enough host space for the current game directory
-and the extracted snapshot at the same time. Start the game after restoration
-finishes and check its console.
+Choose **Full server** to capture the whole game-data directory, or **Save data
+only** to capture the files and folders declared by the Ember's `savedata_paths`.
+Save-data backups are available only when the applied Ember declares those paths.
+Choose the type for each manual backup or backup schedule; there is no server-wide
+default. Existing schedules continue to create full backups.
+
+A full restore replaces all game files. A save-data restore replaces only the
+captured paths, including removing files added under those paths since the backup.
+Other installed files remain in place. Reinstall a compatible game version before
+restoring save data onto an empty server. Both restore types leave the server
+stopped; start it after restoration finishes and check its console.
+
+Each archive records its type and selected paths. Restoring an older backup uses
+that snapshot's paths even if the Ember has changed. Missing required paths fail
+backup creation; missing optional paths are recorded. Archives created before
+backup types were introduced restore as full snapshots.
+
+New archives are named `full-<id>.tar.gz` or `savedata-<id>.tar.gz`. Their first
+entry, `.campfire-backup.json`, records the mode, selected paths, missing optional
+paths, and Ember revision. Restore uses this metadata rather than guessing from
+the filename; older archive names remain supported.
+
+Keep enough host space for the current game directory and a staged replacement
+at the same time. Save-data restores also stage the installed files they preserve.
 
 Restores assign ownership to the server's runtime user and normalize permissions
 to `0600` for files and `0700` for directories and executable files. This prevents
@@ -42,6 +62,11 @@ to `.env` does not forward settings absent from `compose.yaml`.
 Enable backup synchronization separately on each server and configure its local
 and remote retention policies. Inspect synchronization errors before assuming an
 archive has an off-host copy. Failed synchronization retains the local archive.
+Configure local and S3 keep-last counts and maximum ages separately for **Full
+server** and **Save data only** backups. Frequent save-data snapshots do not
+displace retained full snapshots. Existing retention settings remain the full
+backup limits; save-data limits start disabled. Zero disables each individual
+limit.
 The panel and Sparks must be able to reach and trust the storage endpoint for
 upload and restore workflows.
 

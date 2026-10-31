@@ -26,7 +26,7 @@ func (r *BackupRepository) Policy(ctx context.Context, id string) (model.BackupP
 		return model.BackupPolicy{Storage: "local"}, nil
 	}
 
-	return model.BackupPolicy{Storage: row.Storage, LocalKeepLast: row.LocalKeepLast, LocalMaxAgeDays: row.LocalMaxAgeDays, RemoteKeepLast: row.RemoteKeepLast, RemoteMaxAgeDays: row.RemoteMaxAgeDays}, err
+	return model.BackupPolicy{Storage: row.Storage, LocalKeepLast: row.LocalKeepLast, LocalMaxAgeDays: row.LocalMaxAgeDays, RemoteKeepLast: row.RemoteKeepLast, RemoteMaxAgeDays: row.RemoteMaxAgeDays, Savedata: model.BackupRetention{LocalKeepLast: row.SavedataLocalKeepLast, LocalMaxAgeDays: row.SavedataLocalMaxAgeDays, RemoteKeepLast: row.SavedataRemoteKeepLast, RemoteMaxAgeDays: row.SavedataRemoteMaxAgeDays}}, err
 }
 
 // SavePolicy updates retention under the same placement guard as transfers.
@@ -41,7 +41,7 @@ func (r *BackupRepository) SavePolicy(ctx context.Context, id string, p model.Ba
 			return ErrServerNotFound
 		}
 
-		return tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(&database.BackupPolicy{ServerID: id, Storage: p.Storage, LocalKeepLast: p.LocalKeepLast, LocalMaxAgeDays: p.LocalMaxAgeDays, RemoteKeepLast: p.RemoteKeepLast, RemoteMaxAgeDays: p.RemoteMaxAgeDays}).Error
+		return tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(&database.BackupPolicy{ServerID: id, Storage: p.Storage, LocalKeepLast: p.LocalKeepLast, LocalMaxAgeDays: p.LocalMaxAgeDays, RemoteKeepLast: p.RemoteKeepLast, RemoteMaxAgeDays: p.RemoteMaxAgeDays, SavedataLocalKeepLast: p.Savedata.LocalKeepLast, SavedataLocalMaxAgeDays: p.Savedata.LocalMaxAgeDays, SavedataRemoteKeepLast: p.Savedata.RemoteKeepLast, SavedataRemoteMaxAgeDays: p.Savedata.RemoteMaxAgeDays}).Error
 	})
 }
 
