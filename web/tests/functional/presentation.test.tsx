@@ -7,6 +7,9 @@ import { ResourceTiles } from "../../src/components/metrics/ResourceTiles";
 import type { ResourceUsage } from "../../src/api/monitoring";
 import { OverviewEmptyState } from "../../src/components/overview/OverviewEmptyState";
 import { ServerState } from "../../src/components/servers/ServerState";
+import { ServerReview } from "../../src/components/servers/ServerReview";
+import { SparkReview } from "../../src/components/sparks/SparkReview";
+import type { ServerConfiguration } from "../../src/api/servers";
 
 test("network groups keep addresses separate and preserve port mappings", () => {
   const view = render(
@@ -120,6 +123,59 @@ test("resource tiles show current measurements and allocation", () => {
   expect(
     view.container.querySelectorAll(".resource-readings > .usage-reading"),
   ).toHaveLength(3);
+});
+
+test("resource details scale configured memory and disk and preserve unlimited limits", () => {
+  const configuration: ServerConfiguration = {
+    name: "Game server",
+    description: "",
+    spark_id: "node",
+    ember_id: "game",
+    image: "game:latest",
+    cpu_limit: 2,
+    memory_mb: 4096,
+    disk_mb: 1048576,
+    ports: [],
+    variables: {},
+  };
+  const view = render(
+    <ServerReview value={configuration} sparkName="Node" emberName="Game" />,
+  );
+  expect(screen.getByText("4 GiB")).toBeDefined();
+  expect(screen.getByText("1 TiB")).toBeDefined();
+  view.rerender(
+    <ServerReview
+      value={{ ...configuration, disk_mb: 0 }}
+      sparkName="Node"
+      emberName="Game"
+    />,
+  );
+  expect(screen.getByText("Unlimited")).toBeDefined();
+  const settings = {
+    ...configuration,
+    game_address: "127.0.0.1",
+    port_allocations: [],
+  };
+  view.rerender(
+    <SparkReview
+      name="Node"
+      description=""
+      disabled={false}
+      settings={settings}
+    />,
+  );
+  expect(screen.getByText("4 GiB")).toBeDefined();
+  expect(screen.getByText("1 TiB")).toBeDefined();
+  view.rerender(
+    <SparkReview
+      name="Node"
+      description=""
+      disabled={false}
+      settings={{ ...settings, memory_mb: 0, disk_mb: 0 }}
+    />,
+  );
+  expect(screen.getAllByText("No limit")).toHaveLength(2);
+  expect(screen.queryByText("0 B")).toBeNull();
 });
 
 test("overview setup reflects existing Sparks and management permissions", () => {

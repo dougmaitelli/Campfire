@@ -27,7 +27,7 @@ import { Panel } from "../layout/Panel";
 import { Table } from "../table/Table";
 import { BackupState } from "./BackupState";
 import { NavigationIcon } from "../navigation/NavigationIcon";
-import { bytes } from "../../api/monitoring";
+import { formatBytes } from "../../utils/formatBytes";
 import "./files.css";
 import { Permission } from "../../api/permissions";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
@@ -292,7 +292,7 @@ export function ServerBackups({ server }: { server: Server }) {
                   )}
                 </td>
                 <td>{new Date(entry.modified_at).toLocaleString()}</td>
-                <td>{bytes(entry.size)}</td>
+                <td>{formatBytes(entry.size)}</td>
                 <td>
                   {[
                     entry.local ? i18n.t("serverBackups.local") : null,

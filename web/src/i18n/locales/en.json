@@ -463,13 +463,16 @@
   "metricTile": {
     "allocatedCapacity": "{{percent}}% of allocated capacity"
   },
-  "monitoring": {
-    "byteSize": "{{value}} {{unit}}",
+  "dataSize": {
+    "value": "{{value}} {{unit}}",
+    "b": "B",
     "gib": "GiB",
     "kib": "KiB",
     "mib": "MiB",
     "pib": "PiB",
-    "tib": "TiB",
+    "tib": "TiB"
+  },
+  "monitoring": {
     "unexpectedMonitoringResponse": "Unexpected monitoring response."
   },
   "notifications": {
@@ -872,9 +875,8 @@
     "uploadFile": "Upload file",
     "uploadFiles": "Upload Files",
     "uploadLimitIsUnavailableReopenFilesToTryAgain": "Upload limit is unavailable. Reopen Files to try again.",
-    "uploadsAreLimitedToMiBPerFile": "Uploads are limited to {{toLocaleString}} MiB per file.",
+    "uploadsAreLimitedPerFile": "Uploads are limited to {{size}} per file.",
     "uploadSessionIsMissing": "Upload session is missing.",
-    "uploadsSupportUpToMiBPerFile": "Uploads support up to {{toLocaleString}} MiB per file.",
     "username": "Username",
     "yourPersonalAPIToken": "Your personal API token"
   },
@@ -904,8 +906,6 @@
   "serverReview": {
     "cores": "<valueCpuLimit/> cores",
     "image": "Image",
-    "mib": "<valueMemoryMb/> MiB",
-    "mib2": "{{valueDiskMb}} MiB",
     "savingReservesTheseResourcesAndPortsTheServerWillRemain": "Saving reserves these resources and ports. The server will remain Not installed.",
     "startupCommand": "Startup command"
   },
@@ -1121,8 +1121,6 @@
     "diskLimit": "Disk limit",
     "gameAddress": "Game address",
     "memoryLimit": "Memory limit",
-    "mib": "{{settingsMemoryMb}} MiB",
-    "mib2": "{{settingsDiskMb}} MiB",
     "noLimit": "No limit",
     "noPortsAllocated": "No ports allocated.",
     "portAllocations": "Port allocations",
@@ -1271,7 +1269,6 @@
     "utilizationUnavailable": "Utilization unavailable"
   },
   "gameEvents": {
-    "mediaSize": "{{size}} MB",
     "downloadMedia": "Download {{name}}",
     "title": "Game activity",
     "type": "Event type",

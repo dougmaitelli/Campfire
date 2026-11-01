@@ -5,6 +5,7 @@ import type { SparkSettings } from "../../api/sparks";
 import { StatusPill } from "../status/StatusPill";
 import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
+import { formatBytes, BYTES_PER_MEBIBYTE } from "../../utils/formatBytes";
 import "./spark-review.css";
 import type { ReactNode } from "react";
 
@@ -54,16 +55,12 @@ export function SparkReview({
         <DetailItem label={t("sparkReview.memoryLimit")}>
           {settings.memory_mb === 0
             ? t("sparkReview.noLimit")
-            : t("sparkReview.mib", {
-                settingsMemoryMb: settings.memory_mb.toLocaleString(),
-              })}
+            : formatBytes(settings.memory_mb * BYTES_PER_MEBIBYTE)}
         </DetailItem>
         <DetailItem label={t("sparkReview.diskLimit")}>
           {settings.disk_mb === 0
             ? t("sparkReview.noLimit")
-            : t("sparkReview.mib2", {
-                settingsDiskMb: settings.disk_mb.toLocaleString(),
-              })}
+            : formatBytes(settings.disk_mb * BYTES_PER_MEBIBYTE)}
         </DetailItem>
         <DetailItem label={t("sparkReview.gameAddress")}>
           {formatDisplayValue(settings.game_address)}

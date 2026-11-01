@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
 import type { ComponentProps } from "react";
 import {
-  bytes,
   containerFresh,
   diskFresh,
   type ResourceUsage,
 } from "../../api/monitoring";
+import { formatBytes, BYTES_PER_MEBIBYTE } from "../../utils/formatBytes";
 import { cpuUsageDivisor, formatCPUUsage } from "../../utils/cpuUsage";
 import type { ResourceReading } from "./ResourceReading";
 
@@ -60,9 +60,9 @@ export function useResourceReadingProps({
     {
       key: "memory",
       label: t("common.memory"),
-      format: bytes,
+      format: formatBytes,
       value: usage?.memory_bytes ?? null,
-      allocation: memoryMB * 1048576,
+      allocation: memoryMB * BYTES_PER_MEBIBYTE,
       fresh: containerFresh(usage, elapsed),
       detail:
         detail ??
@@ -72,9 +72,9 @@ export function useResourceReadingProps({
     {
       key: "disk",
       label: t("resourceReadings.gameData"),
-      format: bytes,
+      format: formatBytes,
       value: usage?.disk_bytes ?? null,
-      allocation: diskMB * 1048576,
+      allocation: diskMB * BYTES_PER_MEBIBYTE,
       fresh: diskFresh(usage, elapsed),
       detail:
         detail ??

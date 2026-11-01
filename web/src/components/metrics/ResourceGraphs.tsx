@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { bytes } from "../../api/monitoring";
+import { formatBytes, BYTES_PER_MEBIBYTE } from "../../utils/formatBytes";
 import { useResourceHistory } from "../../hooks/useResourceHistory";
 import { cpuUsageDivisor, formatCPUUsage } from "../../utils/cpuUsage";
 import { InlineMessage } from "../status/InlineMessage";
@@ -53,8 +53,8 @@ export function ResourceGraphs({
         <ResourceGraph
           label={t("common.memory")}
           history={series("memory_bytes")}
-          format={bytes}
-          allocation={memoryMB * 1048576}
+          format={formatBytes}
+          allocation={memoryMB * BYTES_PER_MEBIBYTE}
           loading={!result}
         />
       </div>

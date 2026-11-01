@@ -15,7 +15,7 @@ import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useState } from "react";
 import { listAllBackups } from "../api/backups";
-import { bytes } from "../api/monitoring";
+import { formatBytes } from "../utils/formatBytes";
 import { useCollection } from "../hooks/useCollection";
 import { Table, TableRow } from "../components/table/Table";
 import { BackupState } from "../components/servers/BackupState";
@@ -121,7 +121,9 @@ export function BackupsPage() {
                   <td className="table-mobile-hidden">
                     {new Date(item.modified_at).toLocaleString()}
                   </td>
-                  <td className="table-mobile-hidden">{bytes(item.size)}</td>
+                  <td className="table-mobile-hidden">
+                    {formatBytes(item.size)}
+                  </td>
                   <td className="table-mobile-hidden">
                     {[
                       item.local ? i18n.t("backupsPage.local") : null,

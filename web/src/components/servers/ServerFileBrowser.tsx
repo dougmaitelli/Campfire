@@ -29,7 +29,7 @@ import { InputDialog } from "../layout/InputDialog";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { Table, TableRow } from "../table/Table";
-import { bytes } from "../../api/monitoring";
+import { formatBytes } from "../../utils/formatBytes";
 import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
 import "./files.css";
 import { Permission } from "../../api/permissions";
@@ -337,8 +337,8 @@ export function ServerFileBrowser({
         entryName(file.name);
         if (file.size > maxUploadBytes)
           throw new Error(
-            t("serverFileBrowser.uploadsAreLimitedToMiBPerFile", {
-              toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
+            t("serverFileBrowser.uploadsAreLimitedPerFile", {
+              size: formatBytes(maxUploadBytes),
             }),
           );
       }
@@ -413,8 +413,8 @@ export function ServerFileBrowser({
       );
     if (file.size > maxUploadBytes)
       throw new Error(
-        i18n.t("serverFileBrowser.uploadsAreLimitedToMiBPerFile", {
-          toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
+        i18n.t("serverFileBrowser.uploadsAreLimitedPerFile", {
+          size: formatBytes(maxUploadBytes),
         }),
       );
     const name = entryName(file.name);
@@ -1024,7 +1024,7 @@ export function ServerFileBrowser({
                     </td>
                     <td className="table-fit file-entry-meta">
                       {entry.kind === FileKind.File
-                        ? bytes(entry.size)
+                        ? formatBytes(entry.size)
                         : EMPTY_VALUE}
                     </td>
                     <td className="table-fit file-entry-meta">

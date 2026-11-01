@@ -84,6 +84,8 @@ test("game activity renders protected image and clip attachments without autopla
   );
   const view = render(<ServerGameEvents serverID="game" />);
   const image = await screen.findByRole("img", { name: "world.png" });
+  expect(screen.getByText("1 KiB")).toBeDefined();
+  expect(screen.getByText("4 KiB")).toBeDefined();
   expect(image.getAttribute("src")).toBe(
     "/api/v1/servers/game/events/3/media/shot",
   );

@@ -24,11 +24,11 @@ import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useCallback, useState } from "react";
 import {
-  bytes,
   containerFresh,
   diskFresh,
   type MonitoredServer,
 } from "../api/monitoring";
+import { formatBytes, BYTES_PER_MEBIBYTE } from "../utils/formatBytes";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { ResourceReadings } from "../components/metrics/ResourceReadings";
@@ -148,11 +148,11 @@ export function DashboardPage() {
     ? servers.reduce((sum, server) => sum + server.cpu_limit, 0)
     : 0;
   const allocatedMemory = servers.reduce(
-    (sum, server) => sum + server.memory_mb * 1048576,
+    (sum, server) => sum + server.memory_mb * BYTES_PER_MEBIBYTE,
     0,
   );
   const allocatedDisk = servers.reduce(
-    (sum, server) => sum + server.disk_mb * 1048576,
+    (sum, server) => sum + server.disk_mb * BYTES_PER_MEBIBYTE,
     0,
   );
   const formatCPU = (value: number) =>
@@ -260,14 +260,14 @@ export function DashboardPage() {
               icon={<NavigationIcon name="memory" />}
               value={memoryKnown.length ? memory : null}
               allocation={allocatedMemory}
-              format={bytes}
+              format={formatBytes}
             />
             <ResourceReading
               label={t("common.disk")}
               icon={<NavigationIcon name="disk" />}
               value={diskKnown.length ? disk : null}
               allocation={allocatedDisk}
-              format={bytes}
+              format={formatBytes}
             />
             <MetricTile
               label={t("common.backups")}
@@ -587,7 +587,7 @@ export function DashboardPage() {
                               {new Date(backup.modified_at).toLocaleString()}
                             </time>
                           </td>
-                          <td>{bytes(backup.size)}</td>
+                          <td>{formatBytes(backup.size)}</td>
                           <td>
                             <BackupState state={backup.state} />
                           </td>

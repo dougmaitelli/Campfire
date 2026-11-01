@@ -4,6 +4,7 @@ import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
 import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
+import { formatBytes, BYTES_PER_MEBIBYTE } from "../../utils/formatBytes";
 import type { ReactNode } from "react";
 
 export function ServerReview({
@@ -57,20 +58,12 @@ export function ServerReview({
           />
         </DetailItem>
         <DetailItem label={t("common.memory")}>
-          <Trans
-            i18nKey="serverReview.mib"
-            t={t}
-            components={{
-              valueMemoryMb: <>{value.memory_mb.toLocaleString()}</>,
-            }}
-          />
+          {formatBytes(value.memory_mb * BYTES_PER_MEBIBYTE)}
         </DetailItem>
         <DetailItem label={t("common.disk")}>
           {value.disk_mb === 0
             ? t("common.unlimited")
-            : t("serverReview.mib2", {
-                valueDiskMb: value.disk_mb.toLocaleString(),
-              })}
+            : formatBytes(value.disk_mb * BYTES_PER_MEBIBYTE)}
         </DetailItem>
         <DetailItem label={t("common.ports")}>
           <PortGroups

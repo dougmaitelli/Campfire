@@ -160,27 +160,3 @@ export function diskFresh(usage: ResourceUsage | undefined, elapsed: number) {
     !usage.disk_error
   );
 }
-export function bytes(value: number) {
-  if (value < 1024)
-    return i18n.t("monitoring.byteSize", {
-      value: value.toLocaleString(),
-      unit: "B",
-    });
-  const units = [
-    i18n.t("monitoring.kib"),
-    i18n.t("monitoring.mib"),
-    i18n.t("monitoring.gib"),
-    i18n.t("monitoring.tib"),
-    i18n.t("monitoring.pib"),
-  ];
-  let amount = value / 1024;
-  let index = 0;
-  while (amount >= 1024 && index < units.length - 1) {
-    amount /= 1024;
-    index++;
-  }
-  return i18n.t("monitoring.byteSize", {
-    value: amount.toLocaleString(undefined, { maximumFractionDigits: 1 }),
-    unit: units[index] ?? i18n.t("monitoring.pib"),
-  });
-}

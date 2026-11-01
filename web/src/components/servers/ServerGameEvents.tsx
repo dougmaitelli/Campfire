@@ -7,6 +7,7 @@ import {
   type GameEventFilter,
 } from "../../api/gameEvents";
 import { useCollection } from "../../hooks/useCollection";
+import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
@@ -186,11 +187,7 @@ function GameEventResults({
                               name: attachment.name,
                             })}
                           </a>
-                          <span>
-                            {t("gameEvents.mediaSize", {
-                              size: (attachment.size / 1024 / 1024).toFixed(1),
-                            })}
-                          </span>
+                          <span>{formatBytes(attachment.size)}</span>
                         </figcaption>
                       </figure>
                     );

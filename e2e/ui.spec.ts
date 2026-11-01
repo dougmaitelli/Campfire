@@ -585,6 +585,12 @@ test("resource inspection keeps the current page and supports nested drawers", a
   await login(page);
   await inspectServer(page);
   await expect(page).toHaveURL(/#schedules$/);
+  await expect(
+    page.getByRole("dialog").getByText("4 GiB", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByText("20 GiB", { exact: true }),
+  ).toBeVisible();
   await screenshot(page, "server-inspection.png");
   const variable = page
     .getByRole("dialog")
@@ -601,6 +607,12 @@ test("resource inspection keeps the current page and supports nested drawers", a
     .getByRole("link", { name: "Europe", exact: true })
     .click();
   await expect(page.locator("dialog[open]")).toHaveCount(2);
+  await expect(
+    page.getByRole("dialog").last().getByText("32 GiB", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").last().getByText("400 GiB", { exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/#schedules$/);
   await page
     .locator("dialog[open]")

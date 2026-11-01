@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { bytes } from "../../api/monitoring";
+import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
 import "./file-upload.css";
 
@@ -31,8 +31,8 @@ export function FileUploadProgress({
     ),
   );
   const transferred = t("fileUploads.transferred", {
-    uploaded: bytes(progress.uploadedBytes),
-    total: bytes(progress.totalBytes),
+    uploaded: formatBytes(progress.uploadedBytes),
+    total: formatBytes(progress.totalBytes),
   });
   return (
     <section

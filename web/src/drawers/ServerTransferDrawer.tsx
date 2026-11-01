@@ -22,7 +22,7 @@ import {
   type ServerTransfer,
 } from "../api/transfers";
 import { serverStatus, type RuntimeStatus } from "../api/runtime";
-import { bytes } from "../api/monitoring";
+import { formatBytes } from "../utils/formatBytes";
 import { Drawer } from "../components/layout/Drawer";
 
 const phases: Record<string, string> = {
@@ -428,7 +428,8 @@ export function ServerTransferDrawer({
                   value={item.transferred_bytes}
                 />
                 <p>
-                  {bytes(item.transferred_bytes)} / {bytes(item.total_bytes)}
+                  {formatBytes(item.transferred_bytes)} /{" "}
+                  {formatBytes(item.total_bytes)}
                 </p>
               </>
             )}
