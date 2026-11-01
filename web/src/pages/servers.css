@@ -10,8 +10,8 @@
 }
 
 @container (48rem < width <= 54rem) {
-  .servers-table .table-actions .action-group {
-    display: grid;
-    grid-template-columns: repeat(2, var(--control-height));
+  .servers-table .resource-readings-compact .resource-allocation {
+    display: block;
+    margin-inline-start: 0;
   }
 }
