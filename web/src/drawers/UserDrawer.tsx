@@ -229,7 +229,7 @@ export function UserDrawer({
             />
           </FormField>
         )}
-        <FormField label={t("common.role")}>
+        <FormField label={t("common.platformRole")}>
           <Select
             id="user-role"
             value={roleID}

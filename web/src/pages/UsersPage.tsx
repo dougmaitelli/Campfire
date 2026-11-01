@@ -90,7 +90,7 @@ export function UsersPage() {
           <thead>
             <tr>
               <th>{t("common.user")}</th>
-              <th>{t("common.role")}</th>
+              <th>{t("common.platformRole")}</th>
               <th>{t("common.status")}</th>
             </tr>
           </thead>

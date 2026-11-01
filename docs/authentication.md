@@ -9,7 +9,7 @@ from **Users**; there is no public password registration.
 ## Roles and server membership
 
 Built-in platform roles are **Admin**, **Server creator**, and **User**.
-Administrators can define custom platform and server roles on **Roles**.
+Administrators can define custom platform roles and server access roles on **Roles**.
 
 Server creators need creation access to the chosen Spark. Administrators grant
 that access in the Spark's settings. Server ownership and server memberships
@@ -17,12 +17,12 @@ control access to individual servers; assign members the permissions they need
 for viewing, operating, or configuring that server. Only its owner and panel
 administrators can change its access grants.
 
-Server roles separate power controls, console access, files, backups, schedules,
+Server access roles separate power controls, console access, files, backups, schedules,
 configuration, installation, and deletion. The role editor shows these grants in
 a dependency tree and offers presets. Selecting a grant also selects its
 prerequisites; removing a prerequisite immediately removes its dependent grants
 without an additional confirmation. `server.view` is always selected for a
-server role. Parent permissions do not automatically select their children.
+server access role. Parent permissions do not automatically select their children.
 
 ### Permission hierarchy
 

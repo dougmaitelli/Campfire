@@ -14,6 +14,7 @@ interface Props {
   users: AccessUser[];
   subjectRoles: Role[];
   accessRoles: { id: number; name: string }[];
+  accessRoleLabel?: string;
   onChange: (grants: AccessGrant[], removedID?: number) => void;
 }
 
@@ -22,6 +23,7 @@ export function AccessGrantFields({
   users,
   subjectRoles,
   accessRoles,
+  accessRoleLabel,
   onChange,
 }: Props) {
   const { t } = useTranslation();
@@ -72,7 +74,7 @@ export function AccessGrantFields({
           onValueChange={(selectedValue) => setSubject(selectedValue)}
         >
           <option value="user">{t("common.user")}</option>
-          <option value="role">{t("common.role")}</option>
+          <option value="role">{t("common.platformRole")}</option>
         </Select>
       </FormField>
       {subject === "user" ? (
@@ -84,7 +86,7 @@ export function AccessGrantFields({
           />
         </FormField>
       ) : (
-        <FormField label={t("common.role")}>
+        <FormField label={t("common.platformRole")}>
           <Select
             value={roleID}
             onValueChange={(selectedValue) => setRoleID(Number(selectedValue))}
@@ -98,7 +100,9 @@ export function AccessGrantFields({
         </FormField>
       )}
       {accessRoles.length > 1 && (
-        <FormField label={t("accessGrantFields.accessLevel")}>
+        <FormField
+          label={accessRoleLabel ?? t("accessGrantFields.accessLevel")}
+        >
           <Select
             value={accessID}
             onValueChange={(selectedValue) =>

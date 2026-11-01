@@ -1007,6 +1007,7 @@ export function ServerDrawer({
                       grants={grants}
                       subjectRoles={access.subject_roles}
                       accessRoles={access.roles}
+                      accessRoleLabel={t("common.serverAccessRole")}
                       onChange={(next, removedID) => {
                         setGrants(next);
                         if (removedID)

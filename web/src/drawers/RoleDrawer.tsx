@@ -257,8 +257,12 @@ export function RoleDrawer({
               );
             }}
           >
-            <option value="server">{t("common.server")}</option>
-            <option value="platform">{t("roleDrawer.platform")}</option>
+            <option value={RoleScope.Server}>
+              {t("common.serverAccessRole")}
+            </option>
+            <option value={RoleScope.Platform}>
+              {t("common.platformRole")}
+            </option>
           </Select>
         </FormField>
         <h3>{t("roleDrawer.permissions")}</h3>

@@ -57,12 +57,12 @@
   "accessGrantFields": {
     "accessLevel": "Access level",
     "addAccess": "Add access",
-    "grantAccessToIndividualUsersOrEveryoneWithARole": "Grant access to individual users or everyone with a role. Changes apply when you save. Administrators always have access.",
+    "grantAccessToIndividualUsersOrEveryoneWithARole": "Grant access to individual users or everyone with a platform role. Changes apply when you save. Administrators always have access.",
     "grantTo": "Grant to",
     "noAccessGrantsAssigned": "No access grants assigned."
   },
   "accessGrantLabel": {
-    "role": "Role: {{grantRoleName}}"
+    "role": "Platform role: {{grantRoleName}}"
   },
   "accountMenu": {
     "account": "Account",
@@ -231,6 +231,8 @@
     "restart": "Restart",
     "review": "Review",
     "role": "Role",
+    "platformRole": "Platform role",
+    "serverAccessRole": "Server access role",
     "roles": "Roles",
     "running": "Running",
     "saveChanges": "Save changes",
@@ -551,10 +553,10 @@
     "lifecycleControlsConsoleFilesAndBackups": "Lifecycle controls, console, files, and backups",
     "permissions": "Permissions",
     "platform": "Platform",
-    "rolesGrantPanelCapabilitiesServerRolesApplyOnlyToAssigned": "Roles grant panel capabilities; server roles apply only to assigned servers.",
+    "rolesGrantPanelCapabilitiesServerRolesApplyOnlyToAssigned": "Platform roles are assigned to user accounts. Server access roles are assigned in a server’s Access settings.",
     "saveRole": "Save role",
     "saving": "Saving…",
-    "scope": "Scope",
+    "scope": "Role type",
     "shareAccessWithOperators": "Share access with operators",
     "unableToSaveRole": "Unable to save role.",
     "viewRole": "View role",
@@ -582,9 +584,9 @@
     "manageUsers": "Manage users",
     "operateServer": "Operate server",
     "permissions": "Permissions",
-    "platformCapabilitiesAndServerScopedAccess": "Platform capabilities and server-scoped access.",
+    "platformCapabilitiesAndServerScopedAccess": "Platform roles for user accounts and server access roles for individual servers.",
     "roles": "roles",
-    "scope": "Scope",
+    "scope": "Role type",
     "shareServer": "Share server",
     "thisRoleIsUnavailableOrNoLongerExists": "This role is unavailable or no longer exists.",
     "unableToDeleteRole": "Unable to delete role.",

@@ -17,6 +17,7 @@ import { RoleDrawer } from "../drawers/RoleDrawer";
 
 import { Table, TableRow } from "../components/table/Table";
 import { useResourceSelection } from "../routing/useResourceSelection";
+import "./roles.css";
 
 const permissionLabels: Record<string, string> = {
   get [Permission.UsersManage]() {
@@ -140,6 +141,7 @@ export function RolesPage() {
       )}
       <ContentPanel aria-busy={roles.loading || catalogLoading}>
         <Table
+          className="roles-table"
           empty={roles.items.length === 0}
           loading={roles.loading}
           error={roles.error}
@@ -154,7 +156,7 @@ export function RolesPage() {
           <thead>
             <tr>
               <th>{t("common.role")}</th>
-              <th className="table-fit">{t("rolesPage.scope")}</th>
+              <th className="role-type">{t("rolesPage.scope")}</th>
               <th>{t("rolesPage.permissions")}</th>
             </tr>
           </thead>
@@ -193,7 +195,13 @@ export function RolesPage() {
                     </span>
                   )}
                 </td>
-                <td className="table-fit">{role.scope}</td>
+                <td className="role-type">
+                  {t(
+                    role.scope === RoleScope.Platform
+                      ? "common.platformRole"
+                      : "common.serverAccessRole",
+                  )}
+                </td>
                 <td>
                   {role.scope === RoleScope.Server &&
                   role.permissions.length > 6

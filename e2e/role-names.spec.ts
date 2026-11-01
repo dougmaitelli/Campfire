@@ -43,8 +43,12 @@ test("role name suggestions follow custom grants and save without being typed", 
     .check();
   await expect(name).toHaveValue(`${generated} 2`);
   await name.fill("World maintainers");
-  await drawer.getByRole("combobox", { name: "Scope", exact: true }).click();
-  await page.getByRole("option", { name: "Platform", exact: true }).click();
+  await drawer
+    .getByRole("combobox", { name: "Role type", exact: true })
+    .click();
+  await page
+    .getByRole("option", { name: "Platform role", exact: true })
+    .click();
   await expect(name).toHaveValue("World maintainers");
   await drawer.getByRole("checkbox").check();
   await expect(name).toHaveValue("World maintainers");
@@ -60,8 +64,12 @@ test("platform suggestions follow grants while existing role names stay unchange
     .click();
   const drawer = page.getByRole("dialog", { name: "Create role", exact: true });
   const name = drawer.getByRole("textbox", { name: "Name", exact: true });
-  await drawer.getByRole("combobox", { name: "Scope", exact: true }).click();
-  await page.getByRole("option", { name: "Platform", exact: true }).click();
+  await drawer
+    .getByRole("combobox", { name: "Role type", exact: true })
+    .click();
+  await page
+    .getByRole("option", { name: "Platform role", exact: true })
+    .click();
   await expect(name).toHaveValue("Platform member");
   await drawer.getByRole("checkbox").check();
   await expect(name).toHaveValue("Server creator 2");
