@@ -21,6 +21,8 @@ func TestOIDCAutoLinkEmailClaims(t *testing.T) {
 		{name: "missing verification", enabled: true, wantReject: true},
 		{name: "unverified email", enabled: true, claims: map[string]any{"email_verified": false}, wantReject: true},
 		{name: "no matching email", enabled: true, claims: map[string]any{"email": "new@example.com"}},
+		{name: "available username with verified email match", enabled: true, claims: map[string]any{"preferred_username": "available", "email_verified": true}, wantLink: true},
+		{name: "username collision with different verified email", enabled: true, claims: map[string]any{"email": "other@example.com", "email_verified": true}},
 		{name: "no email", enabled: true, claims: map[string]any{"email": ""}},
 		{name: "explicit link needs no verification", enabled: true, linkID: 1, wantLink: true},
 		{name: "verified userinfo", enabled: true, claims: map[string]any{"email": "other@example.com"}, profile: map[string]any{"email": "admin@example.com", "email_verified": true}, wantLink: true},

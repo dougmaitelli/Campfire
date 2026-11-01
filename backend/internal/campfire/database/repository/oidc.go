@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
+	"strings"
 	"time"
 
 	"campfire/internal/campfire/database"
@@ -10,6 +12,8 @@ import (
 
 	"gorm.io/gorm"
 )
+
+const oidcUsernameSuffixLength = 12
 
 // OIDCAccount finds or provisions an identity, or links it to an authenticated account.
 // Email matching requires an explicit opt-in and a verified provider claim.
@@ -63,7 +67,12 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 					return ErrAuthentication
 				}
 
-				user = database.User{Username: input.Username, CredentialVersion: 1, RoleID: database.UserRole}
+				username, err := oidcAvailableUsername(tx, input.Username)
+				if err != nil {
+					return err
+				}
+
+				user = database.User{Username: username, CredentialVersion: 1, RoleID: database.UserRole}
 				if err := tx.Omit("Role").Create(&user).Error; err != nil {
 					return err
 				}
@@ -119,6 +128,26 @@ type OIDCAccountInput struct {
 	LinkSessionHash               string
 	Name, Email, Picture          string
 	Options                       OIDCAccountOptions
+}
+
+func oidcAvailableUsername(tx *gorm.DB, preferred string) (string, error) {
+	username := preferred
+
+	for {
+		var count int64
+		// Deleted accounts also reserve their usernames in the unique index.
+		if err := tx.Unscoped().Model(&database.User{}).Where("lower(username) = lower(?)", username).Count(&count).Error; err != nil {
+			return "", err
+		}
+
+		if count == 0 {
+			return username, nil
+		}
+
+		suffix := strings.ToLower(rand.Text()[:oidcUsernameSuffixLength])
+		baseLength := min(len(preferred), limits.UsernameMax-len(suffix)-1)
+		username = preferred[:baseLength] + "-" + suffix
+	}
 }
 
 func oidcEmailAccount(tx *gorm.DB, email string, verified bool) (database.User, error) {

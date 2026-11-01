@@ -13,6 +13,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/utils"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -258,7 +259,6 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		}
 	}
 
-	// A suffix prevents the username claim from selecting an existing local account.
 	name := strings.Map(func(r rune) rune {
 		if utils.IsValidIdentifierCharacter(r) {
 			return r
@@ -266,13 +266,15 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 
 		return -1
 	}, strings.ToLower(claims.Username))
-	if len(name) > 40 {
-		name = name[:40]
+	if len(name) > limits.UsernameMax {
+		name = name[:limits.UsernameMax]
 	}
 
 	name = strings.Trim(name, "._-")
 	if name == "" {
 		name = "oidc"
+	} else if len(name) < limits.UsernameMin {
+		name += "-oidc"
 	}
 
 	displayName := strings.TrimSpace(claims.Name)
@@ -290,7 +292,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		picture = claims.Picture
 	}
 
-	user, err := s.auth.store.OIDCAccount(ctx, repository.OIDCAccountInput{Issuer: s.issuer, Subject: id.Subject, Username: name + "-" + tokenHash(authToken())[:12], LinkUserID: attempt.userID, CredentialVersion: attempt.version, LinkSessionHash: attempt.sessionHash, Name: displayName, Email: email, Picture: picture, Options: repository.OIDCAccountOptions{AutoLinkEmail: s.autoLinkEmail, EmailVerified: claims.EmailVerified}})
+	user, err := s.auth.store.OIDCAccount(ctx, repository.OIDCAccountInput{Issuer: s.issuer, Subject: id.Subject, Username: name, LinkUserID: attempt.userID, CredentialVersion: attempt.version, LinkSessionHash: attempt.sessionHash, Name: displayName, Email: email, Picture: picture, Options: repository.OIDCAccountOptions{AutoLinkEmail: s.autoLinkEmail, EmailVerified: claims.EmailVerified}})
 	if err != nil {
 		return database.UserSession{}, "", err
 	}

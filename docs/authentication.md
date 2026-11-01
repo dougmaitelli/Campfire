@@ -150,6 +150,10 @@ Complete local administrator setup first. Before setting
 verify that OIDC signs in to that account. Newly provisioned OIDC users receive
 ordinary user access rather than administrator privileges.
 
+New accounts use the provider's preferred username, normalized to Campfire's
+username format. A unique suffix is added only when that username is already
+in use. Existing OIDC accounts keep their usernames on subsequent sign-ins.
+
 ```dotenv
 CAMPFIRE_OIDC_ISSUER=https://identity.example.com
 CAMPFIRE_OIDC_CLIENT_ID=campfire
