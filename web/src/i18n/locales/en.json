@@ -170,7 +170,7 @@
   "backupsPage": {
     "allServerBackups": "All server backups",
     "archive": "Archive",
-    "backupArchivesAcrossAllServersIncludingLocalAndS3Copies": "Backup archives across all servers, including local and S3 copies.",
+    "backupArchivesDescription": "Backup archives you can view, including local and S3 copies.",
     "backups": "backups",
     "created": "Created",
     "download": "Download {{itemName}}",
@@ -305,7 +305,6 @@
     "skipToContent": "Skip to content"
   },
   "dashboardPage": {
-    "restricted": "Restricted",
     "summaryUnavailable": "Summary unavailable",
     "backupsAvailable_one": "{{count}} available",
     "backupsAvailable_other": "{{count}} available",
@@ -321,7 +320,6 @@
     "noUpcomingSchedules": "No upcoming schedules",
     "viewAllBackups": "View all backups",
     "viewAllSchedules": "View all schedules",
-    "backupCatalogRestricted": "The backup catalog requires permission to manage all servers. Open a server’s Backups tab to view its backups.",
     "allServers": "all servers",
     "connection": "Connection",
     "cpuInUse": "CPU in use",

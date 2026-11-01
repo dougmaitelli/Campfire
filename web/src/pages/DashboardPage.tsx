@@ -22,7 +22,7 @@ import { ArrowLink } from "../components/navigation/ArrowLink";
 import { SearchField } from "../components/forms/SearchField";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import {
   containerFresh,
   diskFresh,
@@ -67,14 +67,7 @@ export function DashboardPage() {
   }
   const monitor = useMonitoring();
   const auth = useAuthentication();
-  const canReadBackups =
-    auth.session?.permissions?.includes(Permission.ServersManageAll) === true;
-  const loadBackups = useCallback(
-    (signal: AbortSignal) =>
-      canReadBackups ? listAllBackups(signal) : Promise.resolve([]),
-    [canReadBackups],
-  );
-  const backups = useCollection(loadBackups, OVERVIEW_REFRESH_INTERVAL_MS);
+  const backups = useCollection(listAllBackups, OVERVIEW_REFRESH_INTERVAL_MS);
   const schedules = useCollection(listSchedules, OVERVIEW_REFRESH_INTERVAL_MS);
   const serverInventory = useCollection(
     listServers,
@@ -273,7 +266,7 @@ export function DashboardPage() {
               label={t("common.backups")}
               icon={<NavigationIcon name="backups" />}
               value={
-                !canReadBackups || backups.error
+                backups.error
                   ? EMPTY_VALUE
                   : backups.loading
                     ? "…"
@@ -282,9 +275,7 @@ export function DashboardPage() {
                       : `${backups.items.filter((backup) => backup.state === BackupStatus.Available).length} / ${backups.items.length}`
               }
               detail={
-                !canReadBackups ? (
-                  t("dashboardPage.restricted")
-                ) : backups.error ? (
+                backups.error ? (
                   t("dashboardPage.summaryUnavailable")
                 ) : backups.loading ? null : backups.items.length === 0 ? (
                   t("backupsPage.noBackupsYet")
@@ -534,69 +525,59 @@ export function DashboardPage() {
                 title={t("dashboardPage.recentBackups")}
                 icon={<NavigationIcon name="backups" />}
                 actions={
-                  canReadBackups && (
-                    <ArrowLink href="#backups">
-                      {t("dashboardPage.viewAllBackups")}
-                    </ArrowLink>
-                  )
+                  <ArrowLink href="#backups">
+                    {t("dashboardPage.viewAllBackups")}
+                  </ArrowLink>
                 }
               />
-              {!canReadBackups ? (
-                <p className="field-help">
-                  {t("dashboardPage.backupCatalogRestricted")}
-                </p>
-              ) : (
-                <>
-                  {backups.error && backups.items.length > 0 && (
-                    <InlineMessage role="alert">{backups.error}</InlineMessage>
-                  )}
-                  <Table
-                    empty={recentBackups.length === 0}
-                    loading={backups.loading}
-                    error={backups.error}
-                    resource={t("common.backups")}
-                    emptyMessage={t("backupsPage.noBackupsYet")}
-                    onRetry={() => void backups.refresh()}
-                  >
-                    <caption className="visually-hidden">
-                      {t("dashboardPage.recentBackups")}
-                    </caption>
-                    <thead>
-                      <tr>
-                        <th>{t("common.server")}</th>
-                        <th>{t("backupsPage.created")}</th>
-                        <th>{t("backupsPage.size")}</th>
-                        <th>{t("common.status")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentBackups.map((backup) => (
-                        <tr key={backup.id}>
-                          <td>
-                            <ResourceLink
-                              href={links.server(
-                                backup.server_id,
-                                ServerTab.Backups,
-                              )}
-                            >
-                              {backup.server_name}
-                            </ResourceLink>
-                          </td>
-                          <td>
-                            <time dateTime={backup.modified_at}>
-                              {new Date(backup.modified_at).toLocaleString()}
-                            </time>
-                          </td>
-                          <td>{formatBytes(backup.size)}</td>
-                          <td>
-                            <BackupState state={backup.state} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </>
+              {backups.error && backups.items.length > 0 && (
+                <InlineMessage role="alert">{backups.error}</InlineMessage>
               )}
+              <Table
+                empty={recentBackups.length === 0}
+                loading={backups.loading}
+                error={backups.error}
+                resource={t("common.backups")}
+                emptyMessage={t("backupsPage.noBackupsYet")}
+                onRetry={() => void backups.refresh()}
+              >
+                <caption className="visually-hidden">
+                  {t("dashboardPage.recentBackups")}
+                </caption>
+                <thead>
+                  <tr>
+                    <th>{t("common.server")}</th>
+                    <th>{t("backupsPage.created")}</th>
+                    <th>{t("backupsPage.size")}</th>
+                    <th>{t("common.status")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentBackups.map((backup) => (
+                    <tr key={backup.id}>
+                      <td>
+                        <ResourceLink
+                          href={links.server(
+                            backup.server_id,
+                            ServerTab.Backups,
+                          )}
+                        >
+                          {backup.server_name}
+                        </ResourceLink>
+                      </td>
+                      <td>
+                        <time dateTime={backup.modified_at}>
+                          {new Date(backup.modified_at).toLocaleString()}
+                        </time>
+                      </td>
+                      <td>{formatBytes(backup.size)}</td>
+                      <td>
+                        <BackupState state={backup.state} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
             </ContentPanel>
             <ContentPanel>
               <SectionHeading

@@ -29,6 +29,7 @@ export interface BackupPolicy extends BackupRetention {
 }
 
 export interface CatalogBackup extends Backup {
+  can_download: boolean;
   id: string;
   server_id: string;
   server_name: string;
@@ -45,13 +46,15 @@ export async function listAllBackups(
       !isBackup(value) ||
       !object(value) ||
       typeof value.server_id !== "string" ||
-      typeof value.server_name !== "string"
+      typeof value.server_name !== "string" ||
+      typeof value.can_download !== "boolean"
     )
       throw new Error(i18n.t("backups.unexpectedBackupCatalogEntry"));
     return {
       ...value,
       server_id: value.server_id,
       server_name: value.server_name,
+      can_download: value.can_download,
       id: `${value.server_id}/${value.name}`,
     };
   });

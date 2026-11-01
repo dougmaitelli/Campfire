@@ -3,7 +3,8 @@ title: Game backups
 ---
 
 Use a server's **Backups** tab to create, download, restore, or delete snapshots.
-The main **Backups** page lists archives across the servers you can access.
+The overview's recent backups and the main **Backups** page list only archives
+from servers where you have `server.backups.read` permission.
 Storage indicators distinguish local archives on Spark from off-host S3 copies.
 
 `server.backups.read` allows listing backups and requires `server.operate`.

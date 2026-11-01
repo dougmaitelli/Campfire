@@ -36,9 +36,7 @@ export function BackupsPage() {
     <section aria-labelledby="page-title">
       <PageHeader
         title={t("common.backups")}
-        description={t(
-          "backupsPage.backupArchivesAcrossAllServersIncludingLocalAndS3Copies",
-        )}
+        description={t("backupsPage.backupArchivesDescription")}
       />
       {backups.error && backups.items.length > 0 && (
         <InlineMessage role="alert">{backups.error}</InlineMessage>
@@ -136,7 +134,8 @@ export function BackupsPage() {
                     <BackupState state={item.state} />
                   </td>
                   <td className="table-actions">
-                    {item.state !== BackupStatus.Deleting &&
+                    {item.can_download &&
+                      item.state !== BackupStatus.Deleting &&
                       (item.local || item.remote) && (
                         <ButtonLink
                           href={`/api/v1/servers/${encodeURIComponent(item.server_id)}/backups/${encodeURIComponent(item.name)}`}

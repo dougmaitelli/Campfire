@@ -53,8 +53,8 @@ func TestBackupPolicyDeletionAndPermissionBoundaries(t *testing.T) {
 	expectAccess(t, operator, "POST", endpoint+"/files", `{"operation":"backup.delete","path":"snapshot.tar.gz"}`, http.StatusBadRequest)
 	expectAccess(t, owner, "PUT", endpoint+"/backup-policy", strings.Replace(policy, `"local"`, `"s3"`, 1), http.StatusBadRequest)
 	expectAccess(t, owner, "PUT", endpoint+"/backup-policy", policy, http.StatusOK)
-	expectAccess(t, owner, "GET", "/api/v1/backups", "", http.StatusForbidden)
-	expectAccess(t, operator, "GET", "/api/v1/backups", "", http.StatusForbidden)
+	expectAccess(t, owner, "GET", "/api/v1/backups", "", http.StatusOK)
+	expectAccess(t, operator, "GET", "/api/v1/backups", "", http.StatusOK)
 
 	response = request(owner, "GET", endpoint+"/backup-policy", "")
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"local_keep_last":3`) {

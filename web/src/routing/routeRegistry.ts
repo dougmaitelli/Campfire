@@ -72,7 +72,7 @@ export const routeRegistry = {
     Page: lazy(() =>
       import("../pages/BackupsPage").then((m) => ({ default: m.BackupsPage })),
     ),
-    adminOnly: true,
+    adminOnly: false,
   },
   users: {
     Page: lazy(() =>

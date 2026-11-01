@@ -54,7 +54,7 @@ type Backup struct {
 	Error      string      `json:"error,omitempty"`
 }
 
-// CatalogBackup identifies an archive and its owning server in the admin catalog.
+// CatalogBackup identifies an archive and its owning server in the backup catalog.
 type CatalogBackup struct {
 	Backup
 	ServerID   string `json:"server_id"`

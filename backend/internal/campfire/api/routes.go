@@ -47,7 +47,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/schedules/executions", a.activityEnabled(a.listExecutions))
 	mux.HandleFunc("POST /api/v1/schedules/executions/{runID}/retry", a.activityEnabled(a.retryExecution))
 	platform("GET /api/v1/audit", accessperm.AuditView, a.activityEnabled(a.listAudit))
-	platform("GET /api/v1/backups", accessperm.ServersManageAll, a.listBackups)
+	mux.HandleFunc("GET /api/v1/backups", a.listBackups)
 	platform("POST /api/v1/sparks", accessperm.SparksManage, a.createSpark)
 	platform("GET /api/v1/sparks", accessperm.SparksManage, a.listSparks)
 	platform("GET /api/v1/sparks/access-options", accessperm.SparksManage, a.sparkAccessOptions)

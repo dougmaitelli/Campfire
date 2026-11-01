@@ -16,6 +16,11 @@ import (
 	accessperm "campfire/internal/shared/permissions"
 )
 
+type catalogBackup struct {
+	model.CatalogBackup
+	CanDownload bool `json:"can_download"`
+}
+
 func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 	if a.deployment == nil || a.deployment.Backups == nil {
 		writeError(w, service.ErrDeploymentUnavailable)
@@ -28,8 +33,29 @@ func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	principal := currentUser(r)
+	permissions := make(map[string][]model.PermissionID)
+
+	visible := make([]catalogBackup, 0, len(items))
+	for _, item := range items {
+		actions, checked := permissions[item.ServerID]
+		if !checked {
+			actions, err = a.access.ServerPermissions(r.Context(), principal, item.ServerID)
+			if err != nil {
+				writeError(w, err)
+				return
+			}
+
+			permissions[item.ServerID] = actions
+		}
+
+		if slices.Contains(actions, accessperm.ServerBackupsRead) {
+			visible = append(visible, catalogBackup{CatalogBackup: item, CanDownload: slices.Contains(actions, accessperm.ServerBackupsDownload)})
+		}
+	}
+
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, visible)
 }
 
 func (a *API) getBackupPolicy(w http.ResponseWriter, r *http.Request) {
