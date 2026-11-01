@@ -12,6 +12,7 @@ import { deleteUser, saveUser, type Role, type User } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import { useAuthentication } from "../hooks/useAuthentication";
 
 export function UserDrawer({
   user,
@@ -27,6 +28,8 @@ export function UserDrawer({
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
+  const { session } = useAuthentication();
+  const showPassword = user === null || session?.local_login !== false;
   const [username, setUsername] = useState(user?.username ?? "");
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -73,9 +76,10 @@ export function UserDrawer({
   async function submit() {
     if (pending.current) return;
     if (emailInput.current && !emailInput.current.reportValidity()) return;
+    const passwordToSave = showPassword ? password : "";
     if (
-      (!user && !password) ||
-      (password && [...password].length < AccountLimits.PasswordMin)
+      (!user && !passwordToSave) ||
+      (passwordToSave && [...passwordToSave].length < AccountLimits.PasswordMin)
     ) {
       setError(i18n.t("userDrawer.useAPasswordOfAtLeast15Characters"));
       return;
@@ -86,7 +90,14 @@ export function UserDrawer({
     try {
       onSaved(
         await saveUser(
-          { username, name, email, password, role_id: roleID, disabled },
+          {
+            username,
+            name,
+            email,
+            password: passwordToSave,
+            role_id: roleID,
+            disabled,
+          },
           user?.id,
         ),
       );
@@ -197,27 +208,29 @@ export function UserDrawer({
             onChange={(event) => setEmail(event.target.value)}
           />
         </FormField>
-        <FormField
-          label={
-            <>
-              {user
-                ? t("userDrawer.newPasswordOptional")
-                : t("userDrawer.password")}
-            </>
-          }
-          description={t(
-            "userDrawer.atLeast15CharactersPasswordRoleAndAccessChangesRevoke",
-          )}
-        >
-          <TextInput
-            id="user-password"
-            type="password"
-            value={password}
-            maxLength={AccountLimits.PasswordMax}
-            autoComplete="new-password"
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </FormField>
+        {showPassword && (
+          <FormField
+            label={
+              <>
+                {user
+                  ? t("userDrawer.newPasswordOptional")
+                  : t("userDrawer.password")}
+              </>
+            }
+            description={t(
+              "userDrawer.atLeast15CharactersPasswordRoleAndAccessChangesRevoke",
+            )}
+          >
+            <TextInput
+              id="user-password"
+              type="password"
+              value={password}
+              maxLength={AccountLimits.PasswordMax}
+              autoComplete="new-password"
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </FormField>
+        )}
         <FormField label={t("common.role")}>
           <Select
             id="user-role"

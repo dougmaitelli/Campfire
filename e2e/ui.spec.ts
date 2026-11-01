@@ -512,6 +512,11 @@ test("file permissions can be changed and persist after reloading", async ({
 test("user edits persist through the real API", async ({ page }) => {
   await login(page);
   await openUser(page);
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByLabel("New password (optional)", { exact: true }),
+  ).toBeVisible();
   await screenshot(page, "user-drawer.png");
   await page
     .getByRole("dialog")
@@ -525,6 +530,52 @@ test("user edits persist through the real API", async ({ page }) => {
   await page.reload();
   await expect(
     page.getByRole("button", { name: "Edit user Alex Updated", exact: true }),
+  ).toBeVisible();
+});
+
+test("user editing hides passwords when local login is disabled and still saves profile changes", async ({
+  page,
+}) => {
+  await login(page);
+  await page.route("**/api/v1/auth/session", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        local_login: false,
+        oidc_enabled: true,
+      },
+    });
+  });
+  await page.reload();
+  await openUser(page);
+  const drawer = page.getByRole("dialog", { name: "Edit user", exact: true });
+  await expect(drawer.locator('input[type="password"]')).toHaveCount(0);
+  await expect(drawer.getByText(/At least 15 characters/)).toHaveCount(0);
+  await screenshot(page, "user-drawer-oidc.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await screenshot(page, "user-drawer-oidc-mobile.png");
+  await drawer
+    .getByLabel("Name (optional)", { exact: true })
+    .fill("Updated profile");
+  const submitted = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      /\/api\/v1\/users\/\d+$/.test(new URL(request.url()).pathname),
+  );
+  await drawer.getByRole("button", { name: "Save user", exact: true }).click();
+  expect((await submitted).postDataJSON()).toMatchObject({
+    name: "Updated profile",
+    password: "",
+  });
+  await expect(drawer).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole("button", {
+      name: "Edit user Updated profile",
+      exact: true,
+    }),
   ).toBeVisible();
 });
 
