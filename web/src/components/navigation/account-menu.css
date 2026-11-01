@@ -140,16 +140,3 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-
-@media (max-width: 640px) {
-  .sidebar-footer.account-menu {
-    display: block;
-    margin-top: 16px;
-    padding-top: 12px;
-  }
-
-  .account-dropdown {
-    left: auto;
-    width: min(280px, 100%);
-  }
-}

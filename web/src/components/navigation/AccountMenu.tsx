@@ -1,6 +1,7 @@
 import i18n from "../../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { linkOIDC, stopViewAs } from "../../api/auth";
 import { APITokensDrawer } from "../../drawers/APITokensDrawer";
@@ -55,6 +56,7 @@ export function AccountMenu() {
     }
     function escape(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.preventDefault();
         setOpen(false);
         trigger.current?.focus();
       }
@@ -212,12 +214,20 @@ export function AccountMenu() {
           )}
         </p>
       )}
-      {tokensOpen && <APITokensDrawer onClose={() => setTokensOpen(false)} />}
-      {viewAsOpen && auth.session?.admin === true && !auth.session.view_as && (
-        <Suspense fallback={null}>
-          <ViewAsDrawer onClose={() => setViewAsOpen(false)} />
-        </Suspense>
-      )}
+      {tokensOpen &&
+        createPortal(
+          <APITokensDrawer onClose={() => setTokensOpen(false)} />,
+          document.body,
+        )}
+      {viewAsOpen &&
+        auth.session?.admin === true &&
+        !auth.session.view_as &&
+        createPortal(
+          <Suspense fallback={null}>
+            <ViewAsDrawer onClose={() => setViewAsOpen(false)} />
+          </Suspense>,
+          document.body,
+        )}
     </div>
   );
 }

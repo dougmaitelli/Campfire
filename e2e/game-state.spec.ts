@@ -1,5 +1,5 @@
-import { test, expect } from "./fixtures";
-import { login } from "./screens";
+import { test, expect, prepareScreenshot } from "./fixtures";
+import { login, openScreen } from "./screens";
 import type { GameStateView } from "../web/src/api/gameState";
 
 interface GameMonitoringResponse {
@@ -11,10 +11,12 @@ test("game state shows optional fields and hides stale values", async ({
   page,
 }) => {
   await login(page);
+  const collectedAt = await page.evaluate(() => Math.floor(Date.now() / 1000));
   let mode: "full" | "players" | "stale" | "expired" | "stopped" = "full";
   await page.route("**/api/v1/monitoring", async (route) => {
     const response = await route.fetch();
     const snapshot = (await response.json()) as GameMonitoringResponse;
+    snapshot.collected_at = collectedAt;
     const server = snapshot.servers.find((item) => item.id === "survival");
     if (!server) throw new Error("Missing survival fixture");
     if (mode === "stopped") server.usage.state = "stopped";
@@ -38,10 +40,31 @@ test("game state shows optional fields and hides stale values", async ({
     await route.fulfill({ response, json: snapshot });
   });
   await page.reload();
-  const readings = page.locator(".game-state-readings");
+  const readings = page.getByRole("group", { name: "Game data", exact: true });
   await expect(readings).toContainText("3 / 20");
   await expect(readings).toContainText("Integration world");
   await expect(readings).toContainText("Last updated");
+  const card = page.getByRole("row").filter({
+    has: page.getByRole("button", { name: "Open Survival", exact: true }),
+  });
+  await page.setViewportSize({ width: 1000, height: 1000 });
+  await prepareScreenshot(page);
+  await expect(card).toHaveScreenshot("overview-game-state-card.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await prepareScreenshot(page);
+  await expect(card).toHaveScreenshot("overview-game-state-card-mobile.png");
+  await openScreen(page, "servers", "Servers");
+  await page.setViewportSize({ width: 1000, height: 1000 });
+  await prepareScreenshot(page);
+  await expect(
+    page.getByRole("row").filter({
+      has: page.getByRole("button", {
+        name: "View details for Survival",
+        exact: true,
+      }),
+    }),
+  ).toHaveScreenshot("servers-game-state-card.png");
+  await openScreen(page, "dashboard", "Overview");
   mode = "players";
   await page.reload();
   await expect(readings).toContainText("Players0");

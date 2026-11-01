@@ -5,6 +5,7 @@ import { Sidebar } from "../navigation/Sidebar";
 import { ViewAsBanner } from "./ViewAsBanner";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { useNotifications } from "../../hooks/useNotifications";
+import { MobileNavigation } from "../navigation/MobileNavigation";
 import "./dashboard.css";
 
 interface DashboardLayoutProps {
@@ -20,10 +21,11 @@ export function DashboardLayout({ page, children }: DashboardLayoutProps) {
       <a className="skip-link" href="#main-content">
         {t("dashboardLayout.skipToContent")}
       </a>
-      <Sidebar page={page} />
+      <Sidebar page={page} className="desktop-sidebar" />
       <main id="main-content" className="main-content" tabIndex={-1}>
         <ViewAsBanner />
         <div className="app-toolbar">
+          <MobileNavigation page={page} />
           {import.meta.env.DEV &&
             import.meta.env.VITE_CAMPFIRE_MOCK === "true" && (
               <span className="mock-mode-notice" role="status">

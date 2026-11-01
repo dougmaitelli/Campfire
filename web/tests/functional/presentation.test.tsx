@@ -78,13 +78,17 @@ test("resource columns display percentages and allocation ratios accessibly", ()
     </table>,
   );
   const cells = screen.getAllByRole("cell");
-  expect(cells).toHaveLength(3);
+  expect(cells).toHaveLength(4);
   expect(cells[0]?.textContent).toContain("75%");
   expect(cells[0]?.querySelector("meter")?.getAttribute("value")).toBe("0.75");
   expect(cells[1]?.textContent).toContain("1 MiB");
   expect(cells[1]?.textContent).toContain("4 MiB");
-  for (const cell of cells)
+  for (const cell of cells.slice(0, 3))
     expect(cell.querySelector(".visually-hidden")).not.toBeNull();
+  expect(cells[3]?.textContent).toContain("CPU");
+  expect(cells[3]?.textContent).toContain("Memory");
+  expect(cells[3]?.textContent).toContain("Game data");
+  expect(cells[3]?.querySelectorAll("meter")).toHaveLength(3);
 });
 
 test("resource tiles show current measurements and allocation", () => {

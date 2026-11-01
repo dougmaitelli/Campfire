@@ -55,11 +55,17 @@ export function SparksTable({
       </caption>
       <thead>
         <tr>
-          <th scope="col">{t("common.name")}</th>
+          <th scope="col" className="table-primary">
+            {t("common.name")}
+          </th>
           <th scope="col">{t("common.status")}</th>
-          <th scope="col">{t("sparksTable.resources")}</th>
-          <th scope="col">{t("sparkReview.gameAddress")}</th>
-          <th scope="col" className="table-fit">
+          <th scope="col" className="spark-resource-column">
+            {t("sparksTable.resources")}
+          </th>
+          <th scope="col" className="spark-network-column">
+            {t("sparkReview.gameAddress")}
+          </th>
+          <th scope="col" className="table-fit spark-network-column">
             {t("sparksTable.allocations")}
           </th>
           <th scope="col" className="table-actions">
@@ -91,7 +97,7 @@ export function SparksTable({
                 updating={updating === spark.id}
               />
             </td>
-            <td>
+            <td className="spark-resource-column">
               <ResourceReadings
                 usage={
                   spark.connected && !spark.disabled
@@ -107,8 +113,10 @@ export function SparksTable({
                 )}
               />
             </td>
-            <td>{formatDisplayValue(spark.game_address)}</td>
-            <td className="table-fit">
+            <td className="spark-network-column">
+              {formatDisplayValue(spark.game_address)}
+            </td>
+            <td className="table-fit spark-network-column">
               <PortGroups
                 ports={spark.port_allocations.map((allocation) => ({
                   address: allocation.bind_ip,

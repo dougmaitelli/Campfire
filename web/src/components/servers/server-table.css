@@ -1,0 +1,54 @@
+.server-table th:is(.table-primary, .table-state) {
+  width: 12%;
+}
+
+@container (max-width: 48rem) {
+  .table-cards.server-table tbody tr {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+
+  .server-table:where(.table-cards) tbody td {
+    grid-column: span 3;
+  }
+
+  .table-cards.server-table tbody .table-primary {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+  }
+
+  .table-cards.server-table tbody .table-state {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .table-cards.server-table tbody .table-actions {
+    grid-column: 4 / -1;
+    grid-row: 1;
+    align-self: start;
+  }
+}
+
+@container (max-width: 32rem) {
+  .table-cards.server-table tbody tr {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .server-table:where(.table-cards) tbody td {
+    grid-column: 1 / -1;
+  }
+
+  .table-cards.server-table tbody .table-primary {
+    grid-column: 1;
+  }
+
+  .table-cards.server-table tbody .table-state {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .table-cards.server-table tbody .table-actions {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

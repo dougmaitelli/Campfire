@@ -24,3 +24,36 @@
     font-size: 11px;
   }
 }
+
+.data-table .resource-readings-group {
+  display: none;
+}
+
+.data-table .resource-reading-column {
+  width: 16%;
+}
+
+@container (max-width: 67rem) {
+  .data-table .resource-reading-column {
+    display: none;
+  }
+
+  .data-table .resource-readings-group {
+    display: table-cell;
+  }
+}
+
+@container (48rem < width <= 60rem) {
+  .data-table .resource-readings-compact {
+    grid-template-columns: max-content max-content minmax(32px, 1fr);
+  }
+}
+
+@container (max-width: 48rem) {
+  .table-cards tbody .resource-reading-column {
+    display: none;
+  }
+  .table-cards tbody td.resource-readings-group {
+    grid-column: 1 / -1;
+  }
+}

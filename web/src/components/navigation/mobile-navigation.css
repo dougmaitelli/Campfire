@@ -1,0 +1,67 @@
+.button.navigation-toggle {
+  display: none;
+}
+
+.mobile-navigation {
+  inset: 0 auto 0 0;
+  width: 288px;
+  max-width: calc(100vw - 48px);
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--sidebar-bg);
+  color: var(--text);
+
+  &::backdrop {
+    background: rgb(0 0 0 / 55%);
+    backdrop-filter: blur(3px);
+  }
+
+  & .sidebar {
+    position: static;
+    height: 100%;
+  }
+
+  & .navigation {
+    min-height: 0;
+    overflow-y: auto;
+    margin-bottom: 24px;
+  }
+
+  & .sidebar-footer {
+    flex-shrink: 0;
+  }
+}
+
+html:has(.mobile-navigation[open]) {
+  overflow: hidden;
+}
+
+.navigation-toggle svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 900px) {
+  .button.navigation-toggle {
+    display: inline-flex;
+    margin-inline-end: auto;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mobile-navigation[open] {
+    animation: navigation-arrive var(--motion-enter) var(--ease-settle);
+  }
+}
+
+@keyframes navigation-arrive {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

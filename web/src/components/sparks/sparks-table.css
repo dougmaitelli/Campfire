@@ -11,3 +11,19 @@
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
+
+.sparks-table th.table-primary {
+  width: 12%;
+}
+
+@container (max-width: 60rem) {
+  .sparks-table .spark-network-column {
+    display: none;
+  }
+}
+
+@container (max-width: 40rem) {
+  .sparks-table .spark-resource-column {
+    display: none;
+  }
+}

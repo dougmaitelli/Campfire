@@ -10,6 +10,7 @@ import {
   hasPermission,
 } from "../api/permissions";
 import { useTranslation } from "react-i18next";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -48,6 +49,8 @@ const SCHEDULE_REFRESH_INTERVAL_MS = 10000;
 
 export function SchedulesPage() {
   const { t } = useTranslation();
+  const runNowLabel = t("schedulesPage.runNow");
+  const retryLabel = t("schedulesPage.retry2");
   const links = useResourceLinks();
   const servers = useCollection(listServers);
   const schedules = useCollection(listSchedules);
@@ -257,10 +260,16 @@ export function SchedulesPage() {
           <thead>
             <tr>
               <th>{t("schedulesPage.nameServer")}</th>
-              <th>{t("schedulesPage.action")}</th>
-              <th>{t("schedulesPage.schedule")}</th>
+              <th className="table-mobile-hidden">
+                {t("schedulesPage.action")}
+              </th>
+              <th className="table-mobile-hidden">
+                {t("schedulesPage.schedule")}
+              </th>
               <th>{t("schedulesPage.nextRun")}</th>
-              <th>{t("schedulesPage.runsAs")}</th>
+              <th className="table-mobile-hidden">
+                {t("schedulesPage.runsAs")}
+              </th>
               <th>{t("common.enabled")}</th>
               <th className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
@@ -305,8 +314,10 @@ export function SchedulesPage() {
                       </ResourceLink>
                     </span>
                   </td>
-                  <td>{operationLabel(item.action)}</td>
-                  <td>
+                  <td className="table-mobile-hidden">
+                    {operationLabel(item.action)}
+                  </td>
+                  <td className="table-mobile-hidden">
                     <code>
                       {item.cron_expression || i18n.t("schedulesPage.runOnce")}
                     </code>
@@ -323,7 +334,7 @@ export function SchedulesPage() {
                       enabled={item.enabled}
                     />
                   </td>
-                  <td>
+                  <td className="table-mobile-hidden">
                     <ResourceLink href={links.user(item.run_as_user_id)}>
                       {item.username}
                     </ResourceLink>
@@ -360,12 +371,15 @@ export function SchedulesPage() {
                     ) && (
                       <ActionGroup>
                         <Button
+                          iconOnly
+                          aria-label={runNowLabel}
+                          title={runNowLabel}
                           disabled={busy}
                           onClick={() => {
                             void perform(() => runSchedule(item.id));
                           }}
                         >
-                          {i18n.t("schedulesPage.runNow")}
+                          <NavigationIcon name="play" filled />
                         </Button>
                       </ActionGroup>
                     )}
@@ -399,9 +413,13 @@ export function SchedulesPage() {
             <tr>
               <th>{t("schedulesPage.created")}</th>
               <th>{t("schedulesPage.serverAction")}</th>
-              <th>{t("schedulesPage.actor")}</th>
+              <th className="table-mobile-hidden">
+                {t("schedulesPage.actor")}
+              </th>
               <th>{t("schedulesPage.state")}</th>
-              <th>{t("schedulesPage.finished")}</th>
+              <th className="table-mobile-hidden">
+                {t("schedulesPage.finished")}
+              </th>
               <th className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
               </th>
@@ -433,7 +451,7 @@ export function SchedulesPage() {
                     {run.retry_of ? i18n.t("schedulesPage.retry") : ""}
                   </span>
                 </td>
-                <td>
+                <td className="table-mobile-hidden">
                   <ResourceLink href={links.user(run.user_id)}>
                     {run.username}
                   </ResourceLink>
@@ -442,7 +460,7 @@ export function SchedulesPage() {
                   <ExecutionState state={run.state} />
                   <span className="row-description">{run.message}</span>
                 </td>
-                <td>{when(run.finished_at)}</td>
+                <td className="table-mobile-hidden">{when(run.finished_at)}</td>
                 <td className="table-actions">
                   {[ExecutionStatus.Failed, ExecutionStatus.Interrupted].some(
                     (value) => value === run.state,
@@ -468,6 +486,9 @@ export function SchedulesPage() {
                           )),
                     ) && (
                       <Button
+                        iconOnly
+                        aria-label={retryLabel}
+                        title={retryLabel}
                         disabled={busy}
                         onClick={() => {
                           if (
@@ -480,7 +501,7 @@ export function SchedulesPage() {
                             void perform(() => retryExecution(run.id));
                         }}
                       >
-                        {i18n.t("schedulesPage.retry2")}
+                        <NavigationIcon name="restart" />
                       </Button>
                     )}
                 </td>

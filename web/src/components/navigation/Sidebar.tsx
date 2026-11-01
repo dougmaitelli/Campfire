@@ -6,22 +6,47 @@ import { NavigationIcon } from "./NavigationIcon";
 import { CampfireMark } from "./CampfireMark";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { AccountMenu } from "./AccountMenu";
+import { Button } from "../forms/Button";
+import "./sidebar.css";
 
-export function Sidebar({ page }: { page: NavigationItem }) {
+export function Sidebar({
+  page,
+  onNavigate,
+  onClose,
+  className,
+}: {
+  page: NavigationItem;
+  onNavigate?: () => void;
+  onClose?: () => void;
+  className?: string;
+}) {
   const { t } = useTranslation();
   const auth = useAuthentication();
   return (
-    <aside className="sidebar">
-      <a
-        className="brand"
-        href="#dashboard"
-        aria-label={t("sidebar.campfireDashboard")}
-      >
-        <span className="brand-mark">
-          <CampfireMark />
-        </span>
-        <span>{t("sidebar.campfire")}</span>
-      </a>
+    <aside className={className ? `sidebar ${className}` : "sidebar"}>
+      <div className="sidebar-header">
+        <a
+          className="brand"
+          href="#dashboard"
+          aria-label={t("sidebar.campfireDashboard")}
+          onClick={onNavigate}
+        >
+          <span className="brand-mark">
+            <CampfireMark />
+          </span>
+          <span>{t("sidebar.campfire")}</span>
+        </a>
+        {onClose && (
+          <Button
+            iconOnly
+            className="navigation-close"
+            aria-label={t("dashboardLayout.closeNavigation")}
+            onClick={onClose}
+          >
+            <NavigationIcon name="close" />
+          </Button>
+        )}
+      </div>
       <nav className="navigation" aria-label={t("sidebar.mainNavigation")}>
         {navigation
           .filter(
@@ -35,6 +60,7 @@ export function Sidebar({ page }: { page: NavigationItem }) {
               key={item.id}
               href={`#${item.id}`}
               className="navigation-link"
+              onClick={onNavigate}
               aria-current={page.id === item.id ? "page" : undefined}
             >
               <NavigationIcon name={item.icon} />

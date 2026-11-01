@@ -43,6 +43,7 @@ export function Table({
     <div className="table-container">
       <table
         {...props}
+        role={props.role ?? "table"}
         className={className ? `data-table ${className}` : "data-table"}
       >
         {children}

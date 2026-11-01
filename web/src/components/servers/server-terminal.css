@@ -26,6 +26,10 @@
   overflow: hidden;
   background: var(--console-bg);
 }
+.server-terminal-content {
+  height: 100%;
+  min-width: 0;
+}
 .server-terminal-search {
   display: flex;
   align-items: center;
@@ -131,4 +135,8 @@
   margin: 0;
   padding: 0;
   border: 0;
+}
+.server-terminal-screen .xterm .xterm-viewport {
+  background: var(--console-bg);
+  overflow: hidden;
 }

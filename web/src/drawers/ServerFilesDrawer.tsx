@@ -79,6 +79,13 @@ export function ServerFilesDrawer({
   embedded?: boolean;
 }) {
   const { t } = useTranslation();
+  const fileActionLabels = {
+    rename: t("serverFilesDrawer.rename2"),
+    permissions: t("serverFilesDrawer.permissions"),
+    move: t("serverFilesDrawer.move"),
+    archive: t("serverFilesDrawer.archiveSelected"),
+    delete: t("common.delete"),
+  };
   const hasWritePermission = server.permissions.includes(
     Permission.ServerFilesWrite,
   );
@@ -944,7 +951,7 @@ export function ServerFilesDrawer({
                   <th className="table-fit">
                     {t("serverFilesDrawer.fileType")}
                   </th>
-                  <th className="file-size">{t("common.size")}</th>
+                  <th className="table-fit">{t("common.size")}</th>
                   <th className="table-fit">
                     {t("serverFilesDrawer.modified")}
                   </th>
@@ -1029,7 +1036,7 @@ export function ServerFilesDrawer({
                           : fileExtension(entry.name).toUpperCase() ||
                             t("serverFilesDrawer.fileTypeFallback")}
                     </td>
-                    <td className="file-size file-entry-meta">
+                    <td className="table-fit file-entry-meta">
                       {entry.kind === FileKind.File
                         ? bytes(entry.size)
                         : EMPTY_VALUE}
@@ -1092,6 +1099,8 @@ export function ServerFilesDrawer({
               </span>
               <ActionGroup className="file-bulk-actions">
                 <Button
+                  aria-label={fileActionLabels.rename}
+                  title={fileActionLabels.rename}
                   disabled={busy || !canWrite || selectedEntries.length !== 1}
                   onClick={() => {
                     const entry = selectedEntries[0];
@@ -1099,31 +1108,47 @@ export function ServerFilesDrawer({
                   }}
                 >
                   <NavigationIcon name="rename" />
-                  {t("serverFilesDrawer.rename2")}
+                  <span className="file-action-label">
+                    {fileActionLabels.rename}
+                  </span>
                 </Button>
                 <Button
+                  aria-label={fileActionLabels.permissions}
+                  title={fileActionLabels.permissions}
                   disabled={busy || !canWrite || !selectedEntries.length}
                   onClick={() => setPermissionsEntries(selectedEntries)}
                 >
                   <NavigationIcon name="permissions" />
-                  {t("serverFilesDrawer.permissions")}
+                  <span className="file-action-label">
+                    {fileActionLabels.permissions}
+                  </span>
                 </Button>
                 <Button
+                  aria-label={fileActionLabels.move}
+                  title={fileActionLabels.move}
                   disabled={busy || !canWrite || !selectedEntries.length}
                   onClick={() => setBulkAction("move")}
                 >
                   <NavigationIcon name="move" />
-                  {t("serverFilesDrawer.move")}
+                  <span className="file-action-label">
+                    {fileActionLabels.move}
+                  </span>
                 </Button>
                 <Button
+                  aria-label={fileActionLabels.archive}
+                  title={fileActionLabels.archive}
                   disabled={busy || !canWrite || !selectedEntries.length}
                   onClick={() => setBulkAction("compress")}
                 >
                   <NavigationIcon name="compress" />
-                  {t("serverFilesDrawer.archiveSelected")}
+                  <span className="file-action-label">
+                    {fileActionLabels.archive}
+                  </span>
                 </Button>
                 <Button
                   className="file-bulk-delete"
+                  aria-label={fileActionLabels.delete}
+                  title={fileActionLabels.delete}
                   disabled={busy || !canDelete || !selectedEntries.length}
                   onClick={() => {
                     setDeleteError(null);
@@ -1131,7 +1156,9 @@ export function ServerFilesDrawer({
                   }}
                 >
                   <NavigationIcon name="delete" />
-                  {t("common.delete")}
+                  <span className="file-action-label">
+                    {fileActionLabels.delete}
+                  </span>
                 </Button>
               </ActionGroup>
             </div>

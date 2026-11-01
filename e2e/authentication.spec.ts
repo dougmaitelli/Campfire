@@ -22,6 +22,9 @@ test("mobile login supports password visibility and keyboard submission", async 
   await expect(password).toHaveAttribute("type", "password");
   await page.setViewportSize({ width: 320, height: 568 });
   await password.press("Enter");
+  await page
+    .getByRole("button", { name: "Open navigation", exact: true })
+    .click();
   await expect(
     page.getByRole("navigation", { name: "Main navigation" }),
   ).toBeVisible();

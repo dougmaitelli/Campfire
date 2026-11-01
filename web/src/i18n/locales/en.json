@@ -226,6 +226,7 @@
     "reinstall": "Reinstall",
     "remove": "Remove",
     "resourceActionTitle": "{{action}}: {{name}}",
+    "resources": "Resources",
     "restart": "Restart",
     "review": "Review",
     "role": "Role",
@@ -296,6 +297,8 @@
     "weekly": "Weekly"
   },
   "dashboardLayout": {
+    "openNavigation": "Open navigation",
+    "closeNavigation": "Close navigation",
     "mockModeSimulatedSparks": "Mock mode · Simulated Sparks",
     "notificationsUnread": "Notifications, {{inboxUnread}} unread",
     "skipToContent": "Skip to content"

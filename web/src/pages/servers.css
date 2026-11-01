@@ -8,3 +8,10 @@
 .servers-table .row-description {
   max-width: 260px;
 }
+
+@container (48rem < width <= 54rem) {
+  .servers-table .table-actions .action-group {
+    display: grid;
+    grid-template-columns: repeat(2, var(--control-height));
+  }
+}

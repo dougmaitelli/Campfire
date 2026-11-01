@@ -30,6 +30,7 @@ import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { GameArt } from "../components/media/GameArt";
+import "../components/servers/server-table.css";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
@@ -255,7 +256,7 @@ export function ServersPage() {
       )}
       <ContentPanel aria-busy={loading}>
         <Table
-          className="servers-table"
+          className="server-table servers-table table-cards"
           empty={visible.length === 0}
           loading={servers.loading}
           error={servers.error}
@@ -289,11 +290,15 @@ export function ServersPage() {
               {hasGameArt && <th className="game-art-cell" />}
               <th
                 scope="col"
-                className={hasGameArt ? "game-art-name" : undefined}
+                className={
+                  hasGameArt ? "table-primary game-art-name" : "table-primary"
+                }
               >
                 {t("common.server")}
               </th>
-              <th scope="col">{t("serversPage.state")}</th>
+              <th scope="col" className="table-state">
+                {t("serversPage.state")}
+              </th>
               <th scope="col">{t("serversPage.sparkEmber")}</th>
               <th scope="col">{t("serversPage.resources")}</th>
               <th scope="col">{t("common.ports")}</th>
@@ -304,9 +309,23 @@ export function ServersPage() {
           </thead>
           <tbody>
             {visible.map((server) => {
-              const usage = monitoring.snapshot?.servers.find(
+              const monitored = monitoring.snapshot?.servers.find(
                 (item) => item.id === server.id,
-              )?.usage;
+              );
+              const usage = monitored?.usage;
+              const gameReadings = (
+                <GameStateReadings
+                  game={monitored?.game}
+                  now={
+                    (monitoring.snapshot?.collected_at ?? 0) +
+                    monitoring.elapsed
+                  }
+                  usage={usage}
+                  elapsed={monitoring.elapsed}
+                  runtimeState={runtime.statuses[server.id]?.state}
+                  busy={runtime.statuses[server.id]?.busy}
+                />
+              );
               return (
                 <TableRow key={server.id} onOpen={() => setDetails(server)}>
                   {hasGameArt && (
@@ -314,7 +333,14 @@ export function ServersPage() {
                       <GameArt src={server.ember_art_url} />
                     </td>
                   )}
-                  <td className={hasGameArt ? "game-art-name" : undefined}>
+                  <td
+                    className={
+                      hasGameArt
+                        ? "table-primary game-art-name"
+                        : "table-primary"
+                    }
+                    data-label={t("common.server")}
+                  >
                     <button
                       type="button"
                       className="table-row-trigger"
@@ -326,23 +352,15 @@ export function ServersPage() {
                       {server.name}
                     </button>
                     <span className="row-id">{server.id}</span>
-                    <GameStateReadings
-                      game={
-                        monitoring.snapshot?.servers.find(
-                          (item) => item.id === server.id,
-                        )?.game
-                      }
-                      now={
-                        (monitoring.snapshot?.collected_at ?? 0) +
-                        monitoring.elapsed
-                      }
-                      usage={usage}
-                      elapsed={monitoring.elapsed}
-                      runtimeState={runtime.statuses[server.id]?.state}
-                      busy={runtime.statuses[server.id]?.busy}
-                    />
+                    <div className="game-state-table-only">{gameReadings}</div>
                   </td>
-                  <td>
+                  {monitored?.game && (
+                    <td className="game-state-card-cell">{gameReadings}</td>
+                  )}
+                  <td
+                    className="table-state"
+                    data-label={t("serversPage.state")}
+                  >
                     <ServerState
                       now={
                         (monitoring.snapshot?.collected_at ?? 0) +
@@ -374,7 +392,7 @@ export function ServersPage() {
                         </span>
                       )}
                   </td>
-                  <td>
+                  <td data-label={t("serversPage.sparkEmber")}>
                     <ResourceLink href={links.spark(server.spark_id)}>
                       {server.spark_name}
                     </ResourceLink>
@@ -384,7 +402,7 @@ export function ServersPage() {
                       </ResourceLink>
                     </span>
                   </td>
-                  <td>
+                  <td data-label={t("serversPage.resources")}>
                     <ResourceReadings
                       layout="compact"
                       usage={
@@ -398,7 +416,7 @@ export function ServersPage() {
                       elapsed={monitoring.elapsed}
                     />
                   </td>
-                  <td>
+                  <td data-label={t("common.ports")}>
                     <PortGroups
                       ports={server.ports.map((port) => ({
                         address: server.game_address || port.bind_ip,

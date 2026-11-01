@@ -23,13 +23,19 @@ import { SearchField } from "../components/forms/SearchField";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useCallback, useState } from "react";
-import { bytes, containerFresh, diskFresh } from "../api/monitoring";
+import {
+  bytes,
+  containerFresh,
+  diskFresh,
+  type MonitoredServer,
+} from "../api/monitoring";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { GameArt } from "../components/media/GameArt";
+import "../components/servers/server-table.css";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import { MetricTile } from "../components/metrics/MetricTile";
@@ -176,6 +182,19 @@ export function DashboardPage() {
       />
     );
   }
+  function renderGameState(server: MonitoredServer) {
+    return (
+      <GameStateReadings
+        game={server.game}
+        now={(monitor.snapshot?.collected_at ?? 0) + monitor.elapsed}
+        usage={server.usage}
+        elapsed={monitor.elapsed}
+        runtimeState={runtime.statuses[server.id]?.state}
+        busy={runtime.statuses[server.id]?.busy}
+      />
+    );
+  }
+
   return (
     <section aria-labelledby="page-title">
       <PageHeader
@@ -214,113 +233,117 @@ export function DashboardPage() {
         </InlineMessage>
       )}
       {hasServers && (
-        <MetricTiles>
-          <MetricTile
-            label={t("common.servers")}
-            icon={<NavigationIcon name="servers" />}
-            value={monitor.loading ? "…" : servers.length}
-            detail={t("dashboardPage.runningCount", { count: running })}
-          />
-          <ResourceReading
-            label={t("common.cpu")}
-            icon={<NavigationIcon name="cpu" />}
-            value={cpuKnown.length ? cpu : null}
-            allocation={allocatedCPU}
-            format={formatCPU}
-            formatUsed={(value) =>
-              formatCPUUsage(
-                (value * 100) / cpuUsageDivisor(allocatedCPU),
-                allocatedCPU,
-              )
-            }
-            unit="cores"
-          />
-          <ResourceReading
-            label={t("common.memory")}
-            icon={<NavigationIcon name="memory" />}
-            value={memoryKnown.length ? memory : null}
-            allocation={allocatedMemory}
-            format={bytes}
-          />
-          <ResourceReading
-            label={t("common.disk")}
-            icon={<NavigationIcon name="disk" />}
-            value={diskKnown.length ? disk : null}
-            allocation={allocatedDisk}
-            format={bytes}
-          />
-          <MetricTile
-            label={t("common.backups")}
-            icon={<NavigationIcon name="backups" />}
-            value={
-              !canReadBackups || backups.error
-                ? EMPTY_VALUE
-                : backups.loading
-                  ? "…"
-                  : backups.items.length === 0
-                    ? 0
-                    : `${backups.items.filter((backup) => backup.state === BackupStatus.Available).length} / ${backups.items.length}`
-            }
-            detail={
-              !canReadBackups ? (
-                t("dashboardPage.restricted")
-              ) : backups.error ? (
-                t("dashboardPage.summaryUnavailable")
-              ) : backups.loading ? null : backups.items.length === 0 ? (
-                t("backupsPage.noBackupsYet")
-              ) : (
-                <span
-                  className={`backup-summary-status${failedBackups > 0 ? " backup-summary-status-failed" : ""}`}
-                >
-                  <NavigationIcon
-                    name={failedBackups > 0 ? "x-circle" : "check-circle"}
-                  />
-                  {failedBackups > 0
-                    ? t("dashboardPage.failedBackups", { count: failedBackups })
-                    : t("dashboardPage.successful")}
-                </span>
-              )
-            }
-          />
-          <MetricTile
-            label={t("common.schedules")}
-            icon={<NavigationIcon name="schedules" />}
-            value={
-              schedules.error
-                ? EMPTY_VALUE
-                : schedules.loading
-                  ? "…"
-                  : t("dashboardPage.enabledCount", {
-                      count: enabledSchedules.length,
-                    })
-            }
-            detail={
-              schedules.error ? (
-                t("dashboardPage.summaryUnavailable")
-              ) : (
-                <>
-                  {!schedules.loading &&
-                    enabledSchedules.length === 0 &&
-                    t("schedulesPage.noSchedulesYet")}
-                  {nextSchedule && (
-                    <>
-                      {t("dashboardPage.nextScheduledRun", {
-                        time: new Date(
-                          nextSchedule.next_run_at * 1000,
-                        ).toLocaleString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }),
-                      })}
-                    </>
-                  )}
-                </>
-              )
-            }
-          />
-        </MetricTiles>
+        <div className="overview-metrics">
+          <MetricTiles>
+            <MetricTile
+              label={t("common.servers")}
+              icon={<NavigationIcon name="servers" />}
+              value={monitor.loading ? "…" : servers.length}
+              detail={t("dashboardPage.runningCount", { count: running })}
+            />
+            <ResourceReading
+              label={t("common.cpu")}
+              icon={<NavigationIcon name="cpu" />}
+              value={cpuKnown.length ? cpu : null}
+              allocation={allocatedCPU}
+              format={formatCPU}
+              formatUsed={(value) =>
+                formatCPUUsage(
+                  (value * 100) / cpuUsageDivisor(allocatedCPU),
+                  allocatedCPU,
+                )
+              }
+              unit="cores"
+            />
+            <ResourceReading
+              label={t("common.memory")}
+              icon={<NavigationIcon name="memory" />}
+              value={memoryKnown.length ? memory : null}
+              allocation={allocatedMemory}
+              format={bytes}
+            />
+            <ResourceReading
+              label={t("common.disk")}
+              icon={<NavigationIcon name="disk" />}
+              value={diskKnown.length ? disk : null}
+              allocation={allocatedDisk}
+              format={bytes}
+            />
+            <MetricTile
+              label={t("common.backups")}
+              icon={<NavigationIcon name="backups" />}
+              value={
+                !canReadBackups || backups.error
+                  ? EMPTY_VALUE
+                  : backups.loading
+                    ? "…"
+                    : backups.items.length === 0
+                      ? 0
+                      : `${backups.items.filter((backup) => backup.state === BackupStatus.Available).length} / ${backups.items.length}`
+              }
+              detail={
+                !canReadBackups ? (
+                  t("dashboardPage.restricted")
+                ) : backups.error ? (
+                  t("dashboardPage.summaryUnavailable")
+                ) : backups.loading ? null : backups.items.length === 0 ? (
+                  t("backupsPage.noBackupsYet")
+                ) : (
+                  <span
+                    className={`backup-summary-status${failedBackups > 0 ? " backup-summary-status-failed" : ""}`}
+                  >
+                    <NavigationIcon
+                      name={failedBackups > 0 ? "x-circle" : "check-circle"}
+                    />
+                    {failedBackups > 0
+                      ? t("dashboardPage.failedBackups", {
+                          count: failedBackups,
+                        })
+                      : t("dashboardPage.successful")}
+                  </span>
+                )
+              }
+            />
+            <MetricTile
+              label={t("common.schedules")}
+              icon={<NavigationIcon name="schedules" />}
+              value={
+                schedules.error
+                  ? EMPTY_VALUE
+                  : schedules.loading
+                    ? "…"
+                    : t("dashboardPage.enabledCount", {
+                        count: enabledSchedules.length,
+                      })
+              }
+              detail={
+                schedules.error ? (
+                  t("dashboardPage.summaryUnavailable")
+                ) : (
+                  <>
+                    {!schedules.loading &&
+                      enabledSchedules.length === 0 &&
+                      t("schedulesPage.noSchedulesYet")}
+                    {nextSchedule && (
+                      <>
+                        {t("dashboardPage.nextScheduledRun", {
+                          time: new Date(
+                            nextSchedule.next_run_at * 1000,
+                          ).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          }),
+                        })}
+                      </>
+                    )}
+                  </>
+                )
+              }
+            />
+          </MetricTiles>
+        </div>
       )}
       {!hasServers ? (
         <ContentState
@@ -351,7 +374,7 @@ export function DashboardPage() {
               <InlineMessage role="alert">{serverActionError}</InlineMessage>
             )}
             <Table
-              className="dashboard-server-table"
+              className="server-table dashboard-server-table table-cards"
               empty={visibleServers.length === 0}
               {...(serverSearch
                 ? { emptyMessage: t("serversPage.noMatchingServers") }
@@ -371,13 +394,26 @@ export function DashboardPage() {
               <thead>
                 <tr>
                   {hasGameArt && <th className="game-art-cell" />}
-                  <th className={hasGameArt ? "game-art-name" : undefined}>
+                  <th
+                    className={
+                      hasGameArt
+                        ? "table-primary game-art-name"
+                        : "table-primary"
+                    }
+                  >
                     {t("common.server")}
                   </th>
-                  <th>{t("dashboardPage.state")}</th>
-                  <th>{t("common.cpu")}</th>
-                  <th>{t("common.memory")}</th>
-                  <th>{t("common.disk")}</th>
+                  <th className="table-state">{t("dashboardPage.state")}</th>
+                  <th className="resource-reading-column">{t("common.cpu")}</th>
+                  <th className="resource-reading-column">
+                    {t("common.memory")}
+                  </th>
+                  <th className="resource-reading-column">
+                    {t("common.disk")}
+                  </th>
+                  <th className="resource-readings-group">
+                    {t("common.resources")}
+                  </th>
                   <th className="table-actions">
                     <span className="visually-hidden">
                       {t("common.actions")}
@@ -398,7 +434,14 @@ export function DashboardPage() {
                         <GameArt src={serverArtURLs.get(server.id)} />
                       </td>
                     )}
-                    <td className={hasGameArt ? "game-art-name" : undefined}>
+                    <td
+                      className={
+                        hasGameArt
+                          ? "table-primary game-art-name"
+                          : "table-primary"
+                      }
+                      data-label={t("common.server")}
+                    >
                       <button
                         type="button"
                         className="table-row-trigger"
@@ -416,19 +459,19 @@ export function DashboardPage() {
                           {server.spark_name}
                         </ResourceLink>
                       </span>
-                      <GameStateReadings
-                        game={server.game}
-                        now={
-                          (monitor.snapshot?.collected_at ?? 0) +
-                          monitor.elapsed
-                        }
-                        usage={server.usage}
-                        elapsed={monitor.elapsed}
-                        runtimeState={runtime.statuses[server.id]?.state}
-                        busy={runtime.statuses[server.id]?.busy}
-                      />
+                      <div className="game-state-table-only">
+                        {renderGameState(server)}
+                      </div>
                     </td>
-                    <td>
+                    {server.game && (
+                      <td className="game-state-card-cell">
+                        {renderGameState(server)}
+                      </td>
+                    )}
+                    <td
+                      className="table-state"
+                      data-label={t("dashboardPage.state")}
+                    >
                       <ServerState
                         now={
                           (monitor.snapshot?.collected_at ?? 0) +
@@ -451,9 +494,6 @@ export function DashboardPage() {
                             : undefined
                         }
                       />
-                      <span className="row-description">
-                        {server.usage.container_error}
-                      </span>
                     </td>
                     <ResourceReadings
                       usage={server.usage}

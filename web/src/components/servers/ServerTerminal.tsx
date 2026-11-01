@@ -362,11 +362,12 @@ export function ServerTerminal({
           </ActionGroup>
         </div>
         <div
-          ref={container}
           className="server-terminal-screen"
           role="region"
           aria-label={t("serverTerminal.consoleOutput")}
-        />
+        >
+          <div ref={container} className="server-terminal-content" />
+        </div>
         {canWrite && (
           <form
             className="server-terminal-command"

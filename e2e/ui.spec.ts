@@ -42,10 +42,12 @@ for (const [id, heading] of screens) {
     await login(page);
     await openScreen(page, id, heading);
     await screenshot(page, `${id}.png`);
-    if (id === "dashboard") {
-      await page.setViewportSize({ width: 390, height: 844 });
-      await screenshot(page, "dashboard-mobile.png");
-    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await prepareScreenshot(page);
+    await expect(page).toHaveScreenshot(
+      id === "dashboard" ? "dashboard-mobile.png" : `${id}-page-mobile.png`,
+      { fullPage: true },
+    );
   });
 }
 
@@ -342,11 +344,17 @@ test("binary file rows remain selectable and downloadable without opening the ed
     .click();
   expect((await download).suggestedFilename()).toBe("server.jar");
   await screenshot(page, "file-binary-row.png");
+  await page.setViewportSize({ width: 1000, height: 1000 });
+  await prepareScreenshot(page);
+  await expect(page.locator(".file-list")).toHaveScreenshot(
+    "file-rows-compact.png",
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(row.getByRole("checkbox")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "server.properties", exact: true }),
   ).toBeEnabled();
+  await expect(actions).toHaveScreenshot("file-actions-mobile.png");
   await row.getByRole("checkbox").uncheck();
   await expect(actions).toHaveScreenshot("file-actions-disabled-mobile.png");
 });

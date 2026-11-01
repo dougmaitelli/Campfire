@@ -163,8 +163,12 @@ export function EmbersPage() {
               >
                 {t("embersPage.gameDefinition")}
               </th>
-              <th scope="col">{t("embersPage.images")}</th>
-              <th scope="col">{t("embersPage.requiredPorts")}</th>
+              <th scope="col" className="table-mobile-hidden">
+                {t("embersPage.images")}
+              </th>
+              <th scope="col" className="table-mobile-hidden">
+                {t("embersPage.requiredPorts")}
+              </th>
               <th scope="col">{t("embersPage.updates")}</th>
             </tr>
           </thead>
@@ -210,8 +214,10 @@ export function EmbersPage() {
                     )}
                     <span className="row-id">{ember.id}</span>
                   </td>
-                  <td>{Object.keys(ember.images).join(", ")}</td>
-                  <td>
+                  <td className="table-mobile-hidden">
+                    {Object.keys(ember.images).join(", ")}
+                  </td>
+                  <td className="table-mobile-hidden">
                     {ember.required_ports?.length ? (
                       <div className="pill-group">
                         {ember.required_ports.map((port) => (

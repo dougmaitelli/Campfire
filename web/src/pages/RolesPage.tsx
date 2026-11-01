@@ -154,7 +154,7 @@ export function RolesPage() {
           <thead>
             <tr>
               <th>{t("common.role")}</th>
-              <th>{t("rolesPage.scope")}</th>
+              <th className="table-fit">{t("rolesPage.scope")}</th>
               <th>{t("rolesPage.permissions")}</th>
             </tr>
           </thead>
@@ -193,7 +193,7 @@ export function RolesPage() {
                     </span>
                   )}
                 </td>
-                <td>{role.scope}</td>
+                <td className="table-fit">{role.scope}</td>
                 <td>
                   {role.scope === RoleScope.Server &&
                   role.permissions.length > 6

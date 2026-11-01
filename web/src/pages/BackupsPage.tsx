@@ -73,9 +73,13 @@ export function BackupsPage() {
             <tr>
               <th>{t("backupsPage.archive")}</th>
               <th>{t("common.server")}</th>
-              <th>{t("backupsPage.created")}</th>
-              <th>{t("backupsPage.size")}</th>
-              <th>{t("backupsPage.storage")}</th>
+              <th className="table-mobile-hidden">
+                {t("backupsPage.created")}
+              </th>
+              <th className="table-mobile-hidden">{t("backupsPage.size")}</th>
+              <th className="table-mobile-hidden">
+                {t("backupsPage.storage")}
+              </th>
               <th>{t("common.status")}</th>
               <th className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
@@ -114,9 +118,11 @@ export function BackupsPage() {
                       {item.server_name}
                     </ResourceLink>
                   </td>
-                  <td>{new Date(item.modified_at).toLocaleString()}</td>
-                  <td>{bytes(item.size)}</td>
-                  <td>
+                  <td className="table-mobile-hidden">
+                    {new Date(item.modified_at).toLocaleString()}
+                  </td>
+                  <td className="table-mobile-hidden">{bytes(item.size)}</td>
+                  <td className="table-mobile-hidden">
                     {[
                       item.local ? i18n.t("backupsPage.local") : null,
                       item.remote ? "S3" : null,

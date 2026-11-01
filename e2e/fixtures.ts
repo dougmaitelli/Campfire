@@ -45,7 +45,10 @@ export async function prepareScreenshot(page: Page) {
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(async () => {
     await Promise.all(
-      Array.from(document.images).map((image) => image.decode()),
+      Array.from(document.images).map(async (image) => {
+        image.loading = "eager";
+        await image.decode();
+      }),
     );
     await Promise.all(
       document

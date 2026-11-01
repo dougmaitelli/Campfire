@@ -24,6 +24,7 @@ import {
   LoaderCircle,
   LogOut,
   MemoryStick,
+  Menu,
   Play,
   RotateCcw,
   Search,
@@ -48,6 +49,7 @@ import type { NavigationIcon as IconName } from "../../routing/navigation";
 type NavigationIconName =
   | IconName
   | "logout"
+  | "menu"
   | "chevron"
   | "close"
   | "check"
@@ -83,6 +85,7 @@ type NavigationIconName =
   | "x-circle";
 
 const icons: Record<NavigationIconName, LucideIcon> = {
+  menu: Menu,
   move: FolderInput,
   upload: Upload,
   "file-plus": FilePlus,
