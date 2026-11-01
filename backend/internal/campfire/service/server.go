@@ -22,7 +22,7 @@ import (
 var (
 	ErrInvalidServer  = errors.New("invalid server configuration")
 	ErrServerNotFound = errors.New("server not found")
-	ErrServerConflict = errors.New("server name, resource capacity, or port reservation conflicts")
+	ErrServerConflict = repository.ErrServerConflict
 	ErrServerActive   = errors.New("stop the server before changing its configuration")
 )
 
@@ -317,7 +317,7 @@ func serverError(err error) error {
 	case errors.Is(err, repository.ErrServerNotFound):
 		return ErrServerNotFound
 	case errors.Is(err, repository.ErrServerConflict):
-		return ErrServerConflict
+		return err
 	case errors.Is(err, repository.ErrServerPlacement):
 		return fmt.Errorf("%w: %w", ErrInvalidServer, err)
 	default:

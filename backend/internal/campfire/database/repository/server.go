@@ -30,6 +30,11 @@ func NewServerRepository(db *gorm.DB) *ServerRepository { return &ServerReposito
 // Save creates or updates a server under a serialized reservation transaction.
 func (r *ServerRepository) Save(ctx context.Context, server model.Server, create bool) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		nameConflict := checkServerName(tx, server)
+		if nameConflict != nil && !errors.Is(nameConflict, ErrServerConflict) {
+			return nameConflict
+		}
+
 		if !create {
 			var current database.Server
 			if err := tx.Where("id = ?", server.ID).Take(&current).Error; err != nil {
@@ -42,6 +47,10 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 
 			configuration := model.ServerConfiguration{SparkID: current.SparkID, EmberID: current.EmberID, Image: current.Image, StartupCommand: current.StartupCommand, StartupOverride: current.StartupOverride, GameIntegration: current.GameIntegration, Variables: current.Variables, CPULimit: current.CPULimit, MemoryMB: current.MemoryMB, DiskMB: current.DiskMB, Ports: current.Ports}
 			if model.SameRuntimeConfiguration(configuration, server.ServerConfiguration) && current.EmberHash == server.EmberHash {
+				if nameConflict != nil {
+					return nameConflict
+				}
+
 				return tx.Model(&database.Server{}).Where("id = ?", server.ID).Updates(map[string]any{"name": server.Name, "description": server.Description}).Error
 			}
 
@@ -73,7 +82,12 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			record.OwnerUserID = &server.OwnerUserID
 		}
 
-		if err := checkReservations(spark, append(existing, record)); err != nil {
+		reservationConflict := checkReservations(spark, append(existing, record))
+		if reservationConflict != nil && !errors.Is(reservationConflict, ErrServerConflict) {
+			return reservationConflict
+		}
+
+		if err := errors.Join(nameConflict, reservationConflict); err != nil {
 			return err
 		}
 
@@ -89,7 +103,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 		}
 
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return ErrServerConflict
+			return serverConflictError(serverNameConflictMessage)
 		}
 
 		if err != nil {
@@ -101,7 +115,10 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 }
 
 func checkReservations(spark database.Spark, servers []database.Server) error {
-	var cpu float64
+	var (
+		conflicts []error
+		cpu       float64
+	)
 
 	var memory, disk int64
 
@@ -132,7 +149,8 @@ func checkReservations(spark database.Spark, servers []database.Server) error {
 
 				overlap := other == ip || (other.BitLen() == ip.BitLen() && (other.IsUnspecified() || ip.IsUnspecified()))
 				if overlap && used.HostPort == port.HostPort && used.Protocol == port.Protocol {
-					return ErrServerConflict
+					conflicts = append(conflicts, serverConflictError(fmt.Sprintf("Port %d/%s on %s is already reserved.", port.HostPort, port.Protocol, port.BindIP)))
+					break
 				}
 			}
 
@@ -140,11 +158,19 @@ func checkReservations(spark database.Spark, servers []database.Server) error {
 		}
 	}
 
-	if (spark.CPULimit > 0 && cpu > spark.CPULimit+1e-9) || (spark.MemoryMB > 0 && memory > spark.MemoryMB) || (spark.DiskMB > 0 && disk > spark.DiskMB) {
-		return ErrServerConflict
+	if spark.CPULimit > 0 && cpu > spark.CPULimit+1e-9 {
+		conflicts = append(conflicts, serverConflictError("The selected Spark has insufficient CPU capacity."))
 	}
 
-	return nil
+	if spark.MemoryMB > 0 && memory > spark.MemoryMB {
+		conflicts = append(conflicts, serverConflictError("The selected Spark has insufficient memory capacity."))
+	}
+
+	if spark.DiskMB > 0 && disk > spark.DiskMB {
+		conflicts = append(conflicts, serverConflictError("The selected Spark has insufficient disk capacity."))
+	}
+
+	return errors.Join(conflicts...)
 }
 
 // List returns saved servers with their display metadata.
