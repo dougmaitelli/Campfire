@@ -43,10 +43,25 @@ test("game state shows optional fields and hides stale values", async ({
   const readings = page.getByRole("group", { name: "Game data", exact: true });
   await expect(readings).toContainText("3 / 20");
   await expect(readings).toContainText("Integration world");
-  await expect(readings).toContainText("Last updated");
+  await expect(readings).not.toContainText("Last updated");
+  await readings.hover();
+  await expect(readings).toHaveAttribute("title", /^Last updated /);
   const card = page.getByRole("row").filter({
     has: page.getByRole("button", { name: "Open Survival", exact: true }),
   });
+  for (const [width, size] of [
+    [1400, "desktop"],
+    [1150, "narrow"],
+  ] as const) {
+    await page.setViewportSize({ width, height: 1000 });
+    await prepareScreenshot(page);
+    await expect(
+      page.getByRole("table", {
+        name: "Measured server resources",
+        exact: true,
+      }),
+    ).toHaveScreenshot(`overview-game-state-table-${size}.png`);
+  }
   await page.setViewportSize({ width: 1000, height: 1000 });
   await prepareScreenshot(page);
   await expect(card).toHaveScreenshot("overview-game-state-card.png");
@@ -54,6 +69,16 @@ test("game state shows optional fields and hides stale values", async ({
   await prepareScreenshot(page);
   await expect(card).toHaveScreenshot("overview-game-state-card-mobile.png");
   await openScreen(page, "servers", "Servers");
+  for (const [width, size] of [
+    [1400, "desktop"],
+    [1150, "narrow"],
+  ] as const) {
+    await page.setViewportSize({ width, height: 1000 });
+    await prepareScreenshot(page);
+    await expect(
+      page.getByRole("table", { name: "Game servers", exact: true }),
+    ).toHaveScreenshot(`servers-game-state-table-${size}.png`);
+  }
   await page.setViewportSize({ width: 1000, height: 1000 });
   await prepareScreenshot(page);
   await expect(
@@ -77,4 +102,7 @@ test("game state shows optional fields and hides stale values", async ({
     await expect(readings).not.toContainText("Players");
     await expect(readings).not.toContainText("Integration world");
   }
+  await readings.focus();
+  await expect(readings).toBeFocused();
+  await expect(readings).toHaveAccessibleDescription(/^Last updated /);
 });

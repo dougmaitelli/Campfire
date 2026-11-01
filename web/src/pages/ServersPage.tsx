@@ -24,14 +24,14 @@ import { useCollection } from "../hooks/useCollection";
 import { ServerDrawer } from "../drawers/ServerDrawer";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import "./servers.css";
-import { Table, TableRow } from "../components/table/Table";
+import { Table } from "../components/table/Table";
 import { ServerDetailsDrawer } from "../drawers/ServerDetailsDrawer";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { GameArt } from "../components/media/GameArt";
-import "../components/servers/server-table.css";
+import { ServerTableRow } from "../components/servers/ServerTableRow";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
@@ -363,7 +363,12 @@ export function ServersPage() {
                 />
               );
               return (
-                <TableRow key={server.id} onOpen={() => setDetails(server)}>
+                <ServerTableRow
+                  key={server.id}
+                  onOpen={() => setDetails(server)}
+                  gameReadings={monitored?.game && gameReadings}
+                  columnCount={hasGameArt ? 7 : 6}
+                >
                   {hasGameArt && (
                     <td className="game-art-cell">
                       <GameArt src={server.ember_art_url} />
@@ -388,7 +393,6 @@ export function ServersPage() {
                       {server.name}
                     </button>
                     <span className="row-id">{server.id}</span>
-                    <div className="game-state-table-only">{gameReadings}</div>
                   </td>
                   {monitored?.game && (
                     <td className="game-state-card-cell">{gameReadings}</td>
@@ -496,7 +500,7 @@ export function ServersPage() {
                       </ButtonLink>
                     </ServerQuickControls>
                   </td>
-                </TableRow>
+                </ServerTableRow>
               );
             })}
           </tbody>

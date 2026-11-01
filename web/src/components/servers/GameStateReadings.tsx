@@ -28,7 +28,9 @@ export function GameStateReadings({
     containerFresh(usage, elapsed) &&
     gameStateFresh(game, now);
   const state = available ? game.state : undefined;
-  const updated = new Date(game.updated_at * 1000).toLocaleString();
+  const updated = t("gameState.lastUpdated", {
+    time: new Date(game.updated_at * 1000).toLocaleString(),
+  });
   const labels = new Map([
     ["map", t("gameState.map")],
     ["game_mode", t("gameState.gameMode")],
@@ -38,6 +40,9 @@ export function GameStateReadings({
       className="game-state-readings"
       role="group"
       aria-label={t("gameState.gameData")}
+      title={updated}
+      aria-description={updated}
+      tabIndex={0}
     >
       {state ? (
         <dl>
@@ -78,9 +83,6 @@ export function GameStateReadings({
           {t("gameState.unavailable")}
         </span>
       )}
-      <span className="game-state-updated">
-        {t("gameState.lastUpdated", { time: updated })}
-      </span>
     </div>
   );
 }

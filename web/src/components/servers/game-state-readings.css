@@ -29,42 +29,6 @@
   }
 }
 
-.game-state-updated {
-  display: block;
-  color: var(--muted);
-  font-size: 11px;
-}
-
 .game-state-unavailable {
   color: var(--muted);
-}
-
-.game-state-table-only {
-  display: contents;
-}
-
-.data-table td.game-state-card-cell {
-  display: none;
-}
-
-@container (max-width: 48rem) {
-  .table-cards .game-state-table-only {
-    display: none;
-  }
-
-  .table-cards tbody td.game-state-card-cell {
-    display: block;
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .table-cards .game-state-card-cell .game-state-readings {
-    margin: 0;
-  }
-}
-
-@container (max-width: 32rem) {
-  .table-cards tbody td.game-state-card-cell {
-    grid-row: 3;
-  }
 }

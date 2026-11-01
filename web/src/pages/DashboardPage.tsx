@@ -35,7 +35,7 @@ import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerState } from "../components/servers/ServerState";
 import { GameArt } from "../components/media/GameArt";
-import "../components/servers/server-table.css";
+import { ServerTableRow } from "../components/servers/ServerTableRow";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import { MetricTile } from "../components/metrics/MetricTile";
@@ -414,8 +414,10 @@ export function DashboardPage() {
               </thead>
               <tbody>
                 {visibleServers.map((server) => (
-                  <TableRow
+                  <ServerTableRow
                     key={server.id}
+                    gameReadings={server.game && renderGameState(server)}
+                    columnCount={hasGameArt ? 7 : 6}
                     onOpen={() => {
                       window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
                     }}
@@ -450,9 +452,6 @@ export function DashboardPage() {
                           {server.spark_name}
                         </ResourceLink>
                       </span>
-                      <div className="game-state-table-only">
-                        {renderGameState(server)}
-                      </div>
                     </td>
                     {server.game && (
                       <td className="game-state-card-cell">
@@ -514,7 +513,7 @@ export function DashboardPage() {
                         onError={setServerActionError}
                       />
                     </td>
-                  </TableRow>
+                  </ServerTableRow>
                 ))}
               </tbody>
             </Table>

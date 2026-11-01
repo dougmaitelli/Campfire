@@ -2,7 +2,37 @@
   width: 12%;
 }
 
+.server-table td.game-state-card-cell {
+  display: none;
+}
+
+.server-table tbody .server-game-state-row > td {
+  border-block-start: 0;
+  padding-block: 0 12px;
+}
+
+.server-game-state-row .game-state-readings {
+  margin: 0;
+}
+
+@container (width > 48rem) {
+  .server-table tbody tr:has(+ .server-game-state-row) > td {
+    padding-block-end: 6px;
+  }
+
+  .server-table tbody tr:has(+ .server-game-state-row:hover),
+  .server-table
+    .table-row-interactive:is(:hover, :focus-within)
+    + .server-game-state-row {
+    background: var(--surface-hover);
+  }
+}
+
 @container (max-width: 48rem) {
+  .table-cards.server-table tbody .server-game-state-row {
+    display: none;
+  }
+
   .table-cards.server-table tbody tr {
     grid-template-columns: repeat(6, minmax(0, 1fr));
     column-gap: 12px;
@@ -10,6 +40,16 @@
 
   .server-table:where(.table-cards) tbody td {
     grid-column: span 3;
+  }
+
+  .table-cards.server-table tbody td.game-state-card-cell {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .server-table .game-state-card-cell .game-state-readings {
+    margin: 0;
   }
 
   .table-cards.server-table tbody .table-primary {
@@ -30,6 +70,10 @@
 }
 
 @container (max-width: 32rem) {
+  .table-cards.server-table tbody td.game-state-card-cell {
+    grid-row: 3;
+  }
+
   .table-cards.server-table tbody tr {
     grid-template-columns: minmax(0, 1fr) max-content;
   }
