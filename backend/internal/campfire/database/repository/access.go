@@ -205,18 +205,10 @@ func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int6
 		updates := map[string]any{}
 
 		if name != nil {
-			if user.OIDCNameManaged && *name != user.Name {
-				return ErrAccessInput
-			}
-
 			updates["name"] = *name
 		}
 
 		if email != nil {
-			if user.OIDCEmailManaged && *email != user.Email {
-				return ErrAccessInput
-			}
-
 			updates["email"] = *email
 		}
 

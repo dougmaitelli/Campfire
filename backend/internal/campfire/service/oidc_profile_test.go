@@ -31,17 +31,18 @@ func TestOIDCUserInfoProfileManagement(t *testing.T) {
 	access := repository.NewAccessRepository(db.ORM())
 
 	changed := "Local override"
-	if err := access.UpdateUser(t.Context(), user.ID, user.RoleID, false, "", &changed, nil); !errors.Is(err, repository.ErrAccessInput) {
-		t.Fatal("managed name was editable", err)
+	if err := access.UpdateUser(t.Context(), user.ID, user.RoleID, false, "", &changed, nil); err != nil {
+		t.Fatal("admin could not edit an OIDC user's name", err)
 	}
 
-	changed = "override@example.com"
-	if err := access.UpdateUser(t.Context(), user.ID, user.RoleID, false, "", nil, &changed); !errors.Is(err, repository.ErrAccessInput) {
-		t.Fatal("managed email was editable", err)
+	changedEmail := "override@example.com"
+	if err := access.UpdateUser(t.Context(), user.ID, user.RoleID, false, "", nil, &changedEmail); err != nil {
+		t.Fatal("admin could not edit an OIDC user's email", err)
 	}
 
-	if err := access.UpdateUser(t.Context(), user.ID, user.RoleID, false, "", &user.Name, &user.Email); err != nil {
-		t.Fatal("unchanged managed values blocked an account edit", err)
+	edited, err := access.User(t.Context(), user.ID)
+	if err != nil || edited.Name != changed || edited.Email != changedEmail {
+		t.Fatal("admin profile edits did not persist", edited, err)
 	}
 
 	p.profile = map[string]any{"name": "Updated Name", "email": "updated@example.com"}

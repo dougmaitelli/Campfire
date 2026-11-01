@@ -182,7 +182,6 @@ export function UserDrawer({
         >
           <TextInput
             id="user-display-name"
-            readOnly={user?.oidc_name_managed}
             value={name}
             maxLength={100}
             autoComplete="name"
@@ -200,7 +199,6 @@ export function UserDrawer({
           <TextInput
             ref={emailInput}
             id="user-email"
-            readOnly={user?.oidc_email_managed}
             type="email"
             value={email}
             maxLength={254}

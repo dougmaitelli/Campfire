@@ -1235,7 +1235,7 @@
     "deleteTransferTheirOwnedServersFirstTheirAccessAndCredentials": "Delete \"{{userUsername}}\"? Transfer their owned servers first. Their access and credentials will be revoked. Their profile will be retained for audit history.",
     "editUser": "Edit user",
     "emailOptional": "Email (optional)",
-    "managedByYourIdentityProvider": "Managed by your identity provider.",
+    "managedByYourIdentityProvider": "Refreshed from the identity provider on OIDC sign-in.",
     "manageThisAccountSRoleAndSignInAccess": "Manage this account's role and sign-in access.",
     "nameOptional": "Name (optional)",
     "newPasswordOptional": "New password (optional)",
