@@ -1,4 +1,4 @@
-import { test, expect, prepareScreenshot } from "./fixtures";
+import { test, expect, prepareScreenshot, screenshot } from "./fixtures";
 import { login, openServerTab } from "./screens";
 
 test("danger and reinstall confirmations use the right action and lock dismissal while busy", async ({
@@ -6,7 +6,41 @@ test("danger and reinstall confirmations use the right action and lock dismissal
 }) => {
   await login(page);
   await openServerTab(page, "console", "Console");
-  await page.getByRole("button", { name: "Kill", exact: true }).click();
+  const trigger = page.getByRole("button", {
+    name: "More server actions",
+    exact: true,
+  });
+  const menu = page.getByRole("menu", {
+    name: "More server actions",
+    exact: true,
+  });
+  await expect(menu).toBeHidden();
+  await trigger.press("Enter");
+  await expect(menu).toBeVisible();
+  const kill = menu.getByRole("menuitem", { name: "Kill", exact: true });
+  const reinstall = menu.getByRole("menuitem", {
+    name: "Reinstall",
+    exact: true,
+  });
+  await expect(kill).toBeFocused();
+  await expect(reinstall).toBeDisabled();
+  await page.keyboard.press("ArrowDown");
+  await expect(kill).toBeFocused();
+  await screenshot(page, "server-actions-menu.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await screenshot(page, "server-actions-menu-mobile.png");
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page
+    .getByRole("heading", { name: "Survival", exact: true, level: 1 })
+    .click();
+  await expect(menu).toBeHidden();
+  await page.setViewportSize({ width: 1400, height: 1100 });
+  await trigger.click();
+  await kill.click();
+  await expect(menu).toBeHidden();
   const danger = page.getByRole("dialog", {
     name: "Kill server: Survival",
     exact: true,
@@ -18,7 +52,10 @@ test("danger and reinstall confirmations use the right action and lock dismissal
   await expect(
     page.getByRole("button", { name: "Start", exact: true }),
   ).toBeEnabled();
-  await page.getByRole("button", { name: "Reinstall", exact: true }).click();
+  await trigger.click();
+  await expect(kill).toBeDisabled();
+  await expect(reinstall).toBeFocused();
+  await reinstall.click();
   const dialog = page.getByRole("dialog", {
     name: "Reinstall server: Survival",
     exact: true,

@@ -260,11 +260,14 @@ export function ServerOperationsPage({
                   (spark) => spark.id === server.spark_id && spark.disabled,
                 ) === true
               }
-              canConfigure={server.permissions.includes(
+              canReinstall={server.permissions.includes(
                 Permission.ServerReinstall,
               )}
               onAction={(action) => {
-                if (action === ServerAction.Kill || action === "reinstall") {
+                if (
+                  action === ServerAction.Kill ||
+                  action === ServerAction.Reinstall
+                ) {
                   setError(null);
                   setReinstallMode(ReinstallMode.Keep);
                   setConfirmation(action);

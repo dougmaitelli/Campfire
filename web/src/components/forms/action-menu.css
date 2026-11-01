@@ -1,0 +1,55 @@
+.action-menu {
+  inset: auto;
+  margin: 8px 0 0;
+  position-area: bottom span-left;
+  justify-self: end;
+  position-try-fallbacks: flip-block, flip-inline;
+  min-width: 180px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+
+  & button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--control-height);
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    text-align: start;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--surface-hover);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+  }
+
+  & svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  & .action-menu-danger {
+    color: var(--danger);
+  }
+
+  & .action-menu-warning {
+    color: var(--warning);
+  }
+}

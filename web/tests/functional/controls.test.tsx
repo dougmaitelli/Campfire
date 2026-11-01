@@ -129,16 +129,52 @@ test.each(["install", "reinstall", "update"] as const)(
       <ServerLifecycleControls
         status={runtimeStatus({ state: "installing", operation, busy: true })}
         disabled={false}
-        canConfigure
+        canReinstall
         onAction={action}
       />,
     );
-    for (const button of screen.getAllByRole<HTMLButtonElement>("button")) {
-      const name = button.getAttribute("aria-label") ?? button.textContent;
-      expect(button.disabled).toBe(!["Stop", "Kill"].includes(name ?? ""));
+    // jsdom does not implement the browser's popover API.
+    const menu = screen.getByRole("menu", { hidden: true });
+    menu.removeAttribute("popover");
+    Object.assign(menu, { hidePopover: vi.fn() });
+    for (const name of ["Start", "Restart"]) {
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", { name }).disabled,
+      ).toBe(true);
     }
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Stop" }).disabled,
+    ).toBe(false);
+    expect(
+      screen.getByRole<HTMLButtonElement>("menuitem", { name: "Kill" })
+        .disabled,
+    ).toBe(false);
+    expect(
+      screen.getByRole<HTMLButtonElement>("menuitem", { name: "Reinstall" })
+        .disabled,
+    ).toBe(true);
     await user.click(screen.getByRole("button", { name: "Stop" }));
-    await user.click(screen.getByRole("button", { name: "Kill" }));
+    await user.click(screen.getByRole("menuitem", { name: "Kill" }));
     expect(action.mock.calls).toEqual([["stop"], ["kill"]]);
   },
 );
+
+test("servers awaiting installation keep Install visible and Reinstall disabled", () => {
+  render(
+    <ServerLifecycleControls
+      status={runtimeStatus({ state: "not_installed" })}
+      disabled={false}
+      canReinstall
+      onAction={vi.fn()}
+    />,
+  );
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Install" }).disabled,
+  ).toBe(false);
+  expect(
+    screen.getByRole<HTMLButtonElement>("menuitem", {
+      name: "Reinstall",
+      hidden: true,
+    }).disabled,
+  ).toBe(true);
+});

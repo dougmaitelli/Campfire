@@ -26,6 +26,7 @@ import {
   LogOut,
   MemoryStick,
   Menu,
+  MoreHorizontal,
   Play,
   RotateCcw,
   Search,
@@ -51,6 +52,7 @@ type NavigationIconName =
   | IconName
   | "logout"
   | "menu"
+  | "more"
   | "chevron"
   | "close"
   | "check"
@@ -88,6 +90,7 @@ type NavigationIconName =
 
 const icons: Record<NavigationIconName, LucideIcon> = {
   menu: Menu,
+  more: MoreHorizontal,
   move: FolderInput,
   upload: Upload,
   "file-plus": FilePlus,

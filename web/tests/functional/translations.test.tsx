@@ -13,7 +13,7 @@ test("language changes update UI labels without changing protocol actions", asyn
     <ServerLifecycleControls
       status={runtimeStatus({ state: "not_installed" })}
       disabled={false}
-      canConfigure
+      canReinstall
       onAction={action}
     />,
   );

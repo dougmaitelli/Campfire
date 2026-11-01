@@ -1,6 +1,7 @@
 import { RuntimeState, type LifecycleAction } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { Button } from "../forms/Button";
+import { ActionMenu, type ActionMenuItem } from "../forms/ActionMenu";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { type RuntimeStatus, ServerAction } from "../../api/runtime";
 import { lifecycleControlState } from "./lifecycleControlState";
@@ -8,12 +9,12 @@ import { lifecycleControlState } from "./lifecycleControlState";
 export function ServerLifecycleControls({
   status,
   disabled,
-  canConfigure,
+  canReinstall,
   onAction,
 }: {
   status: RuntimeStatus | undefined;
   disabled: boolean;
-  canConfigure: boolean;
+  canReinstall: boolean;
   onAction: (action: LifecycleAction) => void;
 }) {
   const { t } = useTranslation();
@@ -23,6 +24,24 @@ export function ServerLifecycleControls({
     status,
     disabled,
   );
+  const items: ActionMenuItem[] = [
+    {
+      label: t("common.kill"),
+      icon: "kill",
+      tone: "danger",
+      disabled: !canInterrupt && (blocked || !running),
+      onSelect: () => onAction(ServerAction.Kill),
+    },
+  ];
+  if (canReinstall) {
+    items.push({
+      label: t("common.reinstall"),
+      icon: "download",
+      tone: "warning",
+      disabled: blocked || install || running,
+      onSelect: () => onAction(ServerAction.Reinstall),
+    });
+  }
   return (
     <>
       <Button
@@ -56,27 +75,16 @@ export function ServerLifecycleControls({
       >
         <NavigationIcon name="restart" />
       </Button>
-      <Button
-        iconOnly
-        variant="danger"
-        title={t("common.kill")}
-        aria-label={t("common.kill")}
-        disabled={!canInterrupt && (blocked || !running)}
-        onClick={() => onAction(ServerAction.Kill)}
-      >
-        <NavigationIcon name="kill" />
-      </Button>
-      {(install || canConfigure) && (
+      {install && (
         <Button
-          variant={install ? "primary" : "warning"}
+          variant="primary"
           disabled={blocked || running}
-          onClick={() =>
-            onAction(install ? ServerAction.Install : ServerAction.Reinstall)
-          }
+          onClick={() => onAction(ServerAction.Install)}
         >
-          {install ? t("common.install") : t("common.reinstall")}
+          {t("common.install")}
         </Button>
       )}
+      <ActionMenu label={t("common.moreServerActions")} items={items} />
     </>
   );
 }
