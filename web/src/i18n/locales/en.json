@@ -536,6 +536,12 @@
     "waitingForACPUSample": "Waiting for a CPU sample.",
     "waitingForAGameDataSizeSample": "Waiting for a game-data size sample."
   },
+  "roleNames": {
+    "serverViewer": "Server viewer",
+    "serverCreator": "Server creator",
+    "platformMember": "Platform member",
+    "customServerRole": "Custom server role"
+  },
   "roleDrawer": {
     "createRole": "Create role",
     "createServersOnSparksApprovedByAnAdministrator": "Create servers on Sparks approved by an administrator",

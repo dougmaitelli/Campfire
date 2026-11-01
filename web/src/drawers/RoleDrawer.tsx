@@ -20,6 +20,9 @@ import {
   type PermissionID,
 } from "../api/permissions";
 import { Fieldset } from "../components/forms/Fieldset";
+import { RoleLimits } from "../config/policies";
+import { serverPermissionPresets } from "../config/permissionPresets";
+import { formatRoleName } from "../utils/formatRoleName";
 import "./role-drawer.css";
 
 const deletePermissions = new Set<PermissionID>([
@@ -30,6 +33,7 @@ const deletePermissions = new Set<PermissionID>([
 
 export function RoleDrawer({
   role,
+  existingRoles = [],
   onClose,
   onSaved,
   onDelete,
@@ -37,6 +41,7 @@ export function RoleDrawer({
   deleteError,
 }: {
   role: Role | null;
+  existingRoles?: readonly Role[];
   onClose: () => void;
   onSaved: (role: Role) => void;
   onDelete?: (() => void) | undefined;
@@ -45,7 +50,9 @@ export function RoleDrawer({
 }) {
   const { t } = useTranslation();
   const permissionPrefix = useId();
-  const [name, setName] = useState(role?.name ?? "");
+  const [customName, setCustomName] = useState<string | null>(
+    role?.name ?? null,
+  );
   const [scope, setScope] = useState<Role["scope"]>(
     role?.scope ?? RoleScope.Server,
   );
@@ -56,6 +63,9 @@ export function RoleDrawer({
   const [error, setError] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<PermissionDefinition[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const name =
+    customName ??
+    formatRoleName({ scope, permissions, catalog, existingRoles });
   useEffect(() => {
     const controller = new AbortController();
     void permissionCatalog(controller.signal)
@@ -117,24 +127,7 @@ export function RoleDrawer({
             : item.id === Permission.ServersCreate,
         );
   const groups = [...new Set(choices.map((item) => item.group))];
-  const presets = [
-    ["Log viewer", [Permission.ServerConsoleRead]],
-    ["Basic operator", [Permission.ServerOperate]],
-    [
-      "Backup maintainer",
-      [
-        Permission.ServerBackupsCreate,
-        Permission.ServerBackupsRestore,
-        Permission.ServerBackupsDownload,
-      ],
-    ],
-    [
-      "Server administrator",
-      catalog
-        .filter((item) => item.id !== Permission.ServerDelete)
-        .map((item) => item.id),
-    ],
-  ] as const;
+  const presets = serverPermissionPresets(catalog);
   function toggle(id: PermissionID, checked: boolean) {
     setPermissions(togglePermission(permissions, id, checked, catalog));
   }
@@ -246,8 +239,8 @@ export function RoleDrawer({
             id="role-name"
             readOnly={role?.builtin}
             value={name}
-            maxLength={64}
-            onChange={(event) => setName(event.target.value)}
+            maxLength={RoleLimits.NameLength}
+            onChange={(event) => setCustomName(event.target.value)}
           />
         </FormField>
         <FormField label={t("roleDrawer.scope")}>

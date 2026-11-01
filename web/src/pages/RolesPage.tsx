@@ -241,6 +241,7 @@ export function RolesPage() {
         <RoleDrawer
           key={editing?.id ?? "new"}
           role={editing}
+          existingRoles={roles.items}
           onClose={() => {
             setOpen(false);
             setEditing(null);

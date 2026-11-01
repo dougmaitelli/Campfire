@@ -10,6 +10,8 @@ test("server permission presets replace the selection with their complete grants
     .getByRole("button", { name: "+ Create role", exact: true })
     .click();
   const drawer = page.getByRole("dialog", { name: "Create role", exact: true });
+  const suggestedName = drawer.getByLabel("Name", { exact: true });
+  await expect(suggestedName).toHaveValue("Server viewer");
   const preset = drawer.getByRole("combobox", {
     name: "Apply a permission preset",
     exact: true,
@@ -26,6 +28,7 @@ test("server permission presets replace the selection with their complete grants
     ].sort(),
   );
   await page.getByRole("option", { name: "Log viewer", exact: true }).click();
+  await expect(suggestedName).toHaveValue("Log viewer");
   async function selectedPermissions() {
     return drawer
       .locator('input[type="checkbox"]:checked')
@@ -43,6 +46,7 @@ test("server permission presets replace the selection with their complete grants
   await page
     .getByRole("option", { name: "Basic operator", exact: true })
     .click();
+  await expect(suggestedName).toHaveValue("Basic operator");
   expect(await selectedPermissions()).toEqual([
     "server.console.read",
     "server.operate",
@@ -52,6 +56,7 @@ test("server permission presets replace the selection with their complete grants
   await page
     .getByRole("option", { name: "Backup maintainer", exact: true })
     .click();
+  await expect(suggestedName).toHaveValue("Backup maintainer");
   expect(await selectedPermissions()).toEqual([
     "server.backups.create",
     "server.backups.download",
@@ -66,6 +71,7 @@ test("server permission presets replace the selection with their complete grants
   await page
     .getByRole("option", { name: "Server administrator", exact: true })
     .click();
+  await expect(suggestedName).toHaveValue("Server administrator");
   const catalogResponse = await page.request.get("/api/v1/permissions");
   expect(catalogResponse.ok()).toBeTruthy();
   const catalog = (await catalogResponse.json()) as { id: string }[];

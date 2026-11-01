@@ -102,6 +102,7 @@ export function InspectRole({ id, onClose }: InspectionProps) {
   return (
     <RoleDrawer
       role={role}
+      existingRoles={roles.items}
       onClose={onClose}
       onSaved={roles.upsert}
       deleting={false}

@@ -12,6 +12,8 @@ test("drawer Save actions disable until required fields are provided", async ({
   const dialog = page.getByRole("dialog", { name: "Create role", exact: true });
   await expect(dialog.getByRole("checkbox")).toHaveCount(18);
   const save = dialog.getByRole("button", { name: "Save role", exact: true });
+  await expect(save).toBeEnabled();
+  await dialog.getByLabel("Name", { exact: true }).fill("");
   await expect(save).toBeDisabled();
   await prepareScreenshot(page);
   await expect(dialog.locator(".panel-footer")).toHaveScreenshot(

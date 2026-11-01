@@ -18,6 +18,7 @@ export const AccountLimits = {
   DisplayNameMax: 100,
   EmailMax: 254,
 } as const;
+export const RoleLimits = { NameLength: 64 } as const;
 export const BackupRetentionLimits = { Copies: 1000, AgeDays: 36500 } as const;
 export const GameLimits = {
   MediaBytes: 25 * 1024 * 1024,
