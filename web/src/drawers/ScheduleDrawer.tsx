@@ -17,6 +17,11 @@ import { CheckboxField } from "../components/forms/CheckboxField";
 import { serverActionPermission, hasPermission } from "../api/permissions";
 import { BackupMode } from "../api/backups";
 import { BackupModeField } from "../components/servers/BackupModeField";
+import { ResourceLimits } from "../config/policies";
+import {
+  formatScheduleName,
+  scheduleActionLabel,
+} from "../utils/formatScheduleName";
 
 export function ScheduleDrawer({
   schedule,
@@ -46,7 +51,9 @@ export function ScheduleDrawer({
   const [serverID, setServerID] = useState(
     schedule?.server_id ?? servers[0]?.id ?? "",
   );
-  const [name, setName] = useState(schedule?.name ?? "");
+  const [customName, setCustomName] = useState<string | null>(
+    schedule?.name ?? null,
+  );
   const [action, setAction] = useState<ScheduleAction | "">(
     schedule?.action ??
       allowedActions(schedule?.server_id ?? servers[0]?.id ?? "")[0] ??
@@ -83,6 +90,13 @@ export function ScheduleDrawer({
       .toISOString()
       .slice(0, 16);
   });
+  const name =
+    customName ??
+    formatScheduleName({
+      serverName: servers.find((server) => server.id === serverID)?.name ?? "",
+      action,
+      timing: once ? { once, runAt } : { once, expression, timeZone },
+    });
   const [validated, setValidated] = useState("");
   const cronKey = `${expression.trim().replace(/\s+/g, " ")}\n${timeZone}`;
   const [enabled, setEnabled] = useState(schedule?.enabled ?? true);
@@ -224,9 +238,9 @@ export function ScheduleDrawer({
         <FormField label={t("common.name")}>
           <TextInput
             id="schedule-name"
-            maxLength={100}
+            maxLength={ResourceLimits.NameLength}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setCustomName(e.target.value)}
           />
         </FormField>
         <FormField label={t("common.server")}>
@@ -254,9 +268,7 @@ export function ScheduleDrawer({
           <Select id="schedule-action" value={action} onValueChange={setAction}>
             {allowedActions(serverID).map((value) => (
               <option key={value} value={value}>
-                {value === "command"
-                  ? i18n.t("scheduleDrawer.consoleCommand")
-                  : value.charAt(0).toUpperCase() + value.slice(1)}
+                {scheduleActionLabel(value)}
               </option>
             ))}
           </Select>
