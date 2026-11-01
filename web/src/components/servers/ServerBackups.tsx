@@ -112,11 +112,12 @@ export function ServerBackups({ server }: { server: Server }) {
       if (timer !== undefined) clearTimeout(timer);
     };
   }, [server.id, refresh]);
-  const canChange =
-    status?.state === RuntimeState.Stopped &&
-    !status.busy &&
-    !busy &&
-    loadError === null;
+  const canChange = !status?.busy && !busy && loadError === null;
+  const canCreateNow =
+    canChange &&
+    (status?.state === RuntimeState.Running ||
+      status?.state === RuntimeState.Stopped);
+  const canRestoreNow = canChange && status?.state === RuntimeState.Stopped;
   async function remove(entry: Backup, location: BackupStorage) {
     if (
       pending.current ||
@@ -153,7 +154,7 @@ export function ServerBackups({ server }: { server: Server }) {
   async function submit(action: "backup" | "restore", name?: string) {
     if (
       pending.current ||
-      !canChange ||
+      !(action === ServerAction.Backup ? canCreateNow : canRestoreNow) ||
       !(action === "backup" ? canCreate : canRestore)
     )
       return;
@@ -201,13 +202,11 @@ export function ServerBackups({ server }: { server: Server }) {
   return (
     <Panel
       title={t("serverBackups.backups", { serverName: server.name })}
-      description={t(
-        "serverBackups.stopTheServerToCreateOrRestoreABackupCompleted",
-      )}
+      description={t("serverBackups.description")}
       footerRight={
         <Button
           variant="primary"
-          disabled={!canChange || !canCreate || invalidBackupMode}
+          disabled={!canCreateNow || !canCreate || invalidBackupMode}
           onClick={() => {
             void submit("backup");
           }}
@@ -325,7 +324,7 @@ export function ServerBackups({ server }: { server: Server }) {
                       )}
                     <Button
                       disabled={
-                        !canChange ||
+                        !canRestoreNow ||
                         !canRestore ||
                         entry.state === BackupStatus.Deleting ||
                         (!entry.local && !entry.remote)

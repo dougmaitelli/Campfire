@@ -237,7 +237,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 			return model.RuntimeStatus{}, err
 		}
 
-		if request.Action != model.ServerActionCommand && request.Action != model.ServerActionBackup {
+		if request.Action != model.ServerActionCommand && (request.Action != model.ServerActionBackup || request.BackupOptions.StopServer) {
 			delete(r.gameSessions, record.ServerID)
 		}
 	}

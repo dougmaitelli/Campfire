@@ -56,6 +56,9 @@ export function ScheduleDrawer({
   const [backupMode, setBackupMode] = useState<BackupMode>(
     schedule?.backup_mode ?? BackupMode.Full,
   );
+  const [backupStopServer, setBackupStopServer] = useState(
+    schedule?.backup_stop_server ?? false,
+  );
   const savedataAvailable =
     servers.find((server) => server.id === serverID)?.savedata_available ===
     true;
@@ -137,7 +140,7 @@ export function ScheduleDrawer({
           name,
           action,
           ...(action === ScheduleAction.Backup
-            ? { backup_mode: backupMode }
+            ? { backup_mode: backupMode, backup_stop_server: backupStopServer }
             : {}),
           command,
           cron_expression: once ? "" : expression,
@@ -259,12 +262,24 @@ export function ScheduleDrawer({
           </Select>
         </FormField>
         {action === ScheduleAction.Backup && (
-          <BackupModeField
-            value={backupMode}
-            onChange={setBackupMode}
-            available={savedataAvailable}
-            disabled={busy}
-          />
+          <>
+            <BackupModeField
+              value={backupMode}
+              onChange={setBackupMode}
+              available={savedataAvailable}
+              disabled={busy}
+            />
+            <CheckboxField
+              checked={backupStopServer}
+              disabled={busy}
+              onChange={(event) => setBackupStopServer(event.target.checked)}
+            >
+              {t("scheduleDrawer.stopServerDuringBackup")}
+            </CheckboxField>
+            <p className="field-help">
+              {t("scheduleDrawer.stopServerDuringBackupDescription")}
+            </p>
+          </>
         )}
         {action === ScheduleAction.Command && (
           <>

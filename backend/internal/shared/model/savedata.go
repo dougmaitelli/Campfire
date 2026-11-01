@@ -38,6 +38,7 @@ type SavedataPath struct {
 
 // BackupOptions carries resolved execution paths, rather than the Ember definition.
 type BackupOptions struct {
+	StopServer    bool           `json:"stop_server,omitempty"`
 	Mode          BackupMode     `json:"mode"`
 	Paths         []SavedataPath `json:"paths,omitempty"`
 	EmberRevision string         `json:"ember_revision,omitempty"`

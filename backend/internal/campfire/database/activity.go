@@ -4,6 +4,7 @@ import "campfire/internal/shared/model"
 
 // Schedule defines a recurring server operation. History survives schedule deletion.
 type Schedule struct {
+	BackupStopServer    bool                 `gorm:"not null;default:false" json:"backup_stop_server"`
 	BackupMode          model.BackupMode     `gorm:"type:text;not null;default:'full'" json:"backup_mode"`
 	AuthorizationScopes []model.PermissionID `gorm:"serializer:json;type:text" json:"-"`
 	ID                  string               `gorm:"type:text;primaryKey" json:"id"`
@@ -24,6 +25,7 @@ type Schedule struct {
 
 // ScheduleRun records manual and recurring operations without foreign-key cascades.
 type ScheduleRun struct {
+	BackupStopServer        bool                 `gorm:"not null;default:false" json:"backup_stop_server"`
 	BackupMode              model.BackupMode     `gorm:"type:text;not null;default:'full'" json:"backup_mode"`
 	AuthorizationPermission model.PermissionID   `gorm:"type:text;not null;default:''" json:"-"`
 	AuthorizationScopes     []model.PermissionID `gorm:"serializer:json;type:text" json:"-"`

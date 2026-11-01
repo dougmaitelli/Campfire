@@ -18,10 +18,11 @@ import (
 )
 
 type activityRuntime struct {
-	mu     sync.Mutex
-	status model.RuntimeStatus
-	calls  int
-	fail   bool
+	lastRequest model.RuntimeRequest
+	mu          sync.Mutex
+	status      model.RuntimeStatus
+	calls       int
+	fail        bool
 }
 
 type activityConnectivity struct{ online atomic.Bool }
@@ -40,6 +41,8 @@ func (d *activityRuntime) Action(_ context.Context, _ string, input model.Runtim
 	}
 
 	if input.Action != "status" {
+		d.lastRequest = input
+
 		d.calls++
 		if d.status.Busy && d.status.Operation == "install" && (input.Action == "stop" || input.Action == "kill") {
 			d.status.Busy = false

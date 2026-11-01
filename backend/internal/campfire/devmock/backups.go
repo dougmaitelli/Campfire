@@ -30,6 +30,8 @@ type backupRecord struct {
 func (backupRecord) TableName() string { return "mock_backups" }
 
 func backupArchive(record backupRecord) ([]byte, error) {
+	record.Options.StopServer = false
+
 	files := maps.Clone(record.Files)
 	if record.Options.Mode != "" {
 		metadata := struct {
@@ -131,11 +133,26 @@ func upgradeBackupSizes(ctx context.Context, db *gorm.DB) error {
 }
 
 func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, request model.RuntimeRequest) error {
-	if record.State != model.RuntimeStateStopped {
-		return fileError(model.FileBusy, "Stop the server before creating or restoring backups.")
+	if request.Action == model.ServerActionRestore && record.State != model.RuntimeStateStopped {
+		return fileError(model.FileBusy, "Stop the server before restoring backups.")
 	}
 
 	if request.Action == model.ServerActionBackup {
+		if record.State != model.RuntimeStateStopped && record.State != model.RuntimeStateRunning {
+			return fileError(model.FileBusy, "Wait until the server is running or stopped before creating a backup.")
+		}
+
+		if request.BackupOptions.StopServer && record.State == model.RuntimeStateRunning {
+			record.State = model.RuntimeStateStopped
+
+			record.Logs += timestampLog("[Mock Spark] Server stopped for backup.\n")
+			defer func() {
+				record.State = model.RuntimeStateRunning
+				record.StartedAt, record.StoppedAt = r.now().Unix(), 0
+				record.Logs += timestampLog("[Mock Spark] Server started after backup.\n")
+			}()
+		}
+
 		options := request.BackupOptions
 		options.Mode = options.Mode.Normalized()
 

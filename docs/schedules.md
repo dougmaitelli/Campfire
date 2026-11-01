@@ -35,8 +35,10 @@ underlying action's permission. The same grants are required to retry a schedule
 execution. Jobs created or enabled through an API token retain its scope limit
 and recheck the account's current access before dispatch.
 
-Backup creation requires a stopped game. Arrange the stop and later start
-separately rather than expecting a backup action to stop the server itself.
+Backup schedules run live by default. Select **Stop server during backup** to
+stop a running server before creating the backup and start it again afterwards.
+A server that was already stopped remains stopped. Spark attempts the restart
+even if backup creation fails; inspect execution history for the final result.
 Each backup schedule selects **Full server** or **Save data only**. Save-data mode
 is available only when the server's applied Ember declares `savedata_paths`.
 If those declarations are later removed, a save-data schedule fails with an error;

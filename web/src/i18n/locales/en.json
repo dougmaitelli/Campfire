@@ -595,6 +595,8 @@
     "privateCommand": "The console command is stored privately for execution."
   },
   "scheduleDrawer": {
+    "stopServerDuringBackup": "Stop server during backup",
+    "stopServerDuringBackupDescription": "Stops a running server before the backup and starts it again afterwards. Servers already stopped remain stopped.",
     "action": "Action",
     "chooseAFutureDateAndTimeForThisOneOff": "Choose a future date and time for this one-off schedule.",
     "actionNotAllowed": "Your permissions do not allow this scheduled action.",
@@ -675,7 +677,7 @@
     "serverBackups": "Server backups",
     "size": "Size",
     "sparkIsUnavailableOffHostBackupsCanStillBeDownloaded": "Spark is unavailable. Off-host backups can still be downloaded.",
-    "stopTheServerToCreateOrRestoreABackupCompleted": "Stop the server to create or restore a backup. Completed archives sync to S3 in the background when enabled.",
+    "description": "Backups can run while the server is running. Stop it before restoring. Completed archives sync to S3 in the background when enabled.",
     "storage": "Storage",
     "unableToDeleteBackup": "Unable to delete backup.",
     "unableToLoadBackups": "Unable to load backups.",

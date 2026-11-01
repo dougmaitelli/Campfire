@@ -58,6 +58,16 @@ Upgraded Sparks can read their existing full-definition snapshots from disk,
 including named startup selections and custom overrides. New deliveries replace
 those snapshots with the execution-only format.
 
+## Backup execution
+
+`server.backups.v3` supports live backup creation and the optional
+`backup_options.stop_server` execution flag. When requested, Spark owns the
+stop, backup, and conditional restart as one exclusive operation with one
+operation ID. It attempts to restart a previously running server even when
+backup creation fails; a server that was already stopped remains stopped.
+Restoration still requires a stopped server. Upgrade Sparks before using this
+backup contract; the wire protocol version is unchanged.
+
 ## Repository layout
 
 | Path                         | Contents                                                                       |

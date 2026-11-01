@@ -19,10 +19,17 @@ the complete permission hierarchy.
 
 ## Create and restore
 
-Stop the installed server before creating or restoring a backup. Follow the
-operation status until completion; closing the console does not cancel the work.
-For recurring backups, configure a schedule and arrange for the game to be
-stopped before the backup action runs.
+Backups can run while the server is running. Live backups copy files as they are
+read; they do not flush in-memory game saves or provide an atomic snapshot across
+files. Save the game first when possible, or stop it for a consistent backup.
+Restoring still requires a stopped server.
+
+Backup schedules offer **Stop server during backup**. When selected, Spark stops
+a running server, creates the backup, and attempts to start it again even if
+backup creation fails. A server that was already stopped remains stopped. The
+sequence runs as one operation on Spark and continues if the panel restarts.
+Follow its execution history and server status to confirm both the backup and
+restart completed.
 
 Choose **Full server** to capture the whole game-data directory, or **Save data
 only** to capture the files and folders declared by the Ember's `savedata_paths`.

@@ -99,6 +99,8 @@ func readBackupManifest(input io.Reader) (backupManifest, error) {
 }
 
 func writeBackupManifest(archive *tar.Writer, root *os.Root, options model.BackupOptions) error {
+	options.StopServer = false
+
 	options.Mode = options.Mode.Normalized()
 	if err := options.Validate(); err != nil {
 		return err

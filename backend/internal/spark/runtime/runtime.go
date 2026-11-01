@@ -293,7 +293,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("another server operation is in progress")
 	}
 
-	if q.Action == model.ServerActionBackup || q.Action == model.ServerActionRestore || q.Action == model.ServerActionInstall || q.Action == model.ServerActionUpdate || q.Action == model.ServerActionReinstall {
+	if q.Action == model.ServerActionRestore || q.Action == model.ServerActionInstall || q.Action == model.ServerActionUpdate || q.Action == model.ServerActionReinstall {
 		if q.Action == model.ServerActionRestore && !backupName(q.Content) {
 			return model.RuntimeStatus{}, errors.New("select a valid backup")
 		}
@@ -312,7 +312,15 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	phase := map[model.ServerAction]model.RuntimeState{model.ServerActionInstall: model.RuntimeStateInstalling, model.ServerActionUpdate: model.RuntimeStateUpdating, model.ServerActionReinstall: model.RuntimeStateReinstalling, model.ServerActionStart: model.RuntimeStateStarting, model.ServerActionStop: model.RuntimeStateStopping, model.ServerActionRestart: model.RuntimeStateRestarting, model.ServerActionKill: model.RuntimeStateStopping, model.ServerActionDelete: model.RuntimeStateDeleting}[q.Action]
-	if q.Action == model.ServerActionBackup || q.Action == model.ServerActionRestore {
+	switch q.Action {
+	case model.ServerActionBackup:
+		status, err := m.observe(ctx, d, e)
+		if err != nil {
+			return model.RuntimeStatus{}, err
+		}
+
+		phase = status.State
+	case model.ServerActionRestore:
 		phase = model.RuntimeStateStopped
 	}
 
@@ -363,7 +371,7 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 	case model.ServerActionReinstall:
 		err = m.reinstallMode(ctx, d, e, true, q.Content == "clean")
 	case model.ServerActionBackup:
-		err = m.createBackup(ctx, d, q.OperationID, e, q.BackupOptions)
+		err = m.backup(ctx, d, q.OperationID, e, q.BackupOptions)
 	case model.ServerActionRestore:
 		if q.BackupSource != nil {
 			err = m.downloadBackup(ctx, d, q.Content, q.BackupSource, e)

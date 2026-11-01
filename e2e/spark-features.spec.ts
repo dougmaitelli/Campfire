@@ -1,5 +1,6 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
+import { Capability } from "../web/src/contracts/capabilities";
 
 test("Spark features group related capabilities and report partial support", async ({
   page,
@@ -16,7 +17,7 @@ test("Spark features group related capabilities and report partial support", asy
     "server.files.permissions.v1",
     "server.files.transfer.v1",
     "server.files.archive.v1",
-    "server.backups.v2",
+    Capability.Backups,
     "server.backups.remote.v1",
     "server.metrics.v1",
     "server.console.stream.v1",

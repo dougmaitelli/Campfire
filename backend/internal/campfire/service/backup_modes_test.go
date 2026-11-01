@@ -10,9 +10,9 @@ import (
 )
 
 func TestSavedataSchedulesValidateDeclarationsAndKeepModeOnRetry(t *testing.T) {
-	s, db, _, principal := activityFixture(t)
+	s, db, runtime, principal := activityFixture(t)
 	ctx := t.Context()
-	input := database.Schedule{ServerID: "game", Name: "Save data", Action: "backup", BackupMode: model.BackupModeSavedata, CronExpression: "0 3 * * *", TimeZone: "UTC"}
+	input := database.Schedule{ServerID: "game", Name: "Save data", Action: model.ServerActionBackup, BackupMode: model.BackupModeSavedata, BackupStopServer: true, CronExpression: "0 3 * * *", TimeZone: "UTC"}
 
 	if _, err := s.Save(ctx, principal, input, true); err == nil {
 		t.Fatal("accepted save-data schedule without Ember declarations")
@@ -41,7 +41,7 @@ func TestSavedataSchedulesValidateDeclarationsAndKeepModeOnRetry(t *testing.T) {
 	}
 
 	run, err := s.Store.ClaimSchedule(ctx, item.ID, time.Now(), &principal.UserID)
-	if err != nil || run.BackupMode != model.BackupModeSavedata {
+	if err != nil || run.BackupMode != model.BackupModeSavedata || !run.BackupStopServer {
 		t.Fatal("schedule did not capture its backup mode", run, err)
 	}
 
@@ -50,8 +50,12 @@ func TestSavedataSchedulesValidateDeclarationsAndKeepModeOnRetry(t *testing.T) {
 	}
 
 	retried, err := s.Retry(ctx, principal, run.ID)
-	if err != nil || retried.BackupMode != model.BackupModeSavedata {
+	if err != nil || retried.BackupMode != model.BackupModeSavedata || !retried.BackupStopServer {
 		t.Fatal("retry changed backup mode", retried, err)
+	}
+
+	if !runtime.lastRequest.BackupOptions.StopServer || runtime.lastRequest.BackupOptions.Mode != model.BackupModeSavedata {
+		t.Fatal("schedule options were not sent to Spark", runtime.lastRequest)
 	}
 
 	ember.SavedataPaths = nil
@@ -66,6 +70,29 @@ func TestSavedataSchedulesValidateDeclarationsAndKeepModeOnRetry(t *testing.T) {
 	options, err := s.deployment.backupOptions(ctx, "game", model.BackupModeFull)
 	if err != nil || options.Mode != model.BackupModeFull || len(options.Paths) != 0 {
 		t.Fatal("full mode must remain available without save-data declarations", options, err)
+	}
+}
+
+func TestBackupScheduleStopOptionUpdates(t *testing.T) {
+	s, _, _, principal := activityFixture(t)
+
+	item, err := s.Save(t.Context(), principal, database.Schedule{ServerID: "game", Name: "Backup", Action: model.ServerActionBackup, BackupStopServer: true, CronExpression: "0 3 * * *", TimeZone: "UTC"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, action := range []model.ServerAction{model.ServerActionBackup, model.ServerActionRestart} {
+		item.Action = action
+
+		item.BackupStopServer = action != model.ServerActionBackup
+		if _, err := s.Save(t.Context(), principal, item, false); err != nil {
+			t.Fatal(err)
+		}
+
+		saved, err := s.Store.Schedule(t.Context(), item.ID)
+		if err != nil || saved.BackupStopServer {
+			t.Fatal("disabled or inapplicable stop option remained enabled", saved, err)
+		}
 	}
 }
 

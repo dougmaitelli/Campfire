@@ -78,13 +78,22 @@ export function ScheduleDetailsDrawer({
             {operationLabel(schedule.action)}
           </DetailItem>
           {schedule.action === ScheduleAction.Backup && (
-            <DetailItem label={t("backupModes.label")}>
-              {t(
-                schedule.backup_mode === BackupMode.Savedata
-                  ? "backupModes.savedata"
-                  : "backupModes.full",
-              )}
-            </DetailItem>
+            <>
+              <DetailItem label={t("backupModes.label")}>
+                {t(
+                  schedule.backup_mode === BackupMode.Savedata
+                    ? "backupModes.savedata"
+                    : "backupModes.full",
+                )}
+              </DetailItem>
+              <DetailItem label={t("scheduleDrawer.stopServerDuringBackup")}>
+                {t(
+                  schedule.backup_stop_server
+                    ? "common.enabled"
+                    : "common.disabled",
+                )}
+              </DetailItem>
+            </>
           )}
           <DetailItem label={t("common.status")}>
             <StatusPill tone={schedule.enabled ? "positive" : "warning"}>

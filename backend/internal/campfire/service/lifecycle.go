@@ -223,10 +223,15 @@ func (s *DeploymentService) executeTracked(ctx context.Context, run database.Sch
 		content = string(run.BackupMode.Normalized())
 	}
 
-	return s.dispatchAction(ctx, run.ServerID, run.Action, content, run.ID)
+	return s.dispatchRequest(ctx, model.RuntimeRequest{ServerID: run.ServerID, Action: run.Action, Content: content, OperationID: run.ID, BackupOptions: model.BackupOptions{StopServer: run.Action == model.ServerActionBackup && run.BackupStopServer}})
 }
 
 func (s *DeploymentService) dispatchAction(ctx context.Context, id string, action model.ServerAction, content, operationID string) (model.RuntimeStatus, error) {
+	return s.dispatchRequest(ctx, model.RuntimeRequest{ServerID: id, Action: action, Content: content, OperationID: operationID})
+}
+
+func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.RuntimeRequest) (model.RuntimeStatus, error) {
+	id, action, content := request.ServerID, request.Action, request.Content
 	switch action {
 	case model.ServerActionInstall, model.ServerActionUpdate, model.ServerActionReinstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionDelete, model.ServerActionStatus, model.ServerActionLogs, model.ServerActionCommand, model.ServerActionBackup, model.ServerActionRestore:
 	default:
@@ -254,13 +259,15 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id string, actio
 		return model.RuntimeStatus{}, ErrDeploymentUnavailable
 	}
 
-	request := model.RuntimeRequest{ServerID: id, Action: action, Content: content}
 	if action == model.ServerActionBackup {
+		stopServer := request.BackupOptions.StopServer
+
 		request.BackupOptions, err = s.backupOptions(ctx, id, model.BackupMode(content))
 		if err != nil {
 			return model.RuntimeStatus{}, err
 		}
 
+		request.BackupOptions.StopServer = stopServer
 		request.Content = ""
 	}
 
@@ -290,13 +297,16 @@ func (s *DeploymentService) dispatchAction(ctx context.Context, id string, actio
 	}
 
 	if action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionCommand {
-		request.OperationID = operationID
 		if request.OperationID == "" {
 			request.OperationID = rand.Text()
 		}
 	}
 
 	if s.Games != nil {
+		if action == model.ServerActionBackup && request.BackupOptions.StopServer {
+			s.Games.Invalidate(id)
+		}
+
 		switch action {
 		case model.ServerActionInstall, model.ServerActionUpdate, model.ServerActionReinstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionDelete, model.ServerActionRestore:
 			s.Games.Invalidate(id)

@@ -6,7 +6,14 @@ test("manual backups send the selected type and save-data restore describes its 
 }) => {
   await login(page);
   await openServerTab(page, "backups", "Backups");
-  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Create backup", exact: true }),
+  ).toBeEnabled();
+  for (const restore of await page
+    .getByRole("button", { name: "Restore", exact: true })
+    .all()) {
+    await expect(restore).toBeDisabled();
+  }
   const type = page.getByRole("combobox", { name: "Backup type", exact: true });
   await type.click();
   await page
@@ -34,6 +41,14 @@ test("manual backups send the selected type and save-data restore describes its 
     page.getByRole("button", { name: "Create backup", exact: true }),
   ).toBeEnabled();
   let confirmation = "";
+  const status = (await (
+    await page.request.get("/api/v1/servers/survival/status")
+  ).json()) as { state: string };
+  expect(status.state).toBe("running");
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(
+    row.getByRole("button", { name: "Restore", exact: true }),
+  ).toBeEnabled();
   page.once("dialog", async (dialog) => {
     confirmation = dialog.message();
     await dialog.dismiss();
@@ -61,7 +76,12 @@ test("backup schedules retain their explicit type", async ({ page }) => {
   await page
     .getByRole("option", { name: "Save data only", exact: true })
     .click();
+  await drawer
+    .getByRole("checkbox", { name: "Stop server during backup", exact: true })
+    .check();
   await screenshot(page, "schedule-backup-mode.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await screenshot(page, "schedule-backup-mode-mobile.png");
   const response = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/v1/schedules") &&
@@ -72,7 +92,10 @@ test("backup schedules retain their explicit type", async ({ page }) => {
     .click();
   const saved = await response;
   expect(saved.ok()).toBeTruthy();
-  expect(await saved.json()).toMatchObject({ backup_mode: "savedata" });
+  expect(await saved.json()).toMatchObject({
+    backup_mode: "savedata",
+    backup_stop_server: true,
+  });
   await page.reload();
   await page
     .getByRole("button", {
@@ -85,6 +108,13 @@ test("backup schedules retain their explicit type", async ({ page }) => {
       .getByRole("dialog", { name: "Save-data snapshot", exact: true })
       .getByText("Save data only", { exact: true }),
   ).toBeVisible();
+  const stopOption = page
+    .getByRole("dialog", { name: "Save-data snapshot", exact: true })
+    .locator(".details-list > div")
+    .filter({
+      has: page.getByText("Stop server during backup", { exact: true }),
+    });
+  await expect(stopOption).toContainText("Enabled");
 });
 
 test("save-data mode is unavailable when the applied Ember has no paths", async ({

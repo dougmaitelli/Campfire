@@ -291,6 +291,7 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 		}
 	} else {
 		item.BackupMode = model.BackupModeFull
+		item.BackupStopServer = false
 	}
 
 	if err := s.authorize(ctx, principal, item.ServerID, accessperm.Action(item.Action)); err != nil {
@@ -382,6 +383,7 @@ func (s *ActivityService) attempt(ctx context.Context, principal Principal, old 
 	run.AuthorizationScopes = principal.TokenScopes
 	if old.Action == model.ServerActionBackup {
 		run.BackupMode = old.BackupMode.Normalized()
+		run.BackupStopServer = old.BackupStopServer
 	}
 
 	if old.ScheduleID != "" {

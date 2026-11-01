@@ -11,6 +11,7 @@ import { isUser, type User } from "./access";
 import type { BackupMode } from "./backups";
 
 export interface Schedule {
+  backup_stop_server?: boolean;
   backup_mode?: BackupMode;
   id: string;
   server_id: string;
@@ -26,6 +27,7 @@ export interface Schedule {
   created_at: number;
 }
 export interface ScheduleInput {
+  backup_stop_server?: boolean;
   backup_mode?: BackupMode;
   next_run_at?: number;
   server_id: string;
@@ -38,6 +40,7 @@ export interface ScheduleInput {
   enabled: boolean;
 }
 export interface Execution {
+  backup_stop_server?: boolean;
   backup_mode?: BackupMode;
   id: string;
   schedule_id: string;
@@ -84,6 +87,8 @@ function numbers(value: Record<string, unknown>, keys: string[]) {
 function isSchedule(value: unknown): value is Schedule {
   return (
     object(value) &&
+    (value.backup_stop_server === undefined ||
+      typeof value.backup_stop_server === "boolean") &&
     (!("backup_mode" in value) ||
       value.backup_mode === "full" ||
       value.backup_mode === "savedata") &&
@@ -105,6 +110,8 @@ function isSchedule(value: unknown): value is Schedule {
 function isExecution(value: unknown): value is Execution {
   return (
     object(value) &&
+    (value.backup_stop_server === undefined ||
+      typeof value.backup_stop_server === "boolean") &&
     strings(value, [
       "id",
       "schedule_id",

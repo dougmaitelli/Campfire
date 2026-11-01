@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
@@ -33,7 +35,7 @@ func (m *Manager) backupStopped(ctx context.Context, id string) error {
 	}
 
 	if state != "missing" && state != "exited" && state != "created" {
-		return errors.New("stop the server before creating or restoring a backup")
+		return errors.New("stop the server before this operation")
 	}
 
 	return nil
@@ -182,16 +184,61 @@ func (r backupReader) Read(p []byte) (int, error) {
 	return r.Reader.Read(p)
 }
 
-func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id string, e *entry, options model.BackupOptions) error {
+func (m *Manager) backup(ctx context.Context, d model.Deployment, id string, e *entry, options model.BackupOptions) (err error) {
 	if err := options.Validate(); err != nil {
 		return err
 	}
 
-	m.progress(d.ServerID, e, "Creating backup")
+	if options.StopServer {
+		state, inspectErr := m.inspect(ctx, d.ServerID)
+		if inspectErr != nil {
+			return inspectErr
+		}
 
-	if err := m.backupStopped(ctx, d.ServerID); err != nil {
-		return err
+		if state == string(model.RuntimeStateRunning) {
+			defer func() {
+				if m.ctx.Err() != nil {
+					err = errors.Join(err, errors.New("spark runtime stopped before the server could restart after backup"))
+					return
+				}
+
+				restartCtx, cancel := context.WithTimeout(m.ctx, time.Minute)
+				defer cancel()
+
+				m.backupPhase(e, model.RuntimeStateStarting, "Starting server after backup")
+
+				if startErr := m.start(restartCtx, d, e); startErr != nil {
+					err = errors.Join(err, fmt.Errorf("restart after backup: %w", startErr))
+				}
+			}()
+
+			m.backupPhase(e, model.RuntimeStateStopping, "Stopping server for backup")
+
+			if err := m.stop(ctx, d); err != nil {
+				return fmt.Errorf("stop for backup: %w", err)
+			}
+		}
+
+		if err := m.backupStopped(ctx, d.ServerID); err != nil {
+			return err
+		}
+
+		m.backupPhase(e, model.RuntimeStateStopped, "Creating backup")
 	}
+
+	return m.createBackup(ctx, d, id, e, options)
+}
+
+func (m *Manager) backupPhase(e *entry, state model.RuntimeState, progress string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.Status.State, e.Status.Ready = state, false
+	e.Status.Progress, e.Status.OperationState = progress, model.OperationRunning
+}
+
+func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id string, e *entry, options model.BackupOptions) error {
+	m.progress(d.ServerID, e, "Creating backup")
 
 	directory := filepath.Join(m.root(d.ServerID), "backups")
 	if err := os.MkdirAll(directory, 0700); err != nil {

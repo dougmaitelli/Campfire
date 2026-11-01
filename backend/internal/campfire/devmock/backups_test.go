@@ -46,8 +46,8 @@ func TestMockBackupsPersistDownloadAndRestore(t *testing.T) {
 		}
 	}
 
-	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "backup", OperationID: "snapshot"}); err == nil {
-		t.Fatal("running server backup accepted")
+	if status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: model.ServerActionBackup, OperationID: "snapshot"}); err != nil || status.State != model.RuntimeStateRunning {
+		t.Fatal("live backup did not preserve the running state", status, err)
 	}
 
 	for _, action := range []string{"stop", "backup", "backup"} {
