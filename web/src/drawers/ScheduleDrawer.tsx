@@ -5,6 +5,7 @@ import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
+import { DateTimeInput } from "../components/forms/DateTimeInput";
 import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
 import type { Server } from "../api/servers";
@@ -300,8 +301,7 @@ export function ScheduleDrawer({
               "scheduleDrawer.dateAndTimeInYourBrowserSLocalTimeZone",
             )}
           >
-            <TextInput
-              type="datetime-local"
+            <DateTimeInput
               value={runAt}
               required
               onChange={(event) => setRunAt(event.target.value)}

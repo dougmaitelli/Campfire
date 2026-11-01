@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   CalendarClock,
+  CalendarDays,
   Check,
   ChevronUp,
   CircleCheck,
@@ -81,6 +82,7 @@ type NavigationIconName =
   | "memory"
   | "disk"
   | "search"
+  | "calendar"
   | "check-circle"
   | "x-circle";
 
@@ -100,6 +102,7 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   "check-circle": CircleCheck,
   "x-circle": CircleX,
   search: Search,
+  calendar: CalendarDays,
   cpu: Cpu,
   memory: MemoryStick,
   disk: HardDrive,

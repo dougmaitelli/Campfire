@@ -1,0 +1,48 @@
+.date-time-input {
+  position: relative;
+  min-width: 0;
+
+  & .text-input {
+    appearance: none;
+    display: block;
+    position: relative;
+    width: 100%;
+    min-width: 0;
+
+    @supports selector(::-webkit-calendar-picker-indicator) {
+      padding-inline-end: 40px;
+    }
+
+    &::-webkit-calendar-picker-indicator {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline-end: 8px;
+      width: 26px;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+  }
+
+  & .date-time-input-icon {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: 8px;
+    width: 26px;
+    height: 26px;
+    transform: translateY(-50%);
+    color: var(--muted);
+    /* Firefox does not expose its native picker icon to CSS. */
+    background: var(--control-bg);
+    pointer-events: none;
+
+    & svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+}

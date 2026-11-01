@@ -18,7 +18,11 @@ export const test = base.extend<{ guard: void }>({
       });
       await page.route("**/*", async (route) => {
         const url = route.request().url();
-        if (url.startsWith(baseURL + "/") || url.startsWith("data:"))
+        if (
+          url.startsWith(baseURL + "/") ||
+          url.startsWith("blob:" + baseURL + "/") ||
+          url.startsWith("data:")
+        )
           return route.continue();
         errors.push(`Unexpected external request: ${url}`);
         await route.abort();

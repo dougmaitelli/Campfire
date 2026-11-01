@@ -10,6 +10,7 @@ import { useCollection } from "../../hooks/useCollection";
 import { Button } from "../forms/Button";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
+import { DateTimeInput } from "../forms/DateTimeInput";
 import { InlineMessage } from "../status/InlineMessage";
 import { ContentState } from "../layout/ContentState";
 import { ListToolbar } from "../layout/ListToolbar";
@@ -57,15 +58,13 @@ export function ServerGameEvents({ serverID }: { serverID: string }) {
             />
           </FormField>
           <FormField label={t("gameEvents.from")}>
-            <TextInput
-              type="datetime-local"
+            <DateTimeInput
               value={from}
               onChange={(event) => setFrom(event.target.value)}
             />
           </FormField>
           <FormField label={t("gameEvents.to")}>
-            <TextInput
-              type="datetime-local"
+            <DateTimeInput
               value={to}
               onChange={(event) => setTo(event.target.value)}
             />

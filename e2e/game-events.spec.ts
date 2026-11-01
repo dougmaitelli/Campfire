@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, prepareScreenshot } from "./fixtures";
 import { login } from "./screens";
 
 test("game activity reads retained events and filters by type and time", async ({
@@ -13,6 +13,10 @@ test("game activity reads retained events and filters by type and time", async (
   await expect(
     feed.getByText("Alex earned Stone Age", { exact: true }),
   ).toBeVisible();
+  await prepareScreenshot(page);
+  await expect(feed.locator("form")).toHaveScreenshot(
+    "activity-date-filters.png",
+  );
   await feed.getByLabel("Event type", { exact: true }).fill("player.joined");
   await feed
     .getByRole("button", { name: "Apply filters", exact: true })
@@ -31,6 +35,13 @@ test("game activity reads retained events and filters by type and time", async (
   await feed
     .getByLabel("Occurred after", { exact: true })
     .fill("2030-01-01T00:00");
+  await feed
+    .getByRole("heading", { name: "Game activity", exact: true })
+    .click();
+  await prepareScreenshot(page);
+  await expect(feed.locator("form")).toHaveScreenshot(
+    "activity-date-filters-filled.png",
+  );
   await feed
     .getByRole("button", { name: "Apply filters", exact: true })
     .click();
