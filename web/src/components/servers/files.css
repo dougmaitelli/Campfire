@@ -192,7 +192,7 @@
   overflow-wrap: anywhere;
 }
 .file-entry-icon {
-  display: inline-flex;
+  display: flex;
   flex-shrink: 0;
 
   & svg {
