@@ -33,9 +33,9 @@ import { ResourceTiles } from "../components/metrics/ResourceTiles";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerGameEvents } from "../components/servers/ServerGameEvents";
 import { ResourceGraphs } from "../components/metrics/ResourceGraphs";
-import { ServerConsoleDrawer } from "../drawers/ServerConsoleDrawer";
-import { ServerFilesDrawer } from "../drawers/ServerFilesDrawer";
-import { ServerBackupsDrawer } from "../drawers/ServerBackupsDrawer";
+import { ServerConsole } from "../components/servers/ServerConsole";
+import { ServerFileBrowser } from "../components/servers/ServerFileBrowser";
+import { ServerBackups } from "../components/servers/ServerBackups";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
@@ -196,9 +196,6 @@ export function ServerOperationsPage({
       setActing(false);
     }
   }
-  const back = () => {
-    window.location.hash = "servers";
-  };
   return (
     <section className="server-operations" aria-labelledby="page-title">
       <PageHeader
@@ -364,12 +361,7 @@ export function ServerOperationsPage({
                       {message.detail && <> {message.detail}</>}
                     </InlineMessage>
                   )}
-                  <ServerConsoleDrawer
-                    embedded
-                    server={server}
-                    status={status}
-                    onClose={back}
-                  />
+                  <ServerConsole server={server} status={status} />
                   <ResourceGraphs
                     serverID={server.id}
                     cpuLimit={server.cpu_limit}
@@ -378,8 +370,7 @@ export function ServerOperationsPage({
                 </>
               )}
               {activeTab === "files" && (
-                <ServerFilesDrawer
-                  embedded
+                <ServerFileBrowser
                   server={server}
                   canWrite={
                     [
@@ -389,12 +380,9 @@ export function ServerOperationsPage({
                     ].some((value) => value === status?.state) &&
                     status?.busy !== true
                   }
-                  onClose={back}
                 />
               )}
-              {activeTab === "backups" && (
-                <ServerBackupsDrawer embedded server={server} onClose={back} />
-              )}
+              {activeTab === "backups" && <ServerBackups server={server} />}
             </>
           ) : (
             <p className="field-help">

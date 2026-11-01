@@ -10,6 +10,7 @@ import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
 import { FormField } from "../components/forms/FormField";
 import { Button, ButtonLink } from "../components/forms/Button";
+import type { ActionMenuItem } from "../components/forms/ActionMenu";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -178,6 +179,41 @@ export function ServersPage() {
       editorPending.current = false;
     }
   }
+  const detailActions: ActionMenuItem[] = [
+    ...(details && canApplyRevision && details.ember_update_available
+      ? [
+          {
+            label: t("serversPage.updateEmber"),
+            icon: "embers",
+            disabled:
+              deleting !== null ||
+              runtime.statuses[details.id]?.busy === true ||
+              ![
+                RuntimeState.Stopped,
+                RuntimeState.NotInstalled,
+                RuntimeState.Deleted,
+              ].some((state) => state === runtime.statuses[details.id]?.state),
+            onSelect: () => {
+              setDetails(null);
+              void edit(details, true);
+            },
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(details && canTransfer
+      ? [
+          {
+            label: t("serversPage.transfer"),
+            icon: "arrow-right",
+            disabled: deleting !== null,
+            onSelect: () => {
+              setDetails(null);
+              setTransferServer(details);
+            },
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+  ];
   return (
     <section aria-labelledby="page-title">
       <PageHeader
@@ -534,44 +570,7 @@ export function ServersPage() {
           }
           deleting={deleting === details.id}
           actionError={actionError}
-          actions={
-            <>
-              {canApplyRevision && details.ember_update_available && (
-                <Button
-                  variant="primary"
-                  disabled={
-                    deleting !== null ||
-                    runtime.statuses[details.id]?.busy === true ||
-                    ![
-                      RuntimeState.Stopped,
-                      RuntimeState.NotInstalled,
-                      RuntimeState.Deleted,
-                    ].some(
-                      (value) => value === runtime.statuses[details.id]?.state,
-                    )
-                  }
-                  onClick={() => {
-                    setDetails(null);
-                    void edit(details, true);
-                  }}
-                >
-                  {t("serversPage.updateEmber")}
-                </Button>
-              )}
-              {canTransfer && (
-                <Button
-                  variant="primary"
-                  disabled={deleting !== null}
-                  onClick={() => {
-                    setDetails(null);
-                    setTransferServer(details);
-                  }}
-                >
-                  {t("serversPage.transfer")}
-                </Button>
-              )}
-            </>
-          }
+          actions={detailActions}
           onClose={() => setDetails(null)}
           onEdit={
             details.permissions.includes(Permission.ServerConfigure) ||

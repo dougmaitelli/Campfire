@@ -582,11 +582,11 @@ test("resource inspection keeps the current page and supports nested drawers", a
       dialog.getByRole("heading", { level: 2, name: new RegExp(resource) }),
     ).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-    await expect(dialog.locator(".drawer-heading")).toHaveScreenshot(
+    await expect(dialog.locator(".panel-heading")).toHaveScreenshot(
       `${screen}-drawer-heading.png`,
     );
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(dialog.locator(".drawer-heading")).toHaveScreenshot(
+    await expect(dialog.locator(".panel-heading")).toHaveScreenshot(
       `${screen}-drawer-heading-mobile.png`,
     );
     await dialog
@@ -641,12 +641,14 @@ test("Spark can force update the current panel build remotely without an update"
     .getByRole("button", { name: "View details for Europe", exact: true })
     .click();
   const details = page.getByRole("dialog");
-  const action = details.getByRole("button", {
+  const actions = details.getByRole("button", { name: "Actions", exact: true });
+  await actions.click();
+  const action = details.getByRole("menuitem", {
     name: "Force update",
     exact: true,
   });
   await expect(
-    details.getByRole("button", { name: "Update", exact: true }),
+    details.getByRole("menuitem", { name: "Update", exact: true }),
   ).toHaveCount(0);
   await action.click();
   const reinstall = page.getByRole("dialog", {
@@ -659,20 +661,24 @@ test("Spark can force update the current panel build remotely without an update"
   await expect(reinstall).toHaveScreenshot("spark-force-update-mobile.png");
   await reinstall.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(reinstalls).toBe(0);
+  await actions.click();
   await action.click();
   await page
     .getByRole("dialog", { name: "Force update Spark · Europe?", exact: true })
     .getByRole("button", { name: "Force update", exact: true })
     .click();
   await expect.poll(() => reinstalls).toBe(1);
+  await actions.click();
   await expect(action).toBeEnabled();
   expect(enrollments).toBe(0);
   connected = false;
   await page.reload();
+  await actions.click();
   await expect(action).toBeDisabled();
   connected = true;
   capable = false;
   await page.reload();
+  await actions.click();
   await expect(action).toBeDisabled();
 });
 

@@ -59,7 +59,7 @@ export function ViewAsDrawer({ onClose }: { onClose: () => void }) {
         </Button>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {(error ?? users.error) && (
           <InlineMessage role="alert">{error ?? users.error}</InlineMessage>
         )}

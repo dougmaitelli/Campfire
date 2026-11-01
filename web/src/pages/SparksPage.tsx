@@ -3,6 +3,7 @@ import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Button } from "../components/forms/Button";
+import type { ActionMenuItem } from "../components/forms/ActionMenu";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
@@ -181,6 +182,64 @@ export function SparksPage() {
     setAdding(true);
   }
 
+  function detailActions(spark: Spark): ActionMenuItem[] {
+    const items: ActionMenuItem[] = [
+      {
+        label: t("sparksPage.prune"),
+        icon: "delete",
+        tone: "warning",
+        disabled:
+          !spark.connected ||
+          spark.disabled ||
+          pruning ||
+          deleting !== null ||
+          updating !== null ||
+          !spark.capabilities?.includes(Capability.Prune),
+        onSelect: () => {
+          setPruneError(null);
+          setPruneResult(null);
+          setConfirmPrune(spark);
+        },
+      },
+    ];
+    if (spark.agent_update_available) {
+      items.push({
+        label: t("sparksPage.updateSpark"),
+        icon: "download",
+        disabled:
+          updating !== null ||
+          !spark.capabilities?.includes(Capability.SelfUpdate),
+        loading: updating === spark.id,
+        loadingLabel: t("sparksPage.updating"),
+        onSelect: () => setConfirmUpdate(spark),
+      });
+    }
+    items.push(
+      {
+        label: t("sparksPage.forceUpdate"),
+        icon: "restart",
+        tone: "warning",
+        disabled:
+          !spark.connected ||
+          spark.disabled ||
+          !spark.latest_agent_version ||
+          !spark.capabilities?.includes(Capability.SelfReinstall) ||
+          pruning ||
+          deleting !== null ||
+          updating !== null,
+        onSelect: () => setConfirmForceUpdate(spark),
+      },
+      {
+        label: t("sparksPage.reEnroll"),
+        icon: "key",
+        tone: "warning",
+        disabled: spark.disabled || deleting !== null || updating !== null,
+        onSelect: () => setConfirmEnrollment(spark),
+      },
+    );
+    return items;
+  }
+
   return (
     <section className="page" aria-labelledby="page-title">
       <PageHeader
@@ -266,70 +325,7 @@ export function SparksPage() {
           deleting={deleting === details.id}
           deleteDisabled={deleting !== null || updating !== null}
           actionError={updateError ?? deleteError}
-          actions={
-            <>
-              <Button
-                variant="warning"
-                disabled={
-                  !details.connected ||
-                  details.disabled ||
-                  pruning ||
-                  deleting !== null ||
-                  updating !== null ||
-                  !details.capabilities?.includes(Capability.Prune)
-                }
-                onClick={() => {
-                  setPruneError(null);
-                  setPruneResult(null);
-                  setConfirmPrune(details);
-                }}
-              >
-                {t("sparksPage.prune")}
-              </Button>
-              {details.agent_update_available && (
-                <Button
-                  variant="primary"
-                  disabled={
-                    updating !== null ||
-                    !details.capabilities?.includes(Capability.SelfUpdate)
-                  }
-                  onClick={() => setConfirmUpdate(details)}
-                  loading={updating === details.id}
-                  loadingLabel={t("sparksPage.updating")}
-                >
-                  {t("sparksPage.updateSpark")}
-                </Button>
-              )}
-              <Button
-                type="button"
-                variant="warning"
-                disabled={
-                  !details.connected ||
-                  details.disabled ||
-                  !details.latest_agent_version ||
-                  !details.capabilities?.includes(Capability.SelfReinstall) ||
-                  pruning ||
-                  deleting !== null ||
-                  updating !== null
-                }
-                onClick={() => setConfirmForceUpdate(details)}
-              >
-                {t("sparksPage.forceUpdate")}
-              </Button>
-              <Button
-                type="button"
-                variant="warning"
-                disabled={
-                  details.disabled || deleting !== null || updating !== null
-                }
-                onClick={() => {
-                  setConfirmEnrollment(details);
-                }}
-              >
-                {t("sparksPage.reEnroll")}
-              </Button>
-            </>
-          }
+          actions={detailActions(details)}
           onClose={() => setDetails(null)}
           onEdit={() => {
             setDetails(null);

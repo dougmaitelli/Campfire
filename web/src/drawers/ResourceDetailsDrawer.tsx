@@ -1,6 +1,7 @@
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/forms/Button";
+import type { ActionMenuItem } from "../components/forms/ActionMenu";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { useEffect, useEffectEvent, useState } from "react";
@@ -89,7 +90,7 @@ export function ResourceDetailsDrawer<T>({
         </>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {actionError && (
           <InlineMessage role="alert">{actionError}</InlineMessage>
         )}
@@ -120,5 +121,5 @@ export interface ResourceDetailsDrawerProps<T> {
   deleteDisabled?: boolean;
   deleting?: boolean;
   actionError?: string | null;
-  actions?: ReactNode;
+  actions?: ActionMenuItem[];
 }

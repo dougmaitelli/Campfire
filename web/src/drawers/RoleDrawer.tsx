@@ -233,7 +233,7 @@ export function RoleDrawer({
         </>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {deleteError && (
           <InlineMessage role="alert">{deleteError}</InlineMessage>
         )}

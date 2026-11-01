@@ -140,7 +140,7 @@ export function UserDrawer({
         </>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {user && (
           <p className="field-help">

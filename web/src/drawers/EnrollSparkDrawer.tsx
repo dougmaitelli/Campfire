@@ -140,7 +140,7 @@ export function EnrollSparkDrawer({
         </Button>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {reEnrollment && (
           <InlineMessage tone="warning">
             {t(

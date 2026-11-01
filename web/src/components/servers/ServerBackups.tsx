@@ -3,39 +3,36 @@ import {
   type BackupStorage,
   ServerAction,
   BackupState as BackupStatus,
-} from "../contracts/domains";
-import i18n from "../i18n";
+} from "../../contracts/domains";
+import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
-import { ActionGroup } from "../components/layout/ActionGroup";
-import { Button, ButtonLink } from "../components/forms/Button";
-import { InlineMessage } from "../components/status/InlineMessage";
+import { ActionGroup } from "../layout/ActionGroup";
+import { Button, ButtonLink } from "../forms/Button";
+import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useRef, useState } from "react";
 import {
   deleteBackup,
   listBackups,
   type Backup,
   BackupMode,
-} from "../api/backups";
-import { BackupModeField } from "../components/servers/BackupModeField";
-import { serverAction, serverStatus, type RuntimeStatus } from "../api/runtime";
-import type { Server } from "../api/servers";
-import { Drawer } from "../components/layout/Drawer";
-import { Table } from "../components/table/Table";
-import { BackupState } from "../components/servers/BackupState";
-import { NavigationIcon } from "../components/navigation/NavigationIcon";
-import { bytes } from "../api/monitoring";
-import "../components/servers/files.css";
-import { Permission } from "../api/permissions";
+} from "../../api/backups";
+import { BackupModeField } from "./BackupModeField";
+import {
+  serverAction,
+  serverStatus,
+  type RuntimeStatus,
+} from "../../api/runtime";
+import type { Server } from "../../api/servers";
+import { Panel } from "../layout/Panel";
+import { Table } from "../table/Table";
+import { BackupState } from "./BackupState";
+import { NavigationIcon } from "../navigation/NavigationIcon";
+import { bytes } from "../../api/monitoring";
+import "./files.css";
+import { Permission } from "../../api/permissions";
+import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 
-export function ServerBackupsDrawer({
-  server,
-  onClose,
-  embedded = false,
-}: {
-  server: Server;
-  onClose: () => void;
-  embedded?: boolean;
-}) {
+export function ServerBackups({ server }: { server: Server }) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<Backup[]>([]);
   const [backupMode, setBackupMode] = useState<BackupMode>(BackupMode.Full);
@@ -55,6 +52,7 @@ export function ServerBackupsDrawer({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  useNavigationGuard(true, busy, false);
   const [refresh, setRefresh] = useState(0);
   const pending = useRef(false);
   const mounted = useRef(true);
@@ -87,7 +85,7 @@ export function ServerBackupsDrawer({
             observed.status === "fulfilled"
               ? null
               : i18n.t(
-                  "serverBackupsDrawer.sparkIsUnavailableOffHostBackupsCanStillBeDownloaded",
+                  "serverBackups.sparkIsUnavailableOffHostBackupsCanStillBeDownloaded",
                 ),
           );
           setLoadError(null);
@@ -98,7 +96,7 @@ export function ServerBackupsDrawer({
           setLoadError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverBackupsDrawer.unableToLoadBackups"),
+              : i18n.t("serverBackups.unableToLoadBackups"),
           );
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -125,7 +123,7 @@ export function ServerBackupsDrawer({
       !canDelete ||
       !window.confirm(
         i18n.t(
-          "serverBackupsDrawer.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
+          "serverBackups.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
           {
             locationLocalLocal: location === "local" ? "local" : "S3",
             entryName: entry.name,
@@ -145,7 +143,7 @@ export function ServerBackupsDrawer({
         setError(
           cause instanceof Error
             ? cause.message
-            : i18n.t("serverBackupsDrawer.unableToDeleteBackup"),
+            : i18n.t("serverBackups.unableToDeleteBackup"),
         );
     } finally {
       pending.current = false;
@@ -167,7 +165,7 @@ export function ServerBackupsDrawer({
           entries.find((entry) => entry.name === name)?.mode ===
             BackupMode.Savedata
             ? "backupModes.restoreSavedata"
-            : "serverBackupsDrawer.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
+            : "serverBackups.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
           { serverName: server.name },
         ),
       )
@@ -193,7 +191,7 @@ export function ServerBackupsDrawer({
         setError(
           cause instanceof Error
             ? cause.message
-            : i18n.t("serverBackupsDrawer.unableToSubmitOperation"),
+            : i18n.t("serverBackups.unableToSubmitOperation"),
         );
     } finally {
       pending.current = false;
@@ -201,21 +199,11 @@ export function ServerBackupsDrawer({
     }
   }
   return (
-    <Drawer
-      embedded={embedded}
-      title={t("serverBackupsDrawer.backups", { serverName: server.name })}
+    <Panel
+      title={t("serverBackups.backups", { serverName: server.name })}
       description={t(
-        "serverBackupsDrawer.stopTheServerToCreateOrRestoreABackupCompleted",
+        "serverBackups.stopTheServerToCreateOrRestoreABackupCompleted",
       )}
-      busy={busy}
-      onClose={onClose}
-      footerLeft={
-        embedded ? null : (
-          <Button disabled={busy} onClick={onClose}>
-            {t("common.close")}
-          </Button>
-        )
-      }
       footerRight={
         <Button
           variant="primary"
@@ -224,11 +212,11 @@ export function ServerBackupsDrawer({
             void submit("backup");
           }}
         >
-          {t("serverBackupsDrawer.createBackup")}
+          {t("serverBackups.createBackup")}
         </Button>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {canCreate && (
           <BackupModeField
             value={backupMode}
@@ -256,29 +244,29 @@ export function ServerBackupsDrawer({
             status?.operation === "restore") && (
             <InlineMessage tone="success">
               {status.operation === "backup"
-                ? t("serverBackupsDrawer.backupCreated")
-                : t("serverBackupsDrawer.backupRestoredTheServerIsStopped")}
+                ? t("serverBackups.backupCreated")
+                : t("serverBackups.backupRestoredTheServerIsStopped")}
             </InlineMessage>
           )}
         <Table
           empty={entries.length === 0}
           loading={loading}
           error={loadError}
-          resource={t("serverBackupsDrawer.backups2")}
+          resource={t("serverBackups.backups2")}
           onRetry={() => {
             setLoading(true);
             setRefresh((value) => value + 1);
           }}
         >
           <caption className="visually-hidden">
-            {t("serverBackupsDrawer.serverBackups")}
+            {t("serverBackups.serverBackups")}
           </caption>
           <thead>
             <tr>
-              <th>{t("serverBackupsDrawer.archive")}</th>
-              <th>{t("serverBackupsDrawer.created")}</th>
-              <th>{t("serverBackupsDrawer.size")}</th>
-              <th>{t("serverBackupsDrawer.storage")}</th>
+              <th>{t("serverBackups.archive")}</th>
+              <th>{t("serverBackups.created")}</th>
+              <th>{t("serverBackups.size")}</th>
+              <th>{t("serverBackups.storage")}</th>
               <th>{t("common.status")}</th>
               <th className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
@@ -307,7 +295,7 @@ export function ServerBackupsDrawer({
                 <td>{bytes(entry.size)}</td>
                 <td>
                   {[
-                    entry.local ? i18n.t("serverBackupsDrawer.local") : null,
+                    entry.local ? i18n.t("serverBackups.local") : null,
                     entry.remote ? "S3" : null,
                   ]
                     .filter(Boolean)
@@ -327,10 +315,10 @@ export function ServerBackupsDrawer({
                           href={`/api/v1/servers/${encodeURIComponent(server.id)}/backups/${encodeURIComponent(entry.name)}`}
                           download
                           iconOnly
-                          aria-label={i18n.t("serverBackupsDrawer.download", {
+                          aria-label={i18n.t("serverBackups.download", {
                             entryName: entry.name,
                           })}
-                          title={i18n.t("serverBackupsDrawer.downloadBackup")}
+                          title={i18n.t("serverBackups.downloadBackup")}
                         >
                           <NavigationIcon name="download" />
                         </ButtonLink>
@@ -346,7 +334,7 @@ export function ServerBackupsDrawer({
                         void submit("restore", entry.name);
                       }}
                     >
-                      {i18n.t("serverBackupsDrawer.restore")}
+                      {i18n.t("serverBackups.restore")}
                     </Button>
                     {canDelete && entry.local && (
                       <Button
@@ -360,7 +348,7 @@ export function ServerBackupsDrawer({
                           void remove(entry, "local");
                         }}
                       >
-                        {i18n.t("serverBackupsDrawer.deleteLocal")}
+                        {i18n.t("serverBackups.deleteLocal")}
                       </Button>
                     )}
                     {canDelete && entry.remote && (
@@ -375,7 +363,7 @@ export function ServerBackupsDrawer({
                           void remove(entry, "s3");
                         }}
                       >
-                        {i18n.t("serverBackupsDrawer.deleteS3")}
+                        {i18n.t("serverBackups.deleteS3")}
                       </Button>
                     )}
                   </ActionGroup>
@@ -385,11 +373,9 @@ export function ServerBackupsDrawer({
           </tbody>
         </Table>
         <p>
-          {t(
-            "serverBackupsDrawer.backupsExcludeLinksAndSpecialFilesAndAreLimitedTo",
-          )}
+          {t("serverBackups.backupsExcludeLinksAndSpecialFilesAndAreLimitedTo")}
         </p>
       </div>
-    </Drawer>
+    </Panel>
   );
 }

@@ -243,7 +243,7 @@ export function ServerTransferDrawer({
         </Button>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {(error ?? loadError) && (
           <InlineMessage role="alert">{error ?? loadError}</InlineMessage>
         )}

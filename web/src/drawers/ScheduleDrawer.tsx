@@ -216,7 +216,7 @@ export function ScheduleDrawer({
         </>
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         <FormField label={t("common.name")}>
           <TextInput

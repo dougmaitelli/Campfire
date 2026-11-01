@@ -301,7 +301,7 @@ export function ImportEmberDrawer({
           void submit(event);
         }}
       >
-        <div className="drawer-content">
+        <div className="panel-content">
           {(error ?? previewError) && (
             <InlineMessage role="alert">{error ?? previewError}</InlineMessage>
           )}

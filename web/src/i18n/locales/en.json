@@ -654,7 +654,7 @@
     "unableToLoadExecutions": "Unable to load executions.",
     "unableToLoadHistory": "Unable to load history."
   },
-  "serverBackupsDrawer": {
+  "serverBackups": {
     "archive": "Archive",
     "backupCreated": "Backup created.",
     "backupRestoredTheServerIsStopped": "Backup restored. The server is stopped.",
@@ -680,7 +680,7 @@
     "unableToLoadBackups": "Unable to load backups.",
     "unableToSubmitOperation": "Unable to submit operation."
   },
-  "serverConsoleDrawer": {
+  "serverConsole": {
     "console": "Console",
     "liveServerOutputAndCommands": "Live server output and commands.",
     "loadingConsole": "Loading console…"
@@ -786,7 +786,7 @@
     "completed_one": "{{count}} file uploaded.",
     "completed_other": "{{count}} files uploaded."
   },
-  "serverFilesDrawer": {
+  "serverFileBrowser": {
     "fileType": "Type",
     "folderType": "Folder",
     "specialType": "Special file",

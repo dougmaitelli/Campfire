@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { login } from "./screens";
+import { login, openServerTab } from "./screens";
 
 for (const mobile of [false, true]) {
   test(`returning to Servers after opening a console from Overview shows the list (${mobile ? "mobile" : "desktop"})`, async ({
@@ -60,3 +60,40 @@ for (const mobile of [false, true]) {
     }
   });
 }
+
+test("unsaved file edits can block or allow navigation", async ({ page }) => {
+  await login(page);
+  await openServerTab(page, "files", "Files");
+  await page
+    .getByRole("button", { name: "server.properties", exact: true })
+    .click();
+  const editor = page.getByRole("textbox", {
+    name: "/server.properties",
+    exact: true,
+  });
+  const original = await editor.inputValue();
+  const changed = original + "\n# unsaved changes";
+  await editor.fill(changed);
+  await expect(
+    page.getByRole("status").filter({ hasText: "Unsaved changes" }),
+  ).toBeVisible();
+  const schedules = page
+    .getByRole("navigation", { name: "Main navigation", exact: true })
+    .getByRole("link", { name: "Schedules", exact: true });
+  page.once("dialog", (dialog) => void dialog.dismiss());
+  await schedules.click();
+  await expect(page).toHaveURL(/#servers\/survival\/files$/);
+  await expect(editor).toHaveValue(changed);
+
+  page.once("dialog", (dialog) => void dialog.accept());
+  await schedules.click();
+  await expect(page).toHaveURL(/#schedules$/);
+  await expect(
+    page.getByRole("heading", { name: "Schedules", exact: true, level: 1 }),
+  ).toBeVisible();
+  await page.goto("/#servers/survival/files");
+  await page
+    .getByRole("button", { name: "server.properties", exact: true })
+    .click();
+  await expect(editor).toHaveValue(original);
+});

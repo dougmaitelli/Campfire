@@ -106,7 +106,7 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
       }
       footerRight={null}
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {secret && (
           <section aria-label={t("apiTokensDrawer.newTokenSecret")}>

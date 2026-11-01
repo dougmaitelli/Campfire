@@ -14,12 +14,14 @@ function hasFiles(transfer: DataTransfer | null) {
 }
 
 export function FileDropZone({
+  className,
   enabled,
   directory,
   onFiles,
   onError,
   children,
 }: {
+  className?: string;
   enabled: boolean;
   directory: string;
   onFiles: (files: File[]) => void;
@@ -75,7 +77,7 @@ export function FileDropZone({
   }
   return (
     <div
-      className="drawer-content file-drop-zone"
+      className={["file-drop-zone", className].filter(Boolean).join(" ")}
       role="region"
       aria-label={t("fileUploads.fileBrowser")}
       onDragEnter={(event) => {

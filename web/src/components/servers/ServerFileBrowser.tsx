@@ -1,18 +1,18 @@
-import { FileKind, FileOperation } from "../contracts/domains";
-import { API_READ_TIMEOUT_MS } from "../api/client";
-import i18n from "../i18n";
+import { FileKind, FileOperation } from "../../contracts/domains";
+import { API_READ_TIMEOUT_MS } from "../../api/client";
+import i18n from "../../i18n";
 import { useTranslation, Trans } from "react-i18next";
-import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
-import { ActionGroup } from "../components/layout/ActionGroup";
-import { DetailsList, DetailItem } from "../components/layout/DetailsList";
-import { FormField } from "../components/forms/FormField";
-import { Button } from "../components/forms/Button";
-import { CheckboxField } from "../components/forms/CheckboxField";
-import { InlineMessage } from "../components/status/InlineMessage";
-import { IndeterminateProgress } from "../components/status/IndeterminateProgress";
-import { Textarea } from "../components/forms/Textarea";
+import { PrerequisiteNote } from "../status/PrerequisiteNote";
+import { ActionGroup } from "../layout/ActionGroup";
+import { DetailsList, DetailItem } from "../layout/DetailsList";
+import { FormField } from "../forms/FormField";
+import { Button } from "../forms/Button";
+import { CheckboxField } from "../forms/CheckboxField";
+import { InlineMessage } from "../status/InlineMessage";
+import { IndeterminateProgress } from "../status/IndeterminateProgress";
+import { Textarea } from "../forms/Textarea";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Server } from "../api/servers";
+import type { Server } from "../../api/servers";
 import {
   decodeBytes,
   canOpenFile,
@@ -22,22 +22,23 @@ import {
   fileTransferLimit,
   manageFiles,
   uploadLimit,
-} from "../api/files";
-import type { FileEntry } from "../api/files";
-import { Drawer } from "../components/layout/Drawer";
-import { InputDialog } from "../components/layout/InputDialog";
-import { ConfirmDialog } from "../components/layout/ConfirmDialog";
-import { NavigationIcon } from "../components/navigation/NavigationIcon";
-import { Table, TableRow } from "../components/table/Table";
-import { bytes } from "../api/monitoring";
-import { EMPTY_VALUE } from "../utils/formatDisplayValue";
-import "../components/servers/files.css";
-import { Permission } from "../api/permissions";
-import { FileDropZone } from "../components/files/FileDropZone";
+} from "../../api/files";
+import type { FileEntry } from "../../api/files";
+import { Panel } from "../layout/Panel";
+import { InputDialog } from "../layout/InputDialog";
+import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { NavigationIcon } from "../navigation/NavigationIcon";
+import { Table, TableRow } from "../table/Table";
+import { bytes } from "../../api/monitoring";
+import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
+import "./files.css";
+import { Permission } from "../../api/permissions";
+import { useNavigationGuard } from "../../hooks/useNavigationGuard";
+import { FileDropZone } from "../files/FileDropZone";
 import {
   FileUploadProgress,
   type UploadProgress,
-} from "../components/files/FileUploadProgress";
+} from "../files/FileUploadProgress";
 
 interface Editor {
   path: string;
@@ -62,28 +63,24 @@ function entryName(value: string | null): string | null {
     Array.from(name).some((char) => char.charCodeAt(0) < 32)
   )
     throw new Error(
-      i18n.t("serverFilesDrawer.enterAFileOrFolderNameWithoutSlashesOrControl"),
+      i18n.t("serverFileBrowser.enterAFileOrFolderNameWithoutSlashesOrControl"),
     );
   return name;
 }
 
-export function ServerFilesDrawer({
+export function ServerFileBrowser({
   server,
   canWrite: runtimeCanWrite,
-  onClose,
-  embedded = false,
 }: {
   server: Server;
   canWrite: boolean;
-  onClose: () => void;
-  embedded?: boolean;
 }) {
   const { t } = useTranslation();
   const fileActionLabels = {
-    rename: t("serverFilesDrawer.rename2"),
-    permissions: t("serverFilesDrawer.permissions"),
-    move: t("serverFilesDrawer.move"),
-    archive: t("serverFilesDrawer.archiveSelected"),
+    rename: t("serverFileBrowser.rename2"),
+    permissions: t("serverFileBrowser.permissions"),
+    move: t("serverFileBrowser.move"),
+    archive: t("serverFileBrowser.archiveSelected"),
     delete: t("common.delete"),
   };
   const hasWritePermission = server.permissions.includes(
@@ -139,6 +136,11 @@ export function ServerFilesDrawer({
     !deleting &&
     !permissionsEntries &&
     !bulkAction;
+  useNavigationGuard(
+    true,
+    busy,
+    editor !== null && editor.text !== editor.initial,
+  );
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -188,7 +190,7 @@ export function ServerFilesDrawer({
           setError(
             cause instanceof Error
               ? cause.message
-              : i18n.t("serverFilesDrawer.unableToLoadFiles"),
+              : i18n.t("serverFileBrowser.unableToLoadFiles"),
           );
       })
       .finally(() => {
@@ -211,21 +213,12 @@ export function ServerFilesDrawer({
         setError(
           cause instanceof Error
             ? cause.message
-            : i18n.t("serverFilesDrawer.fileOperationFailed"),
+            : i18n.t("serverFileBrowser.fileOperationFailed"),
         );
     } finally {
       pending.current = false;
       if (alive.current) setBusy(false);
     }
-  }
-  function close() {
-    if (
-      editor &&
-      editor.text !== editor.initial &&
-      !window.confirm(i18n.t("serverFilesDrawer.discardUnsavedFileChanges"))
-    )
-      return;
-    onClose();
   }
   async function open(entry: FileEntry) {
     if (entry.kind === FileKind.Directory) {
@@ -234,7 +227,7 @@ export function ServerFilesDrawer({
     }
     if (entry.size > fileLimit)
       throw new Error(
-        i18n.t("serverFilesDrawer.textEditingIsLimitedTo1MiBDownloadThisFile"),
+        i18n.t("serverFileBrowser.textEditingIsLimitedTo1MiBDownloadThisFile"),
       );
     const result = await manageFiles(server.id, {
       operation: FileOperation.Read,
@@ -248,11 +241,11 @@ export function ServerFilesDrawer({
       if (text.includes("\u0000")) throw new Error("binary");
     } catch {
       throw new Error(
-        i18n.t("serverFilesDrawer.thisFileIsBinaryUseDownloadInsteadOfEditing"),
+        i18n.t("serverFileBrowser.thisFileIsBinaryUseDownloadInsteadOfEditing"),
       );
     }
     if (!result.revision)
-      throw new Error(i18n.t("serverFilesDrawer.fileRevisionIsMissing"));
+      throw new Error(i18n.t("serverFileBrowser.fileRevisionIsMissing"));
     setEditor({
       path: result.path,
       text,
@@ -262,7 +255,7 @@ export function ServerFilesDrawer({
   }
   function download(entry: FileEntry) {
     if (entry.size > fileTransferLimit)
-      throw new Error(i18n.t("serverFilesDrawer.downloadsAreLimitedTo100GiB"));
+      throw new Error(i18n.t("serverFileBrowser.downloadsAreLimitedTo100GiB"));
     const anchor = document.createElement("a");
     anchor.href = `/api/v1/servers/${encodeURIComponent(server.id)}/files/download?${new URLSearchParams({ path: join(directory, entry.name) })}`;
     anchor.download = entry.name;
@@ -277,7 +270,7 @@ export function ServerFilesDrawer({
       revision: editor.revision,
     });
     if (!result.revision)
-      throw new Error(i18n.t("serverFilesDrawer.fileRevisionIsMissing"));
+      throw new Error(i18n.t("serverFileBrowser.fileRevisionIsMissing"));
     setEditor({ ...editor, initial: editor.text, revision: result.revision });
   }
   async function create(folder: boolean, value: string) {
@@ -328,7 +321,7 @@ export function ServerFilesDrawer({
       setDeleteError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("serverFilesDrawer.unableToDeleteThisEntry"),
+          : i18n.t("serverFileBrowser.unableToDeleteThisEntry"),
       );
     } finally {
       await load(directory, undefined, true).catch(() => {});
@@ -344,7 +337,7 @@ export function ServerFilesDrawer({
         entryName(file.name);
         if (file.size > maxUploadBytes)
           throw new Error(
-            t("serverFilesDrawer.uploadsAreLimitedToMiBPerFile", {
+            t("serverFileBrowser.uploadsAreLimitedToMiBPerFile", {
               toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
             }),
           );
@@ -415,12 +408,12 @@ export function ServerFilesDrawer({
     if (maxUploadBytes === null)
       throw new Error(
         i18n.t(
-          "serverFilesDrawer.uploadLimitIsUnavailableReopenFilesToTryAgain",
+          "serverFileBrowser.uploadLimitIsUnavailableReopenFilesToTryAgain",
         ),
       );
     if (file.size > maxUploadBytes)
       throw new Error(
-        i18n.t("serverFilesDrawer.uploadsAreLimitedToMiBPerFile", {
+        i18n.t("serverFileBrowser.uploadsAreLimitedToMiBPerFile", {
           toLocaleString: (maxUploadBytes / 1024 ** 2).toLocaleString(),
         }),
       );
@@ -442,7 +435,7 @@ export function ServerFilesDrawer({
       );
       uploadID = started.upload_id;
       if (!uploadID)
-        throw new Error(i18n.t("serverFilesDrawer.uploadSessionIsMissing"));
+        throw new Error(i18n.t("serverFileBrowser.uploadSessionIsMissing"));
       for (let offset = 0; offset < file.size; offset += fileLimit) {
         controller.signal.throwIfAborted();
         const data = encodeBytes(
@@ -523,13 +516,13 @@ export function ServerFilesDrawer({
         });
         const destination = target.path;
         if (destination === directory)
-          throw new Error(t("serverFilesDrawer.chooseDifferentFolder"));
+          throw new Error(t("serverFileBrowser.chooseDifferentFolder"));
         if (target.entries?.some((entry) => selected.includes(entry.name)))
-          throw new Error(t("serverFilesDrawer.destinationConflict"));
+          throw new Error(t("serverFileBrowser.destinationConflict"));
         for (const entry of selectedEntries) {
           const source = join(directory, entry.name);
           if (destination.startsWith(`${source}/`))
-            throw new Error(t("serverFilesDrawer.invalidMoveDestination"));
+            throw new Error(t("serverFileBrowser.invalidMoveDestination"));
         }
         for (const entry of selectedEntries) {
           await manageFiles(server.id, {
@@ -547,34 +540,32 @@ export function ServerFilesDrawer({
     }
   }
   return (
-    <Drawer
-      embedded={embedded}
-      unsavedChanges={editor !== null && editor.text !== editor.initial}
-      title={t("serverFilesDrawer.files")}
+    <Panel
+      title={t("serverFileBrowser.files")}
       leading={
         !editor && (
           <details className="file-sftp">
-            <summary>{t("serverFilesDrawer.sftpAccess")}</summary>
+            <summary>{t("serverFileBrowser.sftpAccess")}</summary>
             <div className="file-sftp-content">
               <p>
                 {t(
-                  "serverFilesDrawer.connectWithAnSFTPClientUsingTheAddressAndPort",
+                  "serverFileBrowser.connectWithAnSFTPClientUsingTheAddressAndPort",
                 )}
               </p>
               <DetailsList>
-                <DetailItem label={t("serverFilesDrawer.username")}>
+                <DetailItem label={t("serverFileBrowser.username")}>
                   <code>{server.id}</code>
                 </DetailItem>
-                <DetailItem label={t("serverFilesDrawer.password")}>
-                  {t("serverFilesDrawer.yourPersonalAPIToken")}
+                <DetailItem label={t("serverFileBrowser.password")}>
+                  {t("serverFileBrowser.yourPersonalAPIToken")}
                 </DetailItem>
               </DetailsList>
               <p>
                 <Trans
-                  i18nKey="serverFilesDrawer.createATokenFromInYourAccountMenuWithAnd"
+                  i18nKey="serverFileBrowser.createATokenFromInYourAccountMenuWithAnd"
                   t={t}
                   components={{
-                    strong: <strong>{t("serverFilesDrawer.apiKeys")}</strong>,
+                    strong: <strong>{t("serverFileBrowser.apiKeys")}</strong>,
                     code: <code>{Permission.ServerView}</code>,
                     code2: <code>{Permission.ServerFilesRead}</code>,
                   }}
@@ -584,7 +575,7 @@ export function ServerFilesDrawer({
           </details>
         )
       }
-      actions={
+      headingActions={
         !editor && (
           <div className="file-toolbar">
             <Button
@@ -594,25 +585,21 @@ export function ServerFilesDrawer({
               onClick={() => uploadInput.current?.click()}
             >
               <NavigationIcon name="upload" />
-              {t("serverFilesDrawer.uploadFiles")}
+              {t("serverFileBrowser.uploadFiles")}
             </Button>
             <Button
               disabled={busy || loading || !canWrite}
-              onClick={() => {
-                setCreating("file");
-              }}
+              onClick={() => setCreating("file")}
             >
               <NavigationIcon name="file-plus" />
-              {t("serverFilesDrawer.createFile")}
+              {t("serverFileBrowser.createFile")}
             </Button>
             <Button
               disabled={busy || loading || !canWrite}
-              onClick={() => {
-                setCreating("folder");
-              }}
+              onClick={() => setCreating("folder")}
             >
               <NavigationIcon name="folder-plus" />
-              {t("serverFilesDrawer.createFolder")}
+              {t("serverFileBrowser.createFolder")}
             </Button>
             <input
               ref={uploadInput}
@@ -620,7 +607,7 @@ export function ServerFilesDrawer({
               type="file"
               multiple
               disabled={busy || loading || !canWrite || maxUploadBytes === null}
-              aria-label={t("serverFilesDrawer.uploadFiles")}
+              aria-label={t("serverFileBrowser.uploadFiles")}
               onChange={(event) => {
                 const files = Array.from(event.target.files ?? []);
                 event.target.value = "";
@@ -630,8 +617,6 @@ export function ServerFilesDrawer({
           </div>
         )
       }
-      busy={busy}
-      onClose={close}
       footerLeft={
         editor ? (
           <Button
@@ -640,7 +625,7 @@ export function ServerFilesDrawer({
               if (
                 editor.text !== editor.initial &&
                 !window.confirm(
-                  i18n.t("serverFilesDrawer.discardUnsavedFileChanges"),
+                  i18n.t("serverFileBrowser.discardUnsavedFileChanges"),
                 )
               )
                 return;
@@ -648,7 +633,7 @@ export function ServerFilesDrawer({
               void perform(() => load(directory));
             }}
           >
-            {t("serverFilesDrawer.backToFiles")}
+            {t("serverFileBrowser.backToFiles")}
           </Button>
         ) : null
       }
@@ -661,14 +646,15 @@ export function ServerFilesDrawer({
               void perform(save);
             }}
             loading={busy}
-            loadingLabel={t("serverFilesDrawer.saving")}
+            loadingLabel={t("serverFileBrowser.saving")}
           >
-            {t("serverFilesDrawer.saveFile")}
+            {t("serverFileBrowser.saveFile")}
           </Button>
         ) : null
       }
     >
       <FileDropZone
+        className="panel-content"
         enabled={canUpload}
         directory={directory}
         onFiles={(files) => {
@@ -680,24 +666,24 @@ export function ServerFilesDrawer({
           <InputDialog
             title={t(
               bulkAction === "compress"
-                ? "serverFilesDrawer.archiveSelected"
-                : "serverFilesDrawer.moveSelected",
+                ? "serverFileBrowser.archiveSelected"
+                : "serverFileBrowser.moveSelected",
             )}
             label={t(
               bulkAction === "compress"
-                ? "serverFilesDrawer.archiveName"
-                : "serverFilesDrawer.destinationFolder",
+                ? "serverFileBrowser.archiveName"
+                : "serverFileBrowser.destinationFolder",
             )}
             description={t(
               bulkAction === "compress"
-                ? "serverFilesDrawer.archiveDescription"
-                : "serverFilesDrawer.moveDescription",
+                ? "serverFileBrowser.archiveDescription"
+                : "serverFileBrowser.moveDescription",
               { count: selectedEntries.length },
             )}
             submitLabel={t(
               bulkAction === "compress"
-                ? "serverFilesDrawer.archiveSelected"
-                : "serverFilesDrawer.move",
+                ? "serverFileBrowser.archiveSelected"
+                : "serverFileBrowser.move",
             )}
             initialValue={
               bulkAction === "compress" ? "archive.tar.gz" : directory
@@ -710,31 +696,31 @@ export function ServerFilesDrawer({
           <InputDialog
             title={
               fileAction.kind === "rename"
-                ? t("serverFilesDrawer.rename2")
+                ? t("serverFileBrowser.rename2")
                 : fileAction.kind === "compress"
-                  ? t("serverFilesDrawer.compress2")
-                  : t("serverFilesDrawer.extractArchive")
+                  ? t("serverFileBrowser.compress2")
+                  : t("serverFileBrowser.extractArchive")
             }
             label={
               fileAction.kind === "rename"
-                ? t("serverFilesDrawer.newName")
+                ? t("serverFileBrowser.newName")
                 : fileAction.kind === "compress"
-                  ? t("serverFilesDrawer.archiveName")
-                  : t("serverFilesDrawer.newFolderName")
+                  ? t("serverFileBrowser.archiveName")
+                  : t("serverFileBrowser.newFolderName")
             }
-            description={t("serverFilesDrawer.in", {
+            description={t("serverFileBrowser.in", {
               fileActionEntryName: fileAction.entry.name,
               directoryTheRoot:
                 directory === "/"
-                  ? t("serverFilesDrawer.theRootFolder")
+                  ? t("serverFileBrowser.theRootFolder")
                   : directory,
             })}
             submitLabel={
               fileAction.kind === "rename"
-                ? t("serverFilesDrawer.rename2")
+                ? t("serverFileBrowser.rename2")
                 : fileAction.kind === "compress"
-                  ? t("serverFilesDrawer.compress2")
-                  : t("serverFilesDrawer.extract")
+                  ? t("serverFileBrowser.compress2")
+                  : t("serverFileBrowser.extract")
             }
             initialValue={
               fileAction.kind === "rename"
@@ -749,7 +735,7 @@ export function ServerFilesDrawer({
             busyContent={
               fileAction.kind === "extract" && (
                 <IndeterminateProgress
-                  label={t("serverFilesDrawer.extracting", {
+                  label={t("serverFileBrowser.extracting", {
                     name: fileAction.entry.name,
                   })}
                 />
@@ -765,9 +751,9 @@ export function ServerFilesDrawer({
         )}
         {permissionsEntries && (
           <InputDialog
-            title={t("serverFilesDrawer.permissions")}
-            label={t("serverFilesDrawer.octalPermissions")}
-            description={t("serverFilesDrawer.permissionsHelp", {
+            title={t("serverFileBrowser.permissions")}
+            label={t("serverFileBrowser.octalPermissions")}
+            description={t("serverFileBrowser.permissionsHelp", {
               count: permissionsEntries.length,
             })}
             initialValue={
@@ -778,11 +764,11 @@ export function ServerFilesDrawer({
                 ? permissionsEntries[0].mode.toString(8).padStart(3, "0")
                 : ""
             }
-            submitLabel={t("serverFilesDrawer.savePermissions")}
+            submitLabel={t("serverFileBrowser.savePermissions")}
             onClose={() => setPermissionsEntries(null)}
             onSubmit={async (value) => {
               if (!/^[0-7]{3}$/.test(value))
-                throw new Error(t("serverFilesDrawer.invalidPermissions"));
+                throw new Error(t("serverFileBrowser.invalidPermissions"));
               for (const entry of permissionsEntries)
                 await manageFiles(server.id, {
                   operation: FileOperation.Chmod,
@@ -795,8 +781,8 @@ export function ServerFilesDrawer({
         )}
         {deleting && (
           <ConfirmDialog
-            title={t("serverFilesDrawer.deleteSelected")}
-            description={t("serverFilesDrawer.deleteSelectedDescription", {
+            title={t("serverFileBrowser.deleteSelected")}
+            description={t("serverFileBrowser.deleteSelectedDescription", {
               count: deleting.length,
             })}
             confirmLabel={t("common.delete")}
@@ -813,20 +799,20 @@ export function ServerFilesDrawer({
           <InputDialog
             title={
               creating === "folder"
-                ? t("serverFilesDrawer.newFolder")
-                : t("serverFilesDrawer.newFile")
+                ? t("serverFileBrowser.newFolder")
+                : t("serverFileBrowser.newFile")
             }
             label={t("common.name")}
-            description={t("serverFilesDrawer.createIn", {
+            description={t("serverFileBrowser.createIn", {
               directoryTheRoot:
                 directory === "/"
-                  ? t("serverFilesDrawer.theRootFolder")
+                  ? t("serverFileBrowser.theRootFolder")
                   : directory,
             })}
             submitLabel={
               creating === "folder"
-                ? t("serverFilesDrawer.createFolder")
-                : t("serverFilesDrawer.createFile")
+                ? t("serverFileBrowser.createFolder")
+                : t("serverFileBrowser.createFile")
             }
             onClose={() => setCreating(null)}
             onSubmit={(name) => create(creating === "folder", name)}
@@ -845,8 +831,8 @@ export function ServerFilesDrawer({
           <PrerequisiteNote>
             {t(
               hasWritePermission
-                ? "serverFilesDrawer.fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation"
-                : "serverFilesDrawer.readOnlyAccess",
+                ? "serverFileBrowser.fileModificationsAreCurrentlyUnavailableWaitForTheCurrentOperation"
+                : "serverFileBrowser.readOnlyAccess",
             )}
           </PrerequisiteNote>
         )}
@@ -867,7 +853,7 @@ export function ServerFilesDrawer({
             </FormField>
             {editor.text !== editor.initial && (
               <p className="list-summary" role="status">
-                {t("serverFilesDrawer.unsavedChanges")}
+                {t("serverFileBrowser.unsavedChanges")}
               </p>
             )}
           </>
@@ -875,12 +861,12 @@ export function ServerFilesDrawer({
           <>
             <nav
               className="file-breadcrumbs"
-              aria-label={t("serverFilesDrawer.fileDirectory")}
+              aria-label={t("serverFileBrowser.fileDirectory")}
             >
               <button
                 className="file-breadcrumb"
-                aria-label={t("serverFilesDrawer.root")}
-                title={t("serverFilesDrawer.root")}
+                aria-label={t("serverFileBrowser.root")}
+                title={t("serverFileBrowser.root")}
                 disabled={busy}
                 aria-current={directory === "/" ? "location" : undefined}
                 onClick={() => {
@@ -888,7 +874,7 @@ export function ServerFilesDrawer({
                 }}
               >
                 <NavigationIcon name="folder" />
-                {t("serverFilesDrawer.root")}
+                {t("serverFileBrowser.root")}
               </button>
               {directory !== "/" &&
                 directory
@@ -921,8 +907,8 @@ export function ServerFilesDrawer({
               className="file-list"
               empty={loading || entries.length === 0}
               loading={loading}
-              resource={t("serverFilesDrawer.files2")}
-              emptyMessage={t("serverFilesDrawer.thisFolderIsEmpty")}
+              resource={t("serverFileBrowser.files2")}
+              emptyMessage={t("serverFileBrowser.thisFolderIsEmpty")}
             >
               <thead>
                 <tr>
@@ -942,18 +928,18 @@ export function ServerFilesDrawer({
                       }
                     >
                       <span className="visually-hidden">
-                        {t("serverFilesDrawer.selectAll")}
+                        {t("serverFileBrowser.selectAll")}
                       </span>
                     </CheckboxField>
                   </th>
                   <th className="file-icon-cell" />
                   <th className="file-name-column">{t("common.name")}</th>
                   <th className="table-fit">
-                    {t("serverFilesDrawer.fileType")}
+                    {t("serverFileBrowser.fileType")}
                   </th>
                   <th className="table-fit">{t("common.size")}</th>
                   <th className="table-fit">
-                    {t("serverFilesDrawer.modified")}
+                    {t("serverFileBrowser.modified")}
                   </th>
                   <th
                     className="table-actions"
@@ -991,7 +977,7 @@ export function ServerFilesDrawer({
                         }
                       >
                         <span className="visually-hidden">
-                          {t("serverFilesDrawer.selectEntry", {
+                          {t("serverFileBrowser.selectEntry", {
                             name: entry.name,
                           })}
                         </span>
@@ -1023,18 +1009,18 @@ export function ServerFilesDrawer({
                         <span className="file-entry-name">{entry.name}</span>
                         {entry.kind === FileKind.Unsupported && (
                           <span className="file-entry-meta">
-                            {t("serverFilesDrawer.symbolicLinkOrSpecialFile")}
+                            {t("serverFileBrowser.symbolicLinkOrSpecialFile")}
                           </span>
                         )}
                       </button>
                     </td>
                     <td className="table-fit file-entry-meta">
                       {entry.kind === FileKind.Directory
-                        ? t("serverFilesDrawer.folderType")
+                        ? t("serverFileBrowser.folderType")
                         : entry.kind === "unsupported"
-                          ? t("serverFilesDrawer.specialType")
+                          ? t("serverFileBrowser.specialType")
                           : fileExtension(entry.name).toUpperCase() ||
-                            t("serverFilesDrawer.fileTypeFallback")}
+                            t("serverFileBrowser.fileTypeFallback")}
                     </td>
                     <td className="table-fit file-entry-meta">
                       {entry.kind === FileKind.File
@@ -1053,8 +1039,8 @@ export function ServerFilesDrawer({
                             <Button
                               iconOnly
                               size="small"
-                              title={i18n.t("serverFilesDrawer.extract")}
-                              aria-label={i18n.t("serverFilesDrawer.extract2", {
+                              title={i18n.t("serverFileBrowser.extract")}
+                              aria-label={i18n.t("serverFileBrowser.extract2", {
                                 entryName: entry.name,
                               })}
                               disabled={busy || !canWrite}
@@ -1069,12 +1055,12 @@ export function ServerFilesDrawer({
                           <Button
                             iconOnly
                             size="small"
-                            title={i18n.t("serverFilesDrawer.download")}
+                            title={i18n.t("serverFileBrowser.download")}
                             disabled={busy || entry.size > fileTransferLimit}
                             onClick={() => {
                               void perform(() => download(entry));
                             }}
-                            aria-label={i18n.t("serverFilesDrawer.download2", {
+                            aria-label={i18n.t("serverFileBrowser.download2", {
                               entryName: entry.name,
                             })}
                           >
@@ -1093,7 +1079,7 @@ export function ServerFilesDrawer({
               aria-label={t("common.actions")}
             >
               <span className="file-selection-count">
-                {t("serverFilesDrawer.selectedCount", {
+                {t("serverFileBrowser.selectedCount", {
                   count: selectedEntries.length,
                 })}
               </span>
@@ -1165,6 +1151,6 @@ export function ServerFilesDrawer({
           </>
         )}
       </FileDropZone>
-    </Drawer>
+    </Panel>
   );
 }

@@ -66,7 +66,7 @@ export function ScheduleDetailsDrawer({
         ) : null
       }
     >
-      <div className="drawer-content">
+      <div className="panel-content">
         <DetailsList>
           <DetailItem label={t("common.name")}>{schedule.name}</DetailItem>
           <DetailItem label={t("common.server")}>

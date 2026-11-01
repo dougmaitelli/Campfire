@@ -7,6 +7,8 @@ export interface ActionMenuItem {
   label: string;
   icon: ComponentProps<typeof NavigationIcon>["name"];
   disabled?: boolean;
+  loading?: boolean;
+  loadingLabel?: string;
   tone?: "danger" | "warning";
   onSelect: () => void;
 }
@@ -46,7 +48,7 @@ export function ActionMenu({
               event.currentTarget.querySelector<HTMLButtonElement>(
                 "button:not(:disabled)",
               ) ?? event.currentTarget
-            ).focus();
+            ).focus({ preventScroll: true });
           }
         }}
         onBlur={(event) => {
@@ -81,7 +83,7 @@ export function ActionMenu({
               return;
           }
           event.preventDefault();
-          buttons[next]?.focus();
+          buttons[next]?.focus({ preventScroll: true });
         }}
       >
         {items.map((item) => (
@@ -91,14 +93,15 @@ export function ActionMenu({
             role="menuitem"
             tabIndex={-1}
             className={item.tone ? `action-menu-${item.tone}` : undefined}
-            disabled={item.disabled}
+            disabled={item.disabled === true || item.loading === true}
+            aria-busy={item.loading}
             onClick={() => {
               menu.current?.hidePopover();
               item.onSelect();
             }}
           >
             <NavigationIcon name={item.icon} />
-            {item.label}
+            {item.loading ? (item.loadingLabel ?? item.label) : item.label}
           </button>
         ))}
       </div>
