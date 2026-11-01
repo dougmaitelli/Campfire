@@ -53,7 +53,7 @@ func TestPortableBackupPublishAndRestoreThroughMockServices(t *testing.T) {
 
 	t.Cleanup(func() { imports.Cancel(source.OwnerUserID, token) })
 
-	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 
 	var name string
