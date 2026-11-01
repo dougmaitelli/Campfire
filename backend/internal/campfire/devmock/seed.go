@@ -118,6 +118,10 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
+	if err := seedPendingInstallation(ctx, db); err != nil {
+		return nil, err
+	}
+
 	if err := seedBackupFixtures(ctx, db); err != nil {
 		return nil, err
 	}

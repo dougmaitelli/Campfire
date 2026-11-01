@@ -14,6 +14,27 @@ import (
 )
 
 const variationsSeedMarkerID = 8
+const pendingInstallationSeedMarkerID = 10
+
+func seedPendingInstallation(ctx context.Context, db *gorm.DB) error {
+	return database.Transaction(db.WithContext(ctx), func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&seedMarker{}).Where("id = ?", pendingInstallationSeedMarkerID).Count(&count).Error; err != nil || count > 0 {
+			return err
+		}
+
+		if err := tx.Model(&runtimeRecord{}).
+			Where("server_id = ? AND state = ? AND operation_id = ? AND transition_at = ?", "modded", model.RuntimeStateRunning, "", 0).
+			Updates(map[string]any{
+				"state": model.RuntimeStateNotInstalled, "started_at": 0, "stopped_at": 0,
+				"logs": timestampLog("[Mock Spark] Configuration received. Install the server to continue.\n"),
+			}).Error; err != nil {
+			return err
+		}
+
+		return tx.Create(&seedMarker{ID: pendingInstallationSeedMarkerID}).Error
+	})
+}
 
 func seedFixtureVariations(ctx context.Context, db *gorm.DB) error {
 	return database.Transaction(db.WithContext(ctx), func(tx *gorm.DB) error {

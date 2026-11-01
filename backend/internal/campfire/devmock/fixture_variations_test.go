@@ -13,12 +13,34 @@ import (
 )
 
 func TestMockFixturesCoverDistinctServerStatesAndAccess(t *testing.T) {
-	_, db, auth, servers := fixture(t)
+	runtime, db, auth, servers := fixture(t)
+	runtimeStates := make(map[model.RuntimeState]bool)
+
+	var offline bool
 
 	for _, server := range servers {
 		if server.EmberUpdateAvailable != (server.Name == mockUpdateServerName) {
 			t.Fatal("only the update example should have an unapplied Ember", server.Name, server.EmberUpdateAvailable)
 		}
+
+		if !runtime.Connected(server.SparkID) {
+			offline = true
+			continue
+		}
+
+		status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: model.ServerActionStatus})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		runtimeStates[status.State] = true
+		if server.ID == "modded" && (status.State != model.RuntimeStateNotInstalled || status.Busy) {
+			t.Fatal("pending-install fixture must be ready for installation", status)
+		}
+	}
+
+	if !offline || !runtimeStates[model.RuntimeStateRunning] || !runtimeStates[model.RuntimeStateStopped] || !runtimeStates[model.RuntimeStateNotInstalled] {
+		t.Fatal("missing server lifecycle variation", runtimeStates, offline)
 	}
 
 	for _, item := range []struct {
@@ -82,5 +104,27 @@ func TestMockFixturesCoverDistinctServerStatesAndAccess(t *testing.T) {
 
 	if !states["failed"] || !states["succeeded"] {
 		t.Fatal("missing execution outcome variation", states)
+	}
+}
+
+func TestPendingInstallationFixtureDoesNotResetAfterInstallation(t *testing.T) {
+	runtime, db, auth, _ := fixture(t)
+	request := model.RuntimeRequest{ServerID: "modded", Action: model.ServerActionInstall, OperationID: "install-example"}
+
+	status, err := runtime.Action(t.Context(), "mock-america", request)
+	if err != nil || status.State != model.RuntimeStateStopped {
+		t.Fatal("pending-install fixture could not be installed", status, err)
+	}
+
+	reloaded, err := New(t.Context(), db.ORM(), auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request.Action = model.ServerActionStatus
+
+	status, err = reloaded.Action(t.Context(), "mock-america", request)
+	if err != nil || status.State != model.RuntimeStateStopped || status.OperationID != "install-example" {
+		t.Fatal("restarting mock mode reset the installed fixture", status, err)
 	}
 }
