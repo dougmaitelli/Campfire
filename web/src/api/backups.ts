@@ -6,6 +6,7 @@ import { apiFetch, readJSON, API_READ_TIMEOUT_MS, apiJSON } from "./client";
 export { BackupMode };
 
 export interface Backup {
+  portable?: boolean;
   mode?: BackupMode;
   name: string;
   size: number;

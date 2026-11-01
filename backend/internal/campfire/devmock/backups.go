@@ -13,6 +13,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/devfixture"
+	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -34,11 +35,10 @@ func backupArchive(record backupRecord) ([]byte, error) {
 
 	files := maps.Clone(record.Files)
 	if record.Options.Mode != "" {
-		metadata := struct {
-			Format int `json:"format"`
-			model.BackupOptions
-			Missing []string `json:"missing,omitempty"`
-		}{1, record.Options, record.Missing}
+		metadata := backuparchive.Manifest{Format: 1, BackupOptions: record.Options, Missing: record.Missing}
+		if record.Options.Definition != nil {
+			metadata.Format = backuparchive.Format
+		}
 
 		data, err := json.Marshal(metadata)
 		if err != nil {
@@ -133,7 +133,7 @@ func upgradeBackupSizes(ctx context.Context, db *gorm.DB) error {
 }
 
 func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, request model.RuntimeRequest) error {
-	if request.Action == model.ServerActionRestore && record.State != model.RuntimeStateStopped {
+	if request.Action == model.ServerActionRestore && record.State != model.RuntimeStateStopped && record.State != model.RuntimeStateNotInstalled {
 		return fileError(model.FileBusy, "Stop the server before restoring backups.")
 	}
 
@@ -220,12 +220,17 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 	}
 
 	record.Files = restored.Files
+	record.State = model.RuntimeStateStopped
 
 	return nil
 }
 
 func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: record.ServerID, Path: request.Path}
+	if request.Operation.IsBackupUpload() {
+		return r.uploadBackup(ctx, record, request)
+	}
+
 	if request.Operation == model.FileOperationBackupList {
 		var backups []backupRecord
 
@@ -241,7 +246,7 @@ func (r *Runtime) backupFiles(ctx context.Context, record runtimeRecord, request
 				return result, err
 			}
 
-			result.Entries = append(result.Entries, model.FileEntry{BackupMode: backup.Options.Mode.Normalized(), Name: backup.Name, Kind: model.FileKindFile, Size: int64(len(data)), ModifiedAt: backup.CreatedAt})
+			result.Entries = append(result.Entries, model.FileEntry{Portable: backup.Options.Definition != nil, BackupMode: backup.Options.Mode.Normalized(), Name: backup.Name, Kind: model.FileKindFile, Size: int64(len(data)), ModifiedAt: backup.CreatedAt})
 		}
 
 		return result, nil

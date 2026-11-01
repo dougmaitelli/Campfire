@@ -30,49 +30,28 @@ func (a *API) syncServerConfiguration(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, receipt)
 }
 
+type createServerInput struct {
+	model.ServerConfiguration
+	OwnerUserID int64  `json:"owner_user_id"`
+	BackupToken string `json:"backup_token,omitempty"`
+}
+
 func (a *API) createServer(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		model.ServerConfiguration
-		OwnerUserID int64 `json:"owner_user_id"`
-	}
+	var input createServerInput
 	if !decodeRequest(w, r, &input, 1<<20) {
 		return
 	}
 
-	principal := currentUser(r)
-
-	ownerID := principal.UserID
-	if input.OwnerUserID != 0 {
-		if !principal.Admin {
-			writeError(w, repository.ErrAccessDenied)
-			return
-		}
-
-		ownerID = input.OwnerUserID
+	var (
+		server model.Server
+		err    error
+	)
+	if input.BackupToken != "" {
+		server, err = a.createFromBackup(r, input)
+	} else if err = a.checkHiddenVariables(r, input.ServerConfiguration, ""); err == nil {
+		server, err = a.createOwnedServer(r, input)
 	}
 
-	if _, err := a.access.Owner(r.Context(), ownerID); err != nil {
-		writeError(w, err)
-		return
-	}
-
-	allowed, err := a.access.CanProvision(r.Context(), principal, input.SparkID)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	if !allowed {
-		writeError(w, repository.ErrAccessDenied)
-		return
-	}
-
-	if err := a.checkHiddenVariables(r, input.ServerConfiguration, ""); err != nil {
-		writeError(w, err)
-		return
-	}
-
-	server, err := a.servers.CreateOwned(r.Context(), input.ServerConfiguration, ownerID)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -80,7 +59,7 @@ func (a *API) createServer(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", "/api/v1/servers/"+server.ID)
 
-	server.Permissions, err = a.access.ServerPermissions(r.Context(), principal, server.ID)
+	server.Permissions, err = a.access.ServerPermissions(r.Context(), currentUser(r), server.ID)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -88,6 +67,34 @@ func (a *API) createServer(w http.ResponseWriter, r *http.Request) {
 
 	auditDetail(r, "server.create", "server:"+server.ID)
 	a.writeServer(w, r, http.StatusCreated, server)
+}
+
+func (a *API) createOwnedServer(r *http.Request, input createServerInput) (model.Server, error) {
+	principal := currentUser(r)
+
+	ownerID := principal.UserID
+	if input.OwnerUserID != 0 {
+		if !principal.Admin {
+			return model.Server{}, repository.ErrAccessDenied
+		}
+
+		ownerID = input.OwnerUserID
+	}
+
+	if _, err := a.access.Owner(r.Context(), ownerID); err != nil {
+		return model.Server{}, err
+	}
+
+	allowed, err := a.access.CanProvision(r.Context(), principal, input.SparkID)
+	if err != nil {
+		return model.Server{}, err
+	}
+
+	if !allowed {
+		return model.Server{}, repository.ErrAccessDenied
+	}
+
+	return a.servers.CreateOwned(r.Context(), input.ServerConfiguration, ownerID)
 }
 
 func (a *API) updateServer(w http.ResponseWriter, r *http.Request) {

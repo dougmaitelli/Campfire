@@ -25,12 +25,13 @@ import (
 
 // Runtime implements the panel's real dispatch interfaces without opening network connections.
 type Runtime struct {
-	db           *gorm.DB
-	mu           sync.Mutex
-	games        *service.GameIntegrationService
-	gameSessions map[string]*gameSession
-	uploads      map[string]*mockUpload
-	now          func() time.Time
+	db            *gorm.DB
+	mu            sync.Mutex
+	games         *service.GameIntegrationService
+	gameSessions  map[string]*gameSession
+	uploads       map[string]*mockUpload
+	backupUploads map[string]*mockBackupUpload
+	now           func() time.Time
 }
 
 type runtimeRecord struct {

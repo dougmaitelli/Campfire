@@ -37,14 +37,18 @@ func (s *DeploymentService) backupOptions(ctx context.Context, id string, mode m
 
 	options.EmberRevision = server.EmberHash
 
+	ember, err := s.Embers.Get(ctx, server.EmberID)
+	if err != nil {
+		return options, err
+	}
+
+	if !server.EmberUpdateAvailable {
+		options.Definition = model.NewBackupDefinition(server, ember)
+	}
+
 	if options.Mode == model.BackupModeSavedata {
 		if server.EmberUpdateAvailable {
 			return options, fmt.Errorf("%w: apply the current Ember before using save-data backups", ErrInvalidServer)
-		}
-
-		ember, err := s.Embers.Get(ctx, server.EmberID)
-		if err != nil {
-			return options, err
 		}
 
 		options.Paths = ember.SavedataPaths

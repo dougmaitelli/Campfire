@@ -25,7 +25,7 @@ func CommandTimeout(command Command) time.Duration {
 		return SparkUpdateTimeout
 	}
 
-	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation == model.FileOperationCompress || command.Files.Operation == model.FileOperationExtract) {
+	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation == model.FileOperationCompress || command.Files.Operation == model.FileOperationExtract || command.Files.Operation == model.FileOperationBackupUploadCommit) {
 		return 30 * time.Minute
 	}
 
@@ -42,7 +42,7 @@ const (
 	CapabilityFilePermissions = "server.files.permissions.v1"
 	CapabilityFileTransfer    = "server.files.transfer.v1"
 	CapabilityFileArchive     = "server.files.archive.v1"
-	CapabilityBackups         = "server.backups.v3"
+	CapabilityBackups         = "server.backups.v4"
 	CapabilityBackupRemote    = "server.backups.remote.v1"
 	CapabilityMetrics         = "server.metrics.v1"
 	CapabilityConsole         = "server.console.stream.v1"

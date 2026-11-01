@@ -154,7 +154,7 @@ func (s *BackupService) discover(ctx context.Context, id string) error {
 		}
 
 		seen[item.Name] = true
-		if err := s.Store.Discover(ctx, database.Backup{Mode: item.BackupMode.Normalized(), ServerID: id, Name: item.Name, Size: item.Size, CreatedAt: item.ModifiedAt.UnixNano(), Local: true, Key: id + "/" + rand.Text() + "/" + item.Name}); err != nil {
+		if err := s.Store.Discover(ctx, database.Backup{Portable: item.Portable, Mode: item.BackupMode.Normalized(), ServerID: id, Name: item.Name, Size: item.Size, CreatedAt: item.ModifiedAt.UnixNano(), Local: true, Key: id + "/" + rand.Text() + "/" + item.Name}); err != nil {
 			return err
 		}
 	}
@@ -231,7 +231,7 @@ func backupView(row database.Backup, working bool) model.Backup {
 		state = model.BackupDeleting
 	}
 
-	return model.Backup{Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
+	return model.Backup{Portable: row.Portable, Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
 }
 
 // Catalog lists known backups across servers, including disconnected placements.

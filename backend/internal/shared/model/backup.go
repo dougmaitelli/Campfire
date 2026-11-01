@@ -44,6 +44,7 @@ type BackupSource struct {
 
 // Backup describes a cataloged archive and its available copies.
 type Backup struct {
+	Portable   bool        `json:"portable"`
 	Mode       BackupMode  `json:"mode"`
 	Name       string      `json:"name"`
 	Size       int64       `json:"size"`

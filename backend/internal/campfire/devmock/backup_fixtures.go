@@ -68,6 +68,7 @@ func seedBackupModes(ctx context.Context, db *gorm.DB) error {
 
 			backup.Name = item.mode.ArchiveName(strings.TrimSuffix(item.name, ".tar.gz"))
 			backup.Options = model.BackupOptions{Mode: item.mode, EmberRevision: server.EmberHash}
+			backup.Options.Definition = model.NewBackupDefinition(server, ember)
 
 			if item.mode == model.BackupModeSavedata {
 				backup.Options.Paths = ember.SavedataPaths
@@ -87,7 +88,7 @@ func seedBackupModes(ctx context.Context, db *gorm.DB) error {
 				return err
 			}
 
-			if err := tx.Model(&database.Backup{}).Where("server_id = ? AND name = ?", server.ID, item.name).Updates(map[string]any{"name": backup.Name, "mode": item.mode, "size": len(archive), "key": server.ID + "/mock/" + backup.Name}).Error; err != nil {
+			if err := tx.Model(&database.Backup{}).Where("server_id = ? AND name = ?", server.ID, item.name).Updates(map[string]any{"portable": true, "name": backup.Name, "mode": item.mode, "size": len(archive), "key": server.ID + "/mock/" + backup.Name}).Error; err != nil {
 				return err
 			}
 		}

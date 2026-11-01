@@ -36,12 +36,13 @@ type SavedataPath struct {
 	Required bool   `json:"required"`
 }
 
-// BackupOptions carries resolved execution paths, rather than the Ember definition.
+// BackupOptions carries capture paths and optional portable archive metadata.
 type BackupOptions struct {
-	StopServer    bool           `json:"stop_server,omitempty"`
-	Mode          BackupMode     `json:"mode"`
-	Paths         []SavedataPath `json:"paths,omitempty"`
-	EmberRevision string         `json:"ember_revision,omitempty"`
+	Definition    *BackupDefinition `json:"definition,omitempty"`
+	StopServer    bool              `json:"stop_server,omitempty"`
+	Mode          BackupMode        `json:"mode"`
+	Paths         []SavedataPath    `json:"paths,omitempty"`
+	EmberRevision string            `json:"ember_revision,omitempty"`
 }
 
 // BackupMetadataName is reserved inside backup archives for their restore contract.

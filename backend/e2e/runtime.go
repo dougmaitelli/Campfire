@@ -45,10 +45,13 @@ func (r *runtime) Console(ctx context.Context, _ string, id string, emit func(mo
 func revision(contents string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(contents))) }
 
 // Files keeps fixture edits in memory and enforces the same revision contract as Spark.
-func (r *runtime) Files(_ context.Context, _ string, input model.FileRequest) (model.FileResult, error) {
+func (r *runtime) Files(ctx context.Context, _ string, input model.FileRequest) (model.FileResult, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	result := model.FileResult{ServerID: input.ServerID, Path: input.Path}
+	if input.Operation.IsBackupUpload() {
+		return r.importBackup(ctx, input)
+	}
 	files := r.files[input.ServerID]
 	if r.fileModes == nil {
 		r.fileModes = make(map[string]map[string]uint32)

@@ -26,6 +26,7 @@ type API struct {
 	oidc          *service.OIDCService
 	activity      *service.ActivityService
 	notifications *service.NotificationService
+	backupImports *service.BackupImports
 }
 
 // WithNotifications enables personal inboxes and monitoring notification controls.
@@ -67,7 +68,7 @@ func (a *API) WithAgentHub(hub *agents.Hub) *API { a.agents = hub; return a }
 
 // New constructs the HTTP API with its application service.
 func New(sparks *service.SparkService, embers *service.EmberService, servers *service.ServerService) *API {
-	return &API{sparks: sparks, embers: embers, servers: servers}
+	return &API{sparks: sparks, embers: embers, servers: servers, backupImports: service.NewBackupImports()}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

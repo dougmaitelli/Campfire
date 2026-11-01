@@ -1,4 +1,23 @@
 {
+  "backupImports": {
+    "create": "Create from backup",
+    "upload": "Upload backup",
+    "continue": "Continue",
+    "archive": "Backup archive",
+    "description": "Upload a portable Campfire backup to recover a server or its save data.",
+    "progress": "Backup upload progress",
+    "uploading": "Uploading backup…",
+    "validating": "Validating backup…",
+    "publishing": "Sending backup to Spark…",
+    "creating": "Creating the server and preparing its backup for restoration…",
+    "invalidResponse": "Unexpected backup import response.",
+    "failed": "Unable to import backup.",
+    "uploadNotice": "The archive will be added to this server’s backups. Restore it when the server is stopped; its current settings stay unchanged.",
+    "fullNotice": "Choose the destination and review the settings next. The full filesystem will be restored without running the installer.",
+    "savedataNotice": "Choose the destination and review the settings next. Game files will be installed before the save data is restored.",
+    "restoreNotice": "The backup will be restored after creation. The server will remain stopped.",
+    "importEmber": "This backup includes an Ember that is not in this panel. Creating the server will import that definition, including its installer. Continue only if you trust its source."
+  },
   "backupModes": {
     "label": "Backup type",
     "full": "Full server",

@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 )
@@ -44,7 +45,7 @@ func (m *Manager) backupStopped(ctx context.Context, id string) error {
 // backupFiles lists immutable archives and reads bounded chunks over the file protocol.
 func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Path}
-	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || (q.Operation != model.FileOperationBackupList && q.Operation != model.FileOperationBackupRead && q.Operation != model.FileOperationBackupDelete) || q.Offset < 0 {
+	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || q.Offset < 0 {
 		return result, fileFailure(model.FileInvalid, "Invalid backup request.")
 	}
 
@@ -62,6 +63,14 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 
 	if e.Status.Busy {
 		return result, fileFailure(model.FileBusy, "Wait for the current server operation to finish.")
+	}
+
+	if q.Operation.IsBackupUpload() {
+		return m.uploadBackup(ctx, e, q)
+	}
+
+	if q.Operation != model.FileOperationBackupList && q.Operation != model.FileOperationBackupRead && q.Operation != model.FileOperationBackupDelete {
+		return result, fileFailure(model.FileInvalid, "Invalid backup request.")
 	}
 
 	if q.Operation == model.FileOperationBackupDelete {
@@ -113,10 +122,10 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 				_ = input.Close()
 
 				if err != nil {
-					manifest.Mode = model.BackupModeFull
+					manifest = backupManifest{BackupOptions: model.BackupOptions{Mode: model.BackupModeFull}}
 				}
 
-				result.Entries = append(result.Entries, model.FileEntry{BackupMode: manifest.Mode, Name: item.Name(), Kind: model.FileKindFile, Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
+				result.Entries = append(result.Entries, model.FileEntry{Portable: manifest.Format == backuparchive.Format, BackupMode: manifest.Mode, Name: item.Name(), Kind: model.FileKindFile, Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
 			}
 		}
 
@@ -442,10 +451,6 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 				return err
 			}
 
-			if manifest.Format != 1 || manifest.Mode == "" {
-				return errors.New("unsupported backup metadata format")
-			}
-
 			if err := manifest.Validate(); err != nil {
 				return err
 			}
@@ -464,7 +469,7 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 		}
 
 		entryLimit := backupEntries
-		if manifest.Format == 1 {
+		if manifest.Format > 0 {
 			entryLimit++
 		}
 
@@ -590,6 +595,22 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 		return err
 	}
 
+	e.mu.Lock()
+	installed := e.Installed
+	e.mu.Unlock()
+
+	if !installed && manifest.Format != backuparchive.Format {
+		return errors.New("an uninstalled server requires a portable backup")
+	}
+
+	if !installed && manifest.Mode == model.BackupModeSavedata {
+		m.progress(d.ServerID, e, "Installing game files before restoring save data")
+
+		if err := m.install(ctx, d, e); err != nil {
+			return err
+		}
+	}
+
 	if manifest.Mode == model.BackupModeSavedata {
 		volume, err := m.volume(d.ServerID)
 		if err != nil {
@@ -658,6 +679,10 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 		return err
 	}
 
+	if err := os.MkdirAll(volume, 0700); err != nil {
+		return err
+	}
+
 	if err := os.Rename(volume, previous); err != nil {
 		return errors.New("could not preserve original game data")
 	}
@@ -682,6 +707,10 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 	if err := os.RemoveAll(previous); err != nil {
 		return errors.New("game data restored; previous data cleanup requires operator attention")
 	}
+
+	e.mu.Lock()
+	e.Installed = true
+	e.mu.Unlock()
 
 	return nil
 }

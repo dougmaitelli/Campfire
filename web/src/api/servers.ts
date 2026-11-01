@@ -160,11 +160,12 @@ export async function listServers(signal: AbortSignal): Promise<Server[]> {
 export async function saveServer(
   input: ServerConfiguration,
   id?: string,
+  backupToken?: string,
 ): Promise<Server> {
   const body = await readJSON(
     await apiJSON(
       id ? `/api/v1/servers/${encodeURIComponent(id)}` : "/api/v1/servers",
-      input,
+      backupToken && !id ? { ...input, backup_token: backupToken } : input,
       { method: id ? "PUT" : "POST" },
     ),
   );

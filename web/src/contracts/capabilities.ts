@@ -9,7 +9,7 @@ export const Capability = {
   FilePermissions: "server.files.permissions.v1",
   FileTransfer: "server.files.transfer.v1",
   FileArchive: "server.files.archive.v1",
-  Backups: "server.backups.v3",
+  Backups: "server.backups.v4",
   RemoteBackups: "server.backups.remote.v1",
   Metrics: "server.metrics.v1",
   Console: "server.console.stream.v1",

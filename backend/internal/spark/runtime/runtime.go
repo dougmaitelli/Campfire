@@ -40,19 +40,22 @@ type Manager struct {
 }
 
 type entry struct {
-	mu          sync.Mutex
-	cancel      context.CancelFunc
-	interrupted bool
-	uploads     map[string]*fileUpload
-	Installed   bool                `json:"installed"`
-	Images      []string            `json:"images,omitempty"`
-	Revision    string              `json:"revision"`
-	Status      model.RuntimeStatus `json:"status"`
+	mu            sync.Mutex
+	cancel        context.CancelFunc
+	interrupted   bool
+	uploads       map[string]*fileUpload
+	backupUploads map[string]*backupUpload
+	Installed     bool                `json:"installed"`
+	Images        []string            `json:"images,omitempty"`
+	Revision      string              `json:"revision"`
+	Status        model.RuntimeStatus `json:"status"`
 }
 
 // New constructs a manager whose background operations follow the process lifetime.
 func New(ctx context.Context, directory string) *Manager {
 	ctx, cancel := context.WithCancel(ctx)
+
+	removeAbandonedBackupUploads(directory)
 
 	var quota DiskQuota = &projectQuotas{registry: filepath.Join(directory, ".quota-projects"), kernel: linuxProjectKernel{}}
 
@@ -303,7 +306,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		}
 	}
 
-	if q.Action != model.ServerActionInstall && q.Action != model.ServerActionUpdate && q.Action != model.ServerActionReinstall && q.Action != model.ServerActionDelete && !e.Installed {
+	if q.Action != model.ServerActionInstall && q.Action != model.ServerActionUpdate && q.Action != model.ServerActionReinstall && q.Action != model.ServerActionDelete && q.Action != model.ServerActionRestore && !e.Installed {
 		return model.RuntimeStatus{}, errors.New("install the server first")
 	}
 

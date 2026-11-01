@@ -10,7 +10,10 @@ import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
 import { FormField } from "../components/forms/FormField";
 import { Button, ButtonLink } from "../components/forms/Button";
-import type { ActionMenuItem } from "../components/forms/ActionMenu";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "../components/forms/ActionMenu";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -36,6 +39,8 @@ import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ServerTransferDrawer } from "../drawers/ServerTransferDrawer";
+import { BackupImportDrawer } from "../drawers/BackupImportDrawer";
+import type { BackupImport } from "../api/backupImports";
 
 const SERVER_LIST_REFRESH_INTERVAL_MS = 10000;
 
@@ -96,6 +101,8 @@ export function ServersPage() {
   const hasGameArt = servers.items.some((server) => server.ember_art_url);
   const [editing, setEditing] = useState<Server | null>(null);
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [backup, setBackup] = useState<BackupImport | undefined>();
   const [search, setSearch] = useState("");
   const [sparkFilter, setSparkFilter] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -148,12 +155,14 @@ export function ServersPage() {
     }
   }
   function create() {
+    setBackup(undefined);
     setApplyRevision(false);
     setDraftOptions(options);
     setEditing(null);
     setOpen(true);
   }
   async function edit(server: Server, revision = false) {
+    setBackup(undefined);
     if (editorPending.current) return;
     editorPending.current = true;
     setActionError(null);
@@ -227,6 +236,21 @@ export function ServersPage() {
               <Button variant="primary" disabled={!canCreate} onClick={create}>
                 {t("serversPage.createServer")}
               </Button>
+            )}
+            {canProvision && (
+              <ActionMenu
+                label={t("common.actions")}
+                items={[
+                  {
+                    label: t("backupImports.create"),
+                    icon: "backups",
+                    disabled:
+                      loading ||
+                      !options.sparks.some((spark) => !spark.disabled),
+                    onSelect: () => setImportOpen(true),
+                  },
+                ]}
+              />
             )}
           </>
         }
@@ -514,8 +538,22 @@ export function ServersPage() {
               visible: visible.length,
             })}
       </p>
+      {importOpen && (
+        <BackupImportDrawer
+          onClose={() => setImportOpen(false)}
+          onReady={(next) => {
+            setBackup(next);
+            setDraftOptions({ ...options, embers: [next.ember] });
+            setEditing(null);
+            setApplyRevision(false);
+            setImportOpen(false);
+            setOpen(true);
+          }}
+        />
+      )}
       {open && (
         <ServerDrawer
+          backup={backup}
           applyRevision={applyRevision}
           accessOnly={
             editing !== null &&

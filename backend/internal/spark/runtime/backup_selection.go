@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,88 +13,16 @@ import (
 	"strings"
 	"syscall"
 
+	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 )
 
-const backupMetadataLimit = 128 << 10
+const backupMetadataLimit = backuparchive.MetadataLimit
 
-type backupManifest struct {
-	Format int `json:"format"`
-	model.BackupOptions
-	Missing []string `json:"missing,omitempty"`
-}
-
-func (m backupManifest) Validate() error {
-	if m.Format != 1 || m.Mode == "" {
-		return errors.New("unsupported backup metadata format")
-	}
-
-	if err := m.BackupOptions.Validate(); err != nil {
-		return err
-	}
-
-	seen := make(map[string]bool)
-
-	for _, name := range m.Missing {
-		optional := false
-		for _, item := range m.Paths {
-			optional = optional || item.Path == name && !item.Required
-		}
-
-		if !optional || seen[name] {
-			return errors.New("invalid missing save-data path")
-		}
-
-		seen[name] = true
-	}
-
-	return nil
-}
+type backupManifest = backuparchive.Manifest
 
 func readBackupManifest(input io.Reader) (backupManifest, error) {
-	manifest := backupManifest{Format: 1, BackupOptions: model.BackupOptions{Mode: model.BackupModeFull}}
-
-	compressed, err := gzip.NewReader(input)
-	if err != nil {
-		return manifest, err
-	}
-
-	defer func() { _ = compressed.Close() }()
-
-	archive := tar.NewReader(compressed)
-
-	header, err := archive.Next()
-	if errors.Is(err, io.EOF) {
-		return manifest, nil
-	}
-
-	if err != nil {
-		return manifest, err
-	}
-
-	if header.Name != model.BackupMetadataName {
-		return manifest, nil
-	}
-
-	if header.Typeflag != tar.TypeReg || header.Size < 1 || header.Size > backupMetadataLimit {
-		return manifest, errors.New("invalid backup metadata")
-	}
-
-	data, err := io.ReadAll(archive)
-	if err != nil {
-		return manifest, err
-	}
-
-	manifest = backupManifest{}
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		return manifest, err
-	}
-
-	if manifest.Format != 1 || manifest.Mode == "" {
-		return manifest, errors.New("unsupported backup metadata format")
-	}
-
-	return manifest, manifest.Validate()
+	return backuparchive.Read(input)
 }
 
 func writeBackupManifest(archive *tar.Writer, root *os.Root, options model.BackupOptions) error {
@@ -107,6 +34,10 @@ func writeBackupManifest(archive *tar.Writer, root *os.Root, options model.Backu
 	}
 
 	manifest := backupManifest{Format: 1, BackupOptions: options}
+	if options.Definition != nil {
+		manifest.Format = backuparchive.Format
+	}
+
 	for _, item := range options.Paths {
 		err := savedataExists(root, item.Path)
 		if errors.Is(err, os.ErrNotExist) && !item.Required {
@@ -126,6 +57,10 @@ func writeBackupManifest(archive *tar.Writer, root *os.Root, options model.Backu
 	data, err := json.Marshal(manifest)
 	if err != nil {
 		return err
+	}
+
+	if len(data) > backupMetadataLimit {
+		return errors.New("backup metadata exceeds its size limit")
 	}
 
 	if err := archive.WriteHeader(&tar.Header{Name: model.BackupMetadataName, Typeflag: tar.TypeReg, Mode: 0600, Size: int64(len(data))}); err != nil {

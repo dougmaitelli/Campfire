@@ -48,8 +48,16 @@ import {
 
 import { AccessGrantFields } from "../components/forms/AccessGrantFields";
 import { AccessGrantLabel } from "../components/forms/AccessGrantLabel";
+import {
+  cancelBackupImport,
+  publishBackupImport,
+  type BackupImport,
+} from "../api/backupImports";
+import { serverAction, ServerAction } from "../api/runtime";
+import { ProgressBar } from "../components/status/ProgressBar";
 
 interface ServerDrawerProps {
+  backup?: BackupImport | undefined;
   s3Configured: boolean;
   runtimeRestricted?: boolean;
   applyRevision?: boolean;
@@ -63,6 +71,7 @@ interface ServerDrawerProps {
 }
 
 export function ServerDrawer({
+  backup,
   s3Configured,
   runtimeRestricted = false,
   applyRevision = false,
@@ -71,7 +80,7 @@ export function ServerDrawer({
   sparks,
   embers,
   servers,
-  onClose,
+  onClose: closeDrawer,
   onSaved,
 }: ServerDrawerProps) {
   const { t } = useTranslation();
@@ -118,6 +127,15 @@ export function ServerDrawer({
     return () => controller.abort();
   }, [canShare, admin, server, session?.user_id, accessAttempt]);
   const [value, setValue] = useState<ServerConfiguration>(() => {
+    if (backup) {
+      const spark = sparks.find((item) => !item.disabled);
+      return {
+        ...backup.configuration,
+        ember_id: backup.ember.id,
+        spark_id: spark?.id ?? "",
+        ports: defaultPorts(spark, backup.ember, servers),
+      };
+    }
     if (server) {
       if (!applyRevision)
         return {
@@ -171,6 +189,11 @@ export function ServerDrawer({
     };
   });
   const [busy, setBusy] = useState(false);
+  const importedBackupName = useRef<string | null>(null);
+  function onClose() {
+    if (backup) void cancelBackupImport(backup.token);
+    closeDrawer();
+  }
   const [error, setError] = useState<string | null>(null);
   const [backupPolicy, setBackupPolicy] = useState<BackupPolicy | null>(() =>
     server
@@ -252,11 +275,17 @@ export function ServerDrawer({
         ports: value.ports,
       };
       const saved =
-        accessOnly && server
-          ? server
-          : applyRevision && server
-            ? await applyServerEmber(server.id, server.ember_id, input)
-            : await saveServer(input, server?.id ?? createdServer.current?.id);
+        backup && createdServer.current
+          ? createdServer.current
+          : accessOnly && server
+            ? server
+            : applyRevision && server
+              ? await applyServerEmber(server.id, server.ember_id, input)
+              : await saveServer(
+                  input,
+                  server?.id ?? createdServer.current?.id,
+                  backup?.token,
+                );
       if (!server) {
         createdServer.current = saved;
       }
@@ -300,6 +329,17 @@ export function ServerDrawer({
             { cause },
           );
         }
+      }
+      if (backup) {
+        importedBackupName.current ??= await publishBackupImport(
+          saved.id,
+          backup.token,
+        );
+        await serverAction(
+          saved.id,
+          ServerAction.Restore,
+          importedBackupName.current,
+        );
       }
       onSaved(saved);
       onClose();
@@ -392,7 +432,7 @@ export function ServerDrawer({
                 <Select
                   id="server-ember"
                   required
-                  disabled={server !== null}
+                  disabled={server !== null || backup !== undefined}
                   value={value.ember_id}
                   onValueChange={(selectedValue) => {
                     const selected = embers.find(
@@ -1108,15 +1148,17 @@ export function ServerDrawer({
                     </ResourceLink>
                   }
                   notice={
-                    applyRevision
-                      ? t(
-                          "serverDrawer.applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration",
-                        )
-                      : server
+                    backup
+                      ? t("backupImports.restoreNotice")
+                      : applyRevision
                         ? t(
-                            "serverDrawer.savingKeepsTheServerInItsCurrentStateIncludingWhen",
+                            "serverDrawer.applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration",
                           )
-                        : undefined
+                        : server
+                          ? t(
+                              "serverDrawer.savingKeepsTheServerInItsCurrentStateIncludingWhen",
+                            )
+                          : undefined
                   }
                 />
               )}
@@ -1201,6 +1243,12 @@ export function ServerDrawer({
           }
           footerRight={actions}
         >
+          {backup && busy && (
+            <div className="panel-content">
+              <p role="status">{t("backupImports.creating")}</p>
+              <ProgressBar aria-label={t("backupImports.progress")} />
+            </div>
+          )}
           {content}
           {confirmPolicy && (
             <ConfirmDialog

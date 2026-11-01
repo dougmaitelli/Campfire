@@ -54,19 +54,27 @@ The execution-only payload uses `server.configure.v2`. Custom startup commands
 are part of this contract and have no separate capability. The wire protocol
 version remains unchanged. Older Sparks can still connect and receive remote
 Spark updates, but must be upgraded before receiving this configuration format.
-Upgraded Sparks can read their existing full-definition snapshots from disk,
-including named startup selections and custom overrides. New deliveries replace
-those snapshots with the execution-only format.
 
 ## Backup execution
 
-`server.backups.v3` supports live backup creation and the optional
+`server.backups.v4` supports portable archive metadata, isolated chunked archive
+uploads, restoration onto uninstalled servers, live backup creation and the optional
 `backup_options.stop_server` execution flag. When requested, Spark owns the
 stop, backup, and conditional restart as one exclusive operation with one
 operation ID. It attempts to restart a previously running server even when
 backup creation fails; a server that was already stopped remains stopped.
 Restoration still requires a stopped server. Upgrade Sparks before using this
 backup contract; the wire protocol version is unchanged.
+
+The panel attaches a portable definition only to backup creation requests, rather
+than adding authoring metadata to the persisted execution configuration. Archive
+format 2 stores that definition in the first `.campfire-backup.json` entry,
+including hidden variables. Source placement and access grants are excluded.
+The panel stages owner-bound uploads, validates their complete archive, then
+publishes bounded chunks into Spark's backup store. The normal restore command
+validates and stages files before replacing data. For an uninstalled destination,
+a full restore marks the restored server installed; a save-data restore installs
+game files before merging the captured paths. Both finish stopped.
 
 ## Repository layout
 

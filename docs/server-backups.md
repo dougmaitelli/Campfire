@@ -40,7 +40,8 @@ default. Existing schedules continue to create full backups.
 A full restore replaces all game files. A save-data restore replaces only the
 captured paths, including removing files added under those paths since the backup.
 Other installed files remain in place. Reinstall a compatible game version before
-restoring save data onto an empty server. Both restore types leave the server
+restoring older save-data archives onto an empty server. Portable save-data backups
+install the game first when the destination is not installed. Both restore types leave the server
 stopped; start it after restoration finishes and check its console.
 
 Each archive records its type and selected paths. Restoring an older backup uses
@@ -52,6 +53,44 @@ New archives are named `full-<id>.tar.gz` or `savedata-<id>.tar.gz`. Their first
 entry, `.campfire-backup.json`, records the mode, selected paths, missing optional
 paths, and Ember revision. Restore uses this metadata rather than guessing from
 the filename; older archive names remain supported.
+
+## Portable backups and recovery
+
+New backups also include the server settings and the complete Ember definition.
+Hidden variable values, including passwords and tokens, are included for exact
+recreation. Treat downloaded archives as sensitive credentials and store them
+privately. Import previews do not show hidden values.
+
+To recover into an existing server, choose **Upload backup** in its **Backups**
+tab. After upload and validation, the archive appears in that server's catalog.
+Stop the server, then choose **Restore**. Its current settings, ownership, and
+access grants remain in place. A full restore replaces its game filesystem;
+a save-data restore replaces only the paths captured in the archive.
+
+To recreate a server, choose **Create from backup** in the **Servers** action menu and upload the
+archive. Review the recovered settings, select a destination Spark, and allocate
+new host ports. Ownership and access grants are configured on the destination;
+source placement and grants are not copied. A full backup restores the filesystem
+without running the installer. A save-data backup installs game files before
+restoring the captured paths. The new server remains stopped after restoration.
+
+An administrator can import the included Ember if no matching definition exists.
+Its installer is executable code: only import backups from a trusted source.
+Other server creators can use backups whose Ember already exists in the panel.
+Recreating non-default hidden variable values requires an administrator, matching
+the existing restriction on changing hidden variables.
+Uploading requires backup creation permission; restoration requires the separate
+backup restore permission. Creating from backup also requires server creation
+access to the destination Spark.
+
+Portable imports accept archives created with this feature, including archives
+downloaded from another Campfire installation. Older archives remain usable in
+their existing catalog but cannot be uploaded through this workflow. Apply pending
+Ember changes before creating a portable snapshot; full backups made with an
+outdated Ember reference still protect files but cannot recreate server settings.
+Uploads use the configured file-upload limit and expire after one hour. Keep
+enough free space on the panel for the uploaded archive and on Spark for the
+archive plus staged restoration.
 
 Keep enough host space for the current game directory and a staged replacement
 at the same time. Save-data restores also stage the installed files they preserve.

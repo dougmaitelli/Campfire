@@ -10,25 +10,32 @@ type FileOperation string
 
 // File operations keep their JSON values across panel and Spark transports.
 const (
-	FileOperationList         FileOperation = "list"
-	FileOperationRead         FileOperation = "read"
-	FileOperationWrite        FileOperation = "write"
-	FileOperationMkdir        FileOperation = "mkdir"
-	FileOperationRename       FileOperation = "rename"
-	FileOperationDelete       FileOperation = "delete"
-	FileOperationChmod        FileOperation = "chmod"
-	FileOperationStat         FileOperation = "stat"
-	FileOperationReadChunk    FileOperation = "read.chunk"
-	FileOperationUploadBegin  FileOperation = "upload.begin"
-	FileOperationUploadChunk  FileOperation = "upload.chunk"
-	FileOperationUploadCommit FileOperation = "upload.commit"
-	FileOperationUploadCancel FileOperation = "upload.cancel"
-	FileOperationCompress     FileOperation = "compress"
-	FileOperationExtract      FileOperation = "extract"
-	FileOperationBackupList   FileOperation = "backup.list"
-	FileOperationBackupRead   FileOperation = "backup.read"
-	FileOperationBackupDelete FileOperation = "backup.delete"
+	FileOperationList               FileOperation = "list"
+	FileOperationRead               FileOperation = "read"
+	FileOperationWrite              FileOperation = "write"
+	FileOperationMkdir              FileOperation = "mkdir"
+	FileOperationRename             FileOperation = "rename"
+	FileOperationDelete             FileOperation = "delete"
+	FileOperationChmod              FileOperation = "chmod"
+	FileOperationStat               FileOperation = "stat"
+	FileOperationReadChunk          FileOperation = "read.chunk"
+	FileOperationUploadBegin        FileOperation = "upload.begin"
+	FileOperationUploadChunk        FileOperation = "upload.chunk"
+	FileOperationUploadCommit       FileOperation = "upload.commit"
+	FileOperationUploadCancel       FileOperation = "upload.cancel"
+	FileOperationCompress           FileOperation = "compress"
+	FileOperationExtract            FileOperation = "extract"
+	FileOperationBackupList         FileOperation = "backup.list"
+	FileOperationBackupRead         FileOperation = "backup.read"
+	FileOperationBackupDelete       FileOperation = "backup.delete"
+	FileOperationBackupUploadBegin  FileOperation = "backup.upload.begin"
+	FileOperationBackupUploadChunk  FileOperation = "backup.upload.chunk"
+	FileOperationBackupUploadCommit FileOperation = "backup.upload.commit"
+	FileOperationBackupUploadCancel FileOperation = "backup.upload.cancel"
 )
+
+// IsBackupUpload identifies archive ingestion, isolated from game-file uploads.
+func (o FileOperation) IsBackupUpload() bool { return strings.HasPrefix(string(o), "backup.upload.") }
 
 // IsBackup identifies operations routed to immutable backup storage.
 func (o FileOperation) IsBackup() bool { return strings.HasPrefix(string(o), "backup.") }
@@ -64,6 +71,7 @@ type FileRequest struct {
 
 // FileEntry describes a directory child without following symbolic links.
 type FileEntry struct {
+	Portable   bool       `json:"portable,omitempty"`
 	BackupMode BackupMode `json:"backup_mode,omitempty"`
 	Mode       uint32     `json:"mode"`
 	Name       string     `json:"name"`

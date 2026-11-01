@@ -77,15 +77,20 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 			status.State = "stopped"
 		case "command":
 			status.Logs += input.Content + "\nCommand accepted.\n"
+		case "restore":
+			if err := r.restoreBackup(input); err != nil {
+				return status, err
+			}
+			status.State = model.RuntimeStateStopped
 		case "backup":
 			name := input.BackupOptions.Mode.ArchiveName(input.OperationID)
-			data, err := devfixture.Archive(r.files[input.ServerID], fixed)
+			data, err := r.createBackup(input)
 			if err != nil {
 				return status, err
 			}
 
 			r.archives[input.ServerID+"/"+name] = data
-			r.backups[input.ServerID] = append(r.backups[input.ServerID], model.FileEntry{BackupMode: input.BackupOptions.Mode.Normalized(), Name: name, Kind: model.FileKindFile, Size: int64(len(data)), ModifiedAt: fixed})
+			r.backups[input.ServerID] = append(r.backups[input.ServerID], model.FileEntry{Portable: input.BackupOptions.Definition != nil, BackupMode: input.BackupOptions.Mode.Normalized(), Name: name, Kind: model.FileKindFile, Size: int64(len(data)), ModifiedAt: fixed})
 		}
 		r.statuses[input.ServerID] = status
 		close(r.updates)

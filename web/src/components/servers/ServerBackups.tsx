@@ -31,6 +31,7 @@ import { formatBytes } from "../../utils/formatBytes";
 import "./files.css";
 import { Permission } from "../../api/permissions";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
+import { BackupImportDrawer } from "../../drawers/BackupImportDrawer";
 
 export function ServerBackups({ server }: { server: Server }) {
   const { t } = useTranslation();
@@ -52,6 +53,7 @@ export function ServerBackups({ server }: { server: Server }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   useNavigationGuard(true, busy, false);
   const [refresh, setRefresh] = useState(0);
   const pending = useRef(false);
@@ -117,7 +119,10 @@ export function ServerBackups({ server }: { server: Server }) {
     canChange &&
     (status?.state === RuntimeState.Running ||
       status?.state === RuntimeState.Stopped);
-  const canRestoreNow = canChange && status?.state === RuntimeState.Stopped;
+  const canRestoreNow =
+    canChange &&
+    (status?.state === RuntimeState.Stopped ||
+      status?.state === RuntimeState.NotInstalled);
   async function remove(entry: Backup, location: BackupStorage) {
     if (
       pending.current ||
@@ -204,18 +209,35 @@ export function ServerBackups({ server }: { server: Server }) {
       title={t("serverBackups.backups", { serverName: server.name })}
       description={t("serverBackups.description")}
       footerRight={
-        <Button
-          variant="primary"
-          disabled={!canCreateNow || !canCreate || invalidBackupMode}
-          onClick={() => {
-            void submit("backup");
-          }}
-        >
-          {t("serverBackups.createBackup")}
-        </Button>
+        <ActionGroup>
+          {canCreate && (
+            <Button disabled={!canChange} onClick={() => setImportOpen(true)}>
+              {t("backupImports.upload")}
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            disabled={!canCreateNow || !canCreate || invalidBackupMode}
+            onClick={() => {
+              void submit("backup");
+            }}
+          >
+            {t("serverBackups.createBackup")}
+          </Button>
+        </ActionGroup>
       }
     >
       <div className="panel-content">
+        {importOpen && (
+          <BackupImportDrawer
+            serverID={server.id}
+            onClose={() => setImportOpen(false)}
+            onReady={() => {
+              setImportOpen(false);
+              setRefresh((value) => value + 1);
+            }}
+          />
+        )}
         {canCreate && (
           <BackupModeField
             value={backupMode}
@@ -325,6 +347,8 @@ export function ServerBackups({ server }: { server: Server }) {
                     <Button
                       disabled={
                         !canRestoreNow ||
+                        (status.state === RuntimeState.NotInstalled &&
+                          !entry.portable) ||
                         !canRestore ||
                         entry.state === BackupStatus.Deleting ||
                         (!entry.local && !entry.remote)
