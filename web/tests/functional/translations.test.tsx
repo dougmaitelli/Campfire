@@ -11,18 +11,18 @@ test("language changes update UI labels without changing protocol actions", asyn
   const action = vi.fn();
   render(
     <ServerLifecycleControls
-      status={runtimeStatus({ state: "not_installed" })}
+      status={runtimeStatus({ state: "stopped" })}
       disabled={false}
       canReinstall
       onAction={action}
     />,
   );
-  expect(screen.getByRole("button", { name: "Install" })).toBeDefined();
+  expect(screen.getByRole("button", { name: "Start" })).toBeDefined();
   i18n.options.supportedLngs = ["en", "test"];
   i18n.addResourceBundle(
     "test",
     "translation",
-    { common: { install: "Installer", start: "Démarrer" } },
+    { common: { start: "Démarrer" } },
     true,
     true,
   );
@@ -30,8 +30,8 @@ test("language changes update UI labels without changing protocol actions", asyn
   expect(screen.getByRole("button", { name: "Démarrer" })).toBeDefined();
   await userEvent
     .setup()
-    .click(screen.getByRole("button", { name: "Installer" }));
-  expect(action).toHaveBeenCalledWith("install");
+    .click(screen.getByRole("button", { name: "Démarrer" }));
+  expect(action).toHaveBeenCalledWith("start");
   expect(document.documentElement.lang).toBe("test");
 });
 

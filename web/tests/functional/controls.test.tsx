@@ -159,7 +159,7 @@ test.each(["install", "reinstall", "update"] as const)(
   },
 );
 
-test("servers awaiting installation keep Install visible and Reinstall disabled", () => {
+test("servers awaiting installation keep Start and Reinstall disabled", () => {
   render(
     <ServerLifecycleControls
       status={runtimeStatus({ state: "not_installed" })}
@@ -169,8 +169,8 @@ test("servers awaiting installation keep Install visible and Reinstall disabled"
     />,
   );
   expect(
-    screen.getByRole<HTMLButtonElement>("button", { name: "Install" }).disabled,
-  ).toBe(false);
+    screen.getByRole<HTMLButtonElement>("button", { name: "Start" }).disabled,
+  ).toBe(true);
   expect(
     screen.getByRole<HTMLButtonElement>("menuitem", {
       name: "Reinstall",

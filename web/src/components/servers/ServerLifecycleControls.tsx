@@ -75,15 +75,6 @@ export function ServerLifecycleControls({
       >
         <NavigationIcon name="restart" />
       </Button>
-      {install && (
-        <Button
-          variant="primary"
-          disabled={blocked || running}
-          onClick={() => onAction(ServerAction.Install)}
-        >
-          {t("common.install")}
-        </Button>
-      )}
       <ActionMenu label={t("common.moreServerActions")} items={items} />
     </>
   );

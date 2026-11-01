@@ -30,6 +30,21 @@
 .operations-resources {
   min-width: 0;
 }
+.server-operations:has(> .server-install-empty) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.server-install-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding-block: 24px clamp(24px, 16dvh, 160px);
+}
+.server-install-retry {
+  margin-bottom: 16px;
+}
 .operations-tabs {
   display: flex;
   overflow-x: auto;

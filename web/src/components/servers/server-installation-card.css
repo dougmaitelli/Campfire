@@ -1,0 +1,98 @@
+.server-install-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(100%, 480px);
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: center;
+
+  & h2 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+  }
+
+  & p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  & > .button {
+    min-width: 160px;
+  }
+}
+.server-install-art {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  color: var(--accent);
+
+  &:not(:has(.game-art)) {
+    background: var(--surface-hover);
+  }
+
+  & > svg,
+  & > .game-art {
+    grid-area: 1 / 1;
+  }
+
+  & > svg {
+    width: 40px;
+    height: 40px;
+  }
+
+  & > .game-art {
+    width: 88px;
+    height: 88px;
+    border-radius: inherit;
+  }
+
+  &:has(.game-art) > svg {
+    display: none;
+  }
+}
+.server-install-ember {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+.server-install-description {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.server-install-allocation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 8px 0;
+  font-size: 13px;
+
+  & > div {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  & dt {
+    display: flex;
+    color: var(--muted);
+  }
+
+  & dd {
+    margin: 0;
+  }
+
+  & svg {
+    width: 18px;
+    height: 18px;
+  }
+}

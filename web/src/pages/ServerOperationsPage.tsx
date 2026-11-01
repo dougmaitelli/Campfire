@@ -29,6 +29,9 @@ import { useServerRuntime } from "../hooks/useServerRuntime";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
+import { ServerInstallationCard } from "../components/servers/ServerInstallationCard";
+import { lifecycleControlState } from "../components/servers/lifecycleControlState";
+import { Button } from "../components/forms/Button";
 import { ResourceTiles } from "../components/metrics/ResourceTiles";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerGameEvents } from "../components/servers/ServerGameEvents";
@@ -96,6 +99,17 @@ export function ServerOperationsPage({
   const usage = monitoring.snapshot?.servers.find(
     (item) => item.id === serverID,
   )?.usage;
+  const controlsDisabled =
+    acting ||
+    monitoring.snapshot?.sparks?.some(
+      (spark) => spark.id === server?.spark_id && spark.disabled,
+    ) === true;
+  const controls = lifecycleControlState(status, controlsDisabled);
+  const installAttempted =
+    requestedAction === ServerAction.Install ||
+    status?.operation === ServerAction.Install;
+  const showInstallEmpty =
+    controls.install && !status?.busy && !installAttempted;
   const message = operationMessage(
     error && server
       ? {
@@ -175,6 +189,8 @@ export function ServerOperationsPage({
     setRequestedAction(action);
     setCurrentOperationID(null);
     setError(null);
+    if (action === ServerAction.Install)
+      window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
     try {
       const result = await serverAction(
         server.id,
@@ -196,6 +212,22 @@ export function ServerOperationsPage({
       setActing(false);
     }
   }
+  const installAction = server?.permissions.includes(
+    Permission.ServerOperate,
+  ) ? (
+    <Button
+      variant="primary"
+      disabled={controls.blocked || controls.running}
+      onClick={() => void act(ServerAction.Install)}
+    >
+      <NavigationIcon name="download" />
+      {t(
+        installAttempted
+          ? "serverOperationsPage.retryInstallation"
+          : "common.install",
+      )}
+    </Button>
+  ) : undefined;
   return (
     <section className="server-operations" aria-labelledby="page-title">
       <PageHeader
@@ -248,15 +280,11 @@ export function ServerOperationsPage({
           )
         }
         actions={
+          !showInstallEmpty &&
           server?.permissions.includes(Permission.ServerOperate) && (
             <ServerLifecycleControls
               status={status}
-              disabled={
-                acting ||
-                monitoring.snapshot?.sparks?.some(
-                  (spark) => spark.id === server.spark_id && spark.disabled,
-                ) === true
-              }
+              disabled={controlsDisabled}
               canReinstall={server.permissions.includes(
                 Permission.ServerReinstall,
               )}
@@ -278,121 +306,134 @@ export function ServerOperationsPage({
       {loading && (
         <ContentState loading resource={t("serverOperationsPage.server")} />
       )}
-      {server && (
-        <>
-          {monitoring.snapshot?.sparks?.some(
-            (spark) =>
-              spark.id === server.spark_id && spark.agent_update_available,
-          ) && (
-            <InlineMessage tone="warning">
-              <Trans
-                i18nKey="serverOperationsPage.thisServerSSparkNodeIsNotRunningTheLatest"
-                t={t}
-                components={{
-                  a: (
-                    <a href="#sparks">
-                      {t("serverOperationsPage.goToSparksToUpdateIt")}
-                    </a>
-                  ),
-                }}
-              />
-            </InlineMessage>
-          )}
-          <div className="operations-resources">
-            <GameStateReadings
-              game={
-                monitoring.snapshot?.servers.find(
-                  (item) => item.id === serverID,
-                )?.game
-              }
-              now={
-                (monitoring.snapshot?.collected_at ?? 0) + monitoring.elapsed
-              }
-              usage={usage}
-              elapsed={monitoring.elapsed}
-              runtimeState={status?.state}
-              busy={status?.busy}
-            />
-            <ResourceTiles
-              usage={usage}
-              cpuLimit={server.cpu_limit}
-              memoryMB={server.memory_mb}
-              diskMB={server.disk_mb}
-              elapsed={monitoring.elapsed}
-            />
+      {server &&
+        (showInstallEmpty ? (
+          <div className="server-install-empty">
+            <ServerInstallationCard server={server} action={installAction} />
           </div>
-          {monitoring.error && (
-            <InlineMessage tone="info" role="status">
-              {monitoring.error}
-            </InlineMessage>
-          )}
-          <nav
-            className="operations-tabs"
-            aria-label={t("serverOperationsPage.serverOperations")}
-          >
-            {(
-              [
-                ["console", t("serverOperationsPage.consoleTab")],
-                ["files", t("serverOperationsPage.filesTab")],
-                ["backups", t("common.backups")],
-                ["activity", t("gameEvents.title")],
-              ] as const
-            )
-              .filter(([item]) => allowedTabs.includes(item))
-              .map(([item, label]) => (
-                <a
-                  key={item}
-                  href={`#servers/${encodeURIComponent(server.id)}/${item}`}
-                  aria-current={activeTab === item ? "page" : undefined}
-                >
-                  {label}
-                </a>
-              ))}
-          </nav>
-          {activeTab === "activity" ? (
-            <ServerGameEvents key={server.id} serverID={server.id} />
-          ) : activeTab ? (
-            <>
-              {activeTab === "console" && (
-                <>
-                  {message && (
-                    <InlineMessage tone={message.tone}>
-                      <strong>{message.title}</strong>
-                      {message.detail && <> {message.detail}</>}
-                    </InlineMessage>
-                  )}
-                  <ServerConsole server={server} status={status} />
-                  <ResourceGraphs
-                    serverID={server.id}
-                    cpuLimit={server.cpu_limit}
-                    memoryMB={server.memory_mb}
-                  />
-                </>
-              )}
-              {activeTab === "files" && (
-                <ServerFileBrowser
-                  server={server}
-                  canWrite={
-                    [
-                      RuntimeState.Running,
-                      RuntimeState.Stopped,
-                      RuntimeState.NotInstalled,
-                    ].some((value) => value === status?.state) &&
-                    status?.busy !== true
-                  }
+        ) : (
+          <>
+            {monitoring.snapshot?.sparks?.some(
+              (spark) =>
+                spark.id === server.spark_id && spark.agent_update_available,
+            ) && (
+              <InlineMessage tone="warning">
+                <Trans
+                  i18nKey="serverOperationsPage.thisServerSSparkNodeIsNotRunningTheLatest"
+                  t={t}
+                  components={{
+                    a: (
+                      <a href="#sparks">
+                        {t("serverOperationsPage.goToSparksToUpdateIt")}
+                      </a>
+                    ),
+                  }}
                 />
-              )}
-              {activeTab === "backups" && <ServerBackups server={server} />}
-            </>
-          ) : (
-            <p className="field-help">
-              {t(
-                "serverOperationsPage.youHaveReadOnlyAccessToThisServerConsoleFiles",
-              )}
-            </p>
-          )}
-        </>
-      )}
+              </InlineMessage>
+            )}
+            <div className="operations-resources">
+              <GameStateReadings
+                game={
+                  monitoring.snapshot?.servers.find(
+                    (item) => item.id === serverID,
+                  )?.game
+                }
+                now={
+                  (monitoring.snapshot?.collected_at ?? 0) + monitoring.elapsed
+                }
+                usage={usage}
+                elapsed={monitoring.elapsed}
+                runtimeState={status?.state}
+                busy={status?.busy}
+              />
+              <ResourceTiles
+                usage={usage}
+                cpuLimit={server.cpu_limit}
+                memoryMB={server.memory_mb}
+                diskMB={server.disk_mb}
+                elapsed={monitoring.elapsed}
+              />
+            </div>
+            {monitoring.error && (
+              <InlineMessage tone="info" role="status">
+                {monitoring.error}
+              </InlineMessage>
+            )}
+            <nav
+              className="operations-tabs"
+              aria-label={t("serverOperationsPage.serverOperations")}
+            >
+              {(
+                [
+                  ["console", t("serverOperationsPage.consoleTab")],
+                  ["files", t("serverOperationsPage.filesTab")],
+                  ["backups", t("common.backups")],
+                  ["activity", t("gameEvents.title")],
+                ] as const
+              )
+                .filter(([item]) => allowedTabs.includes(item))
+                .map(([item, label]) => (
+                  <a
+                    key={item}
+                    href={`#servers/${encodeURIComponent(server.id)}/${item}`}
+                    aria-current={activeTab === item ? "page" : undefined}
+                  >
+                    {label}
+                  </a>
+                ))}
+            </nav>
+            {activeTab === "activity" ? (
+              <ServerGameEvents key={server.id} serverID={server.id} />
+            ) : activeTab ? (
+              <>
+                {activeTab === "console" && (
+                  <>
+                    {message && (
+                      <InlineMessage tone={message.tone}>
+                        <strong>{message.title}</strong>
+                        {message.detail && <> {message.detail}</>}
+                      </InlineMessage>
+                    )}
+                    {controls.install &&
+                      !acting &&
+                      !status?.busy &&
+                      installAction && (
+                        <div className="server-install-retry">
+                          {installAction}
+                        </div>
+                      )}
+                    <ServerConsole server={server} status={status} />
+                    <ResourceGraphs
+                      serverID={server.id}
+                      cpuLimit={server.cpu_limit}
+                      memoryMB={server.memory_mb}
+                    />
+                  </>
+                )}
+                {activeTab === "files" && (
+                  <ServerFileBrowser
+                    server={server}
+                    canWrite={
+                      [
+                        RuntimeState.Running,
+                        RuntimeState.Stopped,
+                        RuntimeState.NotInstalled,
+                      ].some((value) => value === status?.state) &&
+                      status?.busy !== true
+                    }
+                  />
+                )}
+                {activeTab === "backups" && <ServerBackups server={server} />}
+              </>
+            ) : (
+              <p className="field-help">
+                {t(
+                  "serverOperationsPage.youHaveReadOnlyAccessToThisServerConsoleFiles",
+                )}
+              </p>
+            )}
+          </>
+        ))}
       {server && confirmation && (
         <ConfirmDialog
           title={t("common.resourceActionTitle", {
