@@ -9,7 +9,7 @@ make dependencies
 make dev-mock
 ```
 
-Open `http://127.0.0.1:8081` and sign in with `admin` / `campfire-dev-password`. Mock mode runs the real authentication, API, database, and services against simulated Sparks. It includes sample servers, roles, notifications, files, console output, and backups without needing Docker or production credentials. Each new `make dev-mock` session resets its isolated data; backend rebuilds within that session preserve it.
+Open `http://127.0.0.1:8081` and sign in with `admin` / `campfire-dev-password`. Mock mode runs the real authentication, API, database, and services against simulated Sparks. It includes sample servers, roles, notifications, files, console output, backups, and transfers without needing Docker or production credentials. Each new `make dev-mock` session resets its isolated data; backend rebuilds within that session preserve it.
 
 Sign in as `observer` with the same initial password to try basic server operation
 and read-only schedules on Survival. The enable switches are disabled, while schedule

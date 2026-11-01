@@ -41,7 +41,7 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		}
 	}
 
-	if err := db.WithContext(ctx).AutoMigrate(&seedMarker{}, &runtimeRecord{}, &backupRecord{}); err != nil {
+	if err := db.WithContext(ctx).AutoMigrate(&seedMarker{}, &runtimeRecord{}, &backupRecord{}, &transferRecord{}, &transferDeployment{}); err != nil {
 		return nil, err
 	}
 

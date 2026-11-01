@@ -81,7 +81,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 
 	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilitySelfReinstall, protocol.CapabilityPrune}
 
-	features = append(features, protocol.CapabilityFilePermissions)
+	features = append(features, protocol.CapabilityFilePermissions, protocol.CapabilityTransfer)
 	if r.games != nil {
 		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)
 		if r.games.Media != nil {
@@ -138,6 +138,13 @@ func (r *Runtime) Deploy(ctx context.Context, spark string, deployment model.Dep
 
 	record, err := r.load(ctx, spark, deployment.ServerID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		var existing runtimeRecord
+		if lookup := r.db.WithContext(ctx).Where("server_id = ?", deployment.ServerID).Take(&existing).Error; lookup == nil {
+			return r.stageDeployment(ctx, spark, deployment)
+		} else if !errors.Is(lookup, gorm.ErrRecordNotFound) {
+			return model.ConfigurationReceipt{}, lookup
+		}
+
 		record = newRecord(spark, deployment)
 	} else if err != nil {
 		return model.ConfigurationReceipt{}, err
