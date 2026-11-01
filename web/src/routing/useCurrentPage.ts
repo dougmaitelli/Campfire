@@ -19,7 +19,10 @@ function navigate() {
 }
 
 function subscribe(onChange: () => void) {
-  if (listeners.size === 0) window.addEventListener("hashchange", navigate);
+  if (listeners.size === 0) {
+    currentRoute = window.location.hash.slice(1);
+    window.addEventListener("hashchange", navigate);
+  }
   listeners.add(onChange);
   return () => {
     listeners.delete(onChange);
@@ -47,7 +50,7 @@ export function addNavigationGuard(guard: () => boolean) {
 }
 
 export function useCurrentPage() {
-  return useSyncExternalStore(subscribe, getCurrentPage);
+  return getCurrentPage(useCurrentRoute());
 }
 
 export function useCurrentRoute() {
