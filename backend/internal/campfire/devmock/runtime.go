@@ -171,6 +171,15 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 	defer r.mu.Unlock()
 
 	record, err := r.load(ctx, spark, request.ServerID)
+	if errors.Is(err, gorm.ErrRecordNotFound) && (request.Action == model.ServerActionStatus || request.Action == model.ServerActionMetrics) {
+		status := model.RuntimeStatus{ServerID: request.ServerID, State: model.RuntimeStateNotInstalled}
+		if request.Action == model.ServerActionMetrics {
+			status.Metrics = &model.ResourceUsage{ServerID: request.ServerID, State: model.RuntimeStateNotInstalled, ContainerError: "Deliver configuration before collecting usage.", DiskError: "Deliver configuration before collecting usage."}
+		}
+
+		return status, nil
+	}
+
 	if err != nil {
 		return model.RuntimeStatus{}, err
 	}

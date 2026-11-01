@@ -481,6 +481,32 @@ func TestConsoleDisconnectAndNewDeployments(t *testing.T) {
 	deployment := record.Deployment
 
 	deployment.ServerID = "new-server"
+	for _, action := range []model.ServerAction{model.ServerActionStatus, model.ServerActionMetrics} {
+		request := model.RuntimeRequest{ServerID: deployment.ServerID, Action: action}
+
+		status, err := runtime.Action(t.Context(), server.SparkID, request)
+		if err != nil || status.State != model.RuntimeStateNotInstalled || status.Ready || status.Busy || status.DiskQuotaEnforced {
+			t.Fatal("unconfigured server did not report Not installed", action, status, err)
+		}
+
+		if action == model.ServerActionMetrics && (status.Metrics == nil || status.Metrics.State != model.RuntimeStateNotInstalled || status.Metrics.CPUPercent != nil || status.Metrics.MemoryBytes != nil) {
+			t.Fatal("unconfigured server fabricated resource readings", status.Metrics)
+		}
+
+		if _, err := runtime.Action(t.Context(), "mock-offline", request); err == nil {
+			t.Fatal("offline Spark reported an unconfigured server as available", action)
+		}
+	}
+
+	var count int64
+	if err := db.ORM().Model(&runtimeRecord{}).Where("server_id = ?", deployment.ServerID).Count(&count).Error; err != nil || count != 0 {
+		t.Fatal("reading status implicitly deployed the server", count, err)
+	}
+
+	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: deployment.ServerID, Action: model.ServerActionStart}); err == nil {
+		t.Fatal("an unconfigured server could be started")
+	}
+
 	for range 2 {
 		receipt, err := runtime.Deploy(t.Context(), server.SparkID, deployment)
 		if err != nil || len(receipt.Revision) != 64 {
