@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
+import { ProgressBar } from "../status/ProgressBar";
 import "./file-upload.css";
 
 export interface UploadProgress {
@@ -59,8 +60,7 @@ export function FileUploadProgress({
           {t("fileUploads.cancelUpload")}
         </Button>
       </div>
-      <progress
-        className="file-upload-bar"
+      <ProgressBar
         max={100}
         value={percent}
         aria-label={t("fileUploads.uploadProgress")}

@@ -1,0 +1,60 @@
+.progress-bar {
+  --progress-bar-color: var(--accent);
+  display: block;
+  width: 100%;
+  height: var(--progress-bar-height, 8px);
+  border: 0;
+  background: var(--border);
+  border-radius: 5px;
+  appearance: none;
+  box-shadow:
+    inset 0 1px 1px #00000014,
+    0 1px 0 var(--surface-highlight);
+}
+
+.progress-bar::-webkit-progress-bar,
+.progress-bar::-webkit-meter-bar {
+  height: 100%;
+  background: var(--border);
+  border: 0;
+  border-radius: 5px;
+  box-shadow: inset 0 1px 1px #00000014;
+}
+
+.progress-bar::-webkit-progress-value,
+.progress-bar::-webkit-meter-optimum-value,
+.progress-bar::-webkit-meter-suboptimum-value,
+.progress-bar::-webkit-meter-even-less-good-value {
+  background:
+    linear-gradient(
+      180deg,
+      var(--control-highlight),
+      transparent 45%,
+      var(--control-shade)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--progress-bar-color) 90%, var(--bg)),
+      var(--progress-bar-color)
+    );
+  box-shadow: inset 0 1px 0 var(--control-rim);
+  border-radius: 5px;
+}
+
+.progress-bar::-moz-progress-bar,
+.progress-bar::-moz-meter-bar {
+  background:
+    linear-gradient(
+      180deg,
+      var(--control-highlight),
+      transparent 45%,
+      var(--control-shade)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--progress-bar-color) 90%, var(--bg)),
+      var(--progress-bar-color)
+    );
+  box-shadow: inset 0 1px 0 var(--control-rim);
+  border-radius: 5px;
+}

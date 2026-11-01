@@ -60,10 +60,7 @@ export function ResourceReading({
         )}
       </span>
       {!measured ? (
-        <div
-          className="resource-meter resource-meter-placeholder"
-          aria-hidden="true"
-        />
+        <div className="progress-bar resource-meter" aria-hidden="true" />
       ) : (
         <ResourceMeter
           label={label}

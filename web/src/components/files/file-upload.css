@@ -85,31 +85,6 @@
   text-overflow: ellipsis;
 }
 
-.file-upload-bar {
-  appearance: none;
-  width: 100%;
-  height: 8px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--control-bg);
-  overflow: hidden;
-
-  &::-webkit-progress-bar {
-    background: var(--control-bg);
-    border-radius: 999px;
-  }
-
-  &::-webkit-progress-value {
-    background: var(--accent);
-    border-radius: 999px;
-  }
-
-  &::-moz-progress-bar {
-    background: var(--accent);
-    border-radius: 999px;
-  }
-}
-
 .file-upload-metrics {
   display: flex;
   align-items: center;

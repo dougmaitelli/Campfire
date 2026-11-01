@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { resourceUtilization, utilizationThresholds } from "./utilization";
+import { ProgressBar } from "../status/ProgressBar";
 import "./resource-meter.css";
 
 export function ResourceMeter({
@@ -24,7 +25,8 @@ export function ResourceMeter({
   );
   if (ratio === null) return null;
   return (
-    <meter
+    <ProgressBar
+      as="meter"
       className={`resource-meter resource-meter-${tone}`}
       min={0}
       max={1}

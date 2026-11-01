@@ -24,6 +24,9 @@ import {
 import { serverStatus, type RuntimeStatus } from "../api/runtime";
 import { formatBytes } from "../utils/formatBytes";
 import { Drawer } from "../components/layout/Drawer";
+import { ProgressBar } from "../components/status/ProgressBar";
+import { StatusPill, type StatusTone } from "../components/status/StatusPill";
+import "./server-transfer-drawer.css";
 
 const phases: Record<string, string> = {
   get queued() {
@@ -59,6 +62,26 @@ const phases: Record<string, string> = {
     return i18n.t("serverTransferDrawer.pausedAfterAnError");
   },
 };
+
+function TransferStatus({ phase }: { phase: TransferPhase }) {
+  let label = phases[phase];
+  let tone: StatusTone = "pending";
+  if (phase === TransferPhase.Complete) {
+    tone = "positive";
+  } else if (phase === TransferPhase.Failed) {
+    label = i18n.t("common.failed");
+    tone = "negative";
+  } else if (phase === TransferPhase.Cancelled) {
+    tone = "neutral";
+  } else if (phase === TransferPhase.Cancelling) {
+    tone = "warning";
+  } else {
+    label = i18n.t(
+      phase === TransferPhase.Queued ? "common.pending" : "common.running",
+    );
+  }
+  return <StatusPill tone={tone}>{label}</StatusPill>;
+}
 
 export function ServerTransferDrawer({
   server,
@@ -401,64 +424,96 @@ export function ServerTransferDrawer({
         {!loading && items.length === 0 && (
           <p>{t("serverTransferDrawer.noTransfersYet")}</p>
         )}
-        {items.map((item) => (
-          <section
-            key={item.id}
-            aria-label={i18n.t("serverTransferDrawer.transfer2", {
-              itemId: item.id,
-            })}
-          >
-            <p>
-              <strong>{phases[item.phase] ?? item.phase}</strong>:{" "}
-              <ResourceLink href={links.spark(item.source_spark_id)}>
-                {sparks.find((spark) => spark.id === item.source_spark_id)
-                  ?.name ?? item.source_spark_id}
-              </ResourceLink>{" "}
-              →{" "}
-              <ResourceLink href={links.spark(item.target_spark_id)}>
-                {sparks.find((spark) => spark.id === item.target_spark_id)
-                  ?.name ?? item.target_spark_id}
-              </ResourceLink>
-            </p>
-            {item.total_bytes > 0 && (
-              <>
-                <progress
-                  aria-label={i18n.t("serverTransferDrawer.archiveBytesCopied")}
-                  max={item.total_bytes}
-                  value={item.transferred_bytes}
-                />
-                <p>
-                  {formatBytes(item.transferred_bytes)} /{" "}
-                  {formatBytes(item.total_bytes)}
-                </p>
-              </>
-            )}
-            {item.error && (
-              <InlineMessage role="alert">{item.error}</InlineMessage>
-            )}
-            {item.active && (
-              <ActionGroup>
-                {item.phase === TransferPhase.Failed && (
-                  <Button
-                    disabled={busy}
-                    onClick={() => {
-                      void submit("retry", item);
-                    }}
-                  >
-                    {i18n.t("serverTransferDrawer.retryTransfer")}
-                  </Button>
+        <div className="server-transfer-history">
+          {items.map((item) => {
+            const running =
+              item.active &&
+              item.phase !== TransferPhase.Failed &&
+              item.phase !== TransferPhase.Cancelling;
+            return (
+              <section
+                className="server-transfer-history-item"
+                key={item.id}
+                aria-label={i18n.t("serverTransferDrawer.transfer2", {
+                  itemId: item.id,
+                })}
+              >
+                <div className="server-transfer-heading">
+                  <span className="server-transfer-route">
+                    <ResourceLink href={links.spark(item.source_spark_id)}>
+                      {sparks.find((spark) => spark.id === item.source_spark_id)
+                        ?.name ?? item.source_spark_id}
+                    </ResourceLink>{" "}
+                    →{" "}
+                    <ResourceLink href={links.spark(item.target_spark_id)}>
+                      {sparks.find((spark) => spark.id === item.target_spark_id)
+                        ?.name ?? item.target_spark_id}
+                    </ResourceLink>
+                  </span>
+                  <TransferStatus phase={item.phase} />
+                </div>
+                {running && (
+                  <span className="server-transfer-phase">
+                    {phases[item.phase]}
+                  </span>
                 )}
-                {item.can_cancel && (
-                  <Button
-                    disabled={busy}
-                    onClick={() => {
-                      void submit("cancel", item);
-                    }}
-                  >
-                    {i18n.t("serverTransferDrawer.cancelTransfer")}
-                  </Button>
+                {(item.total_bytes > 0 || item.active) && (
+                  <div className="server-transfer-status">
+                    <div className="server-transfer-progress">
+                      {item.total_bytes > 0 && (
+                        <>
+                          {running && (
+                            <ProgressBar
+                              aria-label={i18n.t(
+                                "serverTransferDrawer.archiveBytesCopied",
+                              )}
+                              aria-valuetext={`${formatBytes(item.transferred_bytes)} / ${formatBytes(item.total_bytes)}`}
+                              max={item.total_bytes}
+                              value={item.transferred_bytes}
+                            />
+                          )}
+                          <span className="server-transfer-size">
+                            {formatBytes(item.transferred_bytes)} /{" "}
+                            {formatBytes(item.total_bytes)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {item.active &&
+                      (item.can_cancel ||
+                        item.phase === TransferPhase.Failed) && (
+                        <ActionGroup className="server-transfer-actions">
+                          {item.phase === TransferPhase.Failed && (
+                            <Button
+                              size="small"
+                              disabled={busy}
+                              onClick={() => {
+                                void submit("retry", item);
+                              }}
+                            >
+                              {i18n.t("serverTransferDrawer.retryTransfer")}
+                            </Button>
+                          )}
+                          {item.can_cancel && (
+                            <Button
+                              size="small"
+                              disabled={busy}
+                              onClick={() => {
+                                void submit("cancel", item);
+                              }}
+                            >
+                              {i18n.t("serverTransferDrawer.cancelTransfer")}
+                            </Button>
+                          )}
+                        </ActionGroup>
+                      )}
+                  </div>
                 )}
-                {!item.can_cancel &&
+                {item.error && (
+                  <InlineMessage role="alert">{item.error}</InlineMessage>
+                )}
+                {item.active &&
+                  !item.can_cancel &&
                   item.phase !== TransferPhase.Cancelling && (
                     <p className="field-help">
                       {i18n.t(
@@ -466,10 +521,10 @@ export function ServerTransferDrawer({
                       )}
                     </p>
                   )}
-              </ActionGroup>
-            )}
-          </section>
-        ))}
+              </section>
+            );
+          })}
+        </div>
       </div>
     </Drawer>
   );
