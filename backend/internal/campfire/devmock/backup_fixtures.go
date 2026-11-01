@@ -10,6 +10,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -24,7 +25,7 @@ func seedBackupModes(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 
-		ember, err := repository.NewEmberRepository(tx).Get(ctx, "mock-current")
+		ember, err := repository.NewEmberRepository(tx).Get(ctx, devfixture.CurrentMinecraftEmberID)
 		if err != nil {
 			return err
 		}

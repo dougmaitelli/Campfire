@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 )
@@ -21,7 +22,7 @@ func TestMockServerCanApplyImportedEmberUpdateAndKeepItAfterRestart(t *testing.T
 		}
 	}
 
-	if server.ID == "" || server.EmberID != "mock-minecraft" {
+	if server.ID == "" || server.EmberID != devfixture.MinecraftEmberID {
 		t.Fatal("missing server pinned to the old Ember", server)
 	}
 
@@ -76,18 +77,18 @@ func TestMockPendingUpdatesDownloadAndImportWithoutNetwork(t *testing.T) {
 		t.Fatal("missing mock update states", seeded, err)
 	}
 
-	item, preview, err := updates.Check(t.Context(), "mock-minecraft")
+	item, preview, err := updates.Check(t.Context(), devfixture.MinecraftEmberID)
 	if err != nil || !item.Available || preview.Ember == nil || preview.Ember.Installer == nil {
 		t.Fatal("pending update could not be downloaded", item, preview, err)
 	}
 
-	current, _, err := updates.Check(t.Context(), "mock-current")
+	current, _, err := updates.Check(t.Context(), devfixture.CurrentMinecraftEmberID)
 	if err != nil || current.Available || current.Error != "" {
 		t.Fatal("current fixture incorrectly has an update", current, err)
 	}
 
-	imported, err := embers.ImportDefinition(t.Context(), []byte(preview.Definition), service.ImportOptions{SourceURL: mockPendingUpdateURL, AcknowledgeWarnings: true, ReplaceID: "mock-minecraft"})
-	if err != nil || imported.ID != "mock-minecraft" || imported.UpdateURL != mockPendingUpdateURL {
+	imported, err := embers.ImportDefinition(t.Context(), []byte(preview.Definition), service.ImportOptions{SourceURL: mockPendingUpdateURL, AcknowledgeWarnings: true, ReplaceID: devfixture.MinecraftEmberID})
+	if err != nil || imported.ID != devfixture.MinecraftEmberID || imported.UpdateURL != mockPendingUpdateURL {
 		t.Fatal("mock update did not replace the local Ember", imported, err)
 	}
 

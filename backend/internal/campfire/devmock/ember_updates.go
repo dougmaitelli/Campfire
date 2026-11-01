@@ -10,6 +10,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 
@@ -18,7 +19,7 @@ import (
 
 const mockPendingUpdateURL = "https://mock.campfire.invalid/minecraft.json"
 const mockCurrentUpdateURL = "https://mock.campfire.invalid/current.json"
-const mockImportedUpdateID = "mock-minecraft"
+const mockImportedUpdateID = devfixture.MinecraftEmberID
 const mockUpdateServerName = "Ember update ready · Mock"
 
 func mockUpdateCandidate(current bool) model.Ember {
@@ -65,7 +66,7 @@ func seedEmberUpdates(ctx context.Context, db *gorm.DB) error {
 		}
 
 		var original database.Ember
-		if err := tx.Where("id = ?", "mock-minecraft").Take(&original).Error; err != nil {
+		if err := tx.Where("id = ?", devfixture.MinecraftEmberID).Take(&original).Error; err != nil {
 			return err
 		}
 
@@ -76,7 +77,7 @@ func seedEmberUpdates(ctx context.Context, db *gorm.DB) error {
 
 		current := mockUpdateCandidate(true)
 
-		current.ID = "mock-current"
+		current.ID = devfixture.CurrentMinecraftEmberID
 		if err := repository.NewEmberRepository(tx).Create(ctx, current); err != nil {
 			return err
 		}
@@ -106,7 +107,7 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 
 		emberStore := repository.NewEmberRepository(tx)
 
-		original, err := emberStore.Get(ctx, "mock-minecraft")
+		original, err := emberStore.Get(ctx, devfixture.MinecraftEmberID)
 		if err != nil {
 			return err
 		}

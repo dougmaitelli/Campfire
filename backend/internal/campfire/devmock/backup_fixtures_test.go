@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/devfixture"
 	"campfire/internal/shared/model"
 )
 
@@ -27,7 +28,7 @@ func TestMockBackupExamplesHaveAppliedPathsAndBothArchiveModes(t *testing.T) {
 		}
 	}
 
-	if server.ID == "" || server.EmberID != "mock-current" || server.EmberUpdateAvailable {
+	if server.ID == "" || server.EmberID != devfixture.CurrentMinecraftEmberID || server.EmberUpdateAvailable {
 		t.Fatal("missing an applied backup example server", server)
 	}
 

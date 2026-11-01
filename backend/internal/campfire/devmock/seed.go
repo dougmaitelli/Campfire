@@ -45,6 +45,10 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
+	if err := upgradeMockEmberIDs(ctx, db); err != nil {
+		return nil, err
+	}
+
 	token, err := auth.PrepareSetup(ctx)
 	if err != nil {
 		return nil, err
@@ -165,7 +169,7 @@ func seed(ctx context.Context, tx *gorm.DB) error {
 		return err
 	}
 
-	ember, err := repository.NewEmberRepository(tx).Get(ctx, "mock-minecraft")
+	ember, err := repository.NewEmberRepository(tx).Get(ctx, devfixture.MinecraftEmberID)
 	if err != nil {
 		return err
 	}
