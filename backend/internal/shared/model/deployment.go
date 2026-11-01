@@ -129,22 +129,8 @@ func (d Deployment) Validate() error {
 	return d.Ember.validate(known)
 }
 
-// DecodeStoredDeployment also reads snapshots written before execution-only delivery.
-// Legacy conversion is local to storage; it is never used for wire negotiation.
+// DecodeStoredDeployment decodes and validates persisted execution instructions.
 func DecodeStoredDeployment(data []byte) (Deployment, error) {
-	var stored struct {
-		Ember struct {
-			Schema *int `json:"schema"`
-		} `json:"ember"`
-	}
-	if err := json.Unmarshal(data, &stored); err != nil {
-		return Deployment{}, err
-	}
-
-	if stored.Ember.Schema != nil {
-		return decodeLegacyDeployment(data)
-	}
-
 	var deployment Deployment
 	if err := json.Unmarshal(data, &deployment); err != nil {
 		return Deployment{}, err

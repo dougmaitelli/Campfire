@@ -97,19 +97,14 @@ func TestDeploymentResolvesStartupBeforeDelivery(t *testing.T) {
 				t.Fatal("startup was not resolved on the panel", d.Ember.Startup, err)
 			}
 
-			// Old Spark snapshots must preserve the same selection after an upgrade.
-			legacy, err := json.Marshal(struct {
-				ServerID      string              `json:"server_id"`
-				Configuration ServerConfiguration `json:"configuration"`
-				Ember         Ember               `json:"ember"`
-			}{"server", c, e})
+			data, err := json.Marshal(d)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			converted, err := DecodeStoredDeployment(legacy)
-			if err != nil || !reflect.DeepEqual(converted, d) {
-				t.Fatal("legacy snapshot changed execution instructions", err)
+			decoded, err := DecodeStoredDeployment(data)
+			if err != nil || !reflect.DeepEqual(decoded, d) {
+				t.Fatal("stored snapshot changed execution instructions", err)
 			}
 		})
 	}
