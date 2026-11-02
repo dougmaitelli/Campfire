@@ -70,13 +70,14 @@ func (d *accessRuntime) Files(_ context.Context, _ string, input model.FileReque
 }
 
 type accessFixture struct {
-	t       *testing.T
-	auth    *service.AuthService
-	admin   http.Handler
-	panel   http.Handler
-	runtime *accessRuntime
-	history *service.ResourceHistoryService
-	games   *service.GameIntegrationService
+	t        *testing.T
+	auth     *service.AuthService
+	admin    http.Handler
+	panel    http.Handler
+	runtime  *accessRuntime
+	history  *service.ResourceHistoryService
+	games    *service.GameIntegrationService
+	statuses *service.RuntimeStatusService
 }
 
 func newAccessFixture(t *testing.T) *accessFixture {
@@ -104,7 +105,7 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	panel := api.New(sparks, embers, servers).WithDeployment(deployment)
 	admin := authenticatedTestAPI(t, db, panel)
 
-	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games}
+	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games, service.NewRuntimeStatusService(deployment)}
 }
 
 func (f *accessFixture) user(name string, role int64) (database.User, http.Handler) {

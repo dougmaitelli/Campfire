@@ -76,6 +76,17 @@ export function serverStatus(
   }).then((response) => readStatus(response, id));
 }
 
+export async function listServerStatuses(
+  signal: AbortSignal,
+): Promise<RuntimeStatus[]> {
+  const result = await readJSON(
+    await apiFetch("/api/v1/servers/status", { signal }),
+  );
+  if (!Array.isArray(result) || !result.every(isRuntimeStatus))
+    throw new Error(i18n.t("runtime.unexpectedRuntimeResponse"));
+  return result;
+}
+
 export function serverAction(
   id: string,
   action: LifecycleAction,

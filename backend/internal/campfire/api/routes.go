@@ -49,6 +49,7 @@ func (a *API) Handler() http.Handler {
 	platform("GET /api/v1/audit", accessperm.AuditView, a.activityEnabled(a.listAudit))
 	mux.HandleFunc("GET /api/v1/backups", a.listBackups)
 	mux.HandleFunc("POST /api/v1/backup-imports", a.beginBackupImport)
+	mux.HandleFunc("GET /api/v1/servers/status", a.runtimeStatuses)
 	mux.HandleFunc("POST /api/v1/backup-imports/{token}/chunks", a.chunkBackupImport)
 	mux.HandleFunc("POST /api/v1/backup-imports/{token}/inspect", a.inspectBackupImport)
 	mux.HandleFunc("DELETE /api/v1/backup-imports/{token}", a.cancelBackupImport)

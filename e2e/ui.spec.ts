@@ -1,6 +1,7 @@
 import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
 import {
   login,
+  mockServerStatus,
   screens,
   openScreen,
   openUser,
@@ -68,9 +69,7 @@ for (const screen of ["overview", "server"] as const) {
       operation: "start",
       operation_state: state === "starting" ? "running" : "succeeded",
     });
-    await page.route("**/api/v1/servers/creative/status", (route) =>
-      route.fulfill({ json: status() }),
-    );
+    await mockServerStatus(page, "creative", status);
     await page.route("**/api/v1/servers/creative/actions", (route) => {
       expect(route.request().postDataJSON().action).toBe("start");
       state = "starting";

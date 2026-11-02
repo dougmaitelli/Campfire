@@ -1,5 +1,5 @@
 import { test, expect, screenshot } from "./fixtures";
-import { login } from "./screens";
+import { login, mockServerStatus } from "./screens";
 import {
   OperationState,
   RuntimeErrorCode,
@@ -19,9 +19,7 @@ test("first installation starts from an empty state and keeps failed installer o
     disk_quota_enforced: false,
   };
   let status: Record<string, unknown> = initial;
-  await page.route("**/api/v1/servers/survival/status", (route) =>
-    route.fulfill({ json: status }),
-  );
+  await mockServerStatus(page, "survival", () => status);
   let release = () => {};
   const pending = new Promise<void>((resolve) => {
     release = resolve;
@@ -109,17 +107,13 @@ test("users without operation permission see the installation state without its 
   page,
 }) => {
   await login(page);
-  await page.route("**/api/v1/servers/survival/status", (route) =>
-    route.fulfill({
-      json: {
-        server_id: "survival",
-        state: RuntimeState.NotInstalled,
-        ready: false,
-        busy: false,
-        disk_quota_enforced: false,
-      },
-    }),
-  );
+  await mockServerStatus(page, "survival", () => ({
+    server_id: "survival",
+    state: RuntimeState.NotInstalled,
+    ready: false,
+    busy: false,
+    disk_quota_enforced: false,
+  }));
   await page.route("**/api/v1/servers/survival", async (route) => {
     const response = await route.fetch();
     const server = await response.json();

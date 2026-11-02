@@ -1,6 +1,23 @@
 import type { Page } from "@playwright/test";
 import { expect } from "./fixtures";
 
+export async function mockServerStatus(
+  page: Page,
+  serverID: string,
+  read: () => Record<string, unknown>,
+) {
+  await page.route("**/api/v1/servers/status", async (route) => {
+    const response = await route.fetch();
+    const statuses = (await response.json()) as { server_id: string }[];
+    await route.fulfill({
+      response,
+      json: statuses.map((status) =>
+        status.server_id === serverID ? read() : status,
+      ),
+    });
+  });
+}
+
 export async function login(page: Page, username = "admin") {
   await page.goto("/");
   await page.getByLabel("Username", { exact: true }).fill(username);

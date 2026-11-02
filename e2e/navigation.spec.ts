@@ -1,5 +1,24 @@
 import { test, expect } from "./fixtures";
-import { login, openServerTab } from "./screens";
+import { login, openServerTab, openScreen } from "./screens";
+
+test("overview and server lists poll one aggregate runtime endpoint", async ({
+  page,
+}) => {
+  const individual: string[] = [];
+  page.on("request", (request) => {
+    if (
+      /\/api\/v1\/servers\/[^/]+\/status$/.test(new URL(request.url()).pathname)
+    )
+      individual.push(request.url());
+  });
+  await login(page);
+  const snapshot = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/servers/status"),
+  );
+  await openScreen(page, "servers", "Servers");
+  expect((await snapshot).ok()).toBeTruthy();
+  expect(individual).toEqual([]);
+});
 
 for (const mobile of [false, true]) {
   test(`returning to Servers after opening a console from Overview shows the list (${mobile ? "mobile" : "desktop"})`, async ({

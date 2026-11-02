@@ -161,8 +161,12 @@ func main() {
 	var mu sync.RWMutex
 	var handler http.Handler
 	var db *database.Database
+	var statuses *service.RuntimeStatusService
 	generation := 0
 	reset := func() {
+		if statuses != nil {
+			statuses.Close()
+		}
 		if db != nil {
 			must(db.Close())
 		}
@@ -184,11 +188,14 @@ func main() {
 		deployment.Transfers = service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
 		activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
 		deployment.Activity = activity
+		statuses = service.NewRuntimeStatusService(deployment)
+		must(statuses.Collect(ctx))
+		statuses.Start(ctx)
 		notifications := service.NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, auth)
 		handler = api.New(sparks, embers, servers).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).Handler()
 	}
 	reset()
-	defer func() { must(db.Close()) }()
+	defer func() { statuses.Close(); must(db.Close()) }()
 	files := http.FileServer(http.Dir("web/dist"))
 	mux := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/__test/reset" {

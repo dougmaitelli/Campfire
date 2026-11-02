@@ -1,7 +1,7 @@
 import { RuntimeState } from "../contracts/domains";
 import i18n from "../i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { serverStatus } from "../api/runtime";
+import { listServerStatuses } from "../api/runtime";
 import type { RuntimeStatus } from "../api/runtime";
 
 export function useServerRuntime(ids: string[]) {
@@ -21,36 +21,30 @@ export function useServerRuntime(ids: string[]) {
       const started = generation.current;
       const entries: [string, RuntimeStatus][] = [];
       const list = key ? key.split(",") : [];
-      for (let index = 0; index < list.length; index += 6) {
-        if (controller.signal.aborted) return;
-        await Promise.all(
-          list.slice(index, index + 6).map(async (id) => {
-            try {
-              entries.push([
-                id,
-                await serverStatus(
-                  id,
-                  AbortSignal.any([
-                    controller.signal,
-                    AbortSignal.timeout(8000),
-                  ]),
-                ),
-              ]);
-            } catch {
-              entries.push([
-                id,
-                {
-                  server_id: id,
-                  state: RuntimeState.Unknown,
-                  ready: false,
-                  busy: false,
-                  disk_quota_enforced: false,
-                  progress: i18n.t("useServerRuntime.sparkOrDockerUnavailable"),
-                },
-              ]);
-            }
-          }),
-        );
+      if (list.length > 0) {
+        try {
+          const statuses = await listServerStatuses(
+            AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]),
+          );
+          const selected = new Set(list);
+          for (const status of statuses) {
+            if (selected.has(status.server_id))
+              entries.push([status.server_id, status]);
+          }
+        } catch {
+          for (const id of list)
+            entries.push([
+              id,
+              {
+                server_id: id,
+                state: RuntimeState.Unknown,
+                ready: false,
+                busy: false,
+                disk_quota_enforced: false,
+                progress: i18n.t("useServerRuntime.sparkOrDockerUnavailable"),
+              },
+            ]);
+        }
       }
       if (!controller.signal.aborted) {
         if (started === generation.current)

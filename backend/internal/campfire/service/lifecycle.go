@@ -326,17 +326,9 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 		return model.RuntimeStatus{}, errors.Join(ErrDeploymentUnavailable, err)
 	}
 
-	s.mu.Lock()
-	if s.statuses == nil {
-		s.statuses = make(map[string]model.RuntimeStatus)
-		s.observed = make(map[string]time.Time)
+	if action != model.ServerActionLogs && action != model.ServerActionCommand {
+		s.cacheStatus(node.ID, status)
 	}
-
-	if action == model.ServerActionStatus || status.Busy {
-		s.statuses[id] = status
-		s.observed[id] = time.Now()
-	}
-	s.mu.Unlock()
 
 	return status, nil
 }

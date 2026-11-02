@@ -34,6 +34,7 @@ type DeploymentService struct {
 	locks          map[string]*deliveryLock
 	statuses       map[string]model.RuntimeStatus
 	observed       map[string]time.Time
+	statusSparks   map[string]string
 }
 
 type deliveryLock struct {
