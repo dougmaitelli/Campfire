@@ -89,12 +89,12 @@ func PreviewEmber(data []byte, options ImportOptions) EmberPreview {
 	}
 
 	ember.ID = ""
-	if ember.UpdateURL == "" && ember.Origin != nil {
-		ember.UpdateURL = ember.Origin.UpdateURL
-	}
-
-	if ember.UpdateURL == "" {
+	if options.SourceURL != "" {
+		// A URL import must keep the address the user chose, even when the
+		// upstream definition declares a stale or different update URL.
 		ember.UpdateURL = options.SourceURL
+	} else if ember.UpdateURL == "" && ember.Origin != nil {
+		ember.UpdateURL = ember.Origin.UpdateURL
 	}
 
 	if len(report.Errors) == 0 {

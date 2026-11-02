@@ -61,9 +61,9 @@ func TestURLImportsPreserveUpdateURLThroughPreviewAndSave(t *testing.T) {
 		want     string
 	}{
 		{"native fallback", "native.json", "", source},
-		{"native declared", "native.json", "https://example.com/native.json", "https://example.com/native.json"},
+		{"native declared", "native.json", "https://example.com/native.json", source},
 		{"egg fallback", "ptdl-v2.json", "", source},
-		{"egg declared", "ptdl-v2.json", "https://example.com/egg.json", "https://example.com/egg.json"},
+		{"egg declared", "ptdl-v2.json", "https://example.com/egg.json", source},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var definition map[string]any
@@ -96,6 +96,11 @@ func TestURLImportsPreserveUpdateURLThroughPreviewAndSave(t *testing.T) {
 			saved, err := NewEmberService(store).ImportDefinition(t.Context(), []byte(preview.Definition), ImportOptions{SourceURL: source, AcknowledgeWarnings: true})
 			if err != nil || saved.UpdateURL != test.want || len(store.saved) != 1 || store.saved[0].UpdateURL != test.want {
 				t.Fatal("import lost update URL", saved, err)
+			}
+
+			pasted := PreviewEmber(data, ImportOptions{})
+			if pasted.Ember == nil || pasted.Ember.UpdateURL != test.declared {
+				t.Fatal("file or pasted import lost its declared update URL", pasted)
 			}
 		})
 	}
