@@ -1,7 +1,7 @@
 import { ScheduleAction } from "../contracts/domains";
-import { cronPresets } from "../config/cronPresets";
 import { ResourceLimits } from "../config/policies";
 import i18n from "../i18n";
+import { formatCronSchedule } from "./formatCronSchedule";
 
 interface ScheduleNameInput {
   serverName: string;
@@ -11,7 +11,7 @@ interface ScheduleNameInput {
     | { once: false; expression: string; timeZone: string };
 }
 
-const nameSeparator = " · ";
+const nameSeparator = " - ";
 
 export function scheduleActionLabel(action: ScheduleAction): string {
   if (action === ScheduleAction.Command)
@@ -27,34 +27,32 @@ export function formatScheduleName({
   timing,
 }: ScheduleNameInput): string {
   if (!serverName || !action) return "";
-  let when: string;
+  const label = scheduleActionLabel(action);
+  let description: string;
   if (timing.once) {
     const date = new Date(timing.runAt);
-    when = Number.isFinite(date.getTime())
+    const when = Number.isFinite(date.getTime())
       ? `${new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(date)} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`
       : i18n.t("scheduleDrawer.runOnce");
+    description = `${label}${nameSeparator}${when}`;
   } else {
-    const expression = timing.expression.trim().replace(/\s+/g, " ");
-    const description =
-      cronPresets.find((preset) => preset.value === expression)?.description ??
-      expression;
-    when = `${description || i18n.t("scheduleDrawer.recurring")} (${timing.timeZone})`;
+    description = formatCronSchedule(timing.expression, label);
+    if (
+      timing.timeZone &&
+      timing.timeZone !== Intl.DateTimeFormat().resolvedOptions().timeZone
+    )
+      description += ` (${timing.timeZone})`;
   }
-  const label = scheduleActionLabel(action);
   const server = Array.from(serverName);
-  const time = Array.from(when);
-  const available =
-    ResourceLimits.NameLength -
-    Array.from(label).length -
-    nameSeparator.length * 2;
+  const details = Array.from(description);
+  const available = ResourceLimits.NameLength - nameSeparator.length;
   const serverLength = Math.min(
     server.length,
-    Math.max(Math.floor(available / 2), available - time.length),
+    Math.max(Math.floor(available / 2), available - details.length),
   );
   return [
     shorten(server, serverLength),
-    label,
-    shorten(time, available - serverLength),
+    shorten(details, available - serverLength),
   ].join(nameSeparator);
 }
 

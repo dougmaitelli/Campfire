@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Fieldset } from "../forms/Fieldset";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
+import { Select } from "../forms/Select";
 import { Button } from "../forms/Button";
 import { InlineMessage } from "../status/InlineMessage";
 import { useEffect, useId, useState } from "react";
@@ -80,11 +81,14 @@ export function CronField({
   const current = preview?.key === key ? preview : null;
   const tokens = normalized ? normalized.split(" ") : [];
   const zones = Array.from(
-    new Set([
-      "UTC",
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-      ...Intl.supportedValuesOf("timeZone"),
-    ]),
+    new Set(
+      [
+        "UTC",
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timeZone,
+        ...Intl.supportedValuesOf("timeZone"),
+      ].filter(Boolean),
+    ),
   );
   function format(timestamp: number) {
     try {
@@ -145,20 +149,18 @@ export function CronField({
         {t("cronField.useForAnyValueCommasForListsForRangesAnd")}
       </p>
       <FormField label={t("cronField.timeZone")}>
-        <TextInput
+        <Select
           id={`${id}-zone`}
-          list={`${id}-zones`}
           value={timeZone}
-          autoComplete="off"
-          maxLength={100}
-          onChange={(event) => onTimeZoneChange(event.target.value)}
-        />
+          onValueChange={onTimeZoneChange}
+        >
+          {zones.map((zone) => (
+            <option key={zone} value={zone}>
+              {zone.replaceAll("_", " ")}
+            </option>
+          ))}
+        </Select>
       </FormField>
-      <datalist id={`${id}-zones`}>
-        {zones.map((zone) => (
-          <option key={zone} value={zone} />
-        ))}
-      </datalist>
       <div id={`${id}-preview`} className="cron-preview" aria-live="polite">
         <p>
           {presets.find((preset) => preset.value === normalized)?.description ??
