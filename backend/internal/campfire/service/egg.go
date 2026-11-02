@@ -416,10 +416,6 @@ func convertEggFiles(raw json.RawMessage, variables []model.Variable, report *Em
 				continue
 			}
 
-			if (file.Parser == model.ConfigParserJSON || file.Parser == model.ConfigParserYAML) && len(value) > 0 && value[0] == '"' {
-				config.Strings = append(config.Strings, key)
-			}
-
 			config.Values[key] = eggTemplate(text, variables, path+".find."+key, report)
 		}
 

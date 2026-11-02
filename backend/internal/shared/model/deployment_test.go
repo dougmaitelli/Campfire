@@ -21,7 +21,7 @@ func deploymentSource() (ServerConfiguration, Ember) {
 		Variables: []Variable{{Name: "PASSWORD", Default: "default", Required: true, Hidden: true, Validation: &VariableValidation{Type: "string"}}},
 		Installer: &Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo install"},
 		Stop:      "quit", Readiness: &Readiness{Any: []ReadinessMatch{{Value: "^Ready$", Regex: true}}},
-		Configs:       []ConfigFile{{Path: "settings.json", Parser: "json", Create: true, Values: map[string]string{"password": "{{PASSWORD}}"}, Strings: []string{"password"}}},
+		Configs:       []ConfigFile{{Path: "settings.json", Parser: "json", Create: true, Values: map[string]string{"password": "{{PASSWORD}}"}}},
 		RequiredPorts: []RequiredPort{{Container: 25565, Protocol: "tcp", Description: "Panel port description"}},
 		Origin:        &EmberOrigin{Format: "pelican", Author: "Panel author", Warnings: []string{"Panel warning"}},
 	}

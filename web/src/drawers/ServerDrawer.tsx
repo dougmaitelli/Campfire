@@ -7,7 +7,7 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
-import { AllocationRow } from "../components/forms/AllocationRow";
+import { AllocationList } from "../components/forms/AllocationList";
 import { ServerVariableField } from "../components/servers/ServerVariableField";
 import "./server-drawer.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
@@ -782,102 +782,24 @@ export function ServerDrawer({
                   "serverDrawer.hostPortsMustBelongToTheSparkSAllocationRanges",
                 )}
               </p>
-              {value.ports.map((port, index) => {
-                const selected = allocations.findIndex(
-                  (allocation) =>
-                    allocation.bind_ip === port.bind_ip &&
-                    allocation.protocol === port.protocol &&
-                    port.host_port >= allocation.start &&
-                    port.host_port <= allocation.end,
-                );
-                return (
-                  <AllocationRow
-                    key={index}
-                    label={`${t("serverDrawer.mapping")} ${index + 1}`}
-                    removeLabel={t("serverDrawer.removeMapping", {
-                      index1: index + 1,
-                    })}
-                    onRemove={() =>
-                      setValue({
-                        ...value,
-                        ports: value.ports.filter((_, i) => i !== index),
-                      })
-                    }
-                  >
-                    <FormField label={i18n.t("serverDrawer.hostPort")}>
-                      <Select
-                        id={`mapping-allocation-${index}`}
-                        required
-                        value={
-                          selected >= 0 ? `${selected}:${port.host_port}` : ""
-                        }
-                        onValueChange={(selectedValue) => {
-                          const [allocationIndex, hostPort] = selectedValue
-                            .split(":")
-                            .map(Number);
-                          if (
-                            allocationIndex === undefined ||
-                            hostPort === undefined
-                          )
-                            return;
-                          const next = allocations[allocationIndex];
-                          if (next)
-                            changePort(index, {
-                              bind_ip: next.bind_ip,
-                              protocol: next.protocol,
-                              host_port: hostPort,
-                            });
-                        }}
-                      >
-                        <option value="" disabled>
-                          {i18n.t("serverDrawer.selectAllocation")}
-                        </option>
-                        {allocations.flatMap((entry, i) =>
-                          Array.from(
-                            { length: entry.end - entry.start + 1 },
-                            (_, offset) => {
-                              const hostPort = entry.start + offset;
-                              return (
-                                <option
-                                  key={`${i}:${hostPort}`}
-                                  value={`${i}:${hostPort}`}
-                                >
-                                  {entry.bind_ip} · {hostPort} /{" "}
-                                  {entry.protocol.toUpperCase()}
-                                </option>
-                              );
-                            },
-                          ),
-                        )}
-                      </Select>
-                    </FormField>
-                    <FormField label={i18n.t("serverDrawer.containerPort")}>
-                      <TextInput
-                        id={`mapping-container-${index}`}
-                        type="number"
-                        min={1}
-                        max={ResourceLimits.MaxPort}
-                        step={1}
-                        required
-                        value={
-                          Number.isNaN(port.container_port)
-                            ? ""
-                            : port.container_port
-                        }
-                        onChange={(event) =>
-                          changePort(index, {
-                            container_port: event.target.valueAsNumber,
-                          })
-                        }
-                      />
-                    </FormField>
-                  </AllocationRow>
-                );
-              })}
-              <Button
-                type="button"
-                disabled={allocations.length === 0 || value.ports.length >= 32}
-                onClick={() => {
+              <AllocationList
+                items={value.ports}
+                maxItems={32}
+                addDisabled={allocations.length === 0}
+                rowLabel={(index) =>
+                  `${t("serverDrawer.mapping")} ${index + 1}`
+                }
+                removeLabel={(index) =>
+                  t("serverDrawer.removeMapping", { index1: index + 1 })
+                }
+                addLabel={t("serverDrawer.addMapping")}
+                onRemove={(index) =>
+                  setValue({
+                    ...value,
+                    ports: value.ports.filter((_, i) => i !== index),
+                  })
+                }
+                onAdd={() => {
                   const first = allocations[0];
                   if (first)
                     setValue({
@@ -894,8 +816,87 @@ export function ServerDrawer({
                     });
                 }}
               >
-                {t("serverDrawer.addMapping")}
-              </Button>
+                {(port, index) => {
+                  const selected = allocations.findIndex(
+                    (allocation) =>
+                      allocation.bind_ip === port.bind_ip &&
+                      allocation.protocol === port.protocol &&
+                      port.host_port >= allocation.start &&
+                      port.host_port <= allocation.end,
+                  );
+                  return (
+                    <>
+                      <FormField label={i18n.t("serverDrawer.hostPort")}>
+                        <Select
+                          id={`mapping-allocation-${index}`}
+                          required
+                          value={
+                            selected >= 0 ? `${selected}:${port.host_port}` : ""
+                          }
+                          onValueChange={(selectedValue) => {
+                            const [allocationIndex, hostPort] = selectedValue
+                              .split(":")
+                              .map(Number);
+                            if (
+                              allocationIndex === undefined ||
+                              hostPort === undefined
+                            )
+                              return;
+                            const next = allocations[allocationIndex];
+                            if (next)
+                              changePort(index, {
+                                bind_ip: next.bind_ip,
+                                protocol: next.protocol,
+                                host_port: hostPort,
+                              });
+                          }}
+                        >
+                          <option value="" disabled>
+                            {i18n.t("serverDrawer.selectAllocation")}
+                          </option>
+                          {allocations.flatMap((entry, i) =>
+                            Array.from(
+                              { length: entry.end - entry.start + 1 },
+                              (_, offset) => {
+                                const hostPort = entry.start + offset;
+                                return (
+                                  <option
+                                    key={`${i}:${hostPort}`}
+                                    value={`${i}:${hostPort}`}
+                                  >
+                                    {entry.bind_ip} · {hostPort} /{" "}
+                                    {entry.protocol.toUpperCase()}
+                                  </option>
+                                );
+                              },
+                            ),
+                          )}
+                        </Select>
+                      </FormField>
+                      <FormField label={i18n.t("serverDrawer.containerPort")}>
+                        <TextInput
+                          id={`mapping-container-${index}`}
+                          type="number"
+                          min={1}
+                          max={ResourceLimits.MaxPort}
+                          step={1}
+                          required
+                          value={
+                            Number.isNaN(port.container_port)
+                              ? ""
+                              : port.container_port
+                          }
+                          onChange={(event) =>
+                            changePort(index, {
+                              container_port: event.target.valueAsNumber,
+                            })
+                          }
+                        />
+                      </FormField>
+                    </>
+                  );
+                }}
+              </AllocationList>
             </Fieldset>
           ),
         },

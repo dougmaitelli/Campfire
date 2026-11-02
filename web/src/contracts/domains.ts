@@ -137,6 +137,14 @@ export const FileKind = {
   Unsupported: "unsupported",
 } as const;
 export type FileKind = (typeof FileKind)[keyof typeof FileKind];
+export const ConfigParser = {
+  Properties: "properties",
+  JSON: "json",
+  YAML: "yaml",
+  INI: "ini",
+  File: "file",
+} as const;
+export type ConfigParser = (typeof ConfigParser)[keyof typeof ConfigParser];
 export const FileOperation = {
   List: "list",
   Read: "read",

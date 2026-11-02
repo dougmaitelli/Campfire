@@ -4,7 +4,7 @@ import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
-import { AllocationRow } from "../components/forms/AllocationRow";
+import { AllocationList } from "../components/forms/AllocationList";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
 import { Button } from "../components/forms/Button";
@@ -340,87 +340,22 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
               <p className="field-help">
                 {t("sparkDrawer.gamePortsAvailableOnThisSparkUseTheSameStart")}
               </p>
-              {settings.port_allocations.map((allocation, index) => (
-                <AllocationRow
-                  key={index}
-                  label={`${t("sparkDrawer.range")} ${index + 1}`}
-                  removeLabel={t("sparkDrawer.removeRange", {
-                    index1: index + 1,
-                  })}
-                  onRemove={() =>
-                    setSettings({
-                      ...settings,
-                      port_allocations: settings.port_allocations.filter(
-                        (_, i) => i !== index,
-                      ),
-                    })
-                  }
-                >
-                  <FormField label={i18n.t("sparkDrawer.bindIP")}>
-                    <TextInput
-                      id={`allocation-ip-${index}`}
-                      required
-                      value={allocation.bind_ip}
-                      onChange={(event) =>
-                        changeAllocation(index, { bind_ip: event.target.value })
-                      }
-                      placeholder="0.0.0.0"
-                    />
-                  </FormField>
-                  <FormField label={i18n.t("sparkDrawer.startPort")}>
-                    <TextInput
-                      id={`allocation-start-${index}`}
-                      type="number"
-                      min={1}
-                      max={ResourceLimits.MaxPort}
-                      step={1}
-                      required
-                      value={
-                        Number.isNaN(allocation.start) ? "" : allocation.start
-                      }
-                      onChange={(event) =>
-                        changeAllocation(index, {
-                          start: event.target.valueAsNumber,
-                        })
-                      }
-                    />
-                  </FormField>
-                  <FormField label={i18n.t("sparkDrawer.endPort")}>
-                    <TextInput
-                      id={`allocation-end-${index}`}
-                      type="number"
-                      min={allocation.start}
-                      max={ResourceLimits.MaxPort}
-                      step={1}
-                      required
-                      value={Number.isNaN(allocation.end) ? "" : allocation.end}
-                      onChange={(event) =>
-                        changeAllocation(index, {
-                          end: event.target.valueAsNumber,
-                        })
-                      }
-                    />
-                  </FormField>
-                  <FormField label={i18n.t("sparkDrawer.protocol")}>
-                    <Select
-                      id={`allocation-protocol-${index}`}
-                      value={allocation.protocol}
-                      onValueChange={(selectedValue) =>
-                        changeAllocation(index, {
-                          protocol: selectedValue,
-                        })
-                      }
-                    >
-                      <option value="tcp">{i18n.t("sparkDrawer.tcp")}</option>
-                      <option value="udp">{i18n.t("sparkDrawer.udp")}</option>
-                    </Select>
-                  </FormField>
-                </AllocationRow>
-              ))}
-              <Button
-                type="button"
-                disabled={settings.port_allocations.length >= 128}
-                onClick={() =>
+              <AllocationList
+                items={settings.port_allocations}
+                rowLabel={(index) => `${t("sparkDrawer.range")} ${index + 1}`}
+                removeLabel={(index) =>
+                  t("sparkDrawer.removeRange", { index1: index + 1 })
+                }
+                addLabel={t("sparkDrawer.addPortRange")}
+                onRemove={(index) =>
+                  setSettings({
+                    ...settings,
+                    port_allocations: settings.port_allocations.filter(
+                      (_, i) => i !== index,
+                    ),
+                  })
+                }
+                onAdd={() =>
                   setSettings({
                     ...settings,
                     port_allocations: [
@@ -435,8 +370,74 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                   })
                 }
               >
-                {t("sparkDrawer.addPortRange")}
-              </Button>
+                {(allocation, index) => (
+                  <>
+                    <FormField label={i18n.t("sparkDrawer.bindIP")}>
+                      <TextInput
+                        id={`allocation-ip-${index}`}
+                        required
+                        value={allocation.bind_ip}
+                        onChange={(event) =>
+                          changeAllocation(index, {
+                            bind_ip: event.target.value,
+                          })
+                        }
+                        placeholder="0.0.0.0"
+                      />
+                    </FormField>
+                    <FormField label={i18n.t("sparkDrawer.startPort")}>
+                      <TextInput
+                        id={`allocation-start-${index}`}
+                        type="number"
+                        min={1}
+                        max={ResourceLimits.MaxPort}
+                        step={1}
+                        required
+                        value={
+                          Number.isNaN(allocation.start) ? "" : allocation.start
+                        }
+                        onChange={(event) =>
+                          changeAllocation(index, {
+                            start: event.target.valueAsNumber,
+                          })
+                        }
+                      />
+                    </FormField>
+                    <FormField label={i18n.t("sparkDrawer.endPort")}>
+                      <TextInput
+                        id={`allocation-end-${index}`}
+                        type="number"
+                        min={allocation.start}
+                        max={ResourceLimits.MaxPort}
+                        step={1}
+                        required
+                        value={
+                          Number.isNaN(allocation.end) ? "" : allocation.end
+                        }
+                        onChange={(event) =>
+                          changeAllocation(index, {
+                            end: event.target.valueAsNumber,
+                          })
+                        }
+                      />
+                    </FormField>
+                    <FormField label={i18n.t("sparkDrawer.protocol")}>
+                      <Select
+                        id={`allocation-protocol-${index}`}
+                        value={allocation.protocol}
+                        onValueChange={(selectedValue) =>
+                          changeAllocation(index, {
+                            protocol: selectedValue,
+                          })
+                        }
+                      >
+                        <option value="tcp">{i18n.t("sparkDrawer.tcp")}</option>
+                        <option value="udp">{i18n.t("sparkDrawer.udp")}</option>
+                      </Select>
+                    </FormField>
+                  </>
+                )}
+              </AllocationList>
             </div>
           ),
         },

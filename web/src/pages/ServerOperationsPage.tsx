@@ -42,6 +42,7 @@ import { ServerBackups } from "../components/servers/ServerBackups";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
+import "../components/navigation/tabs.css";
 import { Permission } from "../api/permissions";
 
 const confirmations = {
@@ -360,7 +361,7 @@ export function ServerOperationsPage({
               </InlineMessage>
             )}
             <nav
-              className="operations-tabs"
+              className="tab-strip operations-tabs"
               aria-label={t("serverOperationsPage.serverOperations")}
             >
               {(

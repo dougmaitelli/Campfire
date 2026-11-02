@@ -45,16 +45,6 @@ func (e RuntimeDefinition) validate(known map[string]string) error {
 	}
 
 	for _, c := range e.Configs {
-		if len(c.Strings) > 0 && c.Parser != ConfigParserJSON && c.Parser != ConfigParserYAML {
-			return errors.New("string replacement types require JSON or YAML")
-		}
-
-		for _, key := range c.Strings {
-			if _, ok := c.Values[key]; !ok {
-				return errors.New("unknown JSON string replacement key")
-			}
-		}
-
 		if c.Parser != ConfigParserProperties && c.Parser != ConfigParserJSON && c.Parser != ConfigParserYAML && c.Parser != ConfigParserINI && c.Parser != ConfigParserFile {
 			return fmt.Errorf("unsupported config parser %q", c.Parser)
 		}

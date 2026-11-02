@@ -12,7 +12,7 @@ import (
 
 func TestStructuredConfigNestedPathsWildcardsAndPrecision(t *testing.T) {
 	old := []byte(`{"listeners":[{"port":1},{"port":2}],"big":9007199254740993,"unchanged":true}`)
-	config := model.ConfigFile{Parser: "json", Values: map[string]string{"listeners.*.port": "25565", "listeners.0.label": "001", "network.enabled": "true"}, Strings: []string{"listeners.0.label"}}
+	config := model.ConfigFile{Parser: "json", Values: map[string]string{"listeners.*.port": "25565", "listeners.0.label": "001", "network.enabled": "true"}}
 
 	updated, err := structuredConfig(old, config, config.Values)
 	if err != nil {
@@ -44,7 +44,7 @@ func TestStructuredConfigNestedPathsWildcardsAndPrecision(t *testing.T) {
 		}
 	}
 
-	config = model.ConfigFile{Parser: "json", Values: map[string]string{"listeners.*.label": strings.Repeat("x", 600000)}, Strings: []string{"listeners.*.label"}}
+	config = model.ConfigFile{Parser: "json", Values: map[string]string{"listeners.*.label": strings.Repeat("x", 600000)}}
 	if _, err := structuredConfig(old, config, config.Values); err == nil {
 		t.Fatal("accepted excessive output expansion")
 	}
@@ -55,8 +55,8 @@ func TestConfigParsersCreateMissingFilesAndPreserveValues(t *testing.T) {
 	directory := t.TempDir()
 	d.Configuration.Variables = map[string]string{"LABEL": "001", "STOP_REASON": "maintenance"}
 	d.Ember.Configs = []model.ConfigFile{
-		{Path: "nested/settings.json", Parser: "json", Create: true, Values: map[string]string{"network.port": "{{SERVER_PORT}}"}, Strings: []string{"network.port"}},
-		{Path: "settings.yaml", Parser: "yaml", Create: true, Values: map[string]string{"network.port": "25565", "network.label": "{{LABEL}}", "big": "9007199254740993"}, Strings: []string{"network.label"}},
+		{Path: "nested/settings.json", Parser: "json", Create: true, Values: map[string]string{"network.port": "{{SERVER_PORT}}"}},
+		{Path: "settings.yaml", Parser: "yaml", Create: true, Values: map[string]string{"network.port": "25565", "network.label": "{{LABEL}}", "big": "9007199254740993"}},
 		{Path: "settings.ini", Parser: "ini", Create: true, Values: map[string]string{"[game.network].port": "{{SERVER_PORT}}"}},
 		{Path: "settings.properties", Parser: "properties", Create: true, Values: map[string]string{"port": "{{SERVER_PORT}}"}},
 		{Path: "startup.cfg", Parser: "file", Create: true, Values: map[string]string{"port ": "port {{SERVER_PORT}}"}},
@@ -70,7 +70,7 @@ func TestConfigParsersCreateMissingFilesAndPreserveValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, test := range []struct{ path, expected string }{{"nested/settings.json", `"25565"`}, {"settings.yaml", `"001"`}, {"settings.ini", "25565"}, {"settings.properties", "port=25565"}, {"startup.cfg", "port 25565\nunrelated yes"}} {
+	for _, test := range []struct{ path, expected string }{{"nested/settings.json", `"port": 25565`}, {"settings.yaml", `"001"`}, {"settings.ini", "25565"}, {"settings.properties", "port=25565"}, {"startup.cfg", "port 25565\nunrelated yes"}} {
 		data, err := os.ReadFile(filepath.Join(directory, test.path))
 		if err != nil || !strings.Contains(string(data), test.expected) {
 			t.Fatal("config mismatch", test.path, string(data), err)

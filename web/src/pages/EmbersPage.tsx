@@ -29,6 +29,7 @@ export function EmbersPage() {
   const { items, loading, error, refresh, upsert } = useCollection(listEmbers);
   const hasGameArt = items.some((ember) => ember.artUrl);
   const [importing, setImporting] = useState(false);
+  const [creating, setCreating] = useState(false);
   const { selected: editing, select: setEditing } = useResourceSelection(
     items,
     !loading && !error,
@@ -97,7 +98,21 @@ export function EmbersPage() {
         description={t("embersPage.gameDefinitionsUsedToConfigureYourServers")}
         actions={
           <>
-            <Button variant="primary" onClick={() => setImporting(true)}>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setCreating(true);
+                setImporting(true);
+              }}
+            >
+              {t("embersPage.createEmber")}
+            </Button>
+            <Button
+              onClick={() => {
+                setCreating(false);
+                setImporting(true);
+              }}
+            >
               {t("embersPage.importEmber")}
             </Button>
           </>
@@ -292,8 +307,10 @@ export function EmbersPage() {
           ember={editing}
           initialPreview={update?.preview}
           initialSourceURL={update?.url}
+          initialMode={creating && !editing ? "visual" : undefined}
           onClose={() => {
             setImporting(false);
+            setCreating(false);
             setEditing(null);
             setUpdate(null);
           }}

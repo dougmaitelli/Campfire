@@ -32,9 +32,7 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     name: "Compatibility preview",
     exact: true,
   });
-  await expect(preview.getByRole("heading")).toContainText(
-    "Valheim BepInEx fixture",
-  );
+  await expect(preview.getByRole("heading")).toHaveText("Definition is valid");
   await expect(drawer.getByRole("alert")).toHaveCount(0);
   const importButton = drawer.getByRole("button", {
     name: "Import Ember",

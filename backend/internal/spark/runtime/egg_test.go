@@ -13,10 +13,10 @@ func TestEmberRuntimeEnvironmentAndTypedConfiguration(t *testing.T) {
 	d := runtimeFixture()
 	d.Configuration.MemoryMB = 1024
 	d.Configuration.Variables = map[string]string{"LABEL": "quoted \"value\"\nwith newline", "SERVER_MEMORY": "forged"}
-	d.Ember.Configs = []model.ConfigFile{{Path: "settings.json", Parser: "json", Values: map[string]string{"label": "{{LABEL}}", "literal": "001", "count": "7", "enabled": "true", "memory": "{{SERVER_MEMORY}}"}, Strings: []string{"label", "literal", "memory"}}}
+	d.Ember.Configs = []model.ConfigFile{{Path: "settings.json", Parser: "json", Values: map[string]string{"label": "{{LABEL}}", "literal": "001", "count": "7", "enabled": "true", "memory": "{{SERVER_MEMORY}}"}}}
 
 	directory := t.TempDir()
-	if err := os.WriteFile(filepath.Join(directory, "settings.json"), []byte(`{"unrelated":"retained"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, "settings.json"), []byte(`{"unrelated":"retained","memory":""}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 

@@ -83,30 +83,9 @@ func structuredConfig(old []byte, config model.ConfigFile, values map[string]str
 			return nil, err
 		}
 
-		var value any = values[key]
-
-		literal := false
-
-		for _, name := range config.Strings {
-			if name == key {
-				literal = true
-				break
-			}
-		}
-
-		if !literal {
-			parsed := json.NewDecoder(strings.NewReader(values[key]))
-			parsed.UseNumber()
-
-			var scalar any
-			if parsed.Decode(&scalar) == nil && errors.Is(parsed.Decode(&extra), io.EOF) {
-				value = scalar
-			}
-		}
-
 		var err error
 
-		object, err = setConfigValue(object, strings.Split(key, "."), value, &budget)
+		object, err = setConfigValue(object, strings.Split(key, "."), parseConfigReplacement(values[key]), &budget, true)
 		if err != nil {
 			return nil, err
 		}
@@ -139,14 +118,18 @@ func structuredConfig(old []byte, config model.ConfigFile, values map[string]str
 	return json.MarshalIndent(object, "", "  ")
 }
 
-func setConfigValue(current any, parts []string, value any, budget *int) (any, error) {
+func setConfigValue(current any, parts []string, value configReplacement, budget *int, present bool) (any, error) {
 	*budget--
 	if *budget < 0 {
 		return nil, errors.New("configuration replacements exceed the work budget")
 	}
 
+	if _, missing := current.(missingConfigValue); missing {
+		current, present = nil, false
+	}
+
 	if len(parts) == 0 {
-		return value, nil
+		return value.forExisting(current, present), nil
 	}
 
 	head := parts[0]
@@ -170,7 +153,7 @@ func setConfigValue(current any, parts []string, value any, budget *int) (any, e
 			}
 
 			for key, child := range node {
-				next, err := setConfigValue(child, parts[1:], value, budget)
+				next, err := setConfigValue(child, parts[1:], value, budget, true)
 				if err != nil {
 					return nil, err
 				}
@@ -178,7 +161,9 @@ func setConfigValue(current any, parts []string, value any, budget *int) (any, e
 				node[key] = next
 			}
 		} else {
-			next, err := setConfigValue(node[head], parts[1:], value, budget)
+			child, exists := node[head]
+
+			next, err := setConfigValue(child, parts[1:], value, budget, exists)
 			if err != nil {
 				return nil, err
 			}
@@ -194,7 +179,7 @@ func setConfigValue(current any, parts []string, value any, budget *int) (any, e
 			}
 
 			for index, child := range node {
-				next, err := setConfigValue(child, parts[1:], value, budget)
+				next, err := setConfigValue(child, parts[1:], value, budget, true)
 				if err != nil {
 					return nil, err
 				}
@@ -207,7 +192,8 @@ func setConfigValue(current any, parts []string, value any, budget *int) (any, e
 				return nil, errors.New("config array indices must be between 0 and 4095")
 			}
 
-			if index >= len(node) {
+			exists := index < len(node)
+			if !exists {
 				growth := index - len(node) + 1
 
 				*budget -= growth
@@ -215,10 +201,15 @@ func setConfigValue(current any, parts []string, value any, budget *int) (any, e
 					return nil, errors.New("configuration array expansion exceeds the work budget")
 				}
 
+				start := len(node)
 				node = append(node, make([]any, growth)...)
+
+				for slot := start; slot < len(node); slot++ {
+					node[slot] = missingConfigValue{}
+				}
 			}
 
-			next, err := setConfigValue(node[index], parts[1:], value, budget)
+			next, err := setConfigValue(node[index], parts[1:], value, budget, exists)
 			if err != nil {
 				return nil, err
 			}
@@ -230,6 +221,58 @@ func setConfigValue(current any, parts []string, value any, budget *int) (any, e
 	default:
 		return nil, errors.New("config path traverses a scalar value")
 	}
+}
+
+// Array expansion creates gaps, which must remain distinguishable from existing
+// null values until all replacements have been applied. Unfilled gaps emit null.
+type missingConfigValue struct{}
+
+func (missingConfigValue) MarshalJSON() ([]byte, error) {
+	return []byte("null"), nil
+}
+
+// Config replacements follow the existing scalar type. Missing entries infer
+// booleans and canonical JSON numbers, retaining their original precision.
+type configReplacement struct {
+	text     string
+	isNumber bool
+	isBool   bool
+	boolean  bool
+}
+
+// Parse once per replacement, rather than once per wildcard match.
+func parseConfigReplacement(value string) configReplacement {
+	boolean, err := strconv.ParseBool(value)
+	return configReplacement{text: value, isNumber: configNumber(value), isBool: err == nil, boolean: boolean}
+}
+
+func (value configReplacement) forExisting(existing any, present bool) any {
+	switch existing.(type) {
+	case bool:
+		if value.isBool {
+			return value.boolean
+		}
+	case json.Number:
+		if value.isNumber {
+			return json.Number(value.text)
+		}
+	default:
+		if !present {
+			if value.text == "true" || value.text == "false" {
+				return value.text == "true"
+			}
+
+			if value.isNumber {
+				return json.Number(value.text)
+			}
+		}
+	}
+
+	return value.text
+}
+
+func configNumber(value string) bool {
+	return len(value) > 0 && (value[0] == '-' || value[0] >= '0' && value[0] <= '9') && strings.TrimSpace(value) == value && json.Valid([]byte(value))
 }
 
 func validateConfigYAML(node *yaml.Node, depth int) error {

@@ -38,11 +38,10 @@ type Installer struct {
 
 // ConfigFile describes configuration file replacements.
 type ConfigFile struct {
-	Path    string            `json:"path"`
-	Parser  ConfigParser      `json:"parser"`
-	Values  map[string]string `json:"values"`
-	Strings []string          `json:"strings,omitempty"`
-	Create  bool              `json:"create,omitempty"`
+	Path   string            `json:"path"`
+	Parser ConfigParser      `json:"parser"`
+	Values map[string]string `json:"values"`
+	Create bool              `json:"create,omitempty"`
 }
 
 // ReadinessMatch describes a literal or RE2-compatible line matcher.

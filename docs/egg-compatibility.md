@@ -36,6 +36,30 @@ installer, start a game, or accept a game's EULA. A successful import confirms
 that the definition can be converted; test installation and startup on your
 Spark before relying on it for a live server.
 
+## Create or edit an Ember
+
+Choose **Create Ember** to build a definition with visual fields. Existing Embers
+open in the visual editor when selected. The steps cover basics, installation,
+runtime, variables, ports, configuration files, save-data paths, and review.
+The **JSON / YAML** tab also accepts pasted definitions. Switching between tabs
+preserves the selected step and current fields.
+
+## Configuration value types
+
+JSON and YAML replacements follow the existing value's type, using the same
+approach as Pelican. Existing strings remain strings, even when replacement text
+looks like a number or boolean. Existing numbers and booleans keep their type
+when the new value can be converted; otherwise the replacement becomes text.
+
+For missing keys, `true` and `false` become booleans and valid JSON numbers become
+numbers. Other values remain strings, including leading-zero values such as
+`001`. Large integer literals retain their precision. Wildcard replacements
+evaluate the type of each matching value separately.
+
+To keep a numeric-looking value as text, have the installer create the key with
+a string value in the initial configuration file. The retired `strings` list
+is accepted in older definitions and discarded when they are loaded or imported.
+
 ## What to review
 
 | Area                   | What to check                                                                                                                                       |

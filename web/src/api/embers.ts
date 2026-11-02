@@ -1,52 +1,24 @@
 import {
+  ConfigParser,
   NetworkProtocol,
   VariableType,
   VariableFormat,
 } from "../contracts/domains";
-import { isEnumValue } from "../utils/validation";
+import {
+  isEnumValue,
+  isRecord,
+  isNonnegativeInteger,
+} from "../utils/validation";
 import i18n from "../i18n";
 import { API_REQUEST_TIMEOUT_MS, apiFetch, readJSON, apiJSON } from "./client";
 
-export interface EmberVariable {
-  name: string;
-  default: string;
-  required: boolean;
-  editable: boolean;
-  hidden?: boolean;
-  pattern?: string;
-  validation?: { type: VariableType; format?: VariableFormat };
-}
-
-export interface Ember {
-  savedata_paths?: { path: string; required: boolean }[];
-  revision?: string;
-  id: string;
-  schema: number;
-  name: string;
-  description: string;
-  artUrl?: string;
-  updateUrl?: string;
-  images: Record<string, string>;
-  startup: string;
-  startup_commands?: Record<string, string>;
-  startup_shell?: "sh" | "bash" | "ash";
-  work_dir: string;
-  user: string;
-  variables: EmberVariable[] | null;
-  required_ports?:
-    | {
-        container: number;
-        protocol: NetworkProtocol;
-        description?: string;
-      }[]
-    | null;
-  origin?: {
-    format: string;
-    author: string;
-    update_url: string;
-    warnings: string[];
-  };
-}
+import type { Ember, EmberVariable } from "../contracts/ember";
+export type {
+  Ember,
+  EmberVariable,
+  EmberVariableValidation,
+  EmberConfigFile,
+} from "../contracts/ember";
 
 export function isEmber(value: unknown): value is Ember {
   return (
@@ -54,6 +26,7 @@ export function isEmber(value: unknown): value is Ember {
     value !== null &&
     "id" in value &&
     typeof value.id === "string" &&
+    (!("revision" in value) || typeof value.revision === "string") &&
     "schema" in value &&
     value.schema === 1 &&
     "name" in value &&
@@ -86,6 +59,44 @@ export function isEmber(value: unknown): value is Ember {
     typeof value.work_dir === "string" &&
     "user" in value &&
     typeof value.user === "string" &&
+    (!("installer" in value) ||
+      (isRecord(value.installer) &&
+        typeof value.installer.image === "string" &&
+        typeof value.installer.entrypoint === "string" &&
+        typeof value.installer.script === "string")) &&
+    (!("stop" in value) || typeof value.stop === "string") &&
+    (!("ready" in value) || typeof value.ready === "string") &&
+    (!("readiness" in value) ||
+      (isRecord(value.readiness) &&
+        Array.isArray(value.readiness.any) &&
+        value.readiness.any.every(
+          (match: unknown) =>
+            isRecord(match) &&
+            typeof match.value === "string" &&
+            (!("regex" in match) || typeof match.regex === "boolean"),
+        ) &&
+        (!("strip_ansi" in value.readiness) ||
+          typeof value.readiness.strip_ansi === "boolean"))) &&
+    (!("configs" in value) ||
+      (Array.isArray(value.configs) && value.configs.every(isConfigFile))) &&
+    (!("savedata_paths" in value) ||
+      (Array.isArray(value.savedata_paths) &&
+        value.savedata_paths.every(
+          (path: unknown) =>
+            isRecord(path) &&
+            typeof path.path === "string" &&
+            typeof path.required === "boolean",
+        ))) &&
+    (!("origin" in value) ||
+      (isRecord(value.origin) &&
+        typeof value.origin.format === "string" &&
+        typeof value.origin.author === "string" &&
+        typeof value.origin.update_url === "string" &&
+        (value.origin.warnings === null ||
+          (Array.isArray(value.origin.warnings) &&
+            value.origin.warnings.every(
+              (warning: unknown) => typeof warning === "string",
+            ))))) &&
     "variables" in value &&
     (value.variables === null ||
       (Array.isArray(value.variables) && value.variables.every(isVariable))) &&
@@ -93,6 +104,20 @@ export function isEmber(value: unknown): value is Ember {
       value.required_ports === null ||
       (Array.isArray(value.required_ports) &&
         value.required_ports.every(isRequiredPort)))
+  );
+}
+
+function isConfigFile(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.path === "string" &&
+    isEnumValue(ConfigParser, value.parser) &&
+    (value.values === null ||
+      (isRecord(value.values) &&
+        Object.values(value.values).every(
+          (item) => typeof item === "string",
+        ))) &&
+    (!("create" in value) || typeof value.create === "boolean")
   );
 }
 
@@ -109,14 +134,30 @@ function isVariable(value: unknown): value is EmberVariable {
     "editable" in value &&
     typeof value.editable === "boolean" &&
     (!("hidden" in value) || typeof value.hidden === "boolean") &&
-    (!("validation" in value) ||
-      (typeof value.validation === "object" &&
-        value.validation !== null &&
-        "type" in value.validation &&
-        isEnumValue(VariableType, value.validation.type) &&
-        (!("format" in value.validation) ||
-          (value.validation.type === VariableType.String &&
-            isEnumValue(VariableFormat, value.validation.format)))))
+    (!("pattern" in value) || typeof value.pattern === "string") &&
+    (!("validation" in value) || isVariableValidation(value.validation))
+  );
+}
+
+function isVariableValidation(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isEnumValue(VariableType, value.type) &&
+    (!("format" in value) ||
+      (value.type === VariableType.String &&
+        isEnumValue(VariableFormat, value.format))) &&
+    (!("nullable" in value) || typeof value.nullable === "boolean") &&
+    ["min", "max"].every(
+      (key) =>
+        !(key in value) ||
+        (typeof value[key] === "number" && Number.isFinite(value[key])),
+    ) &&
+    ["min_length", "max_length"].every(
+      (key) => !(key in value) || isNonnegativeInteger(value[key]),
+    ) &&
+    (!("choices" in value) ||
+      (Array.isArray(value.choices) &&
+        value.choices.every((choice: unknown) => typeof choice === "string")))
   );
 }
 

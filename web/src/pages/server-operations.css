@@ -46,27 +46,7 @@
   margin-bottom: 16px;
 }
 .operations-tabs {
-  display: flex;
-  overflow-x: auto;
-  gap: 24px;
   margin: 24px 0 16px;
-  border-bottom: 1px solid var(--border);
-
-  & a {
-    white-space: nowrap;
-    padding: 10px 12px;
-    border-bottom: 3px solid transparent;
-    color: var(--muted);
-    font-size: 16px;
-    font-weight: 500;
-    text-decoration: none;
-  }
-
-  & a[aria-current="page"] {
-    border-color: var(--accent);
-    color: var(--accent);
-    font-weight: 600;
-  }
 }
 
 .fieldset.reinstall-options {

@@ -8,7 +8,7 @@ import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
 import { useEffect, useId, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import {
   importEmber,
   deleteEmber,
@@ -17,9 +17,18 @@ import {
 } from "../api/embers";
 import type { Ember, EmberPreview } from "../api/embers";
 import { Drawer } from "../components/layout/Drawer";
-import { CheckboxField } from "../components/forms/CheckboxField";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
+import { Tabs } from "../components/navigation/Tabs";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
+import { EmberEditor } from "../components/embers/EmberEditor";
+import { EmberCompatibilityPreview } from "../components/embers/EmberCompatibilityPreview";
+import {
+  createEmberDraft,
+  emptyEmber,
+  emberDraftIssue,
+  serializeEmberDraft,
+  type EmberDraft,
+} from "../components/embers/emberDraft";
 
 const PREVIEW_DEBOUNCE_MS = 350;
 
@@ -34,6 +43,7 @@ export function ImportEmberDrawer({
   ember,
   initialPreview,
   initialSourceURL,
+  initialMode,
   onClose,
   onImported,
   onDeleted,
@@ -41,17 +51,33 @@ export function ImportEmberDrawer({
   ember?: Ember | null;
   initialPreview?: EmberPreview | undefined;
   initialSourceURL?: string | undefined;
+  initialMode?: "visual" | "json" | undefined;
   onClose: () => void;
   onImported: (ember: Ember) => void;
   onDeleted?: () => void;
 }) {
   const { t } = useTranslation();
+  const startsVisual =
+    !initialPreview &&
+    (initialMode ?? (ember ? "visual" : "json")) === "visual";
+  const creating = !ember && initialMode === "visual";
+  const [mode, setMode] = useState<"visual" | "json">(
+    startsVisual ? "visual" : "json",
+  );
+  const [draft, setDraft] = useState<EmberDraft | null>(() =>
+    startsVisual ? createEmberDraft(ember ?? emptyEmber()) : null,
+  );
   const [text, setText] = useState(
     () =>
       initialPreview?.definition ??
-      (ember ? JSON.stringify(ember, null, 2) : ""),
+      (ember
+        ? JSON.stringify(ember, null, 2)
+        : startsVisual
+          ? JSON.stringify(emptyEmber(), null, 2)
+          : ""),
   );
   const formID = useId();
+  const modeID = useId();
   const [url, setURL] = useState("");
   const [sourceURL, setSourceURL] = useState<string | undefined>(
     initialSourceURL,
@@ -59,14 +85,13 @@ export function ImportEmberDrawer({
   const [busy, setBusy] = useState(false);
   const [loadingSource, setLoadingSource] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversionWarnings, setConversionWarnings] = useState<{
+    origin: string | undefined;
+    warnings: EmberPreview["warnings"];
+  } | null>(null);
   const [previewResult, setPreviewResult] = useState<DefinitionPreview | null>(
     initialPreview
-      ? {
-          definition: text,
-          sourceURL,
-          preview: initialPreview,
-          error: null,
-        }
+      ? { definition: text, sourceURL, preview: initialPreview, error: null }
       : null,
   );
   const sameDefinition =
@@ -77,8 +102,32 @@ export function ImportEmberDrawer({
   const checking = !!text.trim() && !loadingSource && !currentResult;
   const [reviewed, setReviewed] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const warnings =
-    preview?.warnings.filter((issue) => !issue.informational) ?? [];
+  // Native previews no longer produce the source egg's conversion warnings.
+  // Keep them across edits while the definition retains the same import metadata.
+  const retainedWarnings =
+    conversionWarnings &&
+    JSON.stringify(preview?.ember?.origin) === conversionWarnings.origin
+      ? conversionWarnings.warnings
+      : [];
+  const warnings = [...retainedWarnings, ...(preview?.warnings ?? [])].filter(
+    (issue, index, items) =>
+      !issue.informational &&
+      items.findIndex(
+        (other) =>
+          other.field === issue.field && other.message === issue.message,
+      ) === index,
+  );
+  const draftIssue = draft ? emberDraftIssue(draft) : null;
+  const draftMatchesText =
+    mode === "json" &&
+    !!draft &&
+    !draftIssue &&
+    text === JSON.stringify(serializeEmberDraft(draft), null, 2);
+  const ready =
+    !!preview?.ember &&
+    !preview.errors.length &&
+    (!warnings.length || reviewed) &&
+    (mode !== "visual" || !draftIssue);
   const submitting = useRef(false);
   const urlRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -116,16 +165,52 @@ export function ImportEmberDrawer({
     };
   }, [checking, text, sourceURL]);
 
-  async function loadURL() {
+  function showVisual() {
+    if (mode === "visual") return;
+    setError(null);
+    if (draftMatchesText) {
+      setMode("visual");
+      return;
+    }
+    const definition = preview?.ember ?? (!text.trim() ? emptyEmber() : null);
+    if (!definition) {
+      setError(t("emberEditor.visualUnavailable"));
+      return;
+    }
+    if (preview && preview.format !== "ember")
+      setConversionWarnings({
+        origin: JSON.stringify(definition.origin),
+        warnings: preview.warnings,
+      });
+    setDraft(createEmberDraft(definition));
+    if (!text.trim()) setText(JSON.stringify(definition, null, 2));
+    setMode("visual");
+  }
+
+  function changeVisual(next: EmberDraft) {
+    setDraft(next);
+    setError(null);
+    setReviewed(false);
+    const definition = next.definition;
     if (
-      submitting.current ||
-      !urlRef.current?.reportValidity() ||
-      url.trim() === ""
+      sourceURL !== undefined &&
+      definition.updateUrl !== draft?.definition.updateUrl
     )
+      setSourceURL(
+        definition.updateUrl === "" ? undefined : definition.updateUrl,
+      );
+    if (emberDraftIssue(next)) return;
+    setText(JSON.stringify(serializeEmberDraft(next), null, 2));
+  }
+
+  async function loadURL() {
+    if (submitting.current || !urlRef.current?.reportValidity() || !url.trim())
       return;
     submitting.current = true;
     setLoadingSource(true);
     setText("");
+    setDraft(null);
+    setConversionWarnings(null);
     setPreviewResult(null);
     setReviewed(false);
     setBusy(true);
@@ -144,7 +229,7 @@ export function ImportEmberDrawer({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("importEmberDrawer.unableToLoadURL"),
+          : t("importEmberDrawer.unableToLoadURL"),
       );
     } finally {
       submitting.current = false;
@@ -152,17 +237,19 @@ export function ImportEmberDrawer({
       setBusy(false);
     }
   }
+
   async function readFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
-    if (submitting.current) return;
+    if (!file || submitting.current) return;
     setSourceURL(undefined);
+    setDraft(null);
+    setConversionWarnings(null);
     if (file.size > 1024 * 1024) {
       setText("");
       setPreviewResult(null);
       setReviewed(false);
-      setError(i18n.t("importEmberDrawer.definitionFilesMustBeAtMost1MiB"));
+      setError(t("importEmberDrawer.definitionFilesMustBeAtMost1MiB"));
       return;
     }
     submitting.current = true;
@@ -175,22 +262,17 @@ export function ImportEmberDrawer({
       setText(await file.text());
       setError(null);
     } catch {
-      setError(i18n.t("importEmberDrawer.unableToReadThisFile"));
+      setError(t("importEmberDrawer.unableToReadThisFile"));
     } finally {
       submitting.current = false;
       setLoadingSource(false);
       setBusy(false);
     }
   }
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (
-      submitting.current ||
-      !preview?.ember ||
-      preview.errors.length > 0 ||
-      (warnings.length > 0 && !reviewed)
-    )
-      return;
+
+  async function submit(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    if (submitting.current || !ready) return;
     submitting.current = true;
     setBusy(true);
     setError(null);
@@ -202,13 +284,14 @@ export function ImportEmberDrawer({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("importEmberDrawer.unableToImportEmber"),
+          : t("importEmberDrawer.unableToImportEmber"),
       );
     } finally {
       submitting.current = false;
       setBusy(false);
     }
   }
+
   async function remove() {
     if (!ember || submitting.current) return;
     submitting.current = true;
@@ -222,240 +305,256 @@ export function ImportEmberDrawer({
       setError(
         cause instanceof Error
           ? cause.message
-          : i18n.t("importEmberDrawer.unableToDeleteEmber"),
+          : t("importEmberDrawer.unableToDeleteEmber"),
       );
     } finally {
       submitting.current = false;
       setBusy(false);
     }
   }
-  return (
-    <Drawer
-      title={
-        ember
-          ? t("importEmberDrawer.editEmber")
-          : initialPreview
-            ? t("importEmberDrawer.reviewEmberUpdate")
-            : t("importEmberDrawer.importEmber")
-      }
-      description={
-        ember || initialPreview
-          ? t(
-              "importEmberDrawer.reviewTheDefinitionBeforeReplacingThisEmberExistingServersShow",
-            )
-          : t(
-              "importEmberDrawer.importANativeEmberOrPterodactylPelicanEggFromJSON",
-            )
-      }
-      busy={busy}
-      onClose={onClose}
-      footerLeft={
-        <Button
-          type="button"
 
-          disabled={busy}
-          onClick={onClose}
-        >
-          {t("common.cancel")}
-        </Button>
-      }
-      footerRight={
-        <>
-          {ember && (
-            <DrawerDeleteButton
-              disabled={busy}
-              deleting={busy && confirmDelete}
-              onDelete={() => {
+  const finishLabel = ember
+    ? t("importEmberDrawer.saveEmber")
+    : creating
+      ? t("emberEditor.create")
+      : t("importEmberDrawer.importEmber");
+  const compatibility = (
+    <EmberCompatibilityPreview
+      preview={preview}
+      checking={checking}
+      warnings={warnings}
+      reviewed={reviewed}
+      onReviewed={setReviewed}
+      showDefinition={mode === "json"}
+    />
+  );
+
+  function renderDrawer(content: ReactNode, actions: ReactNode) {
+    return (
+      <Drawer
+        title={
+          ember
+            ? t("importEmberDrawer.editEmber")
+            : initialPreview
+              ? t("importEmberDrawer.reviewEmberUpdate")
+              : creating
+                ? t("emberEditor.create")
+                : t("importEmberDrawer.importEmber")
+        }
+        description={
+          ember || initialPreview
+            ? t(
+                "importEmberDrawer.reviewTheDefinitionBeforeReplacingThisEmberExistingServersShow",
+              )
+            : creating
+              ? t("emberEditor.createDescription")
+              : t(
+                  "importEmberDrawer.importANativeEmberOrPterodactylPelicanEggFromJSON",
+                )
+        }
+        busy={busy}
+        onClose={onClose}
+        footerLeft={
+          <Button type="button" disabled={busy} onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+        }
+        footerRight={
+          <>
+            {ember && (
+              <DrawerDeleteButton
+                disabled={busy}
+                deleting={busy && confirmDelete}
+                onDelete={() => {
+                  setError(null);
+                  setConfirmDelete(true);
+                }}
+              />
+            )}
+            {actions}
+          </>
+        }
+      >
+        <div className="ember-editor-mode">
+          <Tabs
+            label={t("emberEditor.editorMode")}
+            value={mode}
+            items={[
+              {
+                value: "visual",
+                label: t("emberEditor.visual"),
+                id: `${modeID}-visual`,
+                panelID: `${modeID}-panel`,
+                disabled:
+                  busy || (mode === "json" && checking && !draftMatchesText),
+              },
+              {
+                value: "json",
+                label: t("emberEditor.json"),
+                id: `${modeID}-json`,
+                panelID: `${modeID}-panel`,
+                disabled: busy || (mode === "visual" && !!draftIssue),
+              },
+            ]}
+            onChange={(next) => {
+              if (next === "visual") showVisual();
+              else {
+                if (mode === "visual" && draft && !draftIssue)
+                  setText(JSON.stringify(serializeEmberDraft(draft), null, 2));
+                setMode("json");
                 setError(null);
-                setConfirmDelete(true);
+              }
+            }}
+          />
+        </div>
+        <div
+          className="ember-editor-panel"
+          role="tabpanel"
+          id={`${modeID}-panel`}
+          aria-labelledby={`${modeID}-${mode}`}
+        >
+          {content}
+        </div>
+        {ember && confirmDelete && (
+          <ConfirmDialog
+            title={t("importEmberDrawer.deleteEmber")}
+            description={t(
+              "importEmberDrawer.permanentlyDeleteThisEmberCannotBeDeletedWhileServersReference",
+              { emberName: ember.name },
+            )}
+            confirmLabel={t("common.delete")}
+            danger
+            busy={busy}
+            error={error}
+            onClose={() => setConfirmDelete(false)}
+            onConfirm={() => {
+              void remove();
+            }}
+          />
+        )}
+      </Drawer>
+    );
+  }
+
+  const rawContent = (
+    <form
+      id={formID}
+      onSubmit={(event) => {
+        void submit(event);
+      }}
+    >
+      <div className="panel-content">
+        {(error ?? previewError) && (
+          <InlineMessage role="alert">{error ?? previewError}</InlineMessage>
+        )}
+        <Fieldset disabled={busy}>
+          {!ember && (
+            <input
+              ref={fileRef}
+              type="file"
+              hidden
+              accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
+              onChange={(event) => {
+                void readFile(event);
               }}
             />
           )}
-          <Button
-            type="submit"
-            form={formID}
-            variant="primary"
-            disabled={
-              busy ||
-              !preview?.ember ||
-              preview.errors.length > 0 ||
-              (warnings.length > 0 && !reviewed)
-            }
-          >
-            {busy
-              ? loadingSource
-                ? t("common.loading")
-                : ember
-                  ? t("importEmberDrawer.saving")
-                  : t("importEmberDrawer.importing")
-              : ember
-                ? t("importEmberDrawer.saveEmber")
-                : t("importEmberDrawer.importEmber")}
-          </Button>
-        </>
-      }
-    >
-      <form
-        id={formID}
-        onSubmit={(event) => {
-          void submit(event);
-        }}
-      >
-        <div className="panel-content">
-          {(error ?? previewError) && (
-            <InlineMessage role="alert">{error ?? previewError}</InlineMessage>
-          )}
-          <Fieldset disabled={busy}>
-            {!ember && (
-              <input
-                ref={fileRef}
-                type="file"
-                hidden
-                accept=".json,.yaml,.yml,application/json,application/yaml,text/yaml"
-                onChange={(event) => {
-                  void readFile(event);
-                }}
-              />
-            )}
-            {!ember && (
-              <>
-                <div className="import-sources">
-                  <FormField label={t("importEmberDrawer.definitionURL")}>
-                    <TextInput
-                      ref={urlRef}
-                      id="ember-url"
-                      type="url"
-                      form=""
-                      value={url}
-                      onChange={(event) => setURL(event.target.value)}
-                      placeholder={t(
-                        "importEmberDrawer.httpsExampleComGameEmberJson",
-                      )}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void loadURL();
-                        }
-                      }}
-                    />
-                  </FormField>
-                  <Button
-                    type="button"
-
-                    disabled={url.trim() === ""}
-                    onClick={() => {
-                      void loadURL();
+          {!ember && (
+            <>
+              <div className="import-sources">
+                <FormField label={t("importEmberDrawer.definitionURL")}>
+                  <TextInput
+                    ref={urlRef}
+                    id="ember-url"
+                    type="url"
+                    form=""
+                    value={url}
+                    onChange={(event) => setURL(event.target.value)}
+                    placeholder={t(
+                      "importEmberDrawer.httpsExampleComGameEmberJson",
+                    )}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void loadURL();
+                      }
                     }}
-                    loading={busy}
-                    loadingLabel={t("common.loading")}
-                  >
-                    {t("importEmberDrawer.loadDefinition")}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    {t("importEmberDrawer.uploadFile")}
-                  </Button>
-                </div>
-                <p className="field-help">
-                  {t("importEmberDrawer.useAPublicHTTPSLinkToTheRawJSONOr")}
-                </p>
-              </>
-            )}
-            <FormField label={t("importEmberDrawer.definition")}>
-              <Textarea
-                id="ember-definition"
-                className="definition-editor"
-                rows={24}
-                required
-                value={text}
-                onChange={(event) => {
-                  setText(event.target.value);
-                  setError(null);
-                  setReviewed(false);
-                }}
-                spellCheck={false}
-              />
-            </FormField>
-            {checking && (
-              <p role="status">
-                {t("importEmberDrawer.checkingCompatibility")}
+                  />
+                </FormField>
+                <Button
+                  type="button"
+                  disabled={!url.trim()}
+                  onClick={() => {
+                    void loadURL();
+                  }}
+                  loading={busy}
+                  loadingLabel={t("common.loading")}
+                >
+                  {t("importEmberDrawer.loadDefinition")}
+                </Button>
+                <Button type="button" onClick={() => fileRef.current?.click()}>
+                  {t("importEmberDrawer.uploadFile")}
+                </Button>
+              </div>
+              <p className="field-help">
+                {t("importEmberDrawer.useAPublicHTTPSLinkToTheRawJSONOr")}
               </p>
-            )}
-            {preview && (
-              <section aria-label={t("importEmberDrawer.compatibilityPreview")}>
-                <h3>
-                  {preview.errors.length > 0
-                    ? t("importEmberDrawer.changesNeededBeforeImport")
-                    : t("importEmberDrawer.isReadyToImport", {
-                        previewEmber:
-                          preview.ember?.name ??
-                          t("importEmberDrawer.definition"),
-                      })}
-                </h3>
-                {preview.errors.length > 0 && (
-                  <>
-                    <InlineMessage role="alert">
-                      {t("importEmberDrawer.thisDefinitionCannotBeImportedYet")}
-                    </InlineMessage>
-                    <ul>
-                      {preview.errors.map((issue, index) => (
-                        <li key={`${issue.field}-${index}`}>
-                          <strong>{issue.field}:</strong> {issue.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                {warnings.length > 0 && (
-                  <>
-                    <p>
-                      {t("importEmberDrawer.beforeRunningAServerWithThisEmber")}
-                    </p>
-                    <ul>
-                      {warnings.map((issue, index) => (
-                        <li key={`${issue.field}-${index}`}>{issue.message}</li>
-                      ))}
-                    </ul>
-                    <CheckboxField
-                      checked={reviewed}
-                      onChange={(event) => setReviewed(event.target.checked)}
-                    >
-                      {t("importEmberDrawer.iUnderstandTheseSetupRequirements")}
-                    </CheckboxField>
-                  </>
-                )}
-                {preview.ember && (
-                  <details>
-                    <summary>{t("importEmberDrawer.convertedEmber")}</summary>
-                    <pre className="ember-preview-definition">
-                      {JSON.stringify(preview.ember, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </section>
-            )}
-          </Fieldset>
-        </div>
-      </form>
-      {ember && confirmDelete && (
-        <ConfirmDialog
-          title={t("importEmberDrawer.deleteEmber")}
-          description={t(
-            "importEmberDrawer.permanentlyDeleteThisEmberCannotBeDeletedWhileServersReference",
-            { emberName: ember.name },
+            </>
           )}
-          confirmLabel={t("common.delete")}
-          danger
-          busy={busy}
-          error={error}
-          onClose={() => setConfirmDelete(false)}
-          onConfirm={() => {
-            void remove();
-          }}
-        />
-      )}
-    </Drawer>
+          <FormField label={t("importEmberDrawer.definition")}>
+            <Textarea
+              id="ember-definition"
+              className="definition-editor"
+              rows={24}
+              required
+              value={text}
+              spellCheck={false}
+              onChange={(event) => {
+                setText(event.target.value);
+                setError(null);
+                setReviewed(false);
+              }}
+            />
+          </FormField>
+          {compatibility}
+        </Fieldset>
+      </div>
+    </form>
+  );
+  const rawActions = (
+    <Button
+      type="submit"
+      form={formID}
+      variant="primary"
+      disabled={busy || !ready}
+    >
+      {busy
+        ? loadingSource
+          ? t("common.loading")
+          : ember
+            ? t("importEmberDrawer.saving")
+            : t("importEmberDrawer.importing")
+        : finishLabel}
+    </Button>
+  );
+  return (
+    <EmberEditor
+      draft={draft ?? createEmberDraft(emptyEmber())}
+      onChange={changeVisual}
+      busy={busy}
+      error={error ?? previewError}
+      ready={ready}
+      editing={!!ember}
+      finishLabel={finishLabel}
+      onFinish={() => submit()}
+      review={compatibility}
+    >
+      {(content, actions) =>
+        renderDrawer(
+          mode === "visual" ? content : rawContent,
+          mode === "visual" ? actions : rawActions,
+        )
+      }
+    </EmberEditor>
   );
 }

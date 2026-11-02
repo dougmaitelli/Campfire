@@ -1,0 +1,117 @@
+.ember-editor-mode {
+  padding: 8px 24px 0;
+}
+.ember-editor-panel,
+.ember-editor,
+.ember-editor > .wizard {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.ember-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.ember-editor-group {
+  margin-block: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.ember-editor-group > h4 {
+  font-size: 15px;
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+.ember-code {
+  font-family: monospace;
+  font-size: 13px;
+  min-height: 110px;
+}
+.ember-editor-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-block: 16px;
+}
+.ember-variable-list > .allocation-row {
+  padding: 14px;
+  margin-block: 12px;
+}
+.ember-variable-list > .allocation-row .form-field {
+  margin-bottom: 10px;
+}
+.ember-variable-list > .allocation-row .form-field > label {
+  margin-bottom: 6px;
+}
+.ember-variable-list > .allocation-row .ember-editor-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+.ember-variable-list > .allocation-row .checkbox-field {
+  margin-block: 8px;
+}
+.ember-variable-list > .allocation-row .ember-editor-checks {
+  gap: 4px 16px;
+  margin-block: 0 6px;
+}
+.ember-variable-list > .allocation-row .ember-editor-checks .checkbox-field {
+  margin-block: 0 6px;
+}
+.ember-list-label {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.ember-editor-summary {
+  display: grid;
+  gap: 12px;
+  margin-block: 0 24px;
+}
+.ember-editor-summary > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr);
+  gap: 16px;
+}
+.ember-editor-summary dt {
+  color: var(--muted);
+}
+.ember-editor-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .ember-editor .wizard-progress {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 16px 8px;
+  }
+  .ember-editor .wizard-progress::before {
+    display: none;
+  }
+  .ember-editor .wizard-progress > li .wizard-step-link {
+    align-items: center;
+    text-align: center;
+  }
+  .ember-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .ember-editor-mode {
+    padding-inline: 16px;
+  }
+}
+
+.ember-variable-list > .allocation-row .allocation-row-fields .form-field {
+  margin-bottom: 0;
+}
+.ember-variable-list > .allocation-row .allocation-row-body {
+  gap: 0;
+}
+
+.allocation-list.ember-value-list > .allocation-row {
+  padding: 0;
+  border: 0;
+  margin-block: 8px;
+}

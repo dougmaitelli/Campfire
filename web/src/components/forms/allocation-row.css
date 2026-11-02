@@ -25,3 +25,23 @@
     font-size: 12px;
   }
 }
+
+.allocation-row-body {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  min-width: 0;
+
+  & > .checkbox-field {
+    margin: 0;
+  }
+
+  & .form-field {
+    margin-bottom: 0;
+  }
+
+  & .form-field > label {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+}
