@@ -231,7 +231,7 @@ export function ServerDrawer({
     return () => controller.abort();
   }, [server, applyRevision, accessOnly]);
   const submitting = useRef(false);
-  const createdServer = useRef<Server | null>(null);
+  const [createdServer, setCreatedServer] = useState<Server | null>(null);
   const spark = sparks.find((item) => item.id === value.spark_id);
   const ember = embers.find((item) => item.id === value.ember_id);
   function changePort(index: number, changes: Partial<ServerPort>) {
@@ -263,7 +263,7 @@ export function ServerDrawer({
         name: value.name,
         description: value.description,
         spark_id: value.spark_id,
-        ember_id: value.ember_id,
+        ember_id: createdServer?.ember_id ?? value.ember_id,
         image: value.image,
         startup_command: value.startup_command ?? "",
         startup_override: value.startup_override ?? "",
@@ -275,19 +275,17 @@ export function ServerDrawer({
         ports: value.ports,
       };
       const saved =
-        backup && createdServer.current
-          ? createdServer.current
-          : accessOnly && server
-            ? server
-            : applyRevision && server
-              ? await applyServerEmber(server.id, server.ember_id, input)
-              : await saveServer(
-                  input,
-                  server?.id ?? createdServer.current?.id,
-                  backup?.token,
-                );
+        accessOnly && server
+          ? server
+          : applyRevision && server
+            ? await applyServerEmber(server.id, server.ember_id, input)
+            : await saveServer(
+                input,
+                server?.id ?? createdServer?.id,
+                createdServer ? undefined : backup?.token,
+              );
       if (!server) {
-        createdServer.current = saved;
+        setCreatedServer(saved);
       }
       if (policyDirty && backupPolicy) {
         try {
@@ -517,7 +515,7 @@ export function ServerDrawer({
                 <Select
                   id="server-spark"
                   required
-                  disabled={server !== null}
+                  disabled={server !== null || createdServer !== null}
                   value={value.spark_id}
                   onValueChange={(selectedValue) => {
                     const selected = sparks.find(
