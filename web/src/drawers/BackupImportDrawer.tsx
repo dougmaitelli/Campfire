@@ -84,7 +84,6 @@ export function BackupImportDrawer({
     setError(null);
     try {
       await publishBackupImport(serverID, backup.token);
-      token.current = null;
       onReady(backup);
     } catch (cause) {
       setError(

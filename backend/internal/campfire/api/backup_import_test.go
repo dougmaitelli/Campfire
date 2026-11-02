@@ -3,7 +3,9 @@ package api_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +15,75 @@ import (
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 )
+
+type delayedImportResponse struct{ http.ResponseWriter }
+
+func (w delayedImportResponse) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w delayedImportResponse) WriteHeader(status int) {
+	time.Sleep(100 * time.Millisecond)
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func TestBackupImportExtendsHTTPDeadlineAndRetainsPublicationReceipt(t *testing.T) {
+	f := newAccessFixture(t)
+	_, ember, configuration := serverFixture(t, f.admin)
+	configuration.Variables = map[string]string{"SECONDS": "3600"}
+	manifest := backuparchive.Manifest{Format: backuparchive.Format, BackupOptions: model.BackupOptions{Mode: model.BackupModeFull, Definition: model.NewBackupDefinition(model.Server{ServerConfiguration: configuration}, ember)}}
+
+	metadata, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	archive, err := devfixture.Archive(map[string]string{model.BackupMetadataName: string(metadata)}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	created := request(f.admin, "POST", "/api/v1/servers", configJSON(t, configuration))
+
+	var server model.Server
+	if created.Code != http.StatusCreated || json.Unmarshal(created.Body.Bytes(), &server) != nil {
+		t.Fatal(created.Code, created.Body)
+	}
+
+	token := stagePortableBackup(t, f.admin, server.ID, archive)
+	f.runtime.files = func(q model.FileRequest) (model.FileResult, error) {
+		return model.FileResult{ServerID: q.ServerID, UploadID: "upload", Path: q.Path, Entries: []model.FileEntry{}}, nil
+	}
+	host := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.admin.ServeHTTP(delayedImportResponse{w}, r)
+	}))
+	host.Config.WriteTimeout = 25 * time.Millisecond
+	host.Start()
+	t.Cleanup(host.Close)
+
+	for _, path := range []string{
+		"/api/v1/backup-imports/" + token + "/inspect",
+		"/api/v1/servers/" + server.ID + "/backup-imports/" + token,
+		"/api/v1/servers/" + server.ID + "/backup-imports/" + token,
+	} {
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, host.URL+path, strings.NewReader("{}"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		response, err := host.Client().Do(req)
+		if err != nil {
+			t.Fatal("import inherited the short HTTP deadline", err)
+		}
+
+		body, readErr := io.ReadAll(response.Body)
+
+		_ = response.Body.Close()
+		if readErr != nil || response.StatusCode >= http.StatusBadRequest {
+			t.Fatal(response.StatusCode, string(body), readErr)
+		}
+	}
+}
 
 func stagePortableBackup(t *testing.T, handler http.Handler, target string, data []byte) string {
 	t.Helper()

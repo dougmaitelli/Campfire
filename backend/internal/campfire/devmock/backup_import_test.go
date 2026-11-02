@@ -4,6 +4,7 @@ package devmock
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -74,6 +75,27 @@ func TestPortableBackupPublishAndRestoreThroughMockServices(t *testing.T) {
 	if err != nil {
 		t.Fatal("publish failed", err)
 	}
+
+	err = imports.With(source.OwnerUserID, token, func(upload *service.BackupUpload) error {
+		return upload.Publish(ctx, deployment, created.ID, func() error { return nil })
+	})
+	if err != nil {
+		t.Fatal("publication receipt could not be retried", err)
+	}
+
+	err = imports.With(source.OwnerUserID, token, func(upload *service.BackupUpload) error {
+		return upload.Publish(ctx, deployment, created.ID, func() error { return repository.ErrAccessDenied })
+	})
+	if !errors.Is(err, repository.ErrAccessDenied) {
+		t.Fatal("publication retry ignored revoked access", err)
+	}
+	// A receipt must not retain the uploaded bytes or reserve staging capacity.
+	full, err := imports.Begin(source.OwnerUserID, created.ID, model.DefaultUploadLimit, model.DefaultUploadLimit)
+	if err != nil {
+		t.Fatal("published archive still reserved staging storage", err)
+	}
+
+	imports.Cancel(source.OwnerUserID, full)
 
 	listed, err := deployment.Backups.List(ctx, created.ID)
 	if err != nil || len(listed) != 1 || !listed[0].Portable {

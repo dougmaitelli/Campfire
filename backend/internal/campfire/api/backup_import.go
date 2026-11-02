@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"net/http"
 	"time"
@@ -125,9 +126,13 @@ func (a *API) backupImportEmber(ctx context.Context, source model.Ember) (model.
 }
 
 func (a *API) inspectBackupImport(w http.ResponseWriter, r *http.Request) {
+	if !backupImportDeadline(w) {
+		return
+	}
+
 	var preview backupImportPreview
 
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(r.Context(), service.BackupImportTimeout)
 	defer cancel()
 
 	err := a.backupImports.With(currentUser(r).UserID, r.PathValue("token"), func(upload *service.BackupUpload) error {
@@ -177,9 +182,13 @@ func (a *API) inspectBackupImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) publishBackupImport(w http.ResponseWriter, r *http.Request) {
+	if !backupImportDeadline(w) {
+		return
+	}
+
 	id, token := r.PathValue("id"), r.PathValue("token")
 
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(r.Context(), service.BackupImportTimeout)
 	defer cancel()
 
 	var name string
@@ -217,9 +226,18 @@ func (a *API) publishBackupImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.backupImports.Cancel(currentUser(r).UserID, token)
 	auditDetail(r, "backup.import", "server:"+id)
 	writeJSON(w, http.StatusCreated, map[string]string{"name": name})
+}
+
+func backupImportDeadline(w http.ResponseWriter) bool {
+	deadline := time.Now().Add(service.BackupImportTimeout + 10*time.Second)
+	if err := http.NewResponseController(w).SetWriteDeadline(deadline); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		writeError(w, err)
+		return false
+	}
+
+	return true
 }
 
 func (a *API) createFromBackup(r *http.Request, input createServerInput) (model.Server, error) {

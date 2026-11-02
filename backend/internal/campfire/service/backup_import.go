@@ -13,6 +13,9 @@ import (
 )
 
 const backupUploadLifetime = time.Hour
+
+// BackupImportTimeout bounds archive inspection and delivery to Spark.
+const BackupImportTimeout = 30 * time.Minute
 const backupUploadSessions = 8
 const backupUploadsPerAccount = 2
 
@@ -41,6 +44,8 @@ type BackupUpload struct {
 	Name          string
 	CreatedServer string
 	published     bool
+	closed        bool
+	store         *BackupImports
 }
 
 // NewBackupImports creates an account-bound temporary archive store.
@@ -95,7 +100,7 @@ func (s *BackupImports) Begin(owner int64, target string, size, limit int64) (st
 	}
 
 	token := rand.Text()
-	upload := &BackupUpload{owner: owner, file: file, size: size, Target: target}
+	upload := &BackupUpload{owner: owner, file: file, size: size, Target: target, store: s}
 	s.uploads[token] = upload
 	s.reserved += size
 	upload.timer = time.AfterFunc(backupUploadLifetime, func() { s.Cancel(owner, token) })
@@ -117,7 +122,7 @@ func (s *BackupImports) With(owner int64, token string, use func(*BackupUpload) 
 	upload.mu.Lock()
 	defer upload.mu.Unlock()
 
-	if upload.file == nil {
+	if upload.closed {
 		return importError("Backup upload is unavailable.")
 	}
 
@@ -129,20 +134,30 @@ func (s *BackupImports) Cancel(owner int64, token string) {
 	_ = s.With(owner, token, func(upload *BackupUpload) error {
 		s.mu.Lock()
 		delete(s.uploads, token)
-		s.reserved -= upload.size
 		s.mu.Unlock()
 		upload.timer.Stop()
-		_ = upload.file.Close()
-		_ = os.Remove(upload.file.Name())
-		upload.file = nil
+		upload.closed = true
+		upload.releaseFile()
 
 		return nil
 	})
 }
 
+func (u *BackupUpload) releaseFile() {
+	if u.file == nil {
+		return
+	}
+
+	_ = u.file.Close()
+	u.file = nil
+	u.store.mu.Lock()
+	u.store.reserved -= u.size
+	u.store.mu.Unlock()
+}
+
 // Chunk appends the next bounded range without allowing gaps or overwrites.
 func (u *BackupUpload) Chunk(offset int64, data []byte) error {
-	if u.Manifest.Format != 0 || offset != u.offset || len(data) > model.FileLimit || int64(len(data)) > u.size-u.offset {
+	if u.file == nil || u.Manifest.Format != 0 || offset != u.offset || len(data) > model.FileLimit || int64(len(data)) > u.size-u.offset {
 		return importError("Invalid backup upload offset or size.")
 	}
 
@@ -188,7 +203,7 @@ func (u *BackupUpload) Publish(ctx context.Context, deployment *DeploymentServic
 		return importError("Backup upload does not belong to this server.")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, BackupImportTimeout)
 	defer cancel()
 
 	if deployment.Backups != nil {
@@ -281,6 +296,7 @@ func (u *BackupUpload) publishBytes(ctx context.Context, deployment *DeploymentS
 	}
 
 	u.published = true
+	u.releaseFile()
 
 	return nil
 }
