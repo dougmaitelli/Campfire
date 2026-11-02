@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
 )
@@ -302,6 +303,34 @@ func (r *AccessRepository) MemberRole(ctx context.Context, serverID string, user
 		Where("server_access_grants.server_id = ?", serverID).Distinct("role_permissions.permission").Find(&permissions).Error
 
 	return database.Role{Permissions: permissions}, err
+}
+
+// MemberPermissions loads direct and account-role grants in bounded batches.
+func (r *AccessRepository) MemberPermissions(ctx context.Context, userID int64, ids []string) (map[string][]model.PermissionID, error) {
+	result := make(map[string][]model.PermissionID, len(ids))
+
+	const batchSize = 500
+	for start := 0; start < len(ids); start += batchSize {
+		var rows []struct {
+			ServerID   string
+			Permission model.PermissionID
+		}
+
+		err := r.db.WithContext(ctx).Table("role_permissions").
+			Joins("JOIN server_access_grants ON server_access_grants.access_role_id = role_permissions.role_id").
+			Joins("JOIN users ON users.id = ? AND users.deleted_at IS NULL AND users.disabled = false AND (server_access_grants.user_id = users.id OR server_access_grants.role_id = users.role_id)", userID).
+			Where("server_access_grants.server_id IN ?", ids[start:min(start+batchSize, len(ids))]).
+			Distinct("server_access_grants.server_id", "role_permissions.permission").Scan(&rows).Error
+		if err != nil {
+			return nil, err
+		}
+
+		for _, row := range rows {
+			result[row.ServerID] = append(result[row.ServerID], row.Permission)
+		}
+	}
+
+	return result, nil
 }
 
 func validateGrantSubject(tx *gorm.DB, userID, roleID *int64) error {

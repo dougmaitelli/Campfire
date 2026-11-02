@@ -154,7 +154,7 @@ func (a *API) applyServerEmber(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) listServers(w http.ResponseWriter, r *http.Request) {
-	servers, err := a.servers.List(r.Context())
+	servers, err := a.servers.ListVisible(r.Context(), currentUser(r))
 	if err != nil {
 		writeError(w, err)
 		return
@@ -167,34 +167,14 @@ func (a *API) listServers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	visible := make([]model.Server, 0, len(servers))
-	definitions := make(map[string]model.Ember)
+	if err := a.access.ApplyServerPermissions(r.Context(), currentUser(r), servers); err != nil {
+		writeError(w, err)
+		return
+	}
 
 	for _, server := range servers {
-		server.Permissions, err = a.access.ServerPermissions(r.Context(), currentUser(r), server.ID)
-		if err != nil {
-			writeError(w, err)
-			return
-		}
-
 		if slices.Contains(server.Permissions, accessperm.ServerView) {
-			server.CanManageAccess, err = a.access.CanManageServer(r.Context(), currentUser(r), server.ID)
-			if err != nil {
-				writeError(w, err)
-				return
-			}
-
-			ember, loaded := definitions[server.EmberID]
-			if !loaded {
-				ember, err = a.embers.Get(r.Context(), server.EmberID)
-				if err != nil {
-					writeError(w, err)
-					return
-				}
-
-				definitions[server.EmberID] = ember
-			}
-
-			visible = append(visible, visibleServer(server, ember))
+			visible = append(visible, server)
 		}
 	}
 

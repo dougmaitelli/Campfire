@@ -30,6 +30,7 @@ var (
 type ServerStore interface {
 	Save(context.Context, model.Server, bool) error
 	List(context.Context) ([]model.Server, error)
+	ListVisible(context.Context, int64, bool) ([]model.Server, error)
 	Get(context.Context, string) (model.Server, error)
 	Delete(context.Context, string) error
 }
@@ -327,6 +328,11 @@ func serverError(err error) error {
 
 // List returns saved server configurations.
 func (s *ServerService) List(ctx context.Context) ([]model.Server, error) { return s.store.List(ctx) }
+
+// ListVisible reads only servers assigned to the authenticated account.
+func (s *ServerService) ListVisible(ctx context.Context, principal Principal) ([]model.Server, error) {
+	return s.store.ListVisible(ctx, principal.UserID, principal.Admin)
+}
 
 // Get returns a server configuration.
 func (s *ServerService) Get(ctx context.Context, id string) (model.Server, error) {

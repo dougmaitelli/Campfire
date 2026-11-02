@@ -5,7 +5,6 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,13 +25,7 @@ func (r *ResourceHistoryRepository) Targets(ctx context.Context, userID int64, a
 	query := r.db.WithContext(ctx).Table("servers").
 		Select("servers.id, servers.name, servers.spark_id, sparks.name AS spark_name, servers.cpu_limit, servers.memory_mb, servers.disk_mb").
 		Joins("JOIN sparks ON sparks.id = servers.spark_id")
-	if !admin {
-		query = query.Where(`servers.owner_user_id = ? OR EXISTS (
-SELECT 1 FROM server_access_grants grants
-JOIN role_permissions permissions ON permissions.role_id = grants.access_role_id AND permissions.permission = ?
-JOIN users ON users.id = ? AND users.deleted_at IS NULL AND users.disabled = false
-WHERE grants.server_id = servers.id AND (grants.user_id = users.id OR grants.role_id = users.role_id))`, userID, accessperm.ServerView, userID)
-	}
+	query = authorizedServers(query, userID, admin)
 
 	err := query.Order("servers.id").Scan(&rows).Error
 

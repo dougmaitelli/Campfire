@@ -9,6 +9,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/shared/model"
+	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )
@@ -175,8 +176,29 @@ func checkReservations(spark database.Spark, servers []database.Server) error {
 
 // List returns saved servers with their display metadata.
 func (r *ServerRepository) List(ctx context.Context) ([]model.Server, error) {
+	return r.list(ctx, r.db, false)
+}
+
+func authorizedServers(query *gorm.DB, userID int64, admin bool) *gorm.DB {
+	if admin {
+		return query
+	}
+
+	return query.Where(`servers.owner_user_id = ? OR EXISTS (
+SELECT 1 FROM server_access_grants grants
+JOIN role_permissions permissions ON permissions.role_id = grants.access_role_id AND permissions.permission = ?
+JOIN users ON users.id = ? AND users.deleted_at IS NULL AND users.disabled = false
+WHERE grants.server_id = servers.id AND (grants.user_id = users.id OR grants.role_id = users.role_id))`, userID, accessperm.ServerView, userID)
+}
+
+// ListVisible filters inventory before loading definitions and redacts hidden values.
+func (r *ServerRepository) ListVisible(ctx context.Context, userID int64, admin bool) ([]model.Server, error) {
+	return r.list(ctx, authorizedServers(r.db, userID, admin), true)
+}
+
+func (r *ServerRepository) list(ctx context.Context, query *gorm.DB, visible bool) ([]model.Server, error) {
 	var records []database.Server
-	if err := r.db.WithContext(ctx).Preload("Spark").Preload("Ember").Order("created_at").Order("id").Find(&records).Error; err != nil {
+	if err := query.WithContext(ctx).Preload("Spark").Preload("Ember").Order("created_at").Order("id").Find(&records).Error; err != nil {
 		return nil, fmt.Errorf("list servers: %w", err)
 	}
 
@@ -190,6 +212,10 @@ func (r *ServerRepository) List(ctx context.Context) ([]model.Server, error) {
 
 		if record.OwnerUserID != nil {
 			server.OwnerUserID = *record.OwnerUserID
+		}
+
+		if visible {
+			server = model.VisibleServer(server, record.Ember.Definition)
 		}
 
 		servers = append(servers, server)

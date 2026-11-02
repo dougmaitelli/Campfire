@@ -111,6 +111,50 @@ func (s *AccessService) ServerPermissions(ctx context.Context, principal Princip
 	return principal.restrictServer(roleActions(role)), err
 }
 
+// ApplyServerPermissions authorizes a listing without per-server database reads.
+func (s *AccessService) ApplyServerPermissions(ctx context.Context, principal Principal, servers []model.Server) error {
+	ids := make([]string, 0, len(servers))
+	owner := false
+
+	for _, server := range servers {
+		if principal.Admin || server.OwnerUserID == principal.UserID {
+			owner = true
+		} else {
+			ids = append(ids, server.ID)
+		}
+	}
+
+	var ownerPermissions []model.PermissionID
+
+	if owner {
+		role, err := s.store.Role(ctx, database.OwnerRole)
+		if err != nil {
+			return err
+		}
+
+		ownerPermissions = roleActions(role)
+	}
+
+	members, err := s.store.MemberPermissions(ctx, principal.UserID, ids)
+	if err != nil {
+		return err
+	}
+
+	for i := range servers {
+		owned := principal.Admin || servers[i].OwnerUserID == principal.UserID
+
+		permissions := members[servers[i].ID]
+		if owned {
+			permissions = ownerPermissions
+		}
+
+		servers[i].Permissions = principal.restrictServer(permissions)
+		servers[i].CanManageAccess = owned && (principal.APITokenID == 0 || slices.Contains(principal.TokenScopes, accessperm.AllAccess))
+	}
+
+	return nil
+}
+
 // CanManageServer requires actual ownership; a custom role cannot delegate access.
 func (s *AccessService) CanManageServer(ctx context.Context, principal Principal, id string) (bool, error) {
 	if principal.APITokenID != 0 && !slices.Contains(principal.TokenScopes, accessperm.AllAccess) {
