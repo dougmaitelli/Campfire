@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -422,5 +424,64 @@ func TestInterruptedRestoreBlocksStartAfterRestart(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(m.root(d.ServerID), "restore-previous")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("explicit server deletion retained previous game data")
+	}
+}
+
+func TestCommittedRestoreRecoversInstalledStateAfterRestart(t *testing.T) {
+	for _, previousPresent := range []bool{true, false} {
+		t.Run(fmt.Sprint("previous-", previousPresent), func(t *testing.T) {
+			m, d := fileTestManager(t)
+			m.Ownership = func(string, string) error { return nil }
+			awaitOperation(t, m, d, "install", "install")
+
+			e, err := m.load(d.ServerID)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			e.mu.Lock()
+			e.Installed = false
+			e.Status.Busy = true
+			err = m.persist(d.ServerID, e)
+			e.mu.Unlock()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			root := m.root(d.ServerID)
+			if previousPresent {
+				if err := os.Mkdir(filepath.Join(root, "restore-previous"), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if err := writeAtomic(filepath.Join(root, restoreCommitMarker), nil, 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			m.Close()
+			restarted := newTestManager(context.Background(), m.Directory)
+			restarted.Docker = m.Docker
+			t.Cleanup(restarted.Close)
+
+			status, err := restarted.Execute(t.Context(), d, model.RuntimeRequest{ServerID: d.ServerID, Action: model.ServerActionStatus})
+			if err != nil || status.State != model.RuntimeStateStopped {
+				t.Fatal("committed restoration reverted to not installed", status, err)
+			}
+
+			for _, name := range []string{"restore-previous", restoreCommitMarker} {
+				if _, err := os.Stat(filepath.Join(root, name)); !errors.Is(err, os.ErrNotExist) {
+					t.Fatal("restoration recovery did not finish cleanup", name, err)
+				}
+			}
+
+			data, err := os.ReadFile(filepath.Join(root, "state.json"))
+
+			var persisted entry
+			if err != nil || json.Unmarshal(data, &persisted) != nil || !persisted.Installed {
+				t.Fatal("recovered installed state was not persisted", err)
+			}
+		})
 	}
 }

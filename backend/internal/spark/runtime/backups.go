@@ -24,6 +24,41 @@ import (
 
 const backupBytes int64 = 100 << 30
 const backupEntries = 100000
+const restoreCommitMarker = "restore-committed"
+
+// The marker outlives filesystem replacement until installed state is durable.
+// Recovery is safe whether the previous directory was removed or still exists.
+func (m *Manager) recoverCommittedRestore(id string, e *entry) error {
+	marker := filepath.Join(m.root(id), restoreCommitMarker)
+
+	info, err := os.Lstat(marker)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
+	if err != nil || !info.Mode().IsRegular() {
+		return errors.New("could not read restoration commit marker")
+	}
+
+	e.Installed = true
+	if err := m.persist(id, e); err != nil {
+		return err
+	}
+
+	if err := syncBackupDirectory(m.root(id)); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(filepath.Join(m.root(id), "restore-previous")); err != nil {
+		return errors.New("game data restored; previous data cleanup requires operator attention")
+	}
+
+	if err := os.Remove(marker); err != nil {
+		return err
+	}
+
+	return syncBackupDirectory(m.root(id))
+}
 
 func backupName(name string) bool {
 	return model.BackupName(name)
@@ -704,13 +739,16 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 		return errors.New("restored data synchronization failed; original data remains in restore-previous for operator recovery")
 	}
 
-	if err := os.RemoveAll(previous); err != nil {
-		return errors.New("game data restored; previous data cleanup requires operator attention")
+	if err := writeAtomic(filepath.Join(m.root(d.ServerID), restoreCommitMarker), nil, 0600); err != nil {
+		return errors.New("could not record restoration commit; original data remains in restore-previous")
+	}
+
+	if err := syncBackupDirectory(m.root(d.ServerID)); err != nil {
+		return errors.New("could not synchronize restoration commit; original data remains in restore-previous")
 	}
 
 	e.mu.Lock()
-	e.Installed = true
-	e.mu.Unlock()
+	defer e.mu.Unlock()
 
-	return nil
+	return m.recoverCommittedRestore(d.ServerID, e)
 }

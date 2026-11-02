@@ -105,6 +105,10 @@ func (m *Manager) load(id string) (*entry, error) {
 		return nil, err
 	}
 
+	if err := m.recoverCommittedRestore(id, e); err != nil {
+		return nil, err
+	}
+
 	m.entries[id] = e
 	e.Status.DiskQuotaEnforced = false
 
