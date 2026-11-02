@@ -44,7 +44,7 @@ func TestPortableBackupPublishAndRestoreThroughMockServices(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	imports := service.NewBackupImports()
+	imports := service.NewBackupImports(t.TempDir(), model.DefaultUploadLimit)
 
 	token, err := imports.Begin(source.OwnerUserID, created.ID, int64(len(archive.Data)), model.DefaultUploadLimit)
 	if err != nil {

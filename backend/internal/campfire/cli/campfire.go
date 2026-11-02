@@ -334,7 +334,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	}
 	defer resources.Close()
 
-	handler := api.New(sparks, embers, servers).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
+	imports := service.NewBackupImports(filepath.Join(stateDir, "backup-imports"), service.BackupStagingCopies*deployment.UploadLimit())
+	handler := api.New(sparks, embers, servers).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
 	admin := newHTTPServer(ctx, webui.Handler(handler))
 
 	var active []*http.Server

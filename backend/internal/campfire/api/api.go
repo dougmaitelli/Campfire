@@ -10,6 +10,7 @@ import (
 	"campfire/internal/campfire/agents"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
 
@@ -66,9 +67,15 @@ func (a *API) WithDeployment(deployment *service.DeploymentService) *API {
 // WithAgentHub enables remote node enrollment and connection status.
 func (a *API) WithAgentHub(hub *agents.Hub) *API { a.agents = hub; return a }
 
+// WithBackupImports places private uploads on the panel's writable state volume.
+func (a *API) WithBackupImports(imports *service.BackupImports) *API {
+	a.backupImports = imports
+	return a
+}
+
 // New constructs the HTTP API with its application service.
 func New(sparks *service.SparkService, embers *service.EmberService, servers *service.ServerService) *API {
-	return &API{sparks: sparks, embers: embers, servers: servers, backupImports: service.NewBackupImports()}
+	return &API{sparks: sparks, embers: embers, servers: servers, backupImports: service.NewBackupImports("", service.BackupStagingCopies*model.DefaultUploadLimit)}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -13,12 +13,20 @@ import (
 )
 
 const backupUploadLifetime = time.Hour
+const backupUploadSessions = 8
+const backupUploadsPerAccount = 2
+
+// BackupStagingCopies bounds total reserved bytes independently of session count.
+const BackupStagingCopies = 2
 
 // BackupImports keeps private, bounded upload sessions owned by one account.
 // Archives are temporary and are removed on cancellation, publication or expiry.
 type BackupImports struct {
-	mu      sync.Mutex
-	uploads map[string]*BackupUpload
+	mu        sync.Mutex
+	uploads   map[string]*BackupUpload
+	directory string
+	limit     int64
+	reserved  int64
 }
 
 // BackupUpload fields are accessed only inside With's locked callback.
@@ -36,8 +44,8 @@ type BackupUpload struct {
 }
 
 // NewBackupImports creates an account-bound temporary archive store.
-func NewBackupImports() *BackupImports {
-	return &BackupImports{uploads: make(map[string]*BackupUpload)}
+func NewBackupImports(directory string, limit int64) *BackupImports {
+	return &BackupImports{uploads: make(map[string]*BackupUpload), directory: directory, limit: limit}
 }
 
 func importError(message string) error {
@@ -61,11 +69,21 @@ func (s *BackupImports) Begin(owner int64, target string, size, limit int64) (st
 		return "", importError("Backup exceeds the configured upload limit.")
 	}
 
-	if len(s.uploads) >= 8 || count >= 2 {
+	if len(s.uploads) >= backupUploadSessions || count >= backupUploadsPerAccount {
 		return "", importError("Too many backup uploads are active; cancel an upload or wait for it to expire.")
 	}
 
-	file, err := os.CreateTemp("", "campfire-backup-import-")
+	if size > s.limit-s.reserved {
+		return "", importError("Backup upload staging is full; cancel an upload or wait for it to expire.")
+	}
+
+	if s.directory != "" {
+		if err := os.MkdirAll(s.directory, 0700); err != nil {
+			return "", err
+		}
+	}
+
+	file, err := os.CreateTemp(s.directory, "campfire-backup-import-")
 	if err != nil {
 		return "", err
 	}
@@ -79,6 +97,7 @@ func (s *BackupImports) Begin(owner int64, target string, size, limit int64) (st
 	token := rand.Text()
 	upload := &BackupUpload{owner: owner, file: file, size: size, Target: target}
 	s.uploads[token] = upload
+	s.reserved += size
 	upload.timer = time.AfterFunc(backupUploadLifetime, func() { s.Cancel(owner, token) })
 
 	return token, nil
@@ -110,6 +129,7 @@ func (s *BackupImports) Cancel(owner int64, token string) {
 	_ = s.With(owner, token, func(upload *BackupUpload) error {
 		s.mu.Lock()
 		delete(s.uploads, token)
+		s.reserved -= upload.size
 		s.mu.Unlock()
 		upload.timer.Stop()
 		_ = upload.file.Close()
