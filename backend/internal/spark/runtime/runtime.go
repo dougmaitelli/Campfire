@@ -40,15 +40,17 @@ type Manager struct {
 }
 
 type entry struct {
-	mu            sync.Mutex
-	cancel        context.CancelFunc
-	interrupted   bool
-	uploads       map[string]*fileUpload
-	backupUploads map[string]*backupUpload
-	Installed     bool                `json:"installed"`
-	Images        []string            `json:"images,omitempty"`
-	Revision      string              `json:"revision"`
-	Status        model.RuntimeStatus `json:"status"`
+	mu                      sync.Mutex
+	cancel                  context.CancelFunc
+	interrupted             bool
+	uploads                 map[string]*fileUpload
+	backupUploads           map[string]*backupUpload
+	Installed               bool                `json:"installed"`
+	Images                  []string            `json:"images,omitempty"`
+	Revision                string              `json:"revision"`
+	ReadyContainerID        string              `json:"ready_container_id,omitempty"`
+	ReadyContainerStartedAt string              `json:"ready_container_started_at,omitempty"`
+	Status                  model.RuntimeStatus `json:"status"`
 }
 
 // New constructs a manager whose background operations follow the process lifetime.
@@ -452,24 +454,50 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 }
 
 func (m *Manager) inspect(ctx context.Context, id string) (string, error) {
-	out, err := m.Docker.Run(ctx, nil, "inspect", "--format", "{{.State.Status}}", container(id))
+	state, err := m.inspectContainer(ctx, id)
+	return state.State.Status, err
+}
+
+const containerStateFormat = `{"id":{{json .Id}},"state":{{json .State}}}`
+
+type containerState struct {
+	ID    string
+	State struct {
+		Status    string
+		StartedAt string
+	}
+}
+
+func (m *Manager) inspectContainer(ctx context.Context, id string) (containerState, error) {
+	out, err := m.Docker.Run(ctx, nil, "inspect", "--format", containerStateFormat, container(id))
 	if err != nil {
 		lower := strings.ToLower(out)
 		if strings.Contains(lower, "no such object") || strings.Contains(lower, "no such container") {
-			return "missing", nil
+			var state containerState
+
+			state.State.Status = "missing"
+
+			return state, nil
 		}
 
-		return "", err
+		return containerState{}, err
 	}
 
-	return strings.TrimSpace(out), nil
+	var state containerState
+	if err := json.Unmarshal([]byte(out), &state); err != nil {
+		return containerState{}, err
+	}
+
+	return state, nil
 }
 
 func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (model.RuntimeStatus, error) {
-	state, err := m.inspect(ctx, d.ServerID)
+	observed, err := m.inspectContainer(ctx, d.ServerID)
 	if err != nil {
 		return model.RuntimeStatus{}, err
 	}
+
+	state := observed.State.Status
 
 	status := model.RuntimeStatus{ServerID: d.ServerID, State: model.RuntimeState(state)}
 	if d.Configuration.DiskMB > 0 && m.Quota == nil {
@@ -503,10 +531,22 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	if state == "running" {
-		status.Ready = d.Ember.Ready == "" && d.Ember.Readiness == nil
+		previouslyReady := e.ReadyContainerID == observed.ID && e.ReadyContainerStartedAt == observed.State.StartedAt
+
+		status.Ready = previouslyReady || (d.Ember.Ready == "" && d.Ember.Readiness == nil)
 		if !status.Ready {
-			logs, err := m.Docker.Run(ctx, nil, "logs", "--tail", "200", container(d.ServerID))
-			status.Ready = err == nil && readinessMatches(d.Ember, logs)
+			status.Ready = m.containerReady(ctx, d, observed.State.StartedAt)
+		}
+
+		if status.Ready && !previouslyReady {
+			previousID, previousStartedAt := e.ReadyContainerID, e.ReadyContainerStartedAt
+			e.ReadyContainerID, e.ReadyContainerStartedAt = observed.ID, observed.State.StartedAt
+			// Readiness often arrives after the start operation has finished.
+			// Persist it here so a Spark update cannot lose the observation.
+			if err := m.persist(d.ServerID, e); err != nil {
+				e.ReadyContainerID, e.ReadyContainerStartedAt = previousID, previousStartedAt
+				return model.RuntimeStatus{}, err
+			}
 		}
 	}
 

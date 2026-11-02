@@ -85,6 +85,10 @@ func (f *fakeDocker) Run(ctx context.Context, input io.Reader, args ...string) (
 			return `{"Status":"` + state + `","StartedAt":"2026-01-01T00:00:00Z","FinishedAt":"0001-01-01T00:00:00Z"}`, nil
 		}
 
+		if len(args) > 2 && args[2] == containerStateFormat {
+			return `{"id":"` + name + `","state":{"Status":"` + state + `","StartedAt":"2026-01-01T00:00:00Z"}}`, nil
+		}
+
 		return state, nil
 	case "create":
 		for i, arg := range args {

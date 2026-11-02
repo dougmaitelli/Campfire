@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -231,7 +232,7 @@ func (d *wireDocker) Run(_ context.Context, _ io.Reader, args ...string) (string
 			return "no such object", errors.New("missing")
 		}
 
-		return d.state, nil
+		return fmt.Sprintf(`{"id":"container-id","state":{"Status":%q,"StartedAt":"2026-01-01T00:00:00Z"}}`, d.state), nil
 	case "create":
 		d.state = "created"
 	case "start":
