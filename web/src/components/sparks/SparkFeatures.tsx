@@ -17,6 +17,7 @@ const featureTranslationKeys = {
   [Capability.RemoteBackups]: "sparkFeatures.remoteBackupRestore",
   [Capability.Metrics]: "sparkFeatures.resourceMonitoring",
   [Capability.Console]: "sparkFeatures.liveConsole",
+  [Capability.LogAlerts]: "sparkFeatures.logAlerts",
   [Capability.DiskQuota]: "sparkFeatures.diskQuotas",
   [Capability.Transfer]: "sparkFeatures.serverTransfers",
   [Capability.Reinstall]: "sparkFeatures.serverUpdateAndReinstall",

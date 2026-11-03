@@ -21,6 +21,7 @@ test("Spark features group related capabilities and report partial support", asy
     "server.backups.remote.v1",
     "server.metrics.v1",
     "server.console.stream.v1",
+    Capability.LogAlerts,
     "server.disk-quota.v1",
     "server.transfer.v1",
     "server.reinstall.v1",
@@ -65,9 +66,9 @@ test("Spark features group related capabilities and report partial support", asy
     exact: true,
   });
   await expect(
-    features.getByRole("heading", { name: "Features (16/16)", exact: true }),
+    features.getByRole("heading", { name: "Features (17/17)", exact: true }),
   ).toBeVisible();
-  await expect(features.getByRole("listitem")).toHaveCount(16);
+  await expect(features.getByRole("listitem")).toHaveCount(17);
   await page.setViewportSize({ width: 1400, height: 1400 });
   await features.scrollIntoViewIfNeeded();
   await prepareScreenshot(page);
@@ -85,7 +86,7 @@ test("Spark features group related capabilities and report partial support", asy
   await page.reload();
   await details.click();
   await expect(
-    features.getByRole("heading", { name: "Features (13/16)", exact: true }),
+    features.getByRole("heading", { name: "Features (14/17)", exact: true }),
   ).toBeVisible();
   for (const label of [
     "File management",

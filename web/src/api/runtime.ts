@@ -25,6 +25,7 @@ export interface RuntimeStatus {
   operation_state?: OperationState;
   error_code?: RuntimeErrorCode;
   logs?: string;
+  log_monitor_error?: string;
   disk_quota_enforced: boolean;
   disk_quota_error?: string;
   disk_quota_error_code?: RuntimeErrorCode;
@@ -44,7 +45,14 @@ function isRuntimeStatus(value: unknown): value is RuntimeStatus {
     typeof value.busy === "boolean" &&
     "disk_quota_enforced" in value &&
     typeof value.disk_quota_enforced === "boolean" &&
-    ["progress", "error", "operation_id", "logs", "disk_quota_error"].every(
+    [
+      "progress",
+      "error",
+      "operation_id",
+      "logs",
+      "disk_quota_error",
+      "log_monitor_error",
+    ].every(
       (key) => !(key in value) || typeof Reflect.get(value, key) === "string",
     ) &&
     (!("operation" in value) || isEnumValue(ServerAction, value.operation)) &&

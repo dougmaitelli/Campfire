@@ -71,9 +71,11 @@ function entryName(value: string | null): string | null {
 export function ServerFileBrowser({
   server,
   canWrite: runtimeCanWrite,
+  initialFile,
 }: {
   server: Server;
   canWrite: boolean;
+  initialFile?: string | undefined;
 }) {
   const { t } = useTranslation();
   const fileActionLabels = {
@@ -148,6 +150,38 @@ export function ServerFileBrowser({
       transfer.current?.abort();
     };
   }, []);
+  const openFile = useCallback(
+    async (path: string, signal?: AbortSignal) => {
+      const result = await manageFiles(
+        server.id,
+        { operation: FileOperation.Read, path },
+        signal,
+      );
+      let text: string;
+      try {
+        text = new TextDecoder("utf-8", { fatal: true }).decode(
+          decodeBytes(result.data ?? ""),
+        );
+        if (text.includes("\u0000")) throw new Error("binary");
+      } catch {
+        throw new Error(
+          i18n.t(
+            "serverFileBrowser.thisFileIsBinaryUseDownloadInsteadOfEditing",
+          ),
+        );
+      }
+      if (!result.revision)
+        throw new Error(i18n.t("serverFileBrowser.fileRevisionIsMissing"));
+      if (!signal?.aborted && alive.current)
+        setEditor({
+          path: result.path,
+          text,
+          initial: text,
+          revision: result.revision,
+        });
+    },
+    [server.id],
+  );
   const load = useCallback(
     async (path: string, signal?: AbortSignal, preserveSelection = false) => {
       const result = await manageFiles(
@@ -172,7 +206,15 @@ export function ServerFileBrowser({
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
-      load("/", controller.signal),
+      load(
+        initialFile
+          ? `/${initialFile.slice(0, initialFile.lastIndexOf("/") + 1)}`
+          : "/",
+        controller.signal,
+      ),
+      initialFile
+        ? openFile(initialFile, controller.signal)
+        : Promise.resolve(),
       hasWritePermission
         ? uploadLimit(
             server.id,
@@ -200,7 +242,7 @@ export function ServerFileBrowser({
         }
       });
     return () => controller.abort();
-  }, [load, server.id, hasWritePermission]);
+  }, [load, server.id, hasWritePermission, initialFile, openFile]);
   async function perform(work: () => void | Promise<void>) {
     if (pending.current) return;
     pending.current = true;
@@ -229,29 +271,7 @@ export function ServerFileBrowser({
       throw new Error(
         i18n.t("serverFileBrowser.textEditingIsLimitedTo1MiBDownloadThisFile"),
       );
-    const result = await manageFiles(server.id, {
-      operation: FileOperation.Read,
-      path: join(directory, entry.name),
-    });
-    let text: string;
-    try {
-      text = new TextDecoder("utf-8", { fatal: true }).decode(
-        decodeBytes(result.data ?? ""),
-      );
-      if (text.includes("\u0000")) throw new Error("binary");
-    } catch {
-      throw new Error(
-        i18n.t("serverFileBrowser.thisFileIsBinaryUseDownloadInsteadOfEditing"),
-      );
-    }
-    if (!result.revision)
-      throw new Error(i18n.t("serverFileBrowser.fileRevisionIsMissing"));
-    setEditor({
-      path: result.path,
-      text,
-      initial: text,
-      revision: result.revision,
-    });
+    await openFile(join(directory, entry.name));
   }
   function download(entry: FileEntry) {
     if (entry.size > fileTransferLimit)

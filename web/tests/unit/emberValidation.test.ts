@@ -18,7 +18,7 @@ test.each([
   { ready: 1 },
   { readiness: { any: null } },
   { readiness: { any: [{ value: "Ready", regex: "yes" }] } },
-  { readiness: { any: [{ value: "Ready" }], strip_ansi: "yes" } },
+  { readiness: { any: [{ value: "Ready", ignore_case: "yes" }] } },
   { configs: [{ path: "settings.json", parser: "xml", values: {} }] },
   { configs: [{ path: "settings.json", parser: "json", values: [] }] },
   { configs: [{ path: "settings.json", parser: "json", values: { port: 1 } }] },

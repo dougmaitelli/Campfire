@@ -254,7 +254,7 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 	defer cancel()
 
 	deployment := deploymentFixture(id, "lifecycle")
-	deployment.Ember.Readiness = &model.Readiness{Any: []model.ReadinessMatch{{Value: "^Ready$", Regex: true}}, StripANSI: true}
+	deployment.Ember.Readiness = &model.Readiness{Any: []model.ReadinessMatch{{Value: "^Ready$", Regex: true}}}
 
 	deployment.Ember.Configs = []model.ConfigFile{{Path: "config/settings.json", Parser: "json", Create: true, Values: map[string]string{"network.port": "{{SERVER_PORT}}"}}}
 	if _, err := hub.Deploy(ctx, id, deployment); err != nil {

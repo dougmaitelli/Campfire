@@ -45,9 +45,11 @@ type runtimeRecord struct {
 	Operation          model.ServerAction
 	TransitionAt       int64 `gorm:"not null;default:0"`
 	Logs               string
-	Files              map[string]string `gorm:"serializer:json"`
-	FileModes          map[string]uint32 `gorm:"serializer:json"`
-	FileFixtureVersion int               `gorm:"not null;default:0"`
+	LogCursor          int
+	LogObservation     *model.LogObservation `gorm:"serializer:json"`
+	Files              map[string]string     `gorm:"serializer:json"`
+	FileModes          map[string]uint32     `gorm:"serializer:json"`
+	FileFixtureVersion int                   `gorm:"not null;default:0"`
 }
 
 func newRecord(spark string, deployment model.Deployment) runtimeRecord {
@@ -80,7 +82,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 		version = client.Version
 	}
 
-	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilitySelfReinstall, protocol.CapabilityPrune}
+	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityLogAlerts, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilitySelfReinstall, protocol.CapabilityPrune}
 
 	features = append(features, protocol.CapabilityFilePermissions, protocol.CapabilityTransfer)
 	if r.games != nil {
@@ -128,6 +130,7 @@ const lifecycleDuration = 5 * time.Second
 func (record *runtimeRecord) logAction(phase string) {
 	record.Logs += timestampLog(fmt.Sprintf("[Mock Spark] %s %s; state=%s\n", record.Operation, phase, record.State))
 	if len(record.Logs) > 32000 {
+		record.LogCursor = max(0, record.LogCursor-(len(record.Logs)-16000))
 		record.Logs = record.Logs[len(record.Logs)-16000:]
 	}
 }
@@ -151,7 +154,10 @@ func (r *Runtime) Deploy(ctx context.Context, spark string, deployment model.Dep
 		return model.ConfigurationReceipt{}, err
 	}
 
+	previousRules := record.Deployment.Ember.LogAlerts
 	record.Deployment = deployment
+	record.configureLogAlerts(previousRules)
+
 	if err := r.db.WithContext(ctx).Save(&record).Error; err != nil {
 		return model.ConfigurationReceipt{}, err
 	}
@@ -242,6 +248,12 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 
 	if !readOnly {
 		record.OperationID, record.Operation = request.OperationID, request.Action
+		switch request.Action {
+		case model.ServerActionStart, model.ServerActionRestart:
+			record.beginLogExecution(model.LogRuntime, request.OperationID)
+		case model.ServerActionInstall, model.ServerActionReinstall, model.ServerActionUpdate:
+			record.beginLogExecution(model.LogInstallation, request.OperationID)
+		}
 
 		phase := "completed"
 		if record.TransitionAt != 0 {
@@ -259,7 +271,15 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		}
 	}
 
+	if record.matchLogAlerts() {
+		if err := r.db.WithContext(ctx).Save(&record).Error; err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
 	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == model.RuntimeStateRunning, Busy: record.TransitionAt != 0, OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
+
+	status.LogObservation = record.LogObservation
 	if status.Busy {
 		status.OperationState = model.OperationRunning
 		status.Progress = "Mock server is " + string(record.State) + "."

@@ -13,6 +13,7 @@ export const Capability = {
   RemoteBackups: "server.backups.remote.v1",
   Metrics: "server.metrics.v1",
   Console: "server.console.stream.v1",
+  LogAlerts: "server.log-alerts.v1",
   DiskQuota: "server.disk-quota.v1",
   Transfer: "server.transfer.v1",
   Reinstall: "server.reinstall.v1",

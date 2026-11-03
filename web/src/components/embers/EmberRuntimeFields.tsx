@@ -4,6 +4,7 @@ import { Select } from "../forms/Select";
 import { AllocationList } from "../forms/AllocationList";
 import { EditorCheck, EditorGroup, EditorText } from "./EmberEditorFields";
 import type { EmberDraft, NamedValue } from "./emberDraft";
+import { EmberLogAlertFields } from "./EmberLogAlertFields";
 
 export function EmberRuntimeFields({
   draft,
@@ -216,15 +217,6 @@ export function EmberRuntimeFields({
         {draft.waitForReadyMessage && (
           <>
             <p className="field-help">{t("emberEditor.readyRulesHelp")}</p>
-            {readiness.any.length > 0 && (
-              <EditorCheck
-                label={t("emberEditor.stripANSI")}
-                value={readiness.strip_ansi}
-                onChange={(strip_ansi) =>
-                  changeReadiness({ ...readiness, strip_ansi })
-                }
-              />
-            )}
             <AllocationList
               items={readiness.any}
               maxItems={16}
@@ -256,18 +248,32 @@ export function EmberRuntimeFields({
                 })
               }
               renderBody={(match, index) => (
-                <EditorCheck
-                  label={t("emberEditor.regularExpression")}
-                  value={match.regex}
-                  onChange={(regex) =>
-                    changeReadiness({
-                      ...readiness,
-                      any: readiness.any.map((item, i) =>
-                        i === index ? { ...item, regex } : item,
-                      ),
-                    })
-                  }
-                />
+                <div className="ember-editor-checks">
+                  <EditorCheck
+                    label={t("emberEditor.regularExpression")}
+                    value={match.regex}
+                    onChange={(regex) =>
+                      changeReadiness({
+                        ...readiness,
+                        any: readiness.any.map((item, i) =>
+                          i === index ? { ...item, regex } : item,
+                        ),
+                      })
+                    }
+                  />
+                  <EditorCheck
+                    label={t("logAlerts.ignoreCase")}
+                    value={match.ignore_case}
+                    onChange={(ignore_case) =>
+                      changeReadiness({
+                        ...readiness,
+                        any: readiness.any.map((item, i) =>
+                          i === index ? { ...item, ignore_case } : item,
+                        ),
+                      })
+                    }
+                  />
+                </div>
               )}
             >
               {(match, index) => (
@@ -289,6 +295,7 @@ export function EmberRuntimeFields({
           </>
         )}
       </EditorGroup>
+      <EmberLogAlertFields draft={draft} onChange={onChange} />
     </>
   );
 }

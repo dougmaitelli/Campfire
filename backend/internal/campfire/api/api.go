@@ -124,6 +124,8 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusNotFound, err.Error()
 	case errors.Is(err, repository.ErrNotificationNotFound):
 		status, message = http.StatusNotFound, err.Error()
+	case errors.Is(err, repository.ErrLogAlertNotFound):
+		status, message = http.StatusNotFound, err.Error()
 	case errors.Is(err, service.ErrServerActive):
 		status, message = http.StatusConflict, service.ErrServerActive.Error()
 	case errors.Is(err, service.ErrDeploymentUnavailable):

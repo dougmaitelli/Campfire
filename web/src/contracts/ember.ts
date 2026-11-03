@@ -4,6 +4,7 @@ import type {
   VariableType,
   VariableFormat,
 } from "./domains";
+import type { LogAlert, LogMatch } from "./logAlerts";
 
 export interface EmberVariableValidation {
   type: VariableType;
@@ -52,10 +53,10 @@ export interface Ember {
   stop?: string;
   ready?: string;
   readiness?: {
-    any: { value: string; regex?: boolean }[];
-    strip_ansi?: boolean;
+    any: LogMatch[];
   };
   configs?: EmberConfigFile[];
+  log_alerts?: LogAlert[];
   variables: EmberVariable[] | null;
   required_ports?:
     | {

@@ -326,6 +326,18 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 		return model.RuntimeStatus{}, errors.Join(ErrDeploymentUnavailable, err)
 	}
 
+	if s.LogAlerts != nil {
+		if err := s.LogAlerts.Observe(ctx, node.ID, id, status.LogObservation); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+	// Matching evidence is retrieved through its own permission-checked API.
+	if status.LogObservation != nil {
+		status.LogMonitorError = status.LogObservation.Error
+	}
+
+	status.LogObservation = nil
+
 	if action != model.ServerActionLogs && action != model.ServerActionCommand {
 		s.cacheStatus(node.ID, status)
 	}

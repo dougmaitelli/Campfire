@@ -44,6 +44,57 @@ runtime, variables, ports, configuration files, save-data paths, and review.
 The **JSON / YAML** tab also accepts pasted definitions. Switching between tabs
 preserves the selected step and current fields.
 
+## Actionable console errors
+
+Native Embers can declare `log_alerts` to recognize errors that need attention:
+
+```json
+"log_alerts": [
+  {
+    "title": "Minecraft EULA requires acceptance",
+    "message": "Read the EULA. If you agree, set eula=true in eula.txt and restart.",
+    "severity": "error",
+    "phase": "runtime",
+    "any": [{ "value": "You need to agree to the EULA", "ignore_case": true }],
+    "action": { "type": "open_file", "path": "eula.txt" }
+  }
+]
+```
+
+Each rule accepts up to 16 alternative conditions. Literal matches use substring
+matching; set `regex: true` on a condition for a RE2 expression matched against
+one console line. Each condition can set `ignore_case: true` independently;
+console color codes are always ignored for readiness and error matching.
+`severity` is `error` or `warning`. `phase` can be `runtime` or
+`installation`; omit it to monitor both. An optional action opens a contained
+relative file (`open_file`) or the existing server editor (`server_settings`).
+Actions navigate to these interfaces; they do not change files or run commands.
+
+Use the visual editor's **Actionable errors** section under Runtime, or edit
+`log_alerts` directly in JSON / YAML. At most 32 rules are supported. Rules do not
+need IDs: matching conditions determine identity, so changing a title, guidance,
+or list order preserves deduplication and dismissal.
+
+Spark uses one ongoing monitor per relevant container for both readiness and
+error matching. Errors continue to be detected after readiness, without an open
+console or a Campfire connection. Checkpoints and detections survive Spark
+restarts. Retained Docker output is replayed after interruption; output already
+removed by Docker's log rotation cannot be recovered. Lines over 64 KiB are
+skipped with a monitoring warning. Spark retains up to 256 recent detections
+within a 512 KiB limit for delivery after a disconnection.
+
+Detected issues appear under **Needs attention** on the server page, including
+after a process exits, and produce a deduplicated notification. Console excerpts
+require console-read permission. Opening a file or settings requires its normal
+permission; dismissing an issue requires server operation permission. Dismissal
+applies to the occurrence for all server users. A new execution can trigger the
+same rule again; issues from earlier executions of that container are archived.
+
+Imported `eula`, `java_version`, `pid_limit`, and `steam_disk_space` egg features
+add predefined rules. EULA acceptance and other changes still require the user's
+action. Deploying an Ember with rules requires an updated Spark supporting log
+alerts; older Sparks are rejected explicitly rather than ignoring the rules.
+
 ## Configuration value types
 
 JSON and YAML replacements follow the existing value's type, using the same

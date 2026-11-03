@@ -46,6 +46,7 @@ const (
 	CapabilityBackupRemote    = "server.backups.remote.v1"
 	CapabilityMetrics         = "server.metrics.v1"
 	CapabilityConsole         = "server.console.stream.v1"
+	CapabilityLogAlerts       = "server.log-alerts.v1"
 	CapabilityDiskQuota       = "server.disk-quota.v1"
 	CapabilityTransfer        = "server.transfer.v1"
 	CapabilityReinstall       = "server.reinstall.v1"
@@ -59,7 +60,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -164,6 +165,19 @@ var runtimeActionCapabilities = map[model.ServerAction][]string{
 // RequiredCapabilities covers every command extension at both dispatch boundaries.
 func RequiredCapabilities(command Command) []string {
 	required := slices.Clone(commandCapabilities[command.Name])
+	if command.Name == ConfigureServer && command.Deployment != nil {
+		ember := command.Deployment.Ember
+
+		needsMatching := len(ember.LogAlerts) > 0
+		if ember.Readiness != nil {
+			needsMatching = needsMatching || slices.ContainsFunc(ember.Readiness.Any, func(match model.ReadinessMatch) bool { return match.IgnoreCase })
+		}
+
+		if needsMatching {
+			required = append(required, CapabilityLogAlerts)
+		}
+	}
+
 	if command.Name == ConfigureServer && command.Deployment != nil && command.Deployment.Configuration.GameIntegration {
 		required = append(required, CapabilityGameIntegration)
 	}

@@ -148,6 +148,17 @@ func convertEgg(data []byte, report *EmberPreview) model.Ember {
 	}
 
 	for _, feature := range egg.Features {
+		if rule, ok := eggFeatureLogAlert(feature); ok {
+			duplicate := false
+			for _, existing := range ember.LogAlerts {
+				duplicate = duplicate || existing.Key() == rule.Key()
+			}
+
+			if !duplicate {
+				ember.LogAlerts = append(ember.LogAlerts, rule)
+			}
+		}
+
 		switch feature {
 		case "eula":
 			report.warn("features.eula", "Before starting a Minecraft server, read its EULA and set eula=true in eula.txt if you agree. Campfire does not accept it for you.")
@@ -299,9 +310,10 @@ func eggObject(raw json.RawMessage, target any) error {
 
 func convertEggProcess(startup, logs json.RawMessage, ember *model.Ember, report *EmberPreview) {
 	var process struct {
+		// Accept the Egg option; native console matching always strips colors.
+		StripANSI       bool              `json:"strip_ansi"`
 		Done            json.RawMessage   `json:"done"`
 		UserInteraction []json.RawMessage `json:"userInteraction"`
-		StripANSI       bool              `json:"strip_ansi"`
 	}
 	if err := eggObject(startup, &process); err != nil {
 		report.fail("config.startup", "Unsupported startup detection settings.")
@@ -340,10 +352,10 @@ func convertEggProcess(startup, logs json.RawMessage, ember *model.Ember, report
 			}
 		}
 
-		if len(done) == 1 && !process.StripANSI && !strings.HasPrefix(done[0], "/") && !strings.Contains(done[0], "{{") {
+		if len(done) == 1 && !strings.HasPrefix(done[0], "/") && !strings.Contains(done[0], "{{") {
 			ember.Ready = done[0]
 		} else if len(done) > 0 {
-			ember.Readiness = &model.Readiness{StripANSI: process.StripANSI}
+			ember.Readiness = &model.Readiness{}
 
 			for _, value := range done {
 				match := model.ReadinessMatch{Value: value}

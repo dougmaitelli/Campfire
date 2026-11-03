@@ -10,6 +10,25 @@ import (
 // validate is shared with Ember authoring validation so both boundaries enforce
 // the same container, configuration-file, and command safety constraints.
 func (e RuntimeDefinition) validate(known map[string]string) error {
+	if len(e.LogAlerts) > 32 {
+		return errors.New("at most 32 log alerts are supported")
+	}
+
+	alertKeys := make(map[string]bool)
+
+	for _, alert := range e.LogAlerts {
+		if err := alert.Validate(); err != nil {
+			return err
+		}
+
+		key := alert.Key()
+		if alertKeys[key] {
+			return errors.New("log alert matching conditions must be unique")
+		}
+
+		alertKeys[key] = true
+	}
+
 	if e.WorkDir == "" || !strings.HasPrefix(e.WorkDir, "/") || strings.ContainsAny(e.WorkDir, ",\x00\n") {
 		return errors.New("work_dir must be an absolute container path")
 	}

@@ -49,6 +49,38 @@ func TestQuotaCapabilityReflectsRuntimeSupport(t *testing.T) {
 	}
 }
 
+func TestLogAlertCapabilityRequiresStreamingRuntime(t *testing.T) {
+	manager := &runtime.Manager{}
+
+	store := &ConfigurationStore{Runtime: manager}
+	if slices.Contains(store.capabilities(), protocol.CapabilityLogAlerts) {
+		t.Fatal("advertised actionable errors without a streaming runtime")
+	}
+
+	manager.Docker = runtime.Docker{}
+
+	if !slices.Contains(store.capabilities(), protocol.CapabilityLogAlerts) {
+		t.Fatal("Docker log monitoring was not advertised")
+	}
+
+	command := protocol.Command{Name: protocol.ConfigureServer, Deployment: &model.Deployment{}}
+	if slices.Contains(protocol.RequiredCapabilities(command), protocol.CapabilityLogAlerts) {
+		t.Fatal("optional alerts blocked an ordinary deployment")
+	}
+
+	command.Deployment.Ember.LogAlerts = []model.LogAlert{{}}
+	if !slices.Contains(protocol.RequiredCapabilities(command), protocol.CapabilityLogAlerts) {
+		t.Fatal("deployment with alerts did not require a compatible Spark")
+	}
+
+	command.Deployment.Ember.LogAlerts = nil
+
+	command.Deployment.Ember.Readiness = &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready", IgnoreCase: true}}}
+	if !slices.Contains(protocol.RequiredCapabilities(command), protocol.CapabilityLogAlerts) {
+		t.Fatal("per-pattern readiness case behavior did not require a compatible Spark")
+	}
+}
+
 func testWireCapabilities(t *testing.T, hub *agents.Hub, id string, config *tls.Config, dial func(context.Context, string, string) (net.Conn, error)) {
 	t.Helper()
 

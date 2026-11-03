@@ -46,6 +46,13 @@ optional game mode is omitted while Alex is online to exercise snapshot
 replacement. The welcome event includes a synthetic PNG screenshot and a
 one-second WebM clip. These are generic development scenarios, not a Valheim mod.
 
+The existing **Creative** server starts stopped with a simulated Minecraft
+EULA issue under **Needs attention**. It includes matched output, an **Open eula.txt**
+action, and dismissal. The rule belongs to **Minecraft · Current**.
+This example is added to existing mock databases on restart;
+dismissal survives subsequent restarts. To trigger it again after starting a new
+run, send `You need to agree to the EULA` in that server's mock console.
+
 Use the normal server console to control a publisher:
 
 | Command            | Behavior                                                          |

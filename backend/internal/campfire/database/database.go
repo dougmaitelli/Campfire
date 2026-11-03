@@ -176,7 +176,7 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
-			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}); err != nil {
+			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}); err != nil {
 				return err
 			}
 
@@ -220,6 +220,7 @@ func migrate(db *gorm.DB) error {
 			&ServerResourceBucket{}, &SparkResourceBucket{},
 			&GameEvent{},
 			&GameMedia{},
+			&LogAlertIssue{},
 		); err != nil {
 			return fmt.Errorf("apply initial schema: %w", err)
 		}

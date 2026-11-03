@@ -8,6 +8,15 @@ import {
 
 test("visual and JSON round trips retain all advanced definition fields", () => {
   const definition = completeEmber();
+  definition.log_alerts = [
+    {
+      title: "EULA",
+      message: "Read eula.txt",
+      severity: "error",
+      any: [{ value: "EULA", regex: false, ignore_case: true }],
+      action: { type: "open_file", path: "eula.txt" },
+    },
+  ];
   expect(serializeEmberDraft(createEmberDraft(definition))).toEqual(definition);
 });
 
@@ -86,7 +95,6 @@ test("readiness conditions choose the matching schema without changing their mea
   const draft = createEmberDraft(completeEmber());
   draft.readiness = {
     any: [{ value: "Ready", regex: false }],
-    strip_ansi: false,
   };
   expect(serializeEmberDraft(draft).ready).toBe("Ready");
   expect(serializeEmberDraft(draft).readiness).toBeUndefined();
@@ -94,7 +102,7 @@ test("readiness conditions choose the matching schema without changing their mea
   expect(serializeEmberDraft(draft).ready).toBeUndefined();
   expect(serializeEmberDraft(draft).readiness).toEqual(draft.readiness);
   draft.readiness.any[0]!.regex = false;
-  draft.readiness.strip_ansi = true;
+  draft.readiness.any[0]!.ignore_case = true;
   expect(serializeEmberDraft(draft).readiness).toEqual(draft.readiness);
   draft.waitForReadyMessage = false;
   expect(serializeEmberDraft(draft).ready).toBeUndefined();

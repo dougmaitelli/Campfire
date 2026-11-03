@@ -37,6 +37,8 @@ type Manager struct {
 	metricsMu            sync.Mutex
 	metrics              map[string]*metricsEntry
 	transferTasks        map[string]context.CancelFunc
+	logMu                sync.Mutex
+	logMonitors          map[string]*logMonitor
 }
 
 type entry struct {
@@ -69,7 +71,18 @@ func New(ctx context.Context, directory string) *Manager {
 }
 
 // Close prevents new operations and waits for in-flight work after process cancellation.
-func (m *Manager) Close() { m.mu.Lock(); m.closed = true; m.mu.Unlock(); m.cancel(); m.wg.Wait() }
+func (m *Manager) Close() {
+	m.mu.Lock()
+	m.closed = true
+	m.mu.Unlock()
+	m.cancel()
+	m.logMu.Lock()
+	for _, monitor := range m.logMonitors {
+		<-monitor.done
+	}
+	m.logMu.Unlock()
+	m.wg.Wait()
+}
 
 func (m *Manager) root(id string) string { return filepath.Join(m.Directory, id) }
 func container(id string) string         { return "campfire-" + id }
@@ -188,7 +201,10 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 	if q.Action == model.ServerActionStatus {
 		if e.Status.Busy {
-			return e.Status, nil
+			status := e.Status
+			status.LogObservation, _, _ = m.logSnapshot(d.ServerID)
+
+			return status, nil
 		}
 
 		status, err := m.observe(ctx, d, e)
@@ -197,6 +213,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		}
 
 		e.Status.State, e.Status.Ready = status.State, status.Ready
+		e.Status.LogObservation = status.LogObservation
 		e.Status.DiskQuotaEnforced = status.DiskQuotaEnforced
 		e.Status.DiskQuotaError = status.DiskQuotaError
 		e.Status.DiskQuotaErrorCode = status.DiskQuotaErrorCode
@@ -466,12 +483,38 @@ func (m *Manager) inspect(ctx context.Context, id string) (string, error) {
 }
 
 func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (model.RuntimeStatus, error) {
-	state, err := m.inspect(ctx, d.ServerID)
+	observation, ready, monitored := m.logSnapshot(d.ServerID)
+
+	var state string
+
+	var err error
+
+	if provider, ok := m.Docker.(logProvider); monitored && ok {
+		var source logContainer
+
+		source, err = provider.inspectLogContainer(ctx, container(d.ServerID))
+
+		state = source.Status
+		if execution := source.executionID(); execution != observation.Executions[model.LogRuntime] {
+			ready = false
+
+			if execution != "" {
+				observation.Executions[model.LogRuntime] = execution
+			}
+
+			m.wakeLogMonitor(d.ServerID)
+		}
+	} else {
+		state, err = m.inspect(ctx, d.ServerID)
+	}
+
 	if err != nil {
 		return model.RuntimeStatus{}, err
 	}
 
 	status := model.RuntimeStatus{ServerID: d.ServerID, State: model.RuntimeState(state)}
+
+	status.LogObservation = observation
 	if d.Configuration.DiskMB > 0 && m.Quota == nil {
 		status.DiskQuotaError = m.quotaUnavailable
 		if status.DiskQuotaError != "" {
@@ -504,7 +547,9 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 
 	if state == "running" {
 		status.Ready = d.Ember.Ready == "" && d.Ember.Readiness == nil
-		if !status.Ready {
+		if monitored {
+			status.Ready = status.Ready || ready
+		} else if !status.Ready {
 			logs, err := m.Docker.Run(ctx, nil, "logs", "--tail", "200", container(d.ServerID))
 			status.Ready = err == nil && readinessMatches(d.Ember, logs)
 		}
@@ -547,6 +592,7 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 
 		return err
 	case model.ServerActionDelete:
+		m.stopLogMonitor(d.ServerID)
 		m.progress(d.ServerID, e, "Removing containers")
 
 		for _, name := range []string{container(d.ServerID) + "-install", container(d.ServerID)} {
@@ -664,6 +710,8 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		}
 
 		logErr := writeAtomic(filepath.Join(m.root(d.ServerID), "installer.log"), []byte(output), 0600)
+		m.drainInstallerLogs(d.ServerID)
+
 		cleanup, stop := context.WithTimeout(context.Background(), 15*time.Second)
 		_, cleanupErr = m.Docker.Run(cleanup, nil, "rm", "--force", container(d.ServerID)+"-install")
 

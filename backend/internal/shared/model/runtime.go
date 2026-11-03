@@ -99,4 +99,6 @@ type RuntimeStatus struct {
 	DiskQuotaErrorCode RuntimeErrorCode `json:"disk_quota_error_code,omitempty"`
 	Logs               string           `json:"logs,omitempty"`
 	Metrics            *ResourceUsage   `json:"metrics,omitempty"`
+	LogObservation     *LogObservation  `json:"log_observation,omitempty"`
+	LogMonitorError    string           `json:"log_monitor_error,omitempty"`
 }

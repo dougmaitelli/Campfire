@@ -43,6 +43,7 @@ type RuntimeDefinition struct {
 	Stop         string       `json:"stop,omitempty"`
 	Ready        string       `json:"ready,omitempty"`
 	Readiness    *Readiness   `json:"readiness,omitempty"`
+	LogAlerts    []LogAlert   `json:"log_alerts,omitempty"`
 	Configs      []ConfigFile `json:"configs,omitempty"`
 }
 
@@ -95,7 +96,7 @@ func NewDeployment(serverID string, c ServerConfiguration, e Ember) (Deployment,
 		},
 		Ember: RuntimeDefinition{
 			Startup: startup, StartupShell: e.StartupShell, WorkDir: e.WorkDir, User: e.User,
-			Installer: e.Installer, Stop: e.Stop, Ready: e.Ready, Readiness: e.Readiness, Configs: e.Configs,
+			Installer: e.Installer, Stop: e.Stop, Ready: e.Ready, Readiness: e.Readiness, LogAlerts: e.LogAlerts, Configs: e.Configs,
 		},
 	}
 

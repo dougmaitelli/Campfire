@@ -36,6 +36,7 @@ func mockUpdateCandidate(current bool) model.Ember {
 	}
 
 	ember.Variables = mockMinecraftVariables()
+	ember.LogAlerts = mockLogAlerts()
 
 	return ember
 }

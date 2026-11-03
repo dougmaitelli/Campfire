@@ -32,7 +32,7 @@ func TestEggConsolePromptsDoNotBlockImport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	egg["features"] = []string{"eula", "java_version", "pid_limit"}
+	egg["features"] = []string{"eula", "java_version", "pid_limit", "steam_disk_space", "eula"}
 
 	config, ok := egg["config"].(map[string]any)
 	if !ok {
@@ -53,6 +53,18 @@ func TestEggConsolePromptsDoNotBlockImport(t *testing.T) {
 
 	if report.Ember.Ready != ")! For help, type " {
 		t.Fatal("readiness marker was changed")
+	}
+
+	if len(report.Ember.LogAlerts) != 4 {
+		t.Fatal("egg features did not produce distinct actionable rules", report.Ember.LogAlerts)
+	}
+
+	for _, line := range []string{"You need to agree to the EULA", "UnsupportedClassVersionError", "unable to create native thread", "Insufficient disk space"} {
+		if !slices.ContainsFunc(report.Ember.LogAlerts, func(rule model.LogAlert) bool {
+			return model.CompileLogMatcher(rule.Any).Matches(line)
+		}) {
+			t.Fatalf("imported features will not detect %q", line)
+		}
 	}
 
 	for _, field := range []string{"features.eula", "features.java_version", "ports"} {

@@ -93,6 +93,8 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/monitoring", a.monitoring)
 	server("GET /api/v1/servers/{id}/metrics", accessperm.ServerView, a.serverMetrics)
 	server("GET /api/v1/servers/{id}/events", accessperm.ServerView, a.gameEvents)
+	server("GET /api/v1/servers/{id}/log-alerts", accessperm.ServerView, a.logAlerts)
+	server("POST /api/v1/servers/{id}/log-alerts/{alert}/dismiss", accessperm.ServerOperate, a.dismissLogAlert)
 	server("GET /api/v1/servers/{id}/events/{event}/media/{attachment}", accessperm.ServerView, a.gameMedia)
 	server("GET /api/v1/servers/{id}/metrics/history", accessperm.ServerView, a.serverResourceHistory)
 	platform("POST /api/v1/servers", accessperm.ServersCreate, a.createServer)

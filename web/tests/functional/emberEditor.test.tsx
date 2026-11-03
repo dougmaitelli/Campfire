@@ -84,6 +84,55 @@ function editor() {
   return saved;
 }
 
+test("actionable error rules can be authored without IDs and survive JSON switching", async () => {
+  const user = userEvent.setup();
+  editor();
+  await user.click(screen.getByRole("button", { name: "Runtime" }));
+  await user.click(screen.getByRole("button", { name: "Add error rule" }));
+  const rule = within(screen.getByRole("group", { name: "Error rule 1" }));
+  fireEvent.change(rule.getByLabelText("Issue title"), {
+    target: { value: "EULA requires acceptance" },
+  });
+  fireEvent.change(rule.getByLabelText("What the user should do"), {
+    target: { value: "Review eula.txt" },
+  });
+  fireEvent.change(rule.getByLabelText("Message or pattern"), {
+    target: { value: "agree to the EULA" },
+  });
+  await user.click(rule.getByLabelText("Ignore letter case"));
+  await user.click(rule.getByRole("button", { name: "Add condition" }));
+  const other = within(rule.getByRole("group", { name: "Error condition 2" }));
+  fireEvent.change(other.getByLabelText("Message or pattern"), {
+    target: { value: "^Exact error$" },
+  });
+  await user.click(other.getByLabelText("Use a regular expression"));
+  expect(
+    other.getByLabelText<HTMLInputElement>("Ignore letter case").checked,
+  ).toBe(false);
+  expect(screen.queryByLabelText("Ignore console color codes")).toBeNull();
+  await user.click(screen.getByRole("tab", { name: "JSON / YAML" }));
+  const definition = JSON.parse(
+    screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Definition" })
+      .value,
+  );
+  expect(definition.log_alerts).toEqual([
+    {
+      title: "EULA requires acceptance",
+      message: "Review eula.txt",
+      severity: "error",
+      any: [
+        { value: "agree to the EULA", ignore_case: true },
+        { value: "^Exact error$", regex: true },
+      ],
+    },
+  ]);
+  expect(definition.log_alerts[0]).not.toHaveProperty("id");
+  await user.click(screen.getByRole("tab", { name: "Visual editor" }));
+  expect(screen.getByLabelText<HTMLInputElement>("Issue title").value).toBe(
+    "EULA requires acceptance",
+  );
+});
+
 test("visual edits save without losing advanced options from JSON", async () => {
   const user = userEvent.setup();
   editor();

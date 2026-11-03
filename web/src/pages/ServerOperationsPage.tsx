@@ -39,6 +39,7 @@ import { ResourceGraphs } from "../components/metrics/ResourceGraphs";
 import { ServerConsole } from "../components/servers/ServerConsole";
 import { ServerFileBrowser } from "../components/servers/ServerFileBrowser";
 import { ServerBackups } from "../components/servers/ServerBackups";
+import { ServerLogAlerts } from "../components/servers/ServerLogAlerts";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
@@ -72,9 +73,11 @@ type ConfirmedAction = keyof typeof confirmations;
 export function ServerOperationsPage({
   serverID,
   tab,
+  filePath,
 }: {
   serverID: string;
   tab: string;
+  filePath?: string | undefined;
 }) {
   const { t } = useTranslation();
   const [server, setServer] = useState<Server | null>(null);
@@ -303,6 +306,15 @@ export function ServerOperationsPage({
           )
         }
       />
+      {server && (
+        <ServerLogAlerts
+          key={server.id}
+          server={server}
+          busy={status?.busy === true}
+          monitorError={status?.log_monitor_error}
+          onServerSaved={setServer}
+        />
+      )}
       {error && !server && <InlineMessage role="alert">{error}</InlineMessage>}
       {loading && (
         <ContentState loading resource={t("serverOperationsPage.server")} />
@@ -413,6 +425,8 @@ export function ServerOperationsPage({
                 )}
                 {activeTab === "files" && (
                   <ServerFileBrowser
+                    key={`${server.id}:${filePath ?? ""}`}
+                    initialFile={filePath}
                     server={server}
                     canWrite={
                       [

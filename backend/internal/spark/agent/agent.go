@@ -161,6 +161,9 @@ func Run(ctx context.Context, config Config) error {
 	slog.Info("Game-data disk quota support", "enabled", manager.DiskQuotaSupported())
 
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
+	if err := configurations.RestoreLogMonitors(identity.ID); err != nil {
+		return fmt.Errorf("restore log monitoring: %w", err)
+	}
 	{
 		sparkID := identity.ID
 

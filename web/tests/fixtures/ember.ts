@@ -25,7 +25,6 @@ export function completeEmber(): Ember {
     },
     stop: "^SIGTERM",
     readiness: {
-      strip_ansi: true,
       any: [
         { value: "^Ready$", regex: true },
         { value: "Listening", regex: false },

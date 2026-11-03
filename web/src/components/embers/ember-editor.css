@@ -35,6 +35,13 @@
   gap: 8px 20px;
   margin-block: 16px;
 }
+.allocation-row-body > .ember-editor-checks {
+  margin: 0;
+
+  & > .checkbox-field {
+    margin: 0;
+  }
+}
 .ember-variable-list > .allocation-row {
   padding: 14px;
   margin-block: 12px;

@@ -142,7 +142,7 @@ func (s *RuntimeStatusService) Collect(ctx context.Context) error {
 
 func (s *DeploymentService) cacheStatus(sparkID string, status model.RuntimeStatus) {
 	// Server viewing does not grant console access, and metrics have their own API.
-	status.Logs, status.Metrics = "", nil
+	status.Logs, status.Metrics, status.LogObservation = "", nil, nil
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

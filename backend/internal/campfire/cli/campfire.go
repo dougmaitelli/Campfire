@@ -323,6 +323,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	notifications := service.NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, auth)
 
 	notifications.Config, notifications.Apprise = alerts, apprise
+
+	deployment.LogAlerts = &service.LogAlertService{Store: repository.NewLogAlertRepository(db.ORM()), Notifications: notifications}
 	if err := notifications.Start(ctx); err != nil {
 		return fmt.Errorf("start notifications: %w", err)
 	}

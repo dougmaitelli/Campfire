@@ -45,15 +45,23 @@ type ConfigFile struct {
 }
 
 // ReadinessMatch describes a literal or RE2-compatible line matcher.
-type ReadinessMatch struct {
-	Value string `json:"value"`
-	Regex bool   `json:"regex,omitempty"`
+type ReadinessMatch = LogMatch
+
+// Readiness accepts any matching marker after removing terminal escapes.
+type Readiness struct {
+	Any []ReadinessMatch `json:"any"`
 }
 
-// Readiness accepts any matching marker, optionally after removing terminal escapes.
-type Readiness struct {
-	Any       []ReadinessMatch `json:"any"`
-	StripANSI bool             `json:"strip_ansi,omitempty"`
+// UnmarshalJSON accepts the retired color option without serializing it again.
+func (r *Readiness) UnmarshalJSON(data []byte) error {
+	type fields Readiness
+
+	decoded := struct {
+		*fields
+		StripANSI bool `json:"strip_ansi"`
+	}{fields: (*fields)(r)}
+
+	return decodeLogSettings(data, &decoded)
 }
 
 // RequiredPort identifies a container port required by a game.
@@ -96,6 +104,7 @@ type Ember struct {
 	Stop            string            `json:"stop,omitempty"`
 	Ready           string            `json:"ready,omitempty"`
 	Readiness       *Readiness        `json:"readiness,omitempty"`
+	LogAlerts       []LogAlert        `json:"log_alerts,omitempty"`
 	Configs         []ConfigFile      `json:"configs,omitempty"`
 	RequiredPorts   []RequiredPort    `json:"required_ports,omitempty"`
 	SavedataPaths   []SavedataPath    `json:"savedata_paths,omitempty"`
@@ -185,7 +194,7 @@ func (e Ember) Validate() error {
 		known[v.Name] = ""
 	}
 
-	runtime := RuntimeDefinition{Startup: e.Startup, StartupShell: e.StartupShell, WorkDir: e.WorkDir, User: e.User, Installer: e.Installer, Stop: e.Stop, Ready: e.Ready, Readiness: e.Readiness, Configs: e.Configs}
+	runtime := RuntimeDefinition{Startup: e.Startup, StartupShell: e.StartupShell, WorkDir: e.WorkDir, User: e.User, Installer: e.Installer, Stop: e.Stop, Ready: e.Ready, Readiness: e.Readiness, LogAlerts: e.LogAlerts, Configs: e.Configs}
 	if err := runtime.validate(known); err != nil {
 		return err
 	}

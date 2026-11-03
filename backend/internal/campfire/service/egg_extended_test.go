@@ -2,8 +2,39 @@ package service
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
+
+func TestNativeDefinitionMigratesEarlierConsoleMatchingOptions(t *testing.T) {
+	var document map[string]any
+	if err := json.Unmarshal(eggFixture(t, "native.json"), &document); err != nil {
+		t.Fatal(err)
+	}
+
+	delete(document, "ready")
+	document["readiness"] = map[string]any{"any": []map[string]any{{"value": "^Ready$", "regex": true}}, "strip_ansi": true}
+	document["log_alerts"] = []map[string]any{{"title": "Problem", "message": "Review settings", "severity": "error", "any": []map[string]any{{"value": "FAILURE"}}, "ignore_case": true, "strip_ansi": false}}
+
+	data, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	preview := PreviewEmber(data, ImportOptions{})
+	if len(preview.Errors) != 0 || preview.Ember == nil || !preview.Ember.LogAlerts[0].Any[0].IgnoreCase {
+		t.Fatal("earlier native matching options did not load", preview.Errors)
+	}
+
+	normalized, err := json.Marshal(preview.Ember)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(string(normalized), "strip_ansi") {
+		t.Fatal("retired color option was retained")
+	}
+}
 
 func TestExtendedEggBehaviorConversionAndRemainingBlocks(t *testing.T) {
 	report := PreviewEmber(eggFixture(t, "extended.json"), ImportOptions{})
@@ -12,7 +43,7 @@ func TestExtendedEggBehaviorConversionAndRemainingBlocks(t *testing.T) {
 	}
 
 	ember := report.Ember
-	if ember.Stop != "quit {{STOP_REASON}}" || ember.Readiness == nil || !ember.Readiness.StripANSI || len(ember.Readiness.Any) != 2 || !ember.Readiness.Any[1].Regex {
+	if ember.Stop != "quit {{STOP_REASON}}" || ember.Readiness == nil || len(ember.Readiness.Any) != 2 || !ember.Readiness.Any[1].Regex {
 		t.Fatal("lost extended process behavior", ember)
 	}
 

@@ -37,14 +37,15 @@ func must(err error) {
 
 // No Docker, agent sockets, credentials, or external network clients are used.
 type runtime struct {
-	mu        sync.Mutex
-	statuses  map[string]model.RuntimeStatus
-	files     map[string]map[string]string
-	fileModes map[string]map[string]uint32
-	backups   map[string][]model.FileEntry
-	archives  map[string][]byte
-	uploads   map[string]*uploadFixture
-	updates   chan struct{}
+	mu          sync.Mutex
+	statuses    map[string]model.RuntimeStatus
+	deployments map[string]model.Deployment
+	files       map[string]map[string]string
+	fileModes   map[string]map[string]uint32
+	backups     map[string][]model.FileEntry
+	archives    map[string][]byte
+	uploads     map[string]*uploadFixture
+	updates     chan struct{}
 }
 
 type uploadFixture struct {
@@ -56,7 +57,16 @@ type uploadFixture struct {
 
 func (*runtime) Connected(id string) bool { return id != "mock-offline" }
 
-func (*runtime) Deploy(_ context.Context, _ string, input model.Deployment) (model.ConfigurationReceipt, error) {
+func (r *runtime) Deploy(_ context.Context, _ string, input model.Deployment) (model.ConfigurationReceipt, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.deployments == nil {
+		r.deployments = make(map[string]model.Deployment)
+	}
+	r.deployments[input.ServerID] = input
+	if r.files[input.ServerID] == nil {
+		r.files[input.ServerID] = devfixture.Files()
+	}
 	return model.ConfigurationReceipt{ServerID: input.ServerID}, nil
 }
 
@@ -92,6 +102,7 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 			r.archives[input.ServerID+"/"+name] = data
 			r.backups[input.ServerID] = append(r.backups[input.ServerID], model.FileEntry{Portable: input.BackupOptions.Definition != nil, BackupMode: input.BackupOptions.Mode.Normalized(), Name: name, Kind: model.FileKindFile, Size: int64(len(data)), ModifiedAt: fixed})
 		}
+		r.matchLogAlerts(input, &status)
 		r.statuses[input.ServerID] = status
 		close(r.updates)
 		r.updates = make(chan struct{})
@@ -188,10 +199,11 @@ func main() {
 		deployment.Transfers = service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
 		activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
 		deployment.Activity = activity
+		notifications := service.NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, auth)
+		deployment.LogAlerts = &service.LogAlertService{Store: repository.NewLogAlertRepository(db.ORM()), Notifications: notifications}
 		statuses = service.NewRuntimeStatusService(deployment)
 		must(statuses.Collect(ctx))
 		statuses.Start(ctx)
-		notifications := service.NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, auth)
 		handler = api.New(sparks, embers, servers).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).Handler()
 	}
 	reset()

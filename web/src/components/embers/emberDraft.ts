@@ -54,7 +54,6 @@ export function createEmberDraft(value: Ember): EmberDraft {
     waitForReadyMessage: !!definition.ready || !!definition.readiness,
     readiness: definition.readiness ?? {
       any: definition.ready ? [{ value: definition.ready, regex: false }] : [],
-      strip_ansi: false,
     },
   };
 }
@@ -112,7 +111,7 @@ export function serializeEmberDraft(draft: EmberDraft): Ember {
     draft.readiness.any.length === 1 &&
     match &&
     !match.regex &&
-    !draft.readiness.strip_ansi
+    !match.ignore_case
   ) {
     definition.ready = match.value;
   } else if (draft.waitForReadyMessage && draft.readiness.any.length) {

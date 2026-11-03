@@ -10,6 +10,7 @@ import {
   isNonnegativeInteger,
 } from "../utils/validation";
 import i18n from "../i18n";
+import { isLogAlert, isLogMatch } from "../contracts/logAlerts";
 import { API_REQUEST_TIMEOUT_MS, apiFetch, readJSON, apiJSON } from "./client";
 
 import type { Ember, EmberVariable } from "../contracts/ember";
@@ -69,16 +70,12 @@ export function isEmber(value: unknown): value is Ember {
     (!("readiness" in value) ||
       (isRecord(value.readiness) &&
         Array.isArray(value.readiness.any) &&
-        value.readiness.any.every(
-          (match: unknown) =>
-            isRecord(match) &&
-            typeof match.value === "string" &&
-            (!("regex" in match) || typeof match.regex === "boolean"),
-        ) &&
-        (!("strip_ansi" in value.readiness) ||
-          typeof value.readiness.strip_ansi === "boolean"))) &&
+        value.readiness.any.every(isLogMatch))) &&
     (!("configs" in value) ||
       (Array.isArray(value.configs) && value.configs.every(isConfigFile))) &&
+    (!("log_alerts" in value) ||
+      (Array.isArray(value.log_alerts) &&
+        value.log_alerts.every(isLogAlert))) &&
     (!("savedata_paths" in value) ||
       (Array.isArray(value.savedata_paths) &&
         value.savedata_paths.every(

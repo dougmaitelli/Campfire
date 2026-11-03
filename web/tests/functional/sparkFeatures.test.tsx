@@ -64,14 +64,14 @@ test("merged features require every capability and count supported groups", () =
         within(screen.getByText(label).closest("li")!).getByText(state),
       ).toBeDefined();
     }
-    expect(screen.getAllByRole("listitem")).toHaveLength(16);
+    expect(screen.getAllByRole("listitem")).toHaveLength(17);
     for (const capability of extensions) {
       expect(screen.queryByText(capability)).toBeNull();
     }
   }
   expectState("Partial support");
   expect(
-    screen.getByRole("heading", { name: "Features (0/16)" }),
+    screen.getByRole("heading", { name: "Features (0/17)" }),
   ).toBeDefined();
 
   view.rerender(
@@ -81,7 +81,7 @@ test("merged features require every capability and count supported groups", () =
   );
   expectState("Available");
   expect(
-    screen.getByRole("heading", { name: "Features (3/16)" }),
+    screen.getByRole("heading", { name: "Features (3/17)" }),
   ).toBeDefined();
 
   view.rerender(
@@ -89,7 +89,7 @@ test("merged features require every capability and count supported groups", () =
   );
   expectState("Partial support");
   expect(
-    screen.getByRole("heading", { name: "Features (0/16)" }),
+    screen.getByRole("heading", { name: "Features (0/17)" }),
   ).toBeDefined();
 
   view.rerender(<SparkFeatures spark={{ ...spark, capabilities: [] }} />);

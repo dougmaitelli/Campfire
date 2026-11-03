@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +34,10 @@ type ConfigurationStore struct {
 
 func (s *ConfigurationStore) capabilities() []string {
 	offered := protocol.SupportedCapabilities()
+	if runtime, ok := s.Runtime.(interface{ SupportsLogMonitoring() bool }); !ok || !runtime.SupportsLogMonitoring() {
+		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityLogAlerts })
+	}
+
 	if s.games == nil {
 		offered = slices.DeleteFunc(offered, func(capability string) bool {
 			return capability == protocol.CapabilityGameIntegration || capability == protocol.CapabilityGameEvents || capability == protocol.CapabilityGameMedia
@@ -158,7 +163,52 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 		s.games.unmount(deployment.ServerID)
 	}
 
+	if monitor, ok := s.Runtime.(interface{ WatchLogs(model.Deployment) error }); ok {
+		if err := monitor.WatchLogs(deployment); err != nil {
+			return model.ConfigurationReceipt{}, err
+		}
+	}
+
 	return model.ConfigurationReceipt{ServerID: deployment.ServerID, Revision: agentidentity.Fingerprint(data)}, nil
+}
+
+// RestoreLogMonitors reattaches monitors to containers surviving a Spark restart.
+func (s *ConfigurationStore) RestoreLogMonitors(id string) error {
+	monitor, ok := s.Runtime.(interface{ WatchLogs(model.Deployment) error })
+	if !ok {
+		return nil
+	}
+
+	entries, err := os.ReadDir(filepath.Join(s.Directory, id))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+
+		data, err := os.ReadFile(filepath.Join(s.Directory, id, entry.Name()))
+		if err != nil {
+			return err
+		}
+
+		deployment, err := model.DecodeStoredDeployment(data)
+		if err != nil || deployment.Configuration.SparkID != id || deployment.ServerID+".json" != entry.Name() {
+			return errors.New("invalid saved monitoring placement")
+		}
+
+		if err := monitor.WatchLogs(deployment); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *ConfigurationStore) executeNegotiated(ctx context.Context, id string, command protocol.Command, capabilities []string) protocol.CommandResponse {
