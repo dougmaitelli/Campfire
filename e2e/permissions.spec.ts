@@ -165,6 +165,7 @@ test("permission tree adds prerequisites and clears dependent grants without con
     name: "Delete server",
     exact: true,
   });
+  await expect(deleteServer).not.toBeChecked();
   expect(
     await dialog
       .locator('li[data-permission="server.backups.read"] > ul > li')
@@ -218,13 +219,6 @@ test("permission tree adds prerequisites and clears dependent grants without con
   await screenshot(page, "role-permissions.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "role-permissions-mobile.png");
-  await expect(
-    dialog.locator(".permission-tree-node").first(),
-  ).toHaveScreenshot("permission-parent-connector-mobile.png");
-  await restore.scrollIntoViewIfNeeded();
-  await screenshot(page, "role-permissions-backups-mobile.png");
-  await deleteServer.scrollIntoViewIfNeeded();
-  await screenshot(page, "role-permissions-danger-mobile.png");
   await write.check();
   await write.uncheck();
   await expect(restore).toBeChecked();

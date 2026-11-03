@@ -75,9 +75,9 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
     await page.evaluate(() => document.fonts.ready);
     await page.mouse.move(0, 0);
     // This screenshot intentionally captures an operation with aria-busy controls.
-    await expect(page).toHaveScreenshot("file-extract-progress.png");
+    await expect(dialog).toHaveScreenshot("file-extract-progress.png");
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page).toHaveScreenshot("file-extract-progress-mobile.png");
+    await expect(dialog).toHaveScreenshot("file-extract-progress-mobile.png");
     release();
     await expect(progress).toHaveCount(0);
     await expect(dialog.getByRole("alert")).toHaveText(

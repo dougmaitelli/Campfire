@@ -75,9 +75,16 @@ func TestLogAlertCapabilityRequiresStreamingRuntime(t *testing.T) {
 
 	command.Deployment.Ember.LogAlerts = nil
 
-	command.Deployment.Ember.Readiness = &model.Readiness{Any: []model.ReadinessMatch{{Value: "Ready", IgnoreCase: true}}}
-	if !slices.Contains(protocol.RequiredCapabilities(command), protocol.CapabilityLogAlerts) {
-		t.Fatal("per-pattern readiness case behavior did not require a compatible Spark")
+	for _, match := range []model.ReadinessMatch{
+		{Value: "Ready"},
+		{Value: "^Ready$", Regex: true},
+		{Value: "Ready", IgnoreCase: true},
+		{Value: "^Ready$", Regex: true, IgnoreCase: true},
+	} {
+		command.Deployment.Ember.Readiness = &model.Readiness{Any: []model.ReadinessMatch{match}}
+		if slices.Contains(protocol.RequiredCapabilities(command), protocol.CapabilityLogAlerts) {
+			t.Fatal("readiness incorrectly required the alerts capability", match)
+		}
 	}
 }
 

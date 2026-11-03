@@ -204,11 +204,23 @@ test("an empty console stays clear of unnecessary scrolling", async ({
   await expect(
     page.getByText("Waiting for server output…", { exact: true }),
   ).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await prepareScreenshot(page);
-  await expect(page.locator(".server-terminal-window")).toHaveScreenshot(
-    "console-empty-mobile.png",
-  );
+  for (const viewport of [
+    { width: 1400, height: 1100 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect
+      .poll(() =>
+        page
+          .locator(".xterm-viewport")
+          .evaluate(
+            (element) =>
+              element.scrollHeight <= element.clientHeight &&
+              element.scrollWidth <= element.clientWidth,
+          ),
+      )
+      .toBe(true);
+  }
 });
 
 test("long console output remains readable after resizing to mobile", async ({
@@ -231,5 +243,11 @@ test("long console output remains readable after resizing to mobile", async ({
   await prepareScreenshot(page);
   await expect(page.locator(".server-terminal-window")).toHaveScreenshot(
     "console-long-output-mobile.png",
+  );
+  await page.setViewportSize({ width: 1400, height: 1100 });
+  await expect(page.locator(".xterm-accessibility-tree")).toContainText("END");
+  await prepareScreenshot(page);
+  await expect(page.locator(".server-terminal-window")).toHaveScreenshot(
+    "console-long-output.png",
   );
 });

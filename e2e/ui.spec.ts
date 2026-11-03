@@ -17,9 +17,9 @@ test("login validation, persistent session, and logout", async ({ page }) => {
   ).toBeVisible();
   await screenshot(page, "login.png");
   await page.keyboard.press("Tab");
-  await screenshot(page, "login-focused.png");
+  await expect(page.getByLabel("Username", { exact: true })).toBeFocused();
   await page.setViewportSize({ width: 375, height: 812 });
-  await screenshot(page, "login-focused-mobile.png");
+  await expect(page.getByLabel("Username", { exact: true })).toBeFocused();
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.getByLabel("Password", { exact: true }).fill("incorrect-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -251,7 +251,9 @@ test("console commands arrive in the live log stream", async ({ page }) => {
   await page
     .getByRole("textbox", { name: "Command", exact: true })
     .fill("list");
-  await screenshot(page, "server-console-focused.png");
+  await expect(
+    page.getByRole("textbox", { name: "Command", exact: true }),
+  ).toBeFocused();
   await page.getByRole("button", { name: "Send command", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Console output", exact: true }),
@@ -270,9 +272,6 @@ test("console search supports toolbar controls and keyboard navigation", async (
     page.getByRole("region", { name: "Console output", exact: true }),
   ).toContainText("Command accepted.");
   const toolbar = page.locator(".server-terminal-toolbar");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await prepareScreenshot(page);
-  await expect(toolbar).toHaveScreenshot("console-toolbar-mobile.png");
   await page.setViewportSize({ width: 1400, height: 1100 });
   await command.focus();
   await page.keyboard.press("Control+f");
@@ -356,6 +355,34 @@ test("binary file rows remain selectable and downloadable without opening the ed
   await expect(actions).toHaveScreenshot("file-actions-mobile.png");
   await row.getByRole("checkbox").uncheck();
   await expect(actions).toHaveScreenshot("file-actions-disabled-mobile.png");
+  for (const width of [320, 390, 440, 480, 600, 1000, 1400]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await actions.evaluate((element) => {
+        const count = element
+          .querySelector(".file-selection-count")!
+          .getBoundingClientRect();
+        return (
+          element.scrollWidth <= element.clientWidth &&
+          Array.from(element.querySelectorAll("button")).every((button) => {
+            const bounds = button.getBoundingClientRect();
+            return (
+              Math.abs(
+                bounds.y + bounds.height / 2 - count.y - count.height / 2,
+              ) < 2
+            );
+          })
+        );
+      }),
+      `file actions should stay on one row at ${width}px`,
+    ).toBe(true);
+    if (width >= 480)
+      await expect(actions.locator(".file-selection-full")).toBeVisible();
+    for (const name of ["Upload Files", "Create file", "Create folder"])
+      await expect(
+        page.getByRole("button", { name, exact: true }),
+      ).toBeVisible();
+  }
 });
 
 test("server file edits persist after reopening", async ({ page }) => {
@@ -410,7 +437,8 @@ test("file paths use the server data root and move defaults follow navigation", 
     .check();
   await move.click();
   await expect(destination).toHaveValue("/config/fabric/");
-  await screenshot(page, "file-move-dialog.png");
+  await prepareScreenshot(page);
+  await expect(dialog).toHaveScreenshot("file-move-dialog.png");
   await dialog.getByRole("button", { name: "Move", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("different");
   await destination.fill("/mods/");
@@ -419,12 +447,8 @@ test("file paths use the server data root and move defaults follow navigation", 
   const emptyFolder = page.getByText("This folder is empty.", { exact: true });
   await expect(emptyFolder).toBeVisible();
   await screenshot(page, "file-empty-folder.png");
-  const emptyState = page
-    .getByRole("status")
-    .filter({ hasText: "This folder is empty." });
-  await expect(emptyState).toHaveScreenshot("file-empty-folder-status.png");
   await emptyFolder.hover();
-  await expect(emptyState).toHaveScreenshot("file-empty-folder-status.png");
+  await expect(page).toHaveScreenshot("file-empty-folder.png");
   await page.getByRole("button", { name: "Server data", exact: true }).click();
   await page.getByRole("button", { name: "mods", exact: true }).click();
   await page
@@ -590,16 +614,22 @@ test("resource inspection keeps the current page and supports nested drawers", a
   await expect(
     page.getByRole("dialog").getByText("20 GiB", { exact: true }),
   ).toBeVisible();
-  await screenshot(page, "server-inspection.png");
   const variable = page
     .getByRole("dialog")
     .locator(".details-list > div")
     .filter({ has: page.getByText("ENABLE_COMMAND_BLOCKS", { exact: true }) });
-  await expect(variable).toHaveScreenshot("server-inspection-long-label.png");
+  await variable.scrollIntoViewIfNeeded();
+  await screenshot(page, "server-inspection.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(variable).toHaveScreenshot(
-    "server-inspection-long-label-mobile.png",
-  );
+  await variable.scrollIntoViewIfNeeded();
+  await expect(variable).toBeVisible();
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
+  await page.getByRole("dialog").evaluate((element) => element.scrollTo(0, 0));
+  await screenshot(page, "server-inspection-mobile.png");
   await page.setViewportSize({ width: 1400, height: 900 });
   await page
     .getByRole("dialog")

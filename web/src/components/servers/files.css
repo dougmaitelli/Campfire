@@ -7,7 +7,6 @@
   gap: 0.5rem;
 }
 .file-selection-bar {
-  container-type: inline-size;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -16,6 +15,9 @@
   padding: 10px 24px;
   border-radius: 6px;
   background: var(--surface);
+}
+.file-selection-compact {
+  display: none;
 }
 .file-selection-count {
   padding-inline-end: 24px;
@@ -224,9 +226,16 @@
   resize: vertical;
 }
 
-@container (max-width: 40rem) {
-  .file-bulk-actions {
+@container file-browser (max-width: 40rem) {
+  .file-selection-bar {
     gap: 8px;
+    padding-inline: 12px;
+  }
+  .file-selection-count {
+    padding-inline-end: 12px;
+  }
+  .file-bulk-actions {
+    gap: 6px;
 
     & .file-action-label {
       display: none;
@@ -244,6 +253,41 @@
       &::before {
         inset-inline-start: -8px;
       }
+    }
+  }
+}
+@container file-browser (max-width: 23rem) {
+  .file-selection-full {
+    display: none;
+  }
+  .file-selection-compact {
+    display: inline;
+  }
+}
+@container file-browser (max-width: 18rem) {
+  .file-selection-bar {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .file-bulk-actions {
+    gap: 4px;
+
+    & .button {
+      min-width: 32px;
+    }
+  }
+}
+@media (max-width: 480px) {
+  .file-toolbar {
+    flex-wrap: nowrap;
+
+    & .button {
+      min-width: var(--control-height);
+      padding-inline: 8px;
+    }
+
+    & .file-toolbar-label {
+      display: none;
     }
   }
 }

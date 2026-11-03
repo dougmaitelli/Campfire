@@ -1,7 +1,103 @@
 import { readFile } from "node:fs/promises";
-import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
 import { completeEmber } from "../web/tests/fixtures/ember";
+import {
+  LogAction,
+  LogPhase,
+  LogSeverity,
+} from "../web/src/contracts/logAlerts";
+
+test("Ember wizard screenshots cover whole steps and representative mobile layouts", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await login(page);
+  await openScreen(page, "embers", "Embers");
+  await page
+    .getByRole("button", { name: "+ Create Ember", exact: true })
+    .click();
+  const drawer = page.getByRole("dialog", {
+    name: "Create Ember",
+    exact: true,
+  });
+  await drawer.getByRole("tab", { name: "JSON / YAML", exact: true }).click();
+  await drawer.getByLabel("Definition", { exact: true }).fill(
+    JSON.stringify({
+      ...completeEmber(),
+      artUrl: "",
+      origin: undefined,
+      log_alerts: [
+        {
+          title: "EULA requires acceptance",
+          message: "Read the EULA, then update eula.txt if you agree.",
+          severity: LogSeverity.Error,
+          phase: LogPhase.Runtime,
+          any: [{ value: "agree to the EULA", ignore_case: true }],
+          action: { type: LogAction.OpenFile, path: "eula.txt" },
+        },
+      ],
+    }),
+  );
+  await drawer.getByRole("tab", { name: "Visual editor", exact: true }).click();
+  await expect(drawer.getByLabel("Name", { exact: true })).toHaveValue(
+    "Authoring fixture",
+  );
+
+  const steps = [
+    ["basics", "Basics", true],
+    ["installation", "Installation", false],
+    ["runtime", "Runtime", true],
+    ["variables", "Variables", true],
+    ["ports", "Ports", false],
+    ["files", "Files", false],
+    ["storage", "Storage", false],
+    ["review", "Review", true],
+  ] as const;
+  for (const [index, [id, title, mobile]] of steps.entries()) {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    if (index > 0)
+      await drawer
+        .getByRole("button", { name: `Next: ${title}`, exact: true })
+        .click();
+    await expect(
+      drawer.getByRole("heading", { level: 3, name: title, exact: true }),
+    ).toBeVisible();
+    const layouts = [
+      { width: 1400, height: 900, suffix: "" },
+      { width: 390, height: 844, suffix: "-mobile" },
+    ];
+    for (const layout of layouts) {
+      await page.setViewportSize({
+        width: layout.width,
+        height: layout.height,
+      });
+      expect(
+        await drawer.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+      if (layout.suffix && !mobile) continue;
+      await prepareScreenshot(page);
+      // Expand vertically so one image includes the header, complete step, and
+      // footer. Interaction tests retain the normal phone viewport and scrolling.
+      const height = await drawer.evaluate((element) => element.scrollHeight);
+      await page.setViewportSize({
+        width: layout.width,
+        height: Math.max(layout.height, height),
+      });
+      await drawer.evaluate((element) => element.scrollTo(0, 0));
+      expect(
+        await drawer.evaluate(
+          (element) => element.scrollHeight <= element.clientHeight + 1,
+        ),
+      ).toBe(true);
+      await expect(drawer).toHaveScreenshot(
+        `ember-editor-${id}${layout.suffix}.png`,
+      );
+    }
+  }
+});
 
 test("a new Ember can be built and saved through visual fields on desktop and mobile", async ({
   page,
@@ -25,9 +121,18 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
   await drawer
     .getByRole("heading", { name: "Create Ember", exact: true })
     .scrollIntoViewIfNeeded();
-  await screenshot(page, "ember-editor-basics.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "ember-editor-basics-mobile.png");
+  const steps = await drawer
+    .locator(".wizard-step-number")
+    .evaluateAll((elements) =>
+      elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return bounds.x + bounds.width / 2;
+      }),
+    );
+  expect(steps).toHaveLength(8);
+  for (let column = 0; column < 4; column++)
+    expect(steps[column + 4]).toBeCloseTo(steps[column]!, 0);
   expect(
     await drawer.evaluate(
       (element) => element.scrollWidth <= element.clientWidth,
@@ -73,17 +178,6 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
   expect(addIcon).not.toBeNull();
   expect(addIcon!.width).toBeLessThanOrEqual(18);
   expect(addIcon!.height).toBeLessThanOrEqual(18);
-  await prepareScreenshot(page);
-  await images.evaluate((element) =>
-    element.scrollIntoView({ block: "start" }),
-  );
-  await expect(images).toHaveScreenshot("ember-editor-images.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await images.evaluate((element) =>
-    element.scrollIntoView({ block: "start" }),
-  );
-  await expect(images).toHaveScreenshot("ember-editor-images-mobile.png");
-  await page.setViewportSize({ width: 1400, height: 900 });
   await drawer.getByRole("tab", { name: "Visual editor", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(
@@ -132,13 +226,6 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
   await drawer.getByLabel("Container port", { exact: true }).fill("25565");
   await drawer.getByLabel("Description", { exact: true }).fill("Game");
   const port = drawer.getByRole("group", { name: "port 1", exact: true });
-  await prepareScreenshot(page);
-  await port.evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await expect(port).toHaveScreenshot("ember-editor-port.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await port.evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await expect(port).toHaveScreenshot("ember-editor-port-mobile.png");
-  await page.setViewportSize({ width: 1400, height: 900 });
   await drawer.getByRole("button", { name: "Add port", exact: true }).click();
   await drawer
     .getByRole("button", { name: "Remove port 2", exact: true })
@@ -181,17 +268,6 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
     name: "save path 1",
     exact: true,
   });
-  await prepareScreenshot(page);
-  await savePath.evaluate((element) =>
-    element.scrollIntoView({ block: "start" }),
-  );
-  await expect(savePath).toHaveScreenshot("ember-editor-save-path.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await savePath.evaluate((element) =>
-    element.scrollIntoView({ block: "start" }),
-  );
-  await expect(savePath).toHaveScreenshot("ember-editor-save-path-mobile.png");
-  await page.setViewportSize({ width: 1400, height: 900 });
   await drawer
     .getByRole("button", { name: "Add save path", exact: true })
     .click();
@@ -212,9 +288,7 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
   await expect(
     drawer.getByText("Converted Ember", { exact: true }),
   ).toHaveCount(0);
-  await screenshot(page, "ember-editor-review.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "ember-editor-review-mobile.png");
   const response = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/v1/embers") &&
@@ -304,15 +378,6 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
   expect(commandNameBounds).not.toBeNull();
   expect(commandRemoveBounds).not.toBeNull();
   expect(commandRemoveBounds!.y).toBe(commandNameBounds!.y);
-  await prepareScreenshot(page);
-  await debug.evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await expect(debug).toHaveScreenshot("ember-editor-startup-command.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await debug.evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await expect(debug).toHaveScreenshot(
-    "ember-editor-startup-command-mobile.png",
-  );
-  await page.setViewportSize({ width: 1400, height: 900 });
   const rule = drawer.getByRole("group", {
     name: "readiness condition 2",
     exact: true,
@@ -327,13 +392,6 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
   await expect(regex).not.toBeChecked();
   await regex.check();
   await regex.uncheck();
-  await prepareScreenshot(page);
-  await rule.evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await expect(rule).toHaveScreenshot("ember-editor-readiness.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await rule.evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await expect(rule).toHaveScreenshot("ember-editor-readiness-mobile.png");
-  await page.setViewportSize({ width: 1400, height: 900 });
   await drawer
     .getByRole("combobox", { name: "Mark the server ready", exact: true })
     .click();
@@ -396,7 +454,6 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
   await drawer
     .getByRole("heading", { name: "Edit Ember", exact: true })
     .scrollIntoViewIfNeeded();
-  await screenshot(page, "ember-editor-variables.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await seconds.scrollIntoViewIfNeeded();
   const nameBounds = await seconds
@@ -424,7 +481,6 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
       (element) => element.scrollWidth <= element.clientWidth,
     ),
   ).toBe(true);
-  await screenshot(page, "ember-editor-variables-mobile.png");
   await drawer.getByRole("button", { name: "Files", exact: true }).click();
   const replacement = drawer
     .getByRole("group", { name: /^replacement \d+$/ })
@@ -447,18 +503,7 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
   expect(keyBounds).not.toBeNull();
   expect(valueBounds).not.toBeNull();
   expect(valueBounds!.y).toBe(keyBounds!.y);
-  await prepareScreenshot(page);
-  await configuration.evaluate((element) =>
-    element.scrollIntoView({ block: "start" }),
-  );
-  await expect(configuration).toHaveScreenshot("ember-editor-config.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  await configuration.evaluate((element) =>
-    element.scrollIntoView({ block: "start" }),
-  );
-  await expect(configuration).toHaveScreenshot(
-    "ember-editor-config-mobile.png",
-  );
   await drawer.getByRole("button", { name: "Ports", exact: true }).click();
   await expect(
     drawer

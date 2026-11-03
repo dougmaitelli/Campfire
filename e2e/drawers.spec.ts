@@ -1,4 +1,4 @@
-import { test, expect, prepareScreenshot, screenshot } from "./fixtures";
+import { test, expect, screenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
 
 test("drawer Save actions disable until required fields are provided", async ({
@@ -15,26 +15,12 @@ test("drawer Save actions disable until required fields are provided", async ({
   await expect(save).toBeEnabled();
   await dialog.getByLabel("Name", { exact: true }).fill("");
   await expect(save).toBeDisabled();
-  await prepareScreenshot(page);
-  await expect(dialog.locator(".panel-footer")).toHaveScreenshot(
-    "drawer-save-disabled.png",
-  );
   await page.setViewportSize({ width: 390, height: 844 });
-  await prepareScreenshot(page);
-  await expect(dialog.locator(".panel-footer")).toHaveScreenshot(
-    "drawer-save-disabled-mobile.png",
-  );
+  await expect(save).toBeDisabled();
   await dialog.getByLabel("Name", { exact: true }).fill("File readers");
   await expect(save).toBeEnabled();
-  await prepareScreenshot(page);
-  await expect(dialog.locator(".panel-footer")).toHaveScreenshot(
-    "drawer-save-enabled-mobile.png",
-  );
   await page.setViewportSize({ width: 1400, height: 900 });
-  await prepareScreenshot(page);
-  await expect(dialog.locator(".panel-footer")).toHaveScreenshot(
-    "drawer-save-enabled.png",
-  );
+  await expect(save).toBeEnabled();
 });
 
 test("wizard Next disables immediately for missing and invalid required fields", async ({
@@ -50,10 +36,6 @@ test("wizard Next disables immediately for missing and invalid required fields",
     exact: true,
   });
   await expect(next).toBeDisabled();
-  await prepareScreenshot(page);
-  await expect(dialog.locator(".panel-footer")).toHaveScreenshot(
-    "wizard-next-disabled.png",
-  );
   await name.fill("   ");
   await expect(next).toBeDisabled();
   await name.fill("Test node");

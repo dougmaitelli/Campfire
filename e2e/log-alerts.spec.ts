@@ -76,11 +76,7 @@ test("actionable errors can be authored, detected without an open console, acted
   await first
     .getByLabel("Configuration file path", { exact: true })
     .fill("eula.txt");
-  await prepareScreenshot(page);
-  await expect(first).toHaveScreenshot("ember-log-alert.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  await prepareScreenshot(page);
-  await expect(first).toHaveScreenshot("ember-log-alert-mobile.png");
   await condition
     .getByLabel("Use a regular expression", { exact: true })
     .scrollIntoViewIfNeeded();

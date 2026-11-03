@@ -1,6 +1,12 @@
 .file-drop-zone {
   position: relative;
   min-height: 160px;
+  min-width: 0;
+  container: file-browser / inline-size;
+}
+
+.file-drop-zone > .table-container {
+  overflow-x: auto;
 }
 
 .file-drop-overlay {

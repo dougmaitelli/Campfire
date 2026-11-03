@@ -28,6 +28,13 @@ test("native activity date fields remain readable empty and filled on mobile", a
     feed.getByText("Alex joined the server", { exact: true }),
   ).toBeVisible();
   const filters = feed.locator("form");
+  await expect(
+    filters.getByText("mm/dd/yyyy, --:-- --", { exact: true }),
+  ).toHaveCount(2);
+  for (const hint of await filters
+    .locator(".date-time-input-placeholder")
+    .all())
+    await expect(hint).toBeVisible();
   await prepareScreenshot(page);
   await expect(filters).toHaveScreenshot("activity-date-filters-mobile.png");
 
@@ -41,6 +48,10 @@ test("native activity date fields remain readable empty and filled on mobile", a
     .getByRole("heading", { name: "Game activity", exact: true })
     .click();
   await prepareScreenshot(page);
+  for (const hint of await filters
+    .locator(".date-time-input-placeholder")
+    .all())
+    await expect(hint).toBeHidden();
   await expect(filters).toHaveScreenshot(
     "activity-date-filters-filled-mobile.png",
   );

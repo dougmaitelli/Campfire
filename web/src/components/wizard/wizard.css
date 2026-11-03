@@ -50,12 +50,12 @@
   position: relative;
   min-width: 0;
 
-  &:first-child .wizard-step-link {
+  &:where(:first-child) .wizard-step-link {
     align-items: flex-start;
     text-align: left;
   }
 
-  &:last-child:not(:first-child) .wizard-step-link {
+  &:where(:last-child:not(:first-child)) .wizard-step-link {
     align-items: flex-end;
     text-align: right;
   }

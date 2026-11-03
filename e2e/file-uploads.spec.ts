@@ -47,7 +47,19 @@ test("file drops show a stable overlay and upload into the open folder", async (
   await screenshot(page, "file-upload-drop.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await browser.scrollIntoViewIfNeeded();
-  await screenshot(page, "file-upload-drop-mobile.png");
+  const bounds = await browser.boundingBox();
+  const overlayBounds = await page.locator(".file-drop-overlay").boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(overlayBounds).not.toBeNull();
+  expect(overlayBounds!.x).toBeCloseTo(bounds!.x, 0);
+  expect(overlayBounds!.width).toBeCloseTo(bounds!.width, 0);
+  expect(overlayBounds!.height).toBeCloseTo(bounds!.height, 0);
+  expect(
+    await browser.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  await screenshot(page, "file-upload-drop-narrow.png");
   await browser.dispatchEvent("dragleave", { dataTransfer: transfer });
   await expect(overlay).toHaveCount(0);
   expect(
@@ -239,4 +251,53 @@ test("folder drops and oversized files are rejected before an upload starts", as
     "Uploads are limited to 1 MiB per file.",
   );
   expect(operations).not.toContain("upload.begin");
+});
+
+test.describe("touch file controls", () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+
+  test("mobile file picker and icon actions remain usable", async ({
+    page,
+  }) => {
+    expect(
+      (
+        await page.request.post("/api/v1/auth/login", {
+          data: { username: "admin", password: "campfire-e2e-password" },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await page.goto("/#servers/survival/files");
+    const browser = page.getByRole("region", {
+      name: "File browser",
+      exact: true,
+    });
+    await expect(
+      browser.getByRole("button", { name: "server.properties", exact: true }),
+    ).toBeVisible();
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Upload Files", exact: true }).tap();
+    await (
+      await chooser
+    ).setFiles({
+      name: "touch-upload.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("uploaded from the mobile picker"),
+    });
+    await expect(
+      browser.getByRole("button", { name: "touch-upload.txt", exact: true }),
+    ).toBeVisible();
+    for (const [action, title] of [
+      ["Create file", "New file"],
+      ["Create folder", "New folder"],
+    ] as const) {
+      await page.getByRole("button", { name: action, exact: true }).tap();
+      const dialog = page.getByRole("dialog", { name: title, exact: true });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).tap();
+    }
+  });
 });

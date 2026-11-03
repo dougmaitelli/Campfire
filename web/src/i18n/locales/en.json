@@ -180,6 +180,9 @@
     "username": "Username",
     "welcomeToCampfire": "Welcome to Campfire"
   },
+  "dateTimeInput": {
+    "formatHint": "mm/dd/yyyy, --:-- --"
+  },
   "backups": {
     "unexpectedBackupCatalogEntry": "Unexpected backup catalog entry.",
     "unexpectedBackupCatalogResponse": "Unexpected backup catalog response.",

@@ -7,6 +7,9 @@ test("game activity reads retained events and filters by type and time", async (
   await login(page);
   await page.goto("/#servers/survival/activity");
   const feed = page.getByRole("region", { name: "Game activity", exact: true });
+  await expect(feed.locator(".date-time-input-placeholder")).toHaveCount(2);
+  for (const hint of await feed.locator(".date-time-input-placeholder").all())
+    await expect(hint).toBeHidden();
   await expect(
     feed.getByText("Alex joined the server", { exact: true }),
   ).toBeVisible();

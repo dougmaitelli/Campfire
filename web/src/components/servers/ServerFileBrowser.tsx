@@ -601,25 +601,37 @@ export function ServerFileBrowser({
             <Button
               type="button"
               variant="primary"
+              aria-label={t("serverFileBrowser.uploadFiles")}
+              title={t("serverFileBrowser.uploadFiles")}
               disabled={busy || loading || !canWrite || maxUploadBytes === null}
               onClick={() => uploadInput.current?.click()}
             >
               <NavigationIcon name="upload" />
-              {t("serverFileBrowser.uploadFiles")}
+              <span className="file-toolbar-label">
+                {t("serverFileBrowser.uploadFiles")}
+              </span>
             </Button>
             <Button
               disabled={busy || loading || !canWrite}
+              aria-label={t("serverFileBrowser.createFile")}
+              title={t("serverFileBrowser.createFile")}
               onClick={() => setCreating("file")}
             >
               <NavigationIcon name="file-plus" />
-              {t("serverFileBrowser.createFile")}
+              <span className="file-toolbar-label">
+                {t("serverFileBrowser.createFile")}
+              </span>
             </Button>
             <Button
               disabled={busy || loading || !canWrite}
+              aria-label={t("serverFileBrowser.createFolder")}
+              title={t("serverFileBrowser.createFolder")}
               onClick={() => setCreating("folder")}
             >
               <NavigationIcon name="folder-plus" />
-              {t("serverFileBrowser.createFolder")}
+              <span className="file-toolbar-label">
+                {t("serverFileBrowser.createFolder")}
+              </span>
             </Button>
             <input
               ref={uploadInput}
@@ -1099,9 +1111,19 @@ export function ServerFileBrowser({
               aria-label={t("common.actions")}
             >
               <span className="file-selection-count">
-                {t("serverFileBrowser.selectedCount", {
-                  count: selectedEntries.length,
-                })}
+                <span className="visually-hidden">
+                  {t("serverFileBrowser.selectedCount", {
+                    count: selectedEntries.length,
+                  })}
+                </span>
+                <span className="file-selection-full" aria-hidden="true">
+                  {t("serverFileBrowser.selectedCount", {
+                    count: selectedEntries.length,
+                  })}
+                </span>
+                <span className="file-selection-compact" aria-hidden="true">
+                  {selectedEntries.length}
+                </span>
               </span>
               <ActionGroup className="file-bulk-actions">
                 <Button

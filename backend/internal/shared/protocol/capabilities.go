@@ -165,17 +165,8 @@ var runtimeActionCapabilities = map[model.ServerAction][]string{
 // RequiredCapabilities covers every command extension at both dispatch boundaries.
 func RequiredCapabilities(command Command) []string {
 	required := slices.Clone(commandCapabilities[command.Name])
-	if command.Name == ConfigureServer && command.Deployment != nil {
-		ember := command.Deployment.Ember
-
-		needsMatching := len(ember.LogAlerts) > 0
-		if ember.Readiness != nil {
-			needsMatching = needsMatching || slices.ContainsFunc(ember.Readiness.Any, func(match model.ReadinessMatch) bool { return match.IgnoreCase })
-		}
-
-		if needsMatching {
-			required = append(required, CapabilityLogAlerts)
-		}
+	if command.Name == ConfigureServer && command.Deployment != nil && len(command.Deployment.Ember.LogAlerts) > 0 {
+		required = append(required, CapabilityLogAlerts)
 	}
 
 	if command.Name == ConfigureServer && command.Deployment != nil && command.Deployment.Configuration.GameIntegration {

@@ -2,6 +2,18 @@
   position: relative;
   min-width: 0;
 
+  & .date-time-input-placeholder {
+    display: none;
+    position: absolute;
+    inset-inline: 12px 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text);
+    background: var(--control-bg);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
   & .text-input {
     appearance: none;
     display: block;
@@ -43,6 +55,18 @@
     & svg {
       width: 18px;
       height: 18px;
+    }
+  }
+}
+
+@media (pointer: coarse) {
+  .date-time-input[data-empty="true"]:not(:focus-within) {
+    & .text-input {
+      color: transparent;
+    }
+
+    & .date-time-input-placeholder {
+      display: block;
     }
   }
 }
