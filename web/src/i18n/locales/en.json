@@ -782,6 +782,12 @@
     "unableToSaveSchedule": "Unable to save schedule.",
     "workStaysPendingWhileItsSparkIsOfflineMissedRecurring": "Work stays pending while its Spark is offline. Missed recurring times produce one attempt after reconnection. Backups require a stopped server. Editing makes you the execution owner."
   },
+  "scheduleNames": {
+    "daily": "Daily {{action}} at {{time}}",
+    "hourly": "Hourly {{action}}",
+    "recurring": "Recurring {{action}}",
+    "description": "{{action}} {{description}}"
+  },
   "schedulesPage": {
     "action": "Action",
     "actor": "Actor",

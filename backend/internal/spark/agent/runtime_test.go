@@ -363,8 +363,8 @@ func testWireRuntime(t *testing.T, hub *agents.Hub, id string) {
 		}
 
 		if action == "start" {
-			if !status.Ready {
-				t.Fatal("remote extended readiness did not match")
+			if status.Ready {
+				t.Fatal("runtime without a log monitor reported readiness")
 			}
 
 			_, err := hub.Files(ctx, id, model.FileRequest{ServerID: deployment.ServerID, Operation: "write", Path: "running.txt", Data: []byte("live"), Revision: "absent"})

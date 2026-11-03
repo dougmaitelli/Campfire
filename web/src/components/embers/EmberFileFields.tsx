@@ -99,13 +99,13 @@ export function EmberFileFields({
                   change(index, { ...item, file: { ...item.file, parser } })
                 }
               >
-                <option value={ConfigParser.Properties}>Properties</option>
-                <option value={ConfigParser.JSON}>JSON</option>
-                <option value={ConfigParser.YAML}>YAML</option>
-                <option value={ConfigParser.INI}>INI</option>
-                <option value={ConfigParser.File}>
-                  {t("emberEditor.textFile")}
-                </option>
+                {Object.entries(ConfigParser).map(([label, parser]) => (
+                  <option key={parser} value={parser}>
+                    {parser === ConfigParser.File
+                      ? t("emberEditor.textFile")
+                      : label}
+                  </option>
+                ))}
               </Select>
             </FormField>
           </>

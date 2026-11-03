@@ -214,7 +214,7 @@ func TestRuntimeLifecyclePersistenceAndDockerArguments(t *testing.T) {
 		t.Fatalf("install: %+v", status)
 	}
 
-	if status := awaitOperation(t, m, d, "start", "start-1"); status.Error != "" || status.State != "running" || !status.Ready {
+	if status := awaitOperation(t, m, d, "start", "start-1"); status.Error != "" || status.State != "running" || status.Ready {
 		t.Fatalf("start: %+v", status)
 	}
 

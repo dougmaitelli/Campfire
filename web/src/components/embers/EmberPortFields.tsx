@@ -83,8 +83,11 @@ export function EmberPortFields({
                   })
                 }
               >
-                <option value={NetworkProtocol.TCP}>TCP</option>
-                <option value={NetworkProtocol.UDP}>UDP</option>
+                {Object.entries(NetworkProtocol).map(([label, protocol]) => (
+                  <option key={protocol} value={protocol}>
+                    {label}
+                  </option>
+                ))}
               </Select>
             </FormField>
             <EditorText

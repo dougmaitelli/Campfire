@@ -546,13 +546,7 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	if state == "running" {
-		status.Ready = d.Ember.Ready == "" && d.Ember.Readiness == nil
-		if monitored {
-			status.Ready = status.Ready || ready
-		} else if !status.Ready {
-			logs, err := m.Docker.Run(ctx, nil, "logs", "--tail", "200", container(d.ServerID))
-			status.Ready = err == nil && readinessMatches(d.Ember, logs)
-		}
+		status.Ready = (d.Ember.Ready == "" && d.Ember.Readiness == nil) || ready
 	}
 
 	return status, nil

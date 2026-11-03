@@ -6,6 +6,8 @@ import { EditorCheck, EditorGroup, EditorText } from "./EmberEditorFields";
 import type { EmberDraft, NamedValue } from "./emberDraft";
 import { EmberLogAlertFields } from "./EmberLogAlertFields";
 
+const startupShells = { Sh: "sh", Bash: "bash", Ash: "ash" } as const;
+
 export function EmberRuntimeFields({
   draft,
   onChange,
@@ -49,9 +51,11 @@ export function EmberRuntimeFields({
             value={value.startup_shell ?? "sh"}
             onValueChange={(startup_shell) => patch({ startup_shell })}
           >
-            <option value="sh">sh</option>
-            <option value="bash">bash</option>
-            <option value="ash">ash</option>
+            {Object.values(startupShells).map((shell) => (
+              <option key={shell} value={shell}>
+                {shell}
+              </option>
+            ))}
           </Select>
         </FormField>
         <EditorText
