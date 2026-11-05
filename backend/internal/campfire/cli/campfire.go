@@ -265,6 +265,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, MaxUploadBytes: maxUploadBytes, Games: games}
 	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
 	deployment.Transfers = transfers
+	copies := service.NewCopyService(repository.NewCopyRepository(db.ORM()), deployment)
+	deployment.Copies = copies
 
 	if hub != nil {
 		deployment.Remote = hub
@@ -272,8 +274,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 		deployment.Remote = runtime
 	}
 
-	transfers.Start(ctx)
-	defer transfers.Close()
+	deployment.StartJobs(ctx)
+	defer deployment.CloseJobs()
 
 	resources := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 

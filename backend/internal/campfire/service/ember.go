@@ -37,6 +37,12 @@ func NewEmberService(store EmberStore) *EmberService { return &EmberService{stor
 
 // Delete removes an unused imported revision.
 func (s *EmberService) Delete(ctx context.Context, id string) error {
+	ctx, release, lockErr := holdDefinition(ctx, id)
+	if lockErr != nil {
+		return lockErr
+	}
+	defer release()
+
 	err := s.store.Delete(ctx, id)
 	if errors.Is(err, repository.ErrEmberNotFound) {
 		return ErrEmberNotFound
@@ -106,6 +112,12 @@ func (s *EmberService) Get(ctx context.Context, id string) (model.Ember, error) 
 
 // Replace updates the one local definition while retaining its stable identity.
 func (s *EmberService) Replace(ctx context.Context, id string, ember model.Ember) (model.Ember, error) {
+	ctx, release, lockErr := holdDefinition(ctx, id)
+	if lockErr != nil {
+		return model.Ember{}, lockErr
+	}
+	defer release()
+
 	if err := validateEmber(&ember); err != nil {
 		return model.Ember{}, err
 	}

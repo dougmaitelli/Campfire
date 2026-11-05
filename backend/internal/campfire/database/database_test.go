@@ -92,7 +92,7 @@ func TestInitialSchemaAndReopen(t *testing.T) {
 		&database.OIDCIdentity{}, &database.ServerAccessGrant{},
 		&database.SparkAccessGrant{}, &database.SparkIdentity{},
 		&database.Schedule{}, &database.ScheduleRun{}, &database.AuditEvent{},
-		&database.ServerTransfer{}, &database.BackupPolicy{}, &database.Backup{},
+		&database.ServerJob{}, &database.BackupPolicy{}, &database.Backup{},
 		&database.APIToken{}, &database.Notification{}, &database.NotificationRecipient{},
 		&database.NotificationDelivery{}, &database.AlertState{},
 	} {

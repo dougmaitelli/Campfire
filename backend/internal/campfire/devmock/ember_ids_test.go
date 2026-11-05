@@ -3,6 +3,7 @@
 package devmock
 
 import (
+	"campfire/internal/shared/model"
 	"reflect"
 	"testing"
 
@@ -52,18 +53,6 @@ func TestMockEmberIdentityUpgradePreservesSavedData(t *testing.T) {
 			return err
 		}
 
-		var transfers []database.ServerTransfer
-		if err := tx.Where("server_id = ?", record.ServerID).Find(&transfers).Error; err != nil {
-			return err
-		}
-
-		for _, transfer := range transfers {
-			transfer.SourceConfiguration.EmberID, transfer.TargetConfiguration.EmberID = ember.ID, ember.ID
-			if err := tx.Model(&transfer).Select("SourceConfiguration", "TargetConfiguration").Updates(&transfer).Error; err != nil {
-				return err
-			}
-		}
-
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -90,18 +79,18 @@ func TestMockEmberIdentityUpgradePreservesSavedData(t *testing.T) {
 		t.Fatal("staged transfer kept the old Ember identity", staged, err)
 	}
 
-	var transfers []database.ServerTransfer
-	if err := db.ORM().Where("server_id = ?", original.ServerID).Find(&transfers).Error; err != nil {
+	var jobs []database.ServerJob
+	if err := db.ORM().Where("source_server_id = ?", original.ServerID).Find(&jobs).Error; err != nil {
 		t.Fatal(err)
 	}
 
-	if len(transfers) == 0 {
-		t.Fatal("missing transfer history")
+	if len(jobs) == 0 {
+		t.Fatal("missing job history")
 	}
 
-	for _, transfer := range transfers {
-		if transfer.SourceConfiguration.EmberID != server.EmberID || transfer.TargetConfiguration.EmberID != server.EmberID {
-			t.Fatal("transfer history changed during identity upgrade", transfer)
+	for _, job := range jobs {
+		if job.Type != model.JobTransfer || job.TargetServerID != original.ServerID {
+			t.Fatal("identity upgrade changed job history", job)
 		}
 	}
 

@@ -14,7 +14,7 @@ func TestMockTransferHistoryIsSeededOnceWithoutReservingServers(t *testing.T) {
 	_, db, auth, _ := fixture(t)
 	transfers := repository.NewTransferRepository(db.ORM())
 
-	items, err := transfers.List(t.Context(), "creative", false)
+	items, err := transfers.Jobs().List(t.Context(), "creative", []model.JobType{model.JobTransfer}, nil)
 	if err != nil || len(items) != 2 {
 		t.Fatal("missing transfer history examples", items, err)
 	}
@@ -24,25 +24,25 @@ func TestMockTransferHistoryIsSeededOnceWithoutReservingServers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	states := make(map[model.TransferPhase]bool)
+	states := make(map[model.JobStatus]bool)
 
 	for _, item := range items {
-		if item.Active || item.CanCancel || item.SourceSparkID == item.TargetSparkID || item.UpdatedAt <= item.CreatedAt {
+		if item.Active() || item.SourceSparkID == item.TargetSparkID || item.UpdatedAt <= item.CreatedAt {
 			t.Fatal("invalid historical transfer", item)
 		}
 
-		if item.Phase == model.TransferPhaseComplete && (item.TargetSparkID != server.SparkID || item.TransferredBytes != item.TotalBytes) {
+		if item.Status == model.JobCompleted && (item.TargetSparkID != server.SparkID || item.TransferredBytes != item.TotalBytes) {
 			t.Fatal("completed example does not match current placement", item)
 		}
 
-		if item.Phase == model.TransferPhaseCancelled && (item.SourceSparkID != server.SparkID || item.TransferredBytes >= item.TotalBytes) {
+		if item.Status == model.JobCancelled && (item.SourceSparkID != server.SparkID || item.TransferredBytes >= item.TotalBytes) {
 			t.Fatal("cancelled example changed placement or completed its copy", item)
 		}
 
-		states[item.Phase] = true
+		states[item.Status] = true
 	}
 
-	if !states[model.TransferPhaseComplete] || !states[model.TransferPhaseCancelled] {
+	if !states[model.JobCompleted] || !states[model.JobCancelled] {
 		t.Fatal("missing transfer outcome variation", states)
 	}
 
@@ -54,7 +54,7 @@ func TestMockTransferHistoryIsSeededOnceWithoutReservingServers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	reloaded, err := transfers.List(t.Context(), server.ID, false)
+	reloaded, err := transfers.Jobs().List(t.Context(), server.ID, []model.JobType{model.JobTransfer}, nil)
 	if err != nil || len(reloaded) != len(items) {
 		t.Fatal("mock restart duplicated transfer history", reloaded, err)
 	}

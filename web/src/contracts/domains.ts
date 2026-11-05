@@ -171,19 +171,7 @@ export type VariableType = (typeof VariableType)[keyof typeof VariableType];
 export const VariableFormat = { URL: "url" } as const;
 export type VariableFormat =
   (typeof VariableFormat)[keyof typeof VariableFormat];
-export const TransferPhase = {
-  Queued: "queued",
-  Exporting: "exporting",
-  Copying: "copying",
-  Importing: "importing",
-  Committing: "committing",
-  Cleanup: "cleanup",
-  Cancelling: "cancelling",
-  Cancelled: "cancelled",
-  Complete: "complete",
-  Failed: "failed",
-} as const;
-export type TransferPhase = (typeof TransferPhase)[keyof typeof TransferPhase];
+
 export const NotificationTarget = {
   Account: "account",
   Server: "server",
@@ -232,3 +220,23 @@ export const GameStateStatus = {
 } as const;
 export type GameStateStatus =
   (typeof GameStateStatus)[keyof typeof GameStateStatus];
+export const JobType = { Copy: "copy", Transfer: "transfer" } as const;
+export type JobType = (typeof JobType)[keyof typeof JobType];
+export const JobStatus = {
+  Pending: "pending",
+  Running: "running",
+  Failed: "failed",
+  Cancelling: "cancelling",
+  Completed: "completed",
+  Cancelled: "cancelled",
+} as const;
+export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus];
+export const JobStep = {
+  Preparing: "preparing",
+  Exporting: "exporting",
+  Copying: "copying",
+  Importing: "importing",
+  Committing: "committing",
+  Cleanup: "cleanup",
+} as const;
+export type JobStep = (typeof JobStep)[keyof typeof JobStep];

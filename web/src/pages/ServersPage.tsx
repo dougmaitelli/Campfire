@@ -21,6 +21,7 @@ import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { deleteServer, listServers } from "../api/servers";
 import type { Server } from "../api/servers";
+import { getCopyTemplate, type CopyTemplate } from "../api/copies";
 import { serverOptions, type ServerOptions } from "../api/access";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { useCollection } from "../hooks/useCollection";
@@ -39,6 +40,7 @@ import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ServerTransferDrawer } from "../drawers/ServerTransferDrawer";
+import { ServerCopyFlow, type ServerCopyMode } from "../drawers/ServerCopyFlow";
 import { BackupImportDrawer } from "../drawers/BackupImportDrawer";
 import type { BackupImport } from "../api/backupImports";
 
@@ -48,6 +50,7 @@ export function ServersPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
   const [details, setDetails] = useState<Server | null>(null);
+  const [detailsTab, setDetailsTab] = useState<"details" | "jobs">("details");
   const auth = useAuthentication();
   const canApplyRevision =
     auth.session?.admin === true ||
@@ -58,6 +61,15 @@ export function ServersPage() {
     (auth.session?.permissions?.includes(Permission.SparksManage) === true &&
       auth.session.permissions.includes(Permission.ServersManageAll));
   const [transferServer, setTransferServer] = useState<Server | null>(null);
+  const [copyRequest, setCopyRequest] = useState<{
+    server: Server;
+    mode: ServerCopyMode;
+    template: CopyTemplate;
+    options: ServerOptions;
+  } | null>(null);
+  const [copyLoading, setCopyLoading] = useState(false);
+  const copyLoad = useRef<AbortController | null>(null);
+  useEffect(() => () => copyLoad.current?.abort(), []);
   const canProvision =
     auth.session?.admin === true ||
     auth.session?.permissions?.includes(Permission.ServersCreate) === true;
@@ -188,7 +200,67 @@ export function ServersPage() {
       editorPending.current = false;
     }
   }
+  async function beginCopy(server: Server, mode: ServerCopyMode) {
+    if (editorPending.current) return;
+    editorPending.current = true;
+    const controller = new AbortController();
+    copyLoad.current = controller;
+    setCopyLoading(true);
+    setActionError(null);
+    try {
+      const signal = AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(API_READ_TIMEOUT_MS),
+      ]);
+      const [template, available] = await Promise.all([
+        getCopyTemplate(server.id, signal),
+        serverOptions(signal),
+      ]);
+      if (!controller.signal.aborted) {
+        setCopyRequest({ server, mode, template, options: available });
+        setDetails(null);
+      }
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        setActionError(
+          cause instanceof Error
+            ? cause.message
+            : i18n.t("serverCopy.unableToLoad"),
+        );
+    } finally {
+      if (copyLoad.current === controller) {
+        copyLoad.current = null;
+        editorPending.current = false;
+        setCopyLoading(false);
+      }
+    }
+  }
   const detailActions: ActionMenuItem[] = [
+    ...(details &&
+    canProvision &&
+    details.permissions.includes(Permission.ServerConfigure)
+      ? [
+          {
+            label: t("serverCopy.copy"),
+            icon: "servers",
+            disabled: deleting !== null || copyLoading,
+            onSelect: () => {
+              void beginCopy(details, "copy");
+            },
+          } satisfies ActionMenuItem,
+          {
+            label: t("serverCopy.quickCopy"),
+            icon: "servers",
+            disabled:
+              deleting !== null ||
+              copyLoading ||
+              !details.permissions.includes(Permission.ServerFilesRead),
+            onSelect: () => {
+              void beginCopy(details, "quick");
+            },
+          } satisfies ActionMenuItem,
+        ]
+      : []),
     ...(details && canApplyRevision && details.ember_update_available
       ? [
           {
@@ -196,6 +268,7 @@ export function ServersPage() {
             icon: "embers",
             disabled:
               deleting !== null ||
+              copyLoading ||
               runtime.statuses[details.id]?.busy === true ||
               ![
                 RuntimeState.Stopped,
@@ -214,7 +287,7 @@ export function ServersPage() {
           {
             label: t("serversPage.transfer"),
             icon: "arrow-right",
-            disabled: deleting !== null,
+            disabled: deleting !== null || copyLoading,
             onSelect: () => {
               setDetails(null);
               setTransferServer(details);
@@ -389,7 +462,10 @@ export function ServersPage() {
               return (
                 <ServerTableRow
                   key={server.id}
-                  onOpen={() => setDetails(server)}
+                  onOpen={() => {
+                    setDetailsTab("details");
+                    setDetails(server);
+                  }}
                   gameReadings={monitored?.game && gameReadings}
                   columnCount={hasGameArt ? 7 : 6}
                 >
@@ -409,7 +485,10 @@ export function ServersPage() {
                     <button
                       type="button"
                       className="table-row-trigger"
-                      onClick={() => setDetails(server)}
+                      onClick={() => {
+                        setDetailsTab("details");
+                        setDetails(server);
+                      }}
                       aria-label={i18n.t("serversPage.viewDetailsFor", {
                         serverName: server.name,
                       })}
@@ -582,13 +661,37 @@ export function ServersPage() {
             transferServer
           }
           onClose={() => setTransferServer(null)}
-          onChanged={servers.refresh}
+          onSubmitted={() => {
+            setTransferServer(null);
+            setDetailsTab("jobs");
+            setDetails(transferServer);
+            void servers.refresh();
+          }}
+        />
+      )}
+      {copyRequest && (
+        <ServerCopyFlow
+          source={copyRequest.server}
+          mode={copyRequest.mode}
+          template={copyRequest.template}
+          options={copyRequest.options}
+          servers={servers.items}
+          onClose={() => setCopyRequest(null)}
+          onSaved={servers.upsert}
+          onSubmitted={() => {
+            setCopyRequest(null);
+            setDetailsTab("jobs");
+            setDetails(copyRequest.server);
+            void servers.refresh();
+          }}
         />
       )}
       {details && (
         <ServerDetailsDrawer
           key={details.id}
           id={details.id}
+          initialTab={detailsTab}
+          onChanged={servers.refresh}
           title={
             <>
               <span>{details.name}</span>
@@ -608,12 +711,17 @@ export function ServersPage() {
               : undefined
           }
           deleteDisabled={
-            deleting !== null || runtime.statuses[details.id]?.busy === true
+            deleting !== null ||
+            copyLoading ||
+            runtime.statuses[details.id]?.busy === true
           }
           deleting={deleting === details.id}
           actionError={actionError}
           actions={detailActions}
-          onClose={() => setDetails(null)}
+          onClose={() => {
+            copyLoad.current?.abort();
+            setDetails(null);
+          }}
           onEdit={
             details.permissions.includes(Permission.ServerConfigure) ||
             details.can_manage_access === true
@@ -623,7 +731,7 @@ export function ServersPage() {
                 }
               : undefined
           }
-          editDisabled={loading}
+          editDisabled={loading || copyLoading}
         />
       )}
     </section>

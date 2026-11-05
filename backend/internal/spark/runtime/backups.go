@@ -109,7 +109,7 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 	}
 
 	if q.Operation == model.FileOperationBackupDelete {
-		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased) {
+		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && !transfer.allowsOperations()) {
 			return result, fileFailure(model.FileBusy, "Finish the Spark transfer before deleting backups.")
 		}
 	}
@@ -633,6 +633,14 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 	e.mu.Lock()
 	installed := e.Installed
 	e.mu.Unlock()
+
+	if !installed && manifest.Format == backuparchive.Format && manifest.Mode == model.BackupModeFull {
+		m.progress(d.ServerID, e, "Preparing runtime image")
+
+		if _, err := m.Docker.Run(ctx, nil, "pull", d.Configuration.Image); err != nil {
+			return err
+		}
+	}
 
 	if !installed && manifest.Format != backuparchive.Format {
 		return errors.New("an uninstalled server requires a portable backup")

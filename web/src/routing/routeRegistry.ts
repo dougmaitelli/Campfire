@@ -74,6 +74,12 @@ export const routeRegistry = {
     ),
     adminOnly: false,
   },
+  jobs: {
+    Page: lazy(() =>
+      import("../pages/JobsPage").then((m) => ({ default: m.JobsPage })),
+    ),
+    adminOnly: true,
+  },
   users: {
     Page: lazy(() =>
       import("../pages/UsersPage").then((m) => ({ default: m.UsersPage })),

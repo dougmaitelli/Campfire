@@ -1,0 +1,134 @@
+.server-jobs {
+  display: grid;
+  gap: 16px;
+  padding-block-start: 12px;
+
+  &.server-jobs-global {
+    padding-block-start: 0;
+  }
+
+  & > .button {
+    justify-self: start;
+  }
+}
+
+.jobs-table {
+  & td {
+    padding-block: 12px;
+  }
+
+  & .server-job-info {
+    width: 42%;
+  }
+
+  & .server-job-state {
+    min-width: 11rem;
+  }
+
+  & .server-job-created {
+    width: 1%;
+    color: var(--muted);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
+.server-job-heading {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.server-job-route,
+.server-job-phase,
+.server-job-size {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.server-job-route {
+  margin-block-start: 4px;
+  overflow-wrap: anywhere;
+}
+
+.server-job-state-content,
+.server-job-progress {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.server-job-progress {
+  width: 100%;
+  max-width: 15rem;
+
+  & .progress-bar {
+    --progress-bar-height: 5px;
+  }
+}
+
+.server-job-size {
+  font-variant-numeric: tabular-nums;
+}
+
+.server-job-error {
+  color: var(--danger);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 42rem) {
+  .jobs-table {
+    & thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    & tbody {
+      display: block;
+    }
+
+    & .server-job-history-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      padding-block: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    & td,
+    & tbody tr + tr td,
+    & tbody tr:last-child td {
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    & .server-job-info,
+    & .server-job-state,
+    & .server-job-created {
+      grid-column: 1;
+      width: auto;
+      min-width: 0;
+      padding: 0;
+    }
+
+    & .server-job-created {
+      font-size: 12px;
+    }
+
+    & .server-job-actions {
+      width: auto;
+      padding: 0;
+      grid-column: 2;
+      grid-row: 1 / span 3;
+      align-self: center;
+    }
+  }
+}

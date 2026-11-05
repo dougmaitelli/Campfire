@@ -27,6 +27,8 @@ type DeploymentService struct {
 	Remote         ConfigurationDispatcher
 	Activity       *ActivityService
 	Transfers      *TransferService
+	Copies         *CopyService
+	Jobs           *JobService
 	Backups        *BackupService
 	History        *ResourceHistoryService
 	Games          *GameIntegrationService
@@ -36,6 +38,18 @@ type DeploymentService struct {
 	statuses       map[string]model.RuntimeStatus
 	observed       map[string]time.Time
 	statusSparks   map[string]string
+}
+
+func (s *DeploymentService) guardServer(ctx context.Context, id string) error {
+	if s.Copies != nil {
+		return s.Copies.Store.Guard(ctx, id)
+	}
+
+	if s.Transfers != nil {
+		return s.Transfers.Store.Guard(ctx, id)
+	}
+
+	return nil
 }
 
 type deliveryLock struct {
@@ -58,10 +72,8 @@ func (s *DeploymentService) Sync(ctx context.Context, id string) (model.Configur
 }
 
 func (s *DeploymentService) sync(ctx context.Context, id string) (model.ConfigurationReceipt, error) {
-	if s.Transfers != nil {
-		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
-			return model.ConfigurationReceipt{}, err
-		}
+	if err := s.guardServer(ctx, id); err != nil {
+		return model.ConfigurationReceipt{}, err
 	}
 
 	if err := ctx.Err(); err != nil {
@@ -82,12 +94,18 @@ func (s *DeploymentService) sync(ctx context.Context, id string) (model.Configur
 		return model.ConfigurationReceipt{}, ErrDeploymentUnavailable
 	}
 
+	ctx, releaseDefinition, lockErr := holdDefinition(ctx, server.EmberID)
+	if lockErr != nil {
+		return model.ConfigurationReceipt{}, lockErr
+	}
+	defer releaseDefinition()
+
 	ember, err := s.Embers.Get(ctx, server.EmberID)
 	if err != nil {
 		return model.ConfigurationReceipt{}, err
 	}
 
-	if server.EmberUpdateAvailable {
+	if server.EmberHash != ember.Revision {
 		return model.ConfigurationReceipt{}, fmt.Errorf("%w: apply the current Ember before synchronizing configuration", ErrInvalidServer)
 	}
 

@@ -394,11 +394,6 @@ func (h *Hub) CheckRuntime(id string, request model.RuntimeRequest) error {
 	return h.CheckCapabilities(id, required...)
 }
 
-// CheckTransfer verifies that a node can take part in a complete server move.
-func (h *Hub) CheckTransfer(id string) error {
-	return h.CheckCapabilities(id, protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityTransfer)
-}
-
 // CheckConsole verifies streaming support before opening an HTTP event response.
 func (h *Hub) CheckConsole(id string) error {
 	return h.CheckCapabilities(id, protocol.CapabilityConsole)

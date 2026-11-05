@@ -48,7 +48,7 @@ const (
 	CapabilityConsole         = "server.console.stream.v1"
 	CapabilityLogAlerts       = "server.log-alerts.v1"
 	CapabilityDiskQuota       = "server.disk-quota.v1"
-	CapabilityTransfer        = "server.transfer.v1"
+	CapabilityJobs            = "server.jobs.v1"
 	CapabilityReinstall       = "server.reinstall.v1"
 	CapabilitySelfUpdate      = "spark.self-update.v1"
 	CapabilitySelfReinstall   = "spark.self-reinstall.v1"
@@ -60,7 +60,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityTransfer, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -137,7 +137,7 @@ var commandCapabilities = map[CommandName][]string{
 	UpdateSpark:     {CapabilitySelfUpdate},
 	ReinstallSpark:  {CapabilitySelfReinstall},
 	ConfigureServer: {CapabilityConfigure},
-	ServerTransfer:  {CapabilityTransfer},
+	ServerJob:       {CapabilityJobs},
 	ServerFiles:     {CapabilityFiles},
 	ServerAction:    {CapabilityLifecycle},
 }

@@ -58,7 +58,7 @@ func (m *Manager) uploadBackup(ctx context.Context, e *entry, q model.FileReques
 		return result, fileFailure(model.FileInvalid, "Invalid backup upload.")
 	}
 
-	if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased) {
+	if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && !transfer.allowsOperations()) {
 		return result, fileFailure(model.FileBusy, "Finish the Spark transfer before uploading backups.")
 	}
 

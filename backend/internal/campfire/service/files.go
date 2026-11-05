@@ -48,8 +48,8 @@ func (s *DeploymentService) Files(ctx context.Context, id string, request model.
 }
 
 func (s *DeploymentService) filesUnlocked(ctx context.Context, id string, request model.FileRequest) (model.FileResult, error) {
-	if s.Transfers != nil && request.Operation != model.FileOperationList && request.Operation != model.FileOperationRead && request.Operation != model.FileOperationStat && request.Operation != model.FileOperationReadChunk && request.Operation != model.FileOperationUploadCancel && request.Operation != model.FileOperationBackupList && request.Operation != model.FileOperationBackupRead {
-		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
+	if request.Operation != model.FileOperationList && request.Operation != model.FileOperationRead && request.Operation != model.FileOperationStat && request.Operation != model.FileOperationReadChunk && request.Operation != model.FileOperationUploadCancel && request.Operation != model.FileOperationBackupList && request.Operation != model.FileOperationBackupRead {
+		if err := s.guardServer(ctx, id); err != nil {
 			return model.FileResult{}, err
 		}
 	}

@@ -131,7 +131,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 
 	mutate := q.Operation != model.FileOperationList && q.Operation != model.FileOperationRead && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadCancel
 	if mutate {
-		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased) {
+		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && !transfer.allowsOperations()) {
 			return model.FileResult{}, fileFailure(model.FileBusy, "Server files are locked for a Spark transfer.")
 		}
 	}

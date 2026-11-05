@@ -99,8 +99,8 @@ func (s *DeploymentService) runAction(ctx context.Context, id string, action mod
 }
 
 func (s *DeploymentService) runActionUnlocked(ctx context.Context, id string, action model.ServerAction, content string) (model.RuntimeStatus, error) {
-	if s.Transfers != nil && action != model.ServerActionStatus && action != model.ServerActionLogs {
-		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
+	if action != model.ServerActionStatus && action != model.ServerActionLogs {
+		if err := s.guardServer(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}
 	}
@@ -326,6 +326,27 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 		return model.RuntimeStatus{}, errors.Join(ErrDeploymentUnavailable, err)
 	}
 
+	if action == model.ServerActionStatus && s.Copies != nil {
+		jobs, err := s.Copies.Store.Jobs().ActiveForServer(ctx, id, model.JobCopy)
+		if err != nil {
+			return model.RuntimeStatus{}, err
+		}
+
+		for _, job := range jobs {
+			if job.TargetServerID == id {
+				status.Busy, status.Ready = true, false
+				status.Progress, status.Error = "Server copy: "+string(job.Step), job.Error
+
+				status.OperationState = model.OperationRunning
+				if job.Status == model.JobFailed {
+					status.OperationState = model.OperationFailed
+				}
+
+				break
+			}
+		}
+	}
+
 	if s.LogAlerts != nil {
 		if err := s.LogAlerts.Observe(ctx, node.ID, id, status.LogObservation); err != nil {
 			return model.RuntimeStatus{}, err
@@ -368,10 +389,8 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 	}
 	defer release()
 
-	if s.Transfers != nil {
-		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
-			return err
-		}
+	if err := s.guardServer(ctx, id); err != nil {
+		return err
 	}
 
 	if checker, ok := s.Remote.(interface {

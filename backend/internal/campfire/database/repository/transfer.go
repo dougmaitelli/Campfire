@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"time"
+	"fmt"
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/shared/model"
@@ -12,15 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// ErrTransferActive prevents configuration and placement changes while both
-// Sparks hold a frozen copy. ErrTransferState requires an explicit retry/cancel.
-var (
-	ErrTransferActive = errors.New("server is locked for a Spark transfer")
-	ErrTransferState  = errors.New("transfer state does not permit this operation")
-)
-
 // TransferRepository owns durable transfer history and atomic reservations.
 type TransferRepository struct{ db *gorm.DB }
+
+// Jobs returns the shared checkpoint repository.
+func (r *TransferRepository) Jobs() *JobRepository { return NewJobRepository(r.db) }
 
 // NewTransferRepository creates a transfer repository.
 func NewTransferRepository(db *gorm.DB) *TransferRepository { return &TransferRepository{db: db} }
@@ -35,8 +30,8 @@ func reservedServers(tx *gorm.DB, sparkID, excludeID string) ([]database.Server,
 		return nil, err
 	}
 
-	var transfers []database.ServerTransfer
-	if err := tx.Where("active = ? AND server_id <> ? AND (source_spark_id = ? OR target_spark_id = ?)", true, excludeID, sparkID, sparkID).Find(&transfers).Error; err != nil {
+	var jobs []database.ServerJob
+	if err := unfinishedJobs(tx).Where("type = ? AND source_server_id <> ? AND (source_spark_id = ? OR target_spark_id = ?)", model.JobTransfer, excludeID, sparkID, sparkID).Find(&jobs).Error; err != nil {
 		return nil, err
 	}
 
@@ -45,51 +40,56 @@ func reservedServers(tx *gorm.DB, sparkID, excludeID string) ([]database.Server,
 		seen[server.ID] = true
 	}
 
-	for _, transfer := range transfers {
-		if seen[transfer.ServerID] {
+	for _, job := range jobs {
+		if seen[job.SourceServerID] {
 			continue
 		}
 
-		configuration := transfer.TargetConfiguration
-		if transfer.SourceSparkID == sparkID {
-			configuration = transfer.SourceConfiguration
+		work, err := NewJobRepository(tx).transferWork(tx.Statement.Context, job)
+		if err != nil {
+			return nil, err
 		}
 
-		servers = append(servers, transferRecord(transfer.ServerID, configuration))
-		seen[transfer.ServerID] = true
+		configuration := work.TargetConfiguration
+		if job.SourceSparkID == sparkID {
+			configuration = work.SourceConfiguration
+		}
+
+		servers = append(servers, transferRecord(job.SourceServerID, configuration))
+		seen[job.SourceServerID] = true
 	}
 
 	return servers, nil
 }
 
 func activeTransfer(tx *gorm.DB, serverID string) error {
-	var count int64
-	if err := tx.Model(&database.ServerTransfer{}).Where("server_id = ? AND active = ?", serverID, true).Count(&count).Error; err != nil {
+	if err := guardJob(tx, serverID); err != nil {
 		return err
-	}
-
-	if count > 0 {
-		return ErrTransferActive
 	}
 
 	return nil
 }
 
-// Guard rejects mutations during an active transfer.
+// Guard rejects mutations during an active transfer or copy.
 func (r *TransferRepository) Guard(ctx context.Context, serverID string) error {
 	return activeTransfer(r.db.WithContext(ctx), serverID)
 }
 
-// Create reserves destination capacity and freezes placement atomically.
-func (r *TransferRepository) Create(ctx context.Context, transfer database.ServerTransfer) error {
+// Create reserves destination capacity and freezes the validated configuration
+// and definition revision atomically, including against other panel processes.
+func (r *TransferRepository) Create(ctx context.Context, transfer model.TransferWork, expectedEmberHash string) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if err := activeTransfer(tx, transfer.ServerID); err != nil {
 			return err
 		}
 
-		var server database.Server
-		if err := tx.Where("id = ? AND spark_id = ?", transfer.ServerID, transfer.SourceSparkID).Take(&server).Error; err != nil {
-			return ErrTransferState
+		server, err := NewServerRepository(tx).Get(ctx, transfer.ServerID)
+		if err != nil {
+			return err
+		}
+
+		if expectedEmberHash == "" || server.EmberHash != expectedEmberHash || server.EmberUpdateAvailable || !model.SameRuntimeConfiguration(server.ServerConfiguration, transfer.SourceConfiguration) {
+			return ErrJobState
 		}
 
 		var target database.Spark
@@ -106,91 +106,106 @@ func (r *TransferRepository) Create(ctx context.Context, transfer database.Serve
 			return err
 		}
 
-		return tx.Create(&transfer).Error
+		data, err := json.Marshal(model.TransferJobData{SourcePorts: transfer.SourceConfiguration.Ports, TargetPorts: transfer.TargetConfiguration.Ports})
+		if err != nil {
+			return err
+		}
+
+		job := database.ServerJob{ID: transfer.ID, Type: model.JobTransfer, SourceServerID: transfer.ServerID, TargetServerID: transfer.ServerID, SourceSparkID: transfer.SourceSparkID, TargetSparkID: transfer.TargetSparkID, Data: string(data), Status: model.JobPending, Step: model.JobPreparing, Attempt: 1, CreatedAt: transfer.CreatedAt, UpdatedAt: transfer.UpdatedAt}
+
+		return tx.Create(&job).Error
 	})
 }
 
-// Get loads a transfer and its available cancellation action.
-func (r *TransferRepository) Get(ctx context.Context, id string) (database.ServerTransfer, error) {
-	var transfer database.ServerTransfer
+// Get resolves transfer work from the protected server and placement data.
+func (r *TransferRepository) Get(ctx context.Context, id string) (model.TransferWork, error) {
+	store := NewJobRepository(r.db)
 
-	err := r.db.WithContext(ctx).Where("id = ?", id).Take(&transfer).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = ErrAccessNotFound
+	job, err := store.Get(ctx, id)
+	if err != nil {
+		return model.TransferWork{}, err
 	}
 
-	transfer.CanCancel = canCancelTransfer(transfer)
+	if job.Type != model.JobTransfer {
+		return model.TransferWork{}, ErrAccessNotFound
+	}
 
-	return transfer, err
+	return store.transferWork(ctx, job)
 }
 
-// List returns server history or active coordinator work.
-func (r *TransferRepository) List(ctx context.Context, serverID string, active bool) ([]database.ServerTransfer, error) {
-	query := r.db.WithContext(ctx).Limit(100)
-	if serverID != "" {
-		query = query.Where("server_id = ?", serverID)
-	}
-
-	if active {
-		query = query.Where("active = ? AND phase <> ?", true, "failed").Order("created_at")
-	} else {
-		query = query.Order("created_at DESC")
-	}
-
-	transfers := make([]database.ServerTransfer, 0)
-
-	err := query.Find(&transfers).Error
-	for i := range transfers {
-		transfers[i].CanCancel = canCancelTransfer(transfers[i])
-	}
-
-	return transfers, err
-}
-
-func canCancelTransfer(transfer database.ServerTransfer) bool {
-	phase := transfer.Phase
-	if phase == model.TransferPhaseFailed {
-		phase = transfer.ResumePhase
-	}
-
-	return transfer.Active && phase != model.TransferPhaseCommitting && phase != model.TransferPhaseCleanup && phase != model.TransferPhaseCancelling
-}
-
-// Advance persists progress only while the expected phase remains current.
+// Advance conditionally checkpoints a transfer workflow step.
 func (r *TransferRepository) Advance(ctx context.Context, id string, phase model.TransferPhase, changes map[string]any) error {
-	changes["updated_at"] = time.Now().Unix()
+	store := NewJobRepository(r.db)
 
-	result := r.db.WithContext(ctx).Model(&database.ServerTransfer{}).Where("id = ? AND active = ? AND phase = ?", id, true, phase).Updates(changes)
-	if result.Error != nil {
-		return result.Error
+	job, err := expectedJob(ctx, store, id)
+	if err != nil {
+		return err
 	}
 
-	if result.RowsAffected != 1 {
-		return ErrTransferState
+	if job.Type != model.JobTransfer || transferPhase(job) != phase {
+		return ErrJobState
 	}
 
-	return nil
+	update := map[string]any{}
+
+	for _, field := range []string{"error", "transferred_bytes", "total_bytes", "digest"} {
+		if value, ok := changes[field]; ok {
+			update[field] = value
+		}
+	}
+
+	if value, ok := changes["phase"]; ok {
+		next := model.TransferPhase(fmt.Sprint(value))
+		switch next {
+		case model.TransferPhaseFailed:
+			update["status"] = model.JobFailed
+			if resume, ok := changes["resume_phase"]; ok {
+				update["step"] = transferStep(model.TransferPhase(fmt.Sprint(resume)))
+			}
+		case model.TransferPhaseCancelling:
+			update["status"] = model.JobCancelling
+		case model.TransferPhaseComplete:
+			return store.Finish(ctx, job, false)
+		case model.TransferPhaseCancelled:
+			return store.Finish(ctx, job, true)
+		default:
+			update["step"] = transferStep(next)
+		}
+	}
+
+	return store.Advance(ctx, job, update)
 }
 
-// Commit changes placement after a verified destination import.
+// Commit atomically changes placement after verified import.
 func (r *TransferRepository) Commit(ctx context.Context, id string) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		var transfer database.ServerTransfer
-		if err := tx.Where("id = ? AND active = ? AND phase = ?", id, true, model.TransferPhaseCommitting).Take(&transfer).Error; err != nil {
-			return ErrTransferState
-		}
+		store := NewJobRepository(tx)
 
-		var target database.Spark
-		if err := tx.Where("id = ? AND disabled = ?", transfer.TargetSparkID, false).Take(&target).Error; err != nil {
-			return ErrServerPlacement
-		}
-
-		servers, err := reservedServers(tx, target.ID, transfer.ServerID)
+		job, err := expectedJob(ctx, store, id)
 		if err != nil {
 			return err
 		}
 
-		if err := checkReservations(target, append(servers, transferRecord(transfer.ServerID, transfer.TargetConfiguration))); err != nil {
+		if job.Type != model.JobTransfer || job.Status != model.JobRunning || job.Step != model.JobCommitting {
+			return ErrJobState
+		}
+
+		transfer, err := store.transferWork(ctx, job)
+		if err != nil {
+			return err
+		}
+
+		var target database.Spark
+		if err := tx.Where("id = ? AND disabled = ?", job.TargetSparkID, false).Take(&target).Error; err != nil {
+			return ErrServerPlacement
+		}
+
+		servers, err := reservedServers(tx, target.ID, job.SourceServerID)
+		if err != nil {
+			return err
+		}
+
+		if err := checkReservations(target, append(servers, transferRecord(job.SourceServerID, transfer.TargetConfiguration))); err != nil {
 			return err
 		}
 
@@ -199,57 +214,25 @@ func (r *TransferRepository) Commit(ctx context.Context, id string) error {
 			return err
 		}
 
-		result := tx.Model(&database.Server{}).Where("id = ? AND spark_id = ?", transfer.ServerID, transfer.SourceSparkID).Updates(map[string]any{"spark_id": target.ID, "ports": string(ports)})
+		result := tx.Model(&database.Server{}).Where("id = ? AND spark_id = ?", job.SourceServerID, job.SourceSparkID).Updates(map[string]any{"spark_id": target.ID, "ports": string(ports)})
 		if result.Error != nil {
 			return result.Error
 		}
 
 		if result.RowsAffected != 1 {
-			return ErrTransferState
+			return ErrJobState
 		}
 
-		return tx.Model(&transfer).Updates(map[string]any{"phase": model.TransferPhaseCleanup, "error": "", "updated_at": time.Now().Unix()}).Error
+		return store.Advance(ctx, job, map[string]any{"step": model.JobCleanup, "error": ""})
 	})
 }
 
-// Retry resumes a failed transfer from its durable checkpoint.
+// Retry requests a new attempt without releasing reservations.
 func (r *TransferRepository) Retry(ctx context.Context, id string) error {
-	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		transfer, err := (&TransferRepository{db: tx}).Get(ctx, id)
-		if err != nil {
-			return err
-		}
-
-		if !transfer.Active || transfer.Phase != model.TransferPhaseFailed || transfer.ResumePhase == "" {
-			return ErrTransferState
-		}
-
-		return tx.Model(&transfer).Updates(map[string]any{"phase": transfer.ResumePhase, "error": "", "updated_at": time.Now().Unix()}).Error
-	})
+	return NewJobRepository(r.db).Change(ctx, id, false)
 }
 
-// Cancel requests cleanup before placement has changed.
+// Cancel requests cleanup before placement commit begins.
 func (r *TransferRepository) Cancel(ctx context.Context, id string) error {
-	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		transfer, err := (&TransferRepository{db: tx}).Get(ctx, id)
-		if err != nil {
-			return err
-		}
-
-		phase := transfer.Phase
-		if phase == model.TransferPhaseFailed {
-			phase = transfer.ResumePhase
-		}
-
-		if !transfer.Active || phase == model.TransferPhaseCommitting || phase == model.TransferPhaseCleanup {
-			return ErrTransferState
-		}
-
-		cancelFrom := transfer.CancelFrom
-		if phase != model.TransferPhaseCancelling {
-			cancelFrom = phase
-		}
-
-		return tx.Model(&transfer).Updates(map[string]any{"phase": model.TransferPhaseCancelling, "cancel_from": cancelFrom, "error": "", "updated_at": time.Now().Unix()}).Error
-	})
+	return NewJobRepository(r.db).Change(ctx, id, true)
 }

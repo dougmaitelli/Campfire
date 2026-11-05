@@ -160,7 +160,12 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 			return err
 		}
 
-		name := options.Mode.ArchiveName(request.OperationID)
+		archiveID := request.OperationID
+		if request.ArchiveID != "" {
+			archiveID = request.ArchiveID
+		}
+
+		name := options.Mode.ArchiveName(archiveID)
 		if request.OperationID == "" || !model.BackupName(name) {
 			return fileError(model.FileInvalid, "Invalid backup operation ID.")
 		}

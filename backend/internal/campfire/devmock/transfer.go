@@ -30,13 +30,15 @@ type transferDeployment struct {
 }
 
 type transferRecord struct {
-	ID       string `gorm:"primaryKey"`
-	SparkID  string `gorm:"primaryKey"`
-	ServerID string
-	State    model.TransferState
-	Data     []byte
-	Size     int64
-	Digest   string
+	ID            string `gorm:"primaryKey"`
+	SparkID       string `gorm:"primaryKey"`
+	ServerID      string
+	State         model.JobState
+	Data          []byte
+	Size          int64
+	Digest        string
+	ArchiveFormat string
+	ArchiveName   string
 }
 
 func (transferRecord) TableName() string { return "mock_transfers" }
@@ -62,28 +64,19 @@ func (r *Runtime) stageDeployment(ctx context.Context, spark string, deployment 
 	return model.ConfigurationReceipt{ServerID: deployment.ServerID, Revision: hex.EncodeToString(digest[:])}, nil
 }
 
-// CheckTransfer uses the same offline fixture as the other mock transports.
-func (r *Runtime) CheckTransfer(spark string) error {
+// Job simulates durable archive transport for the shared coordinator.
+func (r *Runtime) Job(ctx context.Context, spark string, request model.JobRequest) (model.JobResult, error) {
 	if !r.Connected(spark) {
-		return errors.New("mock Spark is offline")
+		return model.JobResult{}, errors.New("mock Spark is offline")
 	}
 
-	return nil
-}
-
-// Transfer simulates Spark archive transport while the real service owns workflow and reservations.
-func (r *Runtime) Transfer(ctx context.Context, spark string, request model.TransferRequest) (model.TransferResult, error) {
-	if err := r.CheckTransfer(spark); err != nil {
-		return model.TransferResult{}, err
-	}
-
-	if request.Operation == model.TransferOperationWrite {
+	if request.Operation == model.JobOperationWrite {
 		timer := time.NewTimer(mockTransferDelay)
 		defer timer.Stop()
 
 		select {
 		case <-ctx.Done():
-			return model.TransferResult{}, ctx.Err()
+			return model.JobResult{}, ctx.Err()
 		case <-timer.C:
 		}
 	}
@@ -92,46 +85,46 @@ func (r *Runtime) Transfer(ctx context.Context, spark string, request model.Tran
 	defer r.mu.Unlock()
 
 	if request.ID == "" || request.ServerID == "" {
-		return model.TransferResult{}, errors.New("missing mock transfer identity")
+		return model.JobResult{}, errors.New("missing mock transfer identity")
 	}
 
-	entry := transferRecord{ID: request.ID, SparkID: spark, ServerID: request.ServerID, State: model.TransferStateAbsent}
+	entry := transferRecord{ID: request.ID, SparkID: spark, ServerID: request.ServerID, State: model.JobStateAbsent}
 
 	err := r.db.WithContext(ctx).Where("id = ? AND spark_id = ?", request.ID, spark).Take(&entry).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.TransferResult{}, err
+		return model.JobResult{}, err
 	}
 
 	if entry.ServerID != request.ServerID {
-		return model.TransferResult{}, errors.New("mock transfer belongs to another server")
+		return model.JobResult{}, errors.New("mock transfer belongs to another server")
 	}
 
 	result, err := r.transferOperation(ctx, &entry, request)
 	if err != nil {
-		return model.TransferResult{}, err
+		return model.JobResult{}, err
 	}
 
 	if err := r.db.WithContext(ctx).Save(&entry).Error; err != nil {
-		return model.TransferResult{}, err
+		return model.JobResult{}, err
 	}
 
 	result.ID, result.ServerID, result.State = entry.ID, entry.ServerID, entry.State
 	result.Size, result.Digest = entry.Size, entry.Digest
 
-	if request.Operation != model.TransferOperationRead {
+	if request.Operation != model.JobOperationRead {
 		result.Offset = int64(len(entry.Data))
 	}
 
 	return result, nil
 }
 
-func (r *Runtime) transferOperation(ctx context.Context, entry *transferRecord, request model.TransferRequest) (model.TransferResult, error) {
-	result := model.TransferResult{}
+func (r *Runtime) transferOperation(ctx context.Context, entry *transferRecord, request model.JobRequest) (model.JobResult, error) {
+	result := model.JobResult{}
 
 	switch request.Operation {
-	case model.TransferOperationStatus:
-	case model.TransferOperationExport:
-		if entry.State != model.TransferStateAbsent {
+	case model.JobOperationStatus:
+	case model.JobOperationExport:
+		if entry.State != model.JobStateAbsent {
 			break
 		}
 
@@ -156,30 +149,31 @@ func (r *Runtime) transferOperation(ctx context.Context, entry *transferRecord, 
 
 		digest := sha256.Sum256(data)
 		entry.Data, entry.Size, entry.Digest = data, int64(len(data)), hex.EncodeToString(digest[:])
-		entry.State = model.TransferStateReady
-	case model.TransferOperationPrepare:
-		if entry.State == model.TransferStateAbsent || entry.State == model.TransferStateCorrupt {
+		entry.State = model.JobStateReady
+	case model.JobOperationPrepare:
+		if entry.State == model.JobStateAbsent || entry.State == model.JobStateCorrupt {
+			entry.ArchiveFormat, entry.ArchiveName = request.ArchiveFormat, request.ArchiveName
 			if request.Size <= 0 || request.Digest == "" {
 				return result, errors.New("missing mock transfer archive metadata")
 			}
 
 			entry.Data, entry.Size, entry.Digest = nil, request.Size, request.Digest
-			entry.State = model.TransferStateReceiving
+			entry.State = model.JobStateReceiving
 		}
 
 		if entry.Size != request.Size || entry.Digest != request.Digest {
 			return result, errors.New("mock transfer archive metadata changed")
 		}
-	case model.TransferOperationRead:
-		if entry.State != model.TransferStateReady || request.Offset < 0 || request.Offset > int64(len(entry.Data)) {
+	case model.JobOperationRead:
+		if entry.State != model.JobStateReady || request.Offset < 0 || request.Offset > int64(len(entry.Data)) {
 			return result, errors.New("invalid mock transfer read")
 		}
 
 		end := min(request.Offset+max(1, entry.Size/mockTransferChunks), entry.Size)
 		result.Data = bytes.Clone(entry.Data[request.Offset:end])
 		result.Offset = end
-	case model.TransferOperationWrite:
-		if entry.State != model.TransferStateReceiving || request.Offset < 0 || request.Offset > int64(len(entry.Data)) || request.Offset+int64(len(request.Data)) > entry.Size {
+	case model.JobOperationWrite:
+		if entry.State != model.JobStateReceiving || request.Offset < 0 || request.Offset > int64(len(entry.Data)) || request.Offset+int64(len(request.Data)) > entry.Size {
 			return result, errors.New("invalid mock transfer write")
 		}
 
@@ -188,27 +182,51 @@ func (r *Runtime) transferOperation(ctx context.Context, entry *transferRecord, 
 		} else if end := request.Offset + int64(len(request.Data)); end > int64(len(entry.Data)) || !bytes.Equal(entry.Data[request.Offset:end], request.Data) {
 			return result, errors.New("conflicting mock transfer chunk")
 		}
-	case model.TransferOperationImport:
-		if entry.State == model.TransferStateImported || entry.State == model.TransferStateActive {
+	case model.JobOperationImport:
+		if entry.State == model.JobStateImported || entry.State == model.JobStatePublished || entry.State == model.JobStateActive {
 			break
 		}
 
-		if entry.State != model.TransferStateReceiving || int64(len(entry.Data)) != entry.Size {
+		if entry.State != model.JobStateReceiving || int64(len(entry.Data)) != entry.Size {
 			return result, errors.New("mock transfer archive is incomplete")
 		}
 
 		digest := sha256.Sum256(entry.Data)
-		entry.State = model.TransferStateImported
+		entry.State = model.JobStateImported
 
 		if hex.EncodeToString(digest[:]) != entry.Digest {
-			entry.State = model.TransferStateCorrupt
+			entry.State = model.JobStateCorrupt
 		}
-	case model.TransferOperationActivate:
-		if entry.State == model.TransferStateActive {
+
+		if entry.State == model.JobStateImported && entry.ArchiveFormat == "backup" {
+			if r.backupUploads == nil {
+				r.backupUploads = make(map[string]*mockBackupUpload)
+			}
+
+			upload := &mockBackupUpload{server: entry.ServerID, path: entry.ArchiveName, size: entry.Size, expires: time.Now().Add(time.Hour)}
+			_, _ = upload.data.Write(entry.Data)
+			r.backupUploads[entry.ID] = upload
+
+			_, err := r.uploadBackup(ctx, runtimeRecord{ServerID: entry.ServerID}, model.FileRequest{Operation: model.FileOperationBackupUploadCommit, Path: entry.ArchiveName, UploadID: entry.ID})
+			if err != nil {
+				return result, err
+			}
+
+			entry.State = model.JobStatePublished
+		}
+	case model.JobOperationActivate:
+		if entry.State == model.JobStatePublished {
+			entry.State = model.JobStateActive
+			entry.Data = nil
+
 			break
 		}
 
-		if entry.State != model.TransferStateImported {
+		if entry.State == model.JobStateActive {
+			break
+		}
+
+		if entry.State != model.JobStateImported && entry.State != model.JobStatePublished {
 			return result, errors.New("mock transfer has not been imported")
 		}
 
@@ -216,25 +234,25 @@ func (r *Runtime) transferOperation(ctx context.Context, entry *transferRecord, 
 			return result, err
 		}
 
-		entry.State = model.TransferStateActive
+		entry.State = model.JobStateActive
 		entry.Data = nil
-	case model.TransferOperationRelease, model.TransferOperationDiscard:
-		if entry.State == model.TransferStateActive || entry.State == model.TransferStateRetired {
+	case model.JobOperationRelease, model.JobOperationDiscard:
+		if entry.State == model.JobStateActive || entry.State == model.JobStateRetired {
 			return result, errors.New("mock transfer already committed")
 		}
 
 		entry.Data = nil
-		entry.State = model.TransferStateReleased
+		entry.State = model.JobStateReleased
 
-		if request.Operation == model.TransferOperationDiscard {
-			entry.State = model.TransferStateDiscarded
+		if request.Operation == model.JobOperationDiscard {
+			entry.State = model.JobStateDiscarded
 		}
 
 		if err := r.db.WithContext(ctx).Where("server_id = ?", entry.ServerID).Delete(&transferDeployment{}).Error; err != nil {
 			return result, err
 		}
-	case model.TransferOperationCleanup:
-		entry.State, entry.Data = model.TransferStateRetired, nil
+	case model.JobOperationCleanup:
+		entry.State, entry.Data = model.JobStateRetired, nil
 	default:
 		return result, fmt.Errorf("unsupported mock transfer operation %q", request.Operation)
 	}
@@ -271,7 +289,7 @@ func (r *Runtime) activateTransfer(ctx context.Context, entry *transferRecord) e
 			}
 		}
 
-		entry.State, entry.Data = model.TransferStateActive, nil
+		entry.State, entry.Data = model.JobStateActive, nil
 		if err := tx.Save(entry).Error; err != nil {
 			return err
 		}

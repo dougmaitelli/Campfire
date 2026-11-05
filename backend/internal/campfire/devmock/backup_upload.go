@@ -68,6 +68,7 @@ func (r *Runtime) uploadBackup(ctx context.Context, record runtimeRecord, q mode
 		}
 
 		_, _ = upload.data.Write(q.Data)
+		result.Size = int64(upload.data.Len())
 
 		return result, nil
 	case model.FileOperationBackupUploadCommit:

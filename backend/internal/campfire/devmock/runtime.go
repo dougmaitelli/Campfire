@@ -32,6 +32,7 @@ type Runtime struct {
 	uploads       map[string]*mockUpload
 	backupUploads map[string]*mockBackupUpload
 	now           func() time.Time
+	jobExamples   bool
 }
 
 type runtimeRecord struct {
@@ -84,7 +85,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 
 	features := []string{protocol.CapabilityConfigure, protocol.CapabilityLifecycle, protocol.CapabilityMetrics, protocol.CapabilityConsole, protocol.CapabilityLogAlerts, protocol.CapabilityFiles, protocol.CapabilityReinstall, protocol.CapabilityDiskQuota, protocol.CapabilityBackups, protocol.CapabilitySelfUpdate, protocol.CapabilitySelfReinstall, protocol.CapabilityPrune}
 
-	features = append(features, protocol.CapabilityFilePermissions, protocol.CapabilityTransfer)
+	features = append(features, protocol.CapabilityFilePermissions, protocol.CapabilityJobs)
 	if r.games != nil {
 		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)
 		if r.games.Media != nil {

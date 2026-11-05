@@ -15,7 +15,7 @@ export const Capability = {
   Console: "server.console.stream.v1",
   LogAlerts: "server.log-alerts.v1",
   DiskQuota: "server.disk-quota.v1",
-  Transfer: "server.transfer.v1",
+  Jobs: "server.jobs.v1",
   Reinstall: "server.reinstall.v1",
   SelfUpdate: "spark.self-update.v1",
   SelfReinstall: "spark.self-reinstall.v1",

@@ -30,6 +30,27 @@ type transferManifest struct {
 
 var errTransferChecksum = errors.New("incoming transfer checksum mismatch")
 
+// removeTransferStaging removes only this job's temporary output. Only the job's
+// export/import task or cleanup after that task stops may call this.
+func (m *Manager) removeTransferStaging(serverID, jobID string) error {
+	root := m.root(serverID)
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".transfer-build-"+jobID+"-") || strings.HasPrefix(entry.Name(), ".transfer-stage-"+jobID+"-") {
+			if err := os.RemoveAll(filepath.Join(root, entry.Name())); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 type transferWriter struct {
 	io.Writer
 	written int64
@@ -48,6 +69,10 @@ func (w *transferWriter) Write(data []byte) (int, error) {
 
 func (m *Manager) exportTransfer(ctx context.Context, d model.Deployment, t *localTransfer) error {
 	if err := m.backupStopped(ctx, d.ServerID); err != nil {
+		return err
+	}
+
+	if err := m.removeTransferStaging(d.ServerID, t.ID); err != nil {
 		return err
 	}
 
@@ -134,7 +159,7 @@ func (m *Manager) exportTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
-	t.Size, t.Digest, t.State = output.written, hex.EncodeToString(hash.Sum(nil)), model.TransferStateReady
+	t.Size, t.Digest, t.State = output.written, hex.EncodeToString(hash.Sum(nil)), model.JobStateReady
 
 	return nil
 }
@@ -216,6 +241,10 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
+	if err := m.removeTransferStaging(d.ServerID, t.ID); err != nil {
+		return err
+	}
+
 	file, err := os.Open(m.transferArchive(d.ServerID, t.ID))
 	if err != nil {
 		return err
@@ -239,19 +268,6 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return err
-	}
-
-	entries, err := os.ReadDir(m.root(d.ServerID))
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".transfer-stage-"+t.ID+"-") {
-			if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), entry.Name())); err != nil {
-				return err
-			}
-		}
 	}
 
 	stage, err := os.MkdirTemp(m.root(d.ServerID), ".transfer-stage-"+t.ID+"-")
@@ -342,7 +358,7 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
-	t.Installed, t.State = installed, model.TransferStateImported
+	t.Installed, t.State = installed, model.JobStateImported
 
 	return nil
 }

@@ -112,7 +112,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusConflict, commandError.Message
 	case errors.Is(err, repository.ErrAccessDenied):
 		status, message = http.StatusForbidden, err.Error()
-	case errors.Is(err, repository.ErrTransferActive), errors.Is(err, repository.ErrTransferState):
+	case errors.Is(err, repository.ErrJobActive), errors.Is(err, repository.ErrJobState):
 		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, repository.ErrSparkInUse), errors.Is(err, repository.ErrEmberInUse):
 		status, message = http.StatusConflict, err.Error()

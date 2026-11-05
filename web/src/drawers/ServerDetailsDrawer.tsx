@@ -2,13 +2,17 @@ import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
-import { useCallback } from "react";
+import { useCallback, useId, useState } from "react";
 import { apiFetch, readJSON } from "../api/client";
 import { isServer, type Server } from "../api/servers";
 import { ServerReview } from "../components/servers/ServerReview";
 import { serverStatus, type RuntimeStatus } from "../api/runtime";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { formatErrorMessage } from "../utils/errors";
+import { Tabs } from "../components/navigation/Tabs";
+import { ServerJobs } from "../components/servers/ServerJobs";
+import { Permission } from "../api/permissions";
+import { useAuthentication } from "../hooks/useAuthentication";
 import {
   ResourceDetailsDrawer,
   type ResourceDetailsDrawerProps,
@@ -18,12 +22,29 @@ type Details = Server & { runtime: RuntimeStatus | undefined };
 
 type Props = Omit<
   ResourceDetailsDrawerProps<Details>,
-  "loadDetails" | "children" | "description" | "editLabel"
-> & { id: string };
+  "loadDetails" | "children" | "description" | "editLabel" | "refresh"
+> & {
+  id: string;
+  initialTab?: "details" | "jobs";
+  onChanged?: () => Promise<void>;
+};
 
-export function ServerDetailsDrawer({ id, ...props }: Props) {
+export function ServerDetailsDrawer({
+  id,
+  initialTab = "details",
+  onChanged,
+  ...props
+}: Props) {
   const { t } = useTranslation();
   const links = useResourceLinks();
+  const { session } = useAuthentication();
+  const [tab, setTab] = useState(initialTab);
+  const [revision, setRevision] = useState(0);
+  const tabID = useId();
+  const canTransfer =
+    session?.admin === true ||
+    (session?.permissions?.includes(Permission.SparksManage) === true &&
+      session.permissions.includes(Permission.ServersManageAll));
   const loadDetails = useCallback(
     async (signal: AbortSignal) => {
       const value = await readJSON(
@@ -38,44 +59,93 @@ export function ServerDetailsDrawer({ id, ...props }: Props) {
     },
     [id],
   );
+  const jobsChanged = useCallback(async () => {
+    setRevision((value) => value + 1);
+    await onChanged?.();
+  }, [onChanged]);
   return (
     <ResourceDetailsDrawer
       {...props}
       description={t("serverDetailsDrawer.serverDetailsAndConfiguration")}
       editLabel={t("serverDetailsDrawer.editServer")}
       loadDetails={loadDetails}
+      refresh={revision}
     >
-      {(server) => (
-        <>
-          <ServerReview
-            value={server}
-            portDescriptions={server.port_descriptions}
-            variableTypes={server.variable_types}
-            name={server.name}
-            sparkName={
-              <ResourceLink href={links.spark(server.spark_id)}>
-                {server.spark_name}
-              </ResourceLink>
-            }
-            emberName={
-              <ResourceLink href={links.ember(server.ember_id)}>
-                {server.ember_name}
-              </ResourceLink>
-            }
-            notice=""
-          />
-          {server.runtime?.disk_quota_error_code && (
-            <InlineMessage tone="info">
-              {formatErrorMessage(
-                server.runtime.disk_quota_error ??
-                  i18n.t(
-                    "serverDetailsDrawer.diskQuotaEnforcementIsUnavailableOnThisSpark",
-                  ),
-              )}
-            </InlineMessage>
-          )}
-        </>
-      )}
+      {(server) => {
+        const canViewJobs =
+          canTransfer ||
+          server.permissions.includes(Permission.ServerConfigure);
+        return (
+          <>
+            {canViewJobs && (
+              <Tabs
+                label={t("serverDetailsDrawer.serverDetailsAndConfiguration")}
+                value={tab}
+                onChange={setTab}
+                items={[
+                  {
+                    value: "details",
+                    label: t("serverDetailsDrawer.details"),
+                    id: `${tabID}-details-tab`,
+                    panelID: `${tabID}-details`,
+                  },
+                  {
+                    value: "jobs",
+                    label: t("serverDetailsDrawer.jobs"),
+                    id: `${tabID}-jobs-tab`,
+                    panelID: `${tabID}-jobs`,
+                  },
+                ]}
+              />
+            )}
+            {tab === "jobs" && canViewJobs ? (
+              <div
+                role="tabpanel"
+                id={`${tabID}-jobs`}
+                aria-labelledby={`${tabID}-jobs-tab`}
+              >
+                <ServerJobs server={server} onChanged={jobsChanged} />
+              </div>
+            ) : (
+              <div
+                role={canViewJobs ? "tabpanel" : undefined}
+                id={`${tabID}-details`}
+                aria-labelledby={
+                  canViewJobs ? `${tabID}-details-tab` : undefined
+                }
+              >
+                <ServerReview
+                  value={server}
+                  portDescriptions={server.port_descriptions}
+                  variableTypes={server.variable_types}
+                  name={server.name}
+                  sparkName={
+                    <ResourceLink href={links.spark(server.spark_id)}>
+                      {server.spark_name}
+                    </ResourceLink>
+                  }
+                  emberName={
+                    <ResourceLink href={links.ember(server.ember_id)}>
+                      {server.ember_name}
+                    </ResourceLink>
+                  }
+                  notice=""
+                />
+                {server.runtime?.disk_quota_error_code && (
+                  <InlineMessage tone="info">
+                    {formatErrorMessage(
+                      server.runtime.disk_quota_error ??
+                        i18n.t(
+                          "serverDetailsDrawer.diskQuotaEnforcementIsUnavailableOnThisSpark",
+                        ),
+                    )}
+                  </InlineMessage>
+                )}
+              </div>
+            )}
+          </>
+        );
+      }}
     </ResourceDetailsDrawer>
   );
 }

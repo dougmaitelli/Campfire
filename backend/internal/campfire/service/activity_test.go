@@ -70,14 +70,16 @@ func activityFixture(t *testing.T) (*ActivityService, *database.Database, *activ
 
 	t.Cleanup(func() { _ = db.Close() })
 
+	ember := model.Ember{ID: "ember", Schema: 1, Name: "Game", Images: map[string]string{"default": "alpine:3.22"}, Startup: "echo ready", WorkDir: "/data", User: "1000"}
+
 	for _, item := range []any{
 		&database.User{ID: 1, Username: "admin", CredentialVersion: 1, RoleID: database.AdminRole},
 		&database.User{ID: 2, Username: "owner", CredentialVersion: 1, RoleID: database.UserRole},
 		&database.User{ID: 3, Username: "operator", CredentialVersion: 1, RoleID: database.UserRole},
 		&database.User{ID: 4, Username: "unrelated", CredentialVersion: 1, RoleID: database.UserRole},
 		&database.Spark{ID: "node", Name: "Node", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
-		&database.Ember{ID: "ember", Name: "Game", Definition: model.Ember{ID: "ember", Schema: 1, Name: "Game", Images: map[string]string{"default": "alpine:3.22"}, Startup: "echo ready", WorkDir: "/data", User: "1000"}},
-		&database.Server{OwnerUserID: new(int64(2)), ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", Image: "alpine:3.22", Variables: map[string]string{}, CPULimit: 1, MemoryMB: 128, DiskMB: 1024, Ports: []model.ServerPort{}, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
+		&database.Ember{ID: "ember", Name: "Game", Definition: ember},
+		&database.Server{OwnerUserID: new(int64(2)), ID: "game", Name: "Game", SparkID: "node", EmberID: "ember", EmberHash: model.EmberHash(ember), Image: "alpine:3.22", Variables: map[string]string{}, CPULimit: 1, MemoryMB: 128, DiskMB: 1024, Ports: []model.ServerPort{}, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)},
 		&database.ServerAccessGrant{ServerID: "game", UserID: new(int64(3)), AccessRoleID: database.OperatorRole},
 	} {
 		if err := db.ORM().Omit("Role", "Spark", "Ember", "Server", "User").Create(item).Error; err != nil {

@@ -33,11 +33,9 @@ func (s *DeploymentService) BeforeEdit(ctx context.Context, id string, input mod
 		return release, nil
 	}
 
-	if s.Transfers != nil {
-		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
-			release()
-			return nil, err
-		}
+	if err := s.guardServer(ctx, id); err != nil {
+		release()
+		return nil, err
 	}
 
 	status, err := s.runActionUnlocked(ctx, id, model.ServerActionStatus, "")
@@ -131,11 +129,9 @@ func (s *DeploymentService) BeforeUpdate(ctx context.Context, id string) (func()
 		return nil, err
 	}
 
-	if s.Transfers != nil {
-		if err := s.Transfers.Store.Guard(ctx, id); err != nil {
-			release()
-			return nil, err
-		}
+	if err := s.guardServer(ctx, id); err != nil {
+		release()
+		return nil, err
 	}
 
 	status, err := s.runActionUnlocked(ctx, id, model.ServerActionStatus, "")

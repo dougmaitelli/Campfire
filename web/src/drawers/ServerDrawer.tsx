@@ -19,15 +19,22 @@ import { Button } from "../components/forms/Button";
 import { Select } from "../components/forms/Select";
 import { UserSelect } from "../components/forms/UserSelect";
 import { formatUserLabel } from "../utils/formatUserLabel";
+import { isEnabledSpark } from "../utils/sparkDestinations";
 import { useEffect, useRef, useState } from "react";
 import { applyServerEmber, saveServer } from "../api/servers";
+import { createServerCopy, type CopyTemplate } from "../api/copies";
+import { Permission } from "../api/permissions";
 import type { Server, ServerConfiguration, ServerPort } from "../api/servers";
 import type { Spark } from "../api/sparks";
 import type { Ember } from "../api/embers";
 import { Drawer } from "../components/layout/Drawer";
 import { Wizard } from "../components/wizard/Wizard";
 import { ServerReview } from "../components/servers/ServerReview";
-import { defaultPorts, defaultVariables } from "../utils/serverDefaults";
+import {
+  copyPorts,
+  defaultPorts,
+  defaultVariables,
+} from "../utils/serverDefaults";
 import {
   getBackupPolicy,
   saveBackupPolicy,
@@ -57,6 +64,7 @@ import { serverAction, ServerAction } from "../api/runtime";
 import { ProgressBar } from "../components/status/ProgressBar";
 
 interface ServerDrawerProps {
+  copy?: CopyTemplate | undefined;
   backup?: BackupImport | undefined;
   s3Configured: boolean;
   runtimeRestricted?: boolean;
@@ -71,6 +79,7 @@ interface ServerDrawerProps {
 }
 
 export function ServerDrawer({
+  copy,
   backup,
   s3Configured,
   runtimeRestricted = false,
@@ -127,6 +136,32 @@ export function ServerDrawer({
     return () => controller.abort();
   }, [canShare, admin, server, session?.user_id, accessAttempt]);
   const [value, setValue] = useState<ServerConfiguration>(() => {
+    if (copy) {
+      const spark =
+        sparks.find(
+          (item) => item.id === copy.server.spark_id && !item.disabled,
+        ) ?? sparks.find((item) => !item.disabled);
+      const base = Array.from(copy.server.name);
+      let name = "";
+      for (let number = 1; ; number++) {
+        const suffix = number === 1 ? " (copy)" : ` (copy ${number})`;
+        name =
+          base.slice(0, ResourceLimits.NameLength - suffix.length).join("") +
+          suffix;
+        if (
+          !servers.some(
+            (item) => item.name.toLowerCase() === name.toLowerCase(),
+          )
+        )
+          break;
+      }
+      return {
+        ...copy.server,
+        name,
+        spark_id: spark?.id ?? "",
+        ports: copyPorts(spark, copy.server.ports, servers),
+      };
+    }
     if (backup) {
       const spark = sparks.find((item) => !item.disabled);
       return {
@@ -195,16 +230,19 @@ export function ServerDrawer({
     closeDrawer();
   }
   const [error, setError] = useState<string | null>(null);
+  const [copyFiles, setCopyFiles] = useState(false);
   const [backupPolicy, setBackupPolicy] = useState<BackupPolicy | null>(() =>
-    server
-      ? null
-      : {
-          storage: BackupStorage.Local,
-          local_keep_last: 0,
-          local_max_age_days: 0,
-          remote_keep_last: 0,
-          remote_max_age_days: 0,
-        },
+    copy
+      ? copy.policy
+      : server
+        ? null
+        : {
+            storage: BackupStorage.Local,
+            local_keep_last: 0,
+            local_max_age_days: 0,
+            remote_keep_last: 0,
+            remote_max_age_days: 0,
+          },
   );
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [s3Available, setS3Available] = useState(s3Configured);
@@ -232,7 +270,10 @@ export function ServerDrawer({
   }, [server, applyRevision, accessOnly]);
   const submitting = useRef(false);
   const [createdServer, setCreatedServer] = useState<Server | null>(null);
-  const spark = sparks.find((item) => item.id === value.spark_id);
+  const sparkChoices = sparks.filter(
+    (item) => item.id === server?.spark_id || isEnabledSpark(item),
+  );
+  const spark = sparkChoices.find((item) => item.id === value.spark_id);
   const ember = embers.find((item) => item.id === value.ember_id);
   function changePort(index: number, changes: Partial<ServerPort>) {
     setValue({
@@ -274,8 +315,16 @@ export function ServerDrawer({
         disk_mb: value.disk_mb,
         ports: value.ports,
       };
-      const saved =
-        accessOnly && server
+      const saved = copy
+        ? (createdServer ??
+          (await createServerCopy(
+            copy.server.id,
+            input,
+            copyFiles,
+            policyDirty ? backupPolicy : null,
+            admin ? ownerID : undefined,
+          )))
+        : accessOnly && server
           ? server
           : applyRevision && server
             ? await applyServerEmber(server.id, server.ember_id, input)
@@ -287,7 +336,7 @@ export function ServerDrawer({
       if (!server) {
         setCreatedServer(saved);
       }
-      if (policyDirty && backupPolicy) {
+      if (!copy && policyDirty && backupPolicy) {
         try {
           await saveBackupPolicy(saved.id, backupPolicy);
         } catch (cause) {
@@ -311,7 +360,7 @@ export function ServerDrawer({
             grants.filter((grant) => grant.user_id !== ownerID),
             removedGrantIDs,
           );
-          if (admin && ownerID && ownerID !== access?.owner?.id)
+          if (!copy && admin && ownerID && ownerID !== access?.owner?.id)
             await transferOwner(saved.id, ownerID);
           setAccessDirty(false);
         } catch (cause) {
@@ -358,20 +407,24 @@ export function ServerDrawer({
       busy={busy}
       error={error}
       finishLabel={
-        accessOnly
-          ? t("serverDrawer.saveAccess")
-          : applyRevision
-            ? t("serverDrawer.updateEmber")
-            : server
-              ? t("common.saveChanges")
-              : t("serverDrawer.createServer")
+        copy
+          ? t("serverCopy.copy")
+          : accessOnly
+            ? t("serverDrawer.saveAccess")
+            : applyRevision
+              ? t("serverDrawer.updateEmber")
+              : server
+                ? t("common.saveChanges")
+                : t("serverDrawer.createServer")
       }
       onFinish={async () => {
         if (
-          policyDirty ||
-          (admin &&
-            accessDirty &&
-            ownerID !== (access?.owner?.id ?? (server ? 0 : session.user_id)))
+          !copy &&
+          (policyDirty ||
+            (admin &&
+              accessDirty &&
+              ownerID !==
+                (access?.owner?.id ?? (server ? 0 : session.user_id))))
         )
           setConfirmPolicy(true);
         else await finish();
@@ -381,17 +434,19 @@ export function ServerDrawer({
           id: "basics",
           title: t("serverDrawer.general"),
           validate: () =>
-            applyRevision && !server?.ember_update_available
-              ? i18n.t("serverDrawer.thisServerAlreadyUsesTheCurrentEmber")
-              : !value.name.trim() || !spark || !ember || !value.image
-                ? i18n.t("serverDrawer.chooseANameSparkEmberAndImage")
-                : (!server ||
-                      applyRevision ||
-                      !server.ember_update_available) &&
-                    Object.keys(ember.startup_commands ?? {}).length > 0 &&
-                    !ember.startup_commands?.[value.startup_command ?? ""]
-                  ? i18n.t("serverDrawer.selectAnAvailableStartupCommand")
-                  : null,
+            copy?.server.ember_update_available
+              ? i18n.t("serverCopy.updateRequired")
+              : applyRevision && !server?.ember_update_available
+                ? i18n.t("serverDrawer.thisServerAlreadyUsesTheCurrentEmber")
+                : !value.name.trim() || !spark || !ember || !value.image
+                  ? i18n.t("serverDrawer.chooseANameSparkEmberAndImage")
+                  : (!server ||
+                        applyRevision ||
+                        !server.ember_update_available) &&
+                      Object.keys(ember.startup_commands ?? {}).length > 0 &&
+                      !ember.startup_commands?.[value.startup_command ?? ""]
+                    ? i18n.t("serverDrawer.selectAnAvailableStartupCommand")
+                    : null,
           content: (
             <>
               {runtimeRestricted && (
@@ -430,7 +485,11 @@ export function ServerDrawer({
                 <Select
                   id="server-ember"
                   required
-                  disabled={server !== null || backup !== undefined}
+                  disabled={
+                    server !== null ||
+                    backup !== undefined ||
+                    copy !== undefined
+                  }
                   value={value.ember_id}
                   onValueChange={(selectedValue) => {
                     const selected = embers.find(
@@ -524,22 +583,48 @@ export function ServerDrawer({
                     setValue({
                       ...value,
                       spark_id: selectedValue,
-                      ports: defaultPorts(selected, ember, servers),
+                      ports: copy
+                        ? copyPorts(selected, copy.server.ports, servers)
+                        : defaultPorts(selected, ember, servers),
                     });
                   }}
                 >
-                  {sparks
-                    .filter(
-                      (item) => item.id === server?.spark_id || !item.disabled,
-                    )
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                        {item.disabled ? " (disabled)" : ""}
-                      </option>
-                    ))}
+                  {copy && (
+                    <option value="" disabled>
+                      {t("serverCopy.chooseSpark")}
+                    </option>
+                  )}
+                  {sparkChoices.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                      {item.disabled ? " (disabled)" : ""}
+                      {copy && !item.connected
+                        ? ` (${t("sparkConnectionState.disconnected")})`
+                        : ""}
+                    </option>
+                  ))}
                 </Select>
               </FormField>
+              {copy && (
+                <div>
+                  <CheckboxField
+                    aria-describedby="copy-files-help"
+                    checked={copyFiles}
+                    disabled={
+                      createdServer !== null ||
+                      !copy.server.permissions.includes(
+                        Permission.ServerFilesRead,
+                      )
+                    }
+                    onChange={(event) => setCopyFiles(event.target.checked)}
+                  >
+                    {t("serverCopy.copyFiles")}
+                  </CheckboxField>
+                  <p className="field-help" id="copy-files-help">
+                    {t("serverCopy.liveBackup")}
+                  </p>
+                </div>
+              )}
               {Object.keys(ember?.startup_commands ?? {}).length > 0 && (
                 <FormField
                   label={t("serverDrawer.startupCommand")}
@@ -1147,17 +1232,19 @@ export function ServerDrawer({
                     </ResourceLink>
                   }
                   notice={
-                    backup
-                      ? t("backupImports.restoreNotice")
-                      : applyRevision
-                        ? t(
-                            "serverDrawer.applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration",
-                          )
-                        : server
+                    copy && copyFiles
+                      ? t("serverCopy.reviewFiles")
+                      : backup
+                        ? t("backupImports.restoreNotice")
+                        : applyRevision
                           ? t(
-                              "serverDrawer.savingKeepsTheServerInItsCurrentStateIncludingWhen",
+                              "serverDrawer.applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration",
                             )
-                          : undefined
+                          : server
+                            ? t(
+                                "serverDrawer.savingKeepsTheServerInItsCurrentStateIncludingWhen",
+                              )
+                            : undefined
                   }
                 />
               )}
@@ -1215,32 +1302,39 @@ export function ServerDrawer({
       {(content, actions) => (
         <Drawer
           title={
-            accessOnly
-              ? i18n.t("serverDrawer.editServerAccess")
-              : applyRevision
-                ? i18n.t("serverDrawer.updateEmber")
-                : server
-                  ? i18n.t("serverDrawer.editServer")
-                  : i18n.t("serverDrawer.createServer")
+            copy
+              ? i18n.t("serverCopy.copy")
+              : accessOnly
+                ? i18n.t("serverDrawer.editServerAccess")
+                : applyRevision
+                  ? i18n.t("serverDrawer.updateEmber")
+                  : server
+                    ? i18n.t("serverDrawer.editServer")
+                    : i18n.t("serverDrawer.createServer")
           }
           description={
-            accessOnly
-              ? i18n.t("serverDrawer.manageOwnershipAndCollaborators")
-              : i18n.t("serverDrawer.chooseWhereItRunsWhatItHostsAndWhoHas")
+            copy
+              ? i18n.t("serverCopy.description", { name: copy.server.name })
+              : accessOnly
+                ? i18n.t("serverDrawer.manageOwnershipAndCollaborators")
+                : i18n.t("serverDrawer.chooseWhereItRunsWhatItHostsAndWhoHas")
           }
           busy={busy}
           onClose={onClose}
           footerLeft={
-            <Button
-              type="button"
-
-              disabled={busy}
-              onClick={onClose}
-            >
+            <Button type="button" disabled={busy} onClick={onClose}>
               {i18n.t("common.cancel")}
             </Button>
           }
-          footerRight={actions}
+          footerRight={
+            copy && createdServer ? (
+              <Button disabled={busy} onClick={() => void finish()}>
+                {t("common.tryAgain")}
+              </Button>
+            ) : (
+              actions
+            )
+          }
         >
           {backup && busy && (
             <div className="panel-content">
@@ -1248,7 +1342,16 @@ export function ServerDrawer({
               <ProgressBar aria-label={t("backupImports.progress")} />
             </div>
           )}
-          {content}
+          {copy && createdServer ? (
+            <div className="panel-content">
+              {error && <InlineMessage role="alert">{error}</InlineMessage>}
+              <p role="status">
+                {t("serverCopy.created", { name: createdServer.name })}
+              </p>
+            </div>
+          ) : (
+            content
+          )}
           {confirmPolicy && (
             <ConfirmDialog
               title={i18n.t("serverDrawer.saveServerChanges")}

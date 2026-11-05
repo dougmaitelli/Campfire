@@ -1,11 +1,10 @@
-import { RuntimeState, TransferPhase } from "../contracts/domains";
+import { RuntimeState, JobStatus } from "../contracts/domains";
 import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
-import { ActionGroup } from "../components/layout/ActionGroup";
 import { FormField } from "../components/forms/FormField";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { Button } from "../components/forms/Button";
@@ -15,87 +14,25 @@ import { Select } from "../components/forms/Select";
 import { useEffect, useRef, useState } from "react";
 import { listSparks, type Spark } from "../api/sparks";
 import type { Server, ServerPort } from "../api/servers";
-import {
-  beginTransfer,
-  changeTransfer,
-  listTransfers,
-  type ServerTransfer,
-} from "../api/transfers";
+import { beginTransfer } from "../api/transfers";
+import { listJobs, type ServerJob } from "../api/jobs";
 import { serverStatus, type RuntimeStatus } from "../api/runtime";
-import { formatBytes } from "../utils/formatBytes";
 import { Drawer } from "../components/layout/Drawer";
-import { ProgressBar } from "../components/status/ProgressBar";
-import { StatusPill, type StatusTone } from "../components/status/StatusPill";
-import "./server-transfer-drawer.css";
-
-const phases: Record<string, string> = {
-  get queued() {
-    return i18n.t("serverTransferDrawer.preparing");
-  },
-  get exporting() {
-    return i18n.t("serverTransferDrawer.preparingSourceArchive");
-  },
-  get copying() {
-    return i18n.t("serverTransferDrawer.copyingArchive");
-  },
-  get importing() {
-    return i18n.t("serverTransferDrawer.validatingAndImporting");
-  },
-  get committing() {
-    return i18n.t("serverTransferDrawer.changingPlacement");
-  },
-  get cleanup() {
-    return i18n.t(
-      "serverTransferDrawer.activatingDestinationAndCleaningSource",
-    );
-  },
-  get complete() {
-    return i18n.t("serverTransferDrawer.complete");
-  },
-  get cancelling() {
-    return i18n.t("serverTransferDrawer.cancelling");
-  },
-  get cancelled() {
-    return i18n.t("serverTransferDrawer.cancelled");
-  },
-  get failed() {
-    return i18n.t("serverTransferDrawer.pausedAfterAnError");
-  },
-};
-
-function TransferStatus({ phase }: { phase: TransferPhase }) {
-  let label = phases[phase];
-  let tone: StatusTone = "pending";
-  if (phase === TransferPhase.Complete) {
-    tone = "positive";
-  } else if (phase === TransferPhase.Failed) {
-    label = i18n.t("common.failed");
-    tone = "negative";
-  } else if (phase === TransferPhase.Cancelled) {
-    tone = "neutral";
-  } else if (phase === TransferPhase.Cancelling) {
-    tone = "warning";
-  } else {
-    label = i18n.t(
-      phase === TransferPhase.Queued ? "common.pending" : "common.running",
-    );
-  }
-  return <StatusPill tone={tone}>{label}</StatusPill>;
-}
+import { isEnabledSpark } from "../utils/sparkDestinations";
 
 export function ServerTransferDrawer({
   server,
   onClose,
-  onChanged,
+  onSubmitted,
 }: {
   server: Server;
   onClose: () => void;
-  onChanged: () => Promise<void>;
+  onSubmitted: () => void;
 }) {
   const { t } = useTranslation();
   const links = useResourceLinks();
   const [sparks, setSparks] = useState<Spark[]>([]);
-  const [items, setItems] = useState<ServerTransfer[]>([]);
+  const [items, setItems] = useState<ServerJob[]>([]);
   const [status, setStatus] = useState<RuntimeStatus>();
   const [targetID, setTargetID] = useState("");
   const [ports, setPorts] = useState<ServerPort[]>(server.ports);
@@ -103,9 +40,7 @@ export function ServerTransferDrawer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [revision, setRevision] = useState(0);
   const pending = useRef(false);
-  const activeIDs = useRef(new Set<string>());
   useEffect(() => {
     const controller = new AbortController();
     void listSparks(controller.signal)
@@ -130,21 +65,14 @@ export function ServerTransferDrawer({
           AbortSignal.timeout(API_READ_TIMEOUT_MS),
         ]);
         const [history, observed] = await Promise.all([
-          listTransfers(server.id, signal),
+          listJobs(server.id, signal),
           serverStatus(server.id, signal),
         ]);
         if (!controller.signal.aborted && !pending.current) {
-          const finished = history.some(
-            (item) => activeIDs.current.has(item.id) && !item.active,
-          );
-          activeIDs.current = new Set(
-            history.filter((item) => item.active).map((item) => item.id),
-          );
-          setItems(history);
+          setItems(history.items);
           setStatus(observed);
           setLoadError(null);
           setLoading(false);
-          if (finished) await onChanged();
         }
       } catch (cause) {
         if (!controller.signal.aborted) {
@@ -166,12 +94,16 @@ export function ServerTransferDrawer({
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [server.id, onChanged, revision]);
+  }, [server.id]);
   const choices = sparks.filter(
-    (spark) => spark.id !== server.spark_id && !spark.disabled,
+    (spark) => spark.id !== server.spark_id && isEnabledSpark(spark),
   );
   const target = choices.find((spark) => spark.id === targetID);
-  const active = items.some((item) => item.active);
+  const active = items.some(
+    (item) =>
+      item.status !== JobStatus.Completed &&
+      item.status !== JobStatus.Cancelled,
+  );
   const canBegin =
     !loading &&
     !busy &&
@@ -211,25 +143,14 @@ export function ServerTransferDrawer({
       }),
     );
   }
-  async function submit(
-    action: "begin" | "retry" | "cancel",
-    item?: ServerTransfer,
-  ) {
-    if (pending.current || (action === "begin" && !canBegin)) return;
+  async function submit() {
+    if (pending.current || !canBegin) return;
     pending.current = true;
     setBusy(true);
     setError(null);
     try {
-      const next =
-        action === "begin"
-          ? await beginTransfer(server.id, targetID, ports)
-          : await changeTransfer(item!.id, action);
-      if (next.active) activeIDs.current.add(next.id);
-      setItems((current) => [
-        next,
-        ...current.filter((entry) => entry.id !== next.id),
-      ]);
-      setRevision((value) => value + 1);
+      await beginTransfer(server.id, targetID, ports);
+      onSubmitted();
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -259,7 +180,7 @@ export function ServerTransferDrawer({
           variant="primary"
           disabled={!canBegin}
           onClick={() => {
-            void submit("begin");
+            void submit();
           }}
         >
           {t("serverTransferDrawer.transferServer")}
@@ -302,7 +223,9 @@ export function ServerTransferDrawer({
             {choices.map((spark) => (
               <option key={spark.id} value={spark.id}>
                 {spark.name}
-                {spark.connected ? "" : " (disconnected)"}
+                {spark.connected
+                  ? ""
+                  : ` (${t("sparkConnectionState.disconnected")})`}
               </option>
             ))}
           </Select>
@@ -419,112 +342,6 @@ export function ServerTransferDrawer({
             ))}
           </>
         )}
-        <h3>{t("serverTransferDrawer.transferHistory")}</h3>
-        {loading && <p role="status">{t("common.loading")}</p>}
-        {!loading && items.length === 0 && (
-          <p>{t("serverTransferDrawer.noTransfersYet")}</p>
-        )}
-        <div className="server-transfer-history">
-          {items.map((item) => {
-            const running =
-              item.active &&
-              item.phase !== TransferPhase.Failed &&
-              item.phase !== TransferPhase.Cancelling;
-            return (
-              <section
-                className="server-transfer-history-item"
-                key={item.id}
-                aria-label={i18n.t("serverTransferDrawer.transfer2", {
-                  itemId: item.id,
-                })}
-              >
-                <div className="server-transfer-heading">
-                  <span className="server-transfer-route">
-                    <ResourceLink href={links.spark(item.source_spark_id)}>
-                      {sparks.find((spark) => spark.id === item.source_spark_id)
-                        ?.name ?? item.source_spark_id}
-                    </ResourceLink>{" "}
-                    →{" "}
-                    <ResourceLink href={links.spark(item.target_spark_id)}>
-                      {sparks.find((spark) => spark.id === item.target_spark_id)
-                        ?.name ?? item.target_spark_id}
-                    </ResourceLink>
-                  </span>
-                  <TransferStatus phase={item.phase} />
-                </div>
-                {running && (
-                  <span className="server-transfer-phase">
-                    {phases[item.phase]}
-                  </span>
-                )}
-                {(item.total_bytes > 0 || item.active) && (
-                  <div className="server-transfer-status">
-                    <div className="server-transfer-progress">
-                      {item.total_bytes > 0 && (
-                        <>
-                          {running && (
-                            <ProgressBar
-                              aria-label={i18n.t(
-                                "serverTransferDrawer.archiveBytesCopied",
-                              )}
-                              aria-valuetext={`${formatBytes(item.transferred_bytes)} / ${formatBytes(item.total_bytes)}`}
-                              max={item.total_bytes}
-                              value={item.transferred_bytes}
-                            />
-                          )}
-                          <span className="server-transfer-size">
-                            {formatBytes(item.transferred_bytes)} /{" "}
-                            {formatBytes(item.total_bytes)}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {item.active &&
-                      (item.can_cancel ||
-                        item.phase === TransferPhase.Failed) && (
-                        <ActionGroup className="server-transfer-actions">
-                          {item.phase === TransferPhase.Failed && (
-                            <Button
-                              size="small"
-                              disabled={busy}
-                              onClick={() => {
-                                void submit("retry", item);
-                              }}
-                            >
-                              {i18n.t("serverTransferDrawer.retryTransfer")}
-                            </Button>
-                          )}
-                          {item.can_cancel && (
-                            <Button
-                              size="small"
-                              disabled={busy}
-                              onClick={() => {
-                                void submit("cancel", item);
-                              }}
-                            >
-                              {i18n.t("serverTransferDrawer.cancelTransfer")}
-                            </Button>
-                          )}
-                        </ActionGroup>
-                      )}
-                  </div>
-                )}
-                {item.error && (
-                  <InlineMessage role="alert">{item.error}</InlineMessage>
-                )}
-                {item.active &&
-                  !item.can_cancel &&
-                  item.phase !== TransferPhase.Cancelling && (
-                    <p className="field-help">
-                      {i18n.t(
-                        "serverTransferDrawer.placementIsBeingCommittedOrHasChangedRetryAnyFailed",
-                      )}
-                    </p>
-                  )}
-              </section>
-            );
-          })}
-        </div>
       </div>
     </Drawer>
   );

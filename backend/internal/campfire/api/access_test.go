@@ -71,6 +71,7 @@ func (d *accessRuntime) Files(_ context.Context, _ string, input model.FileReque
 
 type accessFixture struct {
 	t        *testing.T
+	db       *database.Database
 	auth     *service.AuthService
 	admin    http.Handler
 	panel    http.Handler
@@ -95,6 +96,7 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: dispatch}
+	deployment.Copies = service.NewCopyService(repository.NewCopyRepository(db.ORM()), deployment)
 	games := &service.GameIntegrationService{Servers: servers}
 	games.Events = service.NewGameEventService(repository.NewGameEventRepository(db.ORM()))
 	games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM()))
@@ -105,7 +107,7 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	panel := api.New(sparks, embers, servers).WithDeployment(deployment)
 	admin := authenticatedTestAPI(t, db, panel)
 
-	return &accessFixture{t, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games, service.NewRuntimeStatusService(deployment)}
+	return &accessFixture{t, db, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games, service.NewRuntimeStatusService(deployment)}
 }
 
 func (f *accessFixture) user(name string, role int64) (database.User, http.Handler) {
@@ -260,16 +262,13 @@ func TestSparkTransferRequiresPlatformPermissions(t *testing.T) {
 
 	_, regular := fixture.user("regular", 3)
 	for _, route := range []struct{ method, path string }{
-		{"GET", "/api/v1/servers/example/transfers"},
 		{"POST", "/api/v1/servers/example/transfers"},
-		{"POST", "/api/v1/transfers/example/retry"},
-		{"POST", "/api/v1/transfers/example/cancel"},
 		{"DELETE", "/api/v1/sparks/example"},
 	} {
 		expectAccess(t, regular, route.method, route.path, "{}", http.StatusForbidden)
 	}
 
-	expectAccess(t, fixture.admin, "GET", "/api/v1/servers/example/transfers", "", http.StatusServiceUnavailable)
+	expectAccess(t, fixture.admin, "POST", "/api/v1/servers/example/transfers", "{}", http.StatusServiceUnavailable)
 }
 
 func TestServerAuthorizationOwnershipAndRevocation(t *testing.T) {

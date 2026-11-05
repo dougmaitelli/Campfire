@@ -73,28 +73,5 @@ func renameMockEmber(tx *gorm.DB, previous, current string) error {
 		}
 	}
 
-	var transfers []database.ServerTransfer
-	if err := tx.Find(&transfers).Error; err != nil {
-		return err
-	}
-
-	for _, transfer := range transfers {
-		if transfer.SourceConfiguration.EmberID != previous && transfer.TargetConfiguration.EmberID != previous {
-			continue
-		}
-
-		if transfer.SourceConfiguration.EmberID == previous {
-			transfer.SourceConfiguration.EmberID = current
-		}
-
-		if transfer.TargetConfiguration.EmberID == previous {
-			transfer.TargetConfiguration.EmberID = current
-		}
-
-		if err := tx.Model(&transfer).Select("SourceConfiguration", "TargetConfiguration").Updates(&transfer).Error; err != nil {
-			return err
-		}
-	}
-
 	return tx.Delete(&database.Ember{}, "id = ?", previous).Error
 }

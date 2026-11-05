@@ -70,31 +70,40 @@ func (a *API) createServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) createOwnedServer(r *http.Request, input createServerInput) (model.Server, error) {
-	principal := currentUser(r)
-
-	ownerID := principal.UserID
-	if input.OwnerUserID != 0 {
-		if !principal.Admin {
-			return model.Server{}, repository.ErrAccessDenied
-		}
-
-		ownerID = input.OwnerUserID
-	}
-
-	if _, err := a.access.Owner(r.Context(), ownerID); err != nil {
-		return model.Server{}, err
-	}
-
-	allowed, err := a.access.CanProvision(r.Context(), principal, input.SparkID)
+	ownerID, err := a.serverCreationOwner(r, input.OwnerUserID, input.SparkID)
 	if err != nil {
 		return model.Server{}, err
 	}
 
-	if !allowed {
-		return model.Server{}, repository.ErrAccessDenied
+	return a.servers.CreateOwned(r.Context(), input.ServerConfiguration, ownerID)
+}
+
+func (a *API) serverCreationOwner(r *http.Request, requestedOwner int64, sparkID string) (int64, error) {
+	principal := currentUser(r)
+
+	ownerID := principal.UserID
+	if requestedOwner != 0 {
+		if !principal.Admin {
+			return 0, repository.ErrAccessDenied
+		}
+
+		ownerID = requestedOwner
 	}
 
-	return a.servers.CreateOwned(r.Context(), input.ServerConfiguration, ownerID)
+	if _, err := a.access.Owner(r.Context(), ownerID); err != nil {
+		return 0, err
+	}
+
+	allowed, err := a.access.CanProvision(r.Context(), principal, sparkID)
+	if err != nil {
+		return 0, err
+	}
+
+	if !allowed {
+		return 0, repository.ErrAccessDenied
+	}
+
+	return ownerID, nil
 }
 
 func (a *API) updateServer(w http.ResponseWriter, r *http.Request) {

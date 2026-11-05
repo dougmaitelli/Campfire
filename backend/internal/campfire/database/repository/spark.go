@@ -42,7 +42,7 @@ func (r *SparkRepository) Delete(ctx context.Context, id string) error {
 			return ErrSparkInUse
 		}
 
-		if err := tx.Model(&database.ServerTransfer{}).Where("active = ? AND (source_spark_id = ? OR target_spark_id = ?)", true, id, id).Count(&count).Error; err != nil {
+		if err := unfinishedJobs(tx).Where("source_spark_id = ? OR target_spark_id = ?", id, id).Count(&count).Error; err != nil {
 			return err
 		}
 

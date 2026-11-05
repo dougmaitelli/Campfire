@@ -23,7 +23,7 @@ func validResponse(response protocol.CommandResponse) bool {
 		count++
 	}
 
-	if response.Transfer != nil {
+	if response.Job != nil {
 		count++
 	}
 
@@ -104,18 +104,18 @@ func (h *Hub) ReinstallSpark(ctx context.Context, id, version string) error {
 	}
 }
 
-// Transfer dispatches one bounded transfer step to its authenticated Spark.
-func (h *Hub) Transfer(ctx context.Context, id string, request model.TransferRequest) (model.TransferResult, error) {
-	response, err := h.Execute(ctx, id, protocol.Command{Name: protocol.ServerTransfer, Transfer: &request})
+// Job dispatches one bounded archive operation to an authenticated Spark.
+func (h *Hub) Job(ctx context.Context, id string, request model.JobRequest) (model.JobResult, error) {
+	response, err := h.Execute(ctx, id, protocol.Command{Name: protocol.ServerJob, Job: &request})
 	if err != nil {
-		return model.TransferResult{}, err
+		return model.JobResult{}, err
 	}
 
-	if response.Transfer == nil || response.Transfer.ID != request.ID || response.Transfer.ServerID != request.ServerID || len(response.Transfer.Data) > model.FileLimit || response.Transfer.Size < 0 || response.Transfer.Size > 100<<30 || response.Transfer.Offset < 0 || response.Transfer.Offset > response.Transfer.Size || len(response.Transfer.Error) > 1024 {
-		return model.TransferResult{}, errors.New("invalid transfer response")
+	if response.Job == nil || response.Job.ID != request.ID || response.Job.ServerID != request.ServerID || len(response.Job.Data) > model.FileLimit || response.Job.Size < 0 || response.Job.Size > 100<<30 || response.Job.Offset < 0 || response.Job.Offset > response.Job.Size || len(response.Job.Error) > 1024 {
+		return model.JobResult{}, errors.New("invalid transfer response")
 	}
 
-	return *response.Transfer, nil
+	return *response.Job, nil
 }
 
 // Files dispatches file management over the existing authenticated agent session.

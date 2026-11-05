@@ -141,18 +141,16 @@ func TestPlacementSchedulesAndStorageAcrossConnections(t *testing.T) {
 		t.Fatal("backup policy upsert failed", got, err)
 	}
 
-	for _, transfer := range []database.ServerTransfer{
-		{ID: "old", ServerID: id, Active: false},
-		{ID: "current", ServerID: id, Active: true},
-		{ID: "conflict", ServerID: id, Active: true},
+	for _, job := range []database.ServerJob{
+		{ID: "old", Type: model.JobTransfer, SourceServerID: id, TargetServerID: id, Status: model.JobCompleted, Step: model.JobCleanup, Attempt: 1},
+		{ID: "current", Type: model.JobTransfer, SourceServerID: id, TargetServerID: id, Status: model.JobRunning, Step: model.JobCopying, Attempt: 1},
 	} {
-		err := db.ORM().Create(&transfer).Error
-		if transfer.ID == "conflict" {
-			if !errors.Is(err, gorm.ErrDuplicatedKey) {
-				t.Fatal("multiple active transfers accepted", err)
-			}
-		} else if err != nil {
-			t.Fatal("transfer partial index rejected valid history", err)
+		if err := db.ORM().Create(&job).Error; err != nil {
+			t.Fatal(err)
 		}
+	}
+
+	if err := repository.NewJobRepository(db.ORM()).Guard(ctx, id); !errors.Is(err, repository.ErrJobActive) {
+		t.Fatal("unfinished job did not reserve server", err)
 	}
 }

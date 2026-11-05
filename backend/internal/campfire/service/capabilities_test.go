@@ -65,9 +65,11 @@ func TestUnsupportedServerDeletionPreservesOffHostBackups(t *testing.T) {
 	}
 }
 
-func (*limitedCapabilityRouter) CheckTransfer(id string) error {
-	if id == "target" {
-		return protocol.Require(nil, protocol.CapabilityTransfer)
+func (*limitedCapabilityRouter) CheckCapabilities(id string, required ...string) error {
+	for _, capability := range required {
+		if id == "target" && capability == protocol.CapabilityJobs {
+			return protocol.Require(nil, protocol.CapabilityJobs)
+		}
 	}
 
 	return nil
@@ -88,7 +90,7 @@ func TestCapabilityPreflightPreventsConfigurationChangesAndReservations(t *testi
 		t.Fatal("transfer accepted an unsupported target", err)
 	}
 
-	transfers, err := f.service.Store.List(context.Background(), f.server.ID, false)
+	transfers, err := f.service.Store.Jobs().List(context.Background(), f.server.ID, []model.JobType{model.JobTransfer}, nil)
 	if err != nil || len(transfers) != 0 {
 		t.Fatal("unsupported target left a transfer reservation", err)
 	}

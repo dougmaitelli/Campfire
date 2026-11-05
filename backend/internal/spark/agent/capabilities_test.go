@@ -38,7 +38,7 @@ func TestQuotaCapabilityReflectsRuntimeSupport(t *testing.T) {
 		}
 	}
 
-	if err := protocol.Require(selected, protocol.RequiredCapabilities(protocol.Command{Name: protocol.ServerTransfer})...); err != nil {
+	if err := protocol.Require(selected, protocol.RequiredCapabilities(protocol.Command{Name: protocol.ServerJob})...); err != nil {
 		t.Fatal("optional quotas blocked transfer", err)
 	}
 

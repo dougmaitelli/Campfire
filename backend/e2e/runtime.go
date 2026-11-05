@@ -112,6 +112,15 @@ func (r *runtime) Files(ctx context.Context, _ string, input model.FileRequest) 
 		}
 		result.Size = int64(len(data))
 		result.Data = data[input.Offset:min(int64(len(data)), input.Offset+model.FileLimit)]
+	case "backup.delete":
+		delete(r.archives, input.ServerID+"/"+input.Path)
+		entries := r.backups[input.ServerID]
+		for index, entry := range entries {
+			if entry.Name == input.Path {
+				r.backups[input.ServerID] = append(entries[:index], entries[index+1:]...)
+				break
+			}
+		}
 	case "list":
 		prefix := ""
 		if name != "." {

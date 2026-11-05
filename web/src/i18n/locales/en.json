@@ -216,6 +216,7 @@
     "unableToCompleteTheRequest": "Unable to complete the request."
   },
   "common": {
+    "jobs": "Jobs",
     "descriptionPlaceholder": "Optional notes",
     "actions": "Actions",
     "audit": "Audit",
@@ -860,9 +861,32 @@
     "liveServerOutputAndCommands": "Live server output and commands.",
     "loadingConsole": "Loading console…"
   },
+  "jobsPage": {
+    "description": "Copy and transfer jobs across all servers.",
+    "type": "Job type",
+    "allTypes": "All types",
+    "allStatuses": "All statuses"
+  },
+  "serverJobs": {
+    "jobColumn": "Job",
+    "created": "Created",
+    "waiting": "Waiting",
+    "waitingForSparks": "Waiting for {{sparks}} to connect.",
+    "unexpectedResponse": "Unexpected server jobs response.",
+    "unableToLoad": "Unable to load server jobs.",
+    "unableToChange": "Unable to update the job.",
+    "empty": "No jobs yet.",
+    "exporting": "Preparing source archive",
+    "importing": "Validating and importing",
+    "job": "{{type}} {{id}}",
+    "progress": "Archive bytes copied",
+    "loadOlder": "Load older jobs"
+  },
   "serverDetailsDrawer": {
+    "details": "Details",
     "diskQuotaEnforcementIsUnavailableOnThisSpark": "Disk quota enforcement is unavailable on this Spark.",
     "editServer": "Edit server",
+    "jobs": "Jobs",
     "serverDetailsAndConfiguration": "Server details and configuration.",
     "unexpectedServerDetailsResponse": "Unexpected server details response."
   },
@@ -1167,40 +1191,46 @@
     "uiMonospaceSFMonoRegularMenloConsolasMonospace": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
     "unableToSendCommand": "Unable to send command."
   },
-  "serverTransferDrawer": {
-    "activatingDestinationAndCleaningSource": "Activating destination and cleaning source",
-    "allowedRanges": "Allowed ranges: <formatDisplayValueTargetPort/>",
-    "archiveBytesCopied": "Archive bytes copied",
-    "cancelled": "Cancelled",
-    "cancelling": "Cancelling",
-    "cancelTransfer": "Cancel transfer",
-    "changingPlacement": "Changing placement",
+  "serverCopy": {
+    "copy": "Copy",
+    "quickCopy": "Quick copy",
+    "copyFiles": "Copy game files",
+    "reviewFiles": "Create the server and copy its game files in the background. The destination will remain stopped when complete.",
+    "liveBackup": "Include installed files, saves, and mods using a full backup. A running source stays running.",
+    "description": "Create an independent copy of {{name}}.",
+    "quickDescription": "Copy the settings and game files of {{name}}. A unique name and available host ports are selected automatically. A running source stays running.",
+    "destinationSpark": "Destination Spark",
+    "chooseSpark": "Choose a Spark",
+    "updateRequired": "Apply the current Ember before creating a copy.",
+    "created": "Created {{name}}.",
+    "preparing": "Preparing",
+    "uploading": "Copying files",
+    "cleanup": "Cleaning up",
     "complete": "Complete",
+    "cancelling": "Cancelling",
+    "cancelled": "Cancelled",
+    "unexpectedResponse": "Unexpected server copy response.",
+    "unableToLoad": "Unable to load server copy details.",
+    "unableToCreate": "Unable to create the server copy."
+  },
+  "serverTransferDrawer": {
+    "allowedRanges": "Allowed ranges: <formatDisplayValueTargetPort/>",
+    "changingPlacement": "Changing placement",
     "containerPort": "Container port ",
-    "copyingArchive": "Copying archive",
     "currentSparkOwnershipAccessAndSchedulesStayWithTheServer": "Current Spark: <resourceLink/>. Ownership, access, and schedules stay with the server.",
     "destinationHostPort": "Destination host port",
     "destinationInterface": "Destination interface",
     "destinationSpark": "Destination Spark",
     "gameAddressAfterTransferExistingGameClientsMayNeedThe": "Game address after transfer: <targetGameAddress/>. Existing game clients may need the new address and host ports.",
     "moveGameDataAndCompletedBackupsToAnotherSparkThe": "Move game data and completed backups to another Spark. The server stays stopped throughout the transfer.",
-    "noTransfersYet": "No transfers yet.",
-    "pausedAfterAnError": "Paused after an error",
-    "placementIsBeingCommittedOrHasChangedRetryAnyFailed": "Placement is being committed or has changed. Retry any failed finalization to finish the transfer.",
-    "preparing": "Preparing",
-    "preparingSourceArchive": "Preparing source archive",
-    "retryTransfer": "Retry transfer",
     "selectAnInterface": "Select an interface",
     "selectASpark": "Select a Spark",
     "stopTheServerBeforeBeginningATransfer": "Stop the server before beginning a transfer.",
     "transfer": "Transfer {{serverName}}",
-    "transfer2": "Transfer {{itemId}}",
-    "transferHistory": "Transfer history",
     "transferServer": "Transfer server",
     "unableToLoadSparks": "Unable to load Sparks.",
     "unableToReadTransferStatus": "Unable to read transfer status.",
-    "unableToUpdateTransfer": "Unable to update transfer.",
-    "validatingAndImporting": "Validating and importing"
+    "unableToUpdateTransfer": "Unable to update transfer."
   },
   "sidebar": {
     "campfire": "Campfire",
@@ -1284,7 +1314,7 @@
     "serverConfiguration": "Server configuration",
     "serverUpdateAndReinstall": "Server Update and reinstall",
     "serverControls": "Server controls",
-    "serverTransfers": "Server transfers",
+    "serverJobs": "Server jobs",
     "sparkFeatures": "Spark features",
     "sparkWireProtocol": "Spark {{sparkAgentVersion}} · Wire protocol {{sparkProtocol}}",
     "unknownVersion": "unknown version",
@@ -1377,10 +1407,6 @@
   },
   "tokens": {
     "unexpectedAPITokenResponse": "Unexpected API token response."
-  },
-  "transfers": {
-    "unexpectedTransferHistoryResponse": "Unexpected transfer history response.",
-    "unexpectedTransferResponse": "Unexpected transfer response."
   },
   "useAuthentication": {
     "authenticationProviderIsMissing": "Authentication provider is missing.",

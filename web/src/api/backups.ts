@@ -102,7 +102,7 @@ function isRetention(value: unknown): value is BackupRetention {
   );
 }
 
-function isPolicy(value: unknown): value is BackupPolicy {
+export function isPolicy(value: unknown): value is BackupPolicy {
   return (
     object(value) &&
     isRetention(value) &&

@@ -15,6 +15,7 @@ export function ResourceDetailsDrawer<T>({
   description,
   editLabel = i18n.t("common.edit"),
   loadDetails,
+  refresh = 0,
   children,
   onClose,
   onEdit,
@@ -57,7 +58,7 @@ export function ResourceDetailsDrawer<T>({
           );
       });
     return () => controller.abort();
-  }, [loadDetails]);
+  }, [loadDetails, refresh]);
   return (
     <Drawer
       title={title}
@@ -113,6 +114,7 @@ export interface ResourceDetailsDrawerProps<T> {
   description: string;
   editLabel?: string;
   loadDetails: (signal: AbortSignal) => Promise<T>;
+  refresh?: number;
   children: (details: T) => ReactNode;
   onClose: () => void;
   onEdit?: (() => void) | undefined;

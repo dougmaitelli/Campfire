@@ -272,20 +272,20 @@ func (s *ConfigurationStore) execute(ctx context.Context, id string, command pro
 		return result
 	}
 
-	if command.Name == protocol.ServerTransfer {
+	if command.Name == protocol.ServerJob {
 		ctx, cancel := context.WithDeadline(ctx, command.Deadline)
 		defer cancel()
 
-		if command.Transfer == nil {
-			result.Error = &protocol.CommandError{Code: protocol.ErrorInvalidTransfer, Message: "Transfer request required."}
+		if command.Job == nil {
+			result.Error = &protocol.CommandError{Code: protocol.ErrorInvalidJob, Message: "Job request required."}
 			return result
 		}
 
-		transfer, err := s.Transfer(ctx, id, *command.Transfer)
+		transfer, err := s.Job(ctx, id, *command.Job)
 		if err != nil {
-			result.Error = &protocol.CommandError{Code: protocol.ErrorTransferFailed, Message: fmt.Sprintf("%.1024s", err.Error())}
+			result.Error = &protocol.CommandError{Code: protocol.ErrorJobFailed, Message: fmt.Sprintf("%.1024s", err.Error())}
 		} else {
-			result.Transfer = &transfer
+			result.Job = &transfer
 		}
 
 		return result

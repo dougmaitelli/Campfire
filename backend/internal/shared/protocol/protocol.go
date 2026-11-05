@@ -45,8 +45,8 @@ const ServerAction CommandName = "server.action"
 // ServerFiles invokes contained game data file management.
 const ServerFiles CommandName = "server.files"
 
-// ServerTransfer moves one fenced archive through the authenticated session.
-const ServerTransfer CommandName = "server.transfer"
+// ServerJob moves one fenced archive through the authenticated session.
+const ServerJob CommandName = "server.job"
 
 // UpdateSpark replaces the agent executable with the verified panel build.
 const UpdateSpark CommandName = "spark.update"
@@ -66,14 +66,14 @@ type SparkUpdateInfo struct {
 
 // Command is a correlated, bounded-lifetime request.
 type Command struct {
-	ID           string                 `json:"id"`
-	Name         CommandName            `json:"name"`
-	Deadline     time.Time              `json:"deadline"`
-	Deployment   *model.Deployment      `json:"deployment,omitempty"`
-	Runtime      *model.RuntimeRequest  `json:"runtime,omitempty"`
-	Files        *model.FileRequest     `json:"files,omitempty"`
-	Transfer     *model.TransferRequest `json:"transfer,omitempty"`
-	SparkVersion string                 `json:"spark_version,omitempty"`
+	ID           string                `json:"id"`
+	Name         CommandName           `json:"name"`
+	Deadline     time.Time             `json:"deadline"`
+	Deployment   *model.Deployment     `json:"deployment,omitempty"`
+	Runtime      *model.RuntimeRequest `json:"runtime,omitempty"`
+	Files        *model.FileRequest    `json:"files,omitempty"`
+	Job          *model.JobRequest     `json:"job,omitempty"`
+	SparkVersion string                `json:"spark_version,omitempty"`
 }
 
 // CommandError describes a failed operation independently of transport failure.
@@ -92,7 +92,7 @@ type CommandResponse struct {
 	Error        *CommandError               `json:"error,omitempty"`
 	Status       *model.RuntimeStatus        `json:"status,omitempty"`
 	Files        *model.FileResult           `json:"files,omitempty"`
-	Transfer     *model.TransferResult       `json:"transfer,omitempty"`
+	Job          *model.JobResult            `json:"job,omitempty"`
 	SparkVersion string                      `json:"spark_version,omitempty"`
 }
 

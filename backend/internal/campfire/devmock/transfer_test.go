@@ -32,7 +32,7 @@ func mockTransferService(t *testing.T, runtime *Runtime, db *database.Database) 
 	return transfers
 }
 
-func waitMockTransfer(t *testing.T, transfers *service.TransferService, id string, phase model.TransferPhase) database.ServerTransfer {
+func waitMockTransfer(t *testing.T, transfers *service.TransferService, id string, phase model.TransferPhase) model.TransferWork {
 	t.Helper()
 
 	deadline := time.NewTimer(20 * time.Second)
@@ -68,15 +68,15 @@ type interruptedTransfer struct {
 	writes int
 }
 
-func (r *interruptedTransfer) Transfer(ctx context.Context, spark string, request model.TransferRequest) (model.TransferResult, error) {
-	if request.Operation == model.TransferOperationWrite {
+func (r *interruptedTransfer) Job(ctx context.Context, spark string, request model.JobRequest) (model.JobResult, error) {
+	if request.Operation == model.JobOperationWrite {
 		r.writes++
 		if r.writes == 4 {
-			return model.TransferResult{}, errors.New("mock connection interrupted")
+			return model.JobResult{}, errors.New("mock connection interrupted")
 		}
 	}
 
-	return r.Runtime.Transfer(ctx, spark, request)
+	return r.Runtime.Job(ctx, spark, request)
 }
 
 func TestMockTransferMovesExistingServerAndResumesAfterRestart(t *testing.T) {
@@ -221,7 +221,7 @@ func TestMockTransferCapabilitiesAndGuards(t *testing.T) {
 	transfers := mockTransferService(t, runtime, db)
 
 	_, _, features := runtime.SparkFeatures(server.SparkID)
-	if !slices.Contains(features, protocol.CapabilityTransfer) {
+	if !slices.Contains(features, protocol.CapabilityJobs) {
 		t.Fatal("online mock Spark does not advertise transfers")
 	}
 
@@ -229,7 +229,22 @@ func TestMockTransferCapabilitiesAndGuards(t *testing.T) {
 		t.Fatal("running source was accepted", err)
 	}
 
-	if _, err := transfers.Begin(t.Context(), server.ID, "mock-offline", server.Ports); !errors.Is(err, service.ErrDeploymentUnavailable) {
-		t.Fatal("offline destination was accepted", err)
+	if _, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: model.ServerActionKill}); err != nil {
+		t.Fatal(err)
+	}
+
+	job, err := transfers.Begin(t.Context(), server.ID, "mock-offline", server.Ports)
+	if err != nil {
+		t.Fatal("offline destination was not queued", err)
+	}
+
+	if err := transfers.Store.Cancel(t.Context(), job.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	waitMockTransfer(t, transfers, job.ID, model.TransferPhaseCancelled)
+
+	if _, err := transfers.Deployment.Action(t.Context(), server.ID, model.ServerActionStart); err != nil {
+		t.Fatal("queued cancellation retained the source reservation", err)
 	}
 }

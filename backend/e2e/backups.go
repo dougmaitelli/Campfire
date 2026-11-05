@@ -57,6 +57,7 @@ func (r *runtime) importBackup(ctx context.Context, input model.FileRequest) (mo
 			return result, &model.FileError{Code: model.FileInvalid, Message: "Invalid chunk."}
 		}
 		upload.data = append(upload.data, input.Data...)
+		result.Size = int64(len(upload.data))
 	case model.FileOperationBackupUploadCommit:
 		manifest, err := backuparchive.Inspect(ctx, bytes.NewReader(upload.data))
 		if err != nil {

@@ -34,14 +34,14 @@ func testWireTransfers(t *testing.T, hub *agents.Hub, nodeID string) {
 		t.Fatal(err)
 	}
 
-	q := model.TransferRequest{ID: "wire-transfer-id", ServerID: d.ServerID, Operation: "export"}
+	q := model.JobRequest{ID: "wire-transfer-id", ServerID: d.ServerID, Operation: "export"}
 
-	var result model.TransferResult
+	var result model.JobResult
 
 	for {
 		var err error
 
-		result, err = hub.Transfer(ctx, nodeID, q)
+		result, err = hub.Job(ctx, nodeID, q)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,7 +67,7 @@ func testWireTransfers(t *testing.T, hub *agents.Hub, nodeID string) {
 
 	q.Operation = "read"
 
-	chunk, err := hub.Transfer(ctx, nodeID, q)
+	chunk, err := hub.Job(ctx, nodeID, q)
 	if err != nil || len(chunk.Data) == 0 || chunk.Offset != chunk.Size || agentidentity.Fingerprint(chunk.Data) != chunk.Digest {
 		t.Fatal("wire archive chunk was not intact", err)
 	}
@@ -77,7 +77,7 @@ func testWireTransfers(t *testing.T, hub *agents.Hub, nodeID string) {
 	}
 
 	q.Operation = "release"
-	if released, err := hub.Transfer(ctx, nodeID, q); err != nil || released.State != "released" {
+	if released, err := hub.Job(ctx, nodeID, q); err != nil || released.State != "released" {
 		t.Fatal("wire transfer did not release source", err)
 	}
 }

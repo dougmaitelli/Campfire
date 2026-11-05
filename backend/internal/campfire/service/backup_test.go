@@ -356,15 +356,15 @@ func TestBackupCleanupOnServerDeletionAndTransferGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := s.Delete(ctx, f.server.ID, "snapshot.tar.gz", "all"); !errors.Is(err, repository.ErrTransferActive) {
+	if err := s.Delete(ctx, f.server.ID, "snapshot.tar.gz", "all"); !errors.Is(err, repository.ErrJobActive) {
 		t.Fatal("transfer allowed deletion", err)
 	}
 
-	if err := s.SavePolicy(ctx, f.server.ID, policy); !errors.Is(err, repository.ErrTransferActive) {
+	if err := s.SavePolicy(ctx, f.server.ID, policy); !errors.Is(err, repository.ErrJobActive) {
 		t.Fatal("transfer allowed policy change", err)
 	}
 
-	if err := s.reconcile(ctx, f.server.ID); !errors.Is(err, repository.ErrTransferActive) {
+	if err := s.reconcile(ctx, f.server.ID); !errors.Is(err, repository.ErrJobActive) {
 		t.Fatal("transfer allowed retention", err)
 	}
 

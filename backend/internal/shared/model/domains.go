@@ -108,11 +108,11 @@ const (
 	GameStateUnavailable GameStateStatus = "unavailable"
 )
 
-// TransferRole identifies a Spark's side of a saved transfer.
-type TransferRole string
+// JobRole identifies a Spark's side of a saved transfer.
+type JobRole string
 
 // Transfer roles distinguish the source and destination Spark.
 const (
-	TransferSource TransferRole = "source"
-	TransferTarget TransferRole = "target"
+	JobSource JobRole = "source"
+	JobTarget JobRole = "target"
 )

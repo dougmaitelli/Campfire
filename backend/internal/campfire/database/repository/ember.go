@@ -28,13 +28,8 @@ func NewEmberRepository(db *gorm.DB) *EmberRepository { return &EmberRepository{
 // Replace replaces the current definition while retaining its identity.
 func (r *EmberRepository) Replace(ctx context.Context, ember model.Ember) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		var count int64
-		if err := tx.Model(&database.ServerTransfer{}).Joins("JOIN servers ON servers.id = server_transfers.server_id").Where("server_transfers.active = true AND servers.ember_id = ?", ember.ID).Count(&count).Error; err != nil {
+		if err := GuardJobEmber(tx, ember.ID); err != nil {
 			return err
-		}
-
-		if count != 0 {
-			return ErrTransferActive
 		}
 
 		ember.Revision = ""

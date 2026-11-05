@@ -130,6 +130,10 @@ test("server drawer actions open the transfer drawer", async ({ page }) => {
   const drawer = page.getByRole("dialog", { name: /^Survival/ });
   await drawer.getByRole("button", { name: "Actions", exact: true }).click();
   await drawer.getByRole("menuitem", { name: "Transfer", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: /^Transfer/ })).toBeVisible();
+  const transfer = page.getByRole("dialog", { name: /^Transfer/ });
+  await expect(transfer).toBeVisible();
+  await expect(
+    transfer.getByRole("heading", { name: "Transfer history", exact: true }),
+  ).toHaveCount(0);
   await expect(drawer).toHaveCount(0);
 });

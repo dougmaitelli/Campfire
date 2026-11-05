@@ -23,7 +23,7 @@ test("Spark features group related capabilities and report partial support", asy
     "server.console.stream.v1",
     Capability.LogAlerts,
     "server.disk-quota.v1",
-    "server.transfer.v1",
+    "server.jobs.v1",
     "server.reinstall.v1",
     "spark.self-update.v1",
     "spark.self-reinstall.v1",

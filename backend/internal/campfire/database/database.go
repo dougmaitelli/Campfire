@@ -133,6 +133,15 @@ func migrate(db *gorm.DB) error {
 	}
 
 	return Transaction(db, func(tx *gorm.DB) error {
+		// Pre-1.0 job checkpoints are disposable; retain all other tables.
+		for _, table := range []string{"server_copies", "server_transfers"} {
+			if tx.Migrator().HasTable(table) {
+				if err := tx.Migrator().DropTable(table); err != nil {
+					return err
+				}
+			}
+		}
+
 		if !tx.Migrator().HasTable(&schemaMigration{}) {
 			if err := tx.Migrator().CreateTable(&schemaMigration{}); err != nil {
 				return fmt.Errorf("initialize migrations: %w", err)
@@ -176,7 +185,7 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
-			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}); err != nil {
+			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{}); err != nil {
 				return err
 			}
 
@@ -214,7 +223,7 @@ func migrate(db *gorm.DB) error {
 			&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
 			&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
 			&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{},
-			&ServerTransfer{}, &BackupPolicy{}, &Backup{}, &APIToken{},
+			&ServerJob{}, &BackupPolicy{}, &Backup{}, &APIToken{},
 			&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
 			&ServerResourceSample{}, &SparkResourceSample{},
 			&ServerResourceBucket{}, &SparkResourceBucket{},

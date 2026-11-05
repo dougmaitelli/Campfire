@@ -162,7 +162,12 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
-	return &Runtime{db: db, now: time.Now}, nil
+	var examples int64
+	if err := db.WithContext(ctx).Model(&seedMarker{}).Where("id = ?", jobExamplesSeedMarkerID).Count(&examples).Error; err != nil {
+		return nil, err
+	}
+
+	return &Runtime{db: db, now: time.Now, jobExamples: examples > 0}, nil
 }
 
 func seed(ctx context.Context, tx *gorm.DB) error {

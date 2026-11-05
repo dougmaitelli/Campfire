@@ -36,10 +36,8 @@ func remoteCandidates(rows []database.Backup, p model.BackupPolicy, now time.Tim
 }
 
 func (s *BackupService) reconcile(ctx context.Context, id string) error {
-	if s.Deployment.Transfers != nil {
-		if err := s.Deployment.Transfers.Store.Guard(ctx, id); err != nil {
-			return err
-		}
+	if err := s.Deployment.guardServer(ctx, id); err != nil {
+		return err
 	}
 
 	discoverErr := s.discover(ctx, id)
@@ -143,10 +141,8 @@ func (s *BackupService) Delete(ctx context.Context, id, name string, location mo
 	}
 	defer release()
 
-	if s.Deployment.Transfers != nil {
-		if err := s.Deployment.Transfers.Store.Guard(ctx, id); err != nil {
-			return err
-		}
+	if err := s.Deployment.guardServer(ctx, id); err != nil {
+		return err
 	}
 
 	_ = s.discover(ctx, id)
@@ -182,10 +178,8 @@ func (s *BackupService) deleteCopies(ctx context.Context, row database.Backup) e
 	}
 	defer release()
 
-	if s.Deployment.Transfers != nil {
-		if err := s.Deployment.Transfers.Store.Guard(ctx, row.ServerID); err != nil {
-			return err
-		}
+	if err := s.Deployment.guardServer(ctx, row.ServerID); err != nil {
+		return err
 	}
 
 	status, statusErr := s.Deployment.runActionUnlocked(ctx, row.ServerID, model.ServerActionStatus, "")

@@ -154,6 +154,12 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 		return model.Server{}, fmt.Errorf("%w: preserve the server's Spark and Ember", ErrInvalidServer)
 	}
 
+	ctx, releaseDefinition, lockErr := holdDefinition(ctx, server.EmberID)
+	if lockErr != nil {
+		return model.Server{}, lockErr
+	}
+	defer releaseDefinition()
+
 	latest, err := s.embers.Get(ctx, server.EmberID)
 	if err != nil {
 		return model.Server{}, err
@@ -186,6 +192,12 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 }
 
 func (s *ServerService) save(ctx context.Context, server model.Server, create bool) (model.Server, error) {
+	ctx, release, lockErr := holdDefinition(ctx, server.EmberID)
+	if lockErr != nil {
+		return model.Server{}, lockErr
+	}
+	defer release()
+
 	if server.Ports == nil {
 		server.Ports = []model.ServerPort{}
 	}
@@ -204,28 +216,27 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 	}
 
 	server.Description = description
-	if !create && server.EmberUpdateAvailable {
+
+	ember, err := s.embers.Get(ctx, server.EmberID)
+	if err != nil {
+		return model.Server{}, err
+	}
+
+	if !create && server.EmberHash != ember.Revision {
 		current, err := s.Get(ctx, server.ID)
 		if err != nil {
 			return model.Server{}, err
 		}
 
-		if server.EmberHash == current.EmberHash {
-			if !model.SameRuntimeConfiguration(current.ServerConfiguration, server.ServerConfiguration) {
-				return model.Server{}, fmt.Errorf("%w: apply the current Ember before changing game configuration", ErrInvalidServer)
-			}
-
-			if err := s.store.Save(ctx, server, false); err != nil {
-				return model.Server{}, err
-			}
-
-			return s.Get(ctx, server.ID)
+		if !model.SameRuntimeConfiguration(current.ServerConfiguration, server.ServerConfiguration) {
+			return model.Server{}, fmt.Errorf("%w: apply the current Ember before changing game configuration", ErrInvalidServer)
 		}
-	}
 
-	ember, err := s.embers.Get(ctx, server.EmberID)
-	if err != nil {
-		return model.Server{}, err
+		if err := s.store.Save(ctx, server, false); err != nil {
+			return model.Server{}, err
+		}
+
+		return s.Get(ctx, server.ID)
 	}
 
 	if create {

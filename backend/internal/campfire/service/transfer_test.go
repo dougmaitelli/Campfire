@@ -63,16 +63,24 @@ type transferRouter struct {
 }
 
 func (r *transferRouter) Deploy(ctx context.Context, id string, d model.Deployment) (model.ConfigurationReceipt, error) {
-	if id == "target" && r.targetOffline {
+	if !r.Connected(id) {
 		return model.ConfigurationReceipt{}, errors.New("destination unavailable")
 	}
 
 	return r.stores[id].Deploy(ctx, id, d)
 }
 func (r *transferRouter) Action(ctx context.Context, id string, q model.RuntimeRequest) (model.RuntimeStatus, error) {
+	if !r.Connected(id) {
+		return model.RuntimeStatus{}, errors.New("destination unavailable")
+	}
+
 	return r.stores[id].Action(ctx, id, q)
 }
-func (r *transferRouter) Transfer(ctx context.Context, id string, q model.TransferRequest) (model.TransferResult, error) {
+func (r *transferRouter) Job(ctx context.Context, id string, q model.JobRequest) (model.JobResult, error) {
+	if !r.Connected(id) {
+		return model.JobResult{}, errors.New("destination unavailable")
+	}
+
 	if q.Operation == "write" {
 		r.mu.Lock()
 		if r.corrupt {
@@ -83,7 +91,7 @@ func (r *transferRouter) Transfer(ctx context.Context, id string, q model.Transf
 		r.mu.Unlock()
 	}
 
-	result, err := r.stores[id].Transfer(ctx, id, q)
+	result, err := r.stores[id].Job(ctx, id, q)
 	if q.Operation == "write" && err == nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -91,7 +99,7 @@ func (r *transferRouter) Transfer(ctx context.Context, id string, q model.Transf
 		r.offsets = append(r.offsets, q.Offset)
 		if r.loseAck {
 			r.loseAck = false
-			return model.TransferResult{}, errors.New("simulated lost acknowledgement")
+			return model.JobResult{}, errors.New("simulated lost acknowledgement")
 		}
 	}
 
@@ -133,6 +141,49 @@ func TestTransferChecksumFailureRecopiesWithoutChangingPlacement(t *testing.T) {
 	}
 }
 
+func TestTransferExportFailurePausesUntilNewAttempt(t *testing.T) {
+	f := newTransferFixture(t)
+	link := filepath.Join(f.source.Directory, f.server.ID, "data", "unsupported-link")
+
+	if err := os.Symlink("world.bin", link); err != nil {
+		t.Fatal(err)
+	}
+
+	job, err := f.service.Begin(t.Context(), f.server.ID, "target", f.ports)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.service.Start(t.Context())
+	t.Cleanup(f.service.Close)
+
+	failed := waitTransfer(t, f.service, job.ID, model.TransferPhaseFailed)
+	if failed.ResumePhase != model.TransferPhaseExporting || failed.Error == "" {
+		t.Fatal("source export failure was not preserved", failed)
+	}
+
+	// Fixing the filesystem does not silently restart the failed attempt.
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+
+	observed, err := f.router.Job(t.Context(), "source", model.JobRequest{ID: job.ID, ServerID: job.ServerID, Attempt: failed.Attempt, Operation: model.JobOperationExport})
+	if err != nil || observed.State != model.JobStateFailed {
+		t.Fatal("failed export restarted without a new attempt", observed, err)
+	}
+
+	if err := f.service.Store.Retry(t.Context(), job.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	waitTransfer(t, f.service, job.ID, model.TransferPhaseComplete)
+
+	data, err := os.ReadFile(filepath.Join(f.target.Directory, job.ServerID, "data", "world.bin"))
+	if err != nil || !bytes.Equal(data, f.world) {
+		t.Fatal("export retry changed the game data", err)
+	}
+}
+
 func TestQueuedTransferCanCancelWithUnavailableDestination(t *testing.T) {
 	f := newTransferFixture(t)
 	ctx := context.Background()
@@ -145,11 +196,6 @@ func TestQueuedTransferCanCancelWithUnavailableDestination(t *testing.T) {
 
 	f.service.Start(ctx)
 	t.Cleanup(f.service.Close)
-
-	failed := waitTransfer(t, f.service, item.ID, "failed")
-	if failed.ResumePhase != "queued" {
-		t.Fatal(failed)
-	}
 
 	if err := f.service.Store.Cancel(ctx, item.ID); err != nil {
 		t.Fatal(err)
@@ -234,6 +280,7 @@ func newTransferFixture(t *testing.T) *transferFixture {
 		"source": {Directory: filepath.Join(directory, "source-config"), Runtime: source},
 		"target": {Directory: filepath.Join(directory, "target-config"), Runtime: target},
 	}}
+	sparks.connectivity = router
 	deployment := &DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: router}
 	service := NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
 	deployment.Transfers = service
@@ -287,7 +334,7 @@ func newTransferFixture(t *testing.T) *transferFixture {
 	return &transferFixture{service: service, db: db, router: router, source: source, target: target, server: server, ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25566, ContainerPort: 25565, Protocol: "tcp"}}, world: world}
 }
 
-func waitTransfer(t *testing.T, s *TransferService, id string, phase model.TransferPhase) database.ServerTransfer {
+func waitTransfer(t *testing.T, s *TransferService, id string, phase model.TransferPhase) model.TransferWork {
 	t.Helper()
 
 	deadline := time.Now().Add(10 * time.Second)
@@ -324,12 +371,12 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 	}
 
 	for _, action := range []model.ServerAction{model.ServerActionStart, model.ServerActionUpdate, model.ServerActionReinstall} {
-		if _, err := f.service.Deployment.Action(ctx, f.server.ID, action); !errors.Is(err, repository.ErrTransferActive) {
+		if _, err := f.service.Deployment.Action(ctx, f.server.ID, action); !errors.Is(err, repository.ErrJobActive) {
 			t.Fatal("transfer did not fence server actions", action, err)
 		}
 	}
 
-	if _, err := f.service.Deployment.Servers.ApplyEmber(ctx, f.server.ID, f.server.EmberID, f.server.ServerConfiguration); !errors.Is(err, repository.ErrTransferActive) {
+	if _, err := f.service.Deployment.Servers.ApplyEmber(ctx, f.server.ID, f.server.EmberID, f.server.ServerConfiguration); !errors.Is(err, repository.ErrJobActive) {
 		t.Fatal("transfer did not fence Ember changes", err)
 	}
 
@@ -341,7 +388,7 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 	}
 
 	edited.MemoryMB++
-	if _, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, edited); !errors.Is(err, repository.ErrTransferActive) {
+	if _, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, edited); !errors.Is(err, repository.ErrJobActive) {
 		t.Fatal("transfer did not fence runtime edits", err)
 	}
 
@@ -388,7 +435,7 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 		t.Fatal("source data was not cleaned", err)
 	}
 
-	if err := f.service.Store.Cancel(ctx, item.ID); !errors.Is(err, repository.ErrTransferState) {
+	if err := f.service.Store.Cancel(ctx, item.ID); !errors.Is(err, repository.ErrJobState) {
 		t.Fatal("committed transfer was cancellable", err)
 	}
 
@@ -495,22 +542,22 @@ func TestTransferCancellationPreservesSourceAndRejectsLateCommands(t *testing.T)
 
 	waitTransfer(t, f.service, item.ID, "cancelled")
 
-	for _, request := range []model.TransferRequest{
+	for _, request := range []model.JobRequest{
 		{ID: item.ID, ServerID: f.server.ID, Operation: "prepare", Size: failed.TotalBytes, Digest: failed.Digest},
 		{ID: item.ID, ServerID: f.server.ID, Operation: "import"},
 	} {
-		result, err := f.router.Transfer(ctx, "target", request)
+		result, err := f.router.Job(ctx, "target", request)
 		if err == nil && result.State != "discarded" {
 			t.Fatal("late destination command resurrected cancelled transfer", result)
 		}
 	}
 
-	result, err := f.router.Transfer(ctx, "source", model.TransferRequest{ID: item.ID, ServerID: f.server.ID, Operation: "export"})
+	result, err := f.router.Job(ctx, "source", model.JobRequest{ID: item.ID, ServerID: f.server.ID, Operation: "export"})
 	if err != nil || result.State != "released" {
 		t.Fatal("late export re-froze the source", result, err)
 	}
 
-	if _, err := f.router.Transfer(ctx, "source", model.TransferRequest{ID: item.ID, ServerID: f.server.ID, Operation: "cleanup"}); err == nil {
+	if _, err := f.router.Job(ctx, "source", model.JobRequest{ID: item.ID, ServerID: f.server.ID, Operation: "cleanup"}); err == nil {
 		t.Fatal("late cleanup accepted after cancellation")
 	}
 
@@ -521,5 +568,105 @@ func TestTransferCancellationPreservesSourceAndRejectsLateCommands(t *testing.T)
 
 	if _, err := f.service.Deployment.Action(ctx, f.server.ID, "start"); err != nil {
 		t.Fatal("source did not unlock", err)
+	}
+}
+
+func TestTransferCrashStagingRemovedAfterRestart(t *testing.T) {
+	for _, cancel := range []bool{true, false} {
+		name := "resume"
+		if cancel {
+			name = "cancel"
+		}
+
+		t.Run(name, func(t *testing.T) {
+			f := newTransferFixture(t)
+
+			job, err := f.service.Begin(t.Context(), f.server.ID, "target", f.ports)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			claimJob(t, f.service.Store.Jobs(), job.ID)
+
+			deadline := time.Now().Add(10 * time.Second)
+
+			for job.Phase != model.TransferPhaseImporting {
+				if _, err := f.service.step(t.Context(), job); err != nil {
+					t.Fatal(err)
+				}
+
+				job, err = f.service.Store.Get(t.Context(), job.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if time.Now().After(deadline) {
+					t.Fatal("transfer did not finish receiving")
+				}
+
+				time.Sleep(5 * time.Millisecond)
+			}
+
+			sourceRoot := filepath.Join(f.source.Directory, job.ServerID)
+			targetRoot := filepath.Join(f.target.Directory, job.ServerID)
+			build := filepath.Join(sourceRoot, ".transfer-build-"+job.ID+"-crash")
+			stage := filepath.Join(targetRoot, ".transfer-stage-"+job.ID+"-crash")
+
+			unrelated := filepath.Join(targetRoot, ".transfer-stage-other-job-crash")
+			for _, file := range []string{build, unrelated} {
+				if err := os.WriteFile(file, []byte("partial archive"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if err := os.Mkdir(stage, 0700); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := os.WriteFile(filepath.Join(stage, "game-data"), []byte("partial extracted data"), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			f.source.Close()
+			f.source = transferManager(t, f.source.Directory)
+			f.source.Docker = &transferDocker{state: "exited"}
+			f.router.stores["source"].Runtime = f.source
+			f.target.Close()
+			f.target = transferManager(t, f.target.Directory)
+
+			f.router.stores["target"].Runtime = f.target
+			if cancel {
+				if err := f.service.Store.Cancel(t.Context(), job.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			f.service.Start(t.Context())
+			t.Cleanup(f.service.Close)
+
+			terminal := model.TransferPhaseComplete
+
+			worldRoot := targetRoot
+			if cancel {
+				terminal, worldRoot = model.TransferPhaseCancelled, sourceRoot
+			}
+
+			waitTransfer(t, f.service, job.ID, terminal)
+
+			for _, path := range []string{build, stage} {
+				if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+					t.Errorf("completed job retained abandoned staging: %s (%v)", filepath.Base(path), err)
+				}
+			}
+
+			if _, err := os.Stat(unrelated); err != nil {
+				t.Fatal("cleanup removed another job's file", err)
+			}
+
+			world, err := os.ReadFile(filepath.Join(worldRoot, "data", "world.bin"))
+			if err != nil || !bytes.Equal(world, f.world) {
+				t.Fatal("cleanup damaged game data", err)
+			}
+		})
 	}
 }

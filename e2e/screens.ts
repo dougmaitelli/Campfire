@@ -123,6 +123,19 @@ export async function inspectServer(page: Page) {
   ).toBeVisible();
 }
 
+export async function openServerJobs(page: Page, name = "Survival") {
+  await openScreen(page, "servers", "Servers");
+  await page
+    .getByRole("button", { name: `View details for ${name}`, exact: true })
+    .click();
+  const drawer = page.getByRole("dialog", { name: new RegExp(`^${name}`) });
+  await drawer.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await expect(
+    drawer.getByRole("tabpanel", { name: "Jobs", exact: true }),
+  ).toBeVisible();
+  return drawer;
+}
+
 export const serverTabs = [
   ["console", "Console"],
   ["files", "Files"],

@@ -46,7 +46,7 @@ func TestNegotiationUsesVersionOverlapAndExplicitFeatures(t *testing.T) {
 func TestWelcomeCannotExpandAnOffer(t *testing.T) {
 	offered := []string{CapabilityLifecycle}
 	for _, welcome := range []Message{
-		{Type: "welcome", Protocol: ProtocolVersion, Capabilities: []string{CapabilityTransfer}},
+		{Type: "welcome", Protocol: ProtocolVersion, Capabilities: []string{CapabilityJobs}},
 		{Type: "welcome", Protocol: ProtocolVersion + 1},
 		{Type: "welcome", Protocol: MinimumProtocolVersion - 1},
 		{Type: "hello", Protocol: ProtocolVersion},
@@ -99,7 +99,7 @@ func TestCommandRequirementsPreventOptionalFeatureFallback(t *testing.T) {
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "compress"}}, CapabilityFileArchive},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.read"}}, CapabilityBackups},
 		{Command{Name: ServerFiles, Files: &model.FileRequest{Operation: "backup.delete"}}, CapabilityBackups},
-		{Command{Name: ServerTransfer}, CapabilityTransfer},
+		{Command{Name: ServerJob}, CapabilityJobs},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "metrics"}}, CapabilityMetrics},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "update"}}, CapabilityReinstall},
 		{Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: "reinstall"}}, CapabilityReinstall},
@@ -135,7 +135,7 @@ func TestRequiredCapabilitiesKeepOperationSpecificRules(t *testing.T) {
 		{Command{Name: PruneSpark}, []string{CapabilityPrune}},
 		{Command{Name: UpdateSpark}, []string{CapabilitySelfUpdate}},
 		{Command{Name: ReinstallSpark}, []string{CapabilitySelfReinstall}},
-		{Command{Name: ServerTransfer}, []string{CapabilityTransfer}},
+		{Command{Name: ServerJob}, []string{CapabilityJobs}},
 		{Command{Name: ConfigureServer}, []string{CapabilityConfigure}},
 		{Command{Name: ConfigureServer, Deployment: &model.Deployment{Configuration: model.RuntimeConfiguration{GameIntegration: true}}}, []string{CapabilityConfigure, CapabilityGameIntegration}},
 		{Command{Name: ServerFiles}, []string{CapabilityFiles}},

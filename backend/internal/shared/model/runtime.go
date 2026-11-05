@@ -78,6 +78,7 @@ type RuntimeRequest struct {
 	ServerID      string        `json:"server_id"`
 	Action        ServerAction  `json:"action"`
 	OperationID   string        `json:"operation_id,omitempty"`
+	ArchiveID     string        `json:"archive_id,omitempty"`
 	Content       string        `json:"content,omitempty"`
 	BackupSource  *BackupSource `json:"backup_source,omitempty"`
 }

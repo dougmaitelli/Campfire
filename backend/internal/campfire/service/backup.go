@@ -122,6 +122,14 @@ func (s *BackupService) Close() {
 
 // SavePolicy validates opt-in limits. Zero means unlimited for that dimension.
 func (s *BackupService) SavePolicy(ctx context.Context, id string, p model.BackupPolicy) error {
+	if err := s.validatePolicy(p); err != nil {
+		return err
+	}
+
+	return s.Store.SavePolicy(ctx, id, p)
+}
+
+func (s *BackupService) validatePolicy(p model.BackupPolicy) error {
 	if p.Storage != model.BackupStorageLocal && p.Storage != model.BackupStorageS3 {
 		return repository.ErrAccessInput
 	}
@@ -137,7 +145,7 @@ func (s *BackupService) SavePolicy(ctx context.Context, id string, p model.Backu
 		return &model.FileError{Code: model.FileInvalid, Message: "S3 backup storage is not configured."}
 	}
 
-	return s.Store.SavePolicy(ctx, id, p)
+	return nil
 }
 
 func (s *BackupService) discover(ctx context.Context, id string) error {
@@ -147,8 +155,24 @@ func (s *BackupService) discover(ctx context.Context, id string) error {
 	}
 
 	seen := make(map[string]bool)
+	temporary := make(map[string]bool)
+
+	if s.Deployment.Copies != nil {
+		jobs, err := s.Deployment.Copies.Store.Jobs().ActiveForServer(ctx, id, model.JobCopy)
+		if err != nil {
+			return err
+		}
+
+		for _, job := range jobs {
+			temporary[model.CopyArchiveName(job.ID)] = true
+		}
+	}
 
 	for _, item := range result.Entries {
+		if temporary[item.Name] {
+			continue
+		}
+
 		if !model.BackupName(item.Name) || item.Size < 1 || item.Size > 100<<30 {
 			continue
 		}

@@ -20,7 +20,7 @@ func TestSelfUpdateRejectsActiveWorkAndTransferFences(t *testing.T) {
 	}
 
 	manager.entries["server"].Status.Busy = false
-	if err := manager.saveTransfer(&localTransfer{TransferResult: model.TransferResult{ID: "transfer", ServerID: "server", State: "ready"}, Role: "source"}); err != nil {
+	if err := manager.saveTransfer(&localTransfer{JobResult: model.JobResult{ID: "transfer", ServerID: "server", State: "ready"}, Role: "source"}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -19,7 +19,7 @@ const featureTranslationKeys = {
   [Capability.Console]: "sparkFeatures.liveConsole",
   [Capability.LogAlerts]: "sparkFeatures.logAlerts",
   [Capability.DiskQuota]: "sparkFeatures.diskQuotas",
-  [Capability.Transfer]: "sparkFeatures.serverTransfers",
+  [Capability.Jobs]: "sparkFeatures.serverJobs",
   [Capability.Reinstall]: "sparkFeatures.serverUpdateAndReinstall",
   [Capability.SelfUpdate]: "sparkFeatures.remoteSparkUpdates",
 } as const;

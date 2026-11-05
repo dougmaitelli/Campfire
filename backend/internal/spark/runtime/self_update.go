@@ -52,7 +52,7 @@ func (m *Manager) CanUpdate() error {
 			return err
 		}
 
-		if transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased && transfer.State != model.TransferStateRetired && transfer.State != model.TransferStateDiscarded {
+		if transfer != nil && transfer.State != model.JobStateActive && transfer.State != model.JobStateReleased && transfer.State != model.JobStateRetired && transfer.State != model.JobStateDiscarded {
 			return errors.New("finish the server transfer before updating Spark")
 		}
 	}

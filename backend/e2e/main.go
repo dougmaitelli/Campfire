@@ -45,6 +45,7 @@ type runtime struct {
 	backups     map[string][]model.FileEntry
 	archives    map[string][]byte
 	uploads     map[string]*uploadFixture
+	jobs        map[string]*jobFixture
 	updates     chan struct{}
 }
 
@@ -80,11 +81,15 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 	status.ServerID = input.ServerID
 	if input.Action != "status" {
 		status.OperationID, status.Operation = input.OperationID, input.Action
+		status.OperationState = model.OperationSucceeded
 		switch input.Action {
 		case "start", "restart":
 			status.State = "running"
 		case "stop", "kill":
 			status.State = "stopped"
+		case "delete":
+			status.State = model.RuntimeStateDeleted
+			delete(r.files, input.ServerID)
 		case "command":
 			status.Logs += input.Content + "\nCommand accepted.\n"
 		case "restore":
@@ -93,7 +98,11 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 			}
 			status.State = model.RuntimeStateStopped
 		case "backup":
-			name := input.BackupOptions.Mode.ArchiveName(input.OperationID)
+			archiveID := input.OperationID
+			if input.ArchiveID != "" {
+				archiveID = input.ArchiveID
+			}
+			name := input.BackupOptions.Mode.ArchiveName(archiveID)
 			data, err := r.createBackup(input)
 			if err != nil {
 				return status, err
@@ -173,8 +182,12 @@ func main() {
 	var handler http.Handler
 	var db *database.Database
 	var statuses *service.RuntimeStatusService
+	var copies *service.CopyService
 	generation := 0
 	reset := func() {
+		if copies != nil {
+			copies.Close()
+		}
 		if statuses != nil {
 			statuses.Close()
 		}
@@ -197,6 +210,9 @@ func main() {
 		deployment.History = service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 		deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
 		deployment.Transfers = service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
+		copies = service.NewCopyService(repository.NewCopyRepository(db.ORM()), deployment)
+		deployment.Copies = copies
+		copies.Start(ctx)
 		activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
 		deployment.Activity = activity
 		notifications := service.NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, auth)
@@ -207,7 +223,7 @@ func main() {
 		handler = api.New(sparks, embers, servers).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).Handler()
 	}
 	reset()
-	defer func() { statuses.Close(); must(db.Close()) }()
+	defer func() { copies.Close(); statuses.Close(); must(db.Close()) }()
 	files := http.FileServer(http.Dir("web/dist"))
 	mux := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/__test/reset" {

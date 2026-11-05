@@ -39,16 +39,16 @@ func seedTransferHistory(ctx context.Context, db *gorm.DB) error {
 		other.SparkID = otherSpark
 		now := time.Now().UTC()
 
-		for _, item := range []database.ServerTransfer{
+		for _, item := range []database.ServerJob{
 			{
-				ID: "mock-completed-transfer", ServerID: server.ID, SourceSparkID: other.SparkID, TargetSparkID: current.SparkID,
-				SourceConfiguration: other, TargetConfiguration: current, Phase: model.TransferPhaseComplete,
+				ID: "mock-completed-transfer", Type: model.JobTransfer, SourceServerID: server.ID, TargetServerID: server.ID, Attempt: 1, Step: model.JobCleanup, Data: "{}", SourceSparkID: other.SparkID, TargetSparkID: current.SparkID,
+				Status:           model.JobCompleted,
 				TransferredBytes: 768 << 20, TotalBytes: 768 << 20,
 				CreatedAt: now.Add(-48 * time.Hour).Unix(), UpdatedAt: now.Add(-48*time.Hour + 3*time.Minute).Unix(),
 			},
 			{
-				ID: "mock-cancelled-transfer", ServerID: server.ID, SourceSparkID: current.SparkID, TargetSparkID: other.SparkID,
-				SourceConfiguration: current, TargetConfiguration: other, Phase: model.TransferPhaseCancelled, CancelFrom: model.TransferPhaseCopying,
+				ID: "mock-cancelled-transfer", Type: model.JobTransfer, SourceServerID: server.ID, TargetServerID: server.ID, Attempt: 1, Step: model.JobCleanup, Data: "{}", SourceSparkID: current.SparkID, TargetSparkID: other.SparkID,
+				Status:           model.JobCancelled,
 				TransferredBytes: 256 << 20, TotalBytes: 768 << 20,
 				CreatedAt: now.Add(-24 * time.Hour).Unix(), UpdatedAt: now.Add(-24*time.Hour + time.Minute).Unix(),
 			},

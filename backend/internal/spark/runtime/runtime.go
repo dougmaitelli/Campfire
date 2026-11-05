@@ -184,14 +184,14 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 	if transfer, err := m.localTransfer(q.ServerID); err != nil {
 		return model.RuntimeStatus{}, err
-	} else if transfer != nil && transfer.State != model.TransferStateActive && transfer.State != model.TransferStateReleased {
+	} else if transfer != nil && !transfer.allowsOperations() {
 		if q.Action != model.ServerActionStatus && q.Action != model.ServerActionLogs {
 			return model.RuntimeStatus{}, errors.New("server is locked for a Spark transfer")
 		}
 
 		if q.Action == model.ServerActionStatus {
 			status, err := m.observe(ctx, d, e)
-			status.Busy = transfer.State != model.TransferStateRetired && transfer.State != model.TransferStateDiscarded
+			status.Busy = transfer.State != model.JobStateRetired && transfer.State != model.JobStateDiscarded
 			status.Progress, status.Operation, status.OperationID = "Spark transfer: "+string(transfer.State), model.ServerActionTransfer, transfer.ID
 			status.Error = transfer.Error
 
@@ -395,7 +395,17 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 	case model.ServerActionReinstall:
 		err = m.reinstallMode(ctx, d, e, true, q.Content == "clean")
 	case model.ServerActionBackup:
-		err = m.backup(ctx, d, q.OperationID, e, q.BackupOptions)
+		archiveID := q.OperationID
+		if q.ArchiveID != "" {
+			if !utils.IsValidResourceID(q.ArchiveID) {
+				err = errors.New("invalid backup artifact identity")
+				break
+			}
+
+			archiveID = q.ArchiveID
+		}
+
+		err = m.backup(ctx, d, archiveID, e, q.BackupOptions)
 	case model.ServerActionRestore:
 		if q.BackupSource != nil {
 			err = m.downloadBackup(ctx, d, q.Content, q.BackupSource, e)
