@@ -6,6 +6,8 @@ import { apiFetch, readJSON, API_READ_TIMEOUT_MS, apiJSON } from "./client";
 export { BackupMode };
 
 export interface Backup {
+  display_name: string;
+  pinned: boolean;
   portable?: boolean;
   mode?: BackupMode;
   name: string;
@@ -31,6 +33,7 @@ export interface BackupPolicy extends BackupRetention {
 
 export interface CatalogBackup extends Backup {
   can_download: boolean;
+  can_edit: boolean;
   id: string;
   server_id: string;
   server_name: string;
@@ -48,7 +51,8 @@ export async function listAllBackups(
       !object(value) ||
       typeof value.server_id !== "string" ||
       typeof value.server_name !== "string" ||
-      typeof value.can_download !== "boolean"
+      typeof value.can_download !== "boolean" ||
+      typeof value.can_edit !== "boolean"
     )
       throw new Error(i18n.t("backups.unexpectedBackupCatalogEntry"));
     return {
@@ -56,6 +60,7 @@ export async function listAllBackups(
       server_id: value.server_id,
       server_name: value.server_name,
       can_download: value.can_download,
+      can_edit: value.can_edit,
       id: `${value.server_id}/${value.name}`,
     };
   });
@@ -114,6 +119,8 @@ export function isPolicy(value: unknown): value is BackupPolicy {
 function isBackup(value: unknown): value is Backup {
   return (
     object(value) &&
+    typeof value.display_name === "string" &&
+    typeof value.pinned === "boolean" &&
     (!("mode" in value) || isEnumValue(BackupMode, value.mode)) &&
     typeof value.name === "string" &&
     /^(?:(?:full|savedata)-)?[A-Za-z0-9_-]{1,128}\.tar\.gz$/.test(value.name) &&
@@ -184,4 +191,21 @@ export async function deleteBackup(
       },
     ),
   );
+}
+
+export async function updateBackup(
+  id: string,
+  name: string,
+  changes: { display_name?: string; pinned?: boolean },
+): Promise<Backup> {
+  const body = await readJSON(
+    await apiJSON(
+      `/api/v1/servers/${encodeURIComponent(id)}/backups/${encodeURIComponent(name)}`,
+      changes,
+      { method: "PATCH", signal: AbortSignal.timeout(API_READ_TIMEOUT_MS) },
+    ),
+  );
+  if (!isBackup(body))
+    throw new Error(i18n.t("backups.unexpectedBackupResponse"));
+  return body;
 }

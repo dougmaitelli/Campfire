@@ -29,6 +29,8 @@ import {
   Menu,
   MoreHorizontal,
   Play,
+  Pin,
+  PinOff,
   RotateCcw,
   Search,
   Send,
@@ -63,7 +65,10 @@ type NavigationIconName =
   | "download"
   | "compress"
   | "extract"
+  | "restore"
   | "rename"
+  | "pin"
+  | "unpin"
   | "permissions"
   | "delete"
   | "warning"
@@ -90,6 +95,8 @@ type NavigationIconName =
   | "x-circle";
 
 const icons: Record<NavigationIconName, LucideIcon> = {
+  pin: Pin,
+  unpin: PinOff,
   menu: Menu,
   more: MoreHorizontal,
   move: FolderInput,
@@ -118,6 +125,7 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   download: Download,
   compress: Archive,
   extract: ArchiveRestore,
+  restore: ArchiveRestore,
   rename: SquarePen,
   permissions: ShieldCheck,
   delete: Trash2,

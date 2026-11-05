@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/model"
 )
 
@@ -19,6 +20,14 @@ func remoteCandidates(rows []database.Backup, p model.BackupPolicy, now time.Tim
 
 	for _, row := range rows {
 		if row.Deleting || row.NoRemote || (!row.Local && !row.Remote) {
+			continue
+		}
+
+		if row.Pinned {
+			if p.Storage == model.BackupStorageS3 {
+				result[row.Name] = true
+			}
+
 			continue
 		}
 
@@ -91,7 +100,7 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 	localIndex, remoteIndex := make(map[model.BackupMode]int), make(map[model.BackupMode]int)
 
 	for _, row := range rows {
-		if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
+		if row.Pinned || row.Deleting || row.LocalDeleting || row.RemoteDeleting {
 			continue
 		}
 
@@ -115,8 +124,14 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 
 		if removeLocal || removeRemote {
 			row.LocalDeleting, row.RemoteDeleting = removeLocal, removeRemote
-			if err := s.Store.Update(ctx, id, row.Name, map[string]any{"local_deleting": removeLocal, "remote_deleting": removeRemote}); err != nil {
+
+			claimed, err := s.Store.BeginDeletion(ctx, id, row.Name, repository.BackupDeletion{Local: removeLocal, Remote: removeRemote})
+			if err != nil {
 				return err
+			}
+
+			if !claimed {
+				continue
 			}
 
 			if err := s.deleteCopies(ctx, row); err != nil {
@@ -156,12 +171,22 @@ func (s *BackupService) Delete(ctx context.Context, id, name string, location mo
 		return &model.FileError{Code: model.FileBusy, Message: "Backup deletion is already pending."}
 	}
 
+	if row.Pinned {
+		return &model.FileError{Code: model.FileConflict, Message: "Unpin the backup before deleting it."}
+	}
+
 	row.Deleting = location == model.BackupStorageAll
 	row.LocalDeleting = location == model.BackupStorageAll || location == model.BackupStorageLocal
 
 	row.RemoteDeleting = location == model.BackupStorageAll || location == model.BackupStorageS3
-	if err := s.Store.Update(ctx, id, name, map[string]any{"deleting": row.Deleting, "local_deleting": row.LocalDeleting, "remote_deleting": row.RemoteDeleting, "no_remote": row.NoRemote || row.RemoteDeleting, "error": ""}); err != nil {
+
+	claimed, err := s.Store.BeginDeletion(ctx, id, name, repository.BackupDeletion{Local: row.LocalDeleting, Remote: row.RemoteDeleting, All: row.Deleting, DisableSync: row.RemoteDeleting})
+	if err != nil {
 		return err
+	}
+
+	if !claimed {
+		return &model.FileError{Code: model.FileConflict, Message: "Backup changed; refresh before deleting it."}
 	}
 
 	if err := s.deleteCopies(ctx, row); err != nil {

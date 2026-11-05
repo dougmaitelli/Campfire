@@ -7,6 +7,7 @@ import { Button } from "../forms/Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { formatErrorMessage } from "../../utils/errors";
+import { createPortal } from "react-dom";
 import "./confirm-dialog.css";
 import "./input-dialog.css";
 
@@ -67,12 +68,13 @@ export function InputDialog({
     }
   }
 
-  return (
+  return createPortal(
     <dialog
       ref={dialog}
       className="confirm-dialog input-dialog"
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}
+      onClick={(event) => event.stopPropagation()}
       onCancel={(event) => {
         event.preventDefault();
         if (!pending.current) onClose();
@@ -130,6 +132,7 @@ export function InputDialog({
           </Button>
         </div>
       </form>
-    </dialog>
+    </dialog>,
+    document.body,
   );
 }

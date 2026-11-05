@@ -255,7 +255,7 @@ func backupView(row database.Backup, working bool) model.Backup {
 		state = model.BackupDeleting
 	}
 
-	return model.Backup{Portable: row.Portable, Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
+	return model.Backup{DisplayName: row.DisplayName, Pinned: row.Pinned, Portable: row.Portable, Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
 }
 
 // Catalog lists known backups across servers, including disconnected placements.

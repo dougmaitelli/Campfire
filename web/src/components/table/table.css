@@ -47,7 +47,7 @@
     vertical-align: middle;
   }
 
-  & td:has(> .table-row-trigger) {
+  & td:has(.table-row-trigger) {
     min-width: 7rem;
   }
 
@@ -198,7 +198,7 @@
     padding-inline: 6px;
   }
 
-  .data-table:not(.table-cards) td:has(> .table-row-trigger) {
+  .data-table:not(.table-cards) td:has(.table-row-trigger) {
     min-width: 6rem;
   }
 

@@ -830,6 +830,17 @@
     "unableToLoadExecutions": "Unable to load executions.",
     "unableToLoadHistory": "Unable to load history."
   },
+  "backupMetadata": {
+    "actions": "Backup actions for {{name}}",
+    "rename": "Rename backup",
+    "name": "Backup name",
+    "renameHelp": "Choose a name to help identify this snapshot.",
+    "pin": "Pin backup",
+    "unpin": "Unpin backup",
+    "pinned": "Pinned",
+    "pinHelp": "Pinned backups are kept until you unpin them or delete the server.",
+    "unableToUpdate": "Unable to update backup."
+  },
   "serverBackups": {
     "archive": "Archive",
     "backupCreated": "Backup created.",
@@ -1547,7 +1558,7 @@
     "server_files_write": "Write files",
     "server_files_delete": "Delete files",
     "server_backups_read": "View backups",
-    "server_backups_create": "Create backups",
+    "server_backups_create": "Create, rename, and pin backups",
     "server_backups_download": "Download backups",
     "server_backups_delete": "Delete backups",
     "server_backups_restore": "Restore backups",
@@ -1567,7 +1578,7 @@
     "server_files_write": "Create, upload, edit, move, archive, extract, and change file permissions",
     "server_files_delete": "Delete files and folders",
     "server_backups_read": "View backup lists and metadata",
-    "server_backups_create": "Create backups",
+    "server_backups_create": "Create, rename, and pin backups",
     "server_backups_download": "Download archives containing server data",
     "server_backups_delete": "Delete backups",
     "server_backups_restore": "Restore game files from a backup",

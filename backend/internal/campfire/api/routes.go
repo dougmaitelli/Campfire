@@ -132,6 +132,7 @@ func (a *API) Handler() http.Handler {
 	server("GET /api/v1/servers/{id}/backup-policy", accessperm.ServerConfigure, a.getBackupPolicy)
 	server("PUT /api/v1/servers/{id}/backup-policy", accessperm.ServerConfigure, a.saveBackupPolicy)
 	server("DELETE /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsDelete, a.deleteBackup)
+	server("PATCH /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsCreate, a.updateBackup)
 	server("GET /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsDownload, a.downloadBackup)
 
 	return a.auditRequests(a.authenticate(mux))

@@ -44,15 +44,23 @@ type BackupSource struct {
 
 // Backup describes a cataloged archive and its available copies.
 type Backup struct {
-	Portable   bool        `json:"portable"`
-	Mode       BackupMode  `json:"mode"`
-	Name       string      `json:"name"`
-	Size       int64       `json:"size"`
-	ModifiedAt time.Time   `json:"modified_at"`
-	Local      bool        `json:"local"`
-	Remote     bool        `json:"remote"`
-	State      BackupState `json:"state"`
-	Error      string      `json:"error,omitempty"`
+	DisplayName string      `json:"display_name"`
+	Pinned      bool        `json:"pinned"`
+	Portable    bool        `json:"portable"`
+	Mode        BackupMode  `json:"mode"`
+	Name        string      `json:"name"`
+	Size        int64       `json:"size"`
+	ModifiedAt  time.Time   `json:"modified_at"`
+	Local       bool        `json:"local"`
+	Remote      bool        `json:"remote"`
+	State       BackupState `json:"state"`
+	Error       string      `json:"error,omitempty"`
+}
+
+// BackupChanges edits catalog metadata without changing archive identities.
+type BackupChanges struct {
+	DisplayName *string `json:"display_name,omitempty"`
+	Pinned      *bool   `json:"pinned,omitempty"`
 }
 
 // CatalogBackup identifies an archive and its owning server in the backup catalog.

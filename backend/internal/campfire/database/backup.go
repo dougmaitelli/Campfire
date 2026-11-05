@@ -19,6 +19,8 @@ type BackupPolicy struct {
 // Backup retains archive identity across Spark moves and panel restarts.
 // Deleting is a durable tombstone until all copies have been removed.
 type Backup struct {
+	DisplayName    string           `gorm:"type:text;not null;default:''"`
+	Pinned         bool             `gorm:"not null;default:false"`
 	Portable       bool             `gorm:"not null;default:false"`
 	Mode           model.BackupMode `gorm:"type:text;not null;default:'full'"`
 	ServerID       string           `gorm:"type:text;primaryKey"`

@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"campfire/internal/campfire/service"
@@ -19,6 +20,7 @@ import (
 type catalogBackup struct {
 	model.CatalogBackup
 	CanDownload bool `json:"can_download"`
+	CanEdit     bool `json:"can_edit"`
 }
 
 func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +52,7 @@ func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if slices.Contains(actions, accessperm.ServerBackupsRead) {
-			visible = append(visible, catalogBackup{CatalogBackup: item, CanDownload: slices.Contains(actions, accessperm.ServerBackupsDownload)})
+			visible = append(visible, catalogBackup{CatalogBackup: item, CanDownload: slices.Contains(actions, accessperm.ServerBackupsDownload), CanEdit: slices.Contains(actions, accessperm.ServerBackupsCreate)})
 		}
 	}
 
@@ -72,6 +74,41 @@ func (a *API) getBackupPolicy(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, map[string]any{"policy": policy, "s3_available": a.deployment.Backups.Remote != nil})
+}
+
+func (a *API) updateBackup(w http.ResponseWriter, r *http.Request) {
+	if a.deployment == nil || a.deployment.Backups == nil {
+		writeError(w, service.ErrDeploymentUnavailable)
+		return
+	}
+
+	var input model.BackupChanges
+	if !decodeRequest(w, r, &input, 4096) {
+		return
+	}
+
+	item, err := a.deployment.Backups.Update(r.Context(), r.PathValue("id"), r.PathValue("name"), input)
+	if err != nil {
+		writeFileError(w, err)
+		return
+	}
+
+	changes := make([]string, 0, 2)
+	if input.DisplayName != nil {
+		changes = append(changes, "rename")
+	}
+
+	if input.Pinned != nil {
+		if *input.Pinned {
+			changes = append(changes, "pin")
+		} else {
+			changes = append(changes, "unpin")
+		}
+	}
+
+	auditDetail(r, "server.backup.update", "server:"+r.PathValue("id")+" backup:"+item.Name+" changes:"+strings.Join(changes, ","))
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (a *API) serverBackups(w http.ResponseWriter, r *http.Request) {

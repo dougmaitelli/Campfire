@@ -92,6 +92,21 @@ Uploads use the configured file-upload limit and expire after one hour. Keep
 enough free space on the panel for the uploaded archive and on Spark for the
 archive plus staged restoration.
 
+## Name and pin snapshots
+
+Use a backup's actions menu to rename or pin it from the server's **Backups** tab
+or the main **Backups** page. These actions require `server.backups.create`.
+Names are stored in the catalog; archive filenames and download/restore references
+remain stable. Metadata can be edited while its Spark is disconnected.
+
+Pinned backups keep their existing local and S3 copies regardless of age or count
+limits and do not consume the retention slots reserved for ordinary backups.
+When S3 synchronization is enabled, pinned local backups also sync regardless of
+their age. Unpin a snapshot to make normal retention rules apply again; an old
+snapshot may then be removed during the next cleanup. Unpinning is also required
+before manually deleting a backup. Deleting the server still deletes its backups,
+including pinned snapshots.
+
 Keep enough host space for the current game directory and a staged replacement
 at the same time. Save-data restores also stage the installed files they preserve.
 

@@ -28,10 +28,14 @@ import { Table } from "../table/Table";
 import { BackupState } from "./BackupState";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { formatBytes } from "../../utils/formatBytes";
-import "./files.css";
+import "./backups.css";
+import { ListToolbar } from "../layout/ListToolbar";
 import { Permission } from "../../api/permissions";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 import { BackupImportDrawer } from "../../drawers/BackupImportDrawer";
+import { BackupName } from "./BackupName";
+import { BackupMetadataActions } from "./BackupMetadataActions";
+import { backupDisplayName } from "../../utils/backupDisplayName";
 
 export function ServerBackups({ server }: { server: Server }) {
   const { t } = useTranslation();
@@ -126,13 +130,14 @@ export function ServerBackups({ server }: { server: Server }) {
   async function remove(entry: Backup, location: BackupStorage) {
     if (
       pending.current ||
+      entry.pinned ||
       !canDelete ||
       !window.confirm(
         i18n.t(
           "serverBackups.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
           {
             locationLocalLocal: location === "local" ? "local" : "S3",
-            entryName: entry.name,
+            entryName: backupDisplayName(entry),
           },
         ),
       )
@@ -208,24 +213,6 @@ export function ServerBackups({ server }: { server: Server }) {
     <Panel
       title={t("serverBackups.backups", { serverName: server.name })}
       description={t("serverBackups.description")}
-      footerRight={
-        <ActionGroup>
-          {canCreate && (
-            <Button disabled={!canChange} onClick={() => setImportOpen(true)}>
-              {t("backupImports.upload")}
-            </Button>
-          )}
-          <Button
-            variant="primary"
-            disabled={!canCreateNow || !canCreate || invalidBackupMode}
-            onClick={() => {
-              void submit("backup");
-            }}
-          >
-            {t("serverBackups.createBackup")}
-          </Button>
-        </ActionGroup>
-      }
     >
       <div className="panel-content">
         {importOpen && (
@@ -238,14 +225,32 @@ export function ServerBackups({ server }: { server: Server }) {
             }}
           />
         )}
-        {canCreate && (
-          <BackupModeField
-            value={backupMode}
-            onChange={setBackupMode}
-            available={server.savedata_available === true}
-            disabled={busy || status?.busy === true}
-          />
-        )}
+        <ListToolbar className="backup-toolbar">
+          {canCreate && (
+            <BackupModeField
+              value={backupMode}
+              onChange={setBackupMode}
+              available={server.savedata_available === true}
+              disabled={busy || status?.busy === true}
+            />
+          )}
+          <ActionGroup>
+            {canCreate && (
+              <Button disabled={!canChange} onClick={() => setImportOpen(true)}>
+                {t("backupImports.upload")}
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              disabled={!canCreateNow || !canCreate || invalidBackupMode}
+              onClick={() => {
+                void submit("backup");
+              }}
+            >
+              {t("serverBackups.createBackup")}
+            </Button>
+          </ActionGroup>
+        </ListToolbar>
         {runtimeError && (
           <InlineMessage tone="warning">{runtimeError}</InlineMessage>
         )}
@@ -298,14 +303,7 @@ export function ServerBackups({ server }: { server: Server }) {
             {entries.map((entry) => (
               <tr key={entry.name}>
                 <td>
-                  {entry.name}
-                  <span className="row-description">
-                    {t(
-                      entry.mode === BackupMode.Savedata
-                        ? "backupModes.savedata"
-                        : "backupModes.full",
-                    )}
-                  </span>
+                  <BackupName backup={entry} />
                   {entry.error && (
                     <span className="row-description" role="alert">
                       {entry.error}
@@ -337,7 +335,7 @@ export function ServerBackups({ server }: { server: Server }) {
                           download
                           iconOnly
                           aria-label={i18n.t("serverBackups.download", {
-                            entryName: entry.name,
+                            entryName: backupDisplayName(entry),
                           })}
                           title={i18n.t("serverBackups.downloadBackup")}
                         >
@@ -345,6 +343,9 @@ export function ServerBackups({ server }: { server: Server }) {
                         </ButtonLink>
                       )}
                     <Button
+                      iconOnly
+                      aria-label={t("serverBackups.restore")}
+                      title={t("serverBackups.restore")}
                       disabled={
                         !canRestoreNow ||
                         (status.state === RuntimeState.NotInstalled &&
@@ -357,13 +358,17 @@ export function ServerBackups({ server }: { server: Server }) {
                         void submit("restore", entry.name);
                       }}
                     >
-                      {i18n.t("serverBackups.restore")}
+                      <NavigationIcon name="restore" />
                     </Button>
                     {canDelete && entry.local && (
                       <Button
                         variant="danger"
+                        iconOnly
+                        aria-label={t("serverBackups.deleteLocal")}
+                        title={t("serverBackups.deleteLocal")}
                         disabled={
                           busy ||
+                          entry.pinned ||
                           status?.busy === true ||
                           entry.state === BackupStatus.Deleting
                         }
@@ -371,7 +376,7 @@ export function ServerBackups({ server }: { server: Server }) {
                           void remove(entry, "local");
                         }}
                       >
-                        {i18n.t("serverBackups.deleteLocal")}
+                        <NavigationIcon name="delete" />
                       </Button>
                     )}
                     {canDelete && entry.remote && (
@@ -379,6 +384,7 @@ export function ServerBackups({ server }: { server: Server }) {
                         variant="danger"
                         disabled={
                           busy ||
+                          entry.pinned ||
                           status?.busy === true ||
                           entry.state === BackupStatus.Deleting
                         }
@@ -388,6 +394,22 @@ export function ServerBackups({ server }: { server: Server }) {
                       >
                         {i18n.t("serverBackups.deleteS3")}
                       </Button>
+                    )}
+                    {canCreate && (
+                      <BackupMetadataActions
+                        serverID={server.id}
+                        backup={entry}
+                        disabled={busy || entry.state === BackupStatus.Deleting}
+                        onSaved={(updated) => {
+                          setEntries((current) =>
+                            current.map((item) =>
+                              item.name === updated.name ? updated : item,
+                            ),
+                          );
+                          setRefresh((value) => value + 1);
+                        }}
+                        onError={setError}
+                      />
                     )}
                   </ActionGroup>
                 </td>

@@ -26,7 +26,7 @@ var server = []Definition{
 	{ServerFilesWrite, "Files", "Create, upload, edit, move, archive, extract, and change file permissions", []ID{ServerFilesRead}},
 	{ServerFilesDelete, "Files", "Delete files and folders", []ID{ServerFilesWrite}},
 	{ServerBackupsRead, "Backups", "View backup lists and metadata", []ID{ServerOperate}},
-	{ServerBackupsCreate, "Backups", "Create backups", []ID{ServerBackupsRead}},
+	{ServerBackupsCreate, "Backups", "Create, rename, and pin backups", []ID{ServerBackupsRead}},
 	{ServerBackupsRestore, "Backups", "Restore game files from a backup", []ID{ServerBackupsRead}},
 	{ServerBackupsDownload, "Backups", "Download archives containing server data", []ID{ServerBackupsRead}},
 	{ServerBackupsDelete, "Backups", "Delete backups", []ID{ServerBackupsRead}},

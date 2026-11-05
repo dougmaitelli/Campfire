@@ -1,0 +1,17 @@
+.backup-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+
+  & > span {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--accent);
+  }
+
+  & svg {
+    width: 16px;
+    height: 16px;
+  }
+}

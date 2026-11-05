@@ -1,0 +1,10 @@
+.backup-catalog-mobile-status {
+  display: none;
+}
+
+@container (max-width: 32rem) {
+  .backup-catalog-mobile-status {
+    display: block;
+    margin-top: 6px;
+  }
+}

@@ -98,6 +98,40 @@ func (r *BackupRepository) Update(ctx context.Context, id, name string, fields m
 	return nil
 }
 
+// UpdateMetadata cannot race a retention worker which already claimed deletion.
+func (r *BackupRepository) UpdateMetadata(ctx context.Context, id, name string, fields map[string]any) error {
+	result := r.db.WithContext(ctx).Model(&database.Backup{}).
+		Where("server_id = ? AND name = ? AND deleting = false AND local_deleting = false AND remote_deleting = false AND (local = true OR remote = true)", id, name).
+		Updates(fields)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected != 1 {
+		return ErrAccessConflict
+	}
+
+	return nil
+}
+
+// BackupDeletion describes the copies claimed for durable deletion.
+type BackupDeletion struct {
+	Local, Remote, All, DisableSync bool
+}
+
+// BeginDeletion and UpdateMetadata serialize pinning against deletion claims,
+// including separate panel processes sharing the same database.
+func (r *BackupRepository) BeginDeletion(ctx context.Context, id, name string, deletion BackupDeletion) (bool, error) {
+	result := r.db.WithContext(ctx).Model(&database.Backup{}).
+		Where("server_id = ? AND name = ? AND pinned = false AND deleting = false AND local_deleting = false AND remote_deleting = false", id, name).
+		Updates(map[string]any{
+			"deleting": deletion.All, "local_deleting": deletion.Local, "remote_deleting": deletion.Remote,
+			"no_remote": gorm.Expr("no_remote OR ?", deletion.DisableSync), "error": "",
+		})
+
+	return result.RowsAffected == 1, result.Error
+}
+
 // Remove drops a catalog row only after physical cleanup succeeds.
 func (r *BackupRepository) Remove(ctx context.Context, id, name string) error {
 	return r.db.WithContext(ctx).Where("server_id = ? AND name = ?", id, name).Delete(&database.Backup{}).Error

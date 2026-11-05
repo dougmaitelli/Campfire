@@ -114,7 +114,7 @@ test("permission tree adds prerequisites and clears dependent grants without con
   await page
     .getByRole("option", { name: "Backup maintainer", exact: true })
     .click();
-  for (const name of ["Create backups", "Download backups"]) {
+  for (const name of ["Create, rename, and pin backups", "Download backups"]) {
     await dialog.getByRole("checkbox", { name, exact: true }).uncheck();
   }
   const restore = dialog.getByRole("checkbox", {

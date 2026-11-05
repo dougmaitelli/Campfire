@@ -1,8 +1,4 @@
-import {
-  BackupMode,
-  ServerTab,
-  BackupState as BackupStatus,
-} from "../contracts/domains";
+import { ServerTab, BackupState as BackupStatus } from "../contracts/domains";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -20,16 +16,22 @@ import { useCollection } from "../hooks/useCollection";
 import { Table, TableRow } from "../components/table/Table";
 import { BackupState } from "../components/servers/BackupState";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
+import { BackupName } from "../components/servers/BackupName";
+import { BackupMetadataActions } from "../components/servers/BackupMetadataActions";
+import { backupDisplayName } from "../utils/backupDisplayName";
+import { ActionGroup } from "../components/layout/ActionGroup";
+import "./backups.css";
 
 export function BackupsPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
   const backups = useCollection(listAllBackups);
   const [search, setSearch] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const query = search.trim().toLowerCase();
   const filtered = backups.items.filter((item) =>
-    [item.name, item.server_name, item.server_id].some((value) =>
-      value.toLowerCase().includes(query),
+    [item.name, item.display_name, item.server_name, item.server_id].some(
+      (value) => value.toLowerCase().includes(query),
     ),
   );
   return (
@@ -41,6 +43,7 @@ export function BackupsPage() {
       {backups.error && backups.items.length > 0 && (
         <InlineMessage role="alert">{backups.error}</InlineMessage>
       )}
+      {actionError && <InlineMessage role="alert">{actionError}</InlineMessage>}
       <ListToolbar>
         <SearchField
           label={t("common.search")}
@@ -78,7 +81,7 @@ export function BackupsPage() {
               <th className="table-mobile-hidden">
                 {t("backupsPage.storage")}
               </th>
-              <th>{t("common.status")}</th>
+              <th className="table-mobile-hidden">{t("common.status")}</th>
               <th className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
               </th>
@@ -95,16 +98,11 @@ export function BackupsPage() {
                   }}
                 >
                   <td>
-                    <a className="table-row-trigger" href={route}>
-                      {item.name}
-                    </a>
-                    <span className="row-description">
-                      {t(
-                        item.mode === BackupMode.Savedata
-                          ? "backupModes.savedata"
-                          : "backupModes.full",
-                      )}
-                    </span>
+                    <BackupName backup={item}>
+                      <a className="table-row-trigger" href={route}>
+                        {backupDisplayName(item)}
+                      </a>
+                    </BackupName>
                     {item.error && (
                       <span className="row-description">{item.error}</span>
                     )}
@@ -115,6 +113,9 @@ export function BackupsPage() {
                     >
                       {item.server_name}
                     </ResourceLink>
+                    <span className="backup-catalog-mobile-status">
+                      <BackupState state={item.state} />
+                    </span>
                   </td>
                   <td className="table-mobile-hidden">
                     {new Date(item.modified_at).toLocaleString()}
@@ -130,25 +131,38 @@ export function BackupsPage() {
                       .filter(Boolean)
                       .join(" · ") || "—"}
                   </td>
-                  <td>
+                  <td className="table-mobile-hidden">
                     <BackupState state={item.state} />
                   </td>
                   <td className="table-actions">
-                    {item.can_download &&
-                      item.state !== BackupStatus.Deleting &&
-                      (item.local || item.remote) && (
-                        <ButtonLink
-                          href={`/api/v1/servers/${encodeURIComponent(item.server_id)}/backups/${encodeURIComponent(item.name)}`}
-                          download
-                          iconOnly
-                          aria-label={i18n.t("backupsPage.download", {
-                            itemName: item.name,
-                          })}
-                          title={i18n.t("backupsPage.downloadBackup")}
-                        >
-                          <NavigationIcon name="download" />
-                        </ButtonLink>
+                    <ActionGroup>
+                      {item.can_download &&
+                        item.state !== BackupStatus.Deleting &&
+                        (item.local || item.remote) && (
+                          <ButtonLink
+                            href={`/api/v1/servers/${encodeURIComponent(item.server_id)}/backups/${encodeURIComponent(item.name)}`}
+                            download
+                            iconOnly
+                            aria-label={i18n.t("backupsPage.download", {
+                              itemName: backupDisplayName(item),
+                            })}
+                            title={i18n.t("backupsPage.downloadBackup")}
+                          >
+                            <NavigationIcon name="download" />
+                          </ButtonLink>
+                        )}
+                      {item.can_edit && (
+                        <BackupMetadataActions
+                          serverID={item.server_id}
+                          backup={item}
+                          disabled={item.state === BackupStatus.Deleting}
+                          onSaved={(updated) =>
+                            backups.upsert({ ...item, ...updated })
+                          }
+                          onError={setActionError}
+                        />
                       )}
+                    </ActionGroup>
                   </td>
                 </TableRow>
               );
