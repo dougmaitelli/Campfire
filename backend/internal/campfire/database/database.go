@@ -185,7 +185,11 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
-			if err := tx.AutoMigrate(&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{}, &GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{}); err != nil {
+			if err := tx.AutoMigrate(
+				&BackupPolicy{}, &Backup{},
+				&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
+				&GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{},
+			); err != nil {
 				return err
 			}
 
