@@ -72,10 +72,13 @@ test("Spark features group related capabilities and report partial support", asy
   await page.setViewportSize({ width: 1400, height: 1400 });
   await features.scrollIntoViewIfNeeded();
   await prepareScreenshot(page);
-  await expect(features).toHaveScreenshot("spark-features.png");
+  await expect(features).toHaveScreenshot(["crops", "spark-features.png"]);
   await page.setViewportSize({ width: 390, height: 1800 });
   await prepareScreenshot(page);
-  await expect(features).toHaveScreenshot("spark-features-mobile.png");
+  await expect(features).toHaveScreenshot([
+    "crops",
+    "spark-features-mobile.png",
+  ]);
   await dialog
     .getByRole("button", { name: "Close", exact: true })
     .first()
@@ -99,5 +102,8 @@ test("Spark features group related capabilities and report partial support", asy
   }
   await features.scrollIntoViewIfNeeded();
   await prepareScreenshot(page);
-  await expect(features).toHaveScreenshot("spark-features-partial.png");
+  await expect(features).toHaveScreenshot([
+    "crops",
+    "spark-features-partial.png",
+  ]);
 });

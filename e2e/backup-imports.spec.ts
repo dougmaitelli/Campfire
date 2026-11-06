@@ -51,9 +51,9 @@ test("portable backups upload into an existing catalog before a separate restore
   await expect(
     drawer.getByText("Save data only", { exact: true }),
   ).toBeVisible();
-  await screenshot(page, "backup-import.png");
+  await screenshot(page, "backup-import.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "backup-import-mobile.png");
+  await screenshot(page, "backup-import-mobile.png", drawer);
   await upload.click();
   await expect(drawer).toHaveCount(0);
   await expect(
@@ -72,9 +72,10 @@ for (const mode of ["full", "savedata"] as const) {
     await openScreen(page, "servers", "Servers");
     await page.getByRole("button", { name: "Actions", exact: true }).click();
     if (mode === "full") {
-      await screenshot(page, "server-creation-actions.png");
       await page.setViewportSize({ width: 390, height: 844 });
-      await screenshot(page, "server-creation-actions-mobile.png");
+      await expect(
+        page.getByRole("menuitem", { name: "Create from backup", exact: true }),
+      ).toBeVisible();
       await page.setViewportSize({ width: 1400, height: 900 });
     }
     await page
@@ -99,9 +100,9 @@ for (const mode of ["full", "savedata"] as const) {
       .getByLabel("Server name", { exact: true })
       .fill(`Recovered ${mode} server`);
     if (mode === "full") {
-      await screenshot(page, "create-from-backup.png");
+      await screenshot(page, "create-from-backup.png", drawer);
       await page.setViewportSize({ width: 390, height: 844 });
-      await screenshot(page, "create-from-backup-mobile.png");
+      await screenshot(page, "create-from-backup-mobile.png", drawer);
     }
     for (const name of [
       "Next: Resources & ports",

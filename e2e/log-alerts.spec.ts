@@ -221,10 +221,13 @@ test("actionable errors can be authored, detected without an open console, acted
   ).toBeVisible();
   await attention.getByText("Matched console output", { exact: true }).click();
   await prepareScreenshot(page);
-  await expect(attention).toHaveScreenshot("server-log-alert.png");
+  await expect(attention).toHaveScreenshot(["crops", "server-log-alert.png"]);
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
-  await expect(attention).toHaveScreenshot("server-log-alert-mobile.png");
+  await expect(attention).toHaveScreenshot([
+    "crops",
+    "server-log-alert-mobile.png",
+  ]);
   await attention
     .getByRole("link", { name: "Open eula.txt", exact: true })
     .click();

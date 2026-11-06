@@ -21,7 +21,7 @@ test("administrators can edit OIDC names and emails through the user drawer", as
   await expect(name).toBeEditable();
   await expect(email).toBeEditable();
   await prepareScreenshot(page);
-  await expect(drawer).toHaveScreenshot("user-oidc-edit.png");
+  await expect(drawer).toHaveScreenshot(["crops", "user-oidc-edit.png"]);
   await name.fill("Sam Updated");
   await email.fill("sam.updated@example.test");
   await drawer.getByRole("button", { name: "Save user", exact: true }).click();

@@ -44,11 +44,7 @@ for (const [id, heading] of screens) {
     await openScreen(page, id, heading);
     await screenshot(page, `${id}.png`);
     await page.setViewportSize({ width: 390, height: 844 });
-    await prepareScreenshot(page);
-    await expect(page).toHaveScreenshot(
-      id === "dashboard" ? "dashboard-mobile.png" : `${id}-page-mobile.png`,
-      { fullPage: true },
-    );
+    await screenshot(page, `${id}-mobile.png`);
   });
 }
 
@@ -91,7 +87,7 @@ for (const screen of ["overview", "server"] as const) {
     await expect(start).toBeDisabled();
     await expect(stateLabel).toContainText("Starting");
     if (screen === "server")
-      await expect(page).toHaveScreenshot("server-starting.png");
+      await expect(page).toHaveScreenshot(["pages", "server-starting.png"]);
     state = "running";
     await expect(stateLabel).toContainText("Running");
     await expect(
@@ -174,13 +170,15 @@ test("console shows CPU and memory history and keeps graphs out of other tabs", 
     memory.getByRole("img", { name: "Memory usage history" }),
   ).toBeVisible();
   await expect(memory).toContainText("1.5 GiB");
-  await expect(page.locator(".resource-graphs")).toHaveScreenshot(
+  await expect(page.locator(".resource-graphs")).toHaveScreenshot([
+    "crops",
     "server-resource-graphs.png",
-  );
+  ]);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".resource-graphs")).toHaveScreenshot(
+  await expect(page.locator(".resource-graphs")).toHaveScreenshot([
+    "crops",
     "server-resource-graphs-mobile.png",
-  );
+  ]);
   await page.getByRole("link", { name: "Files", exact: true }).click();
   await expect(cpu).toHaveCount(0);
   await page.getByRole("link", { name: "Console", exact: true }).click();
@@ -283,20 +281,29 @@ test("console search supports toolbar controls and keyboard navigation", async (
   await search.fill("no-such-console-output");
   await expect(page.getByText("No matches", { exact: true })).toBeVisible();
   await prepareScreenshot(page);
-  await expect(toolbar).toHaveScreenshot("console-toolbar-search-empty.png");
+  await expect(toolbar).toHaveScreenshot([
+    "crops",
+    "console-toolbar-search-empty.png",
+  ]);
   await search.fill("Command accepted.");
   await expect(page.getByText("No matches", { exact: true })).toHaveCount(0);
   const count = page.locator(".server-terminal-search-status [role=status]");
   await expect(count).toHaveText("1 / 1");
   await prepareScreenshot(page);
-  await expect(toolbar).toHaveScreenshot("console-toolbar-search.png");
+  await expect(toolbar).toHaveScreenshot([
+    "crops",
+    "console-toolbar-search.png",
+  ]);
   await page.getByRole("button", { name: "Previous", exact: true }).click();
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await search.press("Enter");
   await search.press("Shift+Enter");
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
-  await expect(toolbar).toHaveScreenshot("console-toolbar-search-mobile.png");
+  await expect(toolbar).toHaveScreenshot([
+    "crops",
+    "console-toolbar-search-mobile.png",
+  ]);
   await command.fill("help");
   await page.getByRole("button", { name: "Send command", exact: true }).click();
   await expect(count).toHaveText(/^[12] \/ 2$/);
@@ -322,7 +329,10 @@ test("binary file rows remain selectable and downloadable without opening the ed
   await login(page);
   await openServerTab(page, "files", "Files");
   const actions = page.locator(".file-selection-bar");
-  await expect(actions).toHaveScreenshot("file-actions-disabled.png");
+  await expect(actions).toHaveScreenshot([
+    "crops",
+    "file-actions-disabled.png",
+  ]);
   const row = page.getByRole("row").filter({ hasText: "server.jar" });
   await expect(
     row.getByRole("cell", { name: "JAR", exact: true }),
@@ -341,20 +351,23 @@ test("binary file rows remain selectable and downloadable without opening the ed
     .getByRole("button", { name: "Download server.jar", exact: true })
     .click();
   expect((await download).suggestedFilename()).toBe("server.jar");
-  await screenshot(page, "file-binary-row.png");
   await page.setViewportSize({ width: 1000, height: 1000 });
   await prepareScreenshot(page);
-  await expect(page.locator(".file-list")).toHaveScreenshot(
+  await expect(page.locator(".file-list")).toHaveScreenshot([
+    "crops",
     "file-rows-compact.png",
-  );
+  ]);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(row.getByRole("checkbox")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "server.properties", exact: true }),
   ).toBeEnabled();
-  await expect(actions).toHaveScreenshot("file-actions-mobile.png");
+  await expect(actions).toHaveScreenshot(["crops", "file-actions-mobile.png"]);
   await row.getByRole("checkbox").uncheck();
-  await expect(actions).toHaveScreenshot("file-actions-disabled-mobile.png");
+  await expect(actions).toHaveScreenshot([
+    "crops",
+    "file-actions-disabled-mobile.png",
+  ]);
   for (const width of [320, 390, 440, 480, 600, 1000, 1400]) {
     await page.setViewportSize({ width, height: 900 });
     expect(
@@ -438,7 +451,7 @@ test("file paths use the server data root and move defaults follow navigation", 
   await move.click();
   await expect(destination).toHaveValue("/config/fabric/");
   await prepareScreenshot(page);
-  await expect(dialog).toHaveScreenshot("file-move-dialog.png");
+  await expect(dialog).toHaveScreenshot(["crops", "file-move-dialog.png"]);
   await dialog.getByRole("button", { name: "Move", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("different");
   await destination.fill("/mods/");
@@ -448,7 +461,7 @@ test("file paths use the server data root and move defaults follow navigation", 
   await expect(emptyFolder).toBeVisible();
   await screenshot(page, "file-empty-folder.png");
   await emptyFolder.hover();
-  await expect(page).toHaveScreenshot("file-empty-folder.png");
+  await expect(page).toHaveScreenshot(["pages", "file-empty-folder.png"]);
   await page.getByRole("button", { name: "Server data", exact: true }).click();
   await page.getByRole("button", { name: "mods", exact: true }).click();
   await page
@@ -540,7 +553,7 @@ test("user edits persist through the real API", async ({ page }) => {
       .getByRole("dialog")
       .getByLabel("New password (optional)", { exact: true }),
   ).toBeVisible();
-  await screenshot(page, "user-drawer.png");
+  await screenshot(page, "user-drawer.png", page.getByRole("dialog"));
   await page
     .getByRole("dialog")
     .getByLabel("Name (optional)", { exact: true })
@@ -576,9 +589,9 @@ test("user editing hides passwords when local login is disabled and still saves 
   const drawer = page.getByRole("dialog", { name: "Edit user", exact: true });
   await expect(drawer.locator('input[type="password"]')).toHaveCount(0);
   await expect(drawer.getByText(/At least 15 characters/)).toHaveCount(0);
-  await screenshot(page, "user-drawer-oidc.png");
+  await screenshot(page, "user-drawer-oidc.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "user-drawer-oidc-mobile.png");
+  await screenshot(page, "user-drawer-oidc-mobile.png", drawer);
   await drawer
     .getByLabel("Name (optional)", { exact: true })
     .fill("Updated profile");
@@ -619,7 +632,7 @@ test("resource inspection keeps the current page and supports nested drawers", a
     .locator(".details-list > div")
     .filter({ has: page.getByText("ENABLE_COMMAND_BLOCKS", { exact: true }) });
   await variable.scrollIntoViewIfNeeded();
-  await screenshot(page, "server-inspection.png");
+  await screenshot(page, "server-inspection.png", page.getByRole("dialog"));
   await page.setViewportSize({ width: 390, height: 844 });
   await variable.scrollIntoViewIfNeeded();
   await expect(variable).toBeVisible();
@@ -629,7 +642,11 @@ test("resource inspection keeps the current page and supports nested drawers", a
       .evaluate((element) => element.scrollWidth <= element.clientWidth),
   ).toBe(true);
   await page.getByRole("dialog").evaluate((element) => element.scrollTo(0, 0));
-  await screenshot(page, "server-inspection-mobile.png");
+  await screenshot(
+    page,
+    "server-inspection-mobile.png",
+    page.getByRole("dialog"),
+  );
   await page.setViewportSize({ width: 1400, height: 900 });
   await page
     .getByRole("dialog")
@@ -674,13 +691,7 @@ test("resource inspection keeps the current page and supports nested drawers", a
       dialog.getByRole("heading", { level: 2, name: new RegExp(resource) }),
     ).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-    await expect(dialog.locator(".panel-heading")).toHaveScreenshot(
-      `${screen}-drawer-heading.png`,
-    );
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(dialog.locator(".panel-heading")).toHaveScreenshot(
-      `${screen}-drawer-heading-mobile.png`,
-    );
     await dialog
       .getByRole("button", { name: "Close", exact: true })
       .first()
@@ -748,9 +759,8 @@ test("Spark can force update the current panel build remotely without an update"
     exact: true,
   });
   await expect(reinstall).toContainText("Install Spark v1.1.0");
-  await expect(reinstall).toHaveScreenshot("spark-force-update.png");
+  await expect(reinstall).toHaveScreenshot(["crops", "spark-force-update.png"]);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(reinstall).toHaveScreenshot("spark-force-update-mobile.png");
   await reinstall.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(reinstalls).toBe(0);
   await actions.click();

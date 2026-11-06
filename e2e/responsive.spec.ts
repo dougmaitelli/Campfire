@@ -6,6 +6,12 @@ test("Overview and Servers lists support cards while simple lists stay tables", 
   page,
 }) => {
   await login(page);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await prepareScreenshot(page);
+  await expect(page.locator(".overview-metrics")).toHaveScreenshot([
+    "crops",
+    "overview-tiles.png",
+  ]);
   await page.setViewportSize({ width: 1600, height: 1000 });
   await screenshot(page, "dashboard-wide.png");
   await page.setViewportSize({ width: 1240, height: 1000 });
@@ -14,14 +20,16 @@ test("Overview and Servers lists support cards while simple lists stay tables", 
   await screenshot(page, "overview-server-cards.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
-  await expect(page.locator(".dashboard-server-table")).toHaveScreenshot(
+  await expect(page.locator(".dashboard-server-table")).toHaveScreenshot([
+    "crops",
     "overview-servers-mobile.png",
-  );
+  ]);
   await page.setViewportSize({ width: 320, height: 800 });
   await prepareScreenshot(page);
-  await expect(page.locator(".overview-metrics")).toHaveScreenshot(
+  await expect(page.locator(".overview-metrics")).toHaveScreenshot([
+    "crops",
     "overview-tiles-narrow.png",
-  );
+  ]);
   await page.setViewportSize({ width: 390, height: 844 });
   await page
     .getByRole("button", { name: "Open navigation", exact: true })
@@ -30,7 +38,7 @@ test("Overview and Servers lists support cards while simple lists stay tables", 
     name: "Main navigation",
     exact: true,
   });
-  await screenshot(page, "sidebar-mobile.png");
+  await screenshot(page, "sidebar-mobile.png", navigation);
   await navigation.getByRole("link", { name: "Servers", exact: true }).click();
   await expect(navigation).toBeHidden();
   await expect(
@@ -44,14 +52,23 @@ test("Overview and Servers lists support cards while simple lists stay tables", 
   await screenshot(page, "servers-cards.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
-  await expect(page.locator(".servers-table")).toHaveScreenshot(
-    "servers-mobile.png",
-  );
+  await expect(page.locator(".servers-table")).toHaveScreenshot([
+    "crops",
+    "servers-table-mobile.png",
+  ]);
   await openScreen(page, "sparks", "Sparks");
   await page.setViewportSize({ width: 1000, height: 1000 });
   await screenshot(page, "sparks-compact.png");
   await page.setViewportSize({ width: 940, height: 900 });
-  await screenshot(page, "sparks-narrow.png");
+  await page
+    .getByRole("button", { name: "View details for Europe", exact: true })
+    .click();
+  const spark = page.getByRole("dialog", { name: /^Europe/ });
+  await expect(spark).toBeVisible();
+  await spark
+    .getByRole("button", { name: "Close", exact: true })
+    .first()
+    .click();
   await page.route("**/api/v1/schedules/executions?*", async (route) => {
     const response = await route.fetch();
     const runs = (await response.json()) as Record<string, unknown>[];
@@ -78,8 +95,6 @@ test("simple user and role tables remain usable on mobile", async ({
   await login(page);
   await openScreen(page, "users", "Users");
   await page.setViewportSize({ width: 320, height: 800 });
-  await prepareScreenshot(page);
-  await expect(page).toHaveScreenshot("users-mobile.png", { fullPage: true });
   await page
     .getByRole("button", { name: "Edit user Developer", exact: true })
     .click();
@@ -89,8 +104,6 @@ test("simple user and role tables remain usable on mobile", async ({
 
   await openScreen(page, "roles", "Roles");
   await page.setViewportSize({ width: 320, height: 800 });
-  await prepareScreenshot(page);
-  await expect(page).toHaveScreenshot("roles-mobile.png", { fullPage: true });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
 });
@@ -241,13 +254,15 @@ test("long console output remains readable after resizing to mobile", async ({
   ).toContainText("END");
   await expect(page.locator(".xterm-accessibility-tree")).toContainText("END");
   await prepareScreenshot(page);
-  await expect(page.locator(".server-terminal-window")).toHaveScreenshot(
+  await expect(page.locator(".server-terminal-window")).toHaveScreenshot([
+    "crops",
     "console-long-output-mobile.png",
-  );
+  ]);
   await page.setViewportSize({ width: 1400, height: 1100 });
   await expect(page.locator(".xterm-accessibility-tree")).toContainText("END");
   await prepareScreenshot(page);
-  await expect(page.locator(".server-terminal-window")).toHaveScreenshot(
+  await expect(page.locator(".server-terminal-window")).toHaveScreenshot([
+    "crops",
     "console-long-output.png",
-  );
+  ]);
 });

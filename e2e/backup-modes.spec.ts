@@ -21,7 +21,6 @@ test("manual backups send the selected type and save-data restore describes its 
     .click();
   await screenshot(page, "backup-savedata.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  await type.scrollIntoViewIfNeeded();
   await screenshot(page, "backup-savedata-mobile.png");
   const request = page.waitForRequest(
     (request) =>
@@ -79,9 +78,9 @@ test("backup schedules retain their explicit type", async ({ page }) => {
   await drawer
     .getByRole("checkbox", { name: "Stop server during backup", exact: true })
     .check();
-  await screenshot(page, "schedule-backup-mode.png");
+  await screenshot(page, "schedule-backup-mode.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "schedule-backup-mode-mobile.png");
+  await screenshot(page, "schedule-backup-mode-mobile.png", drawer);
   const response = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/v1/schedules") &&
@@ -168,9 +167,9 @@ test("full and save-data retention settings persist independently", async ({
   await savedata
     .getByRole("spinbutton", { name: "Local maximum age (days)", exact: true })
     .fill("7");
-  await screenshot(page, "backup-retention-modes.png");
+  await screenshot(page, "backup-retention-modes.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "backup-retention-modes-mobile.png");
+  await screenshot(page, "backup-retention-modes-mobile.png", drawer);
   for (const name of ["Next: Access", "Next: Review", "Save changes"]) {
     await drawer.getByRole("button", { name, exact: true }).click();
   }

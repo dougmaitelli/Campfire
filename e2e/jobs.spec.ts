@@ -1,4 +1,4 @@
-import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import { test, expect, screenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
 import { jobFixture } from "./jobFixtures";
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
@@ -92,10 +92,7 @@ test("admins can find, filter and manage jobs across servers while drawers stay 
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
-  await prepareScreenshot(page);
-  await expect(page).toHaveScreenshot("jobs-page-mobile.png", {
-    fullPage: true,
-  });
+  await screenshot(page, "jobs-mobile.png");
   await page.setViewportSize({ width: 1400, height: 900 });
   await jobs
     .getByRole("button", { name: "Load older jobs", exact: true })

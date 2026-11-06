@@ -1,4 +1,9 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 export const test = base.extend<{ guard: void }>({
   guard: [
@@ -67,7 +72,71 @@ export async function prepareScreenshot(page: Page) {
   await page.mouse.move(0, 0);
 }
 
-export async function screenshot(page: Page, name: string) {
+export async function screenshot(page: Page, name: string, target?: Locator) {
   await prepareScreenshot(page);
-  await expect(page).toHaveScreenshot(name);
+  const viewport = page.viewportSize();
+  if (!target) {
+    await expect(
+      page.getByRole("dialog"),
+      "Capture an open drawer or dialog using its locator.",
+    ).toHaveCount(0);
+    const fullPage = name.endsWith("-mobile.png");
+    const clip =
+      fullPage && viewport
+        ? await page.evaluate((width) => {
+            return {
+              x: 0,
+              y: 0,
+              width,
+              height: Math.max(
+                document.documentElement.scrollHeight,
+                innerHeight,
+              ),
+            };
+          }, viewport.width)
+        : undefined;
+    await expect(page).toHaveScreenshot(["pages", name], {
+      fullPage,
+      ...(clip ? { clip } : {}),
+    });
+    return;
+  }
+
+  const height = await target.evaluate(
+    (element) => (element.closest("dialog") ?? element).scrollHeight,
+  );
+  const expanded = viewport !== null && height > viewport.height;
+  const selects = target.locator('[role="combobox"]');
+  const openSelectIndex = expanded
+    ? await selects.evaluateAll((elements) =>
+        elements.findIndex(
+          (element) => element.getAttribute("aria-expanded") === "true",
+        ),
+      )
+    : -1;
+  const openSelect = openSelectIndex >= 0 ? selects.nth(openSelectIndex) : null;
+  // Select menus close on resize; preserve the state requested by the test.
+  async function restoreSelect() {
+    if (openSelect) {
+      await expect(openSelect).toHaveAttribute("aria-expanded", "false");
+      await openSelect.click();
+      await expect(openSelect).toHaveAttribute("aria-expanded", "true");
+    }
+  }
+  try {
+    if (expanded) {
+      await page.setViewportSize({ ...viewport, height });
+      await restoreSelect();
+    }
+    await target.evaluate((element) =>
+      (element.closest("dialog") ?? element).scrollTo(0, 0),
+    );
+    await expect(target).toBeInViewport({ ratio: 1 });
+    await expect(target).toHaveScreenshot(["crops", name]);
+  } finally {
+    if (expanded) {
+      await page.setViewportSize(viewport);
+      await restoreSelect();
+    }
+  }
 }

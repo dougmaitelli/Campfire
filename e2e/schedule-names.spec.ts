@@ -23,10 +23,10 @@ test("new schedule names follow selections and persist without being typed", asy
   await expect(
     drawer.getByRole("button", { name: "Save schedule", exact: true }),
   ).toBeEnabled();
-  await screenshot(page, "schedule-generated-name.png");
+  await screenshot(page, "schedule-generated-name.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
   await name.scrollIntoViewIfNeeded();
-  await screenshot(page, "schedule-generated-name-mobile.png");
+  await screenshot(page, "schedule-generated-name-mobile.png", drawer);
   await page.setViewportSize({ width: 1400, height: 900 });
   await drawer.getByRole("combobox", { name: "Action", exact: true }).click();
   await page.getByRole("option", { name: "Restart", exact: true }).click();
@@ -141,9 +141,10 @@ test("recurring schedules save the selected time zone and readable name", async 
   await expect(
     page.getByRole("option", { name: "UTC", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("listbox")).toHaveScreenshot(
+  await expect(page.getByRole("listbox")).toHaveScreenshot([
+    "crops",
     "schedule-time-zone.png",
-  );
+  ]);
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
   await zone.scrollIntoViewIfNeeded();

@@ -1531,7 +1531,7 @@
     "Platform": "Platform"
   },
   "viewAs": {
-    "title": "View as…",
+    "title": "View as...",
     "description": "Inspect the panel using another user's current permissions. Changes are blocked during the preview.",
     "start": "Start preview",
     "preview": "Permission preview",

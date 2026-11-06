@@ -79,6 +79,10 @@ test("drawer actions support keyboard navigation and dismiss before confirmation
   await expect(
     drawer.getByText("Primary game server node", { exact: true }),
   ).toBeVisible();
+  await screenshot(page, "spark-inspection.png", drawer);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await screenshot(page, "spark-inspection-mobile.png", drawer);
+  await page.setViewportSize({ width: 1400, height: 900 });
   const trigger = drawer.getByRole("button", { name: "Actions", exact: true });
   const menu = drawer.getByRole("menu", { name: "Actions", exact: true });
   const reenroll = menu.getByRole("menuitem", {
@@ -92,9 +96,8 @@ test("drawer actions support keyboard navigation and dismiss before confirmation
   ).toBeFocused();
   await page.keyboard.press("End");
   await expect(reenroll).toBeFocused();
-  await screenshot(page, "spark-drawer-actions.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "spark-drawer-actions-mobile.png");
+  await expect(menu).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await expect(drawer).toBeVisible();

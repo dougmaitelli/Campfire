@@ -17,9 +17,10 @@ test("game activity reads retained events and filters by type and time", async (
     feed.getByText("Alex earned Stone Age", { exact: true }),
   ).toBeVisible();
   await prepareScreenshot(page);
-  await expect(feed.locator("form")).toHaveScreenshot(
+  await expect(feed.locator("form")).toHaveScreenshot([
+    "crops",
     "activity-date-filters.png",
-  );
+  ]);
   await feed.getByLabel("Event type", { exact: true }).fill("player.joined");
   await feed
     .getByRole("button", { name: "Apply filters", exact: true })
@@ -42,9 +43,10 @@ test("game activity reads retained events and filters by type and time", async (
     .getByRole("heading", { name: "Game activity", exact: true })
     .click();
   await prepareScreenshot(page);
-  await expect(feed.locator("form")).toHaveScreenshot(
+  await expect(feed.locator("form")).toHaveScreenshot([
+    "crops",
     "activity-date-filters-filled.png",
-  );
+  ]);
   await feed
     .getByRole("button", { name: "Apply filters", exact: true })
     .click();

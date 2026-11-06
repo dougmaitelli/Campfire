@@ -36,7 +36,10 @@ test("native activity date fields remain readable empty and filled on mobile", a
     .all())
     await expect(hint).toBeVisible();
   await prepareScreenshot(page);
-  await expect(filters).toHaveScreenshot("activity-date-filters-mobile.png");
+  await expect(filters).toHaveScreenshot([
+    "crops",
+    "activity-date-filters-mobile.png",
+  ]);
 
   await feed
     .getByLabel("Occurred after", { exact: true })
@@ -52,7 +55,8 @@ test("native activity date fields remain readable empty and filled on mobile", a
     .locator(".date-time-input-placeholder")
     .all())
     await expect(hint).toBeHidden();
-  await expect(filters).toHaveScreenshot(
+  await expect(filters).toHaveScreenshot([
+    "crops",
     "activity-date-filters-filled-mobile.png",
-  );
+  ]);
 });

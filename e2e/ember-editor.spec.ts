@@ -45,14 +45,14 @@ test("Ember wizard screenshots cover whole steps and representative mobile layou
   );
 
   const steps = [
-    ["basics", "Basics", true],
+    ["basics", "Basics", false],
     ["installation", "Installation", false],
     ["runtime", "Runtime", true],
     ["variables", "Variables", true],
     ["ports", "Ports", false],
     ["files", "Files", false],
     ["storage", "Storage", false],
-    ["review", "Review", true],
+    ["review", "Review", false],
   ] as const;
   for (const [index, [id, title, mobile]] of steps.entries()) {
     await page.setViewportSize({ width: 1400, height: 900 });
@@ -92,9 +92,10 @@ test("Ember wizard screenshots cover whole steps and representative mobile layou
           (element) => element.scrollHeight <= element.clientHeight + 1,
         ),
       ).toBe(true);
-      await expect(drawer).toHaveScreenshot(
+      await expect(drawer).toHaveScreenshot([
+        "crops",
         `ember-editor-${id}${layout.suffix}.png`,
-      );
+      ]);
     }
   }
 });

@@ -31,9 +31,9 @@ test("Spark names can be edited without changing identity or server placement", 
     }),
   ).toBeDisabled();
   await name.fill("North node");
-  await screenshot(page, "spark-edit-name.png");
+  await screenshot(page, "spark-edit-name.png", dialog);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "spark-edit-name-mobile.png");
+  await screenshot(page, "spark-edit-name-mobile.png", dialog);
 
   await name.fill("america");
   await dialog.getByRole("button", { name: "Review", exact: true }).click();

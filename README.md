@@ -54,21 +54,21 @@ for an example.
 <table>
 <tr>
 <td width="50%">
-<a href="screenshots/dashboard.png"><img src="screenshots/dashboard.png" alt="Campfire overview with resource allocations and server status"></a>
+<a href="screenshots/pages/dashboard.png"><img src="screenshots/pages/dashboard.png" alt="Campfire overview with resource allocations and server status"></a>
 <p><em>Overview — resource usage, allocations, and server status across your Sparks.</em></p>
 </td>
 <td width="50%">
-<a href="screenshots/server-console.png"><img src="screenshots/server-console.png" alt="Server console with live game logs and command input"></a>
+<a href="screenshots/pages/server-console.png"><img src="screenshots/pages/server-console.png" alt="Server console with live game logs and command input"></a>
 <p><em>Console — live game output and command input alongside server details.</em></p>
 </td>
 </tr>
 <tr>
 <td width="50%">
-<a href="screenshots/schedules.png"><img src="screenshots/schedules.png" alt="Recurring schedules and scheduled execution history"></a>
+<a href="screenshots/pages/schedules.png"><img src="screenshots/pages/schedules.png" alt="Recurring schedules and scheduled execution history"></a>
 <p><em>Schedules — recurring server actions and their execution history.</em></p>
 </td>
 <td width="50%">
-<a href="screenshots/server-backups.png"><img src="screenshots/server-backups.png" alt="Backups tab inside the server console"></a>
+<a href="screenshots/pages/server-backups.png"><img src="screenshots/pages/server-backups.png" alt="Backups tab inside the server console"></a>
 <p><em>Server backups — inspect snapshots and storage availability from the console's Backups tab.</em></p>
 </td>
 </tr>

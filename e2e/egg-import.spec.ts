@@ -21,9 +21,9 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     name: "Import Ember",
     exact: true,
   });
-  await screenshot(page, "ember-import-sources.png");
+  await screenshot(page, "ember-import-sources.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "ember-import-sources-mobile.png");
+  await screenshot(page, "ember-import-sources-mobile.png", drawer);
   await page.setViewportSize({ width: 1400, height: 900 });
   await drawer
     .getByRole("textbox", { name: "Definition", exact: true })
@@ -46,7 +46,7 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     })
     .check();
   await expect(importButton).toBeEnabled();
-  await screenshot(page, "pelican-valheim-import.png");
+  await screenshot(page, "pelican-valheim-import.png", drawer);
   await importButton.click();
   await expect(drawer).toHaveCount(0);
   const response = await page.request.get("/api/v1/embers");
@@ -113,12 +113,12 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     .uncheck();
   const fields = create.locator(".server-variable-fields");
   await prepareScreenshot(page);
-  await expect(fields).toHaveScreenshot("egg-boolean-variables.png");
+  await expect(fields).toHaveScreenshot([
+    "crops",
+    "ember-boolean-variables.png",
+  ]);
   await page.setViewportSize({ width: 390, height: 844 });
-  await crossplay.evaluate((control) =>
-    control.scrollIntoView({ block: "center" }),
-  );
-  await screenshot(page, "egg-boolean-variables-mobile.png");
+  await screenshot(page, "ember-boolean-variables-mobile.png", fields);
   await page.setViewportSize({ width: 1400, height: 900 });
   for (const label of [
     "Next: Resources & ports",

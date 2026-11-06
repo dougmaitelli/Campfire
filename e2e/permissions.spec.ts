@@ -67,7 +67,7 @@ test("server permission presets replace the selection with their complete grants
     "server.view",
   ]);
   await preset.click();
-  await screenshot(page, "role-permission-presets.png");
+  await screenshot(page, "role-permission-presets.png", drawer);
   await page
     .getByRole("option", { name: "Server administrator", exact: true })
     .click();
@@ -216,9 +216,9 @@ test("permission tree adds prerequisites and clears dependent grants without con
   await expect(
     dialog.getByRole("checkbox", { name: "Delete files", exact: true }),
   ).not.toBeChecked();
-  await screenshot(page, "role-permissions.png");
+  await screenshot(page, "role-permissions.png", dialog);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "role-permissions-mobile.png");
+  await screenshot(page, "role-permissions-mobile.png", dialog);
   await write.check();
   await write.uncheck();
   await expect(restore).toBeChecked();
@@ -329,6 +329,8 @@ test("file readers inherit operation and logs without file writing or console co
   await expect(
     page.getByRole("button", { name: "Delete", exact: true }),
   ).toBeDisabled();
+  await page.setViewportSize({ width: 1400, height: 1200 });
+  await expect(browser).toBeInViewport({ ratio: 1 });
   await screenshot(page, "file-reader.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "file-reader-mobile.png");

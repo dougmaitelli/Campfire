@@ -44,9 +44,9 @@ test("Copy prefills the creation wizard and creates an independent settings-only
   await expect(
     drawer.getByRole("checkbox", { name: /^Copy game files/ }),
   ).not.toBeChecked();
-  await screenshot(page, "server-copy-wizard.png");
+  await screenshot(page, "server-copy-wizard.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "server-copy-wizard-mobile.png");
+  await screenshot(page, "server-copy-wizard-mobile.png", drawer);
   for (const name of [
     "Next: Resources & ports",
     "Next: Backups",
@@ -91,7 +91,10 @@ test("Quick copy asks only for a Spark and copies a running server's files", asy
   await expect(drawer.getByRole("combobox")).toHaveCount(1);
   await expect(drawer.getByRole("textbox")).toHaveCount(0);
   await prepareScreenshot(page);
-  await expect(drawer).toHaveScreenshot("server-quick-copy-dialog.png");
+  await expect(drawer).toHaveScreenshot([
+    "crops",
+    "server-quick-copy-dialog.png",
+  ]);
   const response = page.waitForResponse(
     (response) =>
       response.url().endsWith("/servers/survival/quick-copy") &&
@@ -283,9 +286,9 @@ test("the server Jobs tab shows both copy and transfer progress with retry and c
       exact: true,
     }),
   ).toContainText("Complete");
-  await screenshot(page, "server-jobs.png");
+  await screenshot(page, "server-jobs.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "server-jobs-mobile.png");
+  await screenshot(page, "server-jobs-mobile.png", drawer);
   await drawer.getByRole("tab", { name: "Details", exact: true }).click();
   await expect(history).toHaveCount(0);
   await drawer.getByRole("tab", { name: "Jobs", exact: true }).click();

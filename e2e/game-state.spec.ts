@@ -60,14 +60,20 @@ test("game state shows optional fields and hides stale values", async ({
         name: "Measured server resources",
         exact: true,
       }),
-    ).toHaveScreenshot(`overview-game-state-table-${size}.png`);
+    ).toHaveScreenshot(["crops", `overview-game-state-table-${size}.png`]);
   }
   await page.setViewportSize({ width: 1000, height: 1000 });
   await prepareScreenshot(page);
-  await expect(card).toHaveScreenshot("overview-game-state-card.png");
+  await expect(card).toHaveScreenshot([
+    "crops",
+    "overview-game-state-card.png",
+  ]);
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
-  await expect(card).toHaveScreenshot("overview-game-state-card-mobile.png");
+  await expect(card).toHaveScreenshot([
+    "crops",
+    "overview-game-state-card-mobile.png",
+  ]);
   await openScreen(page, "servers", "Servers");
   for (const [width, size] of [
     [1400, "desktop"],
@@ -77,7 +83,7 @@ test("game state shows optional fields and hides stale values", async ({
     await prepareScreenshot(page);
     await expect(
       page.getByRole("table", { name: "Game servers", exact: true }),
-    ).toHaveScreenshot(`servers-game-state-table-${size}.png`);
+    ).toHaveScreenshot(["crops", `servers-game-state-table-${size}.png`]);
   }
   const integrationRow = page
     .getByRole("row")
@@ -112,7 +118,7 @@ test("game state shows optional fields and hides stale values", async ({
         exact: true,
       }),
     }),
-  ).toHaveScreenshot("servers-game-state-card.png");
+  ).toHaveScreenshot(["crops", "servers-game-state-card.png"]);
   await openScreen(page, "dashboard", "Overview");
   await page.setViewportSize({ width: 1400, height: 1000 });
   await readings.click();

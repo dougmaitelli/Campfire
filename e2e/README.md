@@ -14,7 +14,9 @@ Browser specs, shared screen helpers, fixtures, Playwright configs,
 package dependencies, runner scripts, and reports are self-contained in `e2e/`.
 The Go harness stays in `backend/e2e/` so it can use the backend module and
 internal packages. The root `screenshots/` directory contains the single set of
-images used for both documentation and visual regression baselines.
+images used for both documentation and visual regression baselines. Page and
+viewport captures live in `screenshots/pages/`; element-only captures live in
+`screenshots/crops/`.
 
 From the repository root:
 
@@ -42,7 +44,21 @@ interactions for browser assertions and screenshot comparisons, including login,
 server console, file browser, and per-server backup tabs. Add new screenshots to
 these specs so documentation and regression tests always use the same UI states.
 
-Visual baselines live in the root `screenshots/` directory. Tests fail on any
+The shared `screenshot(page, name)` helper stores page captures in `pages/`.
+Pass a drawer, dialog, or component locator as the third argument to capture it
+in `crops/`.
+Drawer captures include the header, complete content, and footer; the helper
+temporarily increases the viewport height when needed and restores it afterwards.
+Full-page captures must not include an open drawer or dialog.
+Direct assertions use directory segments matching their target, for example
+`toHaveScreenshot(["crops", "file-actions-mobile.png"])`. Mobile variants use the
+same filename with a `-mobile` suffix. Mobile page captures include the full
+scroll area at the mobile viewport width; drawer captures include all content.
+
+The shared actions menu has one representative crop. Check other menus and
+mobile variants with interaction assertions instead of duplicating screenshots.
+
+Visual baselines live under the root `screenshots/` directory. Tests fail on any
 pixel difference and do not create missing baselines automatically. After an
 intentional UI change:
 

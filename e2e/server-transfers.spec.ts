@@ -61,9 +61,9 @@ test("transfer history shows copy progress and cancellation on desktop and mobil
   );
   await expect(progress).toHaveAttribute("max", String(transfer.total_bytes));
   await expect(progress).toHaveAttribute("aria-valuetext", "384 MiB / 1 GiB");
-  await screenshot(page, "server-transfer-history.png");
+  await screenshot(page, "server-transfer-history.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "server-transfer-history-mobile.png");
+  await screenshot(page, "server-transfer-history-mobile.png", drawer);
   await active.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(active).toContainText("Cancelled");
   await expect(active.getByRole("progressbar")).toHaveCount(0);
@@ -105,9 +105,9 @@ test("failed transfer history allows retry without losing its copy progress", as
   });
   await expect(active.getByRole("alert")).toHaveText(current.error);
   await expect(active.getByRole("progressbar")).toHaveCount(0);
-  await screenshot(page, "server-transfer-failed.png");
+  await screenshot(page, "server-transfer-failed.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "server-transfer-failed-mobile.png");
+  await screenshot(page, "server-transfer-failed-mobile.png", drawer);
   await active.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(active).toContainText("Copying files");
   await expect(active.getByRole("alert")).toHaveCount(0);

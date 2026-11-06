@@ -8,8 +8,8 @@ test("only Admin can start a persistent read-only user preview and return to the
   await page
     .getByRole("button", { name: "Account options for Developer", exact: true })
     .click();
-  await page.getByRole("button", { name: "View as…", exact: true }).click();
-  const drawer = page.getByRole("dialog", { name: "View as…", exact: true });
+  await page.getByRole("button", { name: "View as...", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "View as...", exact: true });
   await expect(
     drawer.getByRole("button", { name: "Start preview", exact: true }),
   ).toBeDisabled();
@@ -19,9 +19,9 @@ test("only Admin can start a persistent read-only user preview and return to the
   await page
     .getByRole("option", { name: "Schedule Observer (observer)", exact: true })
     .click();
-  await screenshot(page, "view-as-drawer.png");
+  await screenshot(page, "view-as-drawer.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "view-as-drawer-mobile.png");
+  await screenshot(page, "view-as-drawer-mobile.png", drawer);
   await drawer
     .getByRole("button", { name: "Start preview", exact: true })
     .click();
@@ -132,7 +132,7 @@ test("ordinary users cannot see or invoke View as", async ({ page }) => {
     })
     .click();
   await expect(
-    page.getByRole("button", { name: "View as…", exact: true }),
+    page.getByRole("button", { name: "View as...", exact: true }),
   ).toHaveCount(0);
   const session = (await (
     await page.request.get("/api/v1/auth/session")
@@ -157,8 +157,8 @@ test("starting and stopping preview refreshes other tabs in the same session", a
   await page
     .getByRole("button", { name: "Account options for Developer", exact: true })
     .click();
-  await page.getByRole("button", { name: "View as…", exact: true }).click();
-  const drawer = page.getByRole("dialog", { name: "View as…", exact: true });
+  await page.getByRole("button", { name: "View as...", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "View as...", exact: true });
   await drawer.getByRole("combobox", { name: "User", exact: true }).click();
   await page
     .getByRole("option", { name: "Schedule Observer (observer)", exact: true })

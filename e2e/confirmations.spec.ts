@@ -1,4 +1,4 @@
-import { test, expect, prepareScreenshot, screenshot } from "./fixtures";
+import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openServerTab } from "./screens";
 
 test("danger and reinstall confirmations use the right action and lock dismissal while busy", async ({
@@ -26,9 +26,10 @@ test("danger and reinstall confirmations use the right action and lock dismissal
   await expect(reinstall).toBeDisabled();
   await page.keyboard.press("ArrowDown");
   await expect(kill).toBeFocused();
-  await screenshot(page, "server-actions-menu.png");
+  await prepareScreenshot(page);
+  await expect(menu).toHaveScreenshot(["crops", "actions-menu.png"]);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "server-actions-menu-mobile.png");
+  await expect(menu).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await expect(trigger).toBeFocused();
@@ -46,7 +47,7 @@ test("danger and reinstall confirmations use the right action and lock dismissal
     exact: true,
   });
   await prepareScreenshot(page);
-  await expect(danger).toHaveScreenshot("confirmation-danger.png");
+  await expect(danger).toHaveScreenshot(["crops", "confirmation-danger.png"]);
   await danger.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(
@@ -65,7 +66,10 @@ test("danger and reinstall confirmations use the right action and lock dismissal
     exact: true,
   });
   await prepareScreenshot(page);
-  await expect(dialog).toHaveScreenshot("confirmation-reinstall.png");
+  await expect(dialog).toHaveScreenshot([
+    "crops",
+    "confirmation-reinstall.png",
+  ]);
   let release: () => void = () => {};
   const pending = new Promise<void>((resolve) => {
     release = resolve;
