@@ -275,6 +275,7 @@ export function ServerBackups({ server }: { server: Server }) {
             </InlineMessage>
           )}
         <Table
+          className="server-backups-table"
           empty={entries.length === 0}
           loading={loading}
           error={loadError}
@@ -302,7 +303,7 @@ export function ServerBackups({ server }: { server: Server }) {
           <tbody>
             {entries.map((entry) => (
               <tr key={entry.name}>
-                <td>
+                <td className="backup-archive">
                   <BackupName backup={entry} />
                   {entry.error && (
                     <span className="row-description" role="alert">
@@ -310,9 +311,11 @@ export function ServerBackups({ server }: { server: Server }) {
                     </span>
                   )}
                 </td>
-                <td>{new Date(entry.modified_at).toLocaleString()}</td>
-                <td>{formatBytes(entry.size)}</td>
-                <td>
+                <td className="backup-created">
+                  {new Date(entry.modified_at).toLocaleString()}
+                </td>
+                <td className="backup-size">{formatBytes(entry.size)}</td>
+                <td className="backup-storage">
                   {[
                     entry.local ? i18n.t("serverBackups.local") : null,
                     entry.remote ? "S3" : null,
@@ -320,7 +323,7 @@ export function ServerBackups({ server }: { server: Server }) {
                     .filter(Boolean)
                     .join(" · ") || "—"}
                 </td>
-                <td>
+                <td className="backup-state">
                   <BackupState state={entry.state} />
                 </td>
                 <td className="table-actions">

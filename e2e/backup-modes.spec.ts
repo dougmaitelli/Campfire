@@ -21,7 +21,32 @@ test("manual backups send the selected type and save-data restore describes its 
     .click();
   await screenshot(page, "backup-savedata.png");
   await page.setViewportSize({ width: 390, height: 844 });
+  const backups = page.getByRole("table", {
+    name: "Server backups",
+    exact: true,
+  });
+  const firstBackup = backups
+    .getByRole("row")
+    .filter({ hasText: "mock-nightly" });
+  for (const width of [320, 390, 600, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    const name = firstBackup.getByText("mock-nightly.tar.gz", { exact: true });
+    await name.scrollIntoViewIfNeeded();
+    await expect(name).toBeInViewport({ ratio: 1 });
+    for (const action of await firstBackup.getByRole("button").all())
+      await expect(action).toBeInViewport({ ratio: 1 });
+    await expect(firstBackup.getByRole("link")).toBeInViewport({ ratio: 1 });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "backup-savedata-mobile.png");
+  const actions = firstBackup.getByRole("button", {
+    name: /^Backup actions for /,
+  });
+  await actions.click();
+  await expect(
+    page.getByRole("menuitem", { name: "Rename backup", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   const request = page.waitForRequest(
     (request) =>
       request.url().endsWith("/servers/survival/actions") &&
