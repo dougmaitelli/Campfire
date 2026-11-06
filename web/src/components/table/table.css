@@ -115,6 +115,12 @@
 .table-row-interactive {
   cursor: pointer;
 
+  &:focus-within {
+    background: var(--surface-hover);
+  }
+}
+
+.table-row-caret {
   & > td:last-child {
     position: relative;
     padding-inline-end: var(--table-row-caret-space);
@@ -131,10 +137,6 @@
       transform: translateY(-50%) rotate(-45deg);
       pointer-events: none;
     }
-  }
-
-  &:focus-within {
-    background: var(--surface-hover);
   }
 }
 
@@ -165,11 +167,11 @@
     padding-inline: 8px;
   }
 
-  .data-table .table-row-interactive > td:last-child {
+  .data-table .table-row-caret > td:last-child {
     padding-inline-end: var(--table-row-caret-space);
   }
 
-  .data-table .table-row-interactive > td:last-child::after {
+  .data-table .table-row-caret > td:last-child::after {
     inset-inline-end: 16px;
   }
 
@@ -202,11 +204,11 @@
     min-width: 6rem;
   }
 
-  .data-table:not(.table-cards) .table-row-interactive > td:last-child {
+  .data-table:not(.table-cards) .table-row-caret > td:last-child {
     padding-inline-end: var(--table-row-caret-space);
   }
 
-  .data-table:not(.table-cards) .table-row-interactive > td:last-child::after {
+  .data-table:not(.table-cards) .table-row-caret > td:last-child::after {
     inset-inline-end: 12px;
   }
 }
@@ -316,15 +318,15 @@
     grid-row: 1;
   }
 
-  .table-cards .table-row-interactive > td:last-child::after {
+  .table-cards .table-row-caret > td:last-child::after {
     display: none;
   }
 
-  .table-cards .table-row-interactive {
+  .table-cards .table-row-caret {
     padding-inline-end: 40px;
   }
 
-  .table-cards .table-row-interactive::after {
+  .table-cards .table-row-caret::after {
     content: "";
     position: absolute;
     inset-inline-end: 16px;

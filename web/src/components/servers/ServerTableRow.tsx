@@ -5,6 +5,7 @@ import "./server-table.css";
 export function ServerTableRow({
   gameReadings,
   columnCount,
+  onOpen,
   ...props
 }: ComponentProps<typeof TableRow> & {
   gameReadings?: ReactNode;
@@ -12,11 +13,15 @@ export function ServerTableRow({
 }) {
   return (
     <>
-      <TableRow {...props} />
+      <TableRow {...props} onOpen={onOpen} />
       {gameReadings && (
-        <tr className="server-game-state-row">
+        <TableRow
+          className="server-game-state-row"
+          onOpen={onOpen}
+          showCaret={false}
+        >
           <td colSpan={columnCount}>{gameReadings}</td>
-        </tr>
+        </TableRow>
       )}
     </>
   );

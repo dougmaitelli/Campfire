@@ -106,7 +106,12 @@ test("admins can find, filter and manage jobs across servers while drawers stay 
   await expect(jobs.locator("tbody tr")).toHaveCount(1);
   await page.getByRole("combobox", { name: "Job type", exact: true }).click();
   await page.getByRole("option", { name: "Transfer", exact: true }).click();
-  await expect(jobs.getByText("No jobs yet.", { exact: true })).toBeVisible();
+  const empty = jobs.getByRole("status");
+  await expect(
+    empty.getByRole("heading", { name: "No jobs yet.", exact: true }),
+  ).toBeVisible();
+  await expect(empty.locator(".content-state-icon svg")).toBeVisible();
+  await expect(jobs.getByRole("table")).toHaveCount(0);
   await page.getByRole("combobox", { name: "Job type", exact: true }).click();
   await page.getByRole("option", { name: "All types", exact: true }).click();
   await page.getByRole("combobox", { name: "Status", exact: true }).click();
@@ -128,7 +133,10 @@ test("admins can find, filter and manage jobs across servers while drawers stay 
   await drawer.getByRole("tab", { name: "Jobs", exact: true }).click();
   await scoped;
   await expect(page).toHaveURL(/#jobs$/);
-  await expect(drawer.getByText("No jobs yet.", { exact: true })).toBeVisible();
+  await expect(
+    drawer.getByRole("heading", { name: "No jobs yet.", exact: true }),
+  ).toBeVisible();
+  await expect(drawer.locator(".content-state-icon svg")).toBeVisible();
 });
 
 test("non-admin users cannot open platform jobs or request their history", async ({

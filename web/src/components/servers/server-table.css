@@ -20,7 +20,9 @@
     padding-block-end: 6px;
   }
 
-  .server-table tbody tr:has(+ .server-game-state-row:hover),
+  .server-table
+    tbody
+    tr:has(+ .server-game-state-row:is(:hover, :focus-within)),
   .server-table
     .table-row-interactive:is(:hover, :focus-within)
     + .server-game-state-row {

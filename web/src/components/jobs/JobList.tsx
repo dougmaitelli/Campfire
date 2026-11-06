@@ -139,7 +139,7 @@ export function JobList({
       aria-label={t("serverDetailsDrawer.jobs")}
       aria-busy={loading}
     >
-      {error && (
+      {error && jobs.length > 0 && (
         <InlineMessage role="alert">
           {error}
           <Button
@@ -150,35 +150,39 @@ export function JobList({
           </Button>
         </InlineMessage>
       )}
-      {loading && <p role="status">{t("common.loading")}</p>}
-      {!loading && !error && jobs.length === 0 && (
-        <p>{t("serverJobs.empty")}</p>
-      )}
-      {jobs.length > 0 && (
-        <Table className="jobs-table" aria-label={t("common.jobs")}>
-          <thead>
-            <tr>
-              <th scope="col">{t("serverJobs.jobColumn")}</th>
-              <th scope="col">{t("common.status")}</th>
-              <th scope="col">{t("serverJobs.created")}</th>
-              <th scope="col" className="table-actions">
-                <span className="visually-hidden">{t("common.actions")}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => (
-              <JobRow
-                key={job.id}
-                job={job}
-                serverID={serverID}
-                busy={busy}
-                onChange={change}
-              />
-            ))}
-          </tbody>
-        </Table>
-      )}
+      <Table
+        className="jobs-table"
+        aria-label={t("common.jobs")}
+        empty={jobs.length === 0}
+        loading={loading}
+        error={error}
+        resource={t("common.jobs")}
+        emptyMessage={t("serverJobs.empty")}
+        emptyIcon="jobs"
+        onRetry={() => setRevision((value) => value + 1)}
+      >
+        <thead>
+          <tr>
+            <th scope="col">{t("serverJobs.jobColumn")}</th>
+            <th scope="col">{t("common.status")}</th>
+            <th scope="col">{t("serverJobs.created")}</th>
+            <th scope="col" className="table-actions">
+              <span className="visually-hidden">{t("common.actions")}</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {jobs.map((job) => (
+            <JobRow
+              key={job.id}
+              job={job}
+              serverID={serverID}
+              busy={busy}
+              onChange={change}
+            />
+          ))}
+        </tbody>
+      </Table>
       {next && (
         <Button disabled={busy} onClick={() => setPages((value) => value + 1)}>
           {t("serverJobs.loadOlder")}

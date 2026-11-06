@@ -79,6 +79,30 @@ test("game state shows optional fields and hides stale values", async ({
       page.getByRole("table", { name: "Game servers", exact: true }),
     ).toHaveScreenshot(`servers-game-state-table-${size}.png`);
   }
+  const integrationRow = page
+    .getByRole("row")
+    .filter({ has: readings })
+    .filter({ visible: true });
+  await integrationRow.hover();
+  const primaryRow = page.getByRole("row").filter({
+    has: page.getByRole("button", {
+      name: "View details for Survival",
+      exact: true,
+    }),
+  });
+  await expect(primaryRow).toHaveCSS(
+    "background-color",
+    await integrationRow.evaluate(
+      (row) => getComputedStyle(row).backgroundColor,
+    ),
+  );
+  await readings.click();
+  const details = page.getByRole("dialog", { name: /^Survival/ });
+  await expect(details).toBeVisible();
+  await details
+    .getByRole("button", { name: "Close", exact: true })
+    .first()
+    .click();
   await page.setViewportSize({ width: 1000, height: 1000 });
   await prepareScreenshot(page);
   await expect(
@@ -89,6 +113,10 @@ test("game state shows optional fields and hides stale values", async ({
       }),
     }),
   ).toHaveScreenshot("servers-game-state-card.png");
+  await openScreen(page, "dashboard", "Overview");
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await readings.click();
+  await expect(page).toHaveURL(/#servers\/survival\/console$/);
   await openScreen(page, "dashboard", "Overview");
   mode = "players";
   await page.reload();

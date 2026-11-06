@@ -1,6 +1,6 @@
 import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 import { ContentState } from "../layout/ContentState";
 import "./table.css";
 
@@ -14,18 +14,21 @@ export function Table({
   emptyMessage,
   emptyDescription,
   emptyAction,
+  emptyIcon,
   onRetry,
   ...props
-}: ComponentProps<"table"> & {
-  empty?: boolean;
-  loading?: boolean;
-  error?: string | null;
-  resource?: string;
-  emptyMessage?: string;
-  emptyDescription?: string;
-  emptyAction?: ReactNode;
-  onRetry?: () => void;
-}) {
+}: ComponentProps<"table"> &
+  Pick<
+    ComponentProps<typeof ContentState>,
+    | "loading"
+    | "error"
+    | "resource"
+    | "emptyMessage"
+    | "emptyDescription"
+    | "emptyAction"
+    | "emptyIcon"
+    | "onRetry"
+  > & { empty?: boolean }) {
   useTranslation();
   if (empty)
     return (
@@ -36,6 +39,7 @@ export function Table({
         emptyMessage={emptyMessage}
         emptyDescription={emptyDescription}
         emptyAction={emptyAction}
+        emptyIcon={emptyIcon}
         onRetry={onRetry}
       />
     );
@@ -54,15 +58,23 @@ export function Table({
 
 export function TableRow({
   onOpen,
+  showCaret = true,
   className,
   children,
   ...props
-}: ComponentProps<"tr"> & { onOpen?: (() => void) | undefined }) {
+}: ComponentProps<"tr"> & {
+  onOpen?: (() => void) | undefined;
+  showCaret?: boolean;
+}) {
   useTranslation();
   return (
     <tr
       {...props}
-      className={[onOpen ? "table-row-interactive" : "", className]
+      className={[
+        onOpen ? "table-row-interactive" : "",
+        onOpen && showCaret ? "table-row-caret" : "",
+        className,
+      ]
         .filter(Boolean)
         .join(" ")}
       onClick={(event) => {

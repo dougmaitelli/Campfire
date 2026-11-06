@@ -1,6 +1,6 @@
 import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { Button } from "../forms/Button";
 import "./content-state.css";
@@ -12,6 +12,7 @@ export function ContentState({
   emptyMessage,
   emptyDescription,
   emptyAction,
+  emptyIcon = "table",
   onRetry,
   compact = false,
 }: {
@@ -21,6 +22,7 @@ export function ContentState({
   emptyMessage?: ReactNode;
   emptyDescription?: ReactNode;
   emptyAction?: ReactNode;
+  emptyIcon?: ComponentProps<typeof NavigationIcon>["name"] | undefined;
   onRetry?: (() => void) | undefined;
   compact?: boolean;
 }) {
@@ -39,7 +41,7 @@ export function ContentState({
     >
       <span className="content-state-icon">
         <NavigationIcon
-          name={loading ? "loading" : error ? "warning" : "table"}
+          name={loading ? "loading" : error ? "warning" : emptyIcon}
         />
       </span>
       <h2>
