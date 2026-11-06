@@ -94,6 +94,19 @@ test("file drops show a stable overlay and upload into the open folder", async (
       browser.getByRole("button", { name, exact: true }),
     ).toBeVisible();
   }
+  const tabs = page.getByRole("navigation", {
+    name: "Server operations",
+    exact: true,
+  });
+  await tabs.getByRole("link", { name: "Console", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Console output", exact: true }),
+  ).toBeVisible();
+  await tabs.getByRole("link", { name: "Files", exact: true }).click();
+  await expect(
+    page.getByText("2 files uploaded.", { exact: true }),
+  ).toHaveCount(0);
+  await browser.getByRole("button", { name: "world", exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name: "picker.txt",
     mimeType: "text/plain",

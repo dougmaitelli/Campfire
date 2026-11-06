@@ -36,6 +36,7 @@ import { BackupImportDrawer } from "../../drawers/BackupImportDrawer";
 import { BackupName } from "./BackupName";
 import { BackupMetadataActions } from "./BackupMetadataActions";
 import { backupDisplayName } from "../../utils/backupDisplayName";
+import { isCurrentOperationSuccessful } from "./operationMessage";
 
 export function ServerBackups({ server }: { server: Server }) {
   const { t } = useTranslation();
@@ -57,6 +58,9 @@ export function ServerBackups({ server }: { server: Server }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [currentOperationID, setCurrentOperationID] = useState<string | null>(
+    null,
+  );
   const [importOpen, setImportOpen] = useState(false);
   useNavigationGuard(true, busy, false);
   const [refresh, setRefresh] = useState(0);
@@ -185,6 +189,7 @@ export function ServerBackups({ server }: { server: Server }) {
     pending.current = true;
     setBusy(true);
     setError(null);
+    setCurrentOperationID(null);
     try {
       const next = await serverAction(
         server.id,
@@ -194,6 +199,7 @@ export function ServerBackups({ server }: { server: Server }) {
         action === "backup" ? backupMode : undefined,
       );
       if (mounted.current) {
+        setCurrentOperationID(next.operation_id ?? null);
         setStatus(next);
         setRefresh((value) => value + 1);
       }
@@ -264,8 +270,7 @@ export function ServerBackups({ server }: { server: Server }) {
         {status?.busy && (
           <InlineMessage tone="info">{status.progress}</InlineMessage>
         )}
-        {!status?.busy &&
-          !status?.error &&
+        {isCurrentOperationSuccessful(status, currentOperationID) &&
           (status?.operation === ServerAction.Backup ||
             status?.operation === "restore") && (
             <InlineMessage tone="success">

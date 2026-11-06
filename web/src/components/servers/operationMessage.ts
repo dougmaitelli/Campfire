@@ -53,6 +53,25 @@ export function operationLabel(operation?: ServerAction) {
   );
 }
 
+export function isCurrentOperationSuccessful(
+  status:
+    | Pick<
+        RuntimeStatus,
+        "operation_id" | "operation_state" | "busy" | "error" | "error_code"
+      >
+    | undefined,
+  currentOperationID: string | null,
+): boolean {
+  return (
+    !!currentOperationID &&
+    status?.operation_id === currentOperationID &&
+    status.operation_state === OperationState.Succeeded &&
+    !status.busy &&
+    !status.error &&
+    !status.error_code
+  );
+}
+
 export function operationMessage(
   status:
     | Pick<
@@ -100,8 +119,8 @@ export function operationMessage(
       tone: "error",
     };
   }
-  if (status.operation_state === "succeeded")
-    return currentOperationID && status.operation_id === currentOperationID
+  if (status.operation_state === OperationState.Succeeded)
+    return isCurrentOperationSuccessful(status, currentOperationID)
       ? {
           title: i18n.t("operationMessage.completed", { name: name }),
           tone: "success",

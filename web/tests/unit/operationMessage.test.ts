@@ -81,6 +81,7 @@ test("success messages only appear for the operation started in this page sessio
   };
   assert.equal(operationMessage(status), null);
   assert.equal(operationMessage(status, "start-2"), null);
+  assert.equal(operationMessage({ ...status, busy: true }, "start-1"), null);
   assert.deepEqual(operationMessage(status, "start-1"), {
     title: "Server start completed.",
     tone: "success",
