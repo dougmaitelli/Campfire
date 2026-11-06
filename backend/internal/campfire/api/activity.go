@@ -95,7 +95,7 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 			}
 		}
 
-		event := database.AuditEvent{ID: rand.Text(), Action: model.AuditAction(action), Target: target, Outcome: model.AuditPending, CreatedAt: time.Now().Unix()}
+		event := database.AuditEvent{ID: rand.Text(), Action: model.AuditAction(action), Target: target, Outcome: model.AuditPending, CreatedAt: a.now().Unix()}
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 3*time.Second)
 		err := a.activity.Store.BeginAudit(ctx, &event)
 
@@ -171,7 +171,7 @@ func (a *API) previewSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	next, err := recurrence.Next(input.Cron, input.TimeZone, time.Now(), 3)
+	next, err := recurrence.Next(input.Cron, input.TimeZone, a.now(), 3)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return

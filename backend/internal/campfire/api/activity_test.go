@@ -53,6 +53,56 @@ func (d *scheduleAPIRuntime) Files(_ context.Context, _ string, input model.File
 	return model.FileResult{ServerID: input.ServerID, Path: input.Path}, nil
 }
 
+func TestSchedulePreviewUsesConfiguredClock(t *testing.T) {
+	ctx := context.Background()
+
+	db, err := database.Open(ctx, filepath.Join(t.TempDir(), "panel.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = db.Close() })
+
+	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), nil, nil)
+	runAt := time.Date(2026, 10, 23, 5, 0, 0, 0, time.UTC)
+
+	var now time.Time
+
+	panel := api.New(nil, nil, nil).WithActivity(activity).WithClock(func() time.Time { return now })
+	admin := authenticatedTestAPI(t, db, panel)
+
+	for _, tick := range []time.Time{runAt.Add(-time.Second), runAt} {
+		now = tick
+
+		response := request(admin, "POST", "/api/v1/schedules/preview", `{"cron_expression":"0 5 * * *","time_zone":"UTC"}`)
+		if response.Code != http.StatusOK {
+			t.Fatal(response.Code, response.Body)
+		}
+
+		var preview struct {
+			NextRuns []int64 `json:"next_runs"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &preview); err != nil {
+			t.Fatal(err)
+		}
+
+		if len(preview.NextRuns) != 3 {
+			t.Fatalf("expected three upcoming runs, got %v", preview.NextRuns)
+		}
+
+		first := runAt
+		if !now.Before(runAt) {
+			first = first.AddDate(0, 0, 1)
+		}
+
+		for i, got := range preview.NextRuns {
+			if want := first.AddDate(0, 0, i).Unix(); got != want {
+				t.Fatalf("preview at %s: run %d = %d, want %d", now, i, got, want)
+			}
+		}
+	}
+}
+
 func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

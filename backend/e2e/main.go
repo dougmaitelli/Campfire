@@ -220,7 +220,7 @@ func main() {
 		statuses = service.NewRuntimeStatusService(deployment)
 		must(statuses.Collect(ctx))
 		statuses.Start(ctx)
-		handler = api.New(sparks, embers, servers).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).Handler()
+		handler = api.New(sparks, embers, servers).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
 	}
 	reset()
 	defer func() { copies.Close(); statuses.Close(); must(db.Close()) }()

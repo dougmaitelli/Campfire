@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"campfire/internal/campfire/agents"
 	"campfire/internal/campfire/database/repository"
@@ -28,6 +29,13 @@ type API struct {
 	activity      *service.ActivityService
 	notifications *service.NotificationService
 	backupImports *service.BackupImports
+	now           func() time.Time
+}
+
+// WithClock sets the time source for API timestamps and calendar previews.
+func (a *API) WithClock(now func() time.Time) *API {
+	a.now = now
+	return a
 }
 
 // WithNotifications enables personal inboxes and monitoring notification controls.
@@ -75,7 +83,7 @@ func (a *API) WithBackupImports(imports *service.BackupImports) *API {
 
 // New constructs the HTTP API with its application service.
 func New(sparks *service.SparkService, embers *service.EmberService, servers *service.ServerService) *API {
-	return &API{sparks: sparks, embers: embers, servers: servers, backupImports: service.NewBackupImports("", service.BackupStagingCopies*model.DefaultUploadLimit)}
+	return &API{sparks: sparks, embers: embers, servers: servers, backupImports: service.NewBackupImports("", service.BackupStagingCopies*model.DefaultUploadLimit), now: time.Now}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
