@@ -85,12 +85,16 @@ func (m *Manager) uploadBackup(ctx context.Context, e *entry, q model.FileReques
 			limit = min(q.UploadLimit, model.FileTransferLimit)
 		}
 
-		if q.Size < 1 || q.Size > limit || len(e.backupUploads) >= 2 {
+		if q.Size < 1 || q.Size > limit || len(e.backupUploads) >= backupUploadSessions {
 			return result, fileFailure(model.FileLimitExceeded, "Backup exceeds the upload limit or too many uploads are active.")
 		}
 
 		if _, err := os.Lstat(filepath.Join(directory, q.Path)); !errors.Is(err, os.ErrNotExist) {
 			return result, fileFailure(model.FileConflict, "Backup already exists.")
+		}
+
+		if err := checkBackupCapacity(directory, 1); err != nil {
+			return result, err
 		}
 
 		file, err := os.CreateTemp(directory, backupUploadPrefix)
@@ -144,6 +148,11 @@ func (m *Manager) uploadBackup(ctx context.Context, e *entry, q model.FileReques
 	case model.FileOperationBackupUploadCommit:
 		if upload.offset != upload.size {
 			return result, fileFailure(model.FileInvalid, "Backup upload is incomplete.")
+		}
+
+		// The existing staging file already owns this upload's archive slot.
+		if err := checkBackupCapacity(directory, 0); err != nil {
+			return result, err
 		}
 
 		manifest, err := backuparchive.Inspect(ctx, file)

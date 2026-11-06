@@ -126,22 +126,16 @@ func (m *Manager) backupFiles(ctx context.Context, d model.Deployment, q model.F
 	defer func() { _ = root.Close() }()
 
 	if q.Operation == model.FileOperationBackupList {
-		dir, err := root.Open(".")
+		entries, err := backupDirectoryEntries(root)
 		if err != nil {
-			return result, fileFailure(model.FileIO, "Could not list backups.")
-		}
-		defer func() { _ = dir.Close() }()
-
-		entries, err := dir.ReadDir(1002)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return result, fileFailure(model.FileIO, "Could not list backups.")
-		}
-
-		if len(entries) > 1000 {
-			return result, fileFailure(model.FileLimitExceeded, "Backup storage exceeds the 1000-entry limit.")
+			return result, err
 		}
 
 		for _, item := range entries {
+			if strings.HasPrefix(item.Name(), backupUploadPrefix) {
+				continue
+			}
+
 			info, err := item.Info()
 			if err != nil {
 				return result, fileFailure(model.FileIO, "Could not inspect backup.")
@@ -289,9 +283,8 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 		return errors.New("could not prepare backup storage")
 	}
 
-	entries, err := os.ReadDir(directory)
-	if err != nil || len(entries) >= 1000 {
-		return errors.New("backup storage unavailable or 1000-backup limit reached")
+	if err := checkBackupCapacity(directory, 1); err != nil {
+		return err
 	}
 
 	file, err := os.CreateTemp(directory, ".partial-")

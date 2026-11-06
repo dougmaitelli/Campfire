@@ -490,7 +490,22 @@ func (s *ActivityService) rejectAttempt(ctx context.Context, run database.Schedu
 	return s.finish(ctx, run, model.ExecutionFailed, "Execution permission was revoked or the server was removed.")
 }
 
-func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun) error {
+func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun) (err error) {
+	if run.State == model.ExecutionDispatching {
+		defer func() {
+			if err == nil {
+				return
+			}
+
+			// A claimed execution must not remain dispatching when its request
+			// disconnects. Never replay a command whose acknowledgement was lost.
+			record, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+			defer cancel()
+
+			err = errors.Join(err, s.finish(record, run, model.ExecutionInterrupted, "Dispatch could not be confirmed; verify server state before retrying."))
+		}()
+	}
+
 	if err := s.Store.TouchRun(ctx, run.ID); err != nil {
 		return err
 	}
