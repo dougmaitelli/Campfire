@@ -16,6 +16,8 @@ import (
 	"campfire/internal/shared/model"
 )
 
+const uploadScanInterval = time.Minute
+
 type fileUpload struct {
 	path, temporary, revision string
 	size                      int64
@@ -85,13 +87,21 @@ func chunkFile(root *os.Root, q model.FileRequest) (model.FileResult, error) {
 }
 
 func (m *Manager) pruneUploads(root *os.Root, e *entry) {
+	now := time.Now()
+
 	for id, item := range e.uploads {
-		if time.Since(item.touched) > time.Hour {
+		if now.Sub(item.touched) > time.Hour {
 			_ = root.Remove(item.temporary)
 
 			delete(e.uploads, id)
 		}
 	}
+
+	if !e.lastUploadScan.IsZero() && now.Sub(e.lastUploadScan) < uploadScanInterval {
+		return
+	}
+
+	e.lastUploadScan = now
 	// Recover abandoned staging files after a Spark restart, without following links.
 	entries, err := fs.ReadDir(root.FS(), ".")
 	if err != nil {
@@ -109,7 +119,7 @@ func (m *Manager) pruneUploads(root *os.Root, e *entry) {
 		}
 
 		info, err := item.Info()
-		if err == nil && time.Since(info.ModTime()) > time.Hour {
+		if err == nil && now.Sub(info.ModTime()) > time.Hour {
 			_ = root.RemoveAll(item.Name())
 		}
 	}

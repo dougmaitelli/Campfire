@@ -42,15 +42,16 @@ type Manager struct {
 }
 
 type entry struct {
-	mu            sync.Mutex
-	cancel        context.CancelFunc
-	interrupted   bool
-	uploads       map[string]*fileUpload
-	backupUploads map[string]*backupUpload
-	Installed     bool                `json:"installed"`
-	Images        []string            `json:"images,omitempty"`
-	Revision      string              `json:"revision"`
-	Status        model.RuntimeStatus `json:"status"`
+	mu             sync.Mutex
+	cancel         context.CancelFunc
+	interrupted    bool
+	uploads        map[string]*fileUpload
+	backupUploads  map[string]*backupUpload
+	lastUploadScan time.Time
+	Installed      bool                `json:"installed"`
+	Images         []string            `json:"images,omitempty"`
+	Revision       string              `json:"revision"`
+	Status         model.RuntimeStatus `json:"status"`
 }
 
 // New constructs a manager whose background operations follow the process lifetime.

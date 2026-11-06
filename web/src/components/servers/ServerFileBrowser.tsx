@@ -98,6 +98,10 @@ export function ServerFileBrowser({
   const [loading, setLoading] = useState(true);
   const [maxUploadBytes, setMaxUploadBytes] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{
+    path: string;
+    message: string;
+  } | null>(null);
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
   const [fileAction, setFileAction] = useState<{
     kind: "rename" | "compress" | "extract";
@@ -183,24 +187,32 @@ export function ServerFileBrowser({
     [server.id],
   );
   const load = useCallback(
-    async (path: string, signal?: AbortSignal, preserveSelection = false) => {
-      const result = await manageFiles(
-        server.id,
-        { operation: FileOperation.List, path },
-        signal,
-      );
-      if (!signal?.aborted && alive.current) {
-        setEntries(result.entries ?? []);
-        setDirectory(result.path);
-        setSelected((current) =>
-          preserveSelection
-            ? current.filter((name) =>
-                result.entries?.some((entry) => entry.name === name),
-              )
-            : [],
-        );
-      }
-    },
+    (path: string, signal?: AbortSignal, preserveSelection = false) =>
+      manageFiles(server.id, { operation: FileOperation.List, path }, signal)
+        .then((result) => {
+          if (!signal?.aborted && alive.current) {
+            setEntries(result.entries ?? []);
+            setDirectory(result.path);
+            setLoadError(null);
+            setSelected((current) =>
+              preserveSelection
+                ? current.filter((name) =>
+                    result.entries?.some((entry) => entry.name === name),
+                  )
+                : [],
+            );
+          }
+        })
+        .catch((cause: unknown) => {
+          if (!signal?.aborted && alive.current)
+            setLoadError({
+              path,
+              message:
+                cause instanceof Error
+                  ? cause.message
+                  : i18n.t("serverFileBrowser.unableToLoadFiles"),
+            });
+        }),
     [server.id],
   );
   useEffect(() => {
@@ -273,6 +285,16 @@ export function ServerFileBrowser({
       );
     await openFile(join(directory, entry.name));
   }
+  function retryListing() {
+    void perform(async () => {
+      setLoading(true);
+      try {
+        await load(loadError?.path ?? directory);
+      } finally {
+        if (alive.current) setLoading(false);
+      }
+    });
+  }
   function download(entry: FileEntry) {
     if (entry.size > fileTransferLimit)
       throw new Error(i18n.t("serverFileBrowser.downloadsAreLimitedTo100GiB"));
@@ -344,7 +366,7 @@ export function ServerFileBrowser({
           : i18n.t("serverFileBrowser.unableToDeleteThisEntry"),
       );
     } finally {
-      await load(directory, undefined, true).catch(() => {});
+      await load(directory, undefined, true);
       pending.current = false;
       setBusy(false);
     }
@@ -554,7 +576,7 @@ export function ServerFileBrowser({
       }
       completed = true;
     } finally {
-      await load(directory, undefined, !completed).catch(() => {});
+      await load(directory, undefined, !completed);
       pending.current = false;
       if (alive.current) setBusy(false);
     }
@@ -859,6 +881,14 @@ export function ServerFileBrowser({
           </InlineMessage>
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
+        {loadError && (entries.length > 0 || editor !== null) && (
+          <InlineMessage role="alert">
+            {loadError.message}
+            <Button disabled={busy} onClick={retryListing}>
+              {t("common.tryAgain")}
+            </Button>
+          </InlineMessage>
+        )}
         {!canWrite && (
           <PrerequisiteNote>
             {t(
@@ -939,6 +969,8 @@ export function ServerFileBrowser({
               className="file-list"
               empty={loading || entries.length === 0}
               loading={loading}
+              error={loadError?.message}
+              onRetry={retryListing}
               resource={t("serverFileBrowser.files2")}
               emptyMessage={t("serverFileBrowser.thisFolderIsEmpty")}
             >
