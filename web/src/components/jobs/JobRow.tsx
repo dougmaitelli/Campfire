@@ -159,6 +159,7 @@ export function JobRow({
             )}
             {job.can_cancel && (
               <Button
+                variant="danger"
                 iconOnly
                 aria-label={t("common.cancel")}
                 title={t("common.cancel")}
