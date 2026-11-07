@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { apiFetch, readJSON, API_READ_TIMEOUT_MS } from "../api/client";
 import { serverOptions, type ServerOptions } from "../api/access";
 import { getCopyTemplate, type CopyTemplate } from "../api/copies";
-import { Permission } from "../api/permissions";
+import { canPerformServer } from "../permissions";
 import type { RuntimeStatus } from "../api/runtime";
 import {
   deleteServer,
@@ -46,20 +46,11 @@ export function useServerManagement(
 ) {
   const { t } = useTranslation();
   const { session } = useAuthentication();
-  const canProvision =
-    session?.admin === true ||
-    session?.permissions?.includes(Permission.ServersCreate) === true;
-  const canApplyRevision =
-    session?.admin === true ||
-    session?.permissions?.includes(Permission.ServersManageAll) === true;
-  const canTransfer =
-    session?.admin === true ||
-    (session?.permissions?.includes(Permission.SparksManage) === true &&
-      session.permissions.includes(Permission.ServersManageAll));
-  const canConfigure =
-    server?.permissions.includes(Permission.ServerConfigure) === true;
-  const canEdit = canConfigure || server?.can_manage_access === true;
-  const canViewJobs = canTransfer || canConfigure;
+  const canApplyRevision = canPerformServer(server, "updateEmber", session);
+  const canTransfer = canPerformServer(server, "transfer", session);
+  const canConfigure = canPerformServer(server, "configure");
+  const canEdit = canPerformServer(server, "edit");
+  const canViewJobs = canPerformServer(server, "viewJobs", session);
   const [editor, setEditor] = useState<{
     server: Server;
     options: ServerOptions;
@@ -189,7 +180,7 @@ export function useServerManagement(
           } satisfies ActionMenuItem,
         ]
       : []),
-    ...(server && canProvision && canConfigure
+    ...(canPerformServer(server, "copy", session)
       ? [
           {
             label: t("serverCopy.copy"),
@@ -199,13 +190,12 @@ export function useServerManagement(
           } satisfies ActionMenuItem,
         ]
       : []),
-    ...(server && canProvision && canConfigure
+    ...(canPerformServer(server, "copyFiles", session)
       ? [
           {
             label: t("serverCopy.quickCopy"),
             icon: "servers",
-            disabled:
-              busy || !server.permissions.includes(Permission.ServerFilesRead),
+            disabled: busy,
             onSelect: () => void prepare("quick"),
           } satisfies ActionMenuItem,
         ]
@@ -243,7 +233,7 @@ export function useServerManagement(
           } satisfies ActionMenuItem,
         ]
       : []),
-    ...(server?.permissions.includes(Permission.ServerDelete)
+    ...(canPerformServer(server, "delete")
       ? [
           {
             label: t("common.delete"),

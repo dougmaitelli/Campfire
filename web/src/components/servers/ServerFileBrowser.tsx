@@ -33,6 +33,7 @@ import { formatBytes } from "../../utils/formatBytes";
 import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
 import "./files.css";
 import { Permission } from "../../api/permissions";
+import { canPerformServer } from "../../permissions";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 import { FileDropZone } from "../files/FileDropZone";
 import {
@@ -85,12 +86,10 @@ export function ServerFileBrowser({
     archive: t("serverFileBrowser.archiveSelected"),
     delete: t("common.delete"),
   };
-  const hasWritePermission = server.permissions.includes(
-    Permission.ServerFilesWrite,
-  );
+  const hasWritePermission = canPerformServer(server, "writeFiles");
+  const hasDeletePermission = canPerformServer(server, "deleteFiles");
   const canWrite = runtimeCanWrite && hasWritePermission;
-  const canDelete =
-    canWrite && server.permissions.includes(Permission.ServerFilesDelete);
+  const canDelete = canWrite && hasDeletePermission;
   const [directory, setDirectory] = useState("/");
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -618,7 +617,8 @@ export function ServerFileBrowser({
         )
       }
       headingActions={
-        !editor && (
+        !editor &&
+        hasWritePermission && (
           <div className="file-toolbar">
             <Button
               type="button"
@@ -692,7 +692,7 @@ export function ServerFileBrowser({
         ) : null
       }
       footerRight={
-        editor ? (
+        editor && hasWritePermission ? (
           <Button
             variant="primary"
             disabled={busy || !canWrite}
@@ -976,26 +976,28 @@ export function ServerFileBrowser({
             >
               <thead>
                 <tr>
-                  <th className="table-fit">
-                    <CheckboxField
-                      checked={
-                        selectable.length > 0 &&
-                        selectedEntries.length === selectable.length
-                      }
-                      disabled={busy || loading || !selectable.length}
-                      onChange={(event) =>
-                        setSelected(
-                          event.target.checked
-                            ? selectable.map((entry) => entry.name)
-                            : [],
-                        )
-                      }
-                    >
-                      <span className="visually-hidden">
-                        {t("serverFileBrowser.selectAll")}
-                      </span>
-                    </CheckboxField>
-                  </th>
+                  {hasWritePermission && (
+                    <th className="table-fit">
+                      <CheckboxField
+                        checked={
+                          selectable.length > 0 &&
+                          selectedEntries.length === selectable.length
+                        }
+                        disabled={busy || loading || !selectable.length}
+                        onChange={(event) =>
+                          setSelected(
+                            event.target.checked
+                              ? selectable.map((entry) => entry.name)
+                              : [],
+                          )
+                        }
+                      >
+                        <span className="visually-hidden">
+                          {t("serverFileBrowser.selectAll")}
+                        </span>
+                      </CheckboxField>
+                    </th>
+                  )}
                   <th className="file-icon-cell" />
                   <th className="file-name-column">{t("common.name")}</th>
                   <th className="table-fit">
@@ -1028,25 +1030,27 @@ export function ServerFileBrowser({
                           }
                     }
                   >
-                    <td className="table-fit">
-                      <CheckboxField
-                        checked={selected.includes(entry.name)}
-                        disabled={busy || entry.kind === FileKind.Unsupported}
-                        onChange={(event) =>
-                          setSelected((current) =>
-                            event.target.checked
-                              ? [...current, entry.name]
-                              : current.filter((name) => name !== entry.name),
-                          )
-                        }
-                      >
-                        <span className="visually-hidden">
-                          {t("serverFileBrowser.selectEntry", {
-                            name: entry.name,
-                          })}
-                        </span>
-                      </CheckboxField>
-                    </td>
+                    {hasWritePermission && (
+                      <td className="table-fit">
+                        <CheckboxField
+                          checked={selected.includes(entry.name)}
+                          disabled={busy || entry.kind === FileKind.Unsupported}
+                          onChange={(event) =>
+                            setSelected((current) =>
+                              event.target.checked
+                                ? [...current, entry.name]
+                                : current.filter((name) => name !== entry.name),
+                            )
+                          }
+                        >
+                          <span className="visually-hidden">
+                            {t("serverFileBrowser.selectEntry", {
+                              name: entry.name,
+                            })}
+                          </span>
+                        </CheckboxField>
+                      </td>
+                    )}
                     <td className="file-icon-cell">
                       <span
                         className={`file-entry-icon${entry.kind === FileKind.Directory ? " file-entry-folder" : ""}`}
@@ -1098,7 +1102,8 @@ export function ServerFileBrowser({
                     </td>
                     <td className="table-actions">
                       <ActionGroup>
-                        {entry.kind === FileKind.File &&
+                        {hasWritePermission &&
+                          entry.kind === FileKind.File &&
                           /\.(zip|tar\.gz|tgz|rar)$/i.test(entry.name) && (
                             <Button
                               iconOnly
@@ -1137,91 +1142,95 @@ export function ServerFileBrowser({
                 ))}
               </tbody>
             </Table>
-            <div
-              className="file-selection-bar"
-              role="group"
-              aria-label={t("common.actions")}
-            >
-              <span className="file-selection-count">
-                <span className="visually-hidden">
-                  {t("serverFileBrowser.selectedCount", {
-                    count: selectedEntries.length,
-                  })}
+            {hasWritePermission && (
+              <div
+                className="file-selection-bar"
+                role="group"
+                aria-label={t("common.actions")}
+              >
+                <span className="file-selection-count">
+                  <span className="visually-hidden">
+                    {t("serverFileBrowser.selectedCount", {
+                      count: selectedEntries.length,
+                    })}
+                  </span>
+                  <span className="file-selection-full" aria-hidden="true">
+                    {t("serverFileBrowser.selectedCount", {
+                      count: selectedEntries.length,
+                    })}
+                  </span>
+                  <span className="file-selection-compact" aria-hidden="true">
+                    {selectedEntries.length}
+                  </span>
                 </span>
-                <span className="file-selection-full" aria-hidden="true">
-                  {t("serverFileBrowser.selectedCount", {
-                    count: selectedEntries.length,
-                  })}
-                </span>
-                <span className="file-selection-compact" aria-hidden="true">
-                  {selectedEntries.length}
-                </span>
-              </span>
-              <ActionGroup className="file-bulk-actions">
-                <Button
-                  aria-label={fileActionLabels.rename}
-                  title={fileActionLabels.rename}
-                  disabled={busy || !canWrite || selectedEntries.length !== 1}
-                  onClick={() => {
-                    const entry = selectedEntries[0];
-                    if (entry) setFileAction({ kind: "rename", entry });
-                  }}
-                >
-                  <NavigationIcon name="rename" />
-                  <span className="file-action-label">
-                    {fileActionLabels.rename}
-                  </span>
-                </Button>
-                <Button
-                  aria-label={fileActionLabels.permissions}
-                  title={fileActionLabels.permissions}
-                  disabled={busy || !canWrite || !selectedEntries.length}
-                  onClick={() => setPermissionsEntries(selectedEntries)}
-                >
-                  <NavigationIcon name="permissions" />
-                  <span className="file-action-label">
-                    {fileActionLabels.permissions}
-                  </span>
-                </Button>
-                <Button
-                  aria-label={fileActionLabels.move}
-                  title={fileActionLabels.move}
-                  disabled={busy || !canWrite || !selectedEntries.length}
-                  onClick={() => setBulkAction("move")}
-                >
-                  <NavigationIcon name="move" />
-                  <span className="file-action-label">
-                    {fileActionLabels.move}
-                  </span>
-                </Button>
-                <Button
-                  aria-label={fileActionLabels.archive}
-                  title={fileActionLabels.archive}
-                  disabled={busy || !canWrite || !selectedEntries.length}
-                  onClick={() => setBulkAction("compress")}
-                >
-                  <NavigationIcon name="compress" />
-                  <span className="file-action-label">
-                    {fileActionLabels.archive}
-                  </span>
-                </Button>
-                <Button
-                  className="file-bulk-delete"
-                  aria-label={fileActionLabels.delete}
-                  title={fileActionLabels.delete}
-                  disabled={busy || !canDelete || !selectedEntries.length}
-                  onClick={() => {
-                    setDeleteError(null);
-                    setDeleting(selectedEntries);
-                  }}
-                >
-                  <NavigationIcon name="delete" />
-                  <span className="file-action-label">
-                    {fileActionLabels.delete}
-                  </span>
-                </Button>
-              </ActionGroup>
-            </div>
+                <ActionGroup className="file-bulk-actions">
+                  <Button
+                    aria-label={fileActionLabels.rename}
+                    title={fileActionLabels.rename}
+                    disabled={busy || !canWrite || selectedEntries.length !== 1}
+                    onClick={() => {
+                      const entry = selectedEntries[0];
+                      if (entry) setFileAction({ kind: "rename", entry });
+                    }}
+                  >
+                    <NavigationIcon name="rename" />
+                    <span className="file-action-label">
+                      {fileActionLabels.rename}
+                    </span>
+                  </Button>
+                  <Button
+                    aria-label={fileActionLabels.permissions}
+                    title={fileActionLabels.permissions}
+                    disabled={busy || !canWrite || !selectedEntries.length}
+                    onClick={() => setPermissionsEntries(selectedEntries)}
+                  >
+                    <NavigationIcon name="permissions" />
+                    <span className="file-action-label">
+                      {fileActionLabels.permissions}
+                    </span>
+                  </Button>
+                  <Button
+                    aria-label={fileActionLabels.move}
+                    title={fileActionLabels.move}
+                    disabled={busy || !canWrite || !selectedEntries.length}
+                    onClick={() => setBulkAction("move")}
+                  >
+                    <NavigationIcon name="move" />
+                    <span className="file-action-label">
+                      {fileActionLabels.move}
+                    </span>
+                  </Button>
+                  <Button
+                    aria-label={fileActionLabels.archive}
+                    title={fileActionLabels.archive}
+                    disabled={busy || !canWrite || !selectedEntries.length}
+                    onClick={() => setBulkAction("compress")}
+                  >
+                    <NavigationIcon name="compress" />
+                    <span className="file-action-label">
+                      {fileActionLabels.archive}
+                    </span>
+                  </Button>
+                  {hasDeletePermission && (
+                    <Button
+                      className="file-bulk-delete"
+                      aria-label={fileActionLabels.delete}
+                      title={fileActionLabels.delete}
+                      disabled={busy || !canDelete || !selectedEntries.length}
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDeleting(selectedEntries);
+                      }}
+                    >
+                      <NavigationIcon name="delete" />
+                      <span className="file-action-label">
+                        {fileActionLabels.delete}
+                      </span>
+                    </Button>
+                  )}
+                </ActionGroup>
+              </div>
+            )}
           </>
         )}
       </FileDropZone>

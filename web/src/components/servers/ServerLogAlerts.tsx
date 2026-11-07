@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Server } from "../../api/servers";
-import { Permission } from "../../api/permissions";
+import { canPerformServer } from "../../permissions";
 import { dismissLogAlert, listLogAlerts } from "../../api/logAlerts";
 import { LogAction, LogPhase, LogSeverity } from "../../contracts/logAlerts";
 import { useCollection } from "../../hooks/useCollection";
@@ -35,10 +35,8 @@ export function ServerLogAlerts({
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
-  const canDismiss = server.permissions.includes(Permission.ServerOperate);
-  const canReadConsole = server.permissions.includes(
-    Permission.ServerConsoleRead,
-  );
+  const canDismiss = canPerformServer(server, "operate");
+  const canReadConsole = canPerformServer(server, "readConsole");
   async function dismiss(id: string) {
     if (pending) return;
     setPending(id);
@@ -111,7 +109,7 @@ export function ServerLogAlerts({
               <div className="server-log-alert-actions">
                 {alert.action?.type === LogAction.OpenFile &&
                   alert.action.path &&
-                  server.permissions.includes(Permission.ServerFilesRead) && (
+                  canPerformServer(server, "readFiles") && (
                     <ButtonLink
                       href={`#servers/${encodeURIComponent(server.id)}/files/${encodeURIComponent(alert.action.path)}`}
                     >
@@ -119,7 +117,7 @@ export function ServerLogAlerts({
                     </ButtonLink>
                   )}
                 {alert.action?.type === LogAction.ServerSettings &&
-                  server.permissions.includes(Permission.ServerConfigure) && (
+                  canPerformServer(server, "configure") && (
                     <Button disabled={busy} onClick={() => setSettings(true)}>
                       {t("logAlerts.settingsAction")}
                     </Button>

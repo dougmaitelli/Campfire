@@ -260,7 +260,7 @@ test("permission tree adds prerequisites and clears dependent grants without con
   ).toBeDisabled();
 });
 
-test("file readers inherit operation and logs without file writing or console commands", async ({
+test("file access hides unauthorized writing and deletion while preserving reading and operation", async ({
   page,
   request,
   baseURL,
@@ -304,9 +304,21 @@ test("file readers inherit operation and logs without file writing or console co
   await expect(
     tabs.getByRole("link", { name: "Backups", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Upload Files", exact: true }),
-  ).toBeDisabled();
+  for (const name of [
+    "Upload Files",
+    "Create file",
+    "Create folder",
+    "Rename",
+    "Permissions",
+    "Move",
+    "Archive",
+    "Delete",
+  ])
+    await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
+      0,
+    );
+  await expect(page.getByRole("button", { name: /^Extract / })).toHaveCount(0);
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
   const files = await page.evaluateHandle(() => {
     const transfer = new DataTransfer();
@@ -326,9 +338,6 @@ test("file readers inherit operation and logs without file writing or console co
   await expect(
     page.getByRole("button", { name: "forbidden.txt", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Delete", exact: true }),
-  ).toBeDisabled();
   await page.setViewportSize({ width: 1400, height: 1200 });
   await expect(browser).toBeInViewport({ ratio: 1 });
   await screenshot(page, "file-reader.png");
@@ -338,12 +347,42 @@ test("file readers inherit operation and logs without file writing or console co
   await expect(page.getByRole("textbox")).toHaveAttribute("readonly", "");
   await expect(
     page.getByRole("button", { name: "Save file", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   expect(
     (await page.request.get("/api/v1/servers/survival/console")).status(),
   ).toBe(200);
   await page.goto("/#servers/survival/console");
   await expect(
     page.getByRole("textbox", { name: "Command", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.put(`/api/v1/roles/${role.id}`, {
+        headers,
+        data: {
+          name: "File reader",
+          scope: "server",
+          permissions: [
+            "server.view",
+            "server.files.read",
+            "server.files.write",
+          ],
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await page.goto("/#servers/survival/files");
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Create file", exact: true }),
+  ).toBeEnabled();
+  const rename = page.getByRole("button", { name: "Rename", exact: true });
+  await expect(rename).toBeDisabled();
+  await page
+    .getByRole("checkbox", { name: "Select eula.txt", exact: true })
+    .check();
+  await expect(rename).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Delete", exact: true }),
   ).toHaveCount(0);
 });

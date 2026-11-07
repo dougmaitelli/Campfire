@@ -30,7 +30,7 @@ import { NavigationIcon } from "../navigation/NavigationIcon";
 import { formatBytes } from "../../utils/formatBytes";
 import "./backups.css";
 import { ListToolbar } from "../layout/ListToolbar";
-import { Permission } from "../../api/permissions";
+import { canPerformServer } from "../../permissions";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 import { BackupImportDrawer } from "../../drawers/BackupImportDrawer";
 import { BackupName } from "./BackupName";
@@ -54,14 +54,10 @@ export function ServerBackups({ server }: { server: Server }) {
   const invalidBackupMode =
     backupMode === BackupMode.Savedata && !server.savedata_available;
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
-  const canDelete = server.permissions.includes(Permission.ServerBackupsDelete);
-  const canCreate = server.permissions.includes(Permission.ServerBackupsCreate);
-  const canRestore = server.permissions.includes(
-    Permission.ServerBackupsRestore,
-  );
-  const canDownload = server.permissions.includes(
-    Permission.ServerBackupsDownload,
-  );
+  const canDelete = canPerformServer(server, "deleteBackups");
+  const canCreate = canPerformServer(server, "createBackups");
+  const canRestore = canPerformServer(server, "restoreBackups");
+  const canDownload = canPerformServer(server, "downloadBackups");
   const [status, setStatus] = useState<RuntimeStatus>();
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -82,7 +78,7 @@ export function ServerBackups({ server }: { server: Server }) {
   const restoreAbort = useRef<AbortController | null>(null);
   const running = status?.state === RuntimeState.Running;
   const restoreRunning = busy ? restoreWasRunning : running;
-  const canOperate = server.permissions.includes(Permission.ServerOperate);
+  const canOperate = canPerformServer(server, "operate");
   useNavigationGuard(true, busy, false);
   const [refresh, setRefresh] = useState(0);
   const pending = useRef(false);
@@ -345,32 +341,30 @@ export function ServerBackups({ server }: { server: Server }) {
             }}
           />
         )}
-        <ListToolbar className="backup-toolbar">
-          {canCreate && (
+        {canCreate && (
+          <ListToolbar className="backup-toolbar">
             <BackupModeField
               value={backupMode}
               onChange={setBackupMode}
               available={server.savedata_available === true}
               disabled={busy || status?.busy === true}
             />
-          )}
-          <ActionGroup>
-            {canCreate && (
+            <ActionGroup>
               <Button disabled={!canChange} onClick={() => setImportOpen(true)}>
                 {t("backupImports.upload")}
               </Button>
-            )}
-            <Button
-              variant="primary"
-              disabled={!canCreateNow || !canCreate || invalidBackupMode}
-              onClick={() => {
-                void submit("backup");
-              }}
-            >
-              {t("serverBackups.createBackup")}
-            </Button>
-          </ActionGroup>
-        </ListToolbar>
+              <Button
+                variant="primary"
+                disabled={!canCreateNow || invalidBackupMode}
+                onClick={() => {
+                  void submit("backup");
+                }}
+              >
+                {t("serverBackups.createBackup")}
+              </Button>
+            </ActionGroup>
+          </ListToolbar>
+        )}
         {runtimeError && (
           <InlineMessage tone="warning">{runtimeError}</InlineMessage>
         )}
@@ -471,26 +465,27 @@ export function ServerBackups({ server }: { server: Server }) {
                           <NavigationIcon name="download" />
                         </ButtonLink>
                       )}
-                    <Button
-                      iconOnly
-                      aria-label={t("serverBackups.restore")}
-                      title={t("serverBackups.restore")}
-                      disabled={
-                        !canRestoreNow ||
-                        (status.state === RuntimeState.NotInstalled &&
-                          !entry.portable) ||
-                        !canRestore ||
-                        entry.state === BackupStatus.Deleting ||
-                        (!entry.local && !entry.remote)
-                      }
-                      onClick={() => {
-                        setRestoreError(null);
-                        setRestartAfterRestore(true);
-                        setRestore(entry);
-                      }}
-                    >
-                      <NavigationIcon name="restore" />
-                    </Button>
+                    {canRestore && (
+                      <Button
+                        iconOnly
+                        aria-label={t("serverBackups.restore")}
+                        title={t("serverBackups.restore")}
+                        disabled={
+                          !canRestoreNow ||
+                          (status.state === RuntimeState.NotInstalled &&
+                            !entry.portable) ||
+                          entry.state === BackupStatus.Deleting ||
+                          (!entry.local && !entry.remote)
+                        }
+                        onClick={() => {
+                          setRestoreError(null);
+                          setRestartAfterRestore(true);
+                          setRestore(entry);
+                        }}
+                      >
+                        <NavigationIcon name="restore" />
+                      </Button>
+                    )}
                     {canDelete && entry.local && (
                       <Button
                         variant="danger"

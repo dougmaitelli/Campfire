@@ -24,7 +24,7 @@ import { isEnabledSpark } from "../utils/sparkDestinations";
 import { useEffect, useRef, useState } from "react";
 import { applyServerEmber, saveServer } from "../api/servers";
 import { createServerCopy, type CopyTemplate } from "../api/copies";
-import { Permission } from "../api/permissions";
+import { canPerformPlatform, canPerformServer } from "../permissions";
 import type { Server, ServerConfiguration, ServerPort } from "../api/servers";
 import type { Spark } from "../api/sparks";
 import type { Ember } from "../api/embers";
@@ -96,9 +96,9 @@ export function ServerDrawer({
   const { t } = useTranslation();
   const links = useResourceLinks();
   const session = useAuthentication().session;
-  const admin = session?.admin === true;
+  const admin = canPerformPlatform(session, "assignServerOwner");
   const canShare =
-    !applyRevision && (!server || server.can_manage_access === true);
+    !applyRevision && (!server || canPerformServer(server, "manageAccess"));
   const [access, setAccess] = useState<ServerAccess | null>(null);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [accessAttempt, setAccessAttempt] = useState(0);
@@ -430,7 +430,7 @@ export function ServerDrawer({
             (admin &&
               accessDirty &&
               ownerID !==
-                (access?.owner?.id ?? (server ? 0 : session.user_id))))
+                (access?.owner?.id ?? (server ? 0 : session?.user_id))))
         )
           setConfirmPolicy(true);
         else await finish();
@@ -616,17 +616,12 @@ export function ServerDrawer({
                   ))}
                 </Select>
               </FormField>
-              {copy && (
+              {copy && canPerformServer(copy.server, "copyFiles", session) && (
                 <div>
                   <CheckboxField
                     aria-describedby="copy-files-help"
                     checked={copyFiles}
-                    disabled={
-                      createdServer !== null ||
-                      !copy.server.permissions.includes(
-                        Permission.ServerFilesRead,
-                      )
-                    }
+                    disabled={createdServer !== null}
                     onChange={(event) => setCopyFiles(event.target.checked)}
                   >
                     {t("serverCopy.copyFiles")}
@@ -1401,7 +1396,7 @@ export function ServerDrawer({
                 admin &&
                 accessDirty &&
                 ownerID !==
-                  (access?.owner?.id ?? (server ? 0 : session.user_id)) && (
+                  (access?.owner?.id ?? (server ? 0 : session?.user_id)) && (
                   <p>
                     {i18n.t(
                       "serverDrawer.changingOwnershipAlsoRemovesThePreviousOwnerSImplicitAccess",

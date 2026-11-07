@@ -13,7 +13,7 @@ import { InlineMessage } from "../components/status/InlineMessage";
 import { formatErrorMessage } from "../utils/errors";
 import { Tabs } from "../components/navigation/Tabs";
 import { ServerJobs } from "../components/servers/ServerJobs";
-import { Permission } from "../api/permissions";
+import { canPerformServer } from "../permissions";
 import { useAuthentication } from "../hooks/useAuthentication";
 import {
   ResourceDetailsDrawer,
@@ -48,10 +48,6 @@ export function ServerDetailsDrawer({
   const [tab, setTab] = useState(initialTab);
   const [revision, setRevision] = useState(0);
   const tabID = useId();
-  const canTransfer =
-    session?.admin === true ||
-    (session?.permissions?.includes(Permission.SparksManage) === true &&
-      session.permissions.includes(Permission.ServersManageAll));
   const loadDetails = useCallback(
     async (signal: AbortSignal) => {
       const value = await readJSON(
@@ -77,32 +73,34 @@ export function ServerDetailsDrawer({
       editLabel={t("serverDetailsDrawer.editServer")}
       loadDetails={loadDetails}
       refresh={revision}
-      headingActions={(server) => (
-        <ButtonLink
-          variant="primary"
-          href={`#servers/${encodeURIComponent(server.id)}/console`}
-          iconOnly
-          aria-label={t("serversPage.openConsole", { serverName: server.name })}
-          title={t("serversPage.console")}
-          onClick={(event) => {
-            if (
-              event.button === 0 &&
-              !event.metaKey &&
-              !event.ctrlKey &&
-              !event.shiftKey &&
-              !event.altKey
-            )
-              props.onClose();
-          }}
-        >
-          <NavigationIcon name="terminal" />
-        </ButtonLink>
-      )}
+      headingActions={(server) =>
+        canPerformServer(server, "readConsole") && (
+          <ButtonLink
+            variant="primary"
+            href={`#servers/${encodeURIComponent(server.id)}/console`}
+            iconOnly
+            aria-label={t("serversPage.openConsole", {
+              serverName: server.name,
+            })}
+            title={t("serversPage.console")}
+            onClick={(event) => {
+              if (
+                event.button === 0 &&
+                !event.metaKey &&
+                !event.ctrlKey &&
+                !event.shiftKey &&
+                !event.altKey
+              )
+                props.onClose();
+            }}
+          >
+            <NavigationIcon name="terminal" />
+          </ButtonLink>
+        )
+      }
     >
       {(server) => {
-        const canViewJobs =
-          canTransfer ||
-          server.permissions.includes(Permission.ServerConfigure);
+        const canViewJobs = canPerformServer(server, "viewJobs", session);
         return (
           <>
             {canViewJobs && (

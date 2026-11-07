@@ -4,7 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import type { Server } from "../../api/servers";
 import type { RuntimeStatus } from "../../api/runtime";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
-import { Permission } from "../../api/permissions";
+import { canPerformServer } from "../../permissions";
 const ServerTerminal = lazy(() =>
   import("./ServerTerminal").then((module) => ({
     default: module.ServerTerminal,
@@ -37,7 +37,7 @@ export function ServerConsole({
               : "snapshot"
         }
         onBusyChange={setBusy}
-        canWrite={server.permissions.includes(Permission.ServerConsoleWrite)}
+        canWrite={canPerformServer(server, "writeConsole")}
       />
     </Suspense>
   );

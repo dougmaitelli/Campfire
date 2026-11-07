@@ -16,7 +16,7 @@ import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { CronField } from "../components/schedules/CronField";
 import { CheckboxField } from "../components/forms/CheckboxField";
-import { serverActionPermission, hasPermission } from "../api/permissions";
+import { canManageSchedule } from "../permissions";
 import { BackupMode } from "../api/backups";
 import { BackupModeField } from "../components/servers/BackupModeField";
 import { ResourceLimits } from "../config/policies";
@@ -46,9 +46,7 @@ export function ScheduleDrawer({
       ScheduleAction.Stop,
       ScheduleAction.Kill,
       ScheduleAction.Command,
-    ].filter((item) =>
-      hasPermission(selected?.permissions, serverActionPermission(item)),
-    );
+    ].filter((item) => canManageSchedule(selected, item));
   }
   const [serverID, setServerID] = useState(
     schedule?.server_id ?? servers[0]?.id ?? "",

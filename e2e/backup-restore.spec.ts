@@ -1,6 +1,74 @@
 import { test, expect, screenshot } from "./fixtures";
 import { login, openServerTab } from "./screens";
 
+for (const access of ["read", "create", "restore"] as const) {
+  test(`backup ${access} access only exposes authorized actions`, async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    await login(page, "viewer");
+    const auth = await request.post("/api/v1/auth/login", {
+      data: { username: "admin", password: "campfire-e2e-password" },
+    });
+    expect(auth.ok()).toBeTruthy();
+    const { csrf_token } = (await auth.json()) as { csrf_token: string };
+    const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
+    const roleResponse = await request.post("/api/v1/roles", {
+      headers,
+      data: {
+        name: `Backup ${access} access`,
+        scope: "server",
+        permissions: [
+          "server.view",
+          "server.backups.read",
+          "server.backups.download",
+          ...(access === "read" ? [] : [`server.backups.${access}`]),
+        ],
+      },
+    });
+    expect(roleResponse.ok()).toBeTruthy();
+    const role = (await roleResponse.json()) as { id: number };
+    expect(
+      (
+        await request.post("/api/v1/servers/survival/members", {
+          headers,
+          data: { username: "viewer", role_id: role.id },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await page.goto("/#servers/survival/backups");
+    const table = page.getByRole("table", {
+      name: "Server backups",
+      exact: true,
+    });
+    await expect(table.locator("tbody tr")).toHaveCount(2);
+    for (const name of ["Create backup", "Upload backup"]) {
+      const action = page.getByRole("button", { name, exact: true });
+      if (access === "create") await expect(action).toBeEnabled();
+      else await expect(action).toHaveCount(0);
+    }
+    const restore = table.getByRole("button", { name: "Restore", exact: true });
+    if (access === "restore") {
+      await expect(restore).toHaveCount(2);
+      await expect(restore.first()).toBeEnabled();
+    } else await expect(restore).toHaveCount(0);
+    await expect(table.getByRole("button", { name: /^Delete / })).toHaveCount(
+      0,
+    );
+    await expect(table.getByRole("link", { name: /^Download / })).toHaveCount(
+      2,
+    );
+    if (access === "read") {
+      const listing = page.locator(".table-container").filter({ has: table });
+      await screenshot(page, "backup-reader.png", listing);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await listing.scrollIntoViewIfNeeded();
+      await screenshot(page, "backup-reader-mobile.png", listing);
+    }
+  });
+}
+
 for (const restart of [true, false]) {
   test(`running-server restore confirms data loss and restarts ${restart}`, async ({
     page,

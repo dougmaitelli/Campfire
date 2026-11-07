@@ -1,5 +1,5 @@
 import { getResourceRoute, type PageID } from "./routeRegistry";
-import type { PermissionID } from "../api/permissions";
+import type { AdminResourceOperation } from "../permissions";
 import { ResourceKind, type ServerTab } from "../contracts/domains";
 import { isEnumValue } from "../utils/validation";
 
@@ -8,15 +8,14 @@ export function resourceHref(page: PageID, id: string | number) {
 }
 
 export function createResourceLinks(
-  canManage: (permission: PermissionID) => boolean,
+  canManage: (operation: AdminResourceOperation) => boolean,
 ) {
   function link(kind: ResourceKind, id: string | number, tab?: ServerTab) {
     const match = getResourceRoute(kind);
     if (!match) return undefined;
     const [page, route] = match;
     const resource = route.resource!;
-    if (resource.permission && !canManage(resource.permission))
-      return undefined;
+    if (resource.operation && !canManage(resource.operation)) return undefined;
     if (resource.numericID) {
       if (!/^\d+$/.test(String(id))) return undefined;
       id = Number(id);

@@ -5,10 +5,10 @@ import {
 } from "../contracts/domains";
 import i18n from "../i18n";
 import {
-  Permission,
-  serverActionPermission,
-  hasPermission,
-} from "../api/permissions";
+  canPerformPlatform,
+  canPerformServer,
+  canManageSchedule,
+} from "../permissions";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
@@ -161,16 +161,9 @@ export function DashboardPage() {
         sparkCount={
           monitor.snapshot ? (monitor.snapshot.sparks?.length ?? 0) : undefined
         }
-        canManageSparks={
-          auth.session?.permissions?.includes(Permission.SparksManage) === true
-        }
-        canManageEmbers={
-          auth.session?.permissions?.includes(Permission.EmbersManage) === true
-        }
-        canCreateServers={
-          auth.session?.admin === true ||
-          auth.session?.permissions?.includes(Permission.ServersCreate) === true
-        }
+        canManageSparks={canPerformPlatform(auth.session, "manageSparks")}
+        canManageEmbers={canPerformPlatform(auth.session, "manageEmbers")}
+        canCreateServers={canPerformPlatform(auth.session, "createServers")}
       />
     );
   }
@@ -199,7 +192,7 @@ export function DashboardPage() {
               components={{
                 authSessionAdmin: (
                   <>
-                    {auth.session?.admin
+                    {canPerformPlatform(auth.session, "administration")
                       ? t("dashboardPage.allServers")
                       : t("dashboardPage.yourAccessibleServers")}
                   </>
@@ -508,7 +501,7 @@ export function DashboardPage() {
                         canOperate={serverInventory.items.some(
                           (item) =>
                             item.id === server.id &&
-                            item.permissions.includes(Permission.ServerOperate),
+                            canPerformServer(item, "operate"),
                         )}
                         disabled={
                           monitor.snapshot?.sparks?.some(
@@ -655,17 +648,10 @@ export function DashboardPage() {
                         <ScheduleToggle
                           schedule={schedule}
                           disabled={
-                            !auth.session?.admin &&
                             !serverInventory.items.some(
                               (server) =>
                                 server.id === schedule.server_id &&
-                                server.permissions.includes(
-                                  Permission.ServerSchedulesManage,
-                                ) &&
-                                hasPermission(
-                                  server.permissions,
-                                  serverActionPermission(schedule.action),
-                                ),
+                                canManageSchedule(server, schedule.action),
                             )
                           }
                           onSaved={schedules.upsert}

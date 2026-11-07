@@ -84,6 +84,60 @@ test("Copy prefills the creation wizard and creates an independent settings-only
   ).toMatchObject({ state: "running" });
 });
 
+test("copying without file-read access hides Quick copy and the file-copy option", async ({
+  page,
+}) => {
+  await login(page);
+  function withoutFileRead(server: { permissions: string[] }) {
+    return {
+      ...server,
+      permissions: server.permissions.filter(
+        (permission) => permission !== "server.files.read",
+      ),
+    };
+  }
+  await page.route("**/api/v1/servers/survival", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: withoutFileRead(
+        (await response.json()) as { permissions: string[] },
+      ),
+    });
+  });
+  await page.route("**/api/v1/servers/survival/copy", async (route) => {
+    const response = await route.fetch();
+    const template = (await response.json()) as {
+      server: { permissions: string[] };
+    };
+    await route.fulfill({
+      response,
+      json: { ...template, server: withoutFileRead(template.server) },
+    });
+  });
+  const menu = await openServerActions(page);
+  await expect(
+    menu.getByRole("menuitem", { name: "Quick copy", exact: true }),
+  ).toHaveCount(0);
+  await menu.getByRole("menuitem", { name: "Copy", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "Copy", exact: true });
+  await expect(
+    drawer.getByRole("textbox", { name: "Server name", exact: true }),
+  ).toHaveValue("Survival (copy)");
+  await expect(
+    drawer.getByRole("checkbox", { name: /^Copy game files/ }),
+  ).toHaveCount(0);
+  await screenshot(page, "server-copy-settings-only.png", drawer);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await screenshot(page, "server-copy-settings-only-mobile.png", drawer);
+  await drawer
+    .getByRole("button", { name: "Next: Variables", exact: true })
+    .click();
+  await expect(
+    drawer.getByRole("heading", { name: "Variables", exact: true }),
+  ).toBeVisible();
+});
+
 test("Quick copy asks only for a Spark and copies a running server's files", async ({
   page,
 }) => {

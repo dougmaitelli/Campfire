@@ -14,11 +14,7 @@ import { ScheduleExecutionHistory } from "../components/schedules/ScheduleExecut
 import { operationLabel } from "../components/servers/operationMessage";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ScheduleDrawer } from "./ScheduleDrawer";
-import {
-  Permission,
-  serverActionPermission,
-  hasPermission,
-} from "../api/permissions";
+import { canPerformServer, canManageSchedule } from "../permissions";
 
 export function ScheduleDetailsDrawer({
   schedule,
@@ -36,13 +32,9 @@ export function ScheduleDetailsDrawer({
   const [editing, setEditing] = useState(false);
   const server = servers.find((item) => item.id === schedule.server_id);
   const managed = servers.filter((item) =>
-    item.permissions.includes(Permission.ServerSchedulesManage),
+    canPerformServer(item, "manageSchedules"),
   );
-  const canEdit = managed.some(
-    (item) =>
-      item.id === schedule.server_id &&
-      hasPermission(item.permissions, serverActionPermission(schedule.action)),
-  );
+  const canEdit = canManageSchedule(server, schedule.action);
   if (editing && canEdit)
     return (
       <ScheduleDrawer

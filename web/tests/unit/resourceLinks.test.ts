@@ -20,9 +20,7 @@ test("registry resolves page access and resource inspection destinations", () =>
   expect(getRoute("dashboard")?.adminOnly).toBe(false);
   expect(getRoute("users")?.adminOnly).toBe(true);
   expect(getResourceRoute("user")?.[0]).toBe("users");
-  expect(getResourceRoute("user")?.[1].resource?.permission).toBe(
-    "users.manage",
-  );
+  expect(getResourceRoute("user")?.[1].resource?.operation).toBe("manageUsers");
   expect(getResourceRoute("server")?.[1].resource?.Drawer).toBeDefined();
   for (const unknown of ["missing", "constructor", "toString", "__proto__"]) {
     expect(getRoute(unknown)).toBeUndefined();
@@ -59,7 +57,7 @@ test("links encode IDs and honor destination permissions", () => {
   expect(links.spark("")).toBeUndefined();
   expect(links.user(0)).toBeUndefined();
   const restricted = createResourceLinks(
-    (permission) => permission === "users.manage",
+    (operation) => operation === "manageUsers",
   );
   expect(restricted.user(12)).toBe("#users/12");
   expect(restricted.spark("node")).toBeUndefined();

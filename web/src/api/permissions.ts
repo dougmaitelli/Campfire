@@ -1,4 +1,3 @@
-import { ServerAction } from "../contracts/domains";
 import { isEnumValue } from "../utils/validation";
 import { apiFetch, readJSON } from "./client";
 
@@ -40,42 +39,11 @@ export function isPermissionID(value: unknown): value is PermissionID {
   return isEnumValue(Permission, value);
 }
 
-export function hasPermission(
-  values: readonly PermissionID[] | undefined,
-  permission: PermissionID | undefined,
-): boolean {
-  return permission !== undefined && values?.includes(permission) === true;
-}
-
 export interface PermissionDefinition {
   id: PermissionID;
   group: string;
   label: string;
   requires: PermissionID[];
-}
-
-export function serverActionPermission(
-  action: ServerAction,
-): PermissionID | undefined {
-  switch (action) {
-    case ServerAction.Install:
-    case ServerAction.Start:
-    case ServerAction.Stop:
-    case ServerAction.Restart:
-    case ServerAction.Kill:
-      return Permission.ServerOperate;
-    case ServerAction.Update:
-    case ServerAction.Reinstall:
-      return Permission.ServerReinstall;
-    case ServerAction.Backup:
-      return Permission.ServerBackupsCreate;
-    case ServerAction.Restore:
-      return Permission.ServerBackupsRestore;
-    case ServerAction.Command:
-      return Permission.ServerConsoleWrite;
-    default:
-      return undefined;
-  }
 }
 
 export function isPermissionCatalog(

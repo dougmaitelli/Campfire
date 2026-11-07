@@ -12,6 +12,7 @@ import {
   AuthenticationProvider,
   useAuthentication,
 } from "./hooks/useAuthentication";
+import { canPerformPlatform } from "./permissions";
 
 export function App() {
   useTranslation();
@@ -38,7 +39,8 @@ function ManagementApp() {
   const auth = useAuthentication();
   const route = routeRegistry[page.id];
   const Page = route.Page;
-  const allowed = auth.session?.admin === true || !route.adminOnly;
+  const allowed =
+    canPerformPlatform(auth.session, "administration") || !route.adminOnly;
 
   return (
     <NotificationsProvider key={auth.session?.user_id}>

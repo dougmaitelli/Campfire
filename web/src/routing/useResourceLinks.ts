@@ -1,11 +1,10 @@
 import { useAuthentication } from "../hooks/useAuthentication";
 import { createResourceLinks } from "./resourceLinks";
+import { canAccessAdminResource } from "../permissions";
 
 export function useResourceLinks() {
   const { session } = useAuthentication();
-  return createResourceLinks(
-    (permission) =>
-      session?.admin === true &&
-      session.permissions?.includes(permission) === true,
+  return createResourceLinks((operation) =>
+    canAccessAdminResource(session, operation),
   );
 }

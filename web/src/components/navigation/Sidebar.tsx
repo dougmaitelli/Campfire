@@ -5,6 +5,7 @@ import type { NavigationItem } from "../../routing/navigation";
 import { NavigationIcon } from "./NavigationIcon";
 import { CampfireMark } from "./CampfireMark";
 import { useAuthentication } from "../../hooks/useAuthentication";
+import { canPerformPlatform } from "../../permissions";
 import { AccountMenu } from "./AccountMenu";
 import { Button } from "../forms/Button";
 import "./sidebar.css";
@@ -52,7 +53,7 @@ export function Sidebar({
           .filter(
             (item) =>
               item.id !== "notifications" &&
-              (auth.session?.admin === true ||
+              (canPerformPlatform(auth.session, "administration") ||
                 !routeRegistry[item.id].adminOnly),
           )
           .map((item) => (

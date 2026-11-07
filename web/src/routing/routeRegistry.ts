@@ -1,4 +1,4 @@
-import { Permission, type PermissionID } from "../api/permissions";
+import type { AdminResourceOperation } from "../permissions";
 import { ResourceKind, ServerTab } from "../contracts/domains";
 import { lazy, type ComponentType } from "react";
 
@@ -6,7 +6,7 @@ export type InspectionProps = { id: string; onClose: () => void };
 
 interface ResourceDefinition {
   kind: ResourceKind;
-  permission?: PermissionID;
+  operation?: AdminResourceOperation;
   numericID?: boolean;
   defaultTab?: ServerTab;
   Drawer: ComponentType<InspectionProps>;
@@ -36,7 +36,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: ResourceKind.Spark,
-      permission: Permission.SparksManage,
+      operation: "manageSparks",
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectSpark })),
       ),
@@ -49,7 +49,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: ResourceKind.Ember,
-      permission: Permission.EmbersManage,
+      operation: "manageEmbers",
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectEmber })),
       ),
@@ -87,7 +87,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: ResourceKind.User,
-      permission: Permission.UsersManage,
+      operation: "manageUsers",
       numericID: true,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectUser })),
@@ -101,7 +101,7 @@ export const routeRegistry = {
     adminOnly: true,
     resource: {
       kind: ResourceKind.Role,
-      permission: Permission.RolesManage,
+      operation: "manageRoles",
       numericID: true,
       Drawer: lazy(() =>
         import("./resourceDrawers").then((m) => ({ default: m.InspectRole })),

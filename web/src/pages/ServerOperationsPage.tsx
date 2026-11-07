@@ -45,7 +45,7 @@ import { ConfirmDialog } from "../components/layout/ConfirmDialog";
 import { operationMessage } from "../components/servers/operationMessage";
 import "./server-operations.css";
 import "../components/navigation/tabs.css";
-import { Permission } from "../api/permissions";
+import { canPerformServer } from "../permissions";
 
 const confirmations = {
   kill: {
@@ -135,16 +135,16 @@ export function ServerOperationsPage({
     currentOperationID,
   );
   const tabPermissions = {
-    console: Permission.ServerConsoleRead,
-    files: Permission.ServerFilesRead,
-    backups: Permission.ServerBackupsRead,
-    activity: Permission.ServerView,
+    console: "readConsole",
+    files: "readFiles",
+    backups: "readBackups",
+    activity: "view",
   } as const;
   const allowedTabs = Object.entries(tabPermissions)
     .filter(
       ([item, permission]) =>
-        server?.permissions.includes(permission) &&
-        (item !== "activity" || server.game_integration === true),
+        canPerformServer(server, permission) &&
+        (item !== "activity" || server?.game_integration === true),
     )
     .map(([item]) => item);
   const activeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0];
@@ -239,9 +239,7 @@ export function ServerOperationsPage({
       setActing(false);
     }
   }
-  const installAction = server?.permissions.includes(
-    Permission.ServerOperate,
-  ) ? (
+  const installAction = canPerformServer(server, "operate") ? (
     <Button
       variant="primary"
       disabled={controls.blocked || controls.running}
@@ -311,12 +309,9 @@ export function ServerOperationsPage({
             <ServerLifecycleControls
               status={status}
               disabled={controlsDisabled}
-              canReinstall={server.permissions.includes(
-                Permission.ServerReinstall,
-              )}
+              canReinstall={canPerformServer(server, "reinstall")}
               canOperate={
-                !showInstallEmpty &&
-                server.permissions.includes(Permission.ServerOperate)
+                !showInstallEmpty && canPerformServer(server, "operate")
               }
               actions={management.actions}
               onAction={(action) => {

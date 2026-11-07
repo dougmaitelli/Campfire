@@ -5,10 +5,11 @@ import {
 import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import {
-  Permission,
-  serverActionPermission,
-  hasPermission,
-} from "../api/permissions";
+  canPerformServer,
+  canManageSchedule,
+  canRunSchedule,
+  canRetryExecution,
+} from "../permissions";
 import { useTranslation } from "react-i18next";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -71,7 +72,7 @@ export function SchedulesPage() {
   const [revision, setRevision] = useState(0);
   const generation = useRef(0);
   const managed = servers.items.filter((server) =>
-    server.permissions.includes(Permission.ServerSchedulesManage),
+    canPerformServer(server, "manageSchedules"),
   );
   const replaceSchedules = schedules.replace;
   useEffect(() => {
@@ -347,10 +348,7 @@ export function SchedulesPage() {
                         !managed.some(
                           (server) =>
                             server.id === item.server_id &&
-                            hasPermission(
-                              server.permissions,
-                              serverActionPermission(item.action),
-                            ),
+                            canManageSchedule(server, item.action),
                         )
                       }
                       onSaved={schedules.upsert}
@@ -361,13 +359,7 @@ export function SchedulesPage() {
                     {servers.items.some(
                       (server) =>
                         server.id === item.server_id &&
-                        server.permissions.includes(
-                          Permission.ServerSchedulesRun,
-                        ) &&
-                        hasPermission(
-                          server.permissions,
-                          serverActionPermission(item.action),
-                        ),
+                        canRunSchedule(server, item.action),
                     ) && (
                       <ActionGroup>
                         <Button
@@ -476,14 +468,11 @@ export function SchedulesPage() {
                     servers.items.some(
                       (server) =>
                         server.id === run.server_id &&
-                        hasPermission(
-                          server.permissions,
-                          serverActionPermission(run.action),
-                        ) &&
-                        (!run.schedule_id ||
-                          server.permissions.includes(
-                            Permission.ServerSchedulesRun,
-                          )),
+                        canRetryExecution(
+                          server,
+                          run.action,
+                          !!run.schedule_id,
+                        ),
                     ) && (
                       <Button
                         iconOnly

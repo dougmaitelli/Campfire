@@ -3,6 +3,7 @@ import { useTranslation, Trans } from "react-i18next";
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuthentication } from "../../hooks/useAuthentication";
+import { canPerformPlatform } from "../../permissions";
 import { linkOIDC, stopViewAs } from "../../api/auth";
 import { APITokensDrawer } from "../../drawers/APITokensDrawer";
 import { NavigationIcon } from "./NavigationIcon";
@@ -101,7 +102,7 @@ export function AccountMenu() {
           className="account-dropdown"
           aria-label={t("accountMenu.accountOptions")}
         >
-          {auth.session?.admin === true && !auth.session.view_as && (
+          {canPerformPlatform(auth.session, "previewUsers") && (
             <button
               type="button"
               onClick={() => {
@@ -220,8 +221,7 @@ export function AccountMenu() {
           document.body,
         )}
       {viewAsOpen &&
-        auth.session?.admin === true &&
-        !auth.session.view_as &&
+        canPerformPlatform(auth.session, "previewUsers") &&
         createPortal(
           <Suspense fallback={null}>
             <ViewAsDrawer onClose={() => setViewAsOpen(false)} />

@@ -63,46 +63,52 @@ export function ServerQuickControls({
   }
   return (
     <ActionGroup>
-      <Button
-        iconOnly
-        variant="success"
-        disabled={blocked || install || running}
-        aria-label={t("serverQuickControls.start", { name })}
-        title={t("common.start")}
-        loading={action === "start"}
-        aria-busy={startupPending}
-        onClick={() => void act("start")}
-      >
-        <NavigationIcon
-          name={action === "start" ? "loading" : "play"}
-          filled={action !== "start"}
-        />
-      </Button>
-      <Button
-        iconOnly
-        variant="warning"
-        disabled={!canInterrupt && (blocked || !running)}
-        aria-label={t("serverQuickControls.stop", { name })}
-        title={t("common.stop")}
-        loading={action === "stop"}
-        onClick={() => void act("stop")}
-      >
-        <NavigationIcon
-          name={action === "stop" ? "loading" : "stop"}
-          filled={action !== "stop"}
-        />
-      </Button>
-      <Button
-        iconOnly
-        variant="secondary"
-        disabled={blocked || !running}
-        aria-label={t("serverQuickControls.restart", { name })}
-        title={t("common.restart")}
-        loading={action === "restart"}
-        onClick={() => void act("restart")}
-      >
-        <NavigationIcon name={action === "restart" ? "loading" : "restart"} />
-      </Button>
+      {canOperate && (
+        <>
+          <Button
+            iconOnly
+            variant="success"
+            disabled={blocked || install || running}
+            aria-label={t("serverQuickControls.start", { name })}
+            title={t("common.start")}
+            loading={action === "start"}
+            aria-busy={startupPending}
+            onClick={() => void act("start")}
+          >
+            <NavigationIcon
+              name={action === "start" ? "loading" : "play"}
+              filled={action !== "start"}
+            />
+          </Button>
+          <Button
+            iconOnly
+            variant="warning"
+            disabled={!canInterrupt && (blocked || !running)}
+            aria-label={t("serverQuickControls.stop", { name })}
+            title={t("common.stop")}
+            loading={action === "stop"}
+            onClick={() => void act("stop")}
+          >
+            <NavigationIcon
+              name={action === "stop" ? "loading" : "stop"}
+              filled={action !== "stop"}
+            />
+          </Button>
+          <Button
+            iconOnly
+            variant="secondary"
+            disabled={blocked || !running}
+            aria-label={t("serverQuickControls.restart", { name })}
+            title={t("common.restart")}
+            loading={action === "restart"}
+            onClick={() => void act("restart")}
+          >
+            <NavigationIcon
+              name={action === "restart" ? "loading" : "restart"}
+            />
+          </Button>
+        </>
+      )}
       {children}
     </ActionGroup>
   );

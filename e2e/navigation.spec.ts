@@ -1,5 +1,5 @@
-import { test, expect } from "./fixtures";
-import { login, openServerTab, openScreen } from "./screens";
+import { test, expect, screenshot } from "./fixtures";
+import { login, openServerTab, openScreen, inspectServer } from "./screens";
 
 test("overview and server lists poll one aggregate runtime endpoint", async ({
   page,
@@ -182,7 +182,51 @@ test("server page actions edit configuration directly and keep the console open"
   ).toBeVisible();
 });
 
-test("view-only server rows fall back to an allowed tab and hide editing", async ({
+for (const allowed of [false, true]) {
+  test(`server drawer console shortcut respects console-read access ${allowed}`, async ({
+    page,
+  }) => {
+    await login(page);
+    await page.route("**/api/v1/servers/survival", async (route) => {
+      const response = await route.fetch();
+      const server = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({
+        response,
+        json: {
+          ...server,
+          permissions: [
+            "server.view",
+            ...(allowed ? ["server.console.read"] : []),
+          ],
+          can_manage_access: false,
+        },
+      });
+    });
+    await inspectServer(page);
+    const drawer = page.getByRole("dialog", { name: "Server", exact: true });
+    const consoleLink = drawer.getByRole("link", {
+      name: "Open console for Survival",
+      exact: true,
+    });
+    if (allowed) {
+      await expect(consoleLink).toBeVisible();
+      await consoleLink.click();
+      await expect(drawer).toHaveCount(0);
+      await expect(
+        page.getByRole("region", { name: "Console output", exact: true }),
+      ).toBeVisible();
+    } else {
+      await expect(consoleLink).toHaveCount(0);
+      await drawer
+        .getByRole("button", { name: "Close", exact: true })
+        .first()
+        .click();
+      await expect(page).toHaveURL(/#schedules$/);
+    }
+  });
+}
+
+test("view-only server rows hide power actions and fall back to an allowed tab", async ({
   page,
   request,
   baseURL,
@@ -212,7 +256,28 @@ test("view-only server rows fall back to an allowed tab and hide editing", async
       })
     ).ok(),
   ).toBeTruthy();
-  await openScreen(page, "servers", "Servers");
+  await page.reload();
+  for (const [screen, heading] of [
+    ["dashboard", "Overview"],
+    ["servers", "Servers"],
+  ] as const) {
+    await openScreen(page, screen, heading);
+    const row = page.getByRole("row").filter({
+      has: page.getByRole("button", { name: "Open Survival", exact: true }),
+    });
+    await expect(row).toBeVisible();
+    for (const action of ["Start", "Stop", "Restart"])
+      await expect(
+        row.getByRole("button", { name: `${action} Survival`, exact: true }),
+      ).toHaveCount(0);
+    if (screen === "servers") {
+      const listing = page.locator(".table-container").filter({ has: row });
+      await screenshot(page, "servers-view-only.png", listing);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await listing.scrollIntoViewIfNeeded();
+      await screenshot(page, "servers-view-only-mobile.png", listing);
+    }
+  }
   await page
     .getByRole("button", { name: "Open Survival", exact: true })
     .click();

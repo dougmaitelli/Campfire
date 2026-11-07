@@ -103,6 +103,13 @@ test.each([
         onError={vi.fn()}
       />,
     );
+    if (!canOperate) {
+      for (const action of ["Start", "Stop", "Restart"])
+        expect(
+          screen.queryByRole("button", { name: `${action} Test world` }),
+        ).toBeNull();
+      return;
+    }
     expect(
       screen.getByRole<HTMLButtonElement>("button", {
         name: "Start Test world",

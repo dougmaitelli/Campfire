@@ -1,5 +1,5 @@
 import { RuntimeState } from "../contracts/domains";
-import { Permission } from "../api/permissions";
+import { canPerformPlatform, canPerformServer } from "../permissions";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -41,9 +41,7 @@ export function ServersPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
   const auth = useAuthentication();
-  const canProvision =
-    auth.session?.admin === true ||
-    auth.session?.permissions?.includes(Permission.ServersCreate) === true;
+  const canProvision = canPerformPlatform(auth.session, "createServers");
   const servers = useCollection(listServers, SERVER_LIST_REFRESH_INTERVAL_MS);
   const monitoring = useMonitoring();
   const [options, setOptions] = useState<ServerOptions>({
@@ -149,7 +147,7 @@ export function ServersPage() {
       )}
       {!loading && canProvision && !canCreate && (
         <PrerequisiteNote>
-          {auth.session?.admin ? (
+          {canPerformPlatform(auth.session, "administration") ? (
             <>
               <Trans
                 i18nKey="serversPage.toCreateServersAnd"
@@ -403,9 +401,7 @@ export function ServersPage() {
                             spark.id === server.spark_id && spark.disabled,
                         ) === true
                       }
-                      canOperate={server.permissions.includes(
-                        Permission.ServerOperate,
-                      )}
+                      canOperate={canPerformServer(server, "operate")}
                       onStatus={runtime.upsert}
                       onError={setActionError}
                     />
