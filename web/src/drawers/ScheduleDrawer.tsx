@@ -5,6 +5,7 @@ import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
+import { ToggleSwitch } from "../components/forms/ToggleSwitch";
 import { DateTimeInput } from "../components/forms/DateTimeInput";
 import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
@@ -22,6 +23,7 @@ import {
   formatScheduleName,
   scheduleActionLabel,
 } from "../utils/formatScheduleName";
+import "./schedule-drawer.css";
 
 export function ScheduleDrawer({
   schedule,
@@ -264,6 +266,24 @@ export function ScheduleDrawer({
             ))}
           </Select>
         </FormField>
+        <div className="schedule-options-row">
+          <FormField label={t("common.enabled")}>
+            <ToggleSwitch
+              aria-label={t("common.enabled")}
+              checked={enabled}
+              disabled={busy}
+              onChange={(event) => setEnabled(event.target.checked)}
+            />
+          </FormField>
+          <FormField label={t("scheduleDrawer.recurring")}>
+            <ToggleSwitch
+              aria-label={t("scheduleDrawer.recurring")}
+              checked={!once}
+              disabled={busy}
+              onChange={(event) => setOnce(!event.target.checked)}
+            />
+          </FormField>
+        </div>
         <FormField label={t("scheduleDrawer.action")}>
           <Select id="schedule-action" value={action} onValueChange={setAction}>
             {allowedActions(serverID).map((value) => (
@@ -312,15 +332,6 @@ export function ScheduleDrawer({
             </FormField>
           </>
         )}
-        <FormField label={t("scheduleDrawer.timing")}>
-          <Select
-            value={once ? "once" : "recurring"}
-            onValueChange={(selectedValue) => setOnce(selectedValue === "once")}
-          >
-            <option value="recurring">{t("scheduleDrawer.recurring")}</option>
-            <option value="once">{t("scheduleDrawer.runOnce")}</option>
-          </Select>
-        </FormField>
         {once ? (
           <FormField
             label={t("scheduleDrawer.runAt")}
@@ -354,13 +365,6 @@ export function ScheduleDrawer({
         <p className="field-help">
           {t("scheduleDrawer.skipThisRunIfTheServerIsStoppedOtherwiseAttempt")}
         </p>
-        <CheckboxField
-          checked={enabled}
-          disabled={busy}
-          onChange={(e) => setEnabled(e.target.checked)}
-        >
-          {t("common.enabled")}
-        </CheckboxField>
         <p className="field-help">
           {t(
             "scheduleDrawer.workStaysPendingWhileItsSparkIsOfflineMissedRecurring",

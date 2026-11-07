@@ -41,14 +41,19 @@ test("new schedule names follow selections and persist without being typed", asy
   await expect(name).toHaveValue(
     "Survival - Hourly Restart (America/Los_Angeles)",
   );
-  await drawer.getByRole("combobox", { name: "Timing", exact: true }).click();
-  await page.getByRole("option", { name: "Run once", exact: true }).click();
+  const recurring = drawer.getByRole("switch", {
+    name: "Recurring",
+    exact: true,
+  });
+  await expect(recurring).toBeChecked();
+  await recurring.uncheck();
+  await expect(drawer.getByLabel("Cron schedule", { exact: true })).toHaveCount(
+    0,
+  );
   await drawer.getByLabel("Run at", { exact: true }).fill("2026-10-23T14:30");
   const generatedName = "Survival - Restart - Oct 23, 2026, 2:30 PM (UTC)";
   await expect(name).toHaveValue(generatedName);
-  await drawer
-    .getByRole("checkbox", { name: "Enabled", exact: true })
-    .uncheck();
+  await drawer.getByRole("switch", { name: "Enabled", exact: true }).uncheck();
   const response = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/v1/schedules") &&
@@ -80,6 +85,28 @@ test("new schedule names follow selections and persist without being typed", asy
     name: "Edit schedule",
     exact: true,
   });
+  const editRecurring = editing.getByRole("switch", {
+    name: "Recurring",
+    exact: true,
+  });
+  const editEnabled = editing.getByRole("switch", {
+    name: "Enabled",
+    exact: true,
+  });
+  await expect(editEnabled).not.toBeChecked();
+  await editEnabled.check();
+  await expect(editEnabled).toBeChecked();
+  await editEnabled.uncheck();
+  await expect(editRecurring).not.toBeChecked();
+  await editRecurring.check();
+  await expect(
+    editing.getByLabel("Cron schedule", { exact: true }),
+  ).toBeVisible();
+  await expect(editing.getByLabel("Run at", { exact: true })).toHaveCount(0);
+  await editRecurring.uncheck();
+  await expect(editing.getByLabel("Run at", { exact: true })).toHaveValue(
+    "2026-10-23T14:30",
+  );
   await editing.getByRole("combobox", { name: "Action", exact: true }).click();
   await page.getByRole("option", { name: "Stop", exact: true }).click();
   await expect(
@@ -156,9 +183,7 @@ test("recurring schedules save the selected time zone and readable name", async 
   await expect(
     drawer.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue(generatedName);
-  await drawer
-    .getByRole("checkbox", { name: "Enabled", exact: true })
-    .uncheck();
+  await drawer.getByRole("switch", { name: "Enabled", exact: true }).uncheck();
   const response = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/v1/schedules") &&

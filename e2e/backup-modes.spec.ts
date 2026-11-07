@@ -134,11 +134,12 @@ test("backup schedules retain their explicit type", async ({ page }) => {
   ).toBeVisible();
   const stopOption = page
     .getByRole("dialog", { name: "Save-data snapshot", exact: true })
-    .locator(".details-list > div")
-    .filter({
-      has: page.getByText("Stop server during backup", { exact: true }),
+    .getByRole("switch", {
+      name: "Stop server during backup",
+      exact: true,
     });
-  await expect(stopOption).toContainText("Enabled");
+  await expect(stopOption).toBeChecked();
+  await expect(stopOption).toBeDisabled();
 });
 
 test("save-data mode is unavailable when the applied Ember has no paths", async ({

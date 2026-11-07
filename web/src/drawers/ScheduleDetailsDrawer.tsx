@@ -4,13 +4,13 @@ import { useTranslation } from "react-i18next";
 import type { Schedule } from "../api/activity";
 import type { Server } from "../api/servers";
 import { Button } from "../components/forms/Button";
+import { ToggleSwitch } from "../components/forms/ToggleSwitch";
 import { DetailsList, DetailItem } from "../components/layout/DetailsList";
 import { Drawer } from "../components/layout/Drawer";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { ScheduleNextRun } from "../components/schedules/ScheduleNextRun";
 import { ScheduleExecutionHistory } from "../components/schedules/ScheduleExecutionHistory";
 import { operationLabel } from "../components/servers/operationMessage";
-import { StatusPill } from "../components/status/StatusPill";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ScheduleDrawer } from "./ScheduleDrawer";
 import {
@@ -87,25 +87,27 @@ export function ScheduleDetailsDrawer({
                 )}
               </DetailItem>
               <DetailItem label={t("scheduleDrawer.stopServerDuringBackup")}>
-                {t(
-                  schedule.backup_stop_server
-                    ? "common.enabled"
-                    : "common.disabled",
-                )}
+                <ToggleSwitch
+                  aria-label={t("scheduleDrawer.stopServerDuringBackup")}
+                  checked={!!schedule.backup_stop_server}
+                  disabled
+                />
               </DetailItem>
             </>
           )}
-          <DetailItem label={t("common.status")}>
-            <StatusPill tone={schedule.enabled ? "positive" : "warning"}>
-              {t(schedule.enabled ? "common.enabled" : "common.disabled")}
-            </StatusPill>
+          <DetailItem label={t("common.enabled")}>
+            <ToggleSwitch
+              aria-label={t("common.enabled")}
+              checked={schedule.enabled}
+              disabled
+            />
           </DetailItem>
-          <DetailItem label={t("scheduleDrawer.timing")}>
-            {t(
-              schedule.cron_expression
-                ? "scheduleDrawer.recurring"
-                : "scheduleDrawer.runOnce",
-            )}
+          <DetailItem label={t("scheduleDrawer.recurring")}>
+            <ToggleSwitch
+              aria-label={t("scheduleDrawer.recurring")}
+              checked={!!schedule.cron_expression}
+              disabled
+            />
           </DetailItem>
           {schedule.cron_expression && (
             <>
@@ -138,9 +140,11 @@ export function ScheduleDetailsDrawer({
             </ResourceLink>
           </DetailItem>
           <DetailItem label={t("scheduleDrawer.onlyRunWhenTheServerIsRunning")}>
-            {t(
-              schedule.only_when_running ? "common.enabled" : "common.disabled",
-            )}
+            <ToggleSwitch
+              aria-label={t("scheduleDrawer.onlyRunWhenTheServerIsRunning")}
+              checked={schedule.only_when_running}
+              disabled
+            />
           </DetailItem>
         </DetailsList>
         {schedule.action === ScheduleAction.Command && (

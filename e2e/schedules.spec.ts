@@ -70,6 +70,15 @@ test("schedules open an overview before editing and saved changes persist", asyn
   await expect(overview.getByText("0 3 * * *", { exact: true })).toBeVisible();
   await expect(overview.getByText("UTC", { exact: true })).toBeVisible();
   await expect(overview.getByRole("textbox")).toHaveCount(0);
+  for (const name of [
+    "Enabled",
+    "Recurring",
+    "Only run when the server is running",
+  ]) {
+    const toggle = overview.getByRole("switch", { name, exact: true });
+    await expect(toggle).toBeChecked();
+    await expect(toggle).toBeDisabled();
+  }
   const history = overview.getByRole("region", {
     name: "Execution history",
     exact: true,
@@ -134,6 +143,58 @@ test("schedules open an overview before editing and saved changes persist", asyn
       .getByRole("button", { name: "Edit schedule", exact: true }),
   ).toBeVisible();
 });
+
+for (const value of [true, false]) {
+  test(`backup schedule booleans display read-only toggles when ${value}`, async ({
+    page,
+    baseURL,
+  }) => {
+    await login(page);
+    const session = await page.request.get("/api/v1/auth/session");
+    const { csrf_token } = (await session.json()) as { csrf_token: string };
+    const response = await page.request.post("/api/v1/schedules", {
+      headers: { "X-CSRF-Token": csrf_token, Origin: baseURL! },
+      data: {
+        server_id: "survival",
+        name: "Scheduled backup",
+        action: "backup",
+        command: "",
+        backup_mode: "full",
+        backup_stop_server: value,
+        cron_expression: value ? "0 3 * * *" : "",
+        time_zone: "UTC",
+        next_run_at: value ? undefined : 1792765800,
+        enabled: value,
+        only_when_running: value,
+      },
+    });
+    expect(response.ok()).toBeTruthy();
+    const schedule = (await response.json()) as { id: string };
+    await page.goto(`/#schedules/${schedule.id}`);
+    const overview = page.getByRole("dialog", {
+      name: "Scheduled backup",
+      exact: true,
+    });
+    for (const name of [
+      "Enabled",
+      "Recurring",
+      "Only run when the server is running",
+      "Stop server during backup",
+    ]) {
+      const toggle = overview.getByRole("switch", { name, exact: true });
+      await expect(toggle).toBeChecked({ checked: value });
+      await expect(toggle).toBeDisabled();
+    }
+    await expect(overview.getByText("Run at", { exact: true })).toHaveCount(
+      value ? 0 : 1,
+    );
+    if (!value) {
+      await screenshot(page, "schedule-backup-details.png", overview);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await screenshot(page, "schedule-backup-details-mobile.png", overview);
+    }
+  });
+}
 
 for (const permissions of [
   ["server.view"],
