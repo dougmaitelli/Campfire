@@ -48,6 +48,7 @@ test("Copy prefills the creation wizard and creates an independent settings-only
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "server-copy-wizard-mobile.png", drawer);
   for (const name of [
+    "Next: Variables",
     "Next: Resources & ports",
     "Next: Backups",
     "Next: Access",
@@ -202,6 +203,7 @@ for (const action of ["Copy", "Quick copy", "Transfer"] as const) {
       .click();
     if (action === "Copy")
       for (const name of [
+        "Next: Variables",
         "Next: Resources & ports",
         "Next: Backups",
         "Next: Access",
@@ -444,6 +446,7 @@ test("retrying access changes after creation does not create another copy", asyn
   });
   const drawer = await openCopy(page, "Copy");
   for (const name of [
+    "Next: Variables",
     "Next: Resources & ports",
     "Next: Backups",
     "Next: Access",

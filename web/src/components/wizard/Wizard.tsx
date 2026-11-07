@@ -23,6 +23,7 @@ export interface WizardStep {
 }
 
 interface WizardProps {
+  className?: string;
   allowAllSteps?: boolean;
   steps: readonly WizardStep[];
   busy: boolean;
@@ -33,6 +34,7 @@ interface WizardProps {
 }
 
 export function Wizard({
+  className,
   allowAllSteps = false,
   steps,
   busy,
@@ -141,7 +143,7 @@ export function Wizard({
     <form
       id={formID}
       ref={setForm}
-      className="wizard"
+      className={["wizard", className].filter(Boolean).join(" ")}
       onSubmit={advance}
       aria-busy={busy}
     >
@@ -152,7 +154,7 @@ export function Wizard({
           {
             gridTemplateColumns:
               steps.length > 2
-                ? `minmax(0, 0.5fr) repeat(${steps.length - 2}, minmax(0, 1fr)) minmax(0, 0.5fr)`
+                ? `minmax(var(--wizard-step-edge-min, 0px), 0.5fr) repeat(${steps.length - 2}, minmax(0, 1fr)) minmax(var(--wizard-step-edge-min, 0px), 0.5fr)`
                 : `repeat(${steps.length}, minmax(0, 1fr))`,
             "--wizard-progress": `${steps.length > 1 ? (Math.min(steps.length - 1, completedThrough + 1) / (steps.length - 1)) * 100 : 0}%`,
           } as CSSProperties

@@ -87,6 +87,15 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
   await page
     .getByRole("option", { name: /^Valheim BepInEx fixture ·/ })
     .click();
+  await expect(
+    create.getByLabel("ENABLE_CROSSPLAY", { exact: true }),
+  ).toHaveCount(0);
+  await create
+    .getByRole("button", { name: "Next: Variables", exact: true })
+    .click();
+  await expect(
+    create.getByRole("heading", { name: "Variables", exact: true }),
+  ).toBeVisible();
   const crossplay = create.getByRole("switch", {
     name: "ENABLE_CROSSPLAY",
     exact: true,
@@ -111,6 +120,30 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
   await create
     .getByRole("switch", { name: "PUBLIC_SERVER", exact: true })
     .uncheck();
+  const name = create.getByRole("textbox", {
+    name: "SERVER_NAME",
+    exact: true,
+  });
+  const next = create.getByRole("button", {
+    name: "Next: Resources & ports",
+    exact: true,
+  });
+  await name.fill("");
+  await expect(next).toBeDisabled();
+  await name.fill("My Server");
+  await expect(next).toBeEnabled();
+  await create.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(
+    create.getByRole("heading", { name: "General", exact: true }),
+  ).toBeVisible();
+  await create
+    .getByRole("button", { name: "Next: Variables", exact: true })
+    .click();
+  await expect(crossplay).toBeChecked();
+  await expect(
+    create.getByRole("switch", { name: "PUBLIC_SERVER", exact: true }),
+  ).not.toBeChecked();
+  await screenshot(page, "server-variables.png", create);
   const fields = create.locator(".server-variable-fields");
   await prepareScreenshot(page);
   await expect(fields).toHaveScreenshot([
@@ -118,7 +151,22 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     "ember-boolean-variables.png",
   ]);
   await page.setViewportSize({ width: 390, height: 844 });
+  await screenshot(page, "server-variables-mobile.png", create);
   await screenshot(page, "ember-boolean-variables-mobile.png", fields);
+  await page.setViewportSize({ width: 320, height: 844 });
+  for (const step of [
+    "General",
+    "Variables",
+    "Resources & ports",
+    "Backups",
+    "Access",
+    "Review",
+  ]) {
+    await expect(
+      create.getByRole("button", { name: step, exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+  }
+  await expect(next).toBeInViewport({ ratio: 1 });
   await page.setViewportSize({ width: 1400, height: 900 });
   for (const label of [
     "Next: Resources & ports",
@@ -168,6 +216,7 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     .getByRole("button", { name: "Edit server", exact: true })
     .click();
   const edit = page.getByRole("dialog", { name: "Edit server", exact: true });
+  await edit.getByRole("button", { name: "Variables", exact: true }).click();
   const savedCrossplay = edit.getByRole("switch", {
     name: "ENABLE_CROSSPLAY",
     exact: true,

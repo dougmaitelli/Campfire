@@ -926,7 +926,7 @@
     "editServer": "Edit server",
     "editServerAccess": "Edit server access",
     "fridayMinecraft": "e.g. Friday Minecraft",
-    "gameSettings": "Game settings",
+    "variables": "Variables",
     "general": "General",
     "hostPort": "Host port",
     "hostPortsMustBelongToTheSparkSAllocationRanges": "Port mappings are optional, for example when using a remote tunnel. When added, host ports must belong to the Spark’s allocation ranges and be available, and container ports must match the Ember requirements.",

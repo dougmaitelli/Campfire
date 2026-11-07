@@ -105,6 +105,7 @@ for (const mode of ["full", "savedata"] as const) {
       await screenshot(page, "create-from-backup-mobile.png", drawer);
     }
     for (const name of [
+      "Next: Variables",
       "Next: Resources & ports",
       "Next: Backups",
       "Next: Access",

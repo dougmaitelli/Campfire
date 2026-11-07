@@ -22,3 +22,14 @@
     overflow-wrap: anywhere;
   }
 }
+
+@media (max-width: 480px) {
+  .server-wizard {
+    --wizard-step-edge-min: max-content;
+
+    & .wizard-step-link {
+      font-size: 11px;
+      overflow-wrap: normal;
+    }
+  }
+}

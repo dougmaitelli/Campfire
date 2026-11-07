@@ -276,6 +276,9 @@ export function ServerDrawer({
   );
   const spark = sparkChoices.find((item) => item.id === value.spark_id);
   const ember = embers.find((item) => item.id === value.ember_id);
+  const visibleVariables = (ember?.variables ?? []).filter(
+    (variable) => !variable.hidden,
+  );
   function changePort(index: number, changes: Partial<ServerPort>) {
     setValue({
       ...value,
@@ -404,6 +407,7 @@ export function ServerDrawer({
   }
   return (
     <Wizard
+      className="server-wizard"
       allowAllSteps={server !== null}
       busy={busy}
       error={error}
@@ -739,37 +743,40 @@ export function ServerDrawer({
                   ))}
                 </Select>
               </FormField>
-              {(ember?.variables ?? []).some(
-                (variable) => !variable.hidden,
-              ) && (
-                <h4 className="server-drawer-heading">
-                  {t("serverDrawer.gameSettings")}
-                </h4>
-              )}
-              <div className="server-variable-fields">
-                {(ember?.variables ?? [])
-                  .filter((variable) => !variable.hidden)
-                  .map((variable) => (
-                    <ServerVariableField
-                      key={variable.name}
-                      variable={variable}
-                      disabled={runtimeRestricted}
-                      value={value.variables[variable.name] ?? variable.default}
-                      onChange={(next) =>
-                        setValue({
-                          ...value,
-                          variables: {
-                            ...value.variables,
-                            [variable.name]: next,
-                          },
-                        })
-                      }
-                    />
-                  ))}
-              </div>
             </>
           ),
         },
+        ...(visibleVariables.length > 0
+          ? [
+              {
+                id: "variables",
+                title: t("serverDrawer.variables"),
+                content: (
+                  <div className="server-variable-fields">
+                    {visibleVariables.map((variable) => (
+                      <ServerVariableField
+                        key={variable.name}
+                        variable={variable}
+                        disabled={runtimeRestricted}
+                        value={
+                          value.variables[variable.name] ?? variable.default
+                        }
+                        onChange={(next) =>
+                          setValue({
+                            ...value,
+                            variables: {
+                              ...value.variables,
+                              [variable.name]: next,
+                            },
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                ),
+              },
+            ]
+          : []),
         {
           id: "resources",
           title: t("serverDrawer.resourcesPorts"),

@@ -176,7 +176,11 @@ test("full and save-data retention settings persist independently", async ({
     .getByRole("button", { name: "Edit server", exact: true })
     .click();
   const drawer = page.getByRole("dialog", { name: "Edit server", exact: true });
-  for (const name of ["Next: Resources & ports", "Next: Backups"]) {
+  for (const name of [
+    "Next: Variables",
+    "Next: Resources & ports",
+    "Next: Backups",
+  ]) {
     await drawer.getByRole("button", { name, exact: true }).click();
   }
   const full = drawer.getByRole("group", { name: "Full server", exact: true });
