@@ -12,9 +12,19 @@ players can reach. The panel itself does not run game containers.
 
 An imported Egg is converted into a native Ember; successful conversion does not guarantee that its image or installer will run. The [compatibility guide](/Campfire/egg-compatibility/) explains what to review and how to handle import warnings.
 
+Server rows in **Overview** and **Servers** open the console directly. Both lists
+provide Start, Stop, and Restart controls. If you cannot read the console, the
+server page shows the first tab you can access instead. Resource links from
+other pages open a read-only details drawer without leaving the current page.
+
+To change configuration, open **More server actions** on the server page and
+choose **Edit server**. This opens the existing editor directly and appears only
+when you can edit the server. Management actions share this menu, with **Delete**
+last when permitted.
+
 ## Copy a server
 
-Open a server's details drawer from **Servers**, then open its **Actions** menu.
+Open a server from **Servers**, then open **More server actions**.
 Choose **Copy** to review the source settings in the creation wizard. Change the
 name, destination Spark, resources, and port mappings as needed. **Copy game
 files** is optional; a settings-only copy remains **Not installed** and can be
@@ -45,7 +55,7 @@ Progress, retry, and cancellation appear in the server details drawer's **Jobs**
 tab, alongside transfer history. Admins can also open **Jobs** in the sidebar to
 review jobs across every server and filter by status or job type.
 Reopen the server's Jobs tab after closing it or reloading
-the panel to follow the same copy. Failed copies retain their reservations and cannot start until
+the panel through **More server actions → Jobs** to follow the same copy. Failed copies retain their reservations and cannot start until
 recovered or cancelled. Copy and transfer jobs use durable archive staging and
 resume confirmed progress after panel or Spark restarts. Server configuration
 and Ember definitions remain protected until the job finishes or cancellation

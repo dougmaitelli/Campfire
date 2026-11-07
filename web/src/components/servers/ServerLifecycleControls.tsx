@@ -10,11 +10,15 @@ export function ServerLifecycleControls({
   status,
   disabled,
   canReinstall,
+  canOperate = true,
+  actions = [],
   onAction,
 }: {
   status: RuntimeStatus | undefined;
   disabled: boolean;
   canReinstall: boolean;
+  canOperate?: boolean;
+  actions?: ActionMenuItem[];
   onAction: (action: LifecycleAction) => void;
 }) {
   const { t } = useTranslation();
@@ -24,16 +28,18 @@ export function ServerLifecycleControls({
     status,
     disabled,
   );
-  const items: ActionMenuItem[] = [
-    {
+  const items: ActionMenuItem[] = actions.filter(
+    (item) => item.tone !== "danger",
+  );
+  if (canOperate)
+    items.push({
       label: t("common.kill"),
       icon: "kill",
       tone: "danger",
       disabled: !canInterrupt && (blocked || !running),
       onSelect: () => onAction(ServerAction.Kill),
-    },
-  ];
-  if (canReinstall) {
+    });
+  if (canOperate && canReinstall) {
     items.push({
       label: t("common.reinstall"),
       icon: "download",
@@ -42,40 +48,47 @@ export function ServerLifecycleControls({
       onSelect: () => onAction(ServerAction.Reinstall),
     });
   }
+  items.push(...actions.filter((item) => item.tone === "danger"));
   return (
     <>
-      <Button
-        iconOnly
-        variant="success"
-        title={t("common.start")}
-        aria-label={t("common.start")}
-        disabled={blocked || install || running}
-        aria-busy={startupPending}
-        onClick={() => onAction(ServerAction.Start)}
-      >
-        <NavigationIcon name="play" filled />
-      </Button>
-      <Button
-        iconOnly
-        variant="warning"
-        title={t("common.stop")}
-        aria-label={t("common.stop")}
-        disabled={!canInterrupt && (blocked || !running)}
-        onClick={() => onAction(ServerAction.Stop)}
-      >
-        <NavigationIcon name="stop" filled />
-      </Button>
-      <Button
-        iconOnly
-        variant="secondary"
-        title={t("common.restart")}
-        aria-label={t("common.restart")}
-        disabled={blocked || !running}
-        onClick={() => onAction(ServerAction.Restart)}
-      >
-        <NavigationIcon name="restart" />
-      </Button>
-      <ActionMenu label={t("common.moreServerActions")} items={items} />
+      {canOperate && (
+        <>
+          <Button
+            iconOnly
+            variant="success"
+            title={t("common.start")}
+            aria-label={t("common.start")}
+            disabled={blocked || install || running}
+            aria-busy={startupPending}
+            onClick={() => onAction(ServerAction.Start)}
+          >
+            <NavigationIcon name="play" filled />
+          </Button>
+          <Button
+            iconOnly
+            variant="warning"
+            title={t("common.stop")}
+            aria-label={t("common.stop")}
+            disabled={!canInterrupt && (blocked || !running)}
+            onClick={() => onAction(ServerAction.Stop)}
+          >
+            <NavigationIcon name="stop" filled />
+          </Button>
+          <Button
+            iconOnly
+            variant="secondary"
+            title={t("common.restart")}
+            aria-label={t("common.restart")}
+            disabled={blocked || !running}
+            onClick={() => onAction(ServerAction.Restart)}
+          >
+            <NavigationIcon name="restart" />
+          </Button>
+        </>
+      )}
+      {items.length > 0 && (
+        <ActionMenu label={t("common.moreServerActions")} items={items} />
+      )}
     </>
   );
 }

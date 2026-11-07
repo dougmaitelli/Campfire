@@ -685,29 +685,38 @@ test("resource inspection keeps the current page and supports nested drawers", a
   ).toContainText("Saved the game");
 
   for (const [screen, heading, resource] of [
-    ["servers", "Servers", "Survival"],
+    ["schedules", "Schedules", "Survival"],
     ["sparks", "Sparks", "Europe"],
   ] as const) {
     await openScreen(page, screen, heading);
-    await page
-      .getByRole("button", {
-        name: `View details for ${resource}`,
-        exact: true,
-      })
-      .click();
+    if (screen === "schedules")
+      await page
+        .getByRole("link", { name: "Survival", exact: true })
+        .first()
+        .click();
+    else
+      await page
+        .getByRole("button", {
+          name: `View details for ${resource}`,
+          exact: true,
+        })
+        .click();
     const dialog = page.getByRole("dialog");
     await expect(
-      dialog.getByRole("heading", { level: 2, name: new RegExp(resource) }),
+      dialog.getByRole("heading", {
+        level: 2,
+        name: screen === "schedules" ? "Server" : new RegExp(resource),
+      }),
     ).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-    if (screen === "servers")
+    if (screen === "schedules")
       await screenshot(
         page,
         "server-drawer-header.png",
         dialog.locator(".panel-heading"),
       );
     await page.setViewportSize({ width: 390, height: 844 });
-    if (screen === "servers") {
+    if (screen === "schedules") {
       await screenshot(
         page,
         "server-drawer-header-mobile.png",
@@ -729,8 +738,8 @@ test("resource inspection keeps the current page and supports nested drawers", a
       );
       await expect(consoleLink).toBeInViewport({ ratio: 1 });
       await expect(
-        dialog.getByRole("button", { name: "Actions", exact: true }),
-      ).toBeInViewport({ ratio: 1 });
+        dialog.getByRole("button", { name: "Edit server", exact: true }),
+      ).toHaveCount(0);
       await consoleLink.focus();
       await page.keyboard.press("Enter");
       await expect(dialog).toHaveCount(0);

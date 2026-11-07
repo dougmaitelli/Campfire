@@ -1,7 +1,7 @@
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
 import { jobFixture } from "./jobFixtures";
 import { test, expect, screenshot } from "./fixtures";
-import { login, openScreen, openServerJobs } from "./screens";
+import { login, openServerActions, openServerJobs } from "./screens";
 
 function transferFixture(status: JobStatus = JobStatus.Running) {
   return jobFixture({
@@ -142,15 +142,8 @@ test("starting a transfer returns to the server Jobs tab", async ({ page }) => {
       },
     }),
   );
-  await openScreen(page, "servers", "Servers");
-  await page
-    .getByRole("button", { name: "View details for Creative", exact: true })
-    .click();
-  const details = page.getByRole("dialog", { name: /^Creative/ });
-  await details.getByRole("button", { name: "Actions", exact: true }).click();
-  await details
-    .getByRole("menuitem", { name: "Transfer", exact: true })
-    .click();
+  const menu = await openServerActions(page, "Creative");
+  await menu.getByRole("menuitem", { name: "Transfer", exact: true }).click();
   const transferDrawer = page.getByRole("dialog", {
     name: "Transfer Creative",
     exact: true,
@@ -169,6 +162,7 @@ test("starting a transfer returns to the server Jobs tab", async ({ page }) => {
     .getByRole("button", { name: "Transfer server", exact: true })
     .click();
   await expect(transferDrawer).toHaveCount(0);
+  const details = page.getByRole("dialog", { name: /^Creative/ });
   await expect(
     details.getByRole("tab", { name: "Jobs", exact: true }),
   ).toHaveAttribute("aria-selected", "true");

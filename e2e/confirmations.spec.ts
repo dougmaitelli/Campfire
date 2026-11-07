@@ -22,10 +22,13 @@ test("danger and reinstall confirmations use the right action and lock dismissal
     name: "Reinstall",
     exact: true,
   });
-  await expect(kill).toBeFocused();
+  const edit = menu.getByRole("menuitem", { name: "Edit server", exact: true });
+  await expect(edit).toBeFocused();
   await expect(reinstall).toBeDisabled();
   await page.keyboard.press("ArrowDown");
-  await expect(kill).toBeFocused();
+  await expect(
+    menu.getByRole("menuitem", { name: "Copy", exact: true }),
+  ).toBeFocused();
   await prepareScreenshot(page);
   await expect(menu).toHaveScreenshot(["crops", "actions-menu.png"]);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -55,7 +58,7 @@ test("danger and reinstall confirmations use the right action and lock dismissal
   ).toBeEnabled();
   await trigger.click();
   await expect(kill).toBeDisabled();
-  await expect(reinstall).toBeFocused();
+  await expect(edit).toBeFocused();
   await reinstall.click();
   const dialog = page.getByRole("dialog", {
     name: "Reinstall server: Survival",

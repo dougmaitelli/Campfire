@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { login, openScreen } from "./screens";
+import { login, openScreen, openServerEditor } from "./screens";
 
 test("user Enabled switches preserve disabled values and readonly table state", async ({
   page,
@@ -79,21 +79,12 @@ test("game integration uses an editable switch and a readonly review switch", as
   page,
 }) => {
   await login(page);
-  await openScreen(page, "servers", "Servers");
-  await page
-    .getByRole("button", { name: "View details for Creative", exact: true })
-    .click();
-  const details = page.getByRole("dialog");
-  const integration = details.getByRole("switch", {
+  const drawer = await openServerEditor(page);
+  const integration = drawer.getByRole("switch", {
     name: "Enable game integration",
     exact: true,
   });
   await expect(integration).toBeChecked();
-  await expect(integration).toBeDisabled();
-  await details
-    .getByRole("button", { name: "Edit server", exact: true })
-    .click();
-  const drawer = page.getByRole("dialog", { name: "Edit server", exact: true });
   await drawer
     .getByRole("switch", { name: "Enable game integration", exact: true })
     .uncheck();
@@ -136,18 +127,7 @@ for (const scenario of [
         });
       },
     );
-    await openScreen(page, "servers", "Servers");
-    await page
-      .getByRole("button", { name: "View details for Creative", exact: true })
-      .click();
-    await page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Edit server", exact: true })
-      .click();
-    const drawer = page.getByRole("dialog", {
-      name: "Edit server",
-      exact: true,
-    });
+    const drawer = await openServerEditor(page);
     await drawer.getByRole("button", { name: "Backups", exact: true }).click();
     const sync = drawer.getByRole("switch", {
       name: "Background S3 sync",

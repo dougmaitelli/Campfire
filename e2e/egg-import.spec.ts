@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
-import { login, openScreen } from "./screens";
+import { login, openScreen, openServerEditor } from "./screens";
 
 test("Pelican Valheim BepInEx YAML previews and imports without losing URL constraints or game backup variables", async ({
   page,
@@ -199,24 +199,14 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
   const server = servers.find((entry) => entry.ember_id === imported!.id);
   expect(server?.variables.ENABLE_CROSSPLAY).toBe("1");
   expect(server?.variables.PUBLIC_SERVER).toBe("0");
-  await page
-    .getByRole("button", {
-      name: `View details for ${server!.name}`,
-      exact: true,
-    })
-    .click();
+  const edit = await openServerEditor(page, server!.name);
+  await edit.getByRole("button", { name: "Variables", exact: true }).click();
   await expect(
     page.getByRole("dialog").getByRole("switch", {
       name: "ENABLE_CROSSPLAY",
       exact: true,
     }),
   ).toBeChecked();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Edit server", exact: true })
-    .click();
-  const edit = page.getByRole("dialog", { name: "Edit server", exact: true });
-  await edit.getByRole("button", { name: "Variables", exact: true }).click();
   const savedCrossplay = edit.getByRole("switch", {
     name: "ENABLE_CROSSPLAY",
     exact: true,

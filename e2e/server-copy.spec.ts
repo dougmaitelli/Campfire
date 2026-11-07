@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
-import { login, openScreen, openServerJobs } from "./screens";
+import {
+  login,
+  openScreen,
+  openServerActions,
+  openServerJobs,
+} from "./screens";
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
 import { jobFixture } from "./jobFixtures";
 
@@ -16,16 +21,11 @@ async function openCopy(
   action: "Copy" | "Quick copy",
   name = "Survival",
 ) {
-  await openScreen(page, "servers", "Servers");
-  await page
-    .getByRole("button", { name: `View details for ${name}`, exact: true })
-    .click();
-  const details = page.getByRole("dialog", { name: new RegExp(`^${name}`) });
-  await details.getByRole("button", { name: "Actions", exact: true }).click();
+  const menu = await openServerActions(page, name);
   await expect(
-    details.getByRole("menuitem", { name: "Copy jobs", exact: true }),
+    menu.getByRole("menuitem", { name: "Copy jobs", exact: true }),
   ).toHaveCount(0);
-  await details.getByRole("menuitem", { name: action, exact: true }).click();
+  await menu.getByRole("menuitem", { name: action, exact: true }).click();
   const drawer = page.getByRole("dialog", { name: action, exact: true });
   await expect(
     drawer.getByRole("heading", { name: "Jobs", exact: true }),
@@ -164,20 +164,8 @@ for (const action of ["Copy", "Quick copy", "Transfer"] as const) {
     await login(page);
     let drawer;
     if (action === "Transfer") {
-      await openScreen(page, "servers", "Servers");
-      await page
-        .getByRole("button", {
-          name: "View details for Creative",
-          exact: true,
-        })
-        .click();
-      const details = page.getByRole("dialog", { name: /^Creative/ });
-      await details
-        .getByRole("button", { name: "Actions", exact: true })
-        .click();
-      await details
-        .getByRole("menuitem", { name: action, exact: true })
-        .click();
+      const menu = await openServerActions(page, "Creative");
+      await menu.getByRole("menuitem", { name: action, exact: true }).click();
       drawer = page.getByRole("dialog", {
         name: "Transfer Creative",
         exact: true,
@@ -393,18 +381,15 @@ test("copy options open directly into their drawer after loading", async ({
       await ready;
       await route.continue();
     });
-    await openScreen(page, "servers", "Servers");
-    await page
-      .getByRole("button", { name: "View details for Survival", exact: true })
-      .click();
-    const details = page.getByRole("dialog", { name: /^Survival/ });
-    await details.getByRole("button", { name: "Actions", exact: true }).click();
+    const menu = await openServerActions(page);
     const loading = page.waitForRequest((request) =>
       request.url().endsWith("/servers/survival/copy"),
     );
-    await details.getByRole("menuitem", { name: action, exact: true }).click();
+    await menu.getByRole("menuitem", { name: action, exact: true }).click();
     await loading;
-    await expect(details).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Survival", level: 1, exact: true }),
+    ).toBeVisible();
     await expect(page.locator(".confirm-dialog")).toHaveCount(0);
     await expect(
       page.getByRole("dialog", { name: action, exact: true }),
@@ -484,14 +469,13 @@ test("server viewers do not request job histories they cannot read", async ({
   });
   await openScreen(page, "servers", "Servers");
   await page
-    .getByRole("button", { name: "View details for Survival", exact: true })
+    .getByRole("button", { name: "Open Survival", exact: true })
     .click();
-  const drawer = page.getByRole("dialog", { name: /^Survival/ });
   await expect(
-    drawer.getByText("Community Minecraft server", { exact: true }),
+    page.getByRole("heading", { name: "Survival", level: 1, exact: true }),
   ).toBeVisible();
   await expect(
-    drawer.getByRole("tab", { name: "Jobs", exact: true }),
+    page.getByRole("menuitem", { name: "Jobs", exact: true }),
   ).toHaveCount(0);
   expect(requests).toEqual([]);
 });

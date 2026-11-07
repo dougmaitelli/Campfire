@@ -124,15 +124,34 @@ export async function inspectServer(page: Page) {
 }
 
 export async function openServerJobs(page: Page, name = "Survival") {
-  await openScreen(page, "servers", "Servers");
-  await page
-    .getByRole("button", { name: `View details for ${name}`, exact: true })
-    .click();
+  const menu = await openServerActions(page, name);
+  await menu.getByRole("menuitem", { name: "Jobs", exact: true }).click();
   const drawer = page.getByRole("dialog", { name: new RegExp(`^${name}`) });
-  await drawer.getByRole("tab", { name: "Jobs", exact: true }).click();
   await expect(
     drawer.getByRole("tabpanel", { name: "Jobs", exact: true }),
   ).toBeVisible();
+  return drawer;
+}
+
+export async function openServerActions(page: Page, name = "Survival") {
+  await openScreen(page, "servers", "Servers");
+  await page.getByRole("button", { name: `Open ${name}`, exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name, level: 1, exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "More server actions", exact: true })
+    .click();
+  return page.getByRole("menu", { name: "More server actions", exact: true });
+}
+
+export async function openServerEditor(page: Page, name = "Creative") {
+  const menu = await openServerActions(page, name);
+  await menu
+    .getByRole("menuitem", { name: "Edit server", exact: true })
+    .click();
+  const drawer = page.getByRole("dialog", { name: "Edit server", exact: true });
+  await expect(drawer.getByLabel("Server name", { exact: true })).toBeVisible();
   return drawer;
 }
 
@@ -146,7 +165,7 @@ export async function openServerTab(page: Page, tab: string, label: string) {
   await openScreen(page, "servers", "Servers");
   await page.setViewportSize({ width: 1400, height: 1100 });
   await page
-    .getByRole("link", { name: "Open console for Survival", exact: true })
+    .getByRole("button", { name: "Open Survival", exact: true })
     .click();
   const tabs = page.getByRole("navigation", {
     name: "Server operations",

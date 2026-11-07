@@ -1,5 +1,4 @@
 import { RuntimeState } from "../contracts/domains";
-import { API_READ_TIMEOUT_MS } from "../api/client";
 import { Permission } from "../api/permissions";
 import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
@@ -9,19 +8,14 @@ import { PrerequisiteNote } from "../components/status/PrerequisiteNote";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
 import { FormField } from "../components/forms/FormField";
-import { Button, ButtonLink } from "../components/forms/Button";
-import {
-  ActionMenu,
-  type ActionMenuItem,
-} from "../components/forms/ActionMenu";
+import { Button } from "../components/forms/Button";
+import { ActionMenu } from "../components/forms/ActionMenu";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Select } from "../components/forms/Select";
-import { useEffect, useRef, useState } from "react";
-import { deleteServer, listServers } from "../api/servers";
-import type { Server } from "../api/servers";
-import { getCopyTemplate, type CopyTemplate } from "../api/copies";
+import { useEffect, useState } from "react";
+import { listServers } from "../api/servers";
 import { serverOptions, type ServerOptions } from "../api/access";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { useCollection } from "../hooks/useCollection";
@@ -29,7 +23,6 @@ import { ServerDrawer } from "../drawers/ServerDrawer";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import "./servers.css";
 import { Table } from "../components/table/Table";
-import { ServerDetailsDrawer } from "../drawers/ServerDetailsDrawer";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
@@ -38,9 +31,6 @@ import { GameArt } from "../components/media/GameArt";
 import { ServerTableRow } from "../components/servers/ServerTableRow";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
 import { PortGroups } from "../components/network/PortGroups";
-import { NavigationIcon } from "../components/navigation/NavigationIcon";
-import { ServerTransferDrawer } from "../drawers/ServerTransferDrawer";
-import { ServerCopyFlow, type ServerCopyMode } from "../drawers/ServerCopyFlow";
 import { BackupImportDrawer } from "../drawers/BackupImportDrawer";
 import type { BackupImport } from "../api/backupImports";
 
@@ -49,27 +39,7 @@ const SERVER_LIST_REFRESH_INTERVAL_MS = 10000;
 export function ServersPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
-  const [details, setDetails] = useState<Server | null>(null);
-  const [detailsTab, setDetailsTab] = useState<"details" | "jobs">("details");
   const auth = useAuthentication();
-  const canApplyRevision =
-    auth.session?.admin === true ||
-    auth.session?.permissions?.includes(Permission.ServersManageAll) === true;
-  const [applyRevision, setApplyRevision] = useState(false);
-  const canTransfer =
-    auth.session?.admin === true ||
-    (auth.session?.permissions?.includes(Permission.SparksManage) === true &&
-      auth.session.permissions.includes(Permission.ServersManageAll));
-  const [transferServer, setTransferServer] = useState<Server | null>(null);
-  const [copyRequest, setCopyRequest] = useState<{
-    server: Server;
-    mode: ServerCopyMode;
-    template: CopyTemplate;
-    options: ServerOptions;
-  } | null>(null);
-  const [copyLoading, setCopyLoading] = useState(false);
-  const copyLoad = useRef<AbortController | null>(null);
-  useEffect(() => () => copyLoad.current?.abort(), []);
   const canProvision =
     auth.session?.admin === true ||
     auth.session?.permissions?.includes(Permission.ServersCreate) === true;
@@ -88,7 +58,6 @@ export function ServersPage() {
   const [optionsLoading, setOptionsLoading] = useState(canProvision);
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [optionsRevision, setOptionsRevision] = useState(0);
-  const editorPending = useRef(false);
   useEffect(() => {
     if (!canProvision) return;
     const controller = new AbortController();
@@ -111,13 +80,11 @@ export function ServersPage() {
   }, [canProvision, optionsRevision]);
   const runtime = useServerRuntime(servers.items.map((server) => server.id));
   const hasGameArt = servers.items.some((server) => server.ember_art_url);
-  const [editing, setEditing] = useState<Server | null>(null);
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [backup, setBackup] = useState<BackupImport | undefined>();
   const [search, setSearch] = useState("");
   const [sparkFilter, setSparkFilter] = useState("");
-  const [deleting, setDeleting] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const loading = servers.loading || (canProvision && optionsLoading);
   const error = actionError ?? servers.error ?? optionsError;
@@ -139,163 +106,11 @@ export function ServersPage() {
     await servers.refresh();
     setOptionsRevision((value) => value + 1);
   }
-  async function remove(server: Server) {
-    if (
-      deleting ||
-      !window.confirm(
-        i18n.t(
-          "serversPage.permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease",
-          { serverName: server.name },
-        ),
-      )
-    )
-      return;
-    setDeleting(server.id);
-    setActionError(null);
-    try {
-      await deleteServer(server.id);
-      setDetails(null);
-      await servers.refresh();
-    } catch (cause) {
-      setActionError(
-        cause instanceof Error
-          ? cause.message
-          : i18n.t("serversPage.unableToDeleteServer"),
-      );
-    } finally {
-      setDeleting(null);
-    }
-  }
   function create() {
     setBackup(undefined);
-    setApplyRevision(false);
     setDraftOptions(options);
-    setEditing(null);
     setOpen(true);
   }
-  async function edit(server: Server, revision = false) {
-    setBackup(undefined);
-    if (editorPending.current) return;
-    editorPending.current = true;
-    setActionError(null);
-    try {
-      setDraftOptions(
-        server.permissions.includes(Permission.ServerConfigure) || revision
-          ? await serverOptions(
-              AbortSignal.timeout(API_READ_TIMEOUT_MS),
-              server.id,
-            )
-          : { s3_available: false, sparks: [], embers: [] },
-      );
-      setEditing(server);
-      setApplyRevision(revision);
-      setOpen(true);
-    } catch (cause) {
-      setActionError(
-        cause instanceof Error
-          ? cause.message
-          : i18n.t("serversPage.unableToLoadServerEditor"),
-      );
-    } finally {
-      editorPending.current = false;
-    }
-  }
-  async function beginCopy(server: Server, mode: ServerCopyMode) {
-    if (editorPending.current) return;
-    editorPending.current = true;
-    const controller = new AbortController();
-    copyLoad.current = controller;
-    setCopyLoading(true);
-    setActionError(null);
-    try {
-      const signal = AbortSignal.any([
-        controller.signal,
-        AbortSignal.timeout(API_READ_TIMEOUT_MS),
-      ]);
-      const [template, available] = await Promise.all([
-        getCopyTemplate(server.id, signal),
-        serverOptions(signal),
-      ]);
-      if (!controller.signal.aborted) {
-        setCopyRequest({ server, mode, template, options: available });
-        setDetails(null);
-      }
-    } catch (cause) {
-      if (!controller.signal.aborted)
-        setActionError(
-          cause instanceof Error
-            ? cause.message
-            : i18n.t("serverCopy.unableToLoad"),
-        );
-    } finally {
-      if (copyLoad.current === controller) {
-        copyLoad.current = null;
-        editorPending.current = false;
-        setCopyLoading(false);
-      }
-    }
-  }
-  const detailActions: ActionMenuItem[] = [
-    ...(details &&
-    canProvision &&
-    details.permissions.includes(Permission.ServerConfigure)
-      ? [
-          {
-            label: t("serverCopy.copy"),
-            icon: "servers",
-            disabled: deleting !== null || copyLoading,
-            onSelect: () => {
-              void beginCopy(details, "copy");
-            },
-          } satisfies ActionMenuItem,
-          {
-            label: t("serverCopy.quickCopy"),
-            icon: "servers",
-            disabled:
-              deleting !== null ||
-              copyLoading ||
-              !details.permissions.includes(Permission.ServerFilesRead),
-            onSelect: () => {
-              void beginCopy(details, "quick");
-            },
-          } satisfies ActionMenuItem,
-        ]
-      : []),
-    ...(details && canApplyRevision && details.ember_update_available
-      ? [
-          {
-            label: t("serversPage.updateEmber"),
-            icon: "embers",
-            disabled:
-              deleting !== null ||
-              copyLoading ||
-              runtime.statuses[details.id]?.busy === true ||
-              ![
-                RuntimeState.Stopped,
-                RuntimeState.NotInstalled,
-                RuntimeState.Deleted,
-              ].some((state) => state === runtime.statuses[details.id]?.state),
-            onSelect: () => {
-              setDetails(null);
-              void edit(details, true);
-            },
-          } satisfies ActionMenuItem,
-        ]
-      : []),
-    ...(details && canTransfer
-      ? [
-          {
-            label: t("serversPage.transfer"),
-            icon: "arrow-right",
-            disabled: deleting !== null || copyLoading,
-            onSelect: () => {
-              setDetails(null);
-              setTransferServer(details);
-            },
-          } satisfies ActionMenuItem,
-        ]
-      : []),
-  ];
   return (
     <section aria-labelledby="page-title">
       <PageHeader
@@ -463,8 +278,7 @@ export function ServersPage() {
                 <ServerTableRow
                   key={server.id}
                   onOpen={() => {
-                    setDetailsTab("details");
-                    setDetails(server);
+                    window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
                   }}
                   gameReadings={monitored?.game && gameReadings}
                   columnCount={hasGameArt ? 7 : 6}
@@ -486,10 +300,9 @@ export function ServersPage() {
                       type="button"
                       className="table-row-trigger"
                       onClick={() => {
-                        setDetailsTab("details");
-                        setDetails(server);
+                        window.location.hash = `servers/${encodeURIComponent(server.id)}/console`;
                       }}
-                      aria-label={i18n.t("serversPage.viewDetailsFor", {
+                      aria-label={i18n.t("serversPage.open", {
                         serverName: server.name,
                       })}
                     >
@@ -578,7 +391,6 @@ export function ServersPage() {
                       name={server.name}
                       status={runtime.statuses[server.id]}
                       disabled={
-                        deleting === server.id ||
                         monitoring.snapshot?.sparks?.some(
                           (spark) =>
                             spark.id === server.spark_id && spark.disabled,
@@ -589,19 +401,7 @@ export function ServersPage() {
                       )}
                       onStatus={runtime.upsert}
                       onError={setActionError}
-                    >
-                      <ButtonLink
-                        variant="primary"
-                        href={`#servers/${encodeURIComponent(server.id)}/console`}
-                        iconOnly
-                        aria-label={i18n.t("serversPage.openConsole", {
-                          serverName: server.name,
-                        })}
-                        title={i18n.t("serversPage.console")}
-                      >
-                        <NavigationIcon name="terminal" />
-                      </ButtonLink>
-                    </ServerQuickControls>
+                    />
                   </td>
                 </ServerTableRow>
               );
@@ -623,8 +423,6 @@ export function ServersPage() {
           onReady={(next) => {
             setBackup(next);
             setDraftOptions({ ...options, embers: [next.ember] });
-            setEditing(null);
-            setApplyRevision(false);
             setImportOpen(false);
             setOpen(true);
           }}
@@ -633,17 +431,8 @@ export function ServersPage() {
       {open && (
         <ServerDrawer
           backup={backup}
-          applyRevision={applyRevision}
-          accessOnly={
-            editing !== null &&
-            !editing.permissions.includes(Permission.ServerConfigure) &&
-            !applyRevision
-          }
-          server={editing}
+          server={null}
           s3Configured={draftOptions.s3_available}
-          runtimeRestricted={
-            editing !== null && runtime.statuses[editing.id]?.busy === true
-          }
           sparks={draftOptions.sparks}
           embers={draftOptions.embers}
           servers={servers.items}
@@ -652,86 +441,6 @@ export function ServersPage() {
             servers.upsert(server);
             void refresh();
           }}
-        />
-      )}
-      {transferServer && (
-        <ServerTransferDrawer
-          server={
-            servers.items.find((item) => item.id === transferServer.id) ??
-            transferServer
-          }
-          onClose={() => setTransferServer(null)}
-          onSubmitted={() => {
-            setTransferServer(null);
-            setDetailsTab("jobs");
-            setDetails(transferServer);
-            void servers.refresh();
-          }}
-        />
-      )}
-      {copyRequest && (
-        <ServerCopyFlow
-          source={copyRequest.server}
-          mode={copyRequest.mode}
-          template={copyRequest.template}
-          options={copyRequest.options}
-          servers={servers.items}
-          onClose={() => setCopyRequest(null)}
-          onSaved={servers.upsert}
-          onSubmitted={() => {
-            setCopyRequest(null);
-            setDetailsTab("jobs");
-            setDetails(copyRequest.server);
-            void servers.refresh();
-          }}
-        />
-      )}
-      {details && (
-        <ServerDetailsDrawer
-          key={details.id}
-          id={details.id}
-          initialTab={detailsTab}
-          onChanged={servers.refresh}
-          title={
-            <>
-              <span>{details.name}</span>
-              <ServerState
-                state={
-                  runtime.statuses[details.id]?.state ?? RuntimeState.Unknown
-                }
-                ready={runtime.statuses[details.id]?.ready ?? true}
-              />
-            </>
-          }
-          onDelete={
-            details.permissions.includes(Permission.ServerDelete)
-              ? () => {
-                  void remove(details);
-                }
-              : undefined
-          }
-          deleteDisabled={
-            deleting !== null ||
-            copyLoading ||
-            runtime.statuses[details.id]?.busy === true
-          }
-          deleting={deleting === details.id}
-          actionError={actionError}
-          actions={detailActions}
-          onClose={() => {
-            copyLoad.current?.abort();
-            setDetails(null);
-          }}
-          onEdit={
-            details.permissions.includes(Permission.ServerConfigure) ||
-            details.can_manage_access === true
-              ? () => {
-                  setDetails(null);
-                  void edit(details);
-                }
-              : undefined
-          }
-          editDisabled={loading || copyLoading}
         />
       )}
     </section>

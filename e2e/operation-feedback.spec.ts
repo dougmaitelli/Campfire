@@ -128,7 +128,7 @@ test("console lifecycle confirmations are limited to the current page session", 
     .getByRole("link", { name: "Servers", exact: true })
     .click();
   await page
-    .getByRole("link", { name: "Open console for Survival", exact: true })
+    .getByRole("button", { name: "Open Survival", exact: true })
     .click();
   await expect(page.getByText("Live", { exact: true })).toBeVisible();
   await expect(message).toHaveCount(0);

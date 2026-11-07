@@ -1,0 +1,327 @@
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { useTranslation } from "react-i18next";
+import { apiFetch, readJSON, API_READ_TIMEOUT_MS } from "../api/client";
+import { serverOptions, type ServerOptions } from "../api/access";
+import { getCopyTemplate, type CopyTemplate } from "../api/copies";
+import { Permission } from "../api/permissions";
+import type { RuntimeStatus } from "../api/runtime";
+import {
+  deleteServer,
+  isServer,
+  listServers,
+  type Server,
+} from "../api/servers";
+import { RuntimeState } from "../contracts/domains";
+import type { ActionMenuItem } from "../components/forms/ActionMenu";
+import { ServerState } from "../components/servers/ServerState";
+import { useAuthentication } from "./useAuthentication";
+import { ServerDrawer } from "../drawers/ServerDrawer";
+const ServerCopyFlow = lazy(() =>
+  import("../drawers/ServerCopyFlow").then((module) => ({
+    default: module.ServerCopyFlow,
+  })),
+);
+const ServerTransferDrawer = lazy(() =>
+  import("../drawers/ServerTransferDrawer").then((module) => ({
+    default: module.ServerTransferDrawer,
+  })),
+);
+const ServerDetailsDrawer = lazy(() =>
+  import("../drawers/ServerDetailsDrawer").then((module) => ({
+    default: module.ServerDetailsDrawer,
+  })),
+);
+
+export function useServerManagement(
+  server: Server | null,
+  status: RuntimeStatus | undefined,
+  onSaved: (server: Server) => void,
+) {
+  const { t } = useTranslation();
+  const { session } = useAuthentication();
+  const canProvision =
+    session?.admin === true ||
+    session?.permissions?.includes(Permission.ServersCreate) === true;
+  const canApplyRevision =
+    session?.admin === true ||
+    session?.permissions?.includes(Permission.ServersManageAll) === true;
+  const canTransfer =
+    session?.admin === true ||
+    (session?.permissions?.includes(Permission.SparksManage) === true &&
+      session.permissions.includes(Permission.ServersManageAll));
+  const canConfigure =
+    server?.permissions.includes(Permission.ServerConfigure) === true;
+  const canEdit = canConfigure || server?.can_manage_access === true;
+  const canViewJobs = canTransfer || canConfigure;
+  const [editor, setEditor] = useState<{
+    options: ServerOptions;
+    servers: Server[];
+    revision: boolean;
+  } | null>(null);
+  const [copy, setCopy] = useState<{
+    template: CopyTemplate;
+    options: ServerOptions;
+    servers: Server[];
+    mode: "copy" | "quick";
+  } | null>(null);
+  const [transfer, setTransfer] = useState(false);
+  const [jobs, setJobs] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef<AbortController | null>(null);
+  useEffect(() => () => pending.current?.abort(), []);
+  const serverID = server?.id;
+  const refresh = useCallback(async () => {
+    if (!serverID) return;
+    const value = await readJSON(
+      await apiFetch(`/api/v1/servers/${encodeURIComponent(serverID)}`, {
+        signal: AbortSignal.timeout(API_READ_TIMEOUT_MS),
+      }),
+    );
+    if (!isServer(value))
+      throw new Error(t("serverDetailsDrawer.unexpectedServerDetailsResponse"));
+    onSaved(value);
+  }, [serverID, onSaved, t]);
+
+  async function prepare(mode: "edit" | "revision" | "copy" | "quick") {
+    if (!server || pending.current) return;
+    const controller = new AbortController();
+    pending.current = controller;
+    setLoading(true);
+    setError(null);
+    const signal = AbortSignal.any([
+      controller.signal,
+      AbortSignal.timeout(API_READ_TIMEOUT_MS),
+    ]);
+    try {
+      if (mode === "copy" || mode === "quick") {
+        const [template, options, servers] = await Promise.all([
+          getCopyTemplate(server.id, signal),
+          serverOptions(signal),
+          listServers(signal),
+        ]);
+        if (!controller.signal.aborted) {
+          setCopy({ template, options, servers, mode });
+          setJobs(false);
+        }
+      } else {
+        const [options, servers] = await Promise.all([
+          canConfigure || mode === "revision"
+            ? serverOptions(signal, server.id)
+            : Promise.resolve({ s3_available: false, sparks: [], embers: [] }),
+          listServers(signal),
+        ]);
+        if (!controller.signal.aborted) {
+          setEditor({ options, servers, revision: mode === "revision" });
+          setJobs(false);
+        }
+      }
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : t(
+                mode === "copy" || mode === "quick"
+                  ? "serverCopy.unableToLoad"
+                  : "serversPage.unableToLoadServerEditor",
+              ),
+        );
+    } finally {
+      if (pending.current === controller) {
+        pending.current = null;
+        setLoading(false);
+      }
+    }
+  }
+
+  async function remove() {
+    if (
+      !server ||
+      deleting ||
+      !window.confirm(
+        t(
+          "serversPage.permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease",
+          { serverName: server.name },
+        ),
+      )
+    )
+      return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteServer(server.id);
+      window.location.hash = "servers";
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : t("serversPage.unableToDeleteServer"),
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const busy = loading || deleting;
+  const actions: ActionMenuItem[] = [
+    ...(server && canEdit
+      ? [
+          {
+            label: t("serverDetailsDrawer.editServer"),
+            icon: "rename",
+            disabled: busy,
+            onSelect: () => void prepare("edit"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(server && canProvision && canConfigure
+      ? [
+          {
+            label: t("serverCopy.copy"),
+            icon: "servers",
+            disabled: busy,
+            onSelect: () => void prepare("copy"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(server && canProvision && canConfigure
+      ? [
+          {
+            label: t("serverCopy.quickCopy"),
+            icon: "servers",
+            disabled:
+              busy || !server.permissions.includes(Permission.ServerFilesRead),
+            onSelect: () => void prepare("quick"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(server && canApplyRevision && server.ember_update_available
+      ? [
+          {
+            label: t("serversPage.updateEmber"),
+            icon: "embers",
+            disabled:
+              busy ||
+              status?.busy === true ||
+              ![
+                RuntimeState.Stopped,
+                RuntimeState.NotInstalled,
+                RuntimeState.Deleted,
+              ].some((state) => state === status?.state),
+            onSelect: () => void prepare("revision"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(server && canTransfer
+      ? [
+          {
+            label: t("serversPage.transfer"),
+            icon: "arrow-right",
+            disabled: busy,
+            onSelect: () => {
+              setJobs(false);
+              setTransfer(true);
+            },
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(server && canViewJobs
+      ? [
+          {
+            label: t("common.jobs"),
+            icon: "jobs",
+            disabled: busy,
+            onSelect: () => setJobs(true),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(server?.permissions.includes(Permission.ServerDelete)
+      ? [
+          {
+            label: t("common.delete"),
+            icon: "delete",
+            tone: "danger",
+            disabled: busy || status?.busy === true,
+            onSelect: () => void remove(),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+  ];
+
+  return {
+    actions,
+    busy,
+    error,
+    dialogs: server && (
+      <Suspense fallback={null}>
+        {editor && (
+          <ServerDrawer
+            server={server}
+            accessOnly={!canConfigure && !editor.revision}
+            applyRevision={editor.revision}
+            s3Configured={editor.options.s3_available}
+            runtimeRestricted={status?.busy === true}
+            sparks={editor.options.sparks}
+            embers={editor.options.embers}
+            servers={editor.servers}
+            onClose={() => setEditor(null)}
+            onSaved={onSaved}
+          />
+        )}
+        {copy && (
+          <ServerCopyFlow
+            source={server}
+            mode={copy.mode}
+            template={copy.template}
+            options={copy.options}
+            servers={copy.servers}
+            onClose={() => setCopy(null)}
+            onSaved={(saved) => {
+              if (saved.id === server.id) onSaved(saved);
+            }}
+            onSubmitted={() => {
+              setCopy(null);
+              setJobs(true);
+            }}
+          />
+        )}
+        {transfer && (
+          <ServerTransferDrawer
+            server={server}
+            onClose={() => setTransfer(false)}
+            onSubmitted={() => {
+              setTransfer(false);
+              setJobs(true);
+            }}
+          />
+        )}
+        {jobs && (
+          <ServerDetailsDrawer
+            id={server.id}
+            initialTab="jobs"
+            onChanged={refresh}
+            title={
+              <>
+                <span>{server.name}</span>
+                <ServerState
+                  state={status?.state ?? RuntimeState.Unknown}
+                  ready={status?.ready ?? true}
+                />
+              </>
+            }
+            onClose={() => setJobs(false)}
+          />
+        )}
+      </Suspense>
+    ),
+  };
+}

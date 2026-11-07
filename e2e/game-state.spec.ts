@@ -92,7 +92,7 @@ test("game state shows optional fields and hides stale values", async ({
   await integrationRow.hover();
   const primaryRow = page.getByRole("row").filter({
     has: page.getByRole("button", {
-      name: "View details for Survival",
+      name: "Open Survival",
       exact: true,
     }),
   });
@@ -103,18 +103,15 @@ test("game state shows optional fields and hides stale values", async ({
     ),
   );
   await readings.click();
-  const details = page.getByRole("dialog", { name: /^Survival/ });
-  await expect(details).toBeVisible();
-  await details
-    .getByRole("button", { name: "Close", exact: true })
-    .first()
-    .click();
+  await expect(page).toHaveURL(/#servers\/survival\/console$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await openScreen(page, "servers", "Servers");
   await page.setViewportSize({ width: 1000, height: 1000 });
   await prepareScreenshot(page);
   await expect(
     page.getByRole("row").filter({
       has: page.getByRole("button", {
-        name: "View details for Survival",
+        name: "Open Survival",
         exact: true,
       }),
     }),

@@ -1,5 +1,5 @@
 import { test, expect, screenshot } from "./fixtures";
-import { login, openServerTab, openScreen } from "./screens";
+import { login, openServerTab, openScreen, openServerEditor } from "./screens";
 
 test("manual backups send the selected type and save-data restore describes its scope", async ({
   page,
@@ -186,15 +186,7 @@ test("full and save-data retention settings persist independently", async ({
   page,
 }) => {
   await login(page);
-  await openScreen(page, "servers", "Servers");
-  await page
-    .getByRole("button", { name: "View details for Creative", exact: true })
-    .click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Edit server", exact: true })
-    .click();
-  const drawer = page.getByRole("dialog", { name: "Edit server", exact: true });
+  const drawer = await openServerEditor(page);
   for (const name of [
     "Next: Variables",
     "Next: Resources & ports",

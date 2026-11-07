@@ -26,6 +26,7 @@ import { isServer, type Server } from "../api/servers";
 import { serverAction } from "../api/runtime";
 import type { LifecycleAction } from "../contracts/domains";
 import { useServerRuntime } from "../hooks/useServerRuntime";
+import { useServerManagement } from "../hooks/useServerManagement";
 import { useMonitoring } from "../hooks/useMonitoring";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
@@ -100,11 +101,13 @@ export function ServerOperationsPage({
   const runtime = useServerRuntime(server ? [server.id] : []);
   const monitoring = useMonitoring();
   const status = runtime.statuses[serverID];
+  const management = useServerManagement(server, status, setServer);
   const usage = monitoring.snapshot?.servers.find(
     (item) => item.id === serverID,
   )?.usage;
   const controlsDisabled =
     acting ||
+    management.busy ||
     monitoring.snapshot?.sparks?.some(
       (spark) => spark.id === server?.spark_id && spark.disabled,
     ) === true;
@@ -284,14 +287,18 @@ export function ServerOperationsPage({
           )
         }
         actions={
-          !showInstallEmpty &&
-          server?.permissions.includes(Permission.ServerOperate) && (
+          server && (
             <ServerLifecycleControls
               status={status}
               disabled={controlsDisabled}
               canReinstall={server.permissions.includes(
                 Permission.ServerReinstall,
               )}
+              canOperate={
+                !showInstallEmpty &&
+                server.permissions.includes(Permission.ServerOperate)
+              }
+              actions={management.actions}
               onAction={(action) => {
                 if (
                   action === ServerAction.Kill ||
@@ -306,6 +313,10 @@ export function ServerOperationsPage({
           )
         }
       />
+      {management.error && (
+        <InlineMessage role="alert">{management.error}</InlineMessage>
+      )}
+      {management.dialogs}
       {server && (
         <ServerLogAlerts
           key={server.id}

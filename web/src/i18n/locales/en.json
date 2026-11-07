@@ -1159,6 +1159,7 @@
     "noMatchingServers": "No matching servers",
     "noServersYet": "No servers yet",
     "openConsole": "Open console for {{serverName}}",
+    "open": "Open {{serverName}}",
     "console": "Console",
     "permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease": "Permanently delete \"{{serverName}}\", its container, game files and backups, and release its resources and ports?",
     "refreshing": "Refreshing…",
@@ -1174,8 +1175,7 @@
     "unableToDeleteServer": "Unable to delete server.",
     "unableToLoadCreationOptions": "Unable to load creation options.",
     "unableToLoadServerEditor": "Unable to load server editor.",
-    "updateEmber": "Update Ember",
-    "viewDetailsFor": "View details for {{serverName}}"
+    "updateEmber": "Update Ember"
   },
   "serverState": {
     "uptime": "Uptime {{duration}}",

@@ -178,3 +178,47 @@ test("servers awaiting installation keep Start and Reinstall disabled", () => {
     }).disabled,
   ).toBe(true);
 });
+
+test("server management actions remain available independently of power permission", async () => {
+  const edit = vi.fn();
+  render(
+    <ServerLifecycleControls
+      status={runtimeStatus()}
+      disabled={false}
+      canOperate={false}
+      canReinstall={false}
+      actions={[{ label: "Edit server", icon: "rename", onSelect: edit }]}
+      onAction={vi.fn()}
+    />,
+  );
+  for (const name of ["Start", "Stop", "Restart"])
+    expect(screen.queryByRole("button", { name })).toBeNull();
+  const menu = screen.getByRole("menu", { hidden: true });
+  menu.removeAttribute("popover");
+  Object.assign(menu, { hidePopover: vi.fn() });
+  expect(screen.queryByRole("menuitem", { name: "Kill" })).toBeNull();
+  await userEvent
+    .setup()
+    .click(screen.getByRole("menuitem", { name: "Edit server" }));
+  expect(edit).toHaveBeenCalledOnce();
+});
+
+test("Delete remains the last server action after power operations", () => {
+  render(
+    <ServerLifecycleControls
+      status={runtimeStatus()}
+      disabled={false}
+      canReinstall
+      actions={[
+        { label: "Delete", icon: "delete", tone: "danger", onSelect: vi.fn() },
+        { label: "Edit server", icon: "rename", onSelect: vi.fn() },
+      ]}
+      onAction={vi.fn()}
+    />,
+  );
+  expect(
+    screen
+      .getAllByRole("menuitem", { hidden: true })
+      .map((item) => item.textContent),
+  ).toEqual(["Edit server", "Kill", "Reinstall", "Delete"]);
+});

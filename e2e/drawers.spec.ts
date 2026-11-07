@@ -124,19 +124,20 @@ test("drawer actions support keyboard navigation and dismiss before confirmation
   await expect(drawer).toHaveCount(0);
 });
 
-test("server drawer actions open the transfer drawer", async ({ page }) => {
+test("server page actions open the transfer drawer", async ({ page }) => {
   await login(page);
   await openScreen(page, "servers", "Servers");
   await page
-    .getByRole("button", { name: "View details for Survival", exact: true })
+    .getByRole("button", { name: "Open Survival", exact: true })
     .click();
-  const drawer = page.getByRole("dialog", { name: /^Survival/ });
-  await drawer.getByRole("button", { name: "Actions", exact: true }).click();
-  await drawer.getByRole("menuitem", { name: "Transfer", exact: true }).click();
+  await page
+    .getByRole("button", { name: "More server actions", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Transfer", exact: true }).click();
   const transfer = page.getByRole("dialog", { name: /^Transfer/ });
   await expect(transfer).toBeVisible();
   await expect(
     transfer.getByRole("heading", { name: "Transfer history", exact: true }),
   ).toHaveCount(0);
-  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(1);
 });
