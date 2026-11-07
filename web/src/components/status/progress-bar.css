@@ -12,6 +12,11 @@
     0 1px 0 var(--surface-highlight);
 }
 
+.progress-bar::-webkit-meter-inner-element {
+  /* Remove the native spacer rows above and below the track. */
+  grid-template-rows: [line1] 1fr [line2];
+}
+
 .progress-bar::-webkit-progress-bar,
 .progress-bar::-webkit-meter-bar {
   height: 100%;
