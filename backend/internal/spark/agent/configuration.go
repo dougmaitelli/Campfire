@@ -155,7 +155,23 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 		return model.ConfigurationReceipt{}, err
 	}
 
-	if err := agentidentity.WritePrivate(filepath.Join(s.Directory, id, deployment.ServerID+".json"), data); err != nil {
+	filename := filepath.Join(s.Directory, id, deployment.ServerID+".json")
+	if previous, err := os.ReadFile(filename); err == nil && string(previous) != string(data) && s.Runtime != nil {
+		if baseline, ok := s.Runtime.(interface {
+			RememberContainerConfiguration(model.Deployment) error
+		}); ok {
+			old, err := model.DecodeStoredDeployment(previous)
+			if err != nil {
+				return model.ConfigurationReceipt{}, err
+			}
+
+			if err := baseline.RememberContainerConfiguration(old); err != nil {
+				return model.ConfigurationReceipt{}, err
+			}
+		}
+	}
+
+	if err := agentidentity.WritePrivate(filename, data); err != nil {
 		return model.ConfigurationReceipt{}, err
 	}
 

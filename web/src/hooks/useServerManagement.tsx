@@ -61,6 +61,7 @@ export function useServerManagement(
   const canEdit = canConfigure || server?.can_manage_access === true;
   const canViewJobs = canTransfer || canConfigure;
   const [editor, setEditor] = useState<{
+    server: Server;
     options: ServerOptions;
     servers: Server[];
     revision: boolean;
@@ -120,7 +121,12 @@ export function useServerManagement(
           listServers(signal),
         ]);
         if (!controller.signal.aborted) {
-          setEditor({ options, servers, revision: mode === "revision" });
+          setEditor({
+            server,
+            options,
+            servers,
+            revision: mode === "revision",
+          });
           setJobs(false);
         }
       }
@@ -209,14 +215,7 @@ export function useServerManagement(
           {
             label: t("serversPage.updateEmber"),
             icon: "embers",
-            disabled:
-              busy ||
-              status?.busy === true ||
-              ![
-                RuntimeState.Stopped,
-                RuntimeState.NotInstalled,
-                RuntimeState.Deleted,
-              ].some((state) => state === status?.state),
+            disabled: busy || status?.busy === true,
             onSelect: () => void prepare("revision"),
           } satisfies ActionMenuItem,
         ]
@@ -261,11 +260,13 @@ export function useServerManagement(
     actions,
     busy,
     error,
+    canApplyRevision,
+    reviewEmber: () => void prepare("revision"),
     dialogs: server && (
       <Suspense fallback={null}>
         {editor && (
           <ServerDrawer
-            server={server}
+            server={editor.server}
             accessOnly={!canConfigure && !editor.revision}
             applyRevision={editor.revision}
             s3Configured={editor.options.s3_available}

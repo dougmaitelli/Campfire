@@ -2,6 +2,10 @@
   width: 12%;
 }
 
+.server-configuration-notice {
+  color: var(--warning);
+}
+
 .server-table td.game-state-card-cell {
   display: none;
 }

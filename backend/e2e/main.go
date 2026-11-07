@@ -37,16 +37,17 @@ func must(err error) {
 
 // No Docker, agent sockets, credentials, or external network clients are used.
 type runtime struct {
-	mu          sync.Mutex
-	statuses    map[string]model.RuntimeStatus
-	deployments map[string]model.Deployment
-	files       map[string]map[string]string
-	fileModes   map[string]map[string]uint32
-	backups     map[string][]model.FileEntry
-	archives    map[string][]byte
-	uploads     map[string]*uploadFixture
-	jobs        map[string]*jobFixture
-	updates     chan struct{}
+	mu              sync.Mutex
+	statuses        map[string]model.RuntimeStatus
+	deployments     map[string]model.Deployment
+	activeRevisions map[string]string
+	files           map[string]map[string]string
+	fileModes       map[string]map[string]uint32
+	backups         map[string][]model.FileEntry
+	archives        map[string][]byte
+	uploads         map[string]*uploadFixture
+	jobs            map[string]*jobFixture
+	updates         chan struct{}
 }
 
 type uploadFixture struct {
@@ -64,7 +65,16 @@ func (r *runtime) Deploy(_ context.Context, _ string, input model.Deployment) (m
 	if r.deployments == nil {
 		r.deployments = make(map[string]model.Deployment)
 	}
+	if r.activeRevisions == nil {
+		r.activeRevisions = make(map[string]string)
+	}
+	status := r.statuses[input.ServerID]
+	if status.State == model.RuntimeStateRunning && r.activeRevisions[input.ServerID] == "" {
+		r.activeRevisions[input.ServerID] = model.ContainerRevision(input)
+	}
 	r.deployments[input.ServerID] = input
+	status.RestartRequired = status.State == model.RuntimeStateRunning && r.activeRevisions[input.ServerID] != model.ContainerRevision(input)
+	r.statuses[input.ServerID] = status
 	if r.files[input.ServerID] == nil {
 		r.files[input.ServerID] = devfixture.Files()
 	}
@@ -84,6 +94,10 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 		status.OperationState = model.OperationSucceeded
 		switch input.Action {
 		case "start", "restart":
+			if input.Action == model.ServerActionRestart || status.State != model.RuntimeStateRunning {
+				r.activeRevisions[input.ServerID] = model.ContainerRevision(r.deployments[input.ServerID])
+				status.RestartRequired = false
+			}
 			status.State = "running"
 		case "stop", "kill":
 			status.State = "stopped"

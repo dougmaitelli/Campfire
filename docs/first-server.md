@@ -22,6 +22,18 @@ choose **Edit server**. This opens the existing editor directly and appears only
 when you can edit the server. Management actions share this menu, with **Delete**
 last when permitted.
 
+Configuration edits can be saved while the server runs. Spark receives the saved
+settings without recreating the running container. **Restart required** appears
+when the saved container settings differ from those currently running. Names,
+descriptions, save-data paths, and log-monitoring rules do not require a restart.
+
+When an imported Ember changes, **Ember update available** appears on the server
+page and in the server lists, including for running servers. Choose **Review
+Ember update** to apply the updated definition to the saved configuration. This
+does not stop the server or run the installer. Save-data paths apply immediately;
+container changes take effect on the next restart. The available-update and pending-restart notices
+are independent, so both can appear if the Ember changes again before a restart.
+
 ## Copy a server
 
 Open a server from **Servers**, then open **More server actions**.

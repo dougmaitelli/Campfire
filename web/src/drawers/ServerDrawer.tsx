@@ -110,12 +110,13 @@ export function ServerDrawer({
   const [grants, setGrants] = useState<AccessGrant[]>([]);
   const [accessDirty, setAccessDirty] = useState(false);
   const [removedGrantIDs, setRemovedGrantIDs] = useState<number[]>([]);
+  const serverID = server?.id;
   useEffect(() => {
     if (!canShare) return;
     const controller = new AbortController();
     void Promise.all([
-      server
-        ? readServerAccess(server.id, controller.signal)
+      serverID
+        ? readServerAccess(serverID, controller.signal)
         : serverAccessOptions(controller.signal),
       admin ? listUsers(controller.signal) : Promise.resolve([]),
     ])
@@ -123,7 +124,7 @@ export function ServerDrawer({
         if (controller.signal.aborted) return;
         setAccess(next);
         setGrants(next.grants);
-        setOwnerID(next.owner?.id ?? (server ? 0 : (session?.user_id ?? 0)));
+        setOwnerID(next.owner?.id ?? (serverID ? 0 : (session?.user_id ?? 0)));
         setUsers(accounts);
       })
       .catch((cause: unknown) => {
@@ -135,7 +136,7 @@ export function ServerDrawer({
           );
       });
     return () => controller.abort();
-  }, [canShare, admin, server, session?.user_id, accessAttempt]);
+  }, [canShare, admin, serverID, session?.user_id, accessAttempt]);
   const [value, setValue] = useState<ServerConfiguration>(() => {
     if (copy) {
       const spark =
@@ -250,9 +251,9 @@ export function ServerDrawer({
   const [policyDirty, setPolicyDirty] = useState(false);
   const [confirmPolicy, setConfirmPolicy] = useState(false);
   useEffect(() => {
-    if (!server || applyRevision || accessOnly) return;
+    if (!serverID || applyRevision || accessOnly) return;
     const controller = new AbortController();
-    void getBackupPolicy(server.id, controller.signal)
+    void getBackupPolicy(serverID, controller.signal)
       .then((result) => {
         if (!controller.signal.aborted) {
           setBackupPolicy(result.policy);
@@ -268,7 +269,7 @@ export function ServerDrawer({
           );
       });
     return () => controller.abort();
-  }, [server, applyRevision, accessOnly]);
+  }, [serverID, applyRevision, accessOnly]);
   const submitting = useRef(false);
   const [createdServer, setCreatedServer] = useState<Server | null>(null);
   const sparkChoices = sparks.filter(
@@ -454,6 +455,11 @@ export function ServerDrawer({
                     : null,
           content: (
             <>
+              {applyRevision && (
+                <InlineMessage tone="info">
+                  {t("emberUpdate.applyOnRestart")}
+                </InlineMessage>
+              )}
               {runtimeRestricted && (
                 <p className="field-help">
                   {t(
@@ -1163,6 +1169,11 @@ export function ServerDrawer({
           title: t("common.review"),
           content: (
             <>
+              {applyRevision && (
+                <InlineMessage tone="info">
+                  {t("emberUpdate.applyOnRestart")}
+                </InlineMessage>
+              )}
               {applyRevision && (
                 <>
                   <p>

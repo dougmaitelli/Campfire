@@ -218,6 +218,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		e.Status.DiskQuotaEnforced = status.DiskQuotaEnforced
 		e.Status.DiskQuotaError = status.DiskQuotaError
 		e.Status.DiskQuotaErrorCode = status.DiskQuotaErrorCode
+		e.Status.RestartRequired = status.RestartRequired
 
 		return e.Status, nil
 	}
@@ -452,6 +453,7 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 	status, observeErr := m.observe(observeCtx, d, e)
 	if observeErr == nil {
 		e.Status.State, e.Status.Ready = status.State, status.Ready
+		e.Status.RestartRequired = status.RestartRequired
 
 		e.Status.DiskQuotaEnforced = status.DiskQuotaEnforced
 		if e.Status.DiskQuotaErrorCode == "" {
@@ -557,6 +559,16 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	if state == "running" {
+		if e.Revision == "" {
+			// Adopt the previously saved configuration for containers created
+			// before revision tracking existed, before staging a replacement.
+			e.Revision = model.ContainerRevision(d)
+			if err := m.persist(d.ServerID, e); err != nil {
+				return model.RuntimeStatus{}, err
+			}
+		}
+
+		status.RestartRequired = e.Revision != model.ContainerRevision(d)
 		status.Ready = (d.Ember.Ready == "" && d.Ember.Readiness == nil) || ready
 	}
 
@@ -875,6 +887,11 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	m.rememberImage(d.ServerID, d.Configuration.Image, e)
 
 	_, err = m.Docker.Run(ctx, nil, "start", container(d.ServerID))
+	if err == nil {
+		e.mu.Lock()
+		e.Revision = model.ContainerRevision(d)
+		e.mu.Unlock()
+	}
 
 	return err
 }

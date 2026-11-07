@@ -27,6 +27,7 @@ import { useMonitoring } from "../hooks/useMonitoring";
 import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
 import { ServerState } from "../components/servers/ServerState";
+import { ServerConfigurationNotices } from "../components/servers/ServerConfigurationNotices";
 import { GameArt } from "../components/media/GameArt";
 import { ServerTableRow } from "../components/servers/ServerTableRow";
 import { ServerQuickControls } from "../components/servers/ServerQuickControls";
@@ -309,6 +310,12 @@ export function ServersPage() {
                       {server.name}
                     </button>
                     <span className="row-id">{server.id}</span>
+                    <ServerConfigurationNotices
+                      server={server}
+                      restartRequired={
+                        runtime.statuses[server.id]?.restart_required
+                      }
+                    />
                   </td>
                   {monitored?.game && (
                     <td className="game-state-card-cell">{gameReadings}</td>

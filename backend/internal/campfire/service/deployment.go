@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"campfire/internal/campfire/database/repository"
+	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/model"
 )
 
@@ -38,6 +41,7 @@ type DeploymentService struct {
 	statuses       map[string]model.RuntimeStatus
 	observed       map[string]time.Time
 	statusSparks   map[string]string
+	delivered      map[string]string
 }
 
 func (s *DeploymentService) guardServer(ctx context.Context, id string) error {
@@ -72,6 +76,40 @@ func (s *DeploymentService) Sync(ctx context.Context, id string) (model.Configur
 }
 
 func (s *DeploymentService) sync(ctx context.Context, id string) (model.ConfigurationReceipt, error) {
+	return s.deliverConfiguration(ctx, id, false)
+}
+
+// syncChanged reconciles saved edits independently of read-only status requests.
+func (s *DeploymentService) syncChanged(ctx context.Context, id string) error {
+	release, err := s.lockServer(ctx, id)
+	if err != nil {
+		return err
+	}
+	defer release()
+
+	if err := s.guardServer(ctx, id); err != nil {
+		if errors.Is(err, repository.ErrJobActive) {
+			return nil
+		}
+
+		return err
+	}
+
+	server, err := s.Servers.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if server.EmberUpdateAvailable {
+		return nil
+	}
+
+	_, err = s.deliverConfiguration(ctx, id, true)
+
+	return err
+}
+
+func (s *DeploymentService) deliverConfiguration(ctx context.Context, id string, changedOnly bool) (model.ConfigurationReceipt, error) {
 	if err := s.guardServer(ctx, id); err != nil {
 		return model.ConfigurationReceipt{}, err
 	}
@@ -120,10 +158,33 @@ func (s *DeploymentService) sync(ctx context.Context, id string) (model.Configur
 		return model.ConfigurationReceipt{}, errors.Join(ErrInvalidServer, err)
 	}
 
+	data, err := json.Marshal(deployment)
+	if err != nil {
+		return model.ConfigurationReceipt{}, err
+	}
+
+	revision := agentidentity.Fingerprint(data)
+
+	s.mu.Lock()
+	delivered := s.delivered[id] == revision
+	s.mu.Unlock()
+
+	if changedOnly && delivered {
+		return model.ConfigurationReceipt{ServerID: id, Revision: revision}, nil
+	}
+
 	receipt, err := dispatch.Deploy(ctx, node.ID, deployment)
 	if err != nil {
 		return model.ConfigurationReceipt{}, errors.Join(ErrDeploymentUnavailable, err)
 	}
+
+	s.mu.Lock()
+	if s.delivered == nil {
+		s.delivered = make(map[string]string)
+	}
+
+	s.delivered[id] = revision
+	s.mu.Unlock()
 
 	return receipt, nil
 }

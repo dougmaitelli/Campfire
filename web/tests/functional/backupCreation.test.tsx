@@ -8,10 +8,15 @@ import {
   publishBackupImport,
   type BackupImport,
 } from "../../src/api/backupImports";
-import { BackupMode } from "../../src/api/backups";
+import { BackupMode, getBackupPolicy } from "../../src/api/backups";
 import { saveServer, type Server } from "../../src/api/servers";
 import { serverAction } from "../../src/api/runtime";
-import { RuntimeState } from "../../src/contracts/domains";
+import { BackupStorage, RuntimeState } from "../../src/contracts/domains";
+
+vi.mock("../../src/api/backups", async () => ({
+  ...(await vi.importActual("../../src/api/backups")),
+  getBackupPolicy: vi.fn(),
+}));
 
 vi.mock("../../src/api/servers", async () => ({
   ...(await vi.importActual("../../src/api/servers")),
@@ -87,6 +92,65 @@ const backup: BackupImport = {
     variables: [],
   },
 };
+
+test("metadata refreshes preserve an open editor's backup policy draft", async () => {
+  const user = userEvent.setup();
+  const original: Server = {
+    ...backup.configuration,
+    id: "existing",
+    spark_id: "spark",
+    ember_name: backup.ember.name,
+    ember_hash: "hash",
+    ember_update_available: false,
+    owner_user_id: 1,
+    permissions: [],
+    spark_name: "Spark",
+    game_address: "localhost",
+    status: RuntimeState.Running,
+    created_at: "2026-11-01T00:00:00Z",
+  };
+  vi.mocked(getBackupPolicy).mockResolvedValue({
+    s3_available: false,
+    policy: {
+      storage: BackupStorage.Local,
+      local_keep_last: 0,
+      local_max_age_days: 0,
+      remote_keep_last: 0,
+      remote_max_age_days: 0,
+    },
+  });
+  const props = {
+    server: original,
+    sparks: [
+      {
+        id: "spark",
+        name: "Spark",
+        description: "",
+        game_address: "localhost",
+        cpu_limit: 8,
+        memory_mb: 16384,
+        disk_mb: 0,
+        port_allocations: [],
+        disabled: false,
+        connected: true,
+        created_at: original.created_at,
+      },
+    ],
+    embers: [backup.ember],
+    servers: [original],
+    s3Configured: false,
+    onClose: vi.fn(),
+    onSaved: vi.fn(),
+  };
+  const view = render(<ServerDrawer {...props} />);
+  await user.click(screen.getByRole("button", { name: "Backups" }));
+  const copies = (await screen.findAllByLabelText("Local copies to keep"))[0]!;
+  await user.clear(copies);
+  await user.type(copies, "37");
+  view.rerender(<ServerDrawer {...props} server={{ ...original }} />);
+  expect(getBackupPolicy).toHaveBeenCalledOnce();
+  expect((copies as HTMLInputElement).value).toBe("37");
+});
 
 test("development effect cleanup keeps the backup token alive until explicit cancellation", async () => {
   const user = userEvent.setup();

@@ -12,6 +12,15 @@ import (
 // BeforeEdit allows saved configuration changes without disturbing the running
 // process. Reservations already in use must remain held until the server stops.
 func (s *DeploymentService) BeforeEdit(ctx context.Context, id string, input model.ServerConfiguration) (func(), error) {
+	return s.beforeEdit(ctx, id, input, false)
+}
+
+// BeforeApplyEmber checks operations and reservations even for definition-only updates.
+func (s *DeploymentService) BeforeApplyEmber(ctx context.Context, id string, input model.ServerConfiguration) (func(), error) {
+	return s.beforeEdit(ctx, id, input, true)
+}
+
+func (s *DeploymentService) beforeEdit(ctx context.Context, id string, input model.ServerConfiguration, revision bool) (func(), error) {
 	release, err := s.lockServer(ctx, id)
 	if err != nil {
 		return nil, err
@@ -29,7 +38,7 @@ func (s *DeploymentService) BeforeEdit(ctx context.Context, id string, input mod
 		return nil, err
 	}
 	// Names and descriptions never alter the runtime or its reservations.
-	if model.SameRuntimeConfiguration(server.ServerConfiguration, input) {
+	if !revision && model.SameRuntimeConfiguration(server.ServerConfiguration, input) {
 		return release, nil
 	}
 
@@ -120,30 +129,4 @@ func (s *DeploymentService) lockServer(ctx context.Context, id string) (func(), 
 		drop()
 		return nil, ctx.Err()
 	}
-}
-
-// BeforeUpdate holds the lifecycle lock through database validation and reservation changes.
-func (s *DeploymentService) BeforeUpdate(ctx context.Context, id string) (func(), error) {
-	release, err := s.lockServer(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.guardServer(ctx, id); err != nil {
-		release()
-		return nil, err
-	}
-
-	status, err := s.runActionUnlocked(ctx, id, model.ServerActionStatus, "")
-	if err != nil {
-		release()
-		return nil, err
-	}
-
-	if status.Busy || (status.State != model.RuntimeStateStopped && status.State != model.RuntimeStateNotInstalled && status.State != model.RuntimeStateDeleted) {
-		release()
-		return nil, ErrServerActive
-	}
-
-	return release, nil
 }

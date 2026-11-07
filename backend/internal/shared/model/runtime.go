@@ -95,6 +95,7 @@ type RuntimeStatus struct {
 	Error              string           `json:"error,omitempty"`
 	ErrorCode          RuntimeErrorCode `json:"error_code,omitempty"`
 	Busy               bool             `json:"busy"`
+	RestartRequired    bool             `json:"restart_required"`
 	DiskQuotaEnforced  bool             `json:"disk_quota_enforced"`
 	DiskQuotaError     string           `json:"disk_quota_error,omitempty"`
 	DiskQuotaErrorCode RuntimeErrorCode `json:"disk_quota_error_code,omitempty"`

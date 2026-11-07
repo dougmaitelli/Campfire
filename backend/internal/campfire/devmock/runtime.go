@@ -25,14 +25,15 @@ import (
 
 // Runtime implements the panel's real dispatch interfaces without opening network connections.
 type Runtime struct {
-	db            *gorm.DB
-	mu            sync.Mutex
-	games         *service.GameIntegrationService
-	gameSessions  map[string]*gameSession
-	uploads       map[string]*mockUpload
-	backupUploads map[string]*mockBackupUpload
-	now           func() time.Time
-	jobExamples   bool
+	db              *gorm.DB
+	mu              sync.Mutex
+	games           *service.GameIntegrationService
+	gameSessions    map[string]*gameSession
+	uploads         map[string]*mockUpload
+	backupUploads   map[string]*mockBackupUpload
+	now             func() time.Time
+	jobExamples     bool
+	activeRevisions map[string]string
 }
 
 type runtimeRecord struct {
@@ -108,6 +109,14 @@ func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, er
 	var record runtimeRecord
 
 	err := r.db.WithContext(ctx).Where("server_id = ? AND spark_id = ?", id, spark).Take(&record).Error
+	if r.activeRevisions == nil {
+		r.activeRevisions = make(map[string]string)
+	}
+
+	if err == nil && record.State == model.RuntimeStateRunning && r.activeRevisions[id] == "" {
+		r.activeRevisions[id] = model.ContainerRevision(record.Deployment)
+	}
+
 	if err == nil && record.TransitionAt != 0 && r.now().UnixNano() >= record.TransitionAt {
 		finishedAt := time.Unix(0, record.TransitionAt).Unix()
 		if record.State == model.RuntimeStateStopping {
@@ -115,6 +124,7 @@ func (r *Runtime) load(ctx context.Context, spark, id string) (runtimeRecord, er
 			record.StoppedAt = finishedAt
 		} else {
 			record.State = model.RuntimeStateRunning
+			r.activeRevisions[id] = model.ContainerRevision(record.Deployment)
 			record.StartedAt, record.StoppedAt = finishedAt, 0
 		}
 
@@ -210,6 +220,10 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 			return model.RuntimeStatus{}, errors.New("install the mock server before starting it")
 		}
 
+		if request.Action == model.ServerActionStart && record.State == model.RuntimeStateRunning {
+			break
+		}
+
 		record.State = model.RuntimeStateStarting
 		if request.Action == model.ServerActionRestart {
 			record.State = model.RuntimeStateRestarting
@@ -279,6 +293,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 	}
 
 	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == model.RuntimeStateRunning, Busy: record.TransitionAt != 0, OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
+	status.RestartRequired = record.State == model.RuntimeStateRunning && r.activeRevisions[record.ServerID] != model.ContainerRevision(record.Deployment)
 
 	status.LogObservation = record.LogObservation
 	if status.Busy {

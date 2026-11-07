@@ -14,7 +14,7 @@ import { RadioField } from "../components/forms/RadioField";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   APIError,
   apiFetch,
@@ -82,6 +82,11 @@ export function ServerOperationsPage({
 }) {
   const { t } = useTranslation();
   const [server, setServer] = useState<Server | null>(null);
+  const metadataGeneration = useRef(0);
+  const onServerSaved = useCallback((saved: Server) => {
+    metadataGeneration.current++;
+    setServer(saved);
+  }, []);
   const links = useResourceLinks();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +106,7 @@ export function ServerOperationsPage({
   const runtime = useServerRuntime(server ? [server.id] : []);
   const monitoring = useMonitoring();
   const status = runtime.statuses[serverID];
-  const management = useServerManagement(server, status, setServer);
+  const management = useServerManagement(server, status, onServerSaved);
   const usage = monitoring.snapshot?.servers.find(
     (item) => item.id === serverID,
   )?.usage;
@@ -145,8 +150,11 @@ export function ServerOperationsPage({
   const activeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0];
   useEffect(() => {
     const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let loaded = false;
     const requestedRoute = window.location.hash.slice(1);
     async function load() {
+      const generation = metadataGeneration.current;
       try {
         const value = await readJSON(
           await apiFetch(`/api/v1/servers/${encodeURIComponent(serverID)}`, {
@@ -160,7 +168,14 @@ export function ServerOperationsPage({
           throw new Error(
             i18n.t("serverOperationsPage.unexpectedServerResponse"),
           );
-        if (!controller.signal.aborted) setServer(value);
+        if (
+          !controller.signal.aborted &&
+          generation === metadataGeneration.current
+        ) {
+          setServer(value);
+          if (!loaded) setError(null);
+          loaded = true;
+        }
       } catch (cause) {
         if (
           !controller.signal.aborted &&
@@ -176,7 +191,7 @@ export function ServerOperationsPage({
           }
           return;
         }
-        if (!controller.signal.aborted)
+        if (!controller.signal.aborted && !loaded)
           setError(
             cause instanceof Error
               ? cause.message
@@ -185,9 +200,14 @@ export function ServerOperationsPage({
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
+      if (!controller.signal.aborted)
+        timer = setTimeout(() => void load(), 10000);
     }
     void load();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [serverID]);
   async function act(action: LifecycleAction) {
     if (!server || pending.current) return;
@@ -313,8 +333,30 @@ export function ServerOperationsPage({
           )
         }
       />
+      {server?.ember_update_available && (
+        <InlineMessage tone="warning" className="ember-update-notice">
+          <strong>{t("emberUpdate.available")}</strong>
+          <span>{t("emberUpdate.description")}</span>
+          {management.canApplyRevision ? (
+            <Button
+              disabled={management.busy || status?.busy === true}
+              onClick={management.reviewEmber}
+            >
+              {t("emberUpdate.review")}
+            </Button>
+          ) : (
+            <span>{t("emberUpdate.askAdministrator")}</span>
+          )}
+        </InlineMessage>
+      )}
       {management.error && (
         <InlineMessage role="alert">{management.error}</InlineMessage>
+      )}
+      {status?.restart_required && (
+        <InlineMessage tone="warning" className="ember-update-notice">
+          <strong>{t("emberUpdate.restartRequired")}</strong>
+          <span>{t("emberUpdate.pendingChanges")}</span>
+        </InlineMessage>
       )}
       {management.dialogs}
       {server && (
@@ -323,7 +365,7 @@ export function ServerOperationsPage({
           server={server}
           busy={status?.busy === true}
           monitorError={status?.log_monitor_error}
-          onServerSaved={setServer}
+          onServerSaved={onServerSaved}
         />
       )}
       {error && !server && <InlineMessage role="alert">{error}</InlineMessage>}

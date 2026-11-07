@@ -93,6 +93,7 @@ func (s *RuntimeStatusService) Collect(ctx context.Context) error {
 			delete(d.statuses, id)
 			delete(d.observed, id)
 			delete(d.statusSparks, id)
+			delete(d.delivered, id)
 		}
 	}
 	d.mu.Unlock()
@@ -112,6 +113,10 @@ func (s *RuntimeStatusService) Collect(ctx context.Context) error {
 				}
 
 				sample, cancel := context.WithTimeout(ctx, resourceSampleTimeout)
+				if err := d.syncChanged(sample, target.ID); err != nil && sample.Err() == nil {
+					slog.Warn("deliver saved server configuration", "server", target.ID, "error", err)
+				}
+
 				_, err := d.Action(sample, target.ID, model.ServerActionStatus)
 
 				cancel()

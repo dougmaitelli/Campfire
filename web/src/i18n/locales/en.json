@@ -926,7 +926,7 @@
     "addMapping": "Add mapping",
     "administratorManaged": "Administrator managed",
     "appliedRevision": " (applied revision)",
-    "applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration": "Applying updates the server’s Ember revision and saved configuration. Game files and backups are kept. No installer runs and the server stays stopped. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files.",
+    "applyingUpdatesTheServerSEmberRevisionAndSavedConfiguration": "Applying updates the server’s Ember revision and saved configuration. Game files and backups are kept. No installer runs. Changed container settings apply on the next restart. Use Reinstall if the revision requires new game files. Take a backup first; revision changes do not roll back game files.",
     "backgroundS3Sync": "Background S3 sync",
     "changingOwnershipAlsoRemovesThePreviousOwnerSImplicitAccess": "Changing ownership also removes the previous owner’s implicit access to this server.",
     "changingOwnershipRemovesThePreviousOwnerSImplicitAccessTo": "Changing ownership removes the previous owner’s implicit access to this server.",
@@ -1501,6 +1501,15 @@
     "capacityCritical": "{{percent}}% of allocated capacity · Critical utilization",
     "capacityHigh": "{{percent}}% of allocated capacity · High utilization",
     "utilizationUnavailable": "Utilization unavailable"
+  },
+  "emberUpdate": {
+    "available": "Ember update available",
+    "description": "An updated Ember definition is available for this server. Review and save it without stopping the server.",
+    "review": "Review Ember update",
+    "askAdministrator": "Ask an administrator to apply the updated Ember.",
+    "applyOnRestart": "Changes are saved without stopping the server. Changes to container settings take effect on the next restart.",
+    "restartRequired": "Restart required",
+    "pendingChanges": "Saved container settings differ from the running server. They will take effect on its next restart."
   },
   "gameEvents": {
     "search": "Search activity",

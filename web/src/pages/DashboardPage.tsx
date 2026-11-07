@@ -33,6 +33,7 @@ import { useMonitoring } from "../hooks/useMonitoring";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { ResourceReadings } from "../components/metrics/ResourceReadings";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
+import { ServerConfigurationNotices } from "../components/servers/ServerConfigurationNotices";
 import { ServerState } from "../components/servers/ServerState";
 import { GameArt } from "../components/media/GameArt";
 import { ServerTableRow } from "../components/servers/ServerTableRow";
@@ -74,9 +75,7 @@ export function DashboardPage() {
     OVERVIEW_REFRESH_INTERVAL_MS,
   );
   const runtime = useServerRuntime(
-    serverInventory.items
-      .filter((server) => server.permissions.includes(Permission.ServerOperate))
-      .map((server) => server.id),
+    serverInventory.items.map((server) => server.id),
   );
   const [serverActionError, setServerActionError] = useState<string | null>(
     null,
@@ -452,6 +451,14 @@ export function DashboardPage() {
                           {server.spark_name}
                         </ResourceLink>
                       </span>
+                      <ServerConfigurationNotices
+                        restartRequired={
+                          runtime.statuses[server.id]?.restart_required
+                        }
+                        server={serverInventory.items.find(
+                          (item) => item.id === server.id,
+                        )}
+                      />
                     </td>
                     {server.game && (
                       <td className="game-state-card-cell">

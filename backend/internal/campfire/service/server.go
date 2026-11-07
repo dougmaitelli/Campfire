@@ -40,14 +40,14 @@ type ServerService struct {
 	store   ServerStore
 	embers  *EmberService
 	runtime interface {
-		BeforeUpdate(context.Context, string) (func(), error)
+		BeforeApplyEmber(context.Context, string, model.ServerConfiguration) (func(), error)
 		BeforeEdit(context.Context, string, model.ServerConfiguration) (func(), error)
 	}
 }
 
 // WithRuntimeGuard serializes edits with lifecycle and reservation changes.
 func (s *ServerService) WithRuntimeGuard(guard interface {
-	BeforeUpdate(context.Context, string) (func(), error)
+	BeforeApplyEmber(context.Context, string, model.ServerConfiguration) (func(), error)
 	BeforeEdit(context.Context, string, model.ServerConfiguration) (func(), error)
 }) *ServerService {
 	s.runtime = guard
@@ -128,14 +128,15 @@ func (s *ServerService) preserveHiddenVariables(ctx context.Context, current mod
 	return input, nil
 }
 
-// ApplyEmber explicitly replaces a stopped server's pinned definition. The
-// installer is never run implicitly and the Ember identity remains unchanged.
+// ApplyEmber replaces a server's saved definition without stopping the process.
+// Container settings apply on its next start; other consumers use the saved
+// definition immediately. The installer never runs implicitly.
 func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, input model.ServerConfiguration) (model.Server, error) {
 	if s.runtime == nil {
 		return model.Server{}, ErrDeploymentUnavailable
 	}
 
-	release, err := s.runtime.BeforeUpdate(ctx, id)
+	release, err := s.runtime.BeforeApplyEmber(ctx, id, input)
 	if err != nil {
 		return model.Server{}, err
 	}
