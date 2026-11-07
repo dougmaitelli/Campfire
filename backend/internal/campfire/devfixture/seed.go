@@ -121,7 +121,7 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 
 	for i, event := range []model.GameEvent{
 		{ID: "fixture-connected", Type: "game.announcement", Title: "Game integration connected", Data: map[string]any{"game": "Minecraft"}},
-		{ID: "fixture-joined", Type: "player.joined", Title: "Alex joined the server", Data: map[string]any{"player": "Alex"}},
+		{ID: "fixture-joined", Type: "player.joined", Title: "Alex joined the server", Data: map[string]any{"player": "Alex", "state": "connected"}},
 		{ID: "fixture-advancement", Type: "minecraft.advancement", Title: "Alex earned Stone Age", Data: map[string]any{"player": "Alex", "advancement": "Stone Age"}},
 	} {
 		event.OccurredAt = now.Add(time.Duration(i-3) * time.Minute)

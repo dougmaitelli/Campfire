@@ -35,7 +35,13 @@ export interface GameEventPage {
   items: GameEvent[];
   next_before?: number;
 }
+export interface GameEventFilterOptions {
+  types: string[];
+  fields: Record<string, string[]>;
+}
 export interface GameEventFilter {
+  search?: string;
+  fields?: Record<string, string>;
   type?: string;
   from?: number;
   to?: number;
@@ -88,6 +94,31 @@ function isEvent(value: unknown, serverID: string): value is GameEvent {
   );
 }
 
+export async function readGameEventFilterOptions(
+  serverID: string,
+  signal: AbortSignal,
+): Promise<GameEventFilterOptions> {
+  const value = await readJSON(
+    await apiFetch(
+      `/api/v1/servers/${encodeURIComponent(serverID)}/events/filters`,
+      { signal },
+    ),
+  );
+  if (
+    !object(value) ||
+    !Array.isArray(value.types) ||
+    !value.types.every((type) => typeof type === "string") ||
+    !object(value.fields) ||
+    !Object.values(value.fields).every(
+      (values) =>
+        Array.isArray(values) &&
+        values.every((entry) => typeof entry === "string"),
+    )
+  )
+    throw new Error(i18n.t("gameEvents.unexpectedResponse"));
+  return value as unknown as GameEventFilterOptions;
+}
+
 export async function readGameEvents(
   serverID: string,
   filter: GameEventFilter,
@@ -95,7 +126,10 @@ export async function readGameEvents(
 ): Promise<GameEventPage> {
   const query = new URLSearchParams({ limit: "25" });
   for (const [key, value] of Object.entries(filter))
-    if (value !== undefined && value !== "") query.set(key, String(value));
+    if (key !== "fields" && value !== undefined && value !== "")
+      query.set(key, String(value));
+  for (const [field, value] of Object.entries(filter.fields ?? {}))
+    query.set(`data.${field}`, value);
   const value = await readJSON(
     await apiFetch(
       `/api/v1/servers/${encodeURIComponent(serverID)}/events?${query}`,

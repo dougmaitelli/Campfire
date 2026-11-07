@@ -346,16 +346,38 @@ deduplication window. Deleting a server also deletes its retained events.
 The authorized endpoint `GET /api/v1/servers/{id}/events` returns
 `{ "items": [...], "next_before": 123 }`. `next_before` is omitted at the end.
 Supported query parameters are `limit` (1–100, default 50), `before` (receipt-order
-ID cursor), `type` (exact namespaced type), and `from`/`to` (Unix seconds filtering
-occurrence time, inclusive start and exclusive end). Each event includes its
+ID cursor), `type` (exact namespaced type), `search` (text in the title or event
+data), `data.<field>` (a mod-provided field value), and `from`/`to` (Unix seconds
+filtering occurrence time, inclusive start and exclusive end). Each event includes its
 original `event_id`, type, title, occurrence and receipt times, source server and
 Spark IDs, and scalar data. Ordering follows receipt IDs, so clock differences
 cannot cause cursor pagination to skip events. Existing `server.view` permissions
 and token scopes protect access; operating the server is not required.
 
-The Game activity tab offers type/time filters, older-page navigation, and a
-return to newest events. The newest page refreshes every ten seconds. It presents
-game-specific event types as supplied, without assuming matches or rounds.
+The Game activity tab offers text search, type/time filters, and multiple field
+filters in one wrapping toolbar. Event types, field names, and field values are
+dropdown choices from the server's entire retained activity, including older
+pages. Field conditions are added on demand with Add field filter; none are
+shown initially or after clearing filters. For example, choose `player` with value `Alex` and `state` with value
+`connected`. Field filters match whole scalar values; choosing Any value finds
+events where that field is present. Changing a field resets its value. All
+conditions are combined, and filtering happens before pagination. Older-page
+navigation preserves the filters. Clear filters returns to the newest events.
+The newest page refreshes every ten seconds.
+
+For example, `?search=Alex&data.player=Alex&data.state=connected` combines text and
+field filters. `?data.player=` finds events with a player field regardless of its
+value. Use `true`/`false` for boolean values and their numeric text for numbers.
+Search and field values are limited to 1,024 bytes; field names follow the same
+rules as published data keys, and each name may appear once. The API accepts up
+to 32 field conditions. These filters use retained event data and require no mod
+or Spark protocol changes.
+
+`GET /api/v1/servers/{id}/events/filters` returns sorted, distinct `types` and a
+`fields` object mapping field names to their observed scalar values as strings.
+It uses the same `server.view` permissions as the events endpoint, is scoped to
+one server, and is independent of current filters and cursor pagination. The
+dropdown choices refresh every 30 seconds.
 
 ## Screenshots and clips
 

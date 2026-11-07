@@ -2,6 +2,35 @@
   min-width: 0;
   margin-block: 20px;
 }
+.game-event-field-filter {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 0;
+
+  & > .form-field {
+    width: 220px;
+    min-width: 0;
+    margin: 0;
+  }
+
+  @media (max-width: 640px) {
+    display: grid;
+    flex: 1 1 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    & > .form-field {
+      width: auto;
+      grid-column: 1;
+    }
+
+    & > .button {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      align-self: center;
+    }
+  }
+}
 .game-event-list {
   display: grid;
   gap: 12px;
@@ -40,7 +69,6 @@
 }
 .game-event-list dt {
   color: var(--muted);
-  text-transform: capitalize;
 }
 .game-event-list dd {
   margin: 0;

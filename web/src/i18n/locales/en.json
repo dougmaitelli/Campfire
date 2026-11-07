@@ -1503,6 +1503,16 @@
     "utilizationUnavailable": "Utilization unavailable"
   },
   "gameEvents": {
+    "search": "Search activity",
+    "searchPlaceholder": "Titles, player names or other details",
+    "field": "Event field",
+    "value": "Field value",
+    "selectField": "Select a field",
+    "allValues": "Any value",
+    "retryOptions": "Retry filter options",
+    "addFieldFilter": "Add field filter",
+    "removeFieldFilter": "Remove field filter {{index}}",
+    "invalidFields": "Use each field name once. Names must start with a lowercase letter and contain only lowercase letters, numbers, dots, hyphens or underscores.",
     "downloadMedia": "Download {{name}}",
     "title": "Game activity",
     "type": "Event type",

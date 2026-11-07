@@ -1,9 +1,10 @@
 import { API_READ_TIMEOUT_MS } from "../../api/client";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   gameMediaURL,
   readGameEvents,
+  readGameEventFilterOptions,
   type GameEventFilter,
 } from "../../api/gameEvents";
 import { useCollection } from "../../hooks/useCollection";
@@ -11,19 +12,46 @@ import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
+import { Select } from "../forms/Select";
 import { DateTimeInput } from "../forms/DateTimeInput";
 import { InlineMessage } from "../status/InlineMessage";
 import { ContentState } from "../layout/ContentState";
 import { ListToolbar } from "../layout/ListToolbar";
+import { NavigationIcon } from "../navigation/NavigationIcon";
+import { GameLimits } from "../../config/policies";
 import "./game-events.css";
 
 export function ServerGameEvents({ serverID }: { serverID: string }) {
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState("");
+  const [search, setSearch] = useState("");
+  const [fields, setFields] = useState<
+    { id: number; field: string; value: string }[]
+  >([]);
+  const nextFieldID = useRef(1);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [filter, setFilter] = useState<GameEventFilter>({});
+  const loadOptions = useCallback(
+    async (signal: AbortSignal) => [
+      {
+        id: serverID,
+        ...(await readGameEventFilterOptions(
+          serverID,
+          AbortSignal.any([signal, AbortSignal.timeout(API_READ_TIMEOUT_MS)]),
+        )),
+      },
+    ],
+    [serverID],
+  );
+  const {
+    items: optionResults,
+    error: optionsError,
+    refresh: refreshOptions,
+  } = useCollection(loadOptions, 30000);
+  const options = optionResults.find((item) => item.id === serverID);
+  const fieldNames = Object.keys(options?.fields ?? {}).sort();
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const start = from
@@ -38,8 +66,24 @@ export function ServerGameEvents({ serverID }: { serverID: string }) {
       setError(t("gameEvents.invalidRange"));
       return;
     }
+    const dataFields: Record<string, string> = {};
+    for (const entry of fields) {
+      const field = entry.field.trim();
+      const value = entry.value;
+      if (!field && !value) continue;
+      if (
+        !/^[a-z][a-z0-9._-]{0,63}$/.test(field) ||
+        Object.hasOwn(dataFields, field)
+      ) {
+        setError(t("gameEvents.invalidFields"));
+        return;
+      }
+      dataFields[field] = value;
+    }
     setError(null);
     setFilter({
+      ...(search.trim() ? { search: search.trim() } : {}),
+      ...(Object.keys(dataFields).length ? { fields: dataFields } : {}),
       ...(type.trim() ? { type: type.trim() } : {}),
       ...(start !== undefined ? { from: start } : {}),
       ...(end !== undefined ? { to: end } : {}),
@@ -50,13 +94,28 @@ export function ServerGameEvents({ serverID }: { serverID: string }) {
       <h2>{t("gameEvents.title")}</h2>
       <form onSubmit={apply}>
         <ListToolbar>
-          <FormField label={t("gameEvents.type")}>
+          <FormField label={t("gameEvents.search")}>
             <TextInput
-              value={type}
-              onChange={(event) => setType(event.target.value)}
-              maxLength={64}
-              placeholder={t("gameEvents.allTypes")}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              maxLength={GameLimits.FieldStringLength}
+              placeholder={t("gameEvents.searchPlaceholder")}
             />
+          </FormField>
+          <FormField label={t("gameEvents.type")}>
+            <Select value={type} onValueChange={setType} disabled={!options}>
+              <option value="">{t("gameEvents.allTypes")}</option>
+              {[
+                ...new Set([
+                  ...(options?.types ?? []),
+                  ...(type ? [type] : []),
+                ]),
+              ].map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </Select>
           </FormField>
           <FormField label={t("gameEvents.from")}>
             <DateTimeInput
@@ -70,11 +129,108 @@ export function ServerGameEvents({ serverID }: { serverID: string }) {
               onChange={(event) => setTo(event.target.value)}
             />
           </FormField>
+          {fields.map((entry, index) => (
+            <div className="game-event-field-filter" key={entry.id}>
+              <FormField label={t("gameEvents.field")}>
+                <Select
+                  value={entry.field}
+                  disabled={!options}
+                  onValueChange={(field) =>
+                    setFields((current) =>
+                      current.map((item) =>
+                        item.id === entry.id
+                          ? { ...item, field, value: "" }
+                          : item,
+                      ),
+                    )
+                  }
+                >
+                  <option value="">{t("gameEvents.selectField")}</option>
+                  {[
+                    ...new Set([
+                      ...fieldNames,
+                      ...(entry.field ? [entry.field] : []),
+                    ]),
+                  ].map((field) => (
+                    <option
+                      key={field}
+                      value={field}
+                      disabled={fields.some(
+                        (item) => item.id !== entry.id && item.field === field,
+                      )}
+                    >
+                      {field}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField label={t("gameEvents.value")}>
+                <Select
+                  value={entry.value}
+                  disabled={!entry.field || !options}
+                  onValueChange={(value) =>
+                    setFields((current) =>
+                      current.map((item) =>
+                        item.id === entry.id ? { ...item, value } : item,
+                      ),
+                    )
+                  }
+                >
+                  <option value="">{t("gameEvents.allValues")}</option>
+                  {[
+                    ...new Set([
+                      ...(options?.fields[entry.field] ?? []),
+                      ...(entry.value ? [entry.value] : []),
+                    ]),
+                  ].map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <Button
+                type="button"
+                iconOnly
+                aria-label={t("gameEvents.removeFieldFilter", {
+                  index: index + 1,
+                })}
+                onClick={() => {
+                  setFields((current) =>
+                    current.filter((item) => item.id !== entry.id),
+                  );
+                }}
+              >
+                <NavigationIcon name="close" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            disabled={
+              fields.length >= GameLimits.Fields ||
+              !fieldNames.some(
+                (field) => !fields.some((entry) => entry.field === field),
+              )
+            }
+            onClick={() => {
+              const entry = { id: nextFieldID.current++, field: "", value: "" };
+              setFields((current) =>
+                current.length >= GameLimits.Fields
+                  ? current
+                  : [...current, entry],
+              );
+            }}
+          >
+            {t("gameEvents.addFieldFilter")}
+          </Button>
           <Button type="submit">{t("gameEvents.apply")}</Button>
           <Button
             type="button"
             onClick={() => {
               setType("");
+              setSearch("");
+              setFields([]);
               setFrom("");
               setTo("");
               setError(null);
@@ -85,6 +241,14 @@ export function ServerGameEvents({ serverID }: { serverID: string }) {
           </Button>
         </ListToolbar>
       </form>
+      {optionsError && (
+        <InlineMessage role="alert">
+          {optionsError}
+          <Button onClick={() => void refreshOptions()}>
+            {t("gameEvents.retryOptions")}
+          </Button>
+        </InlineMessage>
+      )}
       {error && <InlineMessage role="alert">{error}</InlineMessage>}
       <GameEventResults
         key={`${serverID}:${JSON.stringify(filter)}`}
@@ -214,7 +378,7 @@ function GameEventResults({
                 <dl>
                   {Object.entries(event.data).map(([key, value]) => (
                     <div key={key}>
-                      <dt>{key.replace(/[_.-]+/g, " ")}</dt>
+                      <dt>{key}</dt>
                       <dd>
                         {typeof value === "boolean"
                           ? t(value ? "gameState.yes" : "gameState.no")

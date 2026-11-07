@@ -2,10 +2,15 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -21,7 +26,24 @@ type GameEventQuery struct {
 	From   int64
 	To     int64
 	Type   string
+	Search string
+	Fields map[string]string
 	Limit  int
+}
+
+// ValidFilters bounds user-supplied searches and mod-defined field conditions.
+func (q GameEventQuery) ValidFilters() bool {
+	if q.Type != "" && !model.ValidGameEventType(q.Type) || len(q.Search) > limits.GameFieldStringLength || !utf8.ValidString(q.Search) || strings.ContainsRune(q.Search, 0) || len(q.Fields) > limits.GameFields {
+		return false
+	}
+
+	for field, value := range q.Fields {
+		if !model.ValidGameEventType(field) || len(value) > limits.GameFieldStringLength || !utf8.ValidString(value) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // GameEventPage contains a bounded page and its next receipt-order cursor.
@@ -30,11 +52,88 @@ type GameEventPage struct {
 	NextBefore int64                `json:"next_before,omitempty"`
 }
 
+// GameEventFilterOptions contains choices from a server's entire retained history.
+type GameEventFilterOptions struct {
+	Types  []string            `json:"types"`
+	Fields map[string][]string `json:"fields"`
+}
+
 // GameEventRepository owns durable deduplication and bounded retained history.
 type GameEventRepository struct{ db *gorm.DB }
 
 // NewGameEventRepository uses the panel's shared transactional database.
 func NewGameEventRepository(db *gorm.DB) *GameEventRepository { return &GameEventRepository{db: db} }
+
+// FilterOptions streams only the columns needed for dropdown choices, independently
+// of the displayed page or active filters.
+func (r *GameEventRepository) FilterOptions(ctx context.Context, serverID string) (GameEventFilterOptions, error) {
+	options := GameEventFilterOptions{Types: []string{}, Fields: map[string][]string{}}
+
+	rows, err := r.db.WithContext(ctx).Model(&database.GameEvent{}).Select("type", "data").Where("server_id = ?", serverID).Rows()
+	if err != nil {
+		return options, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	types := map[string]struct{}{}
+	fields := map[string]map[string]struct{}{}
+
+	for rows.Next() {
+		var eventType string
+
+		var raw []byte
+
+		if err := rows.Scan(&eventType, &raw); err != nil {
+			return options, err
+		}
+
+		types[eventType] = struct{}{}
+
+		var data map[string]any
+		if len(raw) > 0 {
+			if err := json.Unmarshal(raw, &data); err != nil {
+				return options, err
+			}
+		}
+
+		for field, value := range data {
+			if fields[field] == nil {
+				fields[field] = map[string]struct{}{}
+			}
+
+			text, ok := value.(string)
+			if !ok {
+				encoded, err := json.Marshal(value)
+				if err != nil {
+					return options, err
+				}
+
+				text = string(encoded)
+			}
+
+			if text != "" {
+				fields[field][text] = struct{}{}
+			}
+		}
+	}
+
+	for eventType := range types {
+		options.Types = append(options.Types, eventType)
+	}
+
+	slices.Sort(options.Types)
+
+	for field, values := range fields {
+		options.Fields[field] = []string{}
+		for value := range values {
+			options.Fields[field] = append(options.Fields[field], value)
+		}
+
+		slices.Sort(options.Fields[field])
+	}
+
+	return options, rows.Err()
+}
 
 // Append commits the event, source check, and retention changes together.
 func (r *GameEventRepository) Append(ctx context.Context, sparkID, serverID string, event model.GameEvent, now time.Time, retention time.Duration, maximum int) error {
@@ -78,6 +177,10 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 		return page, errors.New("invalid game event page limit")
 	}
 
+	if !input.ValidFilters() {
+		return page, errors.New("invalid game event filter")
+	}
+
 	query := r.db.WithContext(ctx).Preload("Attachments", func(db *gorm.DB) *gorm.DB { return db.Omit("Data").Order("id") }).Where("server_id = ?", serverID)
 	if input.Before > 0 {
 		query = query.Where("id < ?", input.Before)
@@ -85,6 +188,25 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 
 	if input.Type != "" {
 		query = query.Where("type = ?", input.Type)
+	}
+
+	if input.Search != "" {
+		encoded, _ := json.Marshal(strings.ToLower(input.Search))
+		textPattern := eventLikePattern(strings.ToLower(input.Search))
+		dataPattern := eventLikePattern(string(encoded[1 : len(encoded)-1]))
+
+		query = query.Where("(LOWER(title) LIKE ? ESCAPE '!' OR LOWER(data) LIKE ? ESCAPE '!')", textPattern, dataPattern)
+	}
+
+	for field, value := range input.Fields {
+		patterns := eventFieldPatterns(field, value)
+		condition := r.db.Where("LOWER(data) LIKE ? ESCAPE '!'", patterns[0])
+
+		for _, pattern := range patterns[1:] {
+			condition = condition.Or("LOWER(data) LIKE ? ESCAPE '!'", pattern)
+		}
+
+		query = query.Where(condition)
 	}
 
 	if input.From > 0 {
@@ -105,6 +227,37 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 	}
 
 	return page, nil
+}
+
+func eventLikePattern(value string) string {
+	return "%" + strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(value) + "%"
+}
+
+// Data uses the compact encoding/json serializer on both supported databases.
+// Complete key/value fragments distinguish field values from text in other fields.
+func eventFieldPatterns(field, value string) []string {
+	key, _ := json.Marshal(field)
+	prefix := string(key) + ":"
+
+	if value == "" {
+		return []string{eventLikePattern(prefix)}
+	}
+
+	value = strings.ToLower(value)
+	quoted, _ := json.Marshal(value)
+	patterns := []string{eventLikePattern(prefix + string(quoted))}
+
+	var scalar any
+
+	if json.Unmarshal([]byte(value), &scalar) == nil {
+		switch scalar.(type) {
+		case bool, float64:
+			encoded, _ := json.Marshal(scalar)
+			patterns = append(patterns, eventLikePattern(prefix+string(encoded)+","), eventLikePattern(prefix+string(encoded)+"}"))
+		}
+	}
+
+	return patterns
 }
 
 // Prune also enforces reduced limits and expiration when no new events arrive.
