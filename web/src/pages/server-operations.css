@@ -31,14 +31,28 @@
   min-width: 0;
 }
 .ember-update-notice {
-  display: flex;
+  display: grid;
   align-items: center;
-  flex-wrap: wrap;
   gap: 8px 12px;
 
-  & > strong,
-  & > span {
-    flex-basis: 100%;
+  & > .button {
+    justify-self: start;
+  }
+}
+
+@media (width > 48rem) {
+  .ember-update-notice:has(> .button) {
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    & > strong,
+    & > span {
+      grid-column: 1;
+    }
+
+    & > .button {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
   }
 }
 .server-operations:has(> .server-install-empty) {

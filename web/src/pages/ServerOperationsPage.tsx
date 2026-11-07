@@ -333,6 +333,26 @@ export function ServerOperationsPage({
           )
         }
       />
+      {server &&
+        !showInstallEmpty &&
+        monitoring.snapshot?.sparks?.some(
+          (spark) =>
+            spark.id === server.spark_id && spark.agent_update_available,
+        ) && (
+          <InlineMessage tone="warning">
+            <Trans
+              i18nKey="serverOperationsPage.thisServerSSparkNodeIsNotRunningTheLatest"
+              t={t}
+              components={{
+                a: (
+                  <a href="#sparks">
+                    {t("serverOperationsPage.goToSparksToUpdateIt")}
+                  </a>
+                ),
+              }}
+            />
+          </InlineMessage>
+        )}
       {server?.ember_update_available && (
         <InlineMessage tone="warning" className="ember-update-notice">
           <strong>{t("emberUpdate.available")}</strong>
@@ -379,24 +399,6 @@ export function ServerOperationsPage({
           </div>
         ) : (
           <>
-            {monitoring.snapshot?.sparks?.some(
-              (spark) =>
-                spark.id === server.spark_id && spark.agent_update_available,
-            ) && (
-              <InlineMessage tone="warning">
-                <Trans
-                  i18nKey="serverOperationsPage.thisServerSSparkNodeIsNotRunningTheLatest"
-                  t={t}
-                  components={{
-                    a: (
-                      <a href="#sparks">
-                        {t("serverOperationsPage.goToSparksToUpdateIt")}
-                      </a>
-                    ),
-                  }}
-                />
-              </InlineMessage>
-            )}
             <div className="operations-resources">
               <GameStateReadings
                 game={
