@@ -1,6 +1,8 @@
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ResourceLink } from "../components/navigation/ResourceLink";
+import { ButtonLink } from "../components/forms/Button";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { useCallback, useId, useState } from "react";
 import { apiFetch, readJSON } from "../api/client";
@@ -22,7 +24,12 @@ type Details = Server & { runtime: RuntimeStatus | undefined };
 
 type Props = Omit<
   ResourceDetailsDrawerProps<Details>,
-  "loadDetails" | "children" | "description" | "editLabel" | "refresh"
+  | "loadDetails"
+  | "children"
+  | "description"
+  | "editLabel"
+  | "refresh"
+  | "headingActions"
 > & {
   id: string;
   initialTab?: "details" | "jobs";
@@ -70,6 +77,27 @@ export function ServerDetailsDrawer({
       editLabel={t("serverDetailsDrawer.editServer")}
       loadDetails={loadDetails}
       refresh={revision}
+      headingActions={(server) => (
+        <ButtonLink
+          variant="primary"
+          href={`#servers/${encodeURIComponent(server.id)}/console`}
+          iconOnly
+          aria-label={t("serversPage.openConsole", { serverName: server.name })}
+          title={t("serversPage.console")}
+          onClick={(event) => {
+            if (
+              event.button === 0 &&
+              !event.metaKey &&
+              !event.ctrlKey &&
+              !event.shiftKey &&
+              !event.altKey
+            )
+              props.onClose();
+          }}
+        >
+          <NavigationIcon name="terminal" />
+        </ButtonLink>
+      )}
     >
       {(server) => {
         const canViewJobs =

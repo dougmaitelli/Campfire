@@ -647,6 +647,13 @@ test("resource inspection keeps the current page and supports nested drawers", a
     "server-inspection-mobile.png",
     page.getByRole("dialog"),
   );
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(
+    page.getByRole("dialog").getByRole("link", {
+      name: "Open console for Survival",
+      exact: true,
+    }),
+  ).toBeInViewport({ ratio: 1 });
   await page.setViewportSize({ width: 1400, height: 900 });
   await page
     .getByRole("dialog")
@@ -669,11 +676,13 @@ test("resource inspection keeps the current page and supports nested drawers", a
   await expect(page.locator("dialog[open]")).toHaveCount(1);
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "Close", exact: true })
-    .first()
+    .getByRole("link", { name: "Open console for Survival", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page).toHaveURL(/#schedules$/);
+  await expect(page).toHaveURL(/#servers\/survival\/console$/);
+  await expect(
+    page.getByRole("region", { name: "Console output", exact: true }),
+  ).toContainText("Saved the game");
 
   for (const [screen, heading, resource] of [
     ["servers", "Servers", "Survival"],
@@ -691,7 +700,46 @@ test("resource inspection keeps the current page and supports nested drawers", a
       dialog.getByRole("heading", { level: 2, name: new RegExp(resource) }),
     ).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+    if (screen === "servers")
+      await screenshot(
+        page,
+        "server-drawer-header.png",
+        dialog.locator(".panel-heading"),
+      );
     await page.setViewportSize({ width: 390, height: 844 });
+    if (screen === "servers") {
+      await screenshot(
+        page,
+        "server-drawer-header-mobile.png",
+        dialog.locator(".panel-heading"),
+      );
+      await page.setViewportSize({ width: 320, height: 844 });
+      expect(
+        await dialog.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+      const consoleLink = dialog.getByRole("link", {
+        name: "Open console for Survival",
+        exact: true,
+      });
+      await expect(consoleLink).toHaveAttribute(
+        "href",
+        "#servers/survival/console",
+      );
+      await expect(consoleLink).toBeInViewport({ ratio: 1 });
+      await expect(
+        dialog.getByRole("button", { name: "Actions", exact: true }),
+      ).toBeInViewport({ ratio: 1 });
+      await consoleLink.focus();
+      await page.keyboard.press("Enter");
+      await expect(dialog).toHaveCount(0);
+      await expect(page).toHaveURL(/#servers\/survival\/console$/);
+      await expect(
+        page.getByRole("region", { name: "Console output", exact: true }),
+      ).toContainText("Saved the game");
+      continue;
+    }
     await dialog
       .getByRole("button", { name: "Close", exact: true })
       .first()

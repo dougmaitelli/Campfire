@@ -15,6 +15,7 @@ interface DrawerProps {
   footerLeft: ReactNode;
   footerRight: ReactNode;
   actions?: ActionMenuItem[] | undefined;
+  headingActions?: ReactNode;
   leading?: ReactNode;
 }
 
@@ -27,6 +28,7 @@ export function Drawer({
   footerLeft,
   footerRight,
   actions,
+  headingActions,
   leading,
 }: DrawerProps) {
   const { t } = useTranslation();
@@ -56,6 +58,7 @@ export function Drawer({
         leading={leading}
         headingActions={
           <>
+            {headingActions}
             {actions && actions.length > 0 && (
               <ActionMenu label={t("common.actions")} items={actions} />
             )}

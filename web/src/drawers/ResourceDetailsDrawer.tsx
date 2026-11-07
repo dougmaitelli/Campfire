@@ -25,6 +25,7 @@ export function ResourceDetailsDrawer<T>({
   deleting = false,
   actionError,
   actions,
+  headingActions,
 }: ResourceDetailsDrawerProps<T>) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<T | null>(null);
@@ -66,6 +67,7 @@ export function ResourceDetailsDrawer<T>({
       busy={deleting}
       onClose={onClose}
       actions={actions}
+      headingActions={details && headingActions?.(details)}
       footerLeft={
         <Button type="button" disabled={deleting} onClick={onClose}>
           {t("common.close")}
@@ -124,4 +126,5 @@ export interface ResourceDetailsDrawerProps<T> {
   deleting?: boolean;
   actionError?: string | null;
   actions?: ActionMenuItem[];
+  headingActions?: (details: T) => ReactNode;
 }
