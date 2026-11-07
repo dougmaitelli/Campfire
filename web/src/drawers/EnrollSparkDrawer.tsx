@@ -102,7 +102,6 @@ export function EnrollSparkDrawer({
             )}
           </span>
           <SparkConnectionState
-            disabled={spark.disabled}
             connected={spark.connected}
             version={spark.agent_version}
           />

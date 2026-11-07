@@ -11,7 +11,7 @@ import { useRef, useState } from "react";
 import { deleteUser, saveUser, type Role, type User } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
-import { CheckboxField } from "../components/forms/CheckboxField";
+import { ToggleSwitch } from "../components/forms/ToggleSwitch";
 import { useAuthentication } from "../hooks/useAuthentication";
 
 export function UserDrawer({
@@ -244,13 +244,14 @@ export function UserDrawer({
               ))}
           </Select>
         </FormField>
-        <CheckboxField
-          checked={disabled}
-          disabled={busy}
-          onChange={(event) => setDisabled(event.target.checked)}
-        >
-          {t("common.disabled")}
-        </CheckboxField>
+        <FormField label={t("common.enabled")}>
+          <ToggleSwitch
+            aria-label={t("common.enabled")}
+            checked={!disabled}
+            disabled={busy}
+            onChange={(event) => setDisabled(!event.target.checked)}
+          />
+        </FormField>
         <p className="field-help">
           {t("userDrawer.usersAccessServersThroughOwnershipOrAServerRoleOnly")}
         </p>

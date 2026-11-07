@@ -6,6 +6,7 @@ import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import { formatBytes, BYTES_PER_MEBIBYTE } from "../../utils/formatBytes";
 import type { ReactNode } from "react";
+import { ToggleSwitch } from "../forms/ToggleSwitch";
 
 export function ServerReview({
   value,
@@ -38,7 +39,11 @@ export function ServerReview({
         <DetailItem label={t("common.ember")}>{emberName}</DetailItem>
         <DetailItem label={t("serverReview.image")}>{value.image}</DetailItem>
         <DetailItem label={t("serverDrawer.gameIntegration")}>
-          {value.game_integration ? t("common.enabled") : t("common.disabled")}
+          <ToggleSwitch
+            aria-label={t("serverDrawer.gameIntegration")}
+            checked={value.game_integration ?? false}
+            disabled
+          />
         </DetailItem>
         {value.startup_command && (
           <DetailItem label={t("serverReview.startupCommand")}>
@@ -80,9 +85,15 @@ export function ServerReview({
         {Object.entries(value.variables).map(([name, content]) => (
           <DetailItem key={name} label={<>{name}</>}>
             {variableTypes?.[name] === "boolean" &&
-            (content === "0" || content === "1")
-              ? t(content === "1" ? "common.enabled" : "common.disabled")
-              : content || "(empty)"}
+            (content === "0" || content === "1") ? (
+              <ToggleSwitch
+                aria-label={name}
+                checked={content === "1"}
+                disabled
+              />
+            ) : (
+              content || "(empty)"
+            )}
           </DetailItem>
         ))}
       </DetailsList>

@@ -5,6 +5,7 @@ import type { Schedule } from "../api/activity";
 import type { Server } from "../api/servers";
 import { Button } from "../components/forms/Button";
 import { ToggleSwitch } from "../components/forms/ToggleSwitch";
+import { Checkbox } from "../components/forms/Checkbox";
 import { DetailsList, DetailItem } from "../components/layout/DetailsList";
 import { Drawer } from "../components/layout/Drawer";
 import { ResourceLink } from "../components/navigation/ResourceLink";
@@ -74,6 +75,13 @@ export function ScheduleDetailsDrawer({
               {server?.name ?? schedule.server_id}
             </ResourceLink>
           </DetailItem>
+          <DetailItem label={t("common.enabled")}>
+            <ToggleSwitch
+              aria-label={t("common.enabled")}
+              checked={schedule.enabled}
+              disabled
+            />
+          </DetailItem>
           <DetailItem label={t("scheduleDrawer.action")}>
             {operationLabel(schedule.action)}
           </DetailItem>
@@ -87,7 +95,7 @@ export function ScheduleDetailsDrawer({
                 )}
               </DetailItem>
               <DetailItem label={t("scheduleDrawer.stopServerDuringBackup")}>
-                <ToggleSwitch
+                <Checkbox
                   aria-label={t("scheduleDrawer.stopServerDuringBackup")}
                   checked={!!schedule.backup_stop_server}
                   disabled
@@ -95,15 +103,8 @@ export function ScheduleDetailsDrawer({
               </DetailItem>
             </>
           )}
-          <DetailItem label={t("common.enabled")}>
-            <ToggleSwitch
-              aria-label={t("common.enabled")}
-              checked={schedule.enabled}
-              disabled
-            />
-          </DetailItem>
           <DetailItem label={t("scheduleDrawer.recurring")}>
-            <ToggleSwitch
+            <Checkbox
               aria-label={t("scheduleDrawer.recurring")}
               checked={!!schedule.cron_expression}
               disabled
@@ -140,7 +141,7 @@ export function ScheduleDetailsDrawer({
             </ResourceLink>
           </DetailItem>
           <DetailItem label={t("scheduleDrawer.onlyRunWhenTheServerIsRunning")}>
-            <ToggleSwitch
+            <Checkbox
               aria-label={t("scheduleDrawer.onlyRunWhenTheServerIsRunning")}
               checked={schedule.only_when_running}
               disabled

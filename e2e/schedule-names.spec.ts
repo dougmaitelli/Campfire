@@ -41,7 +41,7 @@ test("new schedule names follow selections and persist without being typed", asy
   await expect(name).toHaveValue(
     "Survival - Hourly Restart (America/Los_Angeles)",
   );
-  const recurring = drawer.getByRole("switch", {
+  const recurring = drawer.getByRole("checkbox", {
     name: "Recurring",
     exact: true,
   });
@@ -85,7 +85,7 @@ test("new schedule names follow selections and persist without being typed", asy
     name: "Edit schedule",
     exact: true,
   });
-  const editRecurring = editing.getByRole("switch", {
+  const editRecurring = editing.getByRole("checkbox", {
     name: "Recurring",
     exact: true,
   });

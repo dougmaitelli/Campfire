@@ -6,6 +6,7 @@ import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { ToggleSwitch } from "../components/forms/ToggleSwitch";
+import { Checkbox } from "../components/forms/Checkbox";
 import { DateTimeInput } from "../components/forms/DateTimeInput";
 import { Select } from "../components/forms/Select";
 import { useRef, useState } from "react";
@@ -23,7 +24,6 @@ import {
   formatScheduleName,
   scheduleActionLabel,
 } from "../utils/formatScheduleName";
-import "./schedule-drawer.css";
 
 export function ScheduleDrawer({
   schedule,
@@ -266,24 +266,14 @@ export function ScheduleDrawer({
             ))}
           </Select>
         </FormField>
-        <div className="schedule-options-row">
-          <FormField label={t("common.enabled")}>
-            <ToggleSwitch
-              aria-label={t("common.enabled")}
-              checked={enabled}
-              disabled={busy}
-              onChange={(event) => setEnabled(event.target.checked)}
-            />
-          </FormField>
-          <FormField label={t("scheduleDrawer.recurring")}>
-            <ToggleSwitch
-              aria-label={t("scheduleDrawer.recurring")}
-              checked={!once}
-              disabled={busy}
-              onChange={(event) => setOnce(!event.target.checked)}
-            />
-          </FormField>
-        </div>
+        <FormField label={t("common.enabled")}>
+          <ToggleSwitch
+            aria-label={t("common.enabled")}
+            checked={enabled}
+            disabled={busy}
+            onChange={(event) => setEnabled(event.target.checked)}
+          />
+        </FormField>
         <FormField label={t("scheduleDrawer.action")}>
           <Select id="schedule-action" value={action} onValueChange={setAction}>
             {allowedActions(serverID).map((value) => (
@@ -332,6 +322,14 @@ export function ScheduleDrawer({
             </FormField>
           </>
         )}
+        <FormField label={t("scheduleDrawer.recurring")}>
+          <Checkbox
+            aria-label={t("scheduleDrawer.recurring")}
+            checked={!once}
+            disabled={busy}
+            onChange={(event) => setOnce(!event.target.checked)}
+          />
+        </FormField>
         {once ? (
           <FormField
             label={t("scheduleDrawer.runAt")}

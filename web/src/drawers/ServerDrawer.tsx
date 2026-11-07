@@ -13,6 +13,7 @@ import "./server-drawer.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import { ToggleSwitch } from "../components/forms/ToggleSwitch";
 import { Textarea } from "../components/forms/Textarea";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Button } from "../components/forms/Button";
@@ -705,15 +706,19 @@ export function ServerDrawer({
               >
                 {t("serverDrawer.resetStartupCommand")}
               </Button>
-              <CheckboxField
-                checked={value.game_integration ?? false}
-                disabled={runtimeRestricted}
-                onChange={(event) =>
-                  setValue({ ...value, game_integration: event.target.checked })
-                }
-              >
-                {t("serverDrawer.gameIntegration")}
-              </CheckboxField>
+              <FormField label={t("serverDrawer.gameIntegration")}>
+                <ToggleSwitch
+                  aria-label={t("serverDrawer.gameIntegration")}
+                  checked={value.game_integration ?? false}
+                  disabled={runtimeRestricted}
+                  onChange={(event) =>
+                    setValue({
+                      ...value,
+                      game_integration: event.target.checked,
+                    })
+                  }
+                />
+              </FormField>
               <p className="field-help">
                 {t("serverDrawer.gameIntegrationHelp")}
               </p>
@@ -995,21 +1000,23 @@ export function ServerDrawer({
                 ) : backupPolicy ? (
                   <>
                     <FormField label={t("serverDrawer.backgroundS3Sync")}>
-                      <Select
+                      <ToggleSwitch
                         id="backup-storage"
-                        value={backupPolicy.storage}
-                        onValueChange={(selectedValue) =>
+                        aria-label={t("serverDrawer.backgroundS3Sync")}
+                        checked={backupPolicy.storage === BackupStorage.S3}
+                        disabled={
+                          !s3Available &&
+                          backupPolicy.storage !== BackupStorage.S3
+                        }
+                        onChange={(event) =>
                           changeBackupPolicy({
                             ...backupPolicy,
-                            storage: selectedValue,
+                            storage: event.target.checked
+                              ? BackupStorage.S3
+                              : BackupStorage.Local,
                           })
                         }
-                      >
-                        <option value="local">{t("common.disabled")}</option>
-                        <option value="s3" disabled={!s3Available}>
-                          {t("common.enabled")}
-                        </option>
-                      </Select>
+                      />
                     </FormField>
                     {!s3Available && (
                       <p className="field-help">

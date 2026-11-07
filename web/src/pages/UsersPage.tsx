@@ -13,7 +13,7 @@ import { listRoles, listUsers, type User } from "../api/access";
 import { useCollection } from "../hooks/useCollection";
 import { useAuthentication } from "../hooks/useAuthentication";
 import { UserDrawer } from "../drawers/UserDrawer";
-import { StatusPill } from "../components/status/StatusPill";
+import { ToggleSwitch } from "../components/forms/ToggleSwitch";
 
 import { Table, TableRow } from "../components/table/Table";
 import { useResourceSelection } from "../routing/useResourceSelection";
@@ -91,7 +91,7 @@ export function UsersPage() {
             <tr>
               <th>{t("common.user")}</th>
               <th>{t("common.platformRole")}</th>
-              <th>{t("common.status")}</th>
+              <th>{t("common.enabled")}</th>
             </tr>
           </thead>
           <tbody>
@@ -119,11 +119,11 @@ export function UsersPage() {
                   </ResourceLink>
                 </td>
                 <td>
-                  <StatusPill tone={user.disabled ? "warning" : "positive"}>
-                    {user.disabled
-                      ? i18n.t("common.disabled")
-                      : i18n.t("common.enabled")}
-                  </StatusPill>
+                  <ToggleSwitch
+                    aria-label={t("common.enabled")}
+                    checked={!user.disabled}
+                    disabled
+                  />
                 </td>
               </TableRow>
             ))}

@@ -119,9 +119,15 @@ test("read-only reviews format only declared booleans and preserve empty values"
       notice=""
     />,
   );
+  for (const [name, checked] of [
+    ["FLAG_ON", true],
+    ["FLAG_OFF", false],
+  ] as const) {
+    const toggle = screen.getByRole<HTMLInputElement>("switch", { name });
+    expect(toggle.checked).toBe(checked);
+    expect(toggle.disabled).toBe(true);
+  }
   for (const [name, value] of [
-    ["FLAG_ON", "Enabled"],
-    ["FLAG_OFF", "Disabled"],
     ["TEXT", "1"],
     ["EMPTY", "(empty)"],
   ]) {

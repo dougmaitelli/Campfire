@@ -1279,7 +1279,7 @@
     "gamePortsAvailableOnThisSparkUseTheSameStart": "Game ports available on this Spark. Use the same start and end for one port; 0.0.0.0 binds all IPv4 interfaces.",
     "gamesExampleComOrAnIP": "games.example.com or an IP",
     "general": "General",
-    "keepThisSparkUnavailableForHostingGameServers": "Keep this Spark unavailable for hosting game servers.",
+    "allowThisSparkToHostGameServers": "Allow this Spark to host game servers.",
     "loadingRoles": "Loading roles…",
     "manageThisNodeSCapacityNetworkAndAvailability": "Manage this node’s capacity, network, and availability.",
     "memoryMiB": "Memory (MiB)",

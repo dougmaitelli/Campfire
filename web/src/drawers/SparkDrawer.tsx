@@ -24,7 +24,7 @@ import type { PortAllocation, Spark, SparkSettings } from "../api/sparks";
 import { Wizard } from "../components/wizard/Wizard";
 import { SparkReview } from "../components/sparks/SparkReview";
 import { Drawer } from "../components/layout/Drawer";
-import { CheckboxField } from "../components/forms/CheckboxField";
+import { ToggleSwitch } from "../components/forms/ToggleSwitch";
 import "./spark-drawer.css";
 import { AccessGrantFields } from "../components/forms/AccessGrantFields";
 import { AccessGrantLabel } from "../components/forms/AccessGrantLabel";
@@ -210,15 +210,16 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                   placeholder={t("common.descriptionPlaceholder")}
                 />
               </FormField>
-              <CheckboxField
-                id="spark-disabled"
-                checked={disabled}
-                onChange={(event) => setDisabled(event.target.checked)}
-              >
-                {t("common.disabled")}
-              </CheckboxField>
+              <FormField label={t("common.enabled")}>
+                <ToggleSwitch
+                  id="spark-enabled"
+                  aria-label={t("common.enabled")}
+                  checked={!disabled}
+                  onChange={(event) => setDisabled(!event.target.checked)}
+                />
+              </FormField>
               <p className="field-help">
-                {t("sparkDrawer.keepThisSparkUnavailableForHostingGameServers")}
+                {t("sparkDrawer.allowThisSparkToHostGameServers")}
               </p>
             </>
           ),

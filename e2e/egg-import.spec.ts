@@ -129,15 +129,14 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     await create.getByRole("button", { name: label, exact: true }).click();
   }
   await expect(
-    create
-      .locator(".details-list > div")
-      .filter({ has: page.getByText("ENABLE_CROSSPLAY", { exact: true }) }),
-  ).toContainText("Enabled");
+    create.getByRole("switch", { name: "ENABLE_CROSSPLAY", exact: true }),
+  ).toBeChecked();
   await expect(
-    create
-      .locator(".details-list > div")
-      .filter({ has: page.getByText("PUBLIC_SERVER", { exact: true }) }),
-  ).toContainText("Disabled");
+    create.getByRole("switch", { name: "PUBLIC_SERVER", exact: true }),
+  ).not.toBeChecked();
+  await expect(
+    create.getByRole("switch", { name: "ENABLE_CROSSPLAY", exact: true }),
+  ).toBeDisabled();
   await create
     .getByRole("button", { name: "Create server", exact: true })
     .click();
@@ -159,11 +158,11 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     })
     .click();
   await expect(
-    page
-      .getByRole("dialog")
-      .locator(".details-list > div")
-      .filter({ has: page.getByText("ENABLE_CROSSPLAY", { exact: true }) }),
-  ).toContainText("Enabled");
+    page.getByRole("dialog").getByRole("switch", {
+      name: "ENABLE_CROSSPLAY",
+      exact: true,
+    }),
+  ).toBeChecked();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Edit server", exact: true })

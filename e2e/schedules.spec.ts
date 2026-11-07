@@ -75,7 +75,10 @@ test("schedules open an overview before editing and saved changes persist", asyn
     "Recurring",
     "Only run when the server is running",
   ]) {
-    const toggle = overview.getByRole("switch", { name, exact: true });
+    const toggle = overview.getByRole(
+      name === "Enabled" ? "switch" : "checkbox",
+      { name, exact: true },
+    );
     await expect(toggle).toBeChecked();
     await expect(toggle).toBeDisabled();
   }
@@ -145,7 +148,7 @@ test("schedules open an overview before editing and saved changes persist", asyn
 });
 
 for (const value of [true, false]) {
-  test(`backup schedule booleans display read-only toggles when ${value}`, async ({
+  test(`backup schedule booleans display read-only controls when ${value}`, async ({
     page,
     baseURL,
   }) => {
@@ -181,7 +184,10 @@ for (const value of [true, false]) {
       "Only run when the server is running",
       "Stop server during backup",
     ]) {
-      const toggle = overview.getByRole("switch", { name, exact: true });
+      const toggle = overview.getByRole(
+        name === "Enabled" ? "switch" : "checkbox",
+        { name, exact: true },
+      );
       await expect(toggle).toBeChecked({ checked: value });
       await expect(toggle).toBeDisabled();
     }

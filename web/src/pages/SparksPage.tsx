@@ -312,7 +312,6 @@ export function SparksPage() {
             <>
               <span>{details.name}</span>
               <SparkConnectionState
-                disabled={details.disabled}
                 connected={details.connected}
                 version={details.agent_version}
                 updating={updating === details.id}

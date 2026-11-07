@@ -2,7 +2,7 @@ import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { SparkSettings } from "../../api/sparks";
-import { StatusPill } from "../status/StatusPill";
+import { ToggleSwitch } from "../forms/ToggleSwitch";
 import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import { formatBytes, BYTES_PER_MEBIBYTE } from "../../utils/formatBytes";
@@ -37,10 +37,12 @@ export function SparkReview({
         >
           {formatDisplayValue(description)}
         </DetailItem>
-        <DetailItem label={t("sparkReview.availability")}>
-          <StatusPill tone={disabled ? "warning" : "positive"}>
-            {disabled ? t("common.disabled") : t("common.enabled")}
-          </StatusPill>
+        <DetailItem label={t("common.enabled")}>
+          <ToggleSwitch
+            aria-label={t("common.enabled")}
+            checked={!disabled}
+            disabled
+          />
         </DetailItem>
         {serverCreationRoles && (
           <DetailItem label={t("sparkReview.serverCreationAccess")}>

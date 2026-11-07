@@ -134,7 +134,7 @@ test("backup schedules retain their explicit type", async ({ page }) => {
   ).toBeVisible();
   const stopOption = page
     .getByRole("dialog", { name: "Save-data snapshot", exact: true })
-    .getByRole("switch", {
+    .getByRole("checkbox", {
       name: "Stop server during backup",
       exact: true,
     });

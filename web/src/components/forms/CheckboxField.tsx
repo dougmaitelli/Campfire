@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
+import { Checkbox } from "./Checkbox";
 import "./checkbox-field.css";
-import "./selection-control.css";
 
 export function CheckboxField({
   children,
@@ -15,16 +15,11 @@ export function CheckboxField({
     <label
       className={`checkbox-field${tone === "danger" ? " checkbox-field-danger" : ""}`}
     >
-      <input
+      <Checkbox
         {...props}
-        className={[
-          "selection-control",
-          tone === "danger" && "selection-control-danger",
-          className,
-        ]
+        className={[tone === "danger" && "selection-control-danger", className]
           .filter(Boolean)
           .join(" ")}
-        type="checkbox"
       />
       <span>{children}</span>
     </label>

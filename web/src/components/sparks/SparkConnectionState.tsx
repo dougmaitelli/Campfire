@@ -3,12 +3,10 @@ import { StatusPill } from "../status/StatusPill";
 import { formatVersion } from "../../utils/formatVersion";
 
 export function SparkConnectionState({
-  disabled,
   connected,
   version,
   updating = false,
 }: {
-  disabled: boolean;
   connected: boolean;
   version?: string | undefined;
   updating?: boolean;
@@ -16,27 +14,17 @@ export function SparkConnectionState({
   const { t } = useTranslation();
   const label = updating
     ? t("sparkConnectionState.updating")
-    : disabled
-      ? t("common.disabled")
-      : connected
-        ? version
-          ? t("sparkConnectionState.connectedVersion", { version })
-          : t("sparkConnectionState.connected")
-        : t("sparkConnectionState.disconnected");
+    : connected
+      ? version
+        ? t("sparkConnectionState.connectedVersion", { version })
+        : t("sparkConnectionState.connected")
+      : t("sparkConnectionState.disconnected");
   return (
     <StatusPill
-      tone={
-        updating
-          ? "pending"
-          : disabled
-            ? "warning"
-            : connected
-              ? "positive"
-              : "negative"
-      }
+      tone={updating ? "pending" : connected ? "positive" : "negative"}
     >
       <span title={label}>
-        {connected && !disabled && !updating && version
+        {connected && !updating && version
           ? t("sparkConnectionState.connectedVersion", {
               version: formatVersion(version),
             })

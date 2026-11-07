@@ -5,6 +5,7 @@ import { Button } from "../forms/Button";
 import type { Spark } from "../../api/sparks";
 import { Table, TableRow } from "../table/Table";
 import { SparkConnectionState } from "./SparkConnectionState";
+import { ToggleSwitch } from "../forms/ToggleSwitch";
 import { PortGroups } from "../network/PortGroups";
 import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import { ResourceReadings } from "../metrics/ResourceReadings";
@@ -59,6 +60,7 @@ export function SparksTable({
             {t("common.name")}
           </th>
           <th scope="col">{t("common.status")}</th>
+          <th scope="col">{t("common.enabled")}</th>
           <th scope="col" className="spark-resource-column">
             {t("sparksTable.resources")}
           </th>
@@ -91,10 +93,16 @@ export function SparksTable({
             </td>
             <td>
               <SparkConnectionState
-                disabled={spark.disabled}
                 connected={spark.connected}
                 version={spark.agent_version}
                 updating={updating === spark.id}
+              />
+            </td>
+            <td>
+              <ToggleSwitch
+                aria-label={t("common.enabled")}
+                checked={!spark.disabled}
+                disabled
               />
             </td>
             <td className="spark-resource-column">
