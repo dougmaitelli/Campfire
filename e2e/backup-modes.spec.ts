@@ -93,7 +93,6 @@ test("manual backups send the selected type and save-data restore describes its 
   });
   await expect(confirmation).toContainText("keeps other installed files");
   await expect(confirmation).toContainText("The server will remain stopped");
-  await screenshot(page, "restore-savedata-confirm-mobile.png", confirmation);
   await page.setViewportSize({ width: 1400, height: 900 });
   await screenshot(page, "restore-savedata-confirm.png", confirmation);
   await confirmation

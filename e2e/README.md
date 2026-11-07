@@ -18,6 +18,9 @@ images used for both documentation and visual regression baselines. Page and
 viewport captures live in `screenshots/pages/`; element-only captures live in
 `screenshots/crops/`.
 
+Confirmation dialogs use cropped desktop screenshots only. Check their mobile
+layout and interactions with assertions without adding mobile screenshot baselines.
+
 From the repository root:
 
 ```sh

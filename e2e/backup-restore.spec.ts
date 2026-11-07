@@ -36,8 +36,6 @@ for (const restart of [true, false]) {
     await expect(checkbox).toBeChecked();
     if (restart) {
       await screenshot(page, "restore-running-confirm.png", dialog);
-      await page.setViewportSize({ width: 390, height: 844 });
-      await screenshot(page, "restore-running-confirm-mobile.png", dialog);
       await page.setViewportSize({ width: 320, height: 844 });
       await expect(
         dialog.getByRole("button", {
@@ -114,7 +112,6 @@ test("a stopped-server restore confirms the replacement and remains stopped", as
   await expect(dialog.getByRole("checkbox")).toHaveCount(0);
   await screenshot(page, "restore-stopped-confirm.png", dialog);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "restore-stopped-confirm-mobile.png", dialog);
   await dialog.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
