@@ -22,7 +22,11 @@ the complete permission hierarchy.
 Backups can run while the server is running. Live backups copy files as they are
 read; they do not flush in-memory game saves or provide an atomic snapshot across
 files. Save the game first when possible, or stop it for a consistent backup.
-Restoring still requires a stopped server.
+Every restore asks for confirmation and explains which files will be replaced.
+If the server is running, the dialog offers to stop it, restore the backup, and
+restart it. Clear **Restart server after restoring** to leave it stopped instead.
+The panel waits for each operation to succeed before starting the next. Keep the
+page open until the sequence finishes. A failed restore never starts the server.
 
 Backup schedules offer **Stop server during backup**. When selected, Spark stops
 a running server, creates the backup, and attempts to start it again even if
@@ -41,8 +45,9 @@ A full restore replaces all game files. A save-data restore replaces only the
 captured paths, including removing files added under those paths since the backup.
 Other installed files remain in place. Reinstall a compatible game version before
 restoring older save-data archives onto an empty server. Portable save-data backups
-install the game first when the destination is not installed. Both restore types leave the server
-stopped; start it after restoration finishes and check its console.
+install the game first when the destination is not installed. A server that was
+already stopped remains stopped after either restore type. Check its console
+after starting it or completing a restore with restart selected.
 
 Each archive records its type and selected paths. Restoring an older backup uses
 that snapshot's paths even if the Ember has changed. Missing required paths fail

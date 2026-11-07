@@ -12,7 +12,7 @@ test("manual backups send the selected type and save-data restore describes its 
   for (const restore of await page
     .getByRole("button", { name: "Restore", exact: true })
     .all()) {
-    await expect(restore).toBeDisabled();
+    await expect(restore).toBeEnabled();
   }
   const type = page.getByRole("combobox", { name: "Backup type", exact: true });
   await type.click();
@@ -61,10 +61,23 @@ test("manual backups send the selected type and save-data restore describes its 
   });
   const row = page.getByRole("row").filter({ hasText: "Save data only" });
   await expect(row).toHaveCount(1);
+  await row.getByRole("button", { name: /^Backup actions for / }).click();
+  await page
+    .getByRole("menuitem", { name: "Rename backup", exact: true })
+    .click();
+  const rename = page.getByRole("dialog", {
+    name: "Rename backup",
+    exact: true,
+  });
+  await rename
+    .getByRole("textbox", { name: "Backup name", exact: true })
+    .fill("Save data before game update");
+  await rename.getByRole("textbox").press("Enter");
+  await expect(rename).toHaveCount(0);
+  await expect(row).toContainText("Save data before game update");
   await expect(
     page.getByRole("button", { name: "Create backup", exact: true }),
   ).toBeEnabled();
-  let confirmation = "";
   const status = (await (
     await page.request.get("/api/v1/servers/survival/status")
   ).json()) as { state: string };
@@ -73,12 +86,19 @@ test("manual backups send the selected type and save-data restore describes its 
   await expect(
     row.getByRole("button", { name: "Restore", exact: true }),
   ).toBeEnabled();
-  page.once("dialog", async (dialog) => {
-    confirmation = dialog.message();
-    await dialog.dismiss();
-  });
   await row.getByRole("button", { name: "Restore", exact: true }).click();
-  expect(confirmation).toContain("keeps other installed files");
+  const confirmation = page.getByRole("dialog", {
+    name: "Restore backup for Survival?",
+    exact: true,
+  });
+  await expect(confirmation).toContainText("keeps other installed files");
+  await expect(confirmation).toContainText("The server will remain stopped");
+  await screenshot(page, "restore-savedata-confirm-mobile.png", confirmation);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await screenshot(page, "restore-savedata-confirm.png", confirmation);
+  await confirmation
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
 });
 
 test("backup schedules retain their explicit type", async ({ page }) => {

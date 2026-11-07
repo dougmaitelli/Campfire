@@ -37,6 +37,15 @@ import { BackupName } from "./BackupName";
 import { BackupMetadataActions } from "./BackupMetadataActions";
 import { backupDisplayName } from "../../utils/backupDisplayName";
 import { isCurrentOperationSuccessful } from "./operationMessage";
+import { ConfirmDialog } from "../layout/ConfirmDialog";
+import { CheckboxField } from "../forms/CheckboxField";
+import { restoreBackup, type RestorePhase } from "./restoreBackup";
+
+const restoreProgressKeys = {
+  stop: "serverBackups.stoppingForRestore",
+  restore: "serverBackups.restoringBackup",
+  start: "serverBackups.startingAfterRestore",
+} as const;
 
 export function ServerBackups({ server }: { server: Server }) {
   const { t } = useTranslation();
@@ -62,6 +71,18 @@ export function ServerBackups({ server }: { server: Server }) {
     null,
   );
   const [importOpen, setImportOpen] = useState(false);
+  const [restore, setRestore] = useState<Backup | null>(null);
+  const [restartAfterRestore, setRestartAfterRestore] = useState(true);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restorePhase, setRestorePhase] = useState<RestorePhase | null>(null);
+  const [restoreWasRunning, setRestoreWasRunning] = useState(false);
+  const [restoredOperationID, setRestoredOperationID] = useState<string | null>(
+    null,
+  );
+  const restoreAbort = useRef<AbortController | null>(null);
+  const running = status?.state === RuntimeState.Running;
+  const restoreRunning = busy ? restoreWasRunning : running;
+  const canOperate = server.permissions.includes(Permission.ServerOperate);
   useNavigationGuard(true, busy, false);
   const [refresh, setRefresh] = useState(0);
   const pending = useRef(false);
@@ -70,6 +91,7 @@ export function ServerBackups({ server }: { server: Server }) {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      restoreAbort.current?.abort();
     };
   }, []);
   useEffect(() => {
@@ -129,7 +151,8 @@ export function ServerBackups({ server }: { server: Server }) {
       status?.state === RuntimeState.Stopped);
   const canRestoreNow =
     canChange &&
-    (status?.state === RuntimeState.Stopped ||
+    (status?.state === RuntimeState.Running ||
+      status?.state === RuntimeState.Stopped ||
       status?.state === RuntimeState.NotInstalled);
   async function remove(entry: Backup, location: BackupStorage) {
     if (
@@ -173,46 +196,76 @@ export function ServerBackups({ server }: { server: Server }) {
     )
       return;
     if (action === "backup" && invalidBackupMode) return;
-    if (
-      action === "restore" &&
-      !window.confirm(
-        i18n.t(
-          entries.find((entry) => entry.name === name)?.mode ===
-            BackupMode.Savedata
-            ? "backupModes.restoreSavedata"
-            : "serverBackups.restoreThisBackupOfThisReplacesItsCurrentGameFiles",
-          { serverName: server.name },
-        ),
-      )
-    )
-      return;
+    if (action === "restore" && running && !canOperate) return;
     pending.current = true;
     setBusy(true);
     setError(null);
+    setRestoreError(null);
     setCurrentOperationID(null);
+    setRestoredOperationID(null);
+    setRestoreWasRunning(running);
+    const workflow: { phase: RestorePhase | null } = { phase: null };
     try {
-      const next = await serverAction(
-        server.id,
-        action,
-        name,
-        undefined,
-        action === "backup" ? backupMode : undefined,
-      );
+      let next: RuntimeStatus;
+      if (action === "restore" && name) {
+        const controller = new AbortController();
+        restoreAbort.current = controller;
+        next = await restoreBackup(
+          server.id,
+          name,
+          { stop: running, restart: restartAfterRestore },
+          AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(45 * 60 * 1000),
+          ]),
+          (observed) => {
+            if (mounted.current) {
+              setStatus(observed);
+              setCurrentOperationID(observed.operation_id ?? null);
+            }
+          },
+          (value) => {
+            workflow.phase = value;
+            setRestorePhase(value);
+          },
+        );
+      } else {
+        next = await serverAction(
+          server.id,
+          action,
+          name,
+          undefined,
+          action === "backup" ? backupMode : undefined,
+        );
+      }
       if (mounted.current) {
         setCurrentOperationID(next.operation_id ?? null);
         setStatus(next);
+        if (action === "restore") {
+          setRestoredOperationID(next.operation_id ?? null);
+          setRestore(null);
+        }
         setRefresh((value) => value + 1);
       }
     } catch (cause) {
-      if (mounted.current)
-        setError(
+      if (mounted.current) {
+        const message =
           cause instanceof Error
             ? cause.message
-            : i18n.t("serverBackups.unableToSubmitOperation"),
-        );
+            : i18n.t("serverBackups.unableToSubmitOperation");
+        if (workflow.phase === ServerAction.Start) {
+          setRestore(null);
+          setError(t("serverBackups.restoreRestartFailed", { message }));
+        } else if (action === "restore") setRestoreError(message);
+        else setError(message);
+      }
     } finally {
       pending.current = false;
-      if (mounted.current) setBusy(false);
+      restoreAbort.current = null;
+      if (mounted.current) {
+        setBusy(false);
+        setRestorePhase(null);
+      }
     }
   }
   return (
@@ -221,6 +274,67 @@ export function ServerBackups({ server }: { server: Server }) {
       description={t("serverBackups.description")}
     >
       <div className="panel-content">
+        {restore && (
+          <ConfirmDialog
+            title={t("serverBackups.restoreTitle", { serverName: server.name })}
+            description={t(
+              restore.mode === BackupMode.Savedata
+                ? "backupModes.restoreSavedata"
+                : "serverBackups.restoreFull",
+            )}
+            confirmLabel={
+              restoreRunning && canOperate
+                ? t(
+                    restartAfterRestore
+                      ? "serverBackups.stopRestoreRestart"
+                      : "serverBackups.stopRestore",
+                  )
+                : t("serverBackups.restore")
+            }
+            danger
+            busy={busy}
+            disabled={!canRestoreNow || (running && !canOperate)}
+            error={restoreError}
+            onClose={() => setRestore(null)}
+            onConfirm={() => {
+              void submit("restore", restore.name);
+            }}
+          >
+            <p className="field-help backup-restore-name">
+              {t("serverBackups.restoreArchive", {
+                backupName: backupDisplayName(restore),
+              })}
+            </p>
+            <p>
+              {t(
+                restoreRunning
+                  ? "serverBackups.restoreRunning"
+                  : "serverBackups.restoreStopped",
+              )}
+            </p>
+            {restoreRunning &&
+              (canOperate ? (
+                <CheckboxField
+                  checked={restartAfterRestore}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setRestartAfterRestore(event.target.checked)
+                  }
+                >
+                  {t("serverBackups.restartAfterRestore")}
+                </CheckboxField>
+              ) : (
+                <InlineMessage tone="warning">
+                  {t("serverBackups.restoreNeedsOperate")}
+                </InlineMessage>
+              ))}
+            {restorePhase && (
+              <InlineMessage tone="info">
+                {t(restoreProgressKeys[restorePhase])}
+              </InlineMessage>
+            )}
+          </ConfirmDialog>
+        )}
         {importOpen && (
           <BackupImportDrawer
             serverID={server.id}
@@ -270,13 +384,20 @@ export function ServerBackups({ server }: { server: Server }) {
         {status?.busy && (
           <InlineMessage tone="info">{status.progress}</InlineMessage>
         )}
-        {isCurrentOperationSuccessful(status, currentOperationID) &&
-          (status?.operation === ServerAction.Backup ||
-            status?.operation === "restore") && (
+        {status &&
+          !busy &&
+          isCurrentOperationSuccessful(status, currentOperationID) &&
+          (status.operation === ServerAction.Backup ||
+            status.operation === "restore" ||
+            restoredOperationID === currentOperationID) && (
             <InlineMessage tone="success">
               {status.operation === "backup"
                 ? t("serverBackups.backupCreated")
-                : t("serverBackups.backupRestoredTheServerIsStopped")}
+                : t(
+                    status.state === RuntimeState.Running
+                      ? "serverBackups.backupRestoredTheServerIsRunning"
+                      : "serverBackups.backupRestoredTheServerIsStopped",
+                  )}
             </InlineMessage>
           )}
         <Table
@@ -363,7 +484,9 @@ export function ServerBackups({ server }: { server: Server }) {
                         (!entry.local && !entry.remote)
                       }
                       onClick={() => {
-                        void submit("restore", entry.name);
+                        setRestoreError(null);
+                        setRestartAfterRestore(true);
+                        setRestore(entry);
                       }}
                     >
                       <NavigationIcon name="restore" />

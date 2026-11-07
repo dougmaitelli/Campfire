@@ -77,10 +77,16 @@ for (const action of [ServerAction.Backup, ServerAction.Restore]) {
         .getByRole("button", { name: "Create backup", exact: true })
         .click();
     } else {
-      page.once("dialog", (dialog) => dialog.accept());
       await page
         .getByRole("row")
         .filter({ hasText: archive })
+        .getByRole("button", { name: "Restore", exact: true })
+        .click();
+      await page
+        .getByRole("dialog", {
+          name: "Restore backup for Survival?",
+          exact: true,
+        })
         .getByRole("button", { name: "Restore", exact: true })
         .click();
     }
