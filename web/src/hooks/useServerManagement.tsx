@@ -22,6 +22,7 @@ import { RuntimeState } from "../contracts/domains";
 import type { ActionMenuItem } from "../components/forms/ActionMenu";
 import { ServerState } from "../components/servers/ServerState";
 import { useAuthentication } from "./useAuthentication";
+import { useConfirmation } from "./useConfirmation";
 import { ServerDrawer } from "../drawers/ServerDrawer";
 const ServerCopyFlow = lazy(() =>
   import("../drawers/ServerCopyFlow").then((module) => ({
@@ -45,6 +46,7 @@ export function useServerManagement(
   onSaved: (server: Server) => void,
 ) {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   const { session } = useAuthentication();
   const canApplyRevision = canPerformServer(server, "updateEmber", session);
   const canTransfer = canPerformServer(server, "transfer", session);
@@ -144,12 +146,15 @@ export function useServerManagement(
     if (
       !server ||
       deleting ||
-      !window.confirm(
-        t(
+      !(await confirmation.confirm({
+        title: t("confirmDialog.deleteServer"),
+        description: t(
           "serversPage.permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease",
           { serverName: server.name },
         ),
-      )
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
     )
       return;
     setDeleting(true);
@@ -254,6 +259,7 @@ export function useServerManagement(
     reviewEmber: () => void prepare("revision"),
     dialogs: server && (
       <Suspense fallback={null}>
+        {confirmation.dialog}
         {editor && (
           <ServerDrawer
             server={editor.server}

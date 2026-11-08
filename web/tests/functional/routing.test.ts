@@ -72,3 +72,28 @@ test("blocked navigation keeps the URL, page, and resource route together", () =
   });
   expect(route.result.current.path).toBe("servers");
 });
+
+for (const allowed of [false, true]) {
+  test(`navigation waits for an asynchronous guard before ${allowed ? "leaving" : "staying"}`, async () => {
+    replaceCurrentRoute("servers/survival/files");
+    const route = renderHook(useCurrentRoute);
+    let answer: (allowed: boolean) => void = () => {};
+    const decision = new Promise<boolean>((resolve) => {
+      answer = resolve;
+    });
+    const removeGuard = addNavigationGuard(() => decision);
+    try {
+      act(() => replaceCurrentRoute("schedules"));
+      expect(route.result.current).toBe("servers/survival/files");
+      await act(async () => {
+        answer(allowed);
+        await decision;
+      });
+      const destination = allowed ? "schedules" : "servers/survival/files";
+      expect(window.location.hash).toBe(`#${destination}`);
+      expect(route.result.current).toBe(destination);
+    } finally {
+      removeGuard();
+    }
+  });
+}

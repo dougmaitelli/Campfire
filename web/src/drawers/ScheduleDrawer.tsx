@@ -20,6 +20,7 @@ import { canManageSchedule } from "../permissions";
 import { BackupMode } from "../api/backups";
 import { BackupModeField } from "../components/servers/BackupModeField";
 import { ResourceLimits } from "../config/policies";
+import { useConfirmation } from "../hooks/useConfirmation";
 import {
   formatScheduleName,
   scheduleActionLabel,
@@ -37,6 +38,7 @@ export function ScheduleDrawer({
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   function allowedActions(id: string) {
     const selected = servers.find((item) => item.id === id);
     return [
@@ -111,11 +113,17 @@ export function ScheduleDrawer({
     if (
       !schedule ||
       pending.current ||
-      !window.confirm(
-        i18n.t("scheduleDrawer.deleteScheduleHistoryWillBeRetained", {
-          scheduleName: schedule.name,
-        }),
-      )
+      !(await confirmation.confirm({
+        title: t("confirmDialog.deleteSchedule"),
+        description: i18n.t(
+          "scheduleDrawer.deleteScheduleHistoryWillBeRetained",
+          {
+            scheduleName: schedule.name,
+          },
+        ),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
     )
       return;
     pending.current = true;
@@ -234,6 +242,7 @@ export function ScheduleDrawer({
       }
     >
       <div className="panel-content">
+        {confirmation.dialog}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         <FormField label={t("common.name")}>
           <TextInput

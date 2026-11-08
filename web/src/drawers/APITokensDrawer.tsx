@@ -13,6 +13,7 @@ import {
   type APIToken,
 } from "../api/tokens";
 import { Drawer } from "../components/layout/Drawer";
+import { useConfirmation } from "../hooks/useConfirmation";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import {
   Permission,
@@ -23,6 +24,7 @@ import {
 
 export function APITokensDrawer({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   const [tokens, setTokens] = useState<APIToken[]>([]);
   const [choices, setChoices] = useState<PermissionID[]>([]);
   const [catalog, setCatalog] = useState<PermissionDefinition[]>([]);
@@ -77,6 +79,26 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
       setBusy(false);
     }
   }
+  async function revoke(token: APIToken) {
+    if (
+      pending.current ||
+      !(await confirmation.confirm({
+        title: t("confirmDialog.revokeToken"),
+        description: t(
+          "apiTokensDrawer.revokeApplicationsUsingItWillLoseAccessImmediately",
+          { tokenName: token.name },
+        ),
+        confirmLabel: t("apiTokensDrawer.revoke"),
+        danger: true,
+      }))
+    )
+      return;
+    await perform(async () => {
+      await revokeToken(token.id);
+      setTokens((current) => current.filter((item) => item.id !== token.id));
+    });
+  }
+
   function toggle(scope: PermissionID, checked: boolean) {
     setScopes((current) => {
       let next = togglePermission(current, scope, checked, catalog);
@@ -106,6 +128,7 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
       }
       footerRight={null}
     >
+      {confirmation.dialog}
       <div className="panel-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {secret && (
@@ -283,21 +306,7 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
               variant="danger"
               disabled={busy}
               onClick={() => {
-                if (
-                  !window.confirm(
-                    i18n.t(
-                      "apiTokensDrawer.revokeApplicationsUsingItWillLoseAccessImmediately",
-                      { tokenName: token.name },
-                    ),
-                  )
-                )
-                  return;
-                void perform(async () => {
-                  await revokeToken(token.id);
-                  setTokens((current) =>
-                    current.filter((item) => item.id !== token.id),
-                  );
-                });
+                void revoke(token);
               }}
             >
               {i18n.t("apiTokensDrawer.revoke")}

@@ -99,13 +99,38 @@ test("unsaved file edits can block or allow navigation", async ({ page }) => {
   const schedules = page
     .getByRole("navigation", { name: "Main navigation", exact: true })
     .getByRole("link", { name: "Schedules", exact: true });
-  page.once("dialog", (dialog) => void dialog.dismiss());
+  const discard = page.getByRole("dialog", {
+    name: "Discard unsaved file changes?",
+    exact: true,
+  });
   await schedules.click();
+  await expect(discard).toBeVisible();
+  await screenshot(page, "confirmation-discard-file.png", discard);
+  await discard.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page).toHaveURL(/#servers\/survival\/files$/);
   await expect(editor).toHaveValue(changed);
 
-  page.once("dialog", (dialog) => void dialog.accept());
   await schedules.click();
+  await expect(discard).toBeVisible();
+  await page.evaluate(() => {
+    window.location.hash = "servers";
+  });
+  await expect(page).toHaveURL(/#servers\/survival\/files$/);
+  await discard
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
+  await expect(editor).toHaveValue(changed);
+  await expect(page).toHaveURL(/#servers\/survival\/files$/);
+
+  await schedules.click();
+  await expect(discard).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(
+    discard.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeInViewport({ ratio: 1 });
+  await discard
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
   await expect(page).toHaveURL(/#schedules$/);
   await expect(
     page.getByRole("heading", { name: "Schedules", exact: true, level: 1 }),
@@ -115,6 +140,19 @@ test("unsaved file edits can block or allow navigation", async ({ page }) => {
     .getByRole("button", { name: "server.properties", exact: true })
     .click();
   await expect(editor).toHaveValue(original);
+  await editor.fill(changed);
+  const back = page.getByRole("button", { name: "Back to files", exact: true });
+  await back.click();
+  await discard.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(editor).toHaveValue(changed);
+  await back.click();
+  await discard
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
+  await expect(editor).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "server.properties", exact: true }),
+  ).toBeVisible();
 });
 
 for (const mobile of [false, true]) {

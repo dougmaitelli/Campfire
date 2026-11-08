@@ -278,6 +278,16 @@
     "users": "Users"
   },
   "confirmDialog": {
+    "deleteBackup": "Delete backup?",
+    "deleteRole": "Delete role?",
+    "deleteSchedule": "Delete schedule?",
+    "deleteServer": "Delete server?",
+    "deleteSpark": "Delete Spark?",
+    "deleteUser": "Delete user?",
+    "discard": "Discard changes",
+    "discardFileDescription": "Your unsaved changes to this file will be lost.",
+    "retryOperation": "Retry operation?",
+    "revokeToken": "Revoke API token?",
     "working": "Working…"
   },
   "consoleStream": {
@@ -1447,9 +1457,6 @@
   },
   "useMonitoring": {
     "unableToRefreshUsage": "Unable to refresh usage."
-  },
-  "useNavigationGuard": {
-    "discardUnsavedChanges": "Discard unsaved changes?"
   },
   "userDrawer": {
     "atLeast15CharactersPasswordRoleAndAccessChangesRevoke": "At least 15 characters. Password, role, and access changes revoke this user's existing sessions.",

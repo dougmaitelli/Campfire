@@ -13,6 +13,7 @@ import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
 import { ToggleSwitch } from "../components/forms/ToggleSwitch";
 import { useAuthentication } from "../hooks/useAuthentication";
+import { useConfirmation } from "../hooks/useConfirmation";
 
 export function UserDrawer({
   user,
@@ -28,6 +29,7 @@ export function UserDrawer({
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   const { session } = useAuthentication();
   const showPassword = user === null || session?.local_login !== false;
   const [username, setUsername] = useState(user?.username ?? "");
@@ -45,12 +47,15 @@ export function UserDrawer({
     if (
       !user ||
       pending.current ||
-      !window.confirm(
-        i18n.t(
+      !(await confirmation.confirm({
+        title: t("confirmDialog.deleteUser"),
+        description: i18n.t(
           "userDrawer.deleteTransferTheirOwnedServersFirstTheirAccessAndCredentials",
           { userUsername: user.username },
         ),
-      )
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
     )
       return;
     pending.current = true;
@@ -152,6 +157,7 @@ export function UserDrawer({
       }
     >
       <div className="panel-content">
+        {confirmation.dialog}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {user && (
           <p className="field-help">

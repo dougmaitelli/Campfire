@@ -48,6 +48,7 @@ export function ConfirmDialog({
       aria-describedby={`${id}-description`}
       onCancel={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         if (!busy) onClose();
       }}
     >

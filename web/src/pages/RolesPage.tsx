@@ -17,6 +17,7 @@ import { RoleDrawer } from "../drawers/RoleDrawer";
 
 import { Table, TableRow } from "../components/table/Table";
 import { useResourceSelection } from "../routing/useResourceSelection";
+import { useConfirmation } from "../hooks/useConfirmation";
 import "./roles.css";
 
 const permissionLabels: Record<string, string> = {
@@ -54,6 +55,7 @@ const permissionLabels: Record<string, string> = {
 
 export function RolesPage() {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   const roles = useCollection(listRoles);
   const { selected: editing, select: setEditing } = useResourceSelection(
     roles.items,
@@ -92,12 +94,15 @@ export function RolesPage() {
   async function remove(role: Role) {
     if (
       busy ||
-      !window.confirm(
-        i18n.t(
+      !(await confirmation.confirm({
+        title: t("confirmDialog.deleteRole"),
+        description: i18n.t(
           "rolesPage.deleteRoleRolesAssignedToUsersOrServerMembersCannot",
           { roleName: role.name },
         ),
-      )
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
     )
       return;
     setBusy(true);
@@ -119,6 +124,7 @@ export function RolesPage() {
   }
   return (
     <section aria-labelledby="page-title">
+      {confirmation.dialog}
       <PageHeader
         title={t("common.roles")}
         description={t("rolesPage.platformCapabilitiesAndServerScopedAccess")}

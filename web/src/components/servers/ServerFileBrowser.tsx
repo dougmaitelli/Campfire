@@ -35,6 +35,7 @@ import "./files.css";
 import { Permission } from "../../api/permissions";
 import { canPerformServer } from "../../permissions";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
+import { useConfirmation } from "../../hooks/useConfirmation";
 import { FileDropZone } from "../files/FileDropZone";
 import {
   FileUploadProgress,
@@ -79,6 +80,17 @@ export function ServerFileBrowser({
   initialFile?: string | undefined;
 }) {
   const { t } = useTranslation();
+  const { confirm, dialog: confirmationDialog } = useConfirmation();
+  const confirmDiscard = useCallback(
+    () =>
+      confirm({
+        title: t("serverFileBrowser.discardUnsavedFileChanges"),
+        description: t("confirmDialog.discardFileDescription"),
+        confirmLabel: t("confirmDialog.discard"),
+        warning: true,
+      }),
+    [confirm, t],
+  );
   const fileActionLabels = {
     rename: t("serverFileBrowser.rename2"),
     permissions: t("serverFileBrowser.permissions"),
@@ -145,6 +157,7 @@ export function ServerFileBrowser({
     true,
     busy,
     editor !== null && editor.text !== editor.initial,
+    confirmDiscard,
   );
   useEffect(() => {
     alive.current = true;
@@ -580,6 +593,13 @@ export function ServerFileBrowser({
       if (alive.current) setBusy(false);
     }
   }
+  async function closeEditor() {
+    if (!editor || busy) return;
+    if (editor.text !== editor.initial && !(await confirmDiscard())) return;
+    setEditor(null);
+    void perform(() => load(directory));
+  }
+
   return (
     <Panel
       title={t("serverFileBrowser.files")}
@@ -676,15 +696,7 @@ export function ServerFileBrowser({
           <Button
             disabled={busy}
             onClick={() => {
-              if (
-                editor.text !== editor.initial &&
-                !window.confirm(
-                  i18n.t("serverFileBrowser.discardUnsavedFileChanges"),
-                )
-              )
-                return;
-              setEditor(null);
-              void perform(() => load(directory));
+              void closeEditor();
             }}
           >
             {t("serverFileBrowser.backToFiles")}
@@ -707,6 +719,7 @@ export function ServerFileBrowser({
         ) : null
       }
     >
+      {confirmationDialog}
       <FileDropZone
         className="panel-content"
         enabled={canUpload}

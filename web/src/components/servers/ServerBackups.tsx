@@ -40,6 +40,7 @@ import { isCurrentOperationSuccessful } from "./operationMessage";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { CheckboxField } from "../forms/CheckboxField";
 import { restoreBackup, type RestorePhase } from "./restoreBackup";
+import { useConfirmation } from "../../hooks/useConfirmation";
 
 const restoreProgressKeys = {
   stop: "serverBackups.stoppingForRestore",
@@ -49,6 +50,7 @@ const restoreProgressKeys = {
 
 export function ServerBackups({ server }: { server: Server }) {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   const [entries, setEntries] = useState<Backup[]>([]);
   const [backupMode, setBackupMode] = useState<BackupMode>(BackupMode.Full);
   const invalidBackupMode =
@@ -155,15 +157,22 @@ export function ServerBackups({ server }: { server: Server }) {
       pending.current ||
       entry.pinned ||
       !canDelete ||
-      !window.confirm(
-        i18n.t(
+      !(await confirmation.confirm({
+        title: t("confirmDialog.deleteBackup"),
+        description: i18n.t(
           "serverBackups.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
           {
             locationLocalLocal: location === "local" ? "local" : "S3",
             entryName: backupDisplayName(entry),
           },
         ),
-      )
+        confirmLabel: t(
+          location === "local"
+            ? "serverBackups.deleteLocal"
+            : "serverBackups.deleteS3",
+        ),
+        danger: true,
+      }))
     )
       return;
     pending.current = true;
@@ -270,6 +279,7 @@ export function ServerBackups({ server }: { server: Server }) {
       description={t("serverBackups.description")}
     >
       <div className="panel-content">
+        {confirmation.dialog}
         {restore && (
           <ConfirmDialog
             title={t("serverBackups.restoreTitle", { serverName: server.name })}

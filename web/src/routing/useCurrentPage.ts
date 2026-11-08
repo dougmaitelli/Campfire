@@ -2,14 +2,19 @@ import { useSyncExternalStore } from "react";
 import { getCurrentPage } from "./navigation";
 
 const listeners = new Set<() => void>();
-const guards = new Set<() => boolean>();
+const guards = new Set<() => boolean | Promise<boolean>>();
 let currentRoute = window.location.hash.slice(1);
+let navigationID = 0;
 
-function navigate() {
+async function navigate() {
+  const id = ++navigationID;
   const next = window.location.hash.slice(1);
   if (next === currentRoute) return;
   for (const guard of guards) {
-    if (!guard()) {
+    const decision = guard();
+    const allowed = typeof decision === "boolean" ? decision : await decision;
+    if (id !== navigationID) return;
+    if (!allowed) {
       window.history.replaceState(null, "", `#${currentRoute}`);
       return;
     }
@@ -18,16 +23,22 @@ function navigate() {
   for (const listener of listeners) listener();
 }
 
+function onHashChange() {
+  void navigate();
+}
+
 function subscribe(onChange: () => void) {
   if (listeners.size === 0) {
     currentRoute = window.location.hash.slice(1);
-    window.addEventListener("hashchange", navigate);
+    window.addEventListener("hashchange", onHashChange);
   }
   listeners.add(onChange);
   return () => {
     listeners.delete(onChange);
-    if (listeners.size === 0)
-      window.removeEventListener("hashchange", navigate);
+    if (listeners.size === 0) {
+      navigationID++;
+      window.removeEventListener("hashchange", onHashChange);
+    }
   };
 }
 
@@ -39,10 +50,10 @@ export function replaceCurrentRoute(route: string, expectedRoute?: string) {
   )
     return;
   window.history.replaceState(null, "", `#${route}`);
-  navigate();
+  void navigate();
 }
 
-export function addNavigationGuard(guard: () => boolean) {
+export function addNavigationGuard(guard: () => boolean | Promise<boolean>) {
   guards.add(guard);
   return () => {
     guards.delete(guard);

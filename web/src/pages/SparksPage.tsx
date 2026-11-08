@@ -24,6 +24,7 @@ import { useMonitoring } from "../hooks/useMonitoring";
 
 import { SparkDetailsDrawer } from "../drawers/SparkDetailsDrawer";
 import { useResourceSelection } from "../routing/useResourceSelection";
+import { useConfirmation } from "../hooks/useConfirmation";
 
 const UPDATE_RECONNECT_TIMEOUT_MS = 120000;
 const UPDATE_STATUS_POLL_INTERVAL_MS = 2000;
@@ -31,6 +32,7 @@ const UPDATE_STATUS_REQUEST_TIMEOUT_MS = 10000;
 
 export function SparksPage() {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   const { sparks, loading, error, refresh, addSpark } = useSparks();
   const { selected: selectedDetails, select: setDetails } =
     useResourceSelection(sparks, !loading && !error);
@@ -153,11 +155,17 @@ export function SparksPage() {
   async function remove(spark: Spark) {
     if (
       deleting !== null ||
-      !window.confirm(
-        i18n.t("sparksPage.removeAndRevokeItsCredentialsMoveOrDeleteAllIts", {
-          sparkName: spark.name,
-        }),
-      )
+      !(await confirmation.confirm({
+        title: t("confirmDialog.deleteSpark"),
+        description: i18n.t(
+          "sparksPage.removeAndRevokeItsCredentialsMoveOrDeleteAllIts",
+          {
+            sparkName: spark.name,
+          },
+        ),
+        confirmLabel: t("common.delete"),
+        danger: true,
+      }))
     )
       return;
     setDeleting(spark.id);
@@ -242,6 +250,7 @@ export function SparksPage() {
 
   return (
     <section className="page" aria-labelledby="page-title">
+      {confirmation.dialog}
       <PageHeader
         title={t("common.sparks")}
         description={t("sparksPage.theNodesThatHostYourGameServers")}

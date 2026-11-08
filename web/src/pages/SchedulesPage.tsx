@@ -42,6 +42,7 @@ import { ScheduleToggle } from "../components/schedules/ScheduleToggle";
 import { ScheduleNextRun } from "../components/schedules/ScheduleNextRun";
 import { operationLabel } from "../components/servers/operationMessage";
 import { useResourceSelection } from "../routing/useResourceSelection";
+import { useConfirmation } from "../hooks/useConfirmation";
 
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
@@ -50,6 +51,7 @@ const SCHEDULE_REFRESH_INTERVAL_MS = 10000;
 
 export function SchedulesPage() {
   const { t } = useTranslation();
+  const confirmation = useConfirmation();
   const runNowLabel = t("schedulesPage.runNow");
   const retryLabel = t("schedulesPage.retry2");
   const links = useResourceLinks();
@@ -158,6 +160,22 @@ export function SchedulesPage() {
       setBusy(false);
     }
   }
+  async function retry(run: Execution) {
+    if (
+      pending.current ||
+      !(await confirmation.confirm({
+        title: t("confirmDialog.retryOperation"),
+        description: t(
+          "schedulesPage.retryThisOperationVerifyTheCurrentServerStateFirstAn",
+        ),
+        confirmLabel: retryLabel,
+        warning: true,
+      }))
+    )
+      return;
+    await perform(() => retryExecution(run.id));
+  }
+
   async function more() {
     if (pending.current || !runs.length) return;
     pending.current = true;
@@ -191,6 +209,7 @@ export function SchedulesPage() {
   }
   return (
     <section aria-labelledby="page-title">
+      {confirmation.dialog}
       <PageHeader
         title={t("common.schedules")}
         description={t(
@@ -480,14 +499,7 @@ export function SchedulesPage() {
                         title={retryLabel}
                         disabled={busy}
                         onClick={() => {
-                          if (
-                            window.confirm(
-                              i18n.t(
-                                "schedulesPage.retryThisOperationVerifyTheCurrentServerStateFirstAn",
-                              ),
-                            )
-                          )
-                            void perform(() => retryExecution(run.id));
+                          void retry(run);
                         }}
                       >
                         <NavigationIcon name="restart" />
