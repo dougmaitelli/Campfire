@@ -2,11 +2,25 @@
   min-width: 0;
   margin-bottom: 20px;
 
-  & > label {
+  & > label,
+  & > .form-field-label-row > label {
     display: block;
     margin: 0 0 8px;
     font-size: 14px;
     font-weight: 500;
+  }
+
+  & > .form-field-label-row {
+    --control-height: 32px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+
+    & > label {
+      margin: 0;
+    }
   }
 
   & > .text-input,

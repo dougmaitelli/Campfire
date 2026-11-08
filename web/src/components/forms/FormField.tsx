@@ -11,12 +11,14 @@ type FieldControlProps = AriaAttributes & { id?: string };
 
 export function FormField({
   label,
+  labelAction,
   description,
   error,
   children,
   className,
 }: {
   label: ReactNode;
+  labelAction?: ReactNode;
   description?: ReactNode;
   error?: ReactNode;
   children: ReactElement<FieldControlProps>;
@@ -33,7 +35,14 @@ export function FormField({
     .join(" ");
   return (
     <div className={["form-field", className].filter(Boolean).join(" ")}>
-      <label htmlFor={id}>{label}</label>
+      {labelAction ? (
+        <div className="form-field-label-row">
+          <label htmlFor={id}>{label}</label>
+          {labelAction}
+        </div>
+      ) : (
+        <label htmlFor={id}>{label}</label>
+      )}
       {cloneElement(children, {
         id,
         "aria-describedby": describedBy || undefined,

@@ -261,9 +261,14 @@ test("ordinary runtime edits request a restart and metadata edits do not", async
   const pending = page.getByText("Restart required", { exact: true });
   await expect(pending).toHaveCount(0);
   editor = await openEditor();
+  const command = editor.getByLabel("Startup command text", { exact: true });
+  const originalCommand = await command.inputValue();
+  await command.fill("sleep 4000");
   await editor
-    .getByLabel("Startup command text", { exact: true })
-    .fill("sleep 4000");
+    .getByRole("button", { name: "Use Ember default", exact: true })
+    .click();
+  await expect(command).toHaveValue(originalCommand);
+  await command.fill("sleep 4000");
   await editor.getByRole("button", { name: "Review", exact: true }).click();
   await editor
     .getByRole("button", { name: "Save changes", exact: true })

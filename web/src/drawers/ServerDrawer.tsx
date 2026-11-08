@@ -678,6 +678,21 @@ export function ServerDrawer({
               )}
               <FormField
                 label={t("serverDrawer.customStartupCommand")}
+                labelAction={
+                  <Button
+                    type="button"
+                    size="small"
+                    disabled={
+                      runtimeRestricted ||
+                      (!!server?.ember_update_available && !applyRevision)
+                    }
+                    onClick={() =>
+                      setValue({ ...value, startup_override: undefined })
+                    }
+                  >
+                    {t("serverDrawer.resetStartupCommand")}
+                  </Button>
+                }
                 description={t("serverDrawer.customStartupCommandHelp")}
               >
                 <Textarea
@@ -699,18 +714,6 @@ export function ServerDrawer({
                   }
                 />
               </FormField>
-              <Button
-                type="button"
-                disabled={
-                  runtimeRestricted ||
-                  (!!server?.ember_update_available && !applyRevision)
-                }
-                onClick={() =>
-                  setValue({ ...value, startup_override: undefined })
-                }
-              >
-                {t("serverDrawer.resetStartupCommand")}
-              </Button>
               <FormField label={t("serverDrawer.gameIntegration")}>
                 <ToggleSwitch
                   aria-label={t("serverDrawer.gameIntegration")}
