@@ -63,7 +63,8 @@
   gap: 48px;
   margin-top: 8px;
   align-items: stretch;
-  overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: var(--table-inline-outset, 0px);
 
   & > .content-panel {
     position: relative;
@@ -80,6 +81,7 @@
     }
   }
 }
+
 .backup-summary-status {
   display: inline-flex;
   align-items: center;

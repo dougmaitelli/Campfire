@@ -20,11 +20,20 @@
   min-width: 0;
   container-type: inline-size;
 }
+
+.table-container:has(> .data-table:not(.table-cards, .table-compact)) {
+  margin-inline: calc(0px - var(--table-inline-outset, 0px));
+}
+
 .data-table .row-description {
   overflow-wrap: break-word;
 }
 .data-table {
+  --table-cell-padding-inline: var(--table-default-cell-padding-inline, 20px);
+  --table-row-edge-inset: max(12px, var(--table-cell-padding-inline));
   --table-row-caret-space: 56px;
+  --table-row-caret-inset: 24px;
+  --table-card-inset: 16px;
   width: 100%;
   max-width: 100%;
   border-collapse: collapse;
@@ -34,7 +43,7 @@
   & th {
     text-transform: uppercase;
     white-space: normal;
-    padding: 14px 20px;
+    padding-block: 14px;
     color: var(--muted);
     font-size: 14px;
     font-weight: 650;
@@ -43,8 +52,20 @@
 
   & td {
     overflow-wrap: break-word;
-    padding: 18px 20px;
+    padding-block: var(--table-row-padding-block, 18px);
     vertical-align: middle;
+  }
+
+  & :where(th, td) {
+    padding-inline: var(--table-cell-padding-inline);
+  }
+
+  & :where(th, td):first-child {
+    padding-inline-start: var(--table-row-edge-inset);
+  }
+
+  & :where(th, td):last-child {
+    padding-inline-end: var(--table-row-edge-inset);
   }
 
   & td:has(.table-row-trigger) {
@@ -55,11 +76,11 @@
     margin: 0;
   }
 
-  & tbody tr + tr td {
+  & :where(tbody tr + tr) > td {
     border-top: 1px solid var(--border);
   }
 
-  & tbody tr:last-child td {
+  & :where(tbody tr:last-child) > td {
     border-bottom: 1px solid var(--border);
   }
 
@@ -79,17 +100,20 @@
 
   & .table-actions {
     text-align: right;
-    padding-inline-start: 20px;
   }
+}
 
-  & :is(th, td):has(+ .table-actions) {
-    padding-inline-end: 20px;
-  }
+.data-table.table-compact {
+  --table-row-edge-inset: var(--table-cell-padding-inline);
+}
 
-  &:has(tbody:empty) .table-actions,
-  &:has(tbody > tr:only-child > td[colspan]) .table-actions {
-    width: auto;
-  }
+.data-table .game-art-cell {
+  width: 1%;
+  padding-inline-end: 0;
+}
+
+.data-table .game-art-name {
+  padding-inline-start: 12px;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -103,12 +127,55 @@
   flex-wrap: nowrap;
   width: max-content;
   max-width: 32rem;
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 @container (max-width: 67rem) {
-  .data-table :is(th, td) {
-    padding-inline: 12px;
+  .data-table {
+    --table-cell-padding-inline: 12px;
+  }
+}
+
+@container (max-width: 60rem) {
+  .data-table {
+    --table-cell-padding-inline: 8px;
+    --table-row-caret-space: 40px;
+    --table-row-caret-inset: 16px;
+  }
+}
+
+@container (48rem < width <= 60rem) {
+  .data-table .game-art-cell {
+    display: none;
+  }
+}
+
+@container (max-width: 48rem) {
+  .data-table {
+    --table-cell-padding-inline: 6px;
+    --table-row-caret-space: 28px;
+    --table-row-caret-inset: 12px;
+  }
+
+  .data-table td:has(.table-row-trigger) {
+    min-width: 6rem;
+  }
+}
+
+@container (max-width: 32rem) {
+  .data-table:not(.table-cards) td,
+  .data-table:not(.table-cards) .row-description {
+    overflow-wrap: anywhere;
+  }
+
+  .data-table .table-mobile-hidden {
+    display: none;
+  }
+
+  /* Keep the edge inset on the last visible column. */
+  .data-table
+    :where(th, td):nth-last-child(1 of :where(:not(.table-mobile-hidden))) {
+    padding-inline-end: var(--table-row-edge-inset);
   }
 }
 
@@ -120,24 +187,26 @@
   }
 }
 
-.table-row-caret {
-  & > td:last-child {
-    position: relative;
-    padding-inline-end: var(--table-row-caret-space);
+.data-table .table-row-caret > :where(td:last-child) {
+  position: relative;
+  padding-inline-end: var(--table-row-caret-space);
+}
 
-    &::after {
-      content: "";
-      position: absolute;
-      inset-inline-end: 24px;
-      top: 50%;
-      width: 7px;
-      height: 7px;
-      border-inline-end: 1.6px solid var(--text);
-      border-bottom: 1.6px solid var(--text);
-      transform: translateY(-50%) rotate(-45deg);
-      pointer-events: none;
-    }
-  }
+.table-row-caret > td:last-child::after {
+  content: "";
+}
+
+.table-row-caret::after,
+.table-row-caret > td:last-child::after {
+  position: absolute;
+  inset-inline-end: var(--table-row-caret-inset);
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-inline-end: 1.6px solid var(--text);
+  border-bottom: 1.6px solid var(--text);
+  transform: translateY(-50%) rotate(-45deg);
+  pointer-events: none;
 }
 
 .table-row-trigger {
@@ -157,80 +226,47 @@
   }
 }
 
-@container (max-width: 60rem) {
-  .data-table {
-    --table-row-caret-space: 40px;
-  }
+@container (max-width: 42rem) {
+  .data-table.table-stacked {
+    display: block;
 
-  .data-table thead th,
-  .data-table tbody td {
-    padding-inline: 8px;
-  }
+    & thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
 
-  .data-table .table-row-caret > td:last-child {
-    padding-inline-end: var(--table-row-caret-space);
-  }
+    & tbody {
+      display: block;
+    }
 
-  .data-table .table-row-caret > td:last-child::after {
-    inset-inline-end: 16px;
-  }
+    & :where(tbody tr) {
+      display: grid;
+      gap: 6px 12px;
+      padding: var(--table-row-padding-block, 16px) var(--table-row-edge-inset);
+      border-bottom: 1px solid var(--border);
+    }
 
-  .data-table .table-actions {
-    padding-inline-start: 8px;
-  }
-}
-
-@container (48rem < width <= 54rem) {
-  .data-table thead th,
-  .data-table tbody td {
-    padding-inline: 4px;
-  }
-
-  .data-table .table-actions {
-    padding-inline-start: 4px;
-  }
-}
-
-@container (max-width: 48rem) {
-  .data-table:not(.table-cards) {
-    --table-row-caret-space: 28px;
-  }
-
-  .data-table:not(.table-cards) :is(th, td) {
-    padding-inline: 6px;
-  }
-
-  .data-table:not(.table-cards) td:has(.table-row-trigger) {
-    min-width: 6rem;
-  }
-
-  .data-table:not(.table-cards) .table-row-caret > td:last-child {
-    padding-inline-end: var(--table-row-caret-space);
-  }
-
-  .data-table:not(.table-cards) .table-row-caret > td:last-child::after {
-    inset-inline-end: 12px;
-  }
-}
-
-@container (max-width: 32rem) {
-  .data-table:not(.table-cards) td,
-  .data-table:not(.table-cards) .row-description {
-    overflow-wrap: anywhere;
-  }
-
-  .data-table .table-mobile-hidden {
-    display: none;
+    & tbody td {
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+    }
   }
 }
 
 @container (max-width: 48rem) {
-  .table-cards,
-  .table-cards tbody {
+  .data-table.table-cards,
+  .data-table.table-cards tbody {
     display: block;
   }
 
-  .table-cards thead {
+  .data-table.table-cards thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -241,35 +277,30 @@
     white-space: nowrap;
   }
 
-  .table-cards tbody {
+  .data-table.table-cards tbody {
     display: grid;
     gap: 12px;
   }
 
-  .table-cards tbody tr {
+  .data-table.table-cards :where(tbody tr) {
+    --table-row-caret-inset: var(--table-card-inset);
+    --table-row-caret-space: calc(var(--table-card-inset) + 24px);
     position: relative;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px 24px;
-    padding: 16px;
+    padding: var(--table-card-inset);
     border: 1px solid var(--border);
     border-radius: 8px;
     min-width: 0;
   }
 
-  .table-cards tbody td {
-    display: block;
+  .data-table.table-cards tbody td {
     width: auto;
     min-width: 0;
     padding: 0;
     border: 0;
     text-align: start;
     white-space: normal;
-  }
-
-  .table-cards tbody tr + tr td,
-  .table-cards tbody tr:last-child td {
-    border: 0;
   }
 
   .table-cards td[data-label]::before {
@@ -282,40 +313,17 @@
     text-transform: uppercase;
   }
 
-  .table-cards
-    tbody
-    :where(td:first-child, .table-primary, .table-actions, td[colspan]) {
-    grid-column: 1 / -1;
-  }
-
   .table-cards tbody .table-actions {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: start;
     display: flex;
     width: auto;
     flex-wrap: nowrap;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    padding-inline-end: 0;
-  }
-
-  .table-cards tbody .table-fit {
-    width: auto;
-    white-space: normal;
   }
 
   .table-cards tbody .table-actions:empty {
     display: none;
-  }
-
-  .table-cards
-    tbody
-    :where(tr:has(> .table-actions:not(:empty)))
-    > :where(td:first-child, .table-primary) {
-    grid-column: 1;
-    grid-row: 1;
   }
 
   .table-cards .table-row-caret > td:last-child::after {
@@ -323,37 +331,10 @@
   }
 
   .table-cards .table-row-caret {
-    padding-inline-end: 40px;
+    padding-inline-end: var(--table-row-caret-space);
   }
 
   .table-cards .table-row-caret::after {
     content: "";
-    position: absolute;
-    inset-inline-end: 16px;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    border-inline-end: 1.6px solid var(--text);
-    border-bottom: 1.6px solid var(--text);
-    transform: translateY(-50%) rotate(-45deg);
-    pointer-events: none;
-  }
-}
-
-@container (max-width: 32rem) {
-  .table-cards tbody tr {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .table-cards
-    tbody
-    :where(tr:has(> .table-actions:not(:empty)))
-    > :where(td:first-child, .table-primary) {
-    grid-column: 1 / -1;
-  }
-
-  .table-cards tbody .table-actions {
-    grid-column: 1 / -1;
-    grid-row: 2;
   }
 }

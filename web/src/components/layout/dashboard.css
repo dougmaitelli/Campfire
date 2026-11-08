@@ -100,6 +100,12 @@
   }
 }
 
+@media (max-width: 48rem) {
+  .main-content {
+    --table-inline-outset: 6px;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .notification-link {
     transition:

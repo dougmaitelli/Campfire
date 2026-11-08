@@ -966,7 +966,7 @@ export function ServerFileBrowser({
                   ))}
             </nav>
             <Table
-              className="file-list"
+              className="file-list table-compact"
               empty={loading || entries.length === 0}
               loading={loading}
               error={loadError?.message}

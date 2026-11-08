@@ -151,7 +151,7 @@ export function JobList({
         </InlineMessage>
       )}
       <Table
-        className="jobs-table"
+        className="jobs-table table-stacked"
         aria-label={t("common.jobs")}
         empty={jobs.length === 0}
         loading={loading}

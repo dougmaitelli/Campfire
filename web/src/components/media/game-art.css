@@ -5,33 +5,3 @@
   border-radius: 5px;
   object-fit: cover;
 }
-.data-table .game-art-cell {
-  width: 1%;
-  padding-inline-end: 0;
-}
-.data-table .game-art-name {
-  padding-inline-start: 12px;
-}
-
-@container (48rem < width <= 60rem) {
-  .data-table .game-art-cell {
-    display: none;
-  }
-}
-
-@container (max-width: 48rem) {
-  .table-cards tbody .game-art-cell {
-    grid-column: auto;
-    grid-row: auto;
-    position: absolute;
-    inset-block-start: 16px;
-    inset-inline-start: 16px;
-    width: 48px;
-    padding: 0;
-  }
-
-  .table-cards tbody .game-art-name {
-    padding-inline-start: 64px;
-    min-height: 48px;
-  }
-}

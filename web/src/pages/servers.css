@@ -1,5 +1,6 @@
-.servers-table td {
-  padding: 12px 16px;
+.servers-table {
+  --table-row-padding-block: 12px;
+  --table-default-cell-padding-inline: 16px;
 }
 .servers-table .row-description,
 .servers-table .row-id {
@@ -10,6 +11,10 @@
 }
 
 @container (48rem < width <= 54rem) {
+  .data-table.servers-table {
+    --table-cell-padding-inline: 4px;
+  }
+
   .servers-table .resource-readings-compact .resource-allocation {
     display: block;
     margin-inline-start: 0;

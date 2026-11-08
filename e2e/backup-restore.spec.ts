@@ -59,13 +59,6 @@ for (const access of ["read", "create", "restore"] as const) {
     await expect(table.getByRole("link", { name: /^Download / })).toHaveCount(
       2,
     );
-    if (access === "read") {
-      const listing = page.locator(".table-container").filter({ has: table });
-      await screenshot(page, "backup-reader.png", listing);
-      await page.setViewportSize({ width: 390, height: 844 });
-      await listing.scrollIntoViewIfNeeded();
-      await screenshot(page, "backup-reader-mobile.png", listing);
-    }
   });
 }
 

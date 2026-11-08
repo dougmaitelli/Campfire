@@ -107,6 +107,12 @@
   background-color: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color: color-mix(in srgb, var(--accent) 70%, var(--muted));
 }
+@media (max-width: 48rem) {
+  .panel-content {
+    --table-inline-outset: 12px;
+  }
+}
+
 @media (max-width: 480px) {
   .panel-footer {
     --button-padding: 8px 10px;

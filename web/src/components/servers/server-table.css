@@ -40,12 +40,28 @@
   }
 
   .table-cards.server-table tbody tr {
+    --server-card-art-size: 48px;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     column-gap: 12px;
   }
 
   .server-table:where(.table-cards) tbody td {
     grid-column: span 3;
+  }
+
+  .table-cards.server-table tbody .game-art-cell {
+    grid-area: auto;
+    position: absolute;
+    inset-block-start: var(--table-card-inset);
+    inset-inline-start: var(--table-card-inset);
+    width: var(--server-card-art-size);
+  }
+
+  .table-cards.server-table tbody .game-art-name {
+    padding-inline-start: calc(
+      var(--server-card-art-size) + var(--table-card-inset)
+    );
+    min-height: var(--server-card-art-size);
   }
 
   .table-cards.server-table tbody td.game-state-card-cell {

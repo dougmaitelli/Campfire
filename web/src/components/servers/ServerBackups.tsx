@@ -395,7 +395,7 @@ export function ServerBackups({ server }: { server: Server }) {
             </InlineMessage>
           )}
         <Table
-          className="server-backups-table"
+          className="server-backups-table table-stacked"
           empty={entries.length === 0}
           loading={loading}
           error={loadError}
