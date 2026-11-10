@@ -16,6 +16,17 @@ function server(...permissions: PermissionID[]) {
 }
 
 describe("UI permission policy", () => {
+  it("keeps server configuration independent of global integration setup", () => {
+    expect(canPerformServer(server(), "configure", { admin: true })).toBe(
+      false,
+    );
+    expect(
+      canPerformServer(server(Permission.ServerConfigure), "configure"),
+    ).toBe(true);
+    expect(
+      canPerformPlatform({ admin: true, view_as: {} }, "manageIntegrations"),
+    ).toBe(false);
+  });
   it("denies missing subjects and never infers server grants from platform administration", () => {
     const admin = { admin: true };
     expect(canPerformPlatform(null, "createServers")).toBe(false);

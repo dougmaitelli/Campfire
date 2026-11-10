@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { Fieldset } from "./Fieldset";
 import { Button } from "./Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
-import "./allocation-row.css";
+import "./editable-list-row.css";
 
-export function AllocationRow({
+export function EditableListRow({
   label,
   removeLabel,
   onRemove,
@@ -18,9 +18,9 @@ export function AllocationRow({
   body?: ReactNode;
 }) {
   return (
-    <Fieldset className="allocation-row">
+    <Fieldset className="editable-list-row">
       <legend className="visually-hidden">{label}</legend>
-      <div className="allocation-row-fields">{children}</div>
+      <div className="editable-list-row-fields">{children}</div>
       <Button
         type="button"
         variant="danger"
@@ -31,7 +31,7 @@ export function AllocationRow({
       >
         <NavigationIcon name="close" />
       </Button>
-      {body && <div className="allocation-row-body">{body}</div>}
+      {body && <div className="editable-list-row-body">{body}</div>}
     </Fieldset>
   );
 }

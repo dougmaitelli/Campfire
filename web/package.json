@@ -16,9 +16,9 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:functional": "vitest run tests/functional",
-    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config eslint.config.mjs web/src web/tests e2e web/vite.config.ts web/vitest.config.ts scripts eslint.config.mjs web/eslint.config.mjs --max-warnings 0",
-    "format": "node node_modules/prettier/bin/prettier.cjs --write src tests ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json tsconfig.tests.json vite.config.ts vitest.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
-    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src tests ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json tsconfig.tests.json vite.config.ts vitest.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
+    "lint": "cd .. && node web/node_modules/eslint/bin/eslint.js --config eslint.config.mjs web/src web/tests e2e web/vite.config.ts web/vitest.config.ts scripts backend/internal/campfire/devfixture/integrations/discord-viewer eslint.config.mjs web/eslint.config.mjs --max-warnings 0",
+    "format": "node node_modules/prettier/bin/prettier.cjs --write src tests ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/campfire/devfixture/integrations/discord-viewer ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json tsconfig.tests.json vite.config.ts vitest.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
+    "format:check": "node node_modules/prettier/bin/prettier.cjs --check src tests ../scripts ../backend/internal/campfire/service/testdata/eggs ../backend/internal/campfire/devfixture/integrations/discord-viewer ../backend/internal/spark/runtime/seccomp/default.json ../eslint.config.mjs eslint.config.mjs package.json tsconfig.json tsconfig.tests.json vite.config.ts vitest.config.ts index.html \"../e2e/*.{ts,json,md}\" ../e2e/scripts",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run typecheck:tests && pnpm run test && pnpm --dir ../e2e run typecheck:e2e && pnpm run build"
   },
   "dependencies": {

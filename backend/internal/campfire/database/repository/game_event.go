@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/integrations"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 
@@ -152,8 +153,15 @@ func (r *GameEventRepository) Append(ctx context.Context, sparkID, serverID stri
 			row.Data = map[string]any{}
 		}
 
-		if err := tx.Omit("Server").Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "server_id"}, {Name: "event_id"}}, DoNothing: true}).Create(&row).Error; err != nil {
-			return err
+		result := tx.Omit("Server").Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "server_id"}, {Name: "event_id"}}, DoNothing: true}).Create(&row)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected > 0 {
+			if err := NewIntegrationRepository(tx).RouteEvent(ctx, integrations.GameEvent(serverID, event), now); err != nil {
+				return err
+			}
 		}
 
 		return pruneGameServer(tx, serverID, now.Add(-retention).Unix(), maximum)

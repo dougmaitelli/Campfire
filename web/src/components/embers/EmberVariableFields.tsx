@@ -4,7 +4,7 @@ import { VariableType, VariableFormat } from "../../contracts/domains";
 import { FormField } from "../forms/FormField";
 import { Select } from "../forms/Select";
 import { TextInput } from "../forms/TextInput";
-import { AllocationList } from "../forms/AllocationList";
+import { EditableList } from "../forms/EditableList";
 import { EditorCheck, EditorText, AllowedValues } from "./EmberEditorFields";
 import type { EmberDraft } from "./emberDraft";
 import { optionalValue } from "./emberDraft";
@@ -30,7 +30,7 @@ export function EmberVariableFields({
   return (
     <>
       <p className="field-help">{t("emberEditor.variablesHelp")}</p>
-      <AllocationList
+      <EditableList
         className="ember-variable-list"
         items={variables}
         maxItems={128}
@@ -239,7 +239,7 @@ export function EmberVariableFields({
             />
           </>
         )}
-      </AllocationList>
+      </EditableList>
     </>
   );
 }

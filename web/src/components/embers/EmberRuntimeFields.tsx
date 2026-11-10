@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { FormField } from "../forms/FormField";
 import { Select } from "../forms/Select";
-import { AllocationList } from "../forms/AllocationList";
+import { EditableList } from "../forms/EditableList";
 import { EditorCheck, EditorGroup, EditorText } from "./EmberEditorFields";
 import type { EmberDraft, NamedValue } from "./emberDraft";
 import { EmberLogAlertFields } from "./EmberLogAlertFields";
@@ -77,7 +77,7 @@ export function EmberRuntimeFields({
         title={t("emberEditor.images")}
         description={t("emberEditor.imagesHelp")}
       >
-        <AllocationList
+        <EditableList
           items={draft.images}
           maxItems={32}
           rowLabel={(index) =>
@@ -136,13 +136,13 @@ export function EmberRuntimeFields({
               />
             </>
           )}
-        </AllocationList>
+        </EditableList>
       </EditorGroup>
       <EditorGroup
         title={t("emberEditor.startupCommands")}
         description={t("emberEditor.startupHelp")}
       >
-        <AllocationList
+        <EditableList
           items={draft.commands}
           maxItems={32}
           rowLabel={(index) =>
@@ -191,7 +191,7 @@ export function EmberRuntimeFields({
               commandField(command, index)
             )
           }
-        </AllocationList>
+        </EditableList>
       </EditorGroup>
       <EditorText
         label={t("emberEditor.stop")}
@@ -221,7 +221,7 @@ export function EmberRuntimeFields({
         {draft.waitForReadyMessage && (
           <>
             <p className="field-help">{t("emberEditor.readyRulesHelp")}</p>
-            <AllocationList
+            <EditableList
               items={readiness.any}
               maxItems={16}
               rowLabel={(index) =>
@@ -295,7 +295,7 @@ export function EmberRuntimeFields({
                   }
                 />
               )}
-            </AllocationList>
+            </EditableList>
           </>
         )}
       </EditorGroup>

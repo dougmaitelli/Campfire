@@ -43,6 +43,14 @@ export default tseslint.config(
   {
     basePath,
     files: [
+      "backend/internal/campfire/devfixture/integrations/discord-viewer/*.js",
+    ],
+    extends: [eslint.configs.recommended],
+    languageOptions: { globals: globals.browser },
+  },
+  {
+    basePath,
+    files: [
       "scripts/**/*.mjs",
       "e2e/scripts/**/*.mjs",
       "eslint.config.mjs",

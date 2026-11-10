@@ -4,7 +4,7 @@ import i18n from "../i18n";
 import { useTranslation, Trans } from "react-i18next";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
-import { AllocationList } from "../components/forms/AllocationList";
+import { EditableList } from "../components/forms/EditableList";
 import { TextInput } from "../components/forms/TextInput";
 import { Textarea } from "../components/forms/Textarea";
 import { Button } from "../components/forms/Button";
@@ -341,7 +341,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
               <p className="field-help">
                 {t("sparkDrawer.gamePortsAvailableOnThisSparkUseTheSameStart")}
               </p>
-              <AllocationList
+              <EditableList
                 items={settings.port_allocations}
                 rowLabel={(index) => `${t("sparkDrawer.range")} ${index + 1}`}
                 removeLabel={(index) =>
@@ -438,7 +438,7 @@ export function SparkDrawer({ spark, onClose, onSaved }: SparkDrawerProps) {
                     </FormField>
                   </>
                 )}
-              </AllocationList>
+              </EditableList>
             </div>
           ),
         },

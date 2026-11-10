@@ -211,7 +211,12 @@ test("full and save-data retention settings persist independently", async ({
   await screenshot(page, "backup-retention-modes.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "backup-retention-modes-mobile.png", drawer);
-  for (const name of ["Next: Access", "Next: Review", "Save changes"]) {
+  for (const name of [
+    "Next: Integrations",
+    "Next: Access",
+    "Next: Review",
+    "Save changes",
+  ]) {
     await drawer.getByRole("button", { name, exact: true }).click();
   }
   await page

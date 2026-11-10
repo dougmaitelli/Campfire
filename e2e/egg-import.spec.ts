@@ -216,6 +216,7 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
   for (const label of [
     "Next: Resources & ports",
     "Next: Backups",
+    "Next: Integrations",
     "Next: Access",
     "Next: Review",
   ]) {

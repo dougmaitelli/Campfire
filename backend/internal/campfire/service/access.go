@@ -50,6 +50,11 @@ func (p Principal) Allows(action model.PermissionID) bool {
 	return p.tokenAllows(action) && (p.Admin || slices.Contains(p.Permissions, action))
 }
 
+// CanManageIntegrations centralizes the admin and unrestricted-token boundary.
+func (p Principal) CanManageIntegrations() bool {
+	return p.Admin && p.tokenAllows(accessperm.AllAccess)
+}
+
 func (p Principal) tokenAllows(action model.PermissionID) bool {
 	if p.ScopeLimit != nil && !slices.Contains(p.ScopeLimit, accessperm.AllAccess) && !slices.Contains(p.ScopeLimit, action) {
 		return false

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { AllocationList } from "../forms/AllocationList";
+import { EditableList } from "../forms/EditableList";
 import { EditorCheck, EditorGroup, EditorText } from "./EmberEditorFields";
 import type { EmberDraft } from "./emberDraft";
 
@@ -22,7 +22,7 @@ export function EmberStorageFields({
         title={t("emberEditor.savedata")}
         description={t("emberEditor.savedataHelp")}
       >
-        <AllocationList
+        <EditableList
           items={paths}
           maxItems={64}
           rowLabel={(index) =>
@@ -72,7 +72,7 @@ export function EmberStorageFields({
               }
             />
           )}
-        </AllocationList>
+        </EditableList>
       </EditorGroup>
     </>
   );

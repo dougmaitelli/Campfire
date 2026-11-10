@@ -1,0 +1,13 @@
+.server-integration-options {
+  margin-block: 20px;
+
+  & > legend {
+    margin-bottom: 4px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  & .checkbox-field {
+    margin-block: 12px;
+  }
+}

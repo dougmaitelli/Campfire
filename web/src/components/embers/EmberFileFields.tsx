@@ -3,7 +3,7 @@ import type { EmberConfigFile } from "../../api/embers";
 import { ConfigParser } from "../../contracts/domains";
 import { FormField } from "../forms/FormField";
 import { Select } from "../forms/Select";
-import { AllocationList } from "../forms/AllocationList";
+import { EditableList } from "../forms/EditableList";
 import {
   EditorCheck,
   EditorText,
@@ -28,7 +28,7 @@ export function EmberFileFields({
   return (
     <>
       <p className="field-help">{t("emberEditor.filesHelp")}</p>
-      <AllocationList
+      <EditableList
         items={draft.files}
         rowLabel={(index) =>
           t("emberEditor.item", {
@@ -110,7 +110,7 @@ export function EmberFileFields({
             </FormField>
           </>
         )}
-      </AllocationList>
+      </EditableList>
     </>
   );
 }

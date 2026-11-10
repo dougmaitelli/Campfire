@@ -104,14 +104,7 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal)
 				current.ReceivedAt = sample.ReceivedAt
 			}
 
-			if s.Games != nil {
-				fresh := current.Usage.State == model.RuntimeStateRunning && current.Usage.SampledAt > 0 && current.Usage.ContainerError == "" && current.Usage.SampleAgeSeconds <= limits.SampleFreshSeconds(snapshot.SampleIntervalSeconds)
-				if s.Sparks.connectivity == nil || !s.Sparks.connectivity.Connected(target.SparkID) {
-					fresh = false
-				}
-
-				current.Game = s.Games.Snapshot(target.ID, target.SparkID, fresh, snapshot.CollectedAt)
-			}
+			current.Game = s.monitoredGame(target.ID, target.SparkID, current.Usage, snapshot.SampleIntervalSeconds, snapshot.CollectedAt)
 
 			snapshot.Servers = append(snapshot.Servers, current)
 		}
@@ -144,4 +137,19 @@ func (s *DeploymentService) Monitoring(ctx context.Context, principal Principal)
 	}
 
 	return snapshot, nil
+}
+
+// monitoredGame is shared by monitoring and integration cards so both use the
+// same sample age, connectivity, placement, and publication freshness rules.
+func (s *DeploymentService) monitoredGame(id, sparkID string, usage model.ResourceUsage, interval, now int64) *GameStateView {
+	if s.Games == nil {
+		return nil
+	}
+
+	fresh := usage.State == model.RuntimeStateRunning && usage.SampledAt > 0 && usage.ContainerError == "" && usage.SampleAgeSeconds <= limits.SampleFreshSeconds(interval)
+	if s.Sparks == nil || s.Sparks.connectivity == nil || !s.Sparks.connectivity.Connected(sparkID) {
+		fresh = false
+	}
+
+	return s.Games.Snapshot(id, sparkID, fresh, now)
 }

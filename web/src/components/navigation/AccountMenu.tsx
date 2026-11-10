@@ -16,12 +16,19 @@ const ViewAsDrawer = lazy(() =>
   })),
 );
 
+const IntegrationsDrawer = lazy(() =>
+  import("../../drawers/IntegrationsDrawer").then((module) => ({
+    default: module.IntegrationsDrawer,
+  })),
+);
+
 export function AccountMenu() {
   const { t } = useTranslation();
   const auth = useAuthentication();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [viewAsOpen, setViewAsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -112,6 +119,18 @@ export function AccountMenu() {
             >
               <NavigationIcon name="users" />
               {t("viewAs.title")}
+            </button>
+          )}
+          {canPerformPlatform(auth.session, "manageIntegrations") && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setIntegrationsOpen(true);
+              }}
+            >
+              <NavigationIcon name="link" />
+              {t("integrations.title")}
             </button>
           )}
           {auth.session?.view_as ? (
@@ -218,6 +237,14 @@ export function AccountMenu() {
       {tokensOpen &&
         createPortal(
           <APITokensDrawer onClose={() => setTokensOpen(false)} />,
+          document.body,
+        )}
+      {integrationsOpen &&
+        canPerformPlatform(auth.session, "manageIntegrations") &&
+        createPortal(
+          <Suspense fallback={null}>
+            <IntegrationsDrawer onClose={() => setIntegrationsOpen(false)} />
+          </Suspense>,
           document.body,
         )}
       {viewAsOpen &&

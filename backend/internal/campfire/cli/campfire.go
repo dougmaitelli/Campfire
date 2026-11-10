@@ -23,6 +23,8 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	integrationservice "campfire/internal/campfire/service/integrations"
+	"campfire/internal/campfire/service/integrations/discord"
 	filesftp "campfire/internal/campfire/sftp"
 	"campfire/internal/campfire/webui"
 	"campfire/internal/shared/cliutil"
@@ -32,7 +34,7 @@ import (
 
 // Run starts the admin API and the dedicated agent TLS listener.
 func Run(ctx context.Context, args []string) error {
-	return run(ctx, args, nil)
+	return run(ctx, args, startupOptions{})
 }
 
 type runtimeBackend interface {
@@ -42,7 +44,15 @@ type runtimeBackend interface {
 
 type runtimeInitializer func(context.Context, *database.Database, *service.AuthService) (runtimeBackend, error)
 
-func run(ctx context.Context, args []string, initialize runtimeInitializer) error {
+// startupOptions supplies process-local dependencies without environment overrides.
+// The regular executable always uses the zero value.
+type startupOptions struct {
+	initialize  runtimeInitializer
+	discord     *discord.Client
+	wrapHandler func(http.Handler) http.Handler
+}
+
+func run(ctx context.Context, args []string, options startupOptions) error {
 	if len(args) > 0 && args[0] == "reset-password" {
 		return resetPassword(ctx, args[1:])
 	}
@@ -150,8 +160,8 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 
 	var runtime runtimeBackend
 
-	if initialize != nil {
-		runtime, err = initialize(ctx, db, auth)
+	if options.initialize != nil {
+		runtime, err = options.initialize(ctx, db, auth)
 		if err != nil {
 			return fmt.Errorf("initialize development runtime: %w", err)
 		}
@@ -344,8 +354,25 @@ func run(ctx context.Context, args []string, initialize runtimeInitializer) erro
 	defer statuses.Close()
 
 	imports := service.NewBackupImports(filepath.Join(stateDir, "backup-imports"), service.BackupStagingCopies*deployment.UploadLimit())
-	handler := api.New(sparks, embers, servers).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
-	admin := newHTTPServer(ctx, webui.Handler(handler))
+
+	discordClient := options.discord
+	if discordClient == nil {
+		discordClient = discord.NewClient("", nil)
+	}
+
+	integration := integrationservice.NewDiscordIntegrationService(db.ORM(), integrationservice.Secrets{Directory: filepath.Join(stateDir, "integration-secrets")}, discordClient).WithCards(deployment)
+
+	integration.Start(ctx)
+	defer integration.Close()
+
+	handler := api.New(sparks, embers, servers).WithIntegrations(integration).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
+
+	handler = webui.Handler(handler)
+	if options.wrapHandler != nil {
+		handler = options.wrapHandler(handler)
+	}
+
+	admin := newHTTPServer(ctx, handler)
 
 	var active []*http.Server
 

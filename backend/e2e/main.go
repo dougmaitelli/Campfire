@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,7 +22,10 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/devfixture"
+	integrationfixture "campfire/internal/campfire/devfixture/integrations"
 	"campfire/internal/campfire/service"
+	integrationservice "campfire/internal/campfire/service/integrations"
+	"campfire/internal/campfire/service/integrations/discord"
 	"campfire/internal/shared/model"
 )
 
@@ -192,13 +196,23 @@ func main() {
 	root, err := os.MkdirTemp("", "campfire-e2e-")
 	must(err)
 	defer func() { must(os.RemoveAll(root)) }()
+	discordFixture := integrationfixture.NewDiscord()
+	discordAPI := httptest.NewServer(discordFixture.Handler())
+	defer discordAPI.Close()
+	discordViewer := discordFixture.ViewerHandler()
 	var mu sync.RWMutex
 	var handler http.Handler
+	var deliveryFixture http.Handler
 	var db *database.Database
 	var statuses *service.RuntimeStatusService
 	var copies *service.CopyService
+	var integration *integrationservice.DiscordIntegrationService
 	generation := 0
 	reset := func() {
+		if integration != nil {
+			integration.Close()
+		}
+		discordFixture.Reset()
 		if copies != nil {
 			copies.Close()
 		}
@@ -234,10 +248,13 @@ func main() {
 		statuses = service.NewRuntimeStatusService(deployment)
 		must(statuses.Collect(ctx))
 		statuses.Start(ctx)
-		handler = api.New(sparks, embers, servers).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
+		integration = integrationservice.NewDiscordIntegrationService(db.ORM(), integrationservice.Secrets{Directory: filepath.Join(root, fmt.Sprintf("secrets-%d", generation))}, discord.NewClient(discordAPI.URL, discordAPI.Client())).WithCards(deployment)
+		integration.Start(ctx)
+		deliveryFixture = integrationfixture.DeliveryHandler(db.ORM(), fixed)
+		handler = api.New(sparks, embers, servers).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
 	}
 	reset()
-	defer func() { copies.Close(); statuses.Close(); must(db.Close()) }()
+	defer func() { integration.Close(); copies.Close(); statuses.Close(); must(db.Close()) }()
 	files := http.FileServer(http.Dir("web/dist"))
 	mux := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/__test/reset" {
@@ -262,6 +279,14 @@ func main() {
 		}
 		mu.RLock()
 		defer mu.RUnlock()
+		if req.URL.Path == "/mock/discord" || strings.HasPrefix(req.URL.Path, "/mock/discord/") {
+			discordViewer.ServeHTTP(w, req)
+			return
+		}
+		if strings.HasPrefix(req.URL.Path, "/__test/integrations/") {
+			deliveryFixture.ServeHTTP(w, req)
+			return
+		}
 		if strings.HasPrefix(req.URL.Path, "/api/") {
 			handler.ServeHTTP(w, req)
 			return

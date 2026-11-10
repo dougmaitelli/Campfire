@@ -69,6 +69,49 @@ the simulator bypasses the game socket and Spark queue. Real transport behavior
 is covered separately by Spark tests. The deterministic browser screenshot
 fixtures do not start this background publisher.
 
+## Mock Discord
+
+`make dev-mock` uses a local fake Discord API. It never sends integration requests
+to real Discord, even if a real token is entered. Startup prints the panel URL,
+the fake bot token, and the viewer URL:
+
+```text
+Panel:        http://127.0.0.1:8081
+Mock Discord: http://127.0.0.1:8080/mock/discord
+Bot token:    campfire-test-discord-token
+```
+
+Fresh sessions already connect **Campfire Community** and enable Survival's
+game/power notifications and server card in **server-updates**. Open the viewer
+to see messages. Open **Integrations** from the panel account menu to edit,
+disable, or remove the connection. These changes survive backend rebuilds.
+To add it again, choose **Add integration → Discord**, enter the fake token, and
+select **Campfire Community** once servers load automatically. In a game's console,
+open **Actions → Edit server → Integrations** to select notifications and card fields. Use
+`mock-game next`, power actions, or backups to exercise the normal event pipeline.
+
+The viewer displays the actual outgoing embeds by channel. Card edits keep the
+same message ID and gain an edited indicator. **Delete message** simulates removal
+in Discord; an enabled card is recreated after its next existence check, normally
+within about a minute. Notifications are not recreated when deleted.
+
+**Channel behavior** can simulate missing permissions, five-second rate limits,
+or an unavailable provider for either writable channel. Other channels continue
+working. Return the channel to **Normal**, let any rate-limit cooldown expire,
+and retry failed work in the panel. **read-only** always lacks Send Messages.
+
+The simulated inbox and failure settings are memory-only and reset when the
+backend rebuilds. Saved panel integration settings survive those rebuilds;
+existing cards are reconciled against the empty fake provider. A new mock-dev
+session resets all isolated state as usual.
+
+The provider, embedded viewer, and mock startup adapter live under
+`devfixture/integrations` and `devmock/integrations`, behind `!production` build
+constraints. The regular panel does not mount these routes or support an
+environment setting to redirect Discord. No database or public API changes are
+needed for this development tool. A real bot in a private Discord server can
+still be used with regular `make dev` for a final live smoke test.
+
 ## Tests
 
 Frontend tests run through Vitest and import application TypeScript directly using

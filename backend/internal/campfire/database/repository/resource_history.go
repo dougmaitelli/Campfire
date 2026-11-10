@@ -69,6 +69,10 @@ func (r *ResourceHistoryRepository) Save(ctx context.Context, servers []database
 		}
 
 		if len(keptServers) > 0 {
+			if err := observeIntegrationPower(tx, keptServers); err != nil {
+				return err
+			}
+
 			if err := tx.Omit("Server").Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(keptServers, 50).Error; err != nil {
 				return err
 			}

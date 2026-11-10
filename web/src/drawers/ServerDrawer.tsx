@@ -7,7 +7,7 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { Fieldset } from "../components/forms/Fieldset";
 import { FormField } from "../components/forms/FormField";
-import { AllocationList } from "../components/forms/AllocationList";
+import { EditableList } from "../components/forms/EditableList";
 import { ServerVariableField } from "../components/servers/ServerVariableField";
 import "./server-drawer.css";
 import { formatDisplayValue } from "../utils/formatDisplayValue";
@@ -63,6 +63,8 @@ import {
 } from "../api/backupImports";
 import { serverAction, ServerAction } from "../api/runtime";
 import { ProgressBar } from "../components/status/ProgressBar";
+import { ServerIntegrationsStep } from "../components/servers/ServerIntegrationsStep";
+import { useServerIntegrations } from "../hooks/useServerIntegrations";
 
 interface ServerDrawerProps {
   copy?: CopyTemplate | undefined;
@@ -111,6 +113,13 @@ export function ServerDrawer({
   const [accessDirty, setAccessDirty] = useState(false);
   const [removedGrantIDs, setRemovedGrantIDs] = useState<number[]>([]);
   const serverID = server?.id;
+  const canConfigureIntegrations =
+    !!server &&
+    !copy &&
+    !applyRevision &&
+    !accessOnly &&
+    canPerformServer(server, "configure");
+  const integrations = useServerIntegrations(server, canConfigureIntegrations);
   useEffect(() => {
     if (!canShare) return;
     const controller = new AbortController();
@@ -296,6 +305,11 @@ export function ServerDrawer({
 
   async function finish() {
     if (submitting.current) return;
+    const integrationError = integrations.validate();
+    if (integrationError) {
+      setError(integrationError);
+      return;
+    }
     if (canShare && accessDirty && (!access || accessError)) {
       setError(accessError ?? i18n.t("serverDrawer.waitForServerAccessToLoad"));
       return;
@@ -354,6 +368,22 @@ export function ServerDrawer({
                   cause instanceof Error ? cause.message : "",
               },
             ),
+            { cause },
+          );
+        }
+      }
+      if (integrations.dirty) {
+        try {
+          await integrations.save();
+        } catch (cause) {
+          onSaved(saved);
+          throw new Error(
+            t("serverIntegrations.saveFailed", {
+              error:
+                cause instanceof Error
+                  ? cause.message
+                  : t("integrations.failed"),
+            }),
             { cause },
           );
         }
@@ -678,21 +708,14 @@ export function ServerDrawer({
               )}
               <FormField
                 label={t("serverDrawer.customStartupCommand")}
-                labelAction={
-                  <Button
-                    type="button"
-                    size="small"
-                    disabled={
-                      runtimeRestricted ||
-                      (!!server?.ember_update_available && !applyRevision)
-                    }
-                    onClick={() =>
-                      setValue({ ...value, startup_override: undefined })
-                    }
-                  >
-                    {t("serverDrawer.resetStartupCommand")}
-                  </Button>
-                }
+                labelAction={{
+                  label: t("serverDrawer.resetStartupCommand"),
+                  disabled:
+                    runtimeRestricted ||
+                    (!!server?.ember_update_available && !applyRevision),
+                  onClick: () =>
+                    setValue({ ...value, startup_override: undefined }),
+                }}
                 description={t("serverDrawer.customStartupCommandHelp")}
               >
                 <Textarea
@@ -883,7 +906,7 @@ export function ServerDrawer({
                   "serverDrawer.hostPortsMustBelongToTheSparkSAllocationRanges",
                 )}
               </p>
-              <AllocationList
+              <EditableList
                 items={value.ports}
                 maxItems={32}
                 addDisabled={allocations.length === 0}
@@ -997,7 +1020,7 @@ export function ServerDrawer({
                     </>
                   );
                 }}
-              </AllocationList>
+              </EditableList>
             </Fieldset>
           ),
         },
@@ -1072,6 +1095,18 @@ export function ServerDrawer({
               },
             ]
           : []),
+        {
+          id: "integrations",
+          title: t("integrations.title"),
+          validate: integrations.validate,
+          content: server && (
+            <ServerIntegrationsStep
+              server={server}
+              state={integrations}
+              busy={busy}
+            />
+          ),
+        },
         ...(canShare
           ? [
               {
@@ -1165,6 +1200,7 @@ export function ServerDrawer({
         {
           id: "review",
           title: t("common.review"),
+          validate: integrations.validate,
           content: (
             <>
               {applyRevision && (
@@ -1319,7 +1355,9 @@ export function ServerDrawer({
           ),
         },
       ].filter(
-        (step) => !accessOnly || step.id === "access" || step.id === "review",
+        (step) =>
+          (step.id !== "integrations" || canConfigureIntegrations) &&
+          (!accessOnly || step.id === "access" || step.id === "review"),
       )}
     >
       {(content, actions) => (

@@ -11,6 +11,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/devmock"
+	mockintegrations "campfire/internal/campfire/devmock/integrations"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/settings"
 )
@@ -31,18 +32,27 @@ func RunMock(ctx context.Context, args []string) error {
 		}
 	}
 
-	return run(ctx, []string{"--" + settings.CampfireListen.FlagName, "127.0.0.1:8080", "--" + settings.CampfireDatabase.FlagName, "data/mock/panel.db", "--" + settings.CampfireData.FlagName, "data/mock", "--" + settings.CampfireAgentListen.FlagName, ""}, func(ctx context.Context, db *database.Database, auth *service.AuthService) (runtimeBackend, error) {
+	discord := mockintegrations.NewDiscord()
+	defer discord.Close()
+
+	return run(ctx, []string{"--" + settings.CampfireListen.FlagName, "127.0.0.1:8080", "--" + settings.CampfireDatabase.FlagName, "data/mock/panel.db", "--" + settings.CampfireData.FlagName, "data/mock", "--" + settings.CampfireAgentListen.FlagName, ""}, startupOptions{discord: discord.Client(), wrapHandler: discord.WrapHandler, initialize: func(ctx context.Context, db *database.Database, auth *service.AuthService) (runtimeBackend, error) {
 		runtime, err := devmock.New(ctx, db.ORM(), auth)
 		if err == nil {
 			err = runtime.EnableJobExamples(ctx)
 		}
 
 		if err == nil {
+			err = runtime.EnableIntegrationExample(ctx, discord, "data/mock/integration-secrets")
+		}
+
+		if err == nil {
 			slog.Info("MOCK MODE: simulated Sparks; no Docker, TLS or infrastructure connections", "database", "data/mock/panel.db")
 			slog.Info("Mock username: " + devmock.Username)
 			slog.Info("Mock password: " + devmock.Password)
+			slog.Info("Mock panel: http://127.0.0.1:8081")
+			discord.LogSetup()
 		}
 
 		return runtime, err
-	})
+	}})
 }

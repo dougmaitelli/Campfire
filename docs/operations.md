@@ -4,11 +4,15 @@ title: Upgrades and recovery
 
 Game snapshots and installation recovery protect different data. Preserve:
 
-- The panel database and its persistent state directory, including the Spark signing authority
+- The panel database and its persistent state directory, including the Spark signing authority and encrypted integration credentials
 - Each Spark's identity, runtime metadata, game data, and backup archives
 - Any separately configured S3 backups and their retention settings
 
 Before upgrading, stop the panel and take a consistent database and state backup. For SQLite, copying only a live database file can omit WAL contents. For PostgreSQL, back up the database as well as the panel state directory.
+
+Discord delivery identities are stored in the database, while the token files
+and encryption key live in `integration-secrets` under the panel state directory.
+Restore them together; see [Discord backup and recovery](../discord/#back-up-and-restore).
 
 For Compose upgrades, select the desired image tag in your deployment configuration, then run `docker compose pull` and `docker compose up -d`. Check login, health, and Spark connections afterward. Upgrade Spark when required by protocol or feature compatibility; wait for active operations to finish before restarting an agent.
 

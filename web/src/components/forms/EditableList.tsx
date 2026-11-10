@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { Plus } from "lucide-react";
-import { AllocationRow } from "./AllocationRow";
+import { EditableListRow } from "./EditableListRow";
 import { Button } from "./Button";
 
-export function AllocationList<T>({
+export function EditableList<T>({
   items,
   rowLabel,
   removeLabel,
@@ -29,9 +29,9 @@ export function AllocationList<T>({
   className?: string;
 }) {
   return (
-    <div className={["allocation-list", className].filter(Boolean).join(" ")}>
+    <div className={["editable-list", className].filter(Boolean).join(" ")}>
       {items.map((item, index) => (
-        <AllocationRow
+        <EditableListRow
           key={index}
           label={rowLabel(index)}
           removeLabel={removeLabel(index)}
@@ -39,7 +39,7 @@ export function AllocationList<T>({
           body={renderBody?.(item, index)}
         >
           {children(item, index)}
-        </AllocationRow>
+        </EditableListRow>
       ))}
       <Button
         type="button"

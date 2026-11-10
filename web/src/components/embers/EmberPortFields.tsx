@@ -3,7 +3,7 @@ import { NetworkProtocol } from "../../contracts/domains";
 import { FormField } from "../forms/FormField";
 import { Select } from "../forms/Select";
 import { TextInput } from "../forms/TextInput";
-import { AllocationList } from "../forms/AllocationList";
+import { EditableList } from "../forms/EditableList";
 import { EditorText } from "./EmberEditorFields";
 import type { EmberDraft } from "./emberDraft";
 
@@ -23,7 +23,7 @@ export function EmberPortFields({
   return (
     <>
       <p className="field-help">{t("emberEditor.portsHelp")}</p>
-      <AllocationList
+      <EditableList
         items={ports}
         maxItems={32}
         rowLabel={(index) =>
@@ -104,7 +104,7 @@ export function EmberPortFields({
             />
           </>
         )}
-      </AllocationList>
+      </EditableList>
     </>
   );
 }

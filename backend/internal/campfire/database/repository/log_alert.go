@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/integrations"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -75,6 +76,10 @@ func (r *LogAlertRepository) Observe(ctx context.Context, sparkID, serverID stri
 			// author-supplied guidance; evidence is permission-checked separately.
 			notification := database.Notification{TargetType: model.NotificationServer, TargetID: serverID, Kind: model.NotificationAlert, Severity: severity, Title: server.Name + ": " + detection.Title, Body: detection.Message, CreatedAt: time.Now().Unix()}
 			if err := emitNotification(tx, &notification, queue); err != nil {
+				return err
+			}
+
+			if err := NewIntegrationRepository(tx).RouteEvent(ctx, integrations.ConsoleAlert(serverID, detection), time.Now()); err != nil {
 				return err
 			}
 		}

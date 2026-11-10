@@ -5,7 +5,7 @@ import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
 import { Textarea } from "../forms/Textarea";
 import { CheckboxField } from "../forms/CheckboxField";
-import { AllocationList } from "../forms/AllocationList";
+import { EditableList } from "../forms/EditableList";
 import type { NamedValue } from "./emberDraft";
 
 export function EditorText({
@@ -96,7 +96,7 @@ export function ReplacementValues({
   const { t } = useTranslation();
   const title = t("emberEditor.replacement");
   return (
-    <AllocationList
+    <EditableList
       items={rows}
       rowLabel={(index) =>
         t("emberEditor.item", { name: title, number: index + 1 })
@@ -133,7 +133,7 @@ export function ReplacementValues({
           />
         </>
       )}
-    </AllocationList>
+    </EditableList>
   );
 }
 
@@ -152,7 +152,7 @@ export function AllowedValues({
       <div className="ember-list-label" id={listID}>
         {t("emberEditor.allowedValues")}
       </div>
-      <AllocationList
+      <EditableList
         className="ember-value-list"
         items={values}
         rowLabel={(index) =>
@@ -181,7 +181,7 @@ export function AllowedValues({
             }
           />
         )}
-      </AllocationList>
+      </EditableList>
     </div>
   );
 }

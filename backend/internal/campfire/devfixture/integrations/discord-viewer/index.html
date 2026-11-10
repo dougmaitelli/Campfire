@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mock Discord · Campfire</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/mock/discord/viewer.css" />
+    <script src="/mock/discord/viewer.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">Campfire development</p>
+        <h1>Mock Discord</h1>
+        <p>A local inbox for testing notifications and live server cards.</p>
+      </div>
+      <span class="badge">Local simulation</span>
+    </header>
+    <main>
+      <section class="setup" aria-labelledby="setup-title">
+        <h2 id="setup-title">Connect the panel</h2>
+        <p>
+          Mock-dev starts connected to <strong>Campfire Community</strong>, with
+          Survival’s notifications and server card enabled. Manage the
+          connection from the panel’s Integrations drawer. To add it again,
+          select Discord and enter this fake token; available servers load
+          automatically.
+        </p>
+        <div class="token-row">
+          <code id="token">Loading fake token…</code>
+          <button id="copy-token" type="button">Copy token</button>
+        </div>
+        <p class="hint">
+          Messages refresh automatically. Delete a server card here to test its
+          recreation. Set a channel failure to test delivery and recovery. New
+          mock-dev sessions and backend rebuilds clear this simulated inbox.
+        </p>
+      </section>
+      <p id="error" role="alert" hidden></p>
+      <div class="workspace">
+        <aside aria-label="Discord channels">
+          <h2>Channels</h2>
+          <div id="channels"></div>
+        </aside>
+        <section class="conversation" aria-labelledby="channel-title">
+          <div class="channel-header">
+            <h2 id="channel-title"># server-updates</h2>
+            <label for="failure">Channel behavior</label>
+            <select id="failure">
+              <option value="">Normal</option>
+              <option value="forbidden">Missing permissions</option>
+              <option value="rate-limit">Rate limited (5 seconds)</option>
+              <option value="unavailable">Unavailable (503)</option>
+            </select>
+          </div>
+          <p id="channel-note" class="hint"></p>
+          <div id="messages" aria-label="Channel messages"></div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

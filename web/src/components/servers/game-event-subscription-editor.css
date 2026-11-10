@@ -1,0 +1,8 @@
+.integration-event-filters {
+  display: grid;
+  gap: 16px;
+
+  & > .field-help {
+    margin: 0;
+  }
+}

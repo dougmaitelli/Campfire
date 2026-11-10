@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/integrations"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
@@ -314,6 +315,12 @@ func (r *ActivityRepository) FinishRun(ctx context.Context, run database.Schedul
 
 		if result.RowsAffected == 0 {
 			return nil
+		}
+
+		if event, ok := integrations.OperationResult(run.ServerID, run.ID, run.Action, state, run.BackupMode, now); ok {
+			if err := NewIntegrationRepository(tx).RouteEvent(ctx, event, now); err != nil {
+				return err
+			}
 		}
 
 		var actorID *int64

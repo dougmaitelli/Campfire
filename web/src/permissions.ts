@@ -62,6 +62,7 @@ export function canPerformPlatform(
     | keyof typeof platformRequirements
     | "administration"
     | "assignServerOwner"
+    | "manageIntegrations"
     | "previewUsers",
 ): boolean {
   switch (operation) {
@@ -69,6 +70,7 @@ export function canPerformPlatform(
     case "assignServerOwner":
       return principal?.admin === true;
     case "previewUsers":
+    case "manageIntegrations":
       return principal?.admin === true && !principal.view_as;
   }
   return (

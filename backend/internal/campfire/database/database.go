@@ -185,10 +185,15 @@ func migrate(db *gorm.DB) error {
 				}
 			}
 
+			if err := migrateIntegrationDestinations(tx); err != nil {
+				return err
+			}
+
 			if err := tx.AutoMigrate(
 				&BackupPolicy{}, &Backup{},
 				&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
 				&GameEvent{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{},
+				&Integration{}, &ServerIntegration{}, &IntegrationMessage{},
 			); err != nil {
 				return err
 			}
@@ -223,6 +228,10 @@ func migrate(db *gorm.DB) error {
 			}
 		}
 
+		if err := migrateIntegrationDestinations(tx); err != nil {
+			return err
+		}
+
 		if err := tx.AutoMigrate(
 			&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
 			&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
@@ -234,6 +243,7 @@ func migrate(db *gorm.DB) error {
 			&GameEvent{},
 			&GameMedia{},
 			&LogAlertIssue{},
+			&Integration{}, &ServerIntegration{}, &IntegrationMessage{},
 		); err != nil {
 			return fmt.Errorf("apply initial schema: %w", err)
 		}

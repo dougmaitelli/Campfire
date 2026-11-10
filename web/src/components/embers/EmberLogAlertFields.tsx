@@ -5,7 +5,7 @@ import {
   LogSeverity,
   type LogAlert,
 } from "../../contracts/logAlerts";
-import { AllocationList } from "../forms/AllocationList";
+import { EditableList } from "../forms/EditableList";
 import { FormField } from "../forms/FormField";
 import { Select } from "../forms/Select";
 import { Textarea } from "../forms/Textarea";
@@ -37,7 +37,7 @@ export function EmberLogAlertFields({
       title={t("logAlerts.editorTitle")}
       description={t("logAlerts.editorHelp")}
     >
-      <AllocationList
+      <EditableList
         items={alerts}
         maxItems={32}
         rowLabel={(index) => t("logAlerts.rule", { number: index + 1 })}
@@ -138,7 +138,7 @@ export function EmberLogAlertFields({
                 }
               />
             )}
-            <AllocationList
+            <EditableList
               items={alert.any}
               maxItems={16}
               rowLabel={(condition) =>
@@ -198,7 +198,7 @@ export function EmberLogAlertFields({
                   }
                 />
               )}
-            </AllocationList>
+            </EditableList>
           </>
         )}
       >
@@ -226,7 +226,7 @@ export function EmberLogAlertFields({
             </FormField>
           </>
         )}
-      </AllocationList>
+      </EditableList>
     </EditorGroup>
   );
 }

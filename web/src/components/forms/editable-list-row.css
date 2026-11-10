@@ -1,4 +1,4 @@
-.fieldset.allocation-row {
+.fieldset.editable-list-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--control-height);
   align-items: end;
@@ -9,7 +9,7 @@
   border-radius: 8px;
 }
 
-.allocation-row-fields {
+.editable-list-row-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr));
   align-items: end;
@@ -26,7 +26,7 @@
   }
 }
 
-.allocation-row-body {
+.editable-list-row-body {
   display: grid;
   grid-column: 1 / -1;
   gap: 10px;

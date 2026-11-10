@@ -1,0 +1,33 @@
+.integration-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.integration-list-heading h3 {
+  margin: 0;
+}
+.integration-identity {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.integration-form > .integration-identity {
+  margin-bottom: 16px;
+}
+.integration-test {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 20px;
+}
+.integration-test summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.integration-test-fields {
+  margin-top: 16px;
+}

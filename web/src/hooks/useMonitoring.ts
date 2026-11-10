@@ -5,18 +5,20 @@ import { readMonitoring, type MonitoringSnapshot } from "../api/monitoring";
 
 const DEFAULT_MONITORING_INTERVAL_SECONDS = 10;
 
-export function useMonitoring() {
+export function useMonitoring(active = true) {
   const [snapshot, setSnapshot] = useState<MonitoringSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(active);
   const [revision, setRevision] = useState(0);
   const [received, setReceived] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (!active) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [active]);
   useEffect(() => {
+    if (!active) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let intervalSeconds = DEFAULT_MONITORING_INTERVAL_SECONDS;
@@ -55,7 +57,7 @@ export function useMonitoring() {
       controller.abort();
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [revision]);
+  }, [revision, active]);
   const refresh = useCallback(() => {
     setLoading(true);
     setError(null);

@@ -8,6 +8,10 @@ import {
 import "./form-field.css";
 
 type FieldControlProps = AriaAttributes & { id?: string };
+type FieldAction = { label: ReactNode } & (
+  | { onClick: () => void; disabled?: boolean; href?: never }
+  | { href: string; target?: string; rel?: string; onClick?: never }
+);
 
 export function FormField({
   label,
@@ -18,7 +22,7 @@ export function FormField({
   className,
 }: {
   label: ReactNode;
-  labelAction?: ReactNode;
+  labelAction?: FieldAction | undefined;
   description?: ReactNode;
   error?: ReactNode;
   children: ReactElement<FieldControlProps>;
@@ -38,7 +42,25 @@ export function FormField({
       {labelAction ? (
         <div className="form-field-label-row">
           <label htmlFor={id}>{label}</label>
-          {labelAction}
+          {labelAction.href !== undefined ? (
+            <a
+              className="form-field-action"
+              href={labelAction.href}
+              target={labelAction.target}
+              rel={labelAction.rel}
+            >
+              {labelAction.label}
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="form-field-action"
+              onClick={labelAction.onClick}
+              disabled={labelAction.disabled}
+            >
+              {labelAction.label}
+            </button>
+          )}
         </div>
       ) : (
         <label htmlFor={id}>{label}</label>

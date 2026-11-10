@@ -29,6 +29,7 @@ export const GameLimits = {
   FieldNameLength: 64,
   FieldStringLength: 1024,
 } as const;
+export const IntegrationLimits = { CardFields: 32 } as const;
 export const RequestTimeout = {
   Default: 35000,
   Read: 15000,

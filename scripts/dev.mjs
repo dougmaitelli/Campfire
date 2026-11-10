@@ -125,7 +125,18 @@ async function rebuild() {
 function scheduleRebuild(_event, filename) {
   if (!filename) return;
   const path = filename.toString();
-  if (!path.endsWith(".go") && path !== "go.mod" && path !== "go.sum") return;
+  const mockDiscordAsset =
+    mock &&
+    path
+      .replaceAll("\\", "/")
+      .startsWith("internal/campfire/devfixture/integrations/discord-viewer/");
+  if (
+    !path.endsWith(".go") &&
+    path !== "go.mod" &&
+    path !== "go.sum" &&
+    !mockDiscordAsset
+  )
+    return;
   // Mark changes immediately so an in-progress build cannot start stale code.
   dirty = true;
   clearTimeout(rebuildTimer);

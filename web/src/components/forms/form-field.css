@@ -11,7 +11,6 @@
   }
 
   & > .form-field-label-row {
-    --control-height: 32px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -29,6 +28,34 @@
   & > input[type="file"] {
     width: 100%;
     margin-bottom: 0;
+  }
+}
+.form-field-action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: end;
+  text-decoration: none;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  &:disabled {
+    color: var(--muted);
+    cursor: default;
   }
 }
 .form-field > .field-help,

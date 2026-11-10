@@ -11,6 +11,8 @@ import (
 	"campfire/internal/campfire/agents"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	integrationservice "campfire/internal/campfire/service/integrations"
+	"campfire/internal/campfire/service/integrations/discord"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
@@ -28,6 +30,7 @@ type API struct {
 	oidc          *service.OIDCService
 	activity      *service.ActivityService
 	notifications *service.NotificationService
+	integrations  *integrationservice.DiscordIntegrationService
 	backupImports *service.BackupImports
 	now           func() time.Time
 }
@@ -41,6 +44,12 @@ func (a *API) WithClock(now func() time.Time) *API {
 // WithNotifications enables personal inboxes and monitoring notification controls.
 func (a *API) WithNotifications(notifications *service.NotificationService) *API {
 	a.notifications = notifications
+	return a
+}
+
+// WithIntegrations enables administrator-only external integration setup.
+func (a *API) WithIntegrations(integration *integrationservice.DiscordIntegrationService) *API {
+	a.integrations = integration
 	return a
 }
 
@@ -102,6 +111,14 @@ func writeError(w http.ResponseWriter, err error) {
 	var commandError *protocol.CommandError
 
 	switch {
+	case errors.Is(err, integrationservice.ErrIntegrationInput), discord.IsError(err):
+		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, repository.ErrIntegrationConflict):
+		status, message = http.StatusConflict, "Integration settings changed or have server bindings. Reload before changing the bot or Discord server."
+	case errors.Is(err, repository.ErrIntegrationDisabled):
+		status, message = http.StatusConflict, err.Error()
+	case errors.Is(err, integrationservice.ErrSecretUnavailable):
+		status, message = http.StatusServiceUnavailable, err.Error()
 	case errors.Is(err, service.ErrSparkReinstall):
 		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, repository.ErrResourceHistoryPending):
@@ -128,7 +145,7 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, repository.ErrAccessConflict), errors.Is(err, repository.ErrLastAdmin):
 		status, message = http.StatusConflict, err.Error()
-	case errors.Is(err, repository.ErrAccessNotFound):
+	case errors.Is(err, repository.ErrAccessNotFound), errors.Is(err, repository.ErrIntegrationNotFound):
 		status, message = http.StatusNotFound, err.Error()
 	case errors.Is(err, repository.ErrNotificationNotFound):
 		status, message = http.StatusNotFound, err.Error()
