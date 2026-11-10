@@ -14,9 +14,10 @@ import (
 )
 
 type sparkClientRecord struct {
-	SparkID string `gorm:"primaryKey"`
-	Version string
-	Pruned  bool
+	SparkID              string `gorm:"primaryKey"`
+	Version              string
+	Pruned               bool
+	ConfigurationBlocked bool `gorm:"not null;default:false"`
 }
 
 func seedSparkClients(ctx context.Context, db *gorm.DB) error {
@@ -70,5 +71,7 @@ func (r *Runtime) UpdateSpark(ctx context.Context, id, version string) error {
 		return errors.New("no newer mock Spark release is available")
 	}
 
-	return r.db.WithContext(ctx).Save(&sparkClientRecord{SparkID: id, Version: version}).Error
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "spark_id"}}, DoUpdates: clause.AssignmentColumns([]string{"version"}),
+	}).Create(&sparkClientRecord{SparkID: id, Version: version}).Error
 }

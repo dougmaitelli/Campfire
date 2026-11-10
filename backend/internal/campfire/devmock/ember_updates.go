@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"campfire/internal/campfire/database"
@@ -32,7 +33,7 @@ func mockUpdateCandidate(current bool) model.Ember {
 			"Debug":    "java -Xmx{{SERVER_MEMORY}}M -Ddebug=true -jar server.jar",
 		}
 		ember.Startup = ""
-		ember.SavedataPaths = []model.SavedataPath{{Path: "world", Required: true}, {Path: "server.properties", Required: true}, {Path: "config"}}
+		ember.SavedataPaths = []model.SavedataPath{{Path: "world", Required: true}, {Path: "server.properties", Required: true}, {Path: "config"}, {Path: "whitelist.json", Required: true}}
 	}
 
 	ember.Variables = mockMinecraftVariables()
@@ -77,6 +78,8 @@ func seedEmberUpdates(ctx context.Context, db *gorm.DB) error {
 		}
 
 		current := mockUpdateCandidate(true)
+		// The metadata scenario adds this path after backup fixtures are created.
+		current.SavedataPaths = slices.DeleteFunc(current.SavedataPaths, func(path model.SavedataPath) bool { return path.Path == "whitelist.json" })
 
 		current.ID = devfixture.CurrentMinecraftEmberID
 		if err := repository.NewEmberRepository(tx).Create(ctx, current); err != nil {
@@ -97,8 +100,8 @@ func seedEmberUpdates(ctx context.Context, db *gorm.DB) error {
 	})
 }
 
-// seedServerEmberUpdate adds an imported revision and a stopped server still
-// pinned to the old definition. Its own marker also upgrades existing mock databases.
+// seedServerEmberUpdate adds a running server with saved values awaiting review.
+// Its own marker also upgrades existing mock databases without resetting edits.
 func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 	return database.Transaction(db.WithContext(ctx), func(tx *gorm.DB) error {
 		var count int64
@@ -113,9 +116,24 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 
+		original.Variables = append(original.Variables,
+			model.Variable{Name: "INTERNAL_TOKEN", Default: "mock-old", Hidden: true},
+			model.Variable{Name: "RETIRED_SETTING", Default: "legacy", Hidden: true},
+		)
+
 		updated := mockUpdateCandidate(false)
 
 		updated.ID = original.ID
+		updated.Images = map[string]string{"Java 25": "ghcr.io/ptero-eggs/yolks:java_25"}
+		updated.StartupCommands = map[string]string{"Standard": updated.Startup}
+		updated.Startup = ""
+		updated.Variables = append(updated.Variables,
+			model.Variable{Name: "EXTRA_ARGUMENTS", Editable: true},
+			model.Variable{Name: "ENABLE_CROSSPLAY", Default: "1", Editable: true, Validation: &model.VariableValidation{Type: model.VariableBoolean}},
+			model.Variable{Name: "INTERNAL_TOKEN", Default: "mock-new", Hidden: true},
+		)
+
+		updated.SavedataPaths = []model.SavedataPath{{Path: "world", Required: true}, {Path: "server.properties", Required: true}}
 		for i := range updated.Variables {
 			if updated.Variables[i].Name == "INSTALL_CHANNEL" {
 				updated.Variables[i].Default = "preview"
@@ -132,14 +150,14 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 		}
 
 		configuration := model.ServerConfiguration{
-			Name: mockUpdateServerName, Description: "Stopped on an older mock Minecraft definition. Choose Update Ember to apply the current local definition; no download is needed.",
+			Name: mockUpdateServerName, Description: "Running with saved values awaiting Ember review: image, startup selection, locked defaults, added settings and private changes. Both backup types remain available. Apply without stopping, then restart separately.",
 			SparkID: "mock-europe", EmberID: original.ID, Image: original.Images["Java 21"],
-			Variables: map[string]string{}, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480,
-			Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25569, ContainerPort: 25565, Protocol: model.NetworkTCP}},
+			Variables: map[string]string{"MOTD": "Custom greeting retained during review"}, GameIntegration: true, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480,
+			Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25569, ContainerPort: 25565, Protocol: model.NetworkTCP}, {BindIP: "0.0.0.0", HostPort: 25570, ContainerPort: 27015, Protocol: model.NetworkUDP}},
 		}
 		servers := service.NewServerService(repository.NewServerRepository(tx), service.NewEmberService(emberStore))
 
-		server, err := servers.CreateOwned(ctx, configuration, 1)
+		server, err := servers.CreateOwned(ctx, updated.ProposedServerConfiguration(configuration), 1)
 		if err != nil {
 			return err
 		}
@@ -157,7 +175,9 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 		}
 
 		record := newRecord(configuration.SparkID, deployment)
-		record.State = model.RuntimeStateStopped
+		record.State = model.RuntimeStateRunning
+		record.ActiveRevision = model.ContainerRevision(deployment)
+		record.StartedAt = time.Now().Add(-2 * time.Hour).Unix()
 
 		record.Logs += "[Mock Spark] The current local Ember definition is ready to apply.\n"
 		if err := tx.Create(&record).Error; err != nil {

@@ -31,6 +31,48 @@ The binaries are written to `bin/campfire` and `bin/spark`. Production hosts do 
 
 See the [browser testing guide](https://github.com/dougmaitelli/Campfire/blob/master/e2e/README.md) for the contributor testing workflow.
 
+## Mock server scenarios
+
+The eight-server fleet combines useful cases rather than creating every possible
+combination. Existing examples are retained; only three servers are added for the
+configuration states that need separate running or delivery baselines.
+
+| Server                    | Scenarios to exercise                                                                                                                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Survival                  | Healthy running server, game publications and media, Discord notifications/card, file management, scheduled restart, owner and observer access                                                                                           |
+| Creative                  | Stopped server, EULA log alert and file action, named startup commands, full/save-data archives and retention, save paths changed without review or deployment sync                                                                      |
+| Modded                    | Ready for installation, operator/editor access differences, Spark without hard disk quotas                                                                                                                                               |
+| Unavailable               | Offline Spark, unavailable metrics, queued operations                                                                                                                                                                                    |
+| Ember update ready · Mock | Running server awaiting value review: image/startup selection, changed locked value, retained custom MOTD, added empty and boolean values, private changes and removed values; two container ports using TCP and UDP; backups still work |
+| Restart required · Mock   | Saved custom startup and memory differ from the running container; game integration disabled, unlimited disk; restarting applies the changes                                                                                             |
+| Deployment sync · Mock    | Connected Spark rejects configuration delivery while status, console and backups remain available; recovery leads to a pending restart                                                                                                   |
+| First sync · Mock         | Not installed, no configuration acknowledgement yet; transfer can be queued before the first successful sync                                                                                                                             |
+
+In **Deployment sync · Mock**, send `mock-config resume` through its console to
+recover configuration delivery for both servers on **Configuration recovery**.
+The collector retries automatically; **Sync deployment** also retries immediately.
+The running server then needs a restart, while **First sync · Mock** remains
+uninstalled. `mock-config pause` blocks future deliveries on that simulated Spark.
+This affects configuration delivery only, not the other mock transports.
+
+The new save path on Creative is `whitelist.json`. A new save-data backup includes
+it immediately; existing archives retain their original paths. Both backup types
+also remain available on the pending-review example.
+
+Use `casey` with the shared mock password for status-only access to the sync and
+restart examples: configuration and power controls stay hidden. `sam` can operate
+and synchronize the sync example without editing its settings. Existing `alex`,
+`morgan`, `jordan`, `observer`, and unassigned `viewer` examples retain their roles.
+
+Fixture setup runs once and does not overwrite subsequent edits. Delivery pause
+settings, lifecycle transitions, and the simulated running-container fingerprint
+survive backend rebuilds. A new mock-dev session resets them. These additions use
+only `runtime_records.active_revision` and
+`spark_client_records.configuration_blocked` in the isolated mock database;
+production table definitions, API fields, permissions and wire contracts are
+unchanged. The deterministic browser fixture fleet is separate and does not gain
+these servers or screenshot baselines.
+
 ## Mock game integration
 
 For mod and adapter authors, the [game integration developer guide](/Campfire/game-integrations/)

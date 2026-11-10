@@ -148,6 +148,7 @@ func (r *Runtime) backupAction(ctx context.Context, record *runtimeRecord, reque
 			record.Logs += timestampLog("[Mock Spark] Server stopped for backup.\n")
 			defer func() {
 				record.State = model.RuntimeStateRunning
+				record.ActiveRevision = model.ContainerRevision(record.Deployment)
 				record.StartedAt, record.StoppedAt = r.now().Unix(), 0
 				record.Logs += timestampLog("[Mock Spark] Server started after backup.\n")
 			}()

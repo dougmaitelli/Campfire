@@ -19,8 +19,8 @@ func TestMockFixturesCoverDistinctServerStatesAndAccess(t *testing.T) {
 	var offline bool
 
 	for _, server := range servers {
-		if server.EmberUpdateAvailable != (server.Name == mockUpdateServerName) {
-			t.Fatal("only the update example should have an unapplied Ember", server.Name, server.EmberUpdateAvailable)
+		if server.EmberReviewRequired != (server.Name == mockUpdateServerName) || server.DeploymentSyncRequired != (server.ID == syncExampleID || server.ID == firstSyncExampleID) {
+			t.Fatal("fixture lost its intended review/sync distinction", server.Name, server.EmberReviewRequired, server.DeploymentSyncRequired)
 		}
 
 		if !runtime.Connected(server.SparkID) {
@@ -57,6 +57,8 @@ func TestMockFixturesCoverDistinctServerStatesAndAccess(t *testing.T) {
 		{"morgan", "modded", "mock-europe", true, accessperm.ServerConfigure, accessperm.ServerDelete},
 		{"observer", "survival", "mock-europe", false, accessperm.ServerSchedulesRead, accessperm.ServerFilesRead},
 		{"viewer", "survival", "mock-europe", false, "", accessperm.ServerView},
+		{"casey", syncExampleID, configurationSparkID, false, accessperm.ServerView, accessperm.ServerOperate},
+		{"sam", syncExampleID, configurationSparkID, false, accessperm.ServerOperate, accessperm.ServerConfigure},
 	} {
 		_, token, err := auth.Login(t.Context(), item.username, Password, "")
 		if err != nil {

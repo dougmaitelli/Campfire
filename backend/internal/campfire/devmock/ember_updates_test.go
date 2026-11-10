@@ -34,7 +34,7 @@ func TestMockServerCanApplyImportedEmberUpdateAndKeepItAfterRestart(t *testing.T
 	}
 
 	status, err := runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "status"})
-	if err != nil || status.State != "stopped" {
+	if err != nil || status.State != "running" {
 		t.Fatal("update fixture is not ready for an explicit Ember update", status, err)
 	}
 
@@ -61,8 +61,8 @@ func TestMockServerCanApplyImportedEmberUpdateAndKeepItAfterRestart(t *testing.T
 	}
 
 	status, err = runtime.Action(t.Context(), server.SparkID, model.RuntimeRequest{ServerID: server.ID, Action: "status"})
-	if err != nil || status.State != "stopped" {
-		t.Fatal("applying an Ember unexpectedly started the server", status, err)
+	if err != nil || status.State != "running" {
+		t.Fatal("applying an Ember unexpectedly stopped the server", status, err)
 	}
 }
 
@@ -102,7 +102,7 @@ func TestMockPendingUpdatesDownloadAndImportWithoutNetwork(t *testing.T) {
 	}
 
 	items, err := embers.List(t.Context())
-	if err != nil || len(items) != 2 {
+	if err != nil || len(items) != 4 {
 		t.Fatal("mock restart changed imported revisions", items, err)
 	}
 }

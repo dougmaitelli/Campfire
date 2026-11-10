@@ -34,7 +34,7 @@ func fixture(t *testing.T) (*Runtime, *database.Database, *service.AuthService, 
 	}
 
 	servers, err := repository.NewServerRepository(db.ORM()).List(t.Context())
-	if err != nil || len(servers) != 5 {
+	if err != nil || len(servers) != 8 {
 		t.Fatal("expected a seeded fleet", servers, err)
 	}
 
@@ -47,7 +47,7 @@ func onlineServer(t *testing.T, runtime *Runtime, servers []model.Server) model.
 	for _, server := range servers {
 		// Lifecycle and file-quota tests need the quota-capable Europe node;
 		// America deliberately simulates a node without hard quota support.
-		if server.SparkID != "mock-europe" || !runtime.Connected(server.SparkID) {
+		if server.ID != "survival" || !runtime.Connected(server.SparkID) {
 			continue
 		}
 
@@ -122,8 +122,8 @@ func TestSeedAuthenticationAndPersistence(t *testing.T) {
 		model any
 		count int64
 	}{
-		{&database.User{}, 9}, {&database.Server{}, 5}, {&database.Spark{}, 3},
-		{&database.Ember{}, 2}, {&database.Schedule{}, 2}, {&database.Notification{}, 3},
+		{&database.User{}, 9}, {&database.Server{}, 8}, {&database.Spark{}, 4},
+		{&database.Ember{}, 4}, {&database.Schedule{}, 2}, {&database.Notification{}, 3},
 	} {
 		var count int64
 		if err := db.ORM().Model(record.model).Count(&count).Error; err != nil || count != record.count {

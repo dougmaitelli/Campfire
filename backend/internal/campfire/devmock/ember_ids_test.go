@@ -95,7 +95,7 @@ func TestMockEmberIdentityUpgradePreservesSavedData(t *testing.T) {
 	}
 
 	var count int64
-	if err := db.ORM().Model(&database.Ember{}).Count(&count).Error; err != nil || count != 2 {
+	if err := db.ORM().Model(&database.Ember{}).Count(&count).Error; err != nil || count != 4 {
 		t.Fatal("identity upgrade duplicated Embers", count, err)
 	}
 }

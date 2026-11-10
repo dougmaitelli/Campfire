@@ -44,6 +44,14 @@ func TestMockSparkUpdateIsAvailableAndSurvivesWatcherRestart(t *testing.T) {
 		t.Fatal("outdated mock Spark fixture missing", before)
 	}
 
+	if _, err := runtime.PruneSpark(t.Context(), "mock-europe"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runtime.configurationCommand(t.Context(), "mock-europe", "mock-config pause"); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := runtime.UpdateSpark(t.Context(), "mock-offline", "v1.1.0"); err == nil {
 		t.Fatal("offline fixture updated")
 	}
@@ -60,6 +68,11 @@ func TestMockSparkUpdateIsAvailableAndSurvivesWatcherRestart(t *testing.T) {
 	_, after, _ := reloaded.SparkFeatures("mock-europe")
 	if after != "v1.1.0" {
 		t.Fatal("watcher restart reset the client update", after)
+	}
+
+	var client sparkClientRecord
+	if err := db.ORM().Take(&client, "spark_id = ?", "mock-europe").Error; err != nil || !client.Pruned || !client.ConfigurationBlocked {
+		t.Fatal("client update reset independent mock Spark settings", client, err)
 	}
 
 	if err := reloaded.UpdateSpark(t.Context(), "mock-europe", "v1.1.0"); err == nil {
