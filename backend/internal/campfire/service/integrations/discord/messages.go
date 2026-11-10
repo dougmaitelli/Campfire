@@ -85,7 +85,7 @@ func notificationEmbed(serverName string, event integrations.Event, nonce string
 			continue
 		}
 
-		embed.Fields = append(embed.Fields, embedField{Name: discordText(key, 80), Value: discordText(value, 240)})
+		embed.Fields = append(embed.Fields, embedField{Name: discordText(event.FieldLabels.Label(key), 128), Value: discordText(value, 240)})
 	}
 
 	return embed

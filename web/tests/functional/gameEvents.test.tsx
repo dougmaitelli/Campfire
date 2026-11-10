@@ -22,6 +22,10 @@ vi.mock("../../src/components/forms/Select", () => ({
 const filterOptions = {
   types: ["game.announcement", "player.joined"],
   fields: { message: ["<script>alert(1)</script>"], player: ["Alex"] },
+  field_labels: {
+    "game.announcement": { message: "Announcement text" },
+    "player.joined": { player: "Player name" },
+  },
 };
 
 const event = {
@@ -34,6 +38,7 @@ const event = {
   occurred_at: "2026-10-24T00:00:00Z",
   received_at: 1792800000,
   data: { message: "<script>alert(1)</script>" },
+  field_labels: { message: "Announcement text" },
 };
 
 test("game activity paginates, filters, and renders event data as text", async () => {
@@ -52,6 +57,7 @@ test("game activity paginates, filters, and renders event data as text", async (
   const view = render(<ServerGameEvents serverID="game" />);
   await screen.findByText("A new adventure");
   expect(screen.getByText("<script>alert(1)</script>")).toBeDefined();
+  expect(screen.getByText("Announcement text")).toBeDefined();
   expect(view.container.querySelector("script")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Older events" }));
   await screen.findByRole("heading", { name: "No game events found" });
@@ -67,6 +73,16 @@ test("game activity paginates, filters, and renders event data as text", async (
     expect(queries.at(-1)?.searchParams.get("type")).toBe("player.joined"),
   );
   expect(queries.at(-1)?.searchParams.has("before")).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Add field filter" }));
+  expect(
+    screen.getByRole("option", { name: "Player name" }).getAttribute("value"),
+  ).toBe("player");
+  await user.selectOptions(screen.getByLabelText("Event field"), "player");
+  await user.selectOptions(screen.getByLabelText("Field value"), "Alex");
+  await user.click(screen.getByRole("button", { name: "Apply filters" }));
+  await waitFor(() =>
+    expect(queries.at(-1)?.searchParams.get("data.player")).toBe("Alex"),
+  );
 });
 
 test("game activity reports request failures and retries", async () => {

@@ -1,10 +1,12 @@
 import { GameLimits } from "../config/policies";
 import { GameStateStatus } from "../contracts/domains";
 import { isRecord as object, isEnumValue } from "../utils/validation";
+import { validGameFieldLabels, type GameFieldLabels } from "./gameFields";
 export interface GameState {
   players?: number;
   capacity?: number;
   fields?: Record<string, string | number | boolean>;
+  field_labels?: GameFieldLabels;
 }
 
 export interface GameStateView {
@@ -39,6 +41,10 @@ export function isGameStateView(value: unknown): value is GameStateView {
   return (
     (state.players === undefined || count(state.players)) &&
     (state.capacity === undefined || count(state.capacity)) &&
+    validGameFieldLabels(
+      state.field_labels,
+      object(state.fields) ? state.fields : {},
+    ) &&
     (state.fields === undefined ||
       (object(state.fields) &&
         Object.entries(state.fields).length <= GameLimits.Fields &&

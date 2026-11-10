@@ -44,6 +44,8 @@ func TestGameEventsPersistDeduplicateAndEnforceServerAccess(t *testing.T) {
 		}
 
 		frame := protocol.GameFrame{ID: fmt.Sprint(i), ServerID: server.ID, Publication: model.GamePublication{Version: 1, Event: &model.GameEvent{ID: fmt.Sprint(i), Type: "game.announcement", Title: fmt.Sprintf("Event %d", i), OccurredAt: time.Now().UTC(), Data: fields}}}
+
+		frame.Publication.Event.FieldLabels = model.GameFieldLabels{"player": "Player name"}
 		if err := f.games.Receive(t.Context(), server.SparkID, frame); err != nil {
 			t.Fatal(err)
 		}
@@ -72,7 +74,7 @@ func TestGameEventsPersistDeduplicateAndEnforceServerAccess(t *testing.T) {
 	}
 
 	page := read("?limit=2")
-	if len(page.Items) != 2 || page.NextBefore == 0 {
+	if len(page.Items) != 2 || page.NextBefore == 0 || page.Items[0].FieldLabels["player"] != "Player name" {
 		t.Fatal("deduplication or pagination failed", page)
 	}
 
@@ -108,6 +110,7 @@ func TestGameEventsPersistDeduplicateAndEnforceServerAccess(t *testing.T) {
 	if optionsResponse.Code != http.StatusOK || json.Unmarshal(optionsResponse.Body.Bytes(), &options) != nil ||
 		!reflect.DeepEqual(options.Types, []string{"game.announcement"}) ||
 		!reflect.DeepEqual(options.Fields["player"], []string{"Alex", "Sam"}) ||
+		options.FieldLabels["game.announcement"]["player"] != "Player name" ||
 		!reflect.DeepEqual(options.Fields["state"], []string{"ready", "warning"}) {
 		t.Fatal("filter options were incorrect", optionsResponse.Code, optionsResponse.Body)
 	}

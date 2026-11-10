@@ -13,6 +13,7 @@ import (
 	"unicode/utf16"
 
 	core "campfire/internal/campfire/integrations"
+	"campfire/internal/shared/model"
 )
 
 func notificationEvent() core.Event {
@@ -44,6 +45,10 @@ func TestNotificationSendUsesStableNonceSafeMentionsAndBoundedEmbeds(t *testing.
 		}
 
 		embed := payload.Embeds[0]
+		if len(embed.Fields) != 1 || embed.Fields[0].Name != `Player \*name\*` {
+			t.Error("publisher field label missing or unescaped", embed.Fields)
+		}
+
 		if len(utf16.Encode([]rune(embed.Title))) > 256 || len(utf16.Encode([]rune(embed.Description))) > 2000 || len(embed.Fields) > 10 || embed.Footer.Text != "Campfire notification · "+nonce {
 			t.Error("invalid Discord limits", embed)
 		}
@@ -58,6 +63,7 @@ func TestNotificationSendUsesStableNonceSafeMentionsAndBoundedEmbeds(t *testing.
 	defer remote.Close()
 
 	event := notificationEvent()
+	event.FieldLabels = model.GameFieldLabels{"player": "Player *name*"}
 	event.Body = strings.Repeat("😀", 2000)
 
 	id, err := NewClient(remote.URL, remote.Client()).SendEvent(t.Context(), "private", "400", strings.Repeat("Server", 200), nonce, event)

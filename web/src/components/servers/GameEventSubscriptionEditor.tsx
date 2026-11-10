@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   readGameEventFilterOptions,
+  gameEventFieldLabel,
   type GameEventFilterOptions,
 } from "../../api/gameEvents";
 import type { ServerIntegrationInput } from "../../api/integrations";
@@ -156,7 +157,7 @@ export function GameEventSubscriptionEditor({
                               at !== fieldIndex && item.name === name,
                           )}
                         >
-                          {name}
+                          {gameEventFieldLabel(options, rule.type, name)}
                         </option>
                       ))}
                   </Select>

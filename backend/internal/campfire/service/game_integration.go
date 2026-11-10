@@ -64,6 +64,8 @@ func cloneGameState(state *model.GameState) *model.GameState {
 	result := *state
 
 	result.Fields = maps.Clone(state.Fields)
+	result.FieldLabels = maps.Clone(state.FieldLabels)
+
 	if state.Players != nil {
 		result.Players = new(*state.Players)
 	}

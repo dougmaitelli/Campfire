@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/utils"
@@ -23,18 +26,47 @@ type GamePublication struct {
 
 // GameState replaces the entire preceding snapshot. All fields are optional.
 type GameState struct {
-	Players  *int           `json:"players,omitempty"`
-	Capacity *int           `json:"capacity,omitempty"`
-	Fields   map[string]any `json:"fields,omitempty"`
+	Players     *int            `json:"players,omitempty"`
+	Capacity    *int            `json:"capacity,omitempty"`
+	Fields      map[string]any  `json:"fields,omitempty"`
+	FieldLabels GameFieldLabels `json:"field_labels,omitempty"`
 }
 
 // GameEvent IDs identify retries of the same event within one server's history.
 type GameEvent struct {
-	ID         string         `json:"id"`
-	Type       string         `json:"type"`
-	OccurredAt time.Time      `json:"occurred_at"`
-	Title      string         `json:"title"`
-	Data       map[string]any `json:"data,omitempty"`
+	ID          string          `json:"id"`
+	Type        string          `json:"type"`
+	OccurredAt  time.Time       `json:"occurred_at"`
+	Title       string          `json:"title"`
+	Data        map[string]any  `json:"data,omitempty"`
+	FieldLabels GameFieldLabels `json:"field_labels,omitempty"`
+}
+
+// GameFieldLabels supplies optional display text without changing field identity.
+type GameFieldLabels map[string]string
+
+// Label falls back to the exact machine key for older or unlabeled publications.
+func (labels GameFieldLabels) Label(key string) string {
+	if label := labels[key]; label != "" {
+		return label
+	}
+
+	return key
+}
+
+// Validate accepts bounded, single-line labels only for fields in this publication.
+func (labels GameFieldLabels) Validate(fields map[string]any) error {
+	if len(labels) > limits.GameFields {
+		return errors.New("too many game field labels")
+	}
+
+	for key, label := range labels {
+		if _, exists := fields[key]; !exists || !validGameFieldName(key) || label == "" || len(label) > limits.GameFieldLabelLength || !utf8.ValidString(label) || strings.TrimSpace(label) != label || strings.ContainsFunc(label, unicode.IsControl) {
+			return errors.New("invalid game field label")
+		}
+	}
+
+	return nil
 }
 
 // ValidGameEventType bounds namespaced event filter input.
@@ -58,11 +90,19 @@ func (p GamePublication) Validate() error {
 		if !validGameFields(s.Fields) {
 			return errors.New("invalid state fields")
 		}
+
+		if err := s.FieldLabels.Validate(s.Fields); err != nil {
+			return err
+		}
 	}
 
 	if e := p.Event; e != nil {
 		if len(e.ID) < 1 || len(e.ID) > 128 || !ValidGameEventType(e.Type) || e.OccurredAt.IsZero() || len(e.Title) < 1 || len(e.Title) > 256 || !validGameFields(e.Data) {
 			return errors.New("invalid game event")
+		}
+
+		if err := e.FieldLabels.Validate(e.Data); err != nil {
+			return err
 		}
 	}
 

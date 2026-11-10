@@ -27,6 +27,7 @@ export const GameLimits = {
   Players: 1000000,
   Fields: 32,
   FieldNameLength: 64,
+  FieldLabelLength: 128,
   FieldStringLength: 1024,
 } as const;
 export const IntegrationLimits = { CardFields: 32 } as const;

@@ -100,11 +100,13 @@ func (r *Runtime) publishGame(ctx context.Context, record runtimeRecord, now tim
 			case 1:
 				event.Type, event.Title = "player.joined", "Alex joined the mock server"
 				event.Data = map[string]any{"player": "Alex"}
+				event.FieldLabels = model.GameFieldLabels{"player": "Player name"}
 			case 2:
 				event.Type, event.Title = "game.announcement", "Welcome to the mock server"
 			case 3:
 				event.Type, event.Title = "player.left", "Alex left the mock server"
 				event.Data = map[string]any{"player": "Alex"}
+				event.FieldLabels = model.GameFieldLabels{"player": "Player name"}
 			}
 
 			session.last = &event
@@ -147,6 +149,7 @@ func (r *Runtime) publishGame(ctx context.Context, record runtimeRecord, now tim
 	state := &model.GameState{Players: new(session.players), Capacity: new(20)}
 	if session.players == 0 {
 		state.Fields = map[string]any{"game_mode": "Survival"}
+		state.FieldLabels = model.GameFieldLabels{"game_mode": "Game mode"}
 	}
 
 	return r.receiveGame(ctx, record, model.GamePublication{Version: 1, State: state})

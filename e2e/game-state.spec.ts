@@ -12,7 +12,8 @@ test("game state shows optional fields and hides stale values", async ({
 }) => {
   await login(page);
   const collectedAt = await page.evaluate(() => Math.floor(Date.now() / 1000));
-  let mode: "full" | "players" | "stale" | "expired" | "stopped" = "full";
+  let mode: "full" | "unlabeled" | "players" | "stale" | "expired" | "stopped" =
+    "full";
   await page.route("**/api/v1/monitoring", async (route) => {
     const response = await route.fetch();
     const snapshot = (await response.json()) as GameMonitoringResponse;
@@ -34,6 +35,11 @@ test("game state shows optional fields and hides stale values", async ({
                     players: 3,
                     capacity: 20,
                     fields: { map: "Integration world", game_mode: "Survival" },
+                    ...(mode === "unlabeled"
+                      ? {}
+                      : {
+                          field_labels: { map: "Map", game_mode: "Game mode" },
+                        }),
                   },
           }),
     };
@@ -43,6 +49,7 @@ test("game state shows optional fields and hides stale values", async ({
   const readings = page.getByRole("group", { name: "Game data", exact: true });
   await expect(readings).toContainText("3 / 20");
   await expect(readings).toContainText("Integration world");
+  await expect(readings).toContainText("Game mode");
   await expect(readings).not.toContainText("Last updated");
   await readings.hover();
   await expect(readings).toHaveAttribute("title", /^Last updated /);
@@ -121,6 +128,13 @@ test("game state shows optional fields and hides stale values", async ({
   await readings.click();
   await expect(page).toHaveURL(/#servers\/survival\/console$/);
   await openScreen(page, "dashboard", "Overview");
+  mode = "unlabeled";
+  await page.reload();
+  await expect(readings.locator("dt")).toHaveText([
+    "Players",
+    "map",
+    "game_mode",
+  ]);
   mode = "players";
   await page.reload();
   await expect(readings).toContainText("Players0");

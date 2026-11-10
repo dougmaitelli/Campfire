@@ -7,6 +7,7 @@ import type {
   ServerIntegrationSettings,
 } from "../../api/integrations";
 import type { Server } from "../../api/servers";
+import { gameFieldLabel } from "../../api/gameFields";
 import type { ServerIntegrationDraft } from "../../hooks/useServerIntegrations";
 import { CheckboxField } from "../forms/CheckboxField";
 import { Fieldset } from "../forms/Fieldset";
@@ -35,7 +36,7 @@ export function ServerIntegrationFields({
   onChange,
 }: {
   server: Server;
-  availableFields: string[];
+  availableFields: Record<string, string>;
   draft: ServerIntegrationDraft;
   original: ServerIntegrationSettings | null;
   overview: ServerIntegrationList;
@@ -60,7 +61,7 @@ export function ServerIntegrationFields({
   );
   const fields = [
     ...new Set([
-      ...availableFields,
+      ...Object.keys(availableFields),
       ...(current?.card.fields ?? []),
       ...input.card.fields,
     ]),
@@ -227,7 +228,11 @@ export function ServerIntegrationFields({
                       })
                     }
                   >
-                    {field.startsWith("field.") ? field.slice(6) : field}
+                    {Object.hasOwn(availableFields, field)
+                      ? gameFieldLabel(availableFields, field)
+                      : field.startsWith("field.")
+                        ? field.slice(6)
+                        : field}
                   </CheckboxField>
                 ))}
                 <p className="field-help">

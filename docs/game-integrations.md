@@ -155,7 +155,7 @@ values inside `state.fields` or `event.data`.
 curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
   --include --max-time 12 \
   -H 'Content-Type: application/json' \
-  --data '{"version":1,"state":{"players":3,"capacity":20,"fields":{"game_mode":"survival"}}}' \
+  --data '{"version":1,"state":{"players":3,"capacity":20,"fields":{"game_mode":"survival"},"field_labels":{"game_mode":"Game mode"}}}' \
   http://spark/v1/publish
 ```
 
@@ -164,11 +164,12 @@ in the dashboard. `players` and `capacity` are optional integers
 between 0 and 1,000,000. `fields` is an optional map for game-specific scalar
 values, such as `map` or `game_mode`. An empty `state` object is valid.
 
-| State property | Required | Type and limits               |
-| -------------- | -------- | ----------------------------- |
-| `players`      | No       | Integer from `0` to `1000000` |
-| `capacity`     | No       | Integer from `0` to `1000000` |
-| `fields`       | No       | Up to 32 named scalar values  |
+| State property | Required | Type and limits                        |
+| -------------- | -------- | -------------------------------------- |
+| `players`      | No       | Integer from `0` to `1000000`          |
+| `capacity`     | No       | Integer from `0` to `1000000`          |
+| `fields`       | No       | Up to 32 named scalar values           |
+| `field_labels` | No       | Optional key-to-label map for `fields` |
 
 For example, `{"version":1,"state":{}}` clears the previously published snapshot.
 An omitted player count means unknown; use `0` only when you know there are no
@@ -188,7 +189,8 @@ generate the event ID and occurrence timestamp once when the event happens.
     "type": "game.announcement",
     "occurred_at": "2026-10-24T00:00:00Z",
     "title": "A new adventure begins",
-    "data": { "world": "survival" }
+    "data": { "world": "survival" },
+    "field_labels": { "world": "World name" }
   }
 }
 ```
@@ -208,13 +210,14 @@ curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
 | `occurred_at`  | Yes      | Nonzero RFC 3339 timestamp; UTC with `Z` is recommended           |
 | `title`        | Yes      | String, 1–256 bytes                                               |
 | `data`         | No       | Up to 32 named scalar values                                      |
+| `field_labels` | No       | Optional key-to-label map for `data`                              |
 
 Event IDs must stay the same across retries. Campfire deduplicates them per server
 within retained history; the first stored payload wins. Reusing a queued ID with
 different content returns HTTP 409. Use a new ID for each distinct event.
 
 A UUID string is a suitable ID. Keep the entire envelope unchanged across retries,
-including `occurred_at`, `title`, and `data`; generating a new timestamp during a
+including `occurred_at`, `title`, `data`, and `field_labels`; generating a new timestamp during a
 retry changes the queued event. Two different servers may use the same event ID.
 The ID is not a global identity or an authorization token.
 
@@ -249,6 +252,40 @@ Valid scalar fields look like:
 
 This map belongs inside `state.fields` or `event.data`; it is not a publication
 envelope by itself.
+
+### Custom field labels
+
+`state.field_labels` and `event.field_labels` are optional maps from stable field
+keys to display labels. Every labeled key must also exist in the same snapshot's
+`fields` or event's `data`. Labels must be nonempty UTF-8 strings of at most 128
+bytes, with no control characters or leading/trailing whitespace. They count
+toward the existing 16 KiB publication limit. Labels are plain text, never HTML.
+For example, `"field_labels": {"game_mode": "Game mode"}` changes display text
+without changing the `game_mode` key used by filters and saved card selections.
+Campfire does not guess labels from key spelling or special-case game fields.
+
+State labels belong to the complete snapshot and must be included again in each
+snapshot that needs them. Omitted labels fall back to the exact key.
+
+Event labels update a shared dictionary scoped to the server, event type, and
+field key. Newly accepted events can rename labels for both new and older retained
+events. Omitting a label leaves the known definition unchanged; without a known
+definition the exact key is displayed. To reset display text to a key, publish that
+key as its label. Replaying an existing event ID never updates the dictionary.
+The dictionary persists across panel restarts. It stores no event values.
+
+Activity and notification-filter dropdowns use these labels while keeping keys as
+filter identity. With all event types selected, a field uses its label only if
+the types reporting it agree; conflicting labels fall back to the key. A field
+disappears from discovery when no retained event contains it. Startup and hourly
+retention cleanup remove unused dictionary entries, including definitions for
+event types that are no longer published. Deleting a server removes its dictionary.
+Discord notifications use the known labels when the notification is queued;
+previously sent Discord messages are not rewritten after a label change.
+
+This is an optional extension to publication version `1`. Publishers without
+labels continue to work. Upgrade both Spark and Campfire before sending labels;
+older Spark versions reject unknown publication properties.
 
 ## Current state and freshness
 

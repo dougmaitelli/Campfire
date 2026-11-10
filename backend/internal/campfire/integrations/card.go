@@ -68,6 +68,7 @@ func BuildServerCard(server model.Server, state model.RuntimeState, game *model.
 			}
 		default:
 			if game != nil {
+				field.Name = game.FieldLabels.Label(strings.TrimPrefix(id, "field."))
 				field.Value, field.Available = ScalarText(game.Fields[strings.TrimPrefix(id, "field.")])
 				field.Available = field.Available && strings.TrimSpace(field.Value) != ""
 			}

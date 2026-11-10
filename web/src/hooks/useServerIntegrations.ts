@@ -10,6 +10,7 @@ import {
   type ServerIntegrationSettings,
 } from "../api/integrations";
 import type { Server } from "../api/servers";
+import { gameFieldLabel } from "../api/gameFields";
 import { IntegrationLimits } from "../config/policies";
 import type { GameEventRuleDraft } from "../components/servers/GameEventSubscriptionEditor";
 import { needsIntegrationPublishingCheck } from "../utils/integrationSettings";
@@ -52,16 +53,25 @@ export function useServerIntegrations(server: Server | null, active: boolean) {
   const monitoring = useMonitoring(active && server?.game_integration === true);
   const game = monitoring.snapshot?.servers.find((item) => item.id === serverID)
     ?.game?.state;
-  const [availableFields, setAvailableFields] = useState<string[]>([]);
-  const reportedFields = [
-    ...(game?.players !== undefined ? ["players"] : []),
-    ...(game?.capacity !== undefined ? ["capacity"] : []),
-    ...Object.keys(game?.fields ?? {}).map((field) => `field.${field}`),
-  ];
-  const unseen = reportedFields.filter(
-    (field) => !availableFields.includes(field),
-  );
-  if (unseen.length) setAvailableFields([...availableFields, ...unseen]);
+  const [availableFields, setAvailableFields] = useState<
+    Record<string, string>
+  >({});
+  const reportedFields = Object.fromEntries<string>([
+    ...(game?.players !== undefined ? [["players", "players"] as const] : []),
+    ...(game?.capacity !== undefined
+      ? [["capacity", "capacity"] as const]
+      : []),
+    ...Object.keys(game?.fields ?? {}).map(
+      (field) =>
+        [`field.${field}`, gameFieldLabel(game?.field_labels, field)] as const,
+    ),
+  ]);
+  if (
+    Object.entries(reportedFields).some(
+      ([key, label]) => availableFields[key] !== label,
+    )
+  )
+    setAvailableFields({ ...availableFields, ...reportedFields });
   const [overview, setOverview] = useState<ServerIntegrationList | null>(null);
   const [items, setItems] = useState<ServerIntegrationDraft[]>([]);
   const [editing, setEditing] = useState<string | null>(null);

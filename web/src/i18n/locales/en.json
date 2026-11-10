@@ -1642,8 +1642,6 @@
     "players": "Players",
     "capacity": "Capacity",
     "playersWithCapacity": "{{players}} / {{capacity}}",
-    "map": "Map",
-    "gameMode": "Game mode",
     "yes": "Yes",
     "no": "No",
     "unavailable": "Game data unavailable",

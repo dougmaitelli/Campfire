@@ -55,8 +55,9 @@ type GameEventPage struct {
 
 // GameEventFilterOptions contains choices from a server's entire retained history.
 type GameEventFilterOptions struct {
-	Types  []string            `json:"types"`
-	Fields map[string][]string `json:"fields"`
+	Types       []string                         `json:"types"`
+	Fields      map[string][]string              `json:"fields"`
+	FieldLabels map[string]model.GameFieldLabels `json:"field_labels,omitempty"`
 }
 
 // GameEventRepository owns durable deduplication and bounded retained history.
@@ -68,36 +69,20 @@ func NewGameEventRepository(db *gorm.DB) *GameEventRepository { return &GameEven
 // FilterOptions streams only the columns needed for dropdown choices, independently
 // of the displayed page or active filters.
 func (r *GameEventRepository) FilterOptions(ctx context.Context, serverID string) (GameEventFilterOptions, error) {
-	options := GameEventFilterOptions{Types: []string{}, Fields: map[string][]string{}}
-
-	rows, err := r.db.WithContext(ctx).Model(&database.GameEvent{}).Select("type", "data").Where("server_id = ?", serverID).Rows()
-	if err != nil {
-		return options, err
-	}
-	defer func() { _ = rows.Close() }()
+	options := GameEventFilterOptions{Types: []string{}, Fields: map[string][]string{}, FieldLabels: map[string]model.GameFieldLabels{}}
 
 	types := map[string]struct{}{}
 	fields := map[string]map[string]struct{}{}
 
-	for rows.Next() {
-		var eventType string
-
-		var raw []byte
-
-		if err := rows.Scan(&eventType, &raw); err != nil {
-			return options, err
-		}
-
+	err := visitGameEventData(r.db.WithContext(ctx), serverID, func(eventType string, data map[string]any) error {
 		types[eventType] = struct{}{}
-
-		var data map[string]any
-		if len(raw) > 0 {
-			if err := json.Unmarshal(raw, &data); err != nil {
-				return options, err
-			}
+		if options.FieldLabels[eventType] == nil {
+			options.FieldLabels[eventType] = model.GameFieldLabels{}
 		}
 
 		for field, value := range data {
+			options.FieldLabels[eventType][field] = field
+
 			if fields[field] == nil {
 				fields[field] = map[string]struct{}{}
 			}
@@ -106,7 +91,7 @@ func (r *GameEventRepository) FilterOptions(ctx context.Context, serverID string
 			if !ok {
 				encoded, err := json.Marshal(value)
 				if err != nil {
-					return options, err
+					return err
 				}
 
 				text = string(encoded)
@@ -115,6 +100,22 @@ func (r *GameEventRepository) FilterOptions(ctx context.Context, serverID string
 			if text != "" {
 				fields[field][text] = struct{}{}
 			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return options, err
+	}
+
+	labels, err := readGameEventLabels(r.db.WithContext(ctx), serverID)
+	if err != nil {
+		return options, err
+	}
+
+	for eventType, entries := range options.FieldLabels {
+		for key := range entries {
+			entries[key] = labels[eventType].Label(key)
 		}
 	}
 
@@ -133,7 +134,7 @@ func (r *GameEventRepository) FilterOptions(ctx context.Context, serverID string
 		slices.Sort(options.Fields[field])
 	}
 
-	return options, rows.Err()
+	return options, nil
 }
 
 // Append commits the event, source check, and retention changes together.
@@ -159,6 +160,16 @@ func (r *GameEventRepository) Append(ctx context.Context, sparkID, serverID stri
 		}
 
 		if result.RowsAffected > 0 {
+			if err := saveGameEventLabels(tx, serverID, event.Type, event.FieldLabels); err != nil {
+				return err
+			}
+
+			labels, err := readGameEventLabels(tx, serverID, event.Type)
+			if err != nil {
+				return err
+			}
+
+			event.FieldLabels = labelsForGameFields(labels[event.Type], event.Data)
 			if err := NewIntegrationRepository(tx).RouteEvent(ctx, integrations.GameEvent(serverID, event), now); err != nil {
 				return err
 			}
@@ -234,6 +245,23 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 		page.NextBefore = page.Items[len(page.Items)-1].ID
 	}
 
+	if len(page.Items) > 0 {
+		types := make([]string, 0, len(page.Items))
+		for _, event := range page.Items {
+			types = append(types, event.Type)
+		}
+
+		labels, err := readGameEventLabels(r.db.WithContext(ctx), serverID, types...)
+		if err != nil {
+			return page, err
+		}
+
+		for i := range page.Items {
+			event := &page.Items[i]
+			event.FieldLabels = labelsForGameFields(labels[event.Type], event.Data)
+		}
+	}
+
 	return page, nil
 }
 
@@ -276,7 +304,13 @@ func (r *GameEventRepository) Prune(ctx context.Context, before int64, maximum i
 	}
 
 	for _, id := range ids {
-		if err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error { return pruneGameServer(tx, id, before, maximum) }); err != nil {
+		if err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+			if err := pruneGameServer(tx, id, before, maximum); err != nil {
+				return err
+			}
+
+			return pruneGameEventLabels(tx, id)
+		}); err != nil {
 			return err
 		}
 	}

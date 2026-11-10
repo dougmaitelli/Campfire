@@ -1,6 +1,7 @@
 import { RuntimeState } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { gameStateFresh, type GameStateView } from "../../api/gameState";
+import { gameFieldLabel } from "../../api/gameFields";
 import { containerFresh, type ResourceUsage } from "../../api/monitoring";
 import "./game-state-readings.css";
 
@@ -31,10 +32,6 @@ export function GameStateReadings({
   const updated = t("gameState.lastUpdated", {
     time: new Date(game.updated_at * 1000).toLocaleString(),
   });
-  const labels = new Map([
-    ["map", t("gameState.map")],
-    ["game_mode", t("gameState.gameMode")],
-  ]);
   return (
     <div
       className="game-state-readings"
@@ -67,7 +64,7 @@ export function GameStateReadings({
           )}
           {Object.entries(state.fields ?? {}).map(([key, value]) => (
             <div key={key}>
-              <dt>{labels.get(key) ?? key.replace(/[_.-]+/g, " ")}</dt>
+              <dt>{gameFieldLabel(state.field_labels, key)}</dt>
               <dd>
                 {typeof value === "boolean"
                   ? t(value ? "gameState.yes" : "gameState.no")

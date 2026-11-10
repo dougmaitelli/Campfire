@@ -292,6 +292,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
           players: 3,
           capacity: 20,
           fields: { invite_code: "test-invite", map: "World" },
+          field_labels: { invite_code: "Join code", map: "World name" },
         },
       };
     } else delete server.game;
@@ -305,7 +306,12 @@ test("per-server Discord settings persist, enforce channel access, and keep card
         state: string;
         expires_at: number;
         addresses: string[];
-        fields: { id: string; value: string; available: boolean }[];
+        fields: {
+          id: string;
+          name: string;
+          value: string;
+          available: boolean;
+        }[];
       };
       if (hasGameState) {
         card.state = "running";
@@ -320,6 +326,8 @@ test("per-server Discord settings persist, enforce channel access, and keep card
           "field.map": "World",
         };
         for (const field of card.fields) {
+          if (field.id === "field.invite_code") field.name = "Join code";
+          if (field.id === "field.map") field.name = "World name";
           field.value = values[field.id] ?? "";
           field.available = field.id in values;
         }
@@ -375,7 +383,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
     "Backups",
     "Show a live server card",
     "players",
-    "invite_code",
+    "Join code",
   ])
     await drawer.getByRole("checkbox", { name, exact: true }).check();
   await expect(
@@ -407,7 +415,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   await drawer
     .getByRole("combobox", { name: "Event field", exact: true })
     .click();
-  await page.getByRole("option", { name: "player", exact: true }).click();
+  await page.getByRole("option", { name: "Player name", exact: true }).click();
   await drawer
     .getByRole("combobox", { name: "Field value", exact: true })
     .click();
@@ -428,6 +436,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   });
   await expect(cardPreview).toContainText("games.example.test:25565 / TCP");
   await expect(cardPreview).toContainText("test-invite");
+  await expect(cardPreview).toContainText("Join code");
   await expect(cardPreview).not.toContainText("capacity");
   const publishing = drawer.getByRole("region", {
     name: "Card publishing",
@@ -440,7 +449,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   hasGameState = false;
   await expect(page.locator(".game-state-readings")).toHaveCount(0);
   await expect(
-    drawer.getByRole("checkbox", { name: "map", exact: true }),
+    drawer.getByRole("checkbox", { name: "World name", exact: true }),
   ).toBeVisible();
   await expect(cardPreview).toContainText("Unavailable");
   hasGameState = true;

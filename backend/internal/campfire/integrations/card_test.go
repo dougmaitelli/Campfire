@@ -12,13 +12,14 @@ func TestServerCardSelectsOnlyRequestedFreshValues(t *testing.T) {
 	server := model.Server{ServerConfiguration: model.ServerConfiguration{Name: "Survival", Variables: map[string]string{"TOKEN": "private"}}}
 	settings := CardSettings{Enabled: true, Fields: []string{"players", "capacity", "field.online_names", "field.invite_code", "field.pvp", "field.round", "field.missing"}}
 	game := &model.GameState{Players: new(0), Capacity: new(20), Fields: map[string]any{"online_names": "Alex, Sam", "invite_code": "ABCD", "pvp": false, "round": float64(0), "private": "hidden"}}
+	game.FieldLabels = model.GameFieldLabels{"online_names": "Online players", "invite_code": "Join code"}
 	card := BuildServerCard(server, model.RuntimeStateRunning, game, settings)
 
 	want := []CardField{
 		{ID: "players", Name: "players", Value: "0", Available: true},
 		{ID: "capacity", Name: "capacity", Value: "20", Available: true},
-		{ID: "field.online_names", Name: "online_names", Value: "Alex, Sam", Available: true},
-		{ID: "field.invite_code", Name: "invite_code", Value: "ABCD", Available: true},
+		{ID: "field.online_names", Name: "Online players", Value: "Alex, Sam", Available: true},
+		{ID: "field.invite_code", Name: "Join code", Value: "ABCD", Available: true},
 		{ID: "field.pvp", Name: "pvp", Value: "false", Available: true},
 		{ID: "field.round", Name: "round", Value: "0", Available: true},
 		{ID: "field.missing", Name: "missing"},

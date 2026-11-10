@@ -2,6 +2,12 @@ import { GameLimits } from "../config/policies";
 import { isRecord as object } from "../utils/validation";
 import i18n from "../i18n";
 import { apiFetch, readJSON } from "./client";
+import {
+  gameFieldLabel,
+  isGameFieldLabel,
+  validGameFieldLabels,
+  type GameFieldLabels,
+} from "./gameFields";
 
 export interface GameAttachment {
   id: string;
@@ -28,6 +34,7 @@ export interface GameEvent {
   occurred_at: string;
   received_at: number;
   data: Record<string, string | number | boolean>;
+  field_labels?: GameFieldLabels;
   attachments?: GameAttachment[];
 }
 
@@ -38,6 +45,28 @@ export interface GameEventPage {
 export interface GameEventFilterOptions {
   types: string[];
   fields: Record<string, string[]>;
+  field_labels?: Record<string, GameFieldLabels>;
+}
+
+// All-types filters use a label only when the reporting event types agree.
+export function gameEventFieldLabel(
+  options: GameEventFilterOptions | null | undefined,
+  type: string | null,
+  key: string,
+): string {
+  if (type) {
+    const labels = options?.field_labels;
+    return gameFieldLabel(
+      labels && Object.hasOwn(labels, type) ? labels[type] : undefined,
+      key,
+    );
+  }
+  const labels = Object.values(options?.field_labels ?? {})
+    .filter((fields) => Object.hasOwn(fields, key))
+    .map((fields) => gameFieldLabel(fields, key));
+  return labels.length && labels.every((label) => label === labels[0])
+    ? labels[0]!
+    : key;
 }
 export interface GameEventFilter {
   search?: string;
@@ -85,6 +114,7 @@ function isEvent(value: unknown, serverID: string): value is GameEvent {
         value.attachments.length <= 4 &&
         value.attachments.every(isAttachment))) &&
     object(value.data) &&
+    validGameFieldLabels(value.field_labels, value.data) &&
     Object.values(value.data).every(
       (field) =>
         typeof field === "string" ||
@@ -113,7 +143,13 @@ export async function readGameEventFilterOptions(
       (values) =>
         Array.isArray(values) &&
         values.every((entry) => typeof entry === "string"),
-    )
+    ) ||
+    (value.field_labels !== undefined &&
+      (!object(value.field_labels) ||
+        !Object.values(value.field_labels).every(
+          (labels) =>
+            object(labels) && Object.values(labels).every(isGameFieldLabel),
+        )))
   )
     throw new Error(i18n.t("gameEvents.unexpectedResponse"));
   return value as unknown as GameEventFilterOptions;

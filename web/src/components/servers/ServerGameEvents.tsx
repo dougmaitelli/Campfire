@@ -3,10 +3,12 @@ import { useCallback, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   gameMediaURL,
+  gameEventFieldLabel,
   readGameEvents,
   readGameEventFilterOptions,
   type GameEventFilter,
 } from "../../api/gameEvents";
+import { gameFieldLabel } from "../../api/gameFields";
 import { useCollection } from "../../hooks/useCollection";
 import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
@@ -159,7 +161,7 @@ export function ServerGameEvents({ serverID }: { serverID: string }) {
                         (item) => item.id !== entry.id && item.field === field,
                       )}
                     >
-                      {field}
+                      {gameEventFieldLabel(options, type, field)}
                     </option>
                   ))}
                 </Select>
@@ -378,7 +380,7 @@ function GameEventResults({
                 <dl>
                   {Object.entries(event.data).map(([key, value]) => (
                     <div key={key}>
-                      <dt>{key}</dt>
+                      <dt>{gameFieldLabel(event.field_labels, key)}</dt>
                       <dd>
                         {typeof value === "boolean"
                           ? t(value ? "gameState.yes" : "gameState.no")

@@ -108,12 +108,12 @@ test("game activity combines player and mod-state filters and clears them", asyn
     .click();
   await expect(page.getByRole("option")).toHaveText([
     "Select a field",
-    "advancement",
-    "game",
-    "player",
-    "state",
+    "Advancement",
+    "Game",
+    "Player name",
+    "Connection state",
   ]);
-  await page.getByRole("option", { name: "player", exact: true }).click();
+  await page.getByRole("option", { name: "Player name", exact: true }).click();
   await feed
     .getByRole("combobox", { name: "Field value", exact: true })
     .click();
@@ -134,9 +134,11 @@ test("game activity combines player and mod-state filters and clears them", asyn
     .nth(1)
     .click();
   await expect(
-    page.getByRole("option", { name: "player", exact: true }),
+    page.getByRole("option", { name: "Player name", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("option", { name: "state", exact: true }).click();
+  await page
+    .getByRole("option", { name: "Connection state", exact: true })
+    .click();
   await feed
     .getByRole("combobox", { name: "Field value", exact: true })
     .nth(1)
@@ -186,7 +188,9 @@ test("game activity combines player and mod-state filters and clears them", asyn
   await feed
     .getByRole("combobox", { name: "Event field", exact: true })
     .click();
-  await page.getByRole("option", { name: "state", exact: true }).click();
+  await page
+    .getByRole("option", { name: "Connection state", exact: true })
+    .click();
   await expect(
     feed.getByRole("combobox", { name: "Field value", exact: true }),
   ).toHaveText("Any value");
@@ -249,9 +253,9 @@ test("game activity keeps player filters when paging through older events", asyn
     .getByRole("combobox", { name: "Event field", exact: true })
     .click();
   await expect(
-    page.getByRole("option", { name: "state", exact: true }),
+    page.getByRole("option", { name: "Connection state", exact: true }),
   ).toBeVisible();
-  await page.getByRole("option", { name: "player", exact: true }).click();
+  await page.getByRole("option", { name: "Player name", exact: true }).click();
   await feed
     .getByRole("combobox", { name: "Field value", exact: true })
     .click();
@@ -287,7 +291,7 @@ test("game activity keeps player filters when paging through older events", asyn
   ).toBeVisible();
   await expect(
     feed.getByRole("combobox", { name: "Event field", exact: true }),
-  ).toHaveText("player");
+  ).toHaveText("Player name");
   await expect(
     feed.getByRole("combobox", { name: "Field value", exact: true }),
   ).toHaveText("Alex");

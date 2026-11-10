@@ -25,20 +25,23 @@ func TestGameStateReplacementFreshnessAndLifecycle(t *testing.T) {
 	s := &GameIntegrationService{Servers: gameServerStore{}, now: func() time.Time { return now }}
 	s.Observe("game", "owner", model.ResourceUsage{State: "running", StartedAt: 900}, now, false)
 
-	frame := protocol.GameFrame{ID: "request", ServerID: "game", Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(3), Capacity: new(20), Fields: map[string]any{"map": "world"}}}}
+	frame := protocol.GameFrame{ID: "request", ServerID: "game", Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(3), Capacity: new(20), Fields: map[string]any{"map": "world"}, FieldLabels: model.GameFieldLabels{"map": "World name"}}}}
 	if err := s.Receive(t.Context(), "owner", frame); err != nil {
 		t.Fatal(err)
 	}
 
 	*frame.Publication.State.Players = 99
+	frame.Publication.State.FieldLabels["map"] = "Changed publisher label"
 
 	view := s.Snapshot("game", "owner", true, now.Unix())
-	if view.Status != "fresh" || *view.State.Players != 3 || view.State.Fields["map"] != "world" {
+	if view.Status != "fresh" || *view.State.Players != 3 || view.State.Fields["map"] != "world" || view.State.FieldLabels["map"] != "World name" {
 		t.Fatal("snapshot not isolated", view)
 	}
 
 	view.State.Fields["map"] = "changed"
-	if s.Snapshot("game", "owner", true, now.Unix()).State.Fields["map"] != "world" {
+	view.State.FieldLabels["map"] = "Changed reader label"
+
+	if state := s.Snapshot("game", "owner", true, now.Unix()).State; state.Fields["map"] != "world" || state.FieldLabels["map"] != "World name" {
 		t.Fatal("caller mutated cache")
 	}
 
@@ -62,7 +65,7 @@ func TestGameStateReplacementFreshnessAndLifecycle(t *testing.T) {
 	}
 
 	view = s.Snapshot("game", "owner", true, now.Unix())
-	if view.State.Capacity != nil || len(view.State.Fields) != 0 || *view.State.Players != 0 {
+	if view.State.Capacity != nil || len(view.State.Fields) != 0 || len(view.State.FieldLabels) != 0 || *view.State.Players != 0 {
 		t.Fatal("snapshot merged instead of replaced", view)
 	}
 

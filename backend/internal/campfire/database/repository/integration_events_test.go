@@ -129,6 +129,8 @@ func TestGameIngestionAndIntegrationRoutingCommitTogether(t *testing.T) {
 	store, now := repository.NewGameEventRepository(db.ORM()), time.Now().UTC()
 
 	event := model.GameEvent{ID: "joined", Type: "player.joined", Title: "Joined", OccurredAt: now, Data: map[string]any{"player": "Alex"}}
+
+	event.FieldLabels = model.GameFieldLabels{"player": "Player name"}
 	for range 2 {
 		if err := store.Append(t.Context(), "node", "first", event, now, 24*time.Hour, 100); err != nil {
 			t.Fatal(err)
@@ -137,6 +139,11 @@ func TestGameIngestionAndIntegrationRoutingCommitTogether(t *testing.T) {
 
 	if len(outgoingEvents(t, db)) != 1 {
 		t.Fatal("game replay duplicated messages")
+	}
+
+	var queued integrations.Event
+	if err := json.Unmarshal(outgoingEvents(t, db)[0].Payload, &queued); err != nil || queued.FieldLabels["player"] != "Player name" {
+		t.Fatal("notification lost dictionary labels", queued, err)
 	}
 
 	if err := store.Append(t.Context(), "wrong-node", "first", event, now, 24*time.Hour, 100); !errors.Is(err, repository.ErrGameEventPlacement) {
@@ -152,6 +159,8 @@ func TestGameIngestionAndIntegrationRoutingCommitTogether(t *testing.T) {
 	}
 
 	event.ID = "must-roll-back"
+
+	event.FieldLabels["player"] = "Must roll back"
 	if err := store.Append(t.Context(), "node", "first", event, now, 24*time.Hour, 100); err == nil {
 		t.Fatal("queue failure was acknowledged")
 	}
@@ -159,6 +168,11 @@ func TestGameIngestionAndIntegrationRoutingCommitTogether(t *testing.T) {
 	var count int64
 	if err := db.ORM().Model(&database.GameEvent{}).Where("event_id = ?", event.ID).Count(&count).Error; err != nil || count != 0 {
 		t.Fatal("source committed without outgoing message", count, err)
+	}
+
+	var label database.GameEventFieldLabel
+	if err := db.ORM().Where("server_id = ? AND event_type = ? AND field_key = ?", "first", event.Type, "player").Take(&label).Error; err != nil || label.Label != "Player name" {
+		t.Fatal("failed ingestion changed dictionary", label, err)
 	}
 }
 

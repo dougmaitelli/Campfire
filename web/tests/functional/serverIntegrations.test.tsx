@@ -259,6 +259,7 @@ test("shared wizard discovers reported card fields and retains them through snap
             players: 0,
             capacity: 20,
             fields: { invite_code: "test", pvp: false },
+            field_labels: { invite_code: "Join code" },
           },
         },
       },
@@ -270,7 +271,12 @@ test("shared wizard discovers reported card fields and retains them through snap
   const { result } = renderHook(() =>
     useServerIntegrations({ ...server, game_integration: true }, true),
   );
-  const expected = ["players", "capacity", "field.invite_code", "field.pvp"];
+  const expected = {
+    players: "players",
+    capacity: "capacity",
+    "field.invite_code": "Join code",
+    "field.pvp": "pvp",
+  };
   await waitFor(() => expect(result.current.availableFields).toEqual(expected));
   act(() => result.current.add());
   act(() => result.current.setEditing(null));

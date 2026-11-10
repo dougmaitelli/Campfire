@@ -44,6 +44,7 @@ const (
 	GamePlayers               = 1000000
 	GameFields                = 32
 	GameFieldNameLength       = 64
+	GameFieldLabelLength      = 128
 	GameFieldStringLength     = 1024
 	MinimumFreshSeconds       = 15
 	FreshIntervals            = 3

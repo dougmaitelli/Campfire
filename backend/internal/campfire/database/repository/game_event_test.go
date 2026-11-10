@@ -111,7 +111,10 @@ func TestGameEventsSurviveDatabaseReopenAndCascadeWithServer(t *testing.T) {
 	now := time.Now()
 
 	store := repository.NewGameEventRepository(db.ORM())
-	if err := store.Append(t.Context(), "node", "game", gameEvent(0, now), now, 24*time.Hour, 10); err != nil {
+	event := gameEvent(0, now)
+
+	event.FieldLabels = model.GameFieldLabels{"player": "Player name"}
+	if err := store.Append(t.Context(), "node", "game", event, now, 24*time.Hour, 10); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,7 +140,7 @@ func TestGameEventsSurviveDatabaseReopenAndCascadeWithServer(t *testing.T) {
 	}
 
 	page, err := store.List(t.Context(), "game", repository.GameEventQuery{Limit: 10})
-	if err != nil || len(page.Items) != 1 {
+	if err != nil || len(page.Items) != 1 || page.Items[0].FieldLabels["player"] != "Player name" {
 		t.Fatal("restart lost event or deduplication", page, err)
 	}
 
@@ -153,6 +156,11 @@ func TestGameEventsSurviveDatabaseReopenAndCascadeWithServer(t *testing.T) {
 	page, err = store.List(t.Context(), "game", repository.GameEventQuery{Limit: 10})
 	if err != nil || len(page.Items) != 0 {
 		t.Fatal("server deletion retained orphan events", page, err)
+	}
+
+	var labels int64
+	if err := db.ORM().Model(&database.GameEventFieldLabel{}).Count(&labels).Error; err != nil || labels != 0 {
+		t.Fatal("server deletion retained orphan labels", labels, err)
 	}
 }
 
@@ -229,6 +237,10 @@ func TestGameEventSearchAndFieldFiltersBeforePagination(t *testing.T) {
 
 	want := repository.GameEventFilterOptions{
 		Types: []string{"game.announcement", "player.joined"},
+		FieldLabels: map[string]model.GameFieldLabels{
+			"game.announcement": {"player": "player", "state": "state", "score": "score", "message": "message", "player.name": "player.name"},
+			"player.joined":     {"player": "player", "state": "state", "score": "score", "online": "online", "player.name": "player.name", "empty": "empty"},
+		},
 		Fields: map[string][]string{
 			"player": {"Alex", "Sam"}, "state": {"ok", "warning"},
 			"score": {"1", "1.5", "10"}, "online": {"false"},

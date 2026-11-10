@@ -120,9 +120,9 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 	}
 
 	for i, event := range []model.GameEvent{
-		{ID: "fixture-connected", Type: "game.announcement", Title: "Game integration connected", Data: map[string]any{"game": "Minecraft"}},
-		{ID: "fixture-joined", Type: "player.joined", Title: "Alex joined the server", Data: map[string]any{"player": "Alex", "state": "connected"}},
-		{ID: "fixture-advancement", Type: "minecraft.advancement", Title: "Alex earned Stone Age", Data: map[string]any{"player": "Alex", "advancement": "Stone Age"}},
+		{ID: "fixture-connected", Type: "game.announcement", Title: "Game integration connected", Data: map[string]any{"game": "Minecraft"}, FieldLabels: model.GameFieldLabels{"game": "Game"}},
+		{ID: "fixture-joined", Type: "player.joined", Title: "Alex joined the server", Data: map[string]any{"player": "Alex", "state": "connected"}, FieldLabels: model.GameFieldLabels{"player": "Player name", "state": "Connection state"}},
+		{ID: "fixture-advancement", Type: "minecraft.advancement", Title: "Alex earned Stone Age", Data: map[string]any{"player": "Alex", "advancement": "Stone Age"}, FieldLabels: model.GameFieldLabels{"player": "Player name", "advancement": "Advancement"}},
 	} {
 		event.OccurredAt = now.Add(time.Duration(i-3) * time.Minute)
 		if err := repository.NewGameEventRepository(tx).Append(ctx, "mock-europe", "survival", event, now, 30*24*time.Hour, 10000); err != nil {

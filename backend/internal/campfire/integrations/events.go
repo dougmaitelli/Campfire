@@ -16,14 +16,15 @@ import (
 // Event is the provider-independent snapshot handed to outgoing integrations.
 // Source IDs are namespaced so different producers cannot collide in a binding.
 type Event struct {
-	ID         string         `json:"id"`
-	ServerID   string         `json:"server_id"`
-	Category   Category       `json:"category"`
-	Type       string         `json:"type"`
-	Title      string         `json:"title"`
-	Body       string         `json:"body,omitempty"`
-	OccurredAt int64          `json:"occurred_at"`
-	Data       map[string]any `json:"data"`
+	ID          string                `json:"id"`
+	ServerID    string                `json:"server_id"`
+	Category    Category              `json:"category"`
+	Type        string                `json:"type"`
+	Title       string                `json:"title"`
+	Body        string                `json:"body,omitempty"`
+	OccurredAt  int64                 `json:"occurred_at"`
+	Data        map[string]any        `json:"data"`
+	FieldLabels model.GameFieldLabels `json:"field_labels,omitempty"`
 }
 
 // Validate excludes unbounded or structured data from notification payloads.
@@ -42,7 +43,7 @@ func (e Event) Validate() error {
 		}
 	}
 
-	return nil
+	return e.FieldLabels.Validate(e.Data)
 }
 
 // ScalarText matches Activity's field dropdown representation, including false
@@ -102,7 +103,7 @@ func GameEvent(serverID string, event model.GameEvent) Event {
 		data = map[string]any{}
 	}
 
-	return Event{ID: "game:" + hex.EncodeToString(id[:]), ServerID: serverID, Category: GameEvents, Type: event.Type, Title: event.Title, OccurredAt: event.OccurredAt.Unix(), Data: data}
+	return Event{ID: "game:" + hex.EncodeToString(id[:]), ServerID: serverID, Category: GameEvents, Type: event.Type, Title: event.Title, OccurredAt: event.OccurredAt.Unix(), Data: data, FieldLabels: event.FieldLabels}
 }
 
 // ConsoleAlert deliberately omits evidence, paths, and raw console output.
