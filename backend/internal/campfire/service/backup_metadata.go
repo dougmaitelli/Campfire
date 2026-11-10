@@ -52,8 +52,8 @@ func (s *BackupService) Update(ctx context.Context, id, name string, input model
 	row, err = s.Store.Get(ctx, id, name)
 
 	s.mu.Lock()
-	working := s.active[id]
+	uploading := s.uploading[id] == name
 	s.mu.Unlock()
 
-	return backupView(row, working), err
+	return backupView(row, uploading), err
 }

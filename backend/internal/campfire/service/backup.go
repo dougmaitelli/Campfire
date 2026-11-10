@@ -34,6 +34,7 @@ type BackupService struct {
 	Remote     BackupStorage
 	mu         sync.Mutex
 	active     map[string]bool
+	uploading  map[string]string
 	cancel     context.CancelFunc
 	wg         sync.WaitGroup
 	cursor     int
@@ -41,7 +42,7 @@ type BackupService struct {
 
 // NewBackupService creates the catalog and optional S3 reconciliation service.
 func NewBackupService(store *repository.BackupRepository, deployment *DeploymentService, remote BackupStorage) *BackupService {
-	return &BackupService{Store: store, Deployment: deployment, Remote: remote, active: make(map[string]bool)}
+	return &BackupService{Store: store, Deployment: deployment, Remote: remote, active: make(map[string]bool), uploading: make(map[string]string)}
 }
 
 func (s *BackupService) acquire(id string) (func(), error) {
@@ -226,18 +227,18 @@ func (s *BackupService) List(ctx context.Context, id string) ([]model.Backup, er
 	}
 
 	s.mu.Lock()
-	working := s.active[id]
+	uploading := s.uploading[id]
 	s.mu.Unlock()
 
 	items := make([]model.Backup, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, backupView(row, working))
+		items = append(items, backupView(row, uploading == row.Name))
 	}
 
 	return items, nil
 }
 
-func backupView(row database.Backup, working bool) model.Backup {
+func backupView(row database.Backup, uploading bool) model.Backup {
 	state := model.BackupAvailable
 	if !row.Local && !row.Remote {
 		state = model.BackupUnavailable
@@ -247,7 +248,7 @@ func backupView(row database.Backup, working bool) model.Backup {
 		state = model.BackupError
 	}
 
-	if working && !row.Remote && row.Local {
+	if uploading && !row.Remote && row.Local {
 		state = model.BackupSyncing
 	}
 
@@ -270,7 +271,7 @@ func (s *BackupService) Catalog(ctx context.Context) ([]model.CatalogBackup, err
 
 	items := make([]model.CatalogBackup, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, model.CatalogBackup{Backup: backupView(row.Backup, s.active[row.ServerID]), ServerID: row.ServerID, ServerName: row.ServerName})
+		items = append(items, model.CatalogBackup{Backup: backupView(row.Backup, s.uploading[row.ServerID] == row.Name), ServerID: row.ServerID, ServerName: row.ServerName})
 	}
 
 	return items, nil
@@ -398,6 +399,16 @@ func (s *BackupService) upload(ctx context.Context, row database.Backup) error {
 	if row.StoreID != "" && row.StoreID != s.Remote.ID() {
 		return errors.New("backup storage configuration changed")
 	}
+
+	s.mu.Lock()
+	s.uploading[row.ServerID] = row.Name
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		delete(s.uploading, row.ServerID)
+		s.mu.Unlock()
+	}()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, &backupStream{s: s, ctx: ctx, id: row.ServerID, name: row.Name, size: row.Size}); err != nil {

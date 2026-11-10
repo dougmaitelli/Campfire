@@ -10,7 +10,7 @@ import (
 	"campfire/internal/shared/model"
 )
 
-func TestBackupMetadataCanChangeDuringSynchronization(t *testing.T) {
+func TestBackupMetadataCanChangeDuringDiscovery(t *testing.T) {
 	f, s, _, _ := backupFixture(t)
 	seedBackup(t, f, "snapshot", time.Now())
 
@@ -25,8 +25,8 @@ func TestBackupMetadataCanChangeDuringSynchronization(t *testing.T) {
 	defer release()
 
 	updated, err := s.Update(t.Context(), f.server.ID, "snapshot.tar.gz", model.BackupChanges{DisplayName: new("Before update"), Pinned: new(true)})
-	if err != nil || !updated.Pinned || updated.DisplayName != "Before update" || updated.State != model.BackupSyncing {
-		t.Fatal("ongoing synchronization blocked metadata or lost its state", updated, err)
+	if err != nil || !updated.Pinned || updated.DisplayName != "Before update" || updated.State != model.BackupAvailable {
+		t.Fatal("discovery blocked metadata or changed availability", updated, err)
 	}
 }
 
