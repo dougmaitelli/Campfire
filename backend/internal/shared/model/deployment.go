@@ -49,12 +49,24 @@ type RuntimeDefinition struct {
 
 // NewDeployment projects saved panel settings into Spark execution instructions.
 func NewDeployment(serverID string, c ServerConfiguration, e Ember) (Deployment, error) {
-	if c.EmberID == "" || c.EmberID != e.ID {
-		return Deployment{}, errors.New("Ember identity mismatch")
-	}
-
 	if err := e.Validate(); err != nil {
 		return Deployment{}, err
+	}
+
+	deployment, err := resolveDeployment(serverID, c, e)
+	if err != nil {
+		return Deployment{}, err
+	}
+
+	return deployment, deployment.Validate()
+}
+
+// resolveDeployment resolves server choices against an already validated Ember.
+// Read-only status checks reuse this projection without revalidating authoring
+// metadata; delivery and Spark still validate the complete deployment.
+func resolveDeployment(serverID string, c ServerConfiguration, e Ember) (Deployment, error) {
+	if c.EmberID == "" || c.EmberID != e.ID {
+		return Deployment{}, errors.New("Ember identity mismatch")
 	}
 
 	allowed := false
@@ -100,20 +112,28 @@ func NewDeployment(serverID string, c ServerConfiguration, e Ember) (Deployment,
 		},
 	}
 
-	return deployment, deployment.Validate()
+	return deployment, nil
 }
 
 // Validate checks execution inputs at the Spark trust boundary.
 func (d Deployment) Validate() error {
-	c := d.Configuration
+	known, err := d.Configuration.validate()
+	if err != nil {
+		return err
+	}
+
+	return d.Ember.validate(known)
+}
+
+func (c RuntimeConfiguration) validate() (map[string]string, error) {
 	if c.EmberID == "" || Image(c.Image) != nil || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < limits.ServerMinCPU || c.CPULimit > limits.MaxCPU || c.MemoryMB < limits.MinMemoryMiB || c.MemoryMB > limits.MaxMemoryMiB || c.DiskMB < 0 || c.DiskMB > limits.MaxDiskMiB || len(c.Ports) > limits.MaxServerPorts {
-		return errors.New("invalid server image or resources")
+		return nil, errors.New("invalid server image or resources")
 	}
 
 	for _, port := range c.Ports {
 		ip, err := netip.ParseAddr(port.BindIP)
 		if err != nil || ip.Zone() != "" || ip.IsMulticast() || port.HostPort < limits.MinPort || port.HostPort > limits.MaxPort || port.ContainerPort < limits.MinPort || port.ContainerPort > limits.MaxPort || (port.Protocol != NetworkTCP && port.Protocol != NetworkUDP) {
-			return errors.New("invalid server port")
+			return nil, errors.New("invalid server port")
 		}
 	}
 
@@ -121,13 +141,13 @@ func (d Deployment) Validate() error {
 
 	for name, value := range c.Variables {
 		if !envName.MatchString(name) || name == "STARTUP" || strings.ContainsRune(value, '\x00') {
-			return errors.New("invalid server environment")
+			return nil, errors.New("invalid server environment")
 		}
 
 		known[name] = ""
 	}
 
-	return d.Ember.validate(known)
+	return known, nil
 }
 
 // DecodeStoredDeployment decodes and validates persisted execution instructions.

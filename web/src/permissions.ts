@@ -28,6 +28,7 @@ export type AdminResourceOperation =
 const serverRequirements = {
   view: [Permission.ServerView],
   operate: [Permission.ServerOperate],
+  syncConfiguration: [Permission.ServerOperate],
   configure: [Permission.ServerConfigure],
   delete: [Permission.ServerDelete],
   reinstall: [Permission.ServerReinstall],

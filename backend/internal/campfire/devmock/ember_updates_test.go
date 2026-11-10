@@ -43,7 +43,7 @@ func TestMockServerCanApplyImportedEmberUpdateAndKeepItAfterRestart(t *testing.T
 	deployment := &service.DeploymentService{Servers: servers, Sparks: service.NewSparkService(repository.NewSparkRepository(db.ORM()), runtime), Embers: embers, Remote: runtime}
 	servers.WithRuntimeGuard(deployment)
 
-	input := server.ServerConfiguration
+	input := updated.ProposedServerConfiguration(server.ServerConfiguration)
 	input.EmberID = updated.ID
 
 	saved, err := servers.ApplyEmber(t.Context(), server.ID, server.EmberID, input)

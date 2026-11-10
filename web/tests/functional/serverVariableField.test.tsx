@@ -118,7 +118,7 @@ test("change descriptions preserve control names and disappear when a value is r
   expect(toggle.hasAttribute("aria-describedby")).toBe(false);
 });
 
-test("update reviews mark saved-value changes, removed variables, and reset startup overrides", () => {
+test("update reviews mark saved-value changes, added variables, and reset startup overrides", () => {
   const value = {
     name: "Test",
     description: "",
@@ -135,7 +135,7 @@ test("update reviews mark saved-value changes, removed variables, and reset star
     ...value,
     image: "old",
     startup_override: "custom",
-    variables: { REMOVED: "old value" },
+    variables: {},
   };
   render(
     <ServerReview
@@ -152,12 +152,6 @@ test("update reviews mark saved-value changes, removed variables, and reset star
       .closest("div")
       ?.getAttribute("data-change"),
   ).toBe("added");
-  expect(
-    screen
-      .getByText("REMOVED", { exact: true })
-      .closest("div")
-      ?.getAttribute("data-change"),
-  ).toBe("removed");
   expect(
     screen
       .getByText("Use Ember default")

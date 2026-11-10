@@ -20,8 +20,8 @@ type notificationRuntime struct {
 	fail  bool
 }
 
-func (*notificationRuntime) Deploy(context.Context, string, model.Deployment) (model.ConfigurationReceipt, error) {
-	return model.ConfigurationReceipt{}, nil
+func (*notificationRuntime) Deploy(_ context.Context, _ string, input model.Deployment) (model.ConfigurationReceipt, error) {
+	return model.ConfigurationReceipt{ServerID: input.ServerID, Revision: model.DeploymentHash(input)}, nil
 }
 func (r *notificationRuntime) Action(_ context.Context, _ string, q model.RuntimeRequest) (model.RuntimeStatus, error) {
 	if r.fail {

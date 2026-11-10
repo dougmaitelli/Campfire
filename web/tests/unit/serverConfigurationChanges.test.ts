@@ -1,5 +1,9 @@
 import { expect, test } from "vitest";
-import type { ServerConfiguration } from "../../src/api/servers";
+import {
+  serverNeedsEmberReview,
+  type Server,
+  type ServerConfiguration,
+} from "../../src/api/servers";
 import { serverConfigurationChanges } from "../../src/utils/serverConfigurationChanges";
 
 const saved: ServerConfiguration = {
@@ -22,6 +26,19 @@ const saved: ServerConfiguration = {
   ],
 };
 
+test("deployment sync does not open an unchanged Ember review", () => {
+  const server = {
+    ember_update_available: true,
+    deployment_sync_required: true,
+    ember_review_required: false,
+  } as Server;
+  expect(serverNeedsEmberReview(server)).toBe(false);
+  expect(
+    serverNeedsEmberReview({ ...server, ember_review_required: true }),
+  ).toBe(true);
+  expect(serverNeedsEmberReview(undefined)).toBe(false);
+});
+
 test("server comparison distinguishes changed, added-empty, retained, and removed variables", () => {
   const changes = serverConfigurationChanges(saved, {
     ...saved,
@@ -36,7 +53,7 @@ test("server comparison distinguishes changed, added-empty, retained, and remove
   });
 });
 
-test("unset optional overrides and equivalent port mappings do not create changes", () => {
+test("unset optional overrides do not create changes, but changing the first port does", () => {
   expect(
     serverConfigurationChanges(saved, {
       ...saved,
@@ -56,7 +73,7 @@ test("unset optional overrides and equivalent port mappings do not create change
       { ...saved, ports: [...saved.ports, other] },
       { ...saved, ports: [other, ...saved.ports] },
     ).fields,
-  ).toEqual({});
+  ).toEqual({ ports: "changed" });
   expect(
     serverConfigurationChanges(saved, { ...saved, ports: [] }).fields,
   ).toEqual({ ports: "changed" });

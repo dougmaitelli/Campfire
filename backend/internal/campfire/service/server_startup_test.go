@@ -49,8 +49,12 @@ func TestServerStartupSelectionSurvivesUpdatesAndRejectsRemovedKeys(t *testing.T
 		t.Fatal(err)
 	}
 
-	server, err = d.Servers.ApplyEmber(t.Context(), server.ID, ember.ID, input)
-	if err != nil || server.StartupCommand != "Debug" {
+	if _, err := d.Sync(t.Context(), server.ID); err != nil {
+		t.Fatal("compatible command text update did not synchronize", err)
+	}
+
+	server, err = d.Servers.Get(t.Context(), server.ID)
+	if err != nil || server.StartupCommand != "Debug" || server.EmberReviewRequired {
 		t.Fatal("changed command text lost its selected key", server, err)
 	}
 

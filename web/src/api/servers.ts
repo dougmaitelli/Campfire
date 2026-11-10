@@ -1,5 +1,5 @@
 import { type PermissionID, isPermissionID } from "./permissions";
-import { isEnumValue } from "../utils/validation";
+import { isEnumValue, isRecord } from "../utils/validation";
 import {
   NetworkProtocol,
   RuntimeState,
@@ -35,6 +35,8 @@ export interface Server extends ServerConfiguration {
   savedata_available?: boolean;
   ember_hash: string;
   ember_update_available: boolean;
+  ember_review_required?: boolean;
+  deployment_sync_required?: boolean;
   id: string;
   owner_user_id: number;
   permissions: PermissionID[];
@@ -51,32 +53,27 @@ export interface Server extends ServerConfiguration {
 
 export function isServer(value: unknown): value is Server {
   return (
-    typeof value === "object" &&
-    value !== null &&
+    isServerConfiguration(value) &&
     (!("savedata_available" in value) ||
       typeof value.savedata_available === "boolean") &&
     "id" in value &&
     typeof value.id === "string" &&
     (!("can_manage_access" in value) ||
       typeof value.can_manage_access === "boolean") &&
-    (!("startup_override" in value) ||
-      typeof value.startup_override === "string") &&
-    (!("game_integration" in value) ||
-      typeof value.game_integration === "boolean") &&
     "ember_hash" in value &&
     typeof value.ember_hash === "string" &&
     "ember_update_available" in value &&
     typeof value.ember_update_available === "boolean" &&
+    (!("ember_review_required" in value) ||
+      typeof value.ember_review_required === "boolean") &&
+    (!("deployment_sync_required" in value) ||
+      typeof value.deployment_sync_required === "boolean") &&
     "owner_user_id" in value &&
     typeof value.owner_user_id === "number" &&
     Number.isSafeInteger(value.owner_user_id) &&
     "permissions" in value &&
     Array.isArray(value.permissions) &&
     value.permissions.every(isPermissionID) &&
-    "name" in value &&
-    typeof value.name === "string" &&
-    "description" in value &&
-    typeof value.description === "string" &&
     "game_address" in value &&
     typeof value.game_address === "string" &&
     (!("variable_types" in value) ||
@@ -93,43 +90,49 @@ export function isServer(value: unknown): value is Server {
         Object.values(value.port_descriptions).every(
           (description: unknown) => typeof description === "string",
         ))) &&
-    "spark_id" in value &&
-    typeof value.spark_id === "string" &&
     "spark_name" in value &&
     typeof value.spark_name === "string" &&
-    "ember_id" in value &&
-    typeof value.ember_id === "string" &&
     "ember_name" in value &&
     typeof value.ember_name === "string" &&
     (!("ember_art_url" in value) || typeof value.ember_art_url === "string") &&
-    "image" in value &&
-    typeof value.image === "string" &&
-    (!("startup_command" in value) ||
-      typeof value.startup_command === "string") &&
-    "cpu_limit" in value &&
-    typeof value.cpu_limit === "number" &&
-    Number.isFinite(value.cpu_limit) &&
-    "memory_mb" in value &&
-    typeof value.memory_mb === "number" &&
-    Number.isSafeInteger(value.memory_mb) &&
-    "disk_mb" in value &&
-    typeof value.disk_mb === "number" &&
-    Number.isSafeInteger(value.disk_mb) &&
-    "ports" in value &&
-    Array.isArray(value.ports) &&
-    value.ports.every(isServerPort) &&
-    "variables" in value &&
-    typeof value.variables === "object" &&
-    value.variables !== null &&
-    !Array.isArray(value.variables) &&
-    Object.values(value.variables).every(
-      (entry: unknown) => typeof entry === "string",
-    ) &&
     "status" in value &&
     isEnumValue(RuntimeState, value.status) &&
     "created_at" in value &&
     typeof value.created_at === "string" &&
     Number.isFinite(Date.parse(value.created_at))
+  );
+}
+
+export function serverNeedsEmberReview(
+  server: Server | null | undefined,
+): boolean {
+  return (
+    server?.ember_review_required ?? server?.ember_update_available ?? false
+  );
+}
+
+export function isServerConfiguration(
+  value: unknown,
+): value is ServerConfiguration {
+  return (
+    isRecord(value) &&
+    ["name", "description", "spark_id", "ember_id", "image"].every(
+      (key) => typeof value[key] === "string",
+    ) &&
+    (value.startup_command === undefined ||
+      typeof value.startup_command === "string") &&
+    (value.startup_override === undefined ||
+      typeof value.startup_override === "string") &&
+    (value.game_integration === undefined ||
+      typeof value.game_integration === "boolean") &&
+    typeof value.cpu_limit === "number" &&
+    Number.isFinite(value.cpu_limit) &&
+    Number.isSafeInteger(value.memory_mb) &&
+    Number.isSafeInteger(value.disk_mb) &&
+    Array.isArray(value.ports) &&
+    value.ports.every(isServerPort) &&
+    isRecord(value.variables) &&
+    Object.values(value.variables).every((entry) => typeof entry === "string")
   );
 }
 
@@ -185,15 +188,39 @@ export async function applyServerEmber(
   id: string,
   expectedEmberID: string,
   input: ServerConfiguration,
+  expectedEmberRevision?: string,
 ): Promise<Server> {
   const body = await readJSON(
     await apiJSON(
       `/api/v1/servers/${encodeURIComponent(id)}/ember`,
-      { ...input, expected_ember_id: expectedEmberID },
+      {
+        ...input,
+        expected_ember_id: expectedEmberID,
+        expected_ember_revision: expectedEmberRevision,
+      },
       { method: "POST", signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS) },
     ),
   );
   if (!isServer(body))
     throw new Error(i18n.t("servers.unexpectedServerResponse"));
   return body;
+}
+
+export async function syncServerConfiguration(
+  id: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const body = await readJSON(
+    await apiJSON(
+      `/api/v1/servers/${encodeURIComponent(id)}/configuration`,
+      {},
+      { method: "POST", signal },
+    ),
+  );
+  if (
+    !isRecord(body) ||
+    body.server_id !== id ||
+    typeof body.revision !== "string"
+  )
+    throw new Error(i18n.t("servers.unexpectedServerResponse"));
 }

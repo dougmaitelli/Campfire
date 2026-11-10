@@ -20,17 +20,19 @@ type Server struct {
 	Permissions     []PermissionID `json:"permissions,omitempty"`
 	CanManageAccess bool           `json:"can_manage_access"`
 	ServerConfiguration
-	SparkName            string                  `json:"spark_name"`
-	EmberName            string                  `json:"ember_name"`
-	EmberArtURL          string                  `json:"ember_art_url,omitempty"`
-	EmberHash            string                  `json:"ember_hash"`
-	EmberUpdateAvailable bool                    `json:"ember_update_available"`
-	GameAddress          string                  `json:"game_address"`
-	PortDescriptions     map[string]string       `json:"port_descriptions,omitempty"`
-	VariableTypes        map[string]VariableType `json:"variable_types,omitempty"`
-	SavedataAvailable    bool                    `json:"savedata_available"`
-	Status               RuntimeState            `json:"status"`
-	CreatedAt            time.Time               `json:"created_at"`
+	SparkName              string                  `json:"spark_name"`
+	EmberName              string                  `json:"ember_name"`
+	EmberArtURL            string                  `json:"ember_art_url,omitempty"`
+	EmberHash              string                  `json:"ember_hash"`
+	EmberUpdateAvailable   bool                    `json:"ember_update_available"`
+	EmberReviewRequired    bool                    `json:"ember_review_required"`
+	DeploymentSyncRequired bool                    `json:"deployment_sync_required"`
+	GameAddress            string                  `json:"game_address"`
+	PortDescriptions       map[string]string       `json:"port_descriptions,omitempty"`
+	VariableTypes          map[string]VariableType `json:"variable_types,omitempty"`
+	SavedataAvailable      bool                    `json:"savedata_available"`
+	Status                 RuntimeState            `json:"status"`
+	CreatedAt              time.Time               `json:"created_at"`
 }
 
 // ServerConfiguration contains the operator-configured placement and reservations.

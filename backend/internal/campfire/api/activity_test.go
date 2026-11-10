@@ -25,7 +25,7 @@ type scheduleAPIRuntime struct {
 }
 
 func (d *scheduleAPIRuntime) Deploy(_ context.Context, _ string, input model.Deployment) (model.ConfigurationReceipt, error) {
-	return model.ConfigurationReceipt{ServerID: input.ServerID}, nil
+	return model.ConfigurationReceipt{ServerID: input.ServerID, Revision: model.DeploymentHash(input)}, nil
 }
 func (d *scheduleAPIRuntime) Action(_ context.Context, _ string, input model.RuntimeRequest) (model.RuntimeStatus, error) {
 	d.mu.Lock()

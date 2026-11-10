@@ -88,7 +88,7 @@ func (r *TransferRepository) Create(ctx context.Context, transfer model.Transfer
 			return err
 		}
 
-		if expectedEmberHash == "" || server.EmberHash != expectedEmberHash || server.EmberUpdateAvailable || !model.SameRuntimeConfiguration(server.ServerConfiguration, transfer.SourceConfiguration) {
+		if server.EmberHash != expectedEmberHash || server.EmberReviewRequired || !model.SameRuntimeConfiguration(server.ServerConfiguration, transfer.SourceConfiguration) {
 			return ErrJobState
 		}
 

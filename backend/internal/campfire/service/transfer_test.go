@@ -62,6 +62,33 @@ type transferRouter struct {
 	offsets       []int64
 }
 
+func TestTransferCanQueueBeforeTheFirstConfigurationAcknowledgement(t *testing.T) {
+	f := newTransferFixture(t)
+
+	d := f.service.Deployment
+	if err := f.db.ORM().Model(&database.Spark{}).Where("id = ?", "source").Update("memory_mb", 256).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	input := f.server.ServerConfiguration
+	input.Name = "Fresh server"
+	input.Ports = []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25566, ContainerPort: 25565, Protocol: model.NetworkTCP}}
+
+	fresh, err := d.Servers.CreateOwned(t.Context(), input, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if fresh.EmberHash != "" || fresh.EmberReviewRequired || !fresh.DeploymentSyncRequired {
+		t.Fatal("fresh server was not awaiting its first configuration acknowledgement", fresh)
+	}
+
+	job, err := f.service.Begin(t.Context(), fresh.ID, "target", f.ports)
+	if err != nil || !job.Active || job.ServerID != fresh.ID {
+		t.Fatal("valid unsynchronized server could not queue a transfer", job, err)
+	}
+}
+
 func (r *transferRouter) Deploy(ctx context.Context, id string, d model.Deployment) (model.ConfigurationReceipt, error) {
 	if !r.Connected(id) {
 		return model.ConfigurationReceipt{}, errors.New("destination unavailable")
@@ -311,6 +338,11 @@ func newTransferFixture(t *testing.T) *transferFixture {
 		}
 
 		time.Sleep(5 * time.Millisecond)
+	}
+
+	server, err = servers.Get(ctx, server.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	world := make([]byte, 2<<20)

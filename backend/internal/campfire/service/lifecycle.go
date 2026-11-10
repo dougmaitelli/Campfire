@@ -35,22 +35,17 @@ func (s *DeploymentService) backupOptions(ctx context.Context, id string, mode m
 		return options, err
 	}
 
-	options.EmberRevision = server.EmberHash
-
 	ember, err := s.Embers.Get(ctx, server.EmberID)
 	if err != nil {
 		return options, err
 	}
 
-	if !server.EmberUpdateAvailable {
+	options.EmberRevision = ember.Revision
+	if !ember.ServerNeedsEmberReview(server) {
 		options.Definition = model.NewBackupDefinition(server, ember)
 	}
 
 	if options.Mode == model.BackupModeSavedata {
-		if server.EmberUpdateAvailable {
-			return options, fmt.Errorf("%w: apply the current Ember before using save-data backups", ErrInvalidServer)
-		}
-
 		options.Paths = ember.SavedataPaths
 	}
 
@@ -290,11 +285,11 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 		}
 	}
 
-	if server.EmberUpdateAvailable && (action == model.ServerActionInstall || action == model.ServerActionUpdate || action == model.ServerActionReinstall) {
-		return model.RuntimeStatus{}, fmt.Errorf("%w: apply the current Ember before installing game files", ErrInvalidServer)
+	if server.EmberReviewRequired && (action == model.ServerActionInstall || action == model.ServerActionUpdate || action == model.ServerActionReinstall) {
+		return model.RuntimeStatus{}, fmt.Errorf("%w: review server values before installing game files", ErrInvalidServer)
 	}
 
-	if !server.EmberUpdateAvailable && action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionCommand && action != model.ServerActionStop && action != model.ServerActionKill {
+	if !server.EmberReviewRequired && action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionCommand && action != model.ServerActionStop && action != model.ServerActionKill && action != model.ServerActionBackup {
 		if _, err := s.sync(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}

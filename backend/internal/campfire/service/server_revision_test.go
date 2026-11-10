@@ -68,10 +68,6 @@ func TestRunningEmberUpdatesApplyBackupPathsWithoutRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := d.Servers.ApplyEmber(ctx, f.server.ID, ember.ID, f.server.ServerConfiguration); err != nil {
-		t.Fatal(err)
-	}
-
 	status := wait(false)
 	if status.OperationID != original.OperationID {
 		t.Fatal("applying save paths changed the running process", status)
@@ -97,6 +93,11 @@ func TestRunningEmberUpdatesApplyBackupPathsWithoutRestart(t *testing.T) {
 
 	if err := d.syncChanged(ctx, f.server.ID); err == nil {
 		t.Fatal("disconnected Spark unexpectedly acknowledged configuration")
+	}
+
+	pending, err := d.Servers.Get(ctx, f.server.ID)
+	if err != nil || !pending.DeploymentSyncRequired || pending.EmberReviewRequired || pending.EmberHash != f.server.EmberHash {
+		t.Fatal("failed delivery cleared the pending deployment", pending, err)
 	}
 
 	router.fail = false
@@ -127,7 +128,7 @@ func TestRunningEmberUpdatesApplyBackupPathsWithoutRestart(t *testing.T) {
 	wait(false)
 }
 
-func TestEmberOnlyUpdatesRetainBusyAndReservationGuards(t *testing.T) {
+func TestEmberReviewRetainsBusyAndReservationGuards(t *testing.T) {
 	f := newTransferFixture(t)
 	d := f.service.Deployment
 
@@ -136,21 +137,98 @@ func TestEmberOnlyUpdatesRetainBusyAndReservationGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ember.SavedataPaths = []model.SavedataPath{{Path: "world"}}
+	ember.Variables = append(ember.Variables, model.Variable{Name: "NEW_SETTING", Default: "valid", Editable: true})
 	if _, err := d.Embers.Replace(t.Context(), ember.ID, ember); err != nil {
 		t.Fatal(err)
 	}
 
 	d.Remote = &activityRuntime{status: model.RuntimeStatus{ServerID: f.server.ID, State: model.RuntimeStateRunning, Busy: true}}
-	if _, err := d.Servers.ApplyEmber(t.Context(), f.server.ID, ember.ID, f.server.ServerConfiguration); !errors.Is(err, ErrServerActive) {
-		t.Fatal("definition-only update bypassed busy guard", err)
+
+	proposal := ember.ProposedServerConfiguration(f.server.ServerConfiguration)
+	if _, err := d.Servers.ApplyEmber(t.Context(), f.server.ID, ember.ID, proposal); !errors.Is(err, ErrServerActive) {
+		t.Fatal("server-value review bypassed busy guard", err)
 	}
 
 	d.Remote = &activityRuntime{status: model.RuntimeStatus{ServerID: f.server.ID, State: model.RuntimeStateRunning}}
-	input := f.server.ServerConfiguration
+	input := proposal
 
 	input.Ports = nil
 	if _, err := d.Servers.ApplyEmber(t.Context(), f.server.ID, ember.ID, input); !errors.Is(err, ErrServerActive) {
 		t.Fatal("running update released active ports", err)
+	}
+}
+
+func TestPendingCompatibleServerValuesDoNotBlockLatestBackupMetadata(t *testing.T) {
+	f := newTransferFixture(t)
+	d := f.service.Deployment
+
+	ember, err := d.Embers.Get(t.Context(), f.server.EmberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ember.Variables = append(ember.Variables, model.Variable{Name: "NEW_OPTIONAL_VALUE", Editable: true})
+
+	ember.SavedataPaths = []model.SavedataPath{{Path: "world.bin", Required: true}}
+	if _, err := d.Embers.Replace(t.Context(), ember.ID, ember); err != nil {
+		t.Fatal(err)
+	}
+
+	server, err := d.Servers.Get(t.Context(), f.server.ID)
+	if err != nil || !server.EmberReviewRequired || !server.SavedataAvailable {
+		t.Fatal("new compatible value bypassed review or disabled save-data backups", server, err)
+	}
+
+	if _, err := d.Sync(t.Context(), server.ID); !errors.Is(err, ErrInvalidServer) {
+		t.Fatal("synchronization silently added a server value", err)
+	}
+
+	for _, mode := range []model.BackupMode{model.BackupModeFull, model.BackupModeSavedata} {
+		options, err := d.backupOptions(t.Context(), server.ID, mode)
+		if err != nil || options.Definition != nil || options.EmberRevision != model.EmberHash(ember) {
+			t.Fatal("pending review blocked backup data or misrepresented portable configuration", options, err)
+		}
+
+		if mode == model.BackupModeSavedata && (len(options.Paths) != 1 || options.Paths[0].Path != "world.bin") {
+			t.Fatal("backup did not use the latest save paths", options)
+		}
+	}
+
+	proposal := ember.ProposedServerConfiguration(server.ServerConfiguration)
+	if _, err := d.Servers.ApplyEmber(t.Context(), server.ID, ember.ID, proposal); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := d.Sync(t.Context(), server.ID); err != nil {
+		t.Fatal("reviewed values did not become synchronizable", err)
+	}
+}
+
+func TestServerReviewRejectsAnEmberChangedSinceOpeningTheWizard(t *testing.T) {
+	f := newTransferFixture(t)
+	d := f.service.Deployment
+
+	ember, err := d.Embers.Get(t.Context(), f.server.EmberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ember.Variables = append(ember.Variables, model.Variable{Name: "NEW_VALUE", Default: "one", Editable: true})
+
+	ember, err = d.Embers.Replace(t.Context(), ember.ID, ember)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := ember.Revision
+	proposal := ember.ProposedServerConfiguration(f.server.ServerConfiguration)
+
+	ember.Variables[0].Default = "two"
+	if _, err := d.Embers.Replace(t.Context(), ember.ID, ember); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := d.Servers.ApplyEmber(t.Context(), f.server.ID, ember.ID, proposal, expected); !errors.Is(err, ErrServerConflict) {
+		t.Fatal("stale review was accepted", err)
 	}
 }

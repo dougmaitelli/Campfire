@@ -65,7 +65,8 @@ func seedLogAlertFixture(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 
-		wasCurrent := server.EmberHash == model.EmberHash(ember)
+		before, err := model.NewDeployment(server.ID, server.ServerConfiguration, ember)
+		wasCurrent := err == nil && server.EmberHash == model.DeploymentHash(before)
 		ember.LogAlerts = withMockLogAlerts(ember.LogAlerts)
 
 		if err := embers.Replace(ctx, ember); err != nil {
@@ -73,7 +74,8 @@ func seedLogAlertFixture(ctx context.Context, db *gorm.DB) error {
 		}
 
 		if wasCurrent {
-			if err := tx.Model(&database.Server{}).Where("id = ?", server.ID).Update("ember_hash", model.EmberHash(ember)).Error; err != nil {
+			before.Ember.LogAlerts = ember.LogAlerts
+			if err := tx.Model(&database.Server{}).Where("id = ?", server.ID).Update("ember_hash", model.DeploymentHash(before)).Error; err != nil {
 				return err
 			}
 		}

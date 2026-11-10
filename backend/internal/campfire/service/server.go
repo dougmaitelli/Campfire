@@ -33,6 +33,7 @@ type ServerStore interface {
 	ListVisible(context.Context, int64, bool) ([]model.Server, error)
 	Get(context.Context, string) (model.Server, error)
 	Delete(context.Context, string) error
+	AcknowledgeConfiguration(context.Context, model.Server, string) error
 }
 
 // ServerService validates configurations against current Ember definitions.
@@ -69,7 +70,7 @@ func (s *ServerService) CreateOwned(ctx context.Context, input model.ServerConfi
 	server := model.Server{ID: rand.Text(), ServerConfiguration: input, CreatedAt: time.Now().UTC()}
 	server.OwnerUserID = ownerID
 
-	return s.save(ctx, server, true)
+	return s.save(ctx, server, true, false)
 }
 
 // Update changes a configuration while preserving placement and game identity.
@@ -98,7 +99,7 @@ func (s *ServerService) Update(ctx context.Context, id string, input model.Serve
 
 	server.ServerConfiguration = input
 
-	return s.save(ctx, server, false)
+	return s.save(ctx, server, false, false)
 }
 
 // preserveHiddenVariables hydrates omitted values from the locked server snapshot.
@@ -118,7 +119,7 @@ func (s *ServerService) preserveHiddenVariables(ctx context.Context, current mod
 		visible[variable.Name] = !variable.Hidden
 	}
 	// Hidden values omitted by the editor must survive edits, including while
-	// the current Ember differs from the server's applied definition.
+	// the latest Ember proposes changes to saved server values.
 	for name, value := range current.Variables {
 		if _, supplied := input.Variables[name]; !supplied && !visible[name] {
 			input.Variables[name] = value
@@ -128,10 +129,9 @@ func (s *ServerService) preserveHiddenVariables(ctx context.Context, current mod
 	return input, nil
 }
 
-// ApplyEmber replaces a server's saved definition without stopping the process.
-// Container settings apply on its next start; other consumers use the saved
-// definition immediately. The installer never runs implicitly.
-func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, input model.ServerConfiguration) (model.Server, error) {
+// ApplyEmber reviews saved server values against the latest Ember. Execution
+// changes are delivered separately, without implicitly restarting or installing.
+func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, input model.ServerConfiguration, expectedRevision ...string) (model.Server, error) {
 	if s.runtime == nil {
 		return model.Server{}, ErrDeploymentUnavailable
 	}
@@ -148,7 +148,7 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 	}
 
 	if server.EmberID != expected {
-		return model.Server{}, fmt.Errorf("%w: the pinned Ember changed; reopen the revision editor", ErrServerConflict)
+		return model.Server{}, fmt.Errorf("%w: the server's Ember changed; reopen the review", ErrServerConflict)
 	}
 
 	if input.SparkID != server.SparkID || input.EmberID != server.EmberID {
@@ -166,11 +166,13 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 		return model.Server{}, err
 	}
 
-	if latest.Revision == server.EmberHash {
-		return model.Server{}, fmt.Errorf("%w: this server already uses the current Ember", ErrServerConflict)
+	if len(expectedRevision) > 0 && expectedRevision[0] != "" && expectedRevision[0] != latest.Revision {
+		return model.Server{}, fmt.Errorf("%w: the Ember changed; reopen the server review", ErrServerConflict)
 	}
 
-	server.EmberHash = latest.Revision
+	if !latest.ServerNeedsEmberReview(server) {
+		return model.Server{}, fmt.Errorf("%w: server values are current; synchronize the deployment instead", ErrServerConflict)
+	}
 
 	input.Variables = maps.Clone(input.Variables)
 	if input.Variables == nil {
@@ -189,10 +191,10 @@ func (s *ServerService) ApplyEmber(ctx context.Context, id, expected string, inp
 
 	server.ServerConfiguration = input
 
-	return s.save(ctx, server, false)
+	return s.save(ctx, server, false, true)
 }
 
-func (s *ServerService) save(ctx context.Context, server model.Server, create bool) (model.Server, error) {
+func (s *ServerService) save(ctx context.Context, server model.Server, create, reviewed bool) (model.Server, error) {
 	ctx, release, lockErr := holdDefinition(ctx, server.EmberID)
 	if lockErr != nil {
 		return model.Server{}, lockErr
@@ -223,25 +225,23 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create bo
 		return model.Server{}, err
 	}
 
-	if !create && server.EmberHash != ember.Revision {
+	if !create && !reviewed {
 		current, err := s.Get(ctx, server.ID)
 		if err != nil {
 			return model.Server{}, err
 		}
 
-		if !model.SameRuntimeConfiguration(current.ServerConfiguration, server.ServerConfiguration) {
-			return model.Server{}, fmt.Errorf("%w: apply the current Ember before changing game configuration", ErrInvalidServer)
+		if ember.ServerNeedsEmberReview(current) {
+			if !model.SameRuntimeConfiguration(current.ServerConfiguration, server.ServerConfiguration) {
+				return model.Server{}, fmt.Errorf("%w: review the current Ember before changing game configuration", ErrInvalidServer)
+			}
+
+			if err := s.store.Save(ctx, server, false); err != nil {
+				return model.Server{}, err
+			}
+
+			return s.Get(ctx, server.ID)
 		}
-
-		if err := s.store.Save(ctx, server, false); err != nil {
-			return model.Server{}, err
-		}
-
-		return s.Get(ctx, server.ID)
-	}
-
-	if create {
-		server.EmberHash = ember.Revision
 	}
 
 	allowed := false

@@ -88,13 +88,15 @@ func applyOrdinaryFixtureEmbers(ctx context.Context, tx *gorm.DB) error {
 			continue
 		}
 
-		server.EmberHash = model.EmberHash(ember)
-		if err := servers.Save(ctx, server, false); err != nil {
-			return err
-		}
+		server.ServerConfiguration = ember.ProposedServerConfiguration(server.ServerConfiguration)
 
 		deployment, err := model.NewDeployment(server.ID, server.ServerConfiguration, ember)
 		if err != nil {
+			return err
+		}
+
+		server.EmberHash = model.DeploymentHash(deployment)
+		if err := servers.Save(ctx, server, false); err != nil {
 			return err
 		}
 

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ServerOptions } from "../api/access";
 import { quickCopyServer, type CopyTemplate } from "../api/copies";
-import type { Server } from "../api/servers";
+import { serverNeedsEmberReview, type Server } from "../api/servers";
 import { ServerDrawer } from "./ServerDrawer";
 import { Drawer } from "../components/layout/Drawer";
 import { Button } from "../components/forms/Button";
@@ -69,7 +69,7 @@ export function ServerCopyFlow({
     );
 
   async function submit() {
-    if (pending.current || !spark || template.server.ember_update_available)
+    if (pending.current || !spark || serverNeedsEmberReview(template.server))
       return;
     pending.current = true;
     setBusy(true);
@@ -103,7 +103,7 @@ export function ServerCopyFlow({
       footerRight={
         <Button
           variant="primary"
-          disabled={busy || !spark || template.server.ember_update_available}
+          disabled={busy || !spark || serverNeedsEmberReview(template.server)}
           onClick={() => void submit()}
         >
           {t("serverCopy.quickCopy")}
@@ -112,7 +112,7 @@ export function ServerCopyFlow({
     >
       <div className="panel-content">
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
-        {template.server.ember_update_available && (
+        {serverNeedsEmberReview(template.server) && (
           <InlineMessage tone="info">
             {t("serverCopy.updateRequired")}
           </InlineMessage>

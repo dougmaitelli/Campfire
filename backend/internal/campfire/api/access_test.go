@@ -44,7 +44,7 @@ func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Dep
 		d.configure(definition)
 	}
 
-	return model.ConfigurationReceipt{ServerID: definition.ServerID, Revision: strings.Repeat("a", 64)}, nil
+	return model.ConfigurationReceipt{ServerID: definition.ServerID, Revision: model.DeploymentHash(definition)}, nil
 }
 func (d *accessRuntime) Action(_ context.Context, _ string, action model.RuntimeRequest) (model.RuntimeStatus, error) {
 	d.calls.Add(1)

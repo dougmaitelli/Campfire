@@ -30,15 +30,6 @@ func TestSavedataSchedulesValidateDeclarationsAndKeepModeOnRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server, err := s.deployment.Servers.Get(ctx, "game")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := s.deployment.Servers.WithRuntimeGuard(s.deployment).ApplyEmber(ctx, server.ID, ember.ID, server.ServerConfiguration); err != nil {
-		t.Fatal(err)
-	}
-
 	item, err := s.Save(ctx, principal, input, true)
 	if err != nil {
 		t.Fatal(err)

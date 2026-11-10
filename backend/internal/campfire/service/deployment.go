@@ -2,14 +2,12 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"campfire/internal/campfire/database/repository"
-	"campfire/internal/shared/agentidentity"
 	"campfire/internal/shared/model"
 )
 
@@ -100,7 +98,7 @@ func (s *DeploymentService) syncChanged(ctx context.Context, id string) error {
 		return err
 	}
 
-	if server.EmberUpdateAvailable {
+	if server.EmberReviewRequired {
 		return nil
 	}
 
@@ -143,8 +141,8 @@ func (s *DeploymentService) deliverConfiguration(ctx context.Context, id string,
 		return model.ConfigurationReceipt{}, err
 	}
 
-	if server.EmberHash != ember.Revision {
-		return model.ConfigurationReceipt{}, fmt.Errorf("%w: apply the current Ember before synchronizing configuration", ErrInvalidServer)
+	if ember.ServerNeedsEmberReview(server) {
+		return model.ConfigurationReceipt{}, fmt.Errorf("%w: review server values before synchronizing configuration", ErrInvalidServer)
 	}
 
 	dispatch := s.Remote
@@ -158,24 +156,29 @@ func (s *DeploymentService) deliverConfiguration(ctx context.Context, id string,
 		return model.ConfigurationReceipt{}, errors.Join(ErrInvalidServer, err)
 	}
 
-	data, err := json.Marshal(deployment)
-	if err != nil {
-		return model.ConfigurationReceipt{}, err
-	}
-
-	revision := agentidentity.Fingerprint(data)
+	revision := model.DeploymentHash(deployment)
 
 	s.mu.Lock()
 	delivered := s.delivered[id] == revision
 	s.mu.Unlock()
 
 	if changedOnly && delivered {
+		if server.EmberHash != revision {
+			if err := s.Servers.store.AcknowledgeConfiguration(ctx, server, revision); err != nil {
+				return model.ConfigurationReceipt{}, err
+			}
+		}
+
 		return model.ConfigurationReceipt{ServerID: id, Revision: revision}, nil
 	}
 
 	receipt, err := dispatch.Deploy(ctx, node.ID, deployment)
 	if err != nil {
 		return model.ConfigurationReceipt{}, errors.Join(ErrDeploymentUnavailable, err)
+	}
+
+	if receipt.ServerID != id || receipt.Revision != revision {
+		return model.ConfigurationReceipt{}, fmt.Errorf("%w: Spark returned an invalid configuration receipt", ErrDeploymentUnavailable)
 	}
 
 	s.mu.Lock()
@@ -185,6 +188,12 @@ func (s *DeploymentService) deliverConfiguration(ctx context.Context, id string,
 
 	s.delivered[id] = revision
 	s.mu.Unlock()
+
+	if server.EmberHash != revision {
+		if err := s.Servers.store.AcknowledgeConfiguration(ctx, server, revision); err != nil {
+			return model.ConfigurationReceipt{}, err
+		}
+	}
 
 	return receipt, nil
 }

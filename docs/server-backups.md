@@ -37,7 +37,9 @@ restart completed.
 
 Choose **Full server** to capture the whole game-data directory, or **Save data
 only** to capture the files and folders declared by the Ember's `savedata_paths`.
-Save-data backups are available only when the applied Ember declares those paths.
+Save-data backups are available when the latest Ember declares those paths;
+pending server-value reviews do not block full or save-data backups. Path changes
+apply to new backup requests immediately, without deployment sync or restart.
 Choose the type for each manual backup or backup schedule; there is no server-wide
 default. Existing schedules continue to create full backups.
 
@@ -61,7 +63,8 @@ the filename; older archive names remain supported.
 
 ## Portable backups and recovery
 
-New backups also include the server settings and the complete Ember definition.
+When saved server values match the latest Ember, new backups also include the
+server settings and the complete Ember definition.
 Hidden variable values, including passwords and tokens, are included for exact
 recreation. Treat downloaded archives as sensitive credentials and store them
 privately. Import previews do not show hidden values.
@@ -90,9 +93,9 @@ access to the destination Spark.
 
 Portable imports accept archives created with this feature, including archives
 downloaded from another Campfire installation. Older archives remain usable in
-their existing catalog but cannot be uploaded through this workflow. Apply pending
-Ember changes before creating a portable snapshot; full backups made with an
-outdated Ember reference still protect files but cannot recreate server settings.
+their existing catalog but cannot be uploaded through this workflow. Review pending
+server-value changes before creating a portable snapshot. Backups made while that
+review is pending still protect data but omit portable server settings.
 Uploads use the configured file-upload limit and expire after one hour. Keep
 enough free space on the panel for the uploaded archive and on Spark for the
 archive plus staged restoration.

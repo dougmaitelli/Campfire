@@ -153,9 +153,10 @@ func (e Ember) Validate() error {
 	}
 
 	seen := map[string]bool{}
+	known := BuiltinEnvironment()
 
 	for _, v := range e.Variables {
-		_, builtin := BuiltinEnvironment()[v.Name]
+		_, builtin := known[v.Name]
 		if !envName.MatchString(v.Name) || seen[v.Name] || v.Name == "STARTUP" || builtin {
 			return fmt.Errorf("invalid or reserved variable %q", v.Name)
 		}
@@ -187,8 +188,6 @@ func (e Ember) Validate() error {
 			return errors.New("port descriptions must be at most 80 characters without control characters")
 		}
 	}
-
-	known := BuiltinEnvironment()
 
 	for _, v := range e.Variables {
 		known[v.Name] = ""

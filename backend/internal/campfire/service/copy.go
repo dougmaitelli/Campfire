@@ -49,7 +49,7 @@ func (s *CopyService) Create(ctx context.Context, sourceID string, input model.S
 		return model.Server{}, err
 	}
 
-	if source.EmberUpdateAvailable {
+	if source.EmberReviewRequired {
 		return model.Server{}, fmt.Errorf("%w: apply the current Ember before copying", ErrInvalidServer)
 	}
 
@@ -64,7 +64,7 @@ func (s *CopyService) Create(ctx context.Context, sourceID string, input model.S
 		return model.Server{}, err
 	}
 
-	if source.EmberHash != ember.Revision {
+	if ember.ServerNeedsEmberReview(source) {
 		return model.Server{}, fmt.Errorf("%w: apply the current Ember before copying", ErrInvalidServer)
 	}
 

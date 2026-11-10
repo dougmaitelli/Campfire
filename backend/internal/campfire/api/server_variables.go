@@ -9,6 +9,37 @@ import (
 	accessperm "campfire/internal/shared/permissions"
 )
 
+func editorEmberConfiguration(server model.Server, ember model.Ember) (model.ServerConfiguration, int) {
+	proposal := ember.ProposedServerConfiguration(server.ServerConfiguration)
+
+	visible := make(map[string]bool, len(ember.Variables))
+	for _, variable := range ember.Variables {
+		visible[variable.Name] = !variable.Hidden
+	}
+
+	keys := make(map[string]bool, len(server.Variables)+len(proposal.Variables))
+	for key := range server.Variables {
+		keys[key] = true
+	}
+
+	for key := range proposal.Variables {
+		keys[key] = true
+	}
+
+	managedChanges := 0
+
+	for key := range keys {
+		old, oldExists := server.Variables[key]
+
+		next, nextExists := proposal.Variables[key]
+		if !visible[key] && (oldExists != nextExists || old != next) {
+			managedChanges++
+		}
+	}
+
+	return model.VisibleServer(model.Server{ServerConfiguration: proposal}, ember).ServerConfiguration, managedChanges
+}
+
 // editorEmbers excludes hidden defaults from the server creation/editing API.
 // Full definitions remain available through the Ember management API.
 func editorEmbers(embers []model.Ember) []model.Ember {

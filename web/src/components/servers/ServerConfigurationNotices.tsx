@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Server } from "../../api/servers";
+import { serverNeedsEmberReview, type Server } from "../../api/servers";
 
 export function ServerConfigurationNotices({
   server,
@@ -11,9 +11,14 @@ export function ServerConfigurationNotices({
   const { t } = useTranslation();
   return (
     <>
-      {server?.ember_update_available && (
+      {serverNeedsEmberReview(server) && (
         <span className="row-description server-configuration-notice">
           {t("emberUpdate.available")}
+        </span>
+      )}
+      {server?.deployment_sync_required && (
+        <span className="row-description server-configuration-notice">
+          {t("emberUpdate.syncRequired")}
         </span>
       )}
       {restartRequired && (

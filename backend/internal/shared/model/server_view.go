@@ -16,7 +16,10 @@ func VisibleServer(server Server, ember Ember) Server {
 
 	server.Variables = variables
 	server.VariableTypes = types
-	server.SavedataAvailable = len(ember.SavedataPaths) > 0 && !server.EmberUpdateAvailable
+	// The persisted hash fingerprints execution inputs, including hidden values.
+	// Public views retain the Ember content identifier without exposing that hash.
+	server.EmberHash = EmberHash(ember)
+	server.SavedataAvailable = len(ember.SavedataPaths) > 0
 
 	return server
 }

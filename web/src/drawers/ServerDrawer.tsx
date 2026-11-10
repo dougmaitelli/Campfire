@@ -10,7 +10,6 @@ import { FormField } from "../components/forms/FormField";
 import { EditableList } from "../components/forms/EditableList";
 import { ServerVariableField } from "../components/servers/ServerVariableField";
 import "./server-drawer.css";
-import { formatDisplayValue } from "../utils/formatDisplayValue";
 import { TextInput } from "../components/forms/TextInput";
 import { CheckboxField } from "../components/forms/CheckboxField";
 import { ToggleSwitch } from "../components/forms/ToggleSwitch";
@@ -22,7 +21,11 @@ import { UserSelect } from "../components/forms/UserSelect";
 import { formatUserLabel } from "../utils/formatUserLabel";
 import { isEnabledSpark } from "../utils/sparkDestinations";
 import { useEffect, useRef, useState } from "react";
-import { applyServerEmber, saveServer } from "../api/servers";
+import {
+  applyServerEmber,
+  saveServer,
+  serverNeedsEmberReview,
+} from "../api/servers";
 import { createServerCopy, type CopyTemplate } from "../api/copies";
 import { canPerformPlatform, canPerformServer } from "../permissions";
 import type { Server, ServerConfiguration, ServerPort } from "../api/servers";
@@ -77,6 +80,8 @@ interface ServerDrawerProps {
   s3Configured: boolean;
   runtimeRestricted?: boolean;
   applyRevision?: boolean;
+  emberConfiguration?: ServerConfiguration | undefined;
+  emberManagedChanges?: number | undefined;
   accessOnly?: boolean;
   server: Server | null;
   sparks: Spark[];
@@ -92,6 +97,8 @@ export function ServerDrawer({
   s3Configured,
   runtimeRestricted = false,
   applyRevision = false,
+  emberConfiguration,
+  emberManagedChanges = 0,
   accessOnly = false,
   server,
   sparks,
@@ -196,28 +203,7 @@ export function ServerDrawer({
               ? undefined
               : server.startup_override,
         };
-      const latest = embers.find((item) => item.id === server.ember_id);
-      return {
-        ...server,
-        startup_command: latest?.startup_commands?.[
-          server.startup_command ?? ""
-        ]
-          ? (server.startup_command ?? "")
-          : "",
-        image: Object.values(latest?.images ?? {}).includes(server.image)
-          ? server.image
-          : (Object.values(latest?.images ?? {})[0] ?? ""),
-        variables: Object.fromEntries(
-          (latest?.variables ?? [])
-            .filter((variable) => !variable.hidden)
-            .map((variable) => [
-              variable.name,
-              variable.editable
-                ? (server.variables[variable.name] ?? variable.default)
-                : variable.default,
-            ]),
-        ),
-      };
+      return { ...server, ...emberConfiguration };
     }
     const spark = sparks.find((item) => !item.disabled);
     const ember = embers[0];
@@ -298,10 +284,9 @@ export function ServerDrawer({
     applyRevision && server
       ? serverConfigurationChanges(server, value)
       : undefined;
-  const removedVariables = Object.entries(changes?.variables ?? {})
-    .filter(([, change]) => change === "removed")
-    .map(([name]) => name);
-  const variablesChanged = Object.keys(changes?.variables ?? {}).length > 0;
+  const variablesChanged =
+    Object.keys(changes?.variables ?? {}).length > 0 ||
+    (applyRevision && emberManagedChanges > 0);
   const anyChanges =
     variablesChanged || Object.keys(changes?.fields ?? {}).length > 0;
   function portChange(
@@ -373,7 +358,12 @@ export function ServerDrawer({
         : accessOnly && server
           ? server
           : applyRevision && server
-            ? await applyServerEmber(server.id, server.ember_id, input)
+            ? await applyServerEmber(
+                server.id,
+                server.ember_id,
+                input,
+                ember?.revision,
+              )
             : await saveServer(
                 input,
                 server?.id ?? createdServer?.id,
@@ -507,15 +497,15 @@ export function ServerDrawer({
             ] as const
           ).some((key) => !!changes?.fields[key]),
           validate: () =>
-            copy?.server.ember_update_available
+            copy && serverNeedsEmberReview(copy.server)
               ? i18n.t("serverCopy.updateRequired")
-              : applyRevision && !server?.ember_update_available
+              : applyRevision && !serverNeedsEmberReview(server)
                 ? i18n.t("serverDrawer.thisServerAlreadyUsesTheCurrentEmber")
                 : !value.name.trim() || !spark || !ember || !value.image
                   ? i18n.t("serverDrawer.chooseANameSparkEmberAndImage")
                   : (!server ||
                         applyRevision ||
-                        !server.ember_update_available) &&
+                        !serverNeedsEmberReview(server)) &&
                       Object.keys(ember.startup_commands ?? {}).length > 0 &&
                       !ember.startup_commands?.[value.startup_command ?? ""]
                     ? i18n.t("serverDrawer.selectAnAvailableStartupCommand")
@@ -593,28 +583,9 @@ export function ServerDrawer({
                           ? (Object.keys(selected?.startup_commands ?? {})[0] ??
                             "")
                           : "",
-                      image:
-                        applyRevision &&
-                        selected &&
-                        Object.values(selected.images).includes(value.image)
-                          ? value.image
-                          : (Object.values(selected?.images ?? {})[0] ?? ""),
-                      variables: applyRevision
-                        ? Object.fromEntries(
-                            (selected?.variables ?? [])
-                              .filter((variable) => !variable.hidden)
-                              .map((variable) => [
-                                variable.name,
-                                variable.editable
-                                  ? (server?.variables[variable.name] ??
-                                    variable.default)
-                                  : variable.default,
-                              ]),
-                          )
-                        : defaultVariables(selected),
-                      ports: applyRevision
-                        ? value.ports
-                        : defaultPorts(spark, selected, servers),
+                      image: Object.values(selected?.images ?? {})[0] ?? "",
+                      variables: defaultVariables(selected),
+                      ports: defaultPorts(spark, selected, servers),
                     });
                   }}
                 >
@@ -717,7 +688,7 @@ export function ServerDrawer({
                     required
                     disabled={
                       runtimeRestricted ||
-                      (!!server?.ember_update_available && !applyRevision)
+                      (serverNeedsEmberReview(server) && !applyRevision)
                     }
                     value={value.startup_command ?? ""}
                     onValueChange={(selectedValue) =>
@@ -757,7 +728,7 @@ export function ServerDrawer({
                   label: t("serverDrawer.resetStartupCommand"),
                   disabled:
                     runtimeRestricted ||
-                    (!!server?.ember_update_available && !applyRevision),
+                    (serverNeedsEmberReview(server) && !applyRevision),
                   onClick: () =>
                     setValue({ ...value, startup_override: undefined }),
                 }}
@@ -769,7 +740,7 @@ export function ServerDrawer({
                   maxLength={16384}
                   disabled={
                     runtimeRestricted ||
-                    (!!server?.ember_update_available && !applyRevision)
+                    (serverNeedsEmberReview(server) && !applyRevision)
                   }
                   value={
                     value.startup_override ??
@@ -824,7 +795,8 @@ export function ServerDrawer({
             </>
           ),
         },
-        ...(visibleVariables.length > 0 || removedVariables.length > 0
+        ...(visibleVariables.length > 0 ||
+        (applyRevision && emberManagedChanges > 0)
           ? [
               {
                 id: "variables",
@@ -832,6 +804,13 @@ export function ServerDrawer({
                 changed: variablesChanged,
                 content: (
                   <div className="server-variable-fields">
+                    {applyRevision && emberManagedChanges > 0 && (
+                      <InlineMessage tone="info">
+                        {t("emberUpdate.managedChanges", {
+                          count: emberManagedChanges,
+                        })}
+                      </InlineMessage>
+                    )}
                     {visibleVariables.map((variable) => (
                       <ServerVariableField
                         key={variable.name}
@@ -852,17 +831,6 @@ export function ServerDrawer({
                         }
                       />
                     ))}
-                    {removedVariables.length > 0 && (
-                      <div className="server-removed-variables">
-                        <h4>{t("changes.removedVariables")}</h4>
-                        {removedVariables.map((name) => (
-                          <div key={name}>
-                            {name}
-                            <ChangeIndicator change="removed" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ),
               },
@@ -1296,18 +1264,13 @@ export function ServerDrawer({
               )}
               {applyRevision && (
                 <>
-                  <p>
-                    <Trans
-                      i18nKey="serverDrawer.revision"
-                      t={t}
-                      components={{
-                        serverEmberHash: <>{server?.ember_hash.slice(0, 12)}</>,
-                        emberRevisionSlice: (
-                          <>{ember?.revision?.slice(0, 12)}</>
-                        ),
-                      }}
-                    />
-                  </p>
+                  {emberManagedChanges > 0 && (
+                    <InlineMessage tone="info">
+                      {t("emberUpdate.managedChanges", {
+                        count: emberManagedChanges,
+                      })}
+                    </InlineMessage>
+                  )}
                   <p>
                     <Trans
                       i18nKey="serverDrawer.startupWorkingDirectoryRuntimeUser"
@@ -1324,28 +1287,6 @@ export function ServerDrawer({
                         emberWorkDir: <>{ember?.work_dir}</>,
                         br2: <br />,
                         emberUser: <>{ember?.user}</>,
-                      }}
-                    />
-                  </p>
-                  <p>
-                    <Trans
-                      i18nKey="serverDrawer.removedSettingsSharedEditableSettingsAreRetainedNewAndLocked"
-                      t={t}
-                      components={{
-                        formatDisplayValueObjectKeys: (
-                          <>
-                            {formatDisplayValue(
-                              Object.keys(server?.variables ?? {})
-                                .filter(
-                                  (name) =>
-                                    !(ember?.variables ?? []).some(
-                                      (variable) => variable.name === name,
-                                    ),
-                                )
-                                .join(", "),
-                            )}
-                          </>
-                        ),
                       }}
                     />
                   </p>

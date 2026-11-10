@@ -149,7 +149,7 @@ func TestExplicitEmberApplicationAndInstallerPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if unchanged.EmberID != original.ID || !unchanged.EmberUpdateAvailable || unchanged.EmberHash == changed.EmberHash {
+	if unchanged.EmberID != original.ID || !unchanged.EmberReviewRequired || changed.EmberReviewRequired {
 		t.Fatal("applying a revision changed another server")
 	}
 

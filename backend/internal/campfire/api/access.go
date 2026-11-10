@@ -338,9 +338,11 @@ func (a *API) setSparkRoles(w http.ResponseWriter, r *http.Request) {
 }
 
 type editorOptions struct {
-	Sparks      []model.Spark `json:"sparks"`
-	Embers      []model.Ember `json:"embers"`
-	S3Available bool          `json:"s3_available"`
+	Sparks              []model.Spark              `json:"sparks"`
+	Embers              []model.Ember              `json:"embers"`
+	S3Available         bool                       `json:"s3_available"`
+	EmberConfiguration  *model.ServerConfiguration `json:"ember_configuration,omitempty"`
+	EmberManagedChanges int                        `json:"ember_managed_changes,omitempty"`
 }
 
 func (a *API) provisioning(w http.ResponseWriter, r *http.Request) {
@@ -370,7 +372,7 @@ func (a *API) provisioning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, editorOptions{allowed, editorEmbers(embers), a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
+	writeJSON(w, http.StatusOK, editorOptions{Sparks: allowed, Embers: editorEmbers(embers), S3Available: a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
 }
 
 func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
@@ -392,14 +394,6 @@ func (a *API) serverEditor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	embers := []model.Ember{ember}
-	if currentUser(r).Allows(accessperm.ServersManageAll) {
-		embers, err = a.embers.List(r.Context())
-		if err != nil {
-			writeError(w, err)
-			return
-		}
-	}
-
-	writeJSON(w, http.StatusOK, editorOptions{[]model.Spark{spark}, editorEmbers(embers), a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil})
+	proposal, managedChanges := editorEmberConfiguration(server, ember)
+	writeJSON(w, http.StatusOK, editorOptions{Sparks: []model.Spark{spark}, Embers: editorEmbers([]model.Ember{ember}), S3Available: a.deployment != nil && a.deployment.Backups != nil && a.deployment.Backups.Remote != nil, EmberConfiguration: &proposal, EmberManagedChanges: managedChanges})
 }

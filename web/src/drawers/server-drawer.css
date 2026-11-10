@@ -21,22 +21,11 @@
   & label {
     overflow-wrap: anywhere;
   }
-}
-.server-removed-variables {
-  grid-column: 1 / -1;
-  font-size: 14px;
 
-  & h4 {
-    margin: 0 0 8px;
-    font-size: inherit;
-  }
-
-  & > div {
-    margin-top: 8px;
-    overflow-wrap: anywhere;
+  & > .inline-message {
+    grid-column: 1 / -1;
   }
 }
-
 @media (max-width: 480px) {
   .server-wizard {
     --wizard-step-edge-min: max-content;

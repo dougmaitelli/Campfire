@@ -22,7 +22,7 @@ import {
   API_READ_TIMEOUT_MS,
 } from "../api/client";
 import { replaceCurrentRoute } from "../routing/useCurrentPage";
-import { isServer, type Server } from "../api/servers";
+import { isServer, serverNeedsEmberReview, type Server } from "../api/servers";
 import { serverAction } from "../api/runtime";
 import type { LifecycleAction } from "../contracts/domains";
 import { useServerRuntime } from "../hooks/useServerRuntime";
@@ -348,7 +348,7 @@ export function ServerOperationsPage({
             />
           </InlineMessage>
         )}
-      {server?.ember_update_available && (
+      {serverNeedsEmberReview(server) && (
         <InlineMessage tone="warning" className="ember-update-notice">
           <strong>{t("emberUpdate.available")}</strong>
           <span>{t("emberUpdate.description")}</span>
@@ -361,6 +361,20 @@ export function ServerOperationsPage({
             </Button>
           ) : (
             <span>{t("emberUpdate.askAdministrator")}</span>
+          )}
+        </InlineMessage>
+      )}
+      {server?.deployment_sync_required && (
+        <InlineMessage tone="warning" className="ember-update-notice">
+          <strong>{t("emberUpdate.syncRequired")}</strong>
+          <span>{t("emberUpdate.syncDescription")}</span>
+          {management.canSyncConfiguration && (
+            <Button
+              disabled={management.busy || status?.busy === true}
+              onClick={management.syncConfiguration}
+            >
+              {t("emberUpdate.sync")}
+            </Button>
           )}
         </InlineMessage>
       )}

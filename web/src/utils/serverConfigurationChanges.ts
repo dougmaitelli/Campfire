@@ -32,16 +32,12 @@ export function serverConfigurationChanges(
   if ((before.game_integration ?? false) !== (after.game_integration ?? false))
     fields.game_integration = "changed";
   const ports = (value: ServerConfiguration) =>
-    value.ports
-      .map((port) =>
-        JSON.stringify([
-          port.bind_ip,
-          port.host_port,
-          port.container_port,
-          port.protocol,
-        ]),
-      )
-      .sort();
+    value.ports.map((port) => [
+      port.bind_ip,
+      port.host_port,
+      port.container_port,
+      port.protocol,
+    ]);
   if (JSON.stringify(ports(before)) !== JSON.stringify(ports(after)))
     fields.ports = "changed";
 

@@ -37,14 +37,16 @@ func seedBackupModes(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 
-		server.EmberID, server.EmberHash, server.StartupCommand = ember.ID, model.EmberHash(ember), "Standard"
-
-		if err := servers.Save(ctx, server, false); err != nil {
-			return err
-		}
+		server.EmberID, server.StartupCommand = ember.ID, "Standard"
+		server.ServerConfiguration = ember.ProposedServerConfiguration(server.ServerConfiguration)
 
 		deployment, err := model.NewDeployment(server.ID, server.ServerConfiguration, ember)
 		if err != nil {
+			return err
+		}
+
+		server.EmberHash = model.DeploymentHash(deployment)
+		if err := servers.Save(ctx, server, false); err != nil {
 			return err
 		}
 
@@ -67,7 +69,7 @@ func seedBackupModes(ctx context.Context, db *gorm.DB) error {
 			}
 
 			backup.Name = item.mode.ArchiveName(strings.TrimSuffix(item.name, ".tar.gz"))
-			backup.Options = model.BackupOptions{Mode: item.mode, EmberRevision: server.EmberHash}
+			backup.Options = model.BackupOptions{Mode: item.mode, EmberRevision: model.EmberHash(ember)}
 			backup.Options.Definition = model.NewBackupDefinition(server, ember)
 
 			if item.mode == model.BackupModeSavedata {

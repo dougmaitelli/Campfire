@@ -30,7 +30,7 @@ type activityConnectivity struct{ online atomic.Bool }
 func (c *activityConnectivity) Connected(string) bool { return c.online.Load() }
 
 func (d *activityRuntime) Deploy(_ context.Context, _ string, input model.Deployment) (model.ConfigurationReceipt, error) {
-	return model.ConfigurationReceipt{ServerID: input.ServerID}, nil
+	return model.ConfigurationReceipt{ServerID: input.ServerID, Revision: model.DeploymentHash(input)}, nil
 }
 func (d *activityRuntime) Action(_ context.Context, _ string, input model.RuntimeRequest) (model.RuntimeStatus, error) {
 	d.mu.Lock()

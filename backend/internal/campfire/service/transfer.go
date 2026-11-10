@@ -67,7 +67,7 @@ func (s *TransferService) Begin(ctx context.Context, serverID, targetID string, 
 		return model.TransferWork{}, fmt.Errorf("%w: choose a different destination Spark", ErrInvalidServer)
 	}
 
-	if server.EmberUpdateAvailable {
+	if server.EmberReviewRequired {
 		return model.TransferWork{}, fmt.Errorf("%w: apply the current Ember before transferring", ErrInvalidServer)
 	}
 
@@ -82,7 +82,7 @@ func (s *TransferService) Begin(ctx context.Context, serverID, targetID string, 
 		return model.TransferWork{}, err
 	}
 
-	if server.EmberHash != ember.Revision {
+	if ember.ServerNeedsEmberReview(server) {
 		return model.TransferWork{}, fmt.Errorf("%w: apply the current Ember before transferring", ErrInvalidServer)
 	}
 

@@ -28,6 +28,24 @@ type ServerRepository struct{ db *gorm.DB }
 // NewServerRepository creates a server repository.
 func NewServerRepository(db *gorm.DB) *ServerRepository { return &ServerRepository{db: db} }
 
+// AcknowledgeConfiguration records only a verified delivery fingerprint. The
+// source values are checked under the database lock so a stale delivery cannot
+// acknowledge a newer edit from another panel process.
+func (r *ServerRepository) AcknowledgeConfiguration(ctx context.Context, expected model.Server, hash string) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		current, err := NewServerRepository(tx).Get(ctx, expected.ID)
+		if err != nil {
+			return err
+		}
+
+		if current.EmberHash != expected.EmberHash || !model.SameRuntimeConfiguration(current.ServerConfiguration, expected.ServerConfiguration) {
+			return ErrServerConflict
+		}
+
+		return tx.Model(&database.Server{}).Where("id = ?", expected.ID).Update("ember_hash", hash).Error
+	})
+}
+
 // Save creates or updates a server under a serialized reservation transaction.
 func (r *ServerRepository) Save(ctx context.Context, server model.Server, create bool) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -273,5 +291,8 @@ func toServer(record database.Server) (model.Server, error) {
 		return model.Server{}, fmt.Errorf("read server timestamp: %w", err)
 	}
 
-	return model.Server{ID: record.ID, EmberHash: record.EmberHash, EmberUpdateAvailable: record.EmberHash != "" && record.EmberHash != model.EmberHash(record.Ember.Definition), ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, StartupCommand: record.StartupCommand, StartupOverride: record.StartupOverride, GameIntegration: record.GameIntegration, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, EmberArtURL: record.Ember.Definition.ArtURL, GameAddress: record.Spark.GameAddress, PortDescriptions: record.Ember.Definition.PortDescriptions(), Status: model.RuntimeStateNotInstalled, CreatedAt: created}, nil
+	server := model.Server{ID: record.ID, EmberHash: record.EmberHash, ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, StartupCommand: record.StartupCommand, StartupOverride: record.StartupOverride, GameIntegration: record.GameIntegration, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, EmberArtURL: record.Ember.Definition.ArtURL, GameAddress: record.Spark.GameAddress, PortDescriptions: record.Ember.Definition.PortDescriptions(), Status: model.RuntimeStateNotInstalled, CreatedAt: created}
+	server.SetEmberStatus(record.Ember.Definition)
+
+	return server, nil
 }

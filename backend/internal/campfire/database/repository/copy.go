@@ -51,7 +51,7 @@ func (r *CopyRepository) Create(ctx context.Context, source model.Server, ember 
 			return err
 		}
 
-		if current.EmberUpdateAvailable || current.EmberHash != source.EmberHash || !model.SameRuntimeConfiguration(current.ServerConfiguration, source.ServerConfiguration) {
+		if current.EmberReviewRequired || current.EmberHash != source.EmberHash || !model.SameRuntimeConfiguration(current.ServerConfiguration, source.ServerConfiguration) {
 			return ErrJobState
 		}
 

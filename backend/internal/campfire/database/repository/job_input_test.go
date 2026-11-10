@@ -11,7 +11,7 @@ import (
 )
 
 func TestTransferCreationRejectsChangedInputs(t *testing.T) {
-	for _, change := range []string{"definition", "applied-definition", "configuration"} {
+	for _, change := range []string{"server-value-review", "acknowledged-deployment", "configuration", "definition-only"} {
 		t.Run(change, func(t *testing.T) {
 			db, _, _ := authStore(t)
 			nodes := repository.NewSparkRepository(db.ORM())
@@ -42,13 +42,22 @@ func TestTransferCreationRejectsChangedInputs(t *testing.T) {
 
 			if change != "configuration" {
 				ember.Startup = "sleep 9876"
+				if change == "server-value-review" {
+					ember.Variables = []model.Variable{{Name: "NEW_VALUE", Default: "compatible", Editable: true}}
+				}
+
 				if _, err := embers.Replace(t.Context(), ember.ID, ember); err != nil {
 					t.Fatal(err)
 				}
 
-				if change == "applied-definition" {
+				if change == "acknowledged-deployment" {
+					deployment, err := model.NewDeployment(source.ID, source.ServerConfiguration, ember)
+					if err != nil {
+						t.Fatal(err)
+					}
+
 					applied := source
-					applied.EmberHash = model.EmberHash(ember)
+					applied.EmberHash = model.DeploymentHash(deployment)
 
 					if err := repository.NewServerRepository(db.ORM()).Save(t.Context(), applied, false); err != nil {
 						t.Fatal(err)
@@ -64,7 +73,17 @@ func TestTransferCreationRejectsChangedInputs(t *testing.T) {
 			}
 
 			transfers := repository.NewTransferRepository(db.ORM())
-			if err := transfers.Create(t.Context(), work, source.EmberHash); !errors.Is(err, repository.ErrJobState) {
+
+			err = transfers.Create(t.Context(), work, source.EmberHash)
+			if change == "definition-only" {
+				if err != nil {
+					t.Fatal("compatible definition-only change blocked a pending-sync transfer", err)
+				}
+
+				return
+			}
+
+			if !errors.Is(err, repository.ErrJobState) {
 				t.Fatal("transfer reserved stale inputs", err)
 			}
 

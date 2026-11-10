@@ -135,7 +135,8 @@ func (a *API) updateServer(w http.ResponseWriter, r *http.Request) {
 func (a *API) applyServerEmber(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		model.ServerConfiguration
-		ExpectedEmberID string `json:"expected_ember_id"`
+		ExpectedEmberID       string `json:"expected_ember_id"`
+		ExpectedEmberRevision string `json:"expected_ember_revision"`
 	}
 	if !decodeRequest(w, r, &input, 1<<20) {
 		return
@@ -146,7 +147,7 @@ func (a *API) applyServerEmber(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server, err := a.servers.ApplyEmber(r.Context(), r.PathValue("id"), input.ExpectedEmberID, input.ServerConfiguration)
+	server, err := a.servers.ApplyEmber(r.Context(), r.PathValue("id"), input.ExpectedEmberID, input.ServerConfiguration, input.ExpectedEmberRevision)
 	if err != nil {
 		writeError(w, err)
 		return

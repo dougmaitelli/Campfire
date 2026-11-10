@@ -5,6 +5,7 @@ import i18n from "../i18n";
 import { apiFetch, readJSON, API_READ_TIMEOUT_MS, jsonRequest } from "./client";
 import { isSpark, type Spark } from "./sparks";
 import { isEmber, type Ember } from "./embers";
+import { isServerConfiguration, type ServerConfiguration } from "./servers";
 
 export interface Role {
   id: number;
@@ -184,6 +185,8 @@ export interface ServerOptions {
   s3_available: boolean;
   sparks: Spark[];
   embers: Ember[];
+  ember_configuration?: ServerConfiguration;
+  ember_managed_changes?: number;
 }
 
 function id(value: unknown): value is number {
@@ -327,13 +330,26 @@ export async function serverOptions(
     !body.sparks.every(isSpark) ||
     !Array.isArray(body.embers) ||
     !body.embers.every(isEmber) ||
-    typeof body.s3_available !== "boolean"
+    typeof body.s3_available !== "boolean" ||
+    (serverID !== undefined &&
+      !isServerConfiguration(body.ember_configuration)) ||
+    (body.ember_configuration !== undefined &&
+      !isServerConfiguration(body.ember_configuration)) ||
+    (body.ember_managed_changes !== undefined &&
+      (!Number.isSafeInteger(body.ember_managed_changes) ||
+        (body.ember_managed_changes as number) < 0))
   )
     throw new Error(i18n.t("access.unexpectedServerOptionsResponse"));
   return {
     sparks: body.sparks,
     embers: body.embers,
     s3_available: body.s3_available,
+    ...(body.ember_configuration !== undefined
+      ? { ember_configuration: body.ember_configuration }
+      : {}),
+    ...(body.ember_managed_changes !== undefined
+      ? { ember_managed_changes: body.ember_managed_changes as number }
+      : {}),
   };
 }
 export async function readServerAccess(

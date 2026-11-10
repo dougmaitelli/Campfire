@@ -33,32 +33,14 @@ test("save-path-only Ember updates apply immediately without a restart notice", 
     },
   });
   expect(update.ok(), await update.text()).toBeTruthy();
-  const configuration = Object.fromEntries(
-    [
-      "name",
-      "description",
-      "spark_id",
-      "ember_id",
-      "image",
-      "startup_command",
-      "startup_override",
-      "game_integration",
-      "variables",
-      "cpu_limit",
-      "memory_mb",
-      "disk_mb",
-      "ports",
-    ].map((key) => [key, server[key]]),
-  );
-  const applied = await page.request.post("/api/v1/servers/survival/ember", {
-    headers,
-    data: { ...configuration, expected_ember_id: server.ember_id },
+  const current = await page.request.get("/api/v1/servers/survival");
+  expect(current.ok(), await current.text()).toBeTruthy();
+  expect(await current.json()).toMatchObject({
+    savedata_available: true,
+    ember_review_required: false,
+    deployment_sync_required: false,
+    ember_update_available: false,
   });
-  expect(applied.ok(), await applied.text()).toBeTruthy();
-  expect(
-    ((await applied.json()) as { savedata_available: boolean })
-      .savedata_available,
-  ).toBe(true);
   await page.reload();
   await expect(
     page.getByRole("region", { name: "Console output", exact: true }),
@@ -137,6 +119,56 @@ test("an older metadata poll cannot overwrite a newly saved server", async ({
   } finally {
     release();
   }
+});
+
+test("pending deployment sync is distinct from Ember value review", async ({
+  page,
+}) => {
+  await login(page);
+  let pending = true;
+  const actions: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/actions"))
+      actions.push(request.url());
+  });
+  await page.route("**/api/v1/servers/survival", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        ember_review_required: false,
+        deployment_sync_required: pending,
+        ember_update_available: pending,
+      },
+    });
+  });
+  await page.route(
+    "**/api/v1/servers/survival/configuration",
+    async (route) => {
+      pending = false;
+      await route.continue();
+    },
+  );
+  await openServerTab(page, "console", "Console");
+  const notice = page
+    .locator(".ember-update-notice")
+    .filter({ hasText: "Deployment sync pending" });
+  await expect(notice).toBeVisible();
+  await screenshot(page, "server-deployment-sync.png", notice);
+  await page
+    .getByRole("button", { name: "More server actions", exact: true })
+    .click();
+  await expect(
+    page.getByRole("menuitem", { name: "Update Ember", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("menuitem", { name: "Sync deployment", exact: true })
+    .click();
+  await expect(notice).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(actions).toEqual([]);
 });
 
 for (const mobile of [false, true]) {

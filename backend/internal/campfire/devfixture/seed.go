@@ -109,9 +109,16 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 
 		configuration := model.ServerConfiguration{Name: item.name, Description: "Community Minecraft server", SparkID: item.spark, EmberID: ember.ID, Image: ember.Images["Java 21"], Variables: variables, CPULimit: 2, MemoryMB: 4096, DiskMB: 20480, Ports: []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565 + i, ContainerPort: 25565, Protocol: model.NetworkTCP}}}
 
-		server := model.Server{ID: item.id, ServerConfiguration: configuration, EmberHash: model.EmberHash(ember), CreatedAt: now, OwnerUserID: 1}
+		server := model.Server{ID: item.id, ServerConfiguration: configuration, CreatedAt: now, OwnerUserID: 1}
 
 		server.GameIntegration = true
+
+		deployment, err := model.NewDeployment(server.ID, server.ServerConfiguration, ember)
+		if err != nil {
+			return nil, err
+		}
+
+		server.EmberHash = model.DeploymentHash(deployment)
 		if err := repository.NewServerRepository(tx).Save(ctx, server, true); err != nil {
 			return nil, err
 		}

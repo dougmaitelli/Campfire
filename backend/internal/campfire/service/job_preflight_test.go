@@ -61,10 +61,6 @@ func enableJobFeature(t *testing.T, f *transferFixture, capability string) {
 	if _, err := embers.Replace(t.Context(), ember.ID, ember); err != nil {
 		t.Fatal(err)
 	}
-
-	if _, err := servers.ApplyEmber(t.Context(), f.server.ID, ember.ID, f.server.ServerConfiguration); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestJobPreflightRejectsUnsupportedDeploymentsWithoutReservations(t *testing.T) {

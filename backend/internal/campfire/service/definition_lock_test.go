@@ -65,7 +65,7 @@ func TestDefinitionUpdateWhileWaitingForLockRejectsStaleServer(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			ember.Startup = "sleep 9876"
+			ember.Variables = append(ember.Variables, model.Variable{Name: "NEW_SETTING", Default: "compatible", Editable: true})
 			if _, err := d.Embers.Replace(ctx, ember.ID, ember); err != nil {
 				t.Fatal(err)
 			}
@@ -154,7 +154,7 @@ func TestServerEditRechecksDefinitionAfterWaitingForLock(t *testing.T) {
 				t.Fatal("edit did not read the old definition")
 			}
 
-			ember.Startup = "sleep 9876"
+			ember.Variables = append(ember.Variables, model.Variable{Name: "NEW_SETTING", Default: "compatible", Editable: true})
 			if _, err := d.Embers.Replace(ctx, ember.ID, ember); err != nil {
 				t.Fatal(err)
 			}

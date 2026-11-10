@@ -16,6 +16,8 @@ import {
   deleteServer,
   isServer,
   listServers,
+  serverNeedsEmberReview,
+  syncServerConfiguration,
   type Server,
 } from "../api/servers";
 import { RuntimeState } from "../contracts/domains";
@@ -49,6 +51,7 @@ export function useServerManagement(
   const confirmation = useConfirmation();
   const { session } = useAuthentication();
   const canApplyRevision = canPerformServer(server, "updateEmber", session);
+  const canSyncConfiguration = canPerformServer(server, "syncConfiguration");
   const canTransfer = canPerformServer(server, "transfer", session);
   const canConfigure = canPerformServer(server, "configure");
   const canEdit = canPerformServer(server, "edit");
@@ -115,7 +118,7 @@ export function useServerManagement(
         ]);
         if (!controller.signal.aborted) {
           setEditor({
-            server,
+            server: servers.find((item) => item.id === server.id) ?? server,
             options,
             servers,
             revision: mode === "revision",
@@ -173,6 +176,36 @@ export function useServerManagement(
     }
   }
 
+  async function syncConfiguration() {
+    if (!server || pending.current || !canSyncConfiguration) return;
+    const controller = new AbortController();
+    pending.current = controller;
+    setLoading(true);
+    setError(null);
+    try {
+      await syncServerConfiguration(
+        server.id,
+        AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(API_READ_TIMEOUT_MS),
+        ]),
+      );
+      if (!controller.signal.aborted) await refresh();
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : t("serversPage.unableToLoadServerEditor"),
+        );
+    } finally {
+      if (pending.current === controller) {
+        pending.current = null;
+        setLoading(false);
+      }
+    }
+  }
+
   const busy = loading || deleting;
   const actions: ActionMenuItem[] = [
     ...(server && canEdit
@@ -205,13 +238,23 @@ export function useServerManagement(
           } satisfies ActionMenuItem,
         ]
       : []),
-    ...(server && canApplyRevision && server.ember_update_available
+    ...(server && canApplyRevision && serverNeedsEmberReview(server)
       ? [
           {
             label: t("serversPage.updateEmber"),
             icon: "embers",
             disabled: busy || status?.busy === true,
             onSelect: () => void prepare("revision"),
+          } satisfies ActionMenuItem,
+        ]
+      : []),
+    ...(server?.deployment_sync_required && canSyncConfiguration
+      ? [
+          {
+            label: t("emberUpdate.sync"),
+            icon: "restart",
+            disabled: busy || status?.busy === true,
+            onSelect: () => void syncConfiguration(),
           } satisfies ActionMenuItem,
         ]
       : []),
@@ -256,6 +299,8 @@ export function useServerManagement(
     busy,
     error,
     canApplyRevision,
+    canSyncConfiguration,
+    syncConfiguration: () => void syncConfiguration(),
     reviewEmber: () => void prepare("revision"),
     dialogs: server && (
       <Suspense fallback={null}>
@@ -265,6 +310,8 @@ export function useServerManagement(
             server={editor.server}
             accessOnly={!canConfigure && !editor.revision}
             applyRevision={editor.revision}
+            emberConfiguration={editor.options.ember_configuration}
+            emberManagedChanges={editor.options.ember_managed_changes}
             s3Configured={editor.options.s3_available}
             runtimeRestricted={status?.busy === true}
             sparks={editor.options.sparks}

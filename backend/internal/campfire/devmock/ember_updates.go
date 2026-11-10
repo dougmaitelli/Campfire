@@ -116,6 +116,11 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 		updated := mockUpdateCandidate(false)
 
 		updated.ID = original.ID
+		for i := range updated.Variables {
+			if updated.Variables[i].Name == "INSTALL_CHANNEL" {
+				updated.Variables[i].Default = "preview"
+			}
+		}
 
 		updated.Description += " Local update awaiting application."
 		if err := emberStore.Replace(ctx, updated); err != nil {
@@ -139,12 +144,15 @@ func seedServerEmberUpdate(ctx context.Context, db *gorm.DB) error {
 			return err
 		}
 
-		if err := tx.Model(&database.Server{}).Where("id = ?", server.ID).Update("ember_hash", model.EmberHash(original)).Error; err != nil {
-			return err
-		}
+		server.ServerConfiguration = original.ProposedServerConfiguration(configuration)
 
 		deployment, err := model.NewDeployment(server.ID, server.ServerConfiguration, original)
 		if err != nil {
+			return err
+		}
+
+		server.EmberHash = model.DeploymentHash(deployment)
+		if err := repository.NewServerRepository(tx).Save(ctx, server, false); err != nil {
 			return err
 		}
 

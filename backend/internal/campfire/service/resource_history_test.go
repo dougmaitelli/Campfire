@@ -17,8 +17,8 @@ type historyRuntime struct {
 	block   bool
 }
 
-func (*historyRuntime) Deploy(context.Context, string, model.Deployment) (model.ConfigurationReceipt, error) {
-	return model.ConfigurationReceipt{}, nil
+func (*historyRuntime) Deploy(_ context.Context, _ string, input model.Deployment) (model.ConfigurationReceipt, error) {
+	return model.ConfigurationReceipt{ServerID: input.ServerID, Revision: model.DeploymentHash(input)}, nil
 }
 func (r *historyRuntime) Action(ctx context.Context, _ string, q model.RuntimeRequest) (model.RuntimeStatus, error) {
 	r.calls.Add(1)

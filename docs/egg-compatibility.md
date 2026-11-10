@@ -163,9 +163,9 @@ cannot be selected; use a full backup for that.
 
 Imported Eggs may carry the same optional `savedata_paths` extension. Campfire
 does not infer these paths from game variables or installation scripts. Without
-an explicit declaration, only full backups are available. After changing the
-declaration, apply the updated Ember to the server before creating save-data
-backups. See [game backups](/Campfire/server-backups/) for restore and retention
+an explicit declaration, only full backups are available. Changes to these
+declarations apply to new backup requests immediately, without deployment sync or
+server-value review. See [game backups](/Campfire/server-backups/) for restore and retention
 behavior.
 
 ## Warnings and blocking errors
@@ -188,6 +188,9 @@ as a file denylist, without understanding why the original Egg required it.
 Embers imported from a public URL can retain that URL as an update source.
 The Embers page can check for updates and open the review flow for a new
 definition. Review and accept changes before replacing the local Ember.
-Existing servers keep their applied revision until you explicitly apply the
-updated Ember to them. Applying a definition update does not run its installer;
-use the server's reinstall workflow when game installation changes are needed.
+Servers retain their saved values. Changes to those values require review in the
+server wizard, including newly added optional values. Definition-only changes
+synchronize independently, and backup paths always use the latest declaration.
+Synchronization does not run the installer or restart a running server; container
+changes take effect on the next restart. Use the server's reinstall workflow when
+game installation changes are needed. Historical Ember versions are not retained.

@@ -107,6 +107,10 @@ describe("UI permission policy", () => {
 
   it("keeps runtime operation grants separate from configuration and file access", () => {
     const operator = server(Permission.ServerOperate);
+    expect(canPerformServer(operator, "syncConfiguration")).toBe(true);
+    expect(
+      canPerformServer(server(Permission.ServerConfigure), "syncConfiguration"),
+    ).toBe(false);
     for (const action of [
       ServerAction.Start,
       ServerAction.Stop,

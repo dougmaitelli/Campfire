@@ -55,6 +55,21 @@ are part of this contract and have no separate capability. The wire protocol
 version remains unchanged. Older Sparks can still connect and receive remote
 Spark updates, but must be upgraded before receiving this configuration format.
 
+The panel resolves the latest Ember against the server's saved values; it does
+not retain historical Ember definitions. Changes to any saved server value,
+including new optional variables, require review in the server wizard. Definition
+changes that preserve those values synchronize independently. The existing
+`servers.ember_hash` column records the last acknowledged execution fingerprint,
+excluding Ember authoring and backup metadata. Existing content hashes are
+replaced on the next successful synchronization; no schema migration is needed.
+Public server views expose the current Ember content hash instead of an execution
+fingerprint containing private variable values.
+
+Synchronization saves configuration without implicitly stopping or restarting a
+running server. Spark reports when container changes require a restart. A fresh
+deployment uses the latest Ember and saved server values, rather than an exact
+historical Ember version.
+
 ## Backup execution
 
 `server.backups.v4` supports portable archive metadata, isolated chunked archive
@@ -75,6 +90,12 @@ publishes bounded chunks into Spark's backup store. The normal restore command
 validates and stages files before replacing data. For an uninstalled destination,
 a full restore marks the restored server installed; a save-data restore installs
 game files before merging the captured paths. Both finish stopped.
+
+Each save-data backup request uses the latest Ember save paths, independently of
+server-value review, deployment synchronization, or restart state. Full backups
+also remain available during review. While saved values need review, backups
+omit the portable definition rather than claiming those values form a valid
+deployment of the latest Ember; the backup data remains restorable.
 
 ## Repository layout
 

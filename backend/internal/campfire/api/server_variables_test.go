@@ -100,6 +100,22 @@ func TestHiddenVariablesArePrivateAndPreservedOnEdit(t *testing.T) {
 	expectAccess(t, f.admin, "PUT", "/api/v1/embers/"+ember.ID, string(data), http.StatusCreated)
 	delete(input.Variables, "INTERNAL_SETTING")
 
+	response = request(regular, "GET", endpoint+"/editor", "")
+
+	var editor struct {
+		EmberConfiguration  model.ServerConfiguration `json:"ember_configuration"`
+		EmberManagedChanges int                       `json:"ember_managed_changes"`
+	}
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &editor) != nil || editor.EmberManagedChanges != 1 {
+		t.Fatal("editor did not report hidden managed changes", response.Code, response.Body)
+	}
+
+	for _, hidden := range []string{"INTERNAL_SETTING", "INTERNAL_LOCKED", "new-private-default", "new-locked-default", "managed-private-value"} {
+		if strings.Contains(response.Body.String(), hidden) {
+			t.Fatal("review proposal exposed a private variable", hidden)
+		}
+	}
+
 	data, err = json.Marshal(struct {
 		model.ServerConfiguration
 		ExpectedEmberID string `json:"expected_ember_id"`

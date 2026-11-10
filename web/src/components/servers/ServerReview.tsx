@@ -133,13 +133,6 @@ export function ServerReview({
             )}
           </DetailItem>
         ))}
-        {Object.entries(changes?.variables ?? {})
-          .filter(([, change]) => change === "removed")
-          .map(([name]) => (
-            <DetailItem key={name} label={name} change="removed">
-              {t("changes.removedValue")}
-            </DetailItem>
-          ))}
       </DetailsList>
       {notice && <p className="field-help">{notice}</p>}
     </>

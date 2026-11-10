@@ -82,7 +82,7 @@ func (r *runtime) Deploy(_ context.Context, _ string, input model.Deployment) (m
 	if r.files[input.ServerID] == nil {
 		r.files[input.ServerID] = devfixture.Files()
 	}
-	return model.ConfigurationReceipt{ServerID: input.ServerID}, nil
+	return model.ConfigurationReceipt{ServerID: input.ServerID, Revision: model.DeploymentHash(input)}, nil
 }
 
 func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest) (model.RuntimeStatus, error) {
