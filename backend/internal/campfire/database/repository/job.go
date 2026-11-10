@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/events"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -18,10 +20,31 @@ var ErrJobState = errors.New("job changed or does not permit this operation")
 var ErrJobActive = errors.New("finish or cancel the active server job first")
 
 // JobRepository persists checkpoints and owns shared reservation guards.
-type JobRepository struct{ db *gorm.DB }
+type JobRepository struct {
+	db        *gorm.DB
+	publisher *EventPublisher
+}
 
 // NewJobRepository constructs the durable workflow store.
-func NewJobRepository(db *gorm.DB) *JobRepository { return &JobRepository{db: db} }
+func NewJobRepository(db *gorm.DB, publishers ...*EventPublisher) *JobRepository {
+	return &JobRepository{db: db, publisher: eventPublisher(db, publishers)}
+}
+
+// Create publishes the lifecycle fact in the caller's reservation transaction.
+func (r *JobRepository) Create(ctx context.Context, job *database.ServerJob) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		if err := tx.Create(job).Error; err != nil {
+			return err
+		}
+
+		return r.publishState(ctx, tx, *job, "", time.Unix(job.CreatedAt, 0))
+	})
+}
+
+func (r *JobRepository) publishState(ctx context.Context, tx *gorm.DB, job database.ServerJob, previous model.JobStatus, at time.Time) error {
+	_, err := r.publisher.inTransaction(tx).Publish(ctx, events.JobStateChanged{ID: job.ID, Type: job.Type, SourceServerID: job.SourceServerID, TargetServerID: job.TargetServerID, Previous: previous, Current: job.Status, Attempt: job.Attempt}, at)
+	return err
+}
 
 func unfinishedJobs(tx *gorm.DB) *gorm.DB {
 	return tx.Model(&database.ServerJob{}).Where("status NOT IN ?", []model.JobStatus{model.JobCompleted, model.JobCancelled})
@@ -86,25 +109,37 @@ func (r *JobRepository) Runnable(ctx context.Context) ([]database.ServerJob, err
 // Advance compares the full checkpoint, including the confirmed byte offset.
 // A late remote acknowledgement cannot overwrite cancellation or a newer attempt.
 func (r *JobRepository) Advance(ctx context.Context, expected database.ServerJob, changes map[string]any) error {
-	changes["updated_at"] = time.Now().Unix()
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		now := time.Now()
+		changes["updated_at"] = now.Unix()
 
-	result := r.db.WithContext(ctx).Model(&database.ServerJob{}).Where("id = ? AND status = ? AND step = ? AND attempt = ? AND transferred_bytes = ?", expected.ID, expected.Status, expected.Step, expected.Attempt, expected.TransferredBytes).Updates(changes)
-	if result.Error != nil {
-		return result.Error
-	}
+		result := tx.Model(&database.ServerJob{}).Where("id = ? AND status = ? AND step = ? AND attempt = ? AND transferred_bytes = ?", expected.ID, expected.Status, expected.Step, expected.Attempt, expected.TransferredBytes).Updates(changes)
+		if result.Error != nil {
+			return result.Error
+		}
 
-	if result.RowsAffected != 1 {
-		return ErrJobState
-	}
+		if result.RowsAffected != 1 {
+			return ErrJobState
+		}
 
-	return nil
+		if status, changed := changes["status"]; !changed || fmt.Sprint(status) == string(expected.Status) {
+			return nil
+		}
+
+		job, err := NewJobRepository(tx, r.publisher).Get(ctx, expected.ID)
+		if err != nil {
+			return err
+		}
+
+		return r.publishState(ctx, tx, job, expected.Status, now)
+	})
 }
 
 // Change serializes user intent with worker checkpoints. Failed jobs continue
 // holding their reservations and preserve the step which needs recovery.
 func (r *JobRepository) Change(ctx context.Context, id string, cancel bool) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		store := NewJobRepository(tx)
+		store := NewJobRepository(tx, r.publisher)
 
 		job, err := store.Get(ctx, id)
 		if err != nil {
@@ -122,7 +157,7 @@ func (r *JobRepository) Change(ctx context.Context, id string, cancel bool) erro
 			// fences a worker trying to start, so cancellation needs no connection.
 			if job.Status == model.JobPending {
 				if job.Type == model.JobCopy {
-					return NewCopyRepository(tx).finishCancel(ctx, job)
+					return NewCopyRepository(tx, r.publisher).finishCancel(ctx, job)
 				}
 
 				return store.Finish(ctx, job, true)

@@ -107,7 +107,7 @@ function isSchedule(value: unknown): value is Schedule {
     typeof value.only_when_running === "boolean"
   );
 }
-function isExecution(value: unknown): value is Execution {
+export function isExecution(value: unknown): value is Execution {
   return (
     object(value) &&
     (value.backup_stop_server === undefined ||
@@ -250,9 +250,12 @@ export async function setScheduleEnabled(
 export async function runSchedule(id: string) {
   await send(`/api/v1/schedules/${encodeURIComponent(id)}/run`, "POST");
 }
-export async function retryExecution(id: string) {
-  await send(
+export async function retryExecution(id: string): Promise<Execution> {
+  const body = await send(
     `/api/v1/schedules/executions/${encodeURIComponent(id)}/retry`,
     "POST",
   );
+  if (!isExecution(body))
+    throw new Error(i18n.t("activity.unexpectedActivityResponse"));
+  return body;
 }

@@ -6,6 +6,9 @@ test("game activity loads protected screenshots and playable clips", async ({
 }) => {
   await login(page);
   await page.goto("/#servers/survival/activity");
+  await page
+    .getByRole("button", { name: "Alex earned Stone Age", exact: true })
+    .click();
   const image = page.getByRole("img", { name: "mock-world.png" });
   await expect(image).toBeVisible();
   await expect

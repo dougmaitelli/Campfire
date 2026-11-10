@@ -43,6 +43,7 @@ type IntegrationMessage struct {
 	BindingID         string                `gorm:"type:text;not null;uniqueIndex:integration_message_event,priority:1;index:integration_message_retention,priority:1"`
 	Binding           ServerIntegration     `gorm:"foreignKey:BindingID;constraint:OnDelete:CASCADE"`
 	EventID           string                `gorm:"type:text;not null;uniqueIndex:integration_message_event,priority:2"`
+	SourceKey         string                `gorm:"type:text;not null;default:'';index"`
 	Category          integrations.Category `gorm:"type:text;not null;index:integration_message_category_due,priority:1"`
 	DestinationID     string                `gorm:"type:text;not null"`
 	Payload           json.RawMessage       `gorm:"serializer:json;type:text;not null"`

@@ -34,36 +34,36 @@ func (r *notificationRuntime) Action(_ context.Context, _ string, q model.Runtim
 func TestAlertTransitionsAreSustainedAndUnknownDoesNotRecover(t *testing.T) {
 	state := database.AlertState{}
 	for _, now := range []int64{100, 160} {
-		if result := transitionAlert(&state, 1, now, 120, 100); result != "" {
+		if result := transitionAlert(&state, 1, now, 120, 100); result {
 			t.Fatal("alert did not wait", result)
 		}
 	}
 
-	if result := transitionAlert(&state, 1, 220, 120, 100); result != "alert" {
+	if result := transitionAlert(&state, 1, 220, 120, 100); !result || !state.Active {
 		t.Fatal("sustained alert missing", result)
 	}
 
-	if result := transitionAlert(&state, 1, 230, 120, 100); result != "" {
+	if result := transitionAlert(&state, 1, 230, 120, 100); result {
 		t.Fatal("active alert repeated")
 	}
 
-	if result := transitionAlert(&state, -1, 240, 120, 100); result != "" || !state.Active {
+	if result := transitionAlert(&state, -1, 240, 120, 100); result || !state.Active {
 		t.Fatal("unknown sample recovered alert")
 	}
 
-	if result := transitionAlert(&state, 0, 250, 120, 100); result != "" {
+	if result := transitionAlert(&state, 0, 250, 120, 100); result {
 		t.Fatal("recovery did not wait")
 	}
 
-	if result := transitionAlert(&state, 0, 450, 120, 100); result != "" {
+	if result := transitionAlert(&state, 0, 450, 120, 100); result {
 		t.Fatal("observation gap counted toward recovery")
 	}
 
-	if result := transitionAlert(&state, 0, 510, 120, 100); result != "" {
+	if result := transitionAlert(&state, 0, 510, 120, 100); result {
 		t.Fatal(result)
 	}
 
-	if result := transitionAlert(&state, 0, 570, 120, 100); result != "recovery" {
+	if result := transitionAlert(&state, 0, 570, 120, 100); !result || state.Active {
 		t.Fatal("recovery missing", result)
 	}
 }

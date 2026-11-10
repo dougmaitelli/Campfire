@@ -239,8 +239,9 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 
 	games := &service.GameIntegrationService{Servers: servers}
-	games.Events = service.NewGameEventService(repository.NewGameEventRepository(db.ORM()))
-	games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM()))
+	publisher := repository.NewEventPublisher(db.ORM(), apprise != nil)
+	games.Events = service.NewGameEventService(repository.NewGameEventRepository(db.ORM(), publisher))
+	games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM(), publisher))
 	games.Events.Retention = time.Duration(eventDays) * 24 * time.Hour
 	games.Events.MaxPerServer = eventMaximum
 
@@ -273,9 +274,9 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	sparks.Updates.Start(ctx)
 
 	deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, MaxUploadBytes: maxUploadBytes, Games: games}
-	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
+	transfers := service.NewTransferService(repository.NewTransferRepository(db.ORM(), publisher), deployment)
 	deployment.Transfers = transfers
-	copies := service.NewCopyService(repository.NewCopyRepository(db.ORM()), deployment)
+	copies := service.NewCopyService(repository.NewCopyRepository(db.ORM(), publisher), deployment)
 	deployment.Copies = copies
 
 	if hub != nil {
@@ -287,7 +288,7 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	deployment.StartJobs(ctx)
 	defer deployment.CloseJobs()
 
-	resources := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
+	resources := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM(), publisher), deployment)
 
 	resources.Interval, resources.Retention, err = resourceHistoryConfig()
 	if err != nil {
@@ -302,7 +303,7 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 		defer simulator.StartGameSimulation(ctx, games)()
 	}
 
-	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
+	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM(), publisher), deployment, auth)
 	activity.Retention = retention
 
 	deployment.Activity = activity
@@ -365,7 +366,7 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	integration.Start(ctx)
 	defer integration.Close()
 
-	handler := api.New(sparks, embers, servers).WithIntegrations(integration).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
+	handler := api.New(sparks, embers, servers).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
 
 	handler = webui.Handler(handler)
 	if options.wrapHandler != nil {

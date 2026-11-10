@@ -133,6 +133,8 @@ func migrate(db *gorm.DB) error {
 	}
 
 	return Transaction(db, func(tx *gorm.DB) error {
+		activitySourcesMissing := !tx.Migrator().HasColumn(&IntegrationMessage{}, "SourceKey")
+		alertReceiptsMissing := !tx.Migrator().HasColumn(&LogAlertIssue{}, "ReceivedAt")
 		// Pre-1.0 job checkpoints are disposable; retain all other tables.
 		for _, table := range []string{"server_copies", "server_transfers"} {
 			if tx.Migrator().HasTable(table) {
@@ -190,6 +192,7 @@ func migrate(db *gorm.DB) error {
 			}
 
 			if err := tx.AutoMigrate(
+				&Notification{}, &MonitoringAlert{},
 				&BackupPolicy{}, &Backup{},
 				&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
 				&GameEvent{}, &GameEventFieldLabel{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{},
@@ -200,6 +203,18 @@ func migrate(db *gorm.DB) error {
 
 			if err := removeDiskHistory(tx); err != nil {
 				return err
+			}
+
+			if activitySourcesMissing {
+				if err := backfillActivitySources(tx); err != nil {
+					return err
+				}
+			}
+
+			if alertReceiptsMissing {
+				if err := backfillAlertReceipts(tx); err != nil {
+					return err
+				}
 			}
 
 			if version == 1 {
@@ -235,7 +250,7 @@ func migrate(db *gorm.DB) error {
 		if err := tx.AutoMigrate(
 			&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
 			&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
-			&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{},
+			&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{}, &MonitoringAlert{},
 			&ServerJob{}, &BackupPolicy{}, &Backup{}, &APIToken{},
 			&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
 			&ServerResourceSample{}, &SparkResourceSample{},
@@ -250,6 +265,18 @@ func migrate(db *gorm.DB) error {
 		}
 
 		if version == 0 {
+			if activitySourcesMissing {
+				if err := backfillActivitySources(tx); err != nil {
+					return err
+				}
+			}
+
+			if alertReceiptsMissing {
+				if err := backfillAlertReceipts(tx); err != nil {
+					return err
+				}
+			}
+
 			if err := seedRoles(tx); err != nil {
 				return fmt.Errorf("seed built-in roles: %w", err)
 			}

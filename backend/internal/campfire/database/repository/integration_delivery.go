@@ -254,7 +254,7 @@ func (r *IntegrationRepository) MessageStatuses(ctx context.Context, bindingID s
 	case "delivered":
 		query = query.Where("state = ?", state)
 	case "uncertain":
-		query = query.Where("state IN ?", []model.DeliveryState{integrations.MessageUncertain, integrations.MessageGlobalUncertain, integrations.MessageReconciling})
+		query = query.Where("state IN ?", integrations.UncertainStates())
 	case "pending":
 		query = query.Where("state IN ?", []model.DeliveryState{model.DeliveryPending, integrations.MessageClaimed, integrations.MessageSending, integrations.MessageRateLimited, integrations.MessageGlobalLimited})
 	}
@@ -265,21 +265,28 @@ func (r *IntegrationRepository) MessageStatuses(ctx context.Context, bindingID s
 
 	result := make([]IntegrationMessageStatus, 0, len(rows))
 	for _, row := range rows {
-		var event integrations.Event
-
-		_ = json.Unmarshal(row.Payload, &event)
-		matches := event.Validate() == nil && slices.ContainsFunc(binding.Subscriptions, func(subscription integrations.Subscription) bool { return subscription.Matches(event) })
-
-		nextAttempt := row.NextAttemptAt
-		if row.State == integrations.MessageClaimed || row.State == integrations.MessageSending || row.State == integrations.MessageReconciling {
-			nextAttempt = 0
-		}
-
-		retry := binding.Enabled && connection.Enabled && row.ExternalMessageID == "" && ((integrations.FailedMessage(row.State) && binding.DestinationID == row.DestinationID && matches) || ((row.State == integrations.MessageUncertain || row.State == integrations.MessageGlobalUncertain) && row.NextAttemptAt == 0))
-		result = append(result, IntegrationMessageStatus{ID: row.ID, Category: row.Category, Title: event.Title, State: integrations.DeliveryState(row.State), Attempts: row.Attempts, NextAttemptAt: nextAttempt, DeliveredAt: row.DeliveredAt, CreatedAt: row.CreatedAt, Error: row.Error, CanRetry: retry})
+		result = append(result, IntegrationMessageStatusFor(row, binding, connection))
 	}
 
 	return result, nil
+}
+
+// IntegrationMessageStatusFor shares recovery eligibility between the binding
+// history API and the server Activity details, without repeating provider policy.
+func IntegrationMessageStatusFor(row database.IntegrationMessage, binding integrations.Binding, connection integrations.Connection) IntegrationMessageStatus {
+	var event integrations.Event
+
+	_ = json.Unmarshal(row.Payload, &event)
+	matches := event.Validate() == nil && slices.ContainsFunc(binding.Subscriptions, func(subscription integrations.Subscription) bool { return subscription.Matches(event) })
+
+	nextAttempt := row.NextAttemptAt
+	if row.State == integrations.MessageClaimed || row.State == integrations.MessageSending || row.State == integrations.MessageReconciling {
+		nextAttempt = 0
+	}
+
+	retry := binding.Enabled && connection.Enabled && row.ExternalMessageID == "" && ((integrations.FailedMessage(row.State) && binding.DestinationID == row.DestinationID && matches) || ((row.State == integrations.MessageUncertain || row.State == integrations.MessageGlobalUncertain) && row.NextAttemptAt == 0))
+
+	return IntegrationMessageStatus{ID: row.ID, Category: row.Category, Title: event.Title, State: integrations.DeliveryState(row.State), Attempts: row.Attempts, NextAttemptAt: nextAttempt, DeliveredAt: row.DeliveredAt, CreatedAt: row.CreatedAt, Error: row.Error, CanRetry: retry}
 }
 
 // RetryMessage preserves uncertainty and fences retries by source and channel.

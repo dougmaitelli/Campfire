@@ -1,7 +1,12 @@
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
-import { jobFixture } from "./jobFixtures";
+import { jobFixture, mockJobActivity } from "./jobFixtures";
 import { test, expect, screenshot } from "./fixtures";
-import { login, openServerActions, openServerJobs } from "./screens";
+import {
+  login,
+  openServerActions,
+  openServerOperations,
+  openServerJob,
+} from "./screens";
 
 function transferFixture(status: JobStatus = JobStatus.Running) {
   return jobFixture({
@@ -34,9 +39,7 @@ test("transfer history shows copy progress and cancellation on desktop and mobil
     can_cancel: false,
     transferred_bytes: transfer.total_bytes,
   };
-  await page.route("**/api/v1/servers/creative/jobs", (route) =>
-    route.fulfill({ json: { items: [current, completed], next: "" } }),
-  );
+  await mockJobActivity(page, "creative", () => [current, completed]);
   await page.route("**/api/v1/jobs/current-transfer/cancel", async (route) => {
     expect(route.request().method()).toBe("POST");
     current = {
@@ -46,7 +49,14 @@ test("transfer history shows copy progress and cancellation on desktop and mobil
     };
     await route.fulfill({ json: current });
   });
-  const drawer = await openServerJobs(page, "Creative");
+  const activity = await openServerOperations(page, "Creative");
+  await expect(
+    activity.getByRole("row", {
+      name: "Transfer completed-transfer",
+      exact: true,
+    }),
+  ).toContainText("Complete");
+  const drawer = await openServerJob(page, "creative", current.id);
   const active = drawer.getByRole("row", {
     name: "Transfer current-transfer",
     exact: true,
@@ -68,12 +78,6 @@ test("transfer history shows copy progress and cancellation on desktop and mobil
   await expect(active).toContainText("Cancelled");
   await expect(active.getByRole("progressbar")).toHaveCount(0);
   await expect(active.getByRole("button")).toHaveCount(0);
-  await expect(
-    drawer.getByRole("row", {
-      name: "Transfer completed-transfer",
-      exact: true,
-    }),
-  ).toContainText("Complete");
   await expect(drawer.getByRole("progressbar")).toHaveCount(0);
 });
 
@@ -85,9 +89,7 @@ test("failed transfer history allows retry without losing its copy progress", as
     ...transferFixture(JobStatus.Failed),
     error: "Destination Spark disconnected. Retry to continue copying.",
   };
-  await page.route("**/api/v1/servers/creative/jobs", (route) =>
-    route.fulfill({ json: { items: [current], next: "" } }),
-  );
+  await mockJobActivity(page, "creative", () => [current]);
   await page.route("**/api/v1/jobs/current-transfer/retry", async (route) => {
     expect(route.request().method()).toBe("POST");
     current = {
@@ -98,7 +100,7 @@ test("failed transfer history allows retry without losing its copy progress", as
     };
     await route.fulfill({ json: current });
   });
-  const drawer = await openServerJobs(page, "Creative");
+  const drawer = await openServerJob(page, "creative", current.id);
   const active = drawer.getByRole("row", {
     name: "Transfer current-transfer",
     exact: true,
@@ -120,7 +122,9 @@ test("failed transfer history allows retry without losing its copy progress", as
   ).toBeEnabled();
 });
 
-test("starting a transfer returns to the server Jobs tab", async ({ page }) => {
+test("starting a transfer opens the server Operations history", async ({
+  page,
+}) => {
   await login(page);
   let started = false;
   await page.route("**/api/v1/servers/creative/transfers", async (route) => {
@@ -134,13 +138,8 @@ test("starting a transfer returns to the server Jobs tab", async ({ page }) => {
       json: transferFixture(JobStatus.Pending),
     });
   });
-  await page.route("**/api/v1/servers/creative/jobs", (route) =>
-    route.fulfill({
-      json: {
-        items: started ? [transferFixture(JobStatus.Pending)] : [],
-        next: "",
-      },
-    }),
+  await mockJobActivity(page, "creative", () =>
+    started ? [transferFixture(JobStatus.Pending)] : [],
   );
   const menu = await openServerActions(page, "Creative");
   await menu.getByRole("menuitem", { name: "Transfer", exact: true }).click();
@@ -162,11 +161,17 @@ test("starting a transfer returns to the server Jobs tab", async ({ page }) => {
     .getByRole("button", { name: "Transfer server", exact: true })
     .click();
   await expect(transferDrawer).toHaveCount(0);
-  const details = page.getByRole("dialog", { name: /^Creative/ });
+  await expect(page).toHaveURL(
+    /#servers\/creative\/activity\?kind=operations$/,
+  );
   await expect(
-    details.getByRole("tab", { name: "Jobs", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+    page.getByRole("region", { name: "Activity", exact: true }),
+  ).toContainText("Pending");
+  const details = await openServerJob(page, "creative", "current-transfer");
   await expect(
-    details.getByRole("region", { name: "Jobs", exact: true }),
+    details.getByRole("row", {
+      name: "Transfer current-transfer",
+      exact: true,
+    }),
   ).toContainText("Pending");
 });

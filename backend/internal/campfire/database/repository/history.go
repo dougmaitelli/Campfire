@@ -35,6 +35,15 @@ func (r *ActivityRepository) PruneHistory(ctx context.Context, auditBefore, oper
 		}
 
 		if !operationsBefore.IsZero() {
+			alerts := tx.Model(&database.MonitoringAlert{}).Select("id").Where("created_at < ?", operationsBefore.Unix()).Order("created_at, id").Limit(batch)
+
+			alertResult := tx.Where("id IN (?)", alerts).Delete(&database.MonitoringAlert{})
+			if alertResult.Error != nil {
+				return alertResult.Error
+			}
+
+			more = more || alertResult.RowsAffected == batch
+
 			expired := tx.Model(&database.ScheduleRun{}).Select("id").Where("finished_at > 0 AND finished_at < ? AND state IN ?", operationsBefore.Unix(), []model.ExecutionState{model.ExecutionSucceeded, model.ExecutionFailed, model.ExecutionInterrupted, model.ExecutionCancelled, model.ExecutionSkipped}).Order("finished_at, id").Limit(batch)
 
 			result := tx.Where("id IN (?)", expired).Delete(&database.ScheduleRun{})

@@ -8,17 +8,22 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
-	"campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/events"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
 )
 
 // GameMediaRepository commits attachments, deduplication, and quota checks together.
-type GameMediaRepository struct{ db *gorm.DB }
+type GameMediaRepository struct {
+	db        *gorm.DB
+	publisher *EventPublisher
+}
 
 // NewGameMediaRepository uses the same database and retention boundary as events.
-func NewGameMediaRepository(db *gorm.DB) *GameMediaRepository { return &GameMediaRepository{db: db} }
+func NewGameMediaRepository(db *gorm.DB, publishers ...*EventPublisher) *GameMediaRepository {
+	return &GameMediaRepository{db: db, publisher: eventPublisher(db, publishers)}
+}
 
 // Append requires a retained event and its current authenticated placement.
 func (r *GameMediaRepository) Append(ctx context.Context, sparkID, serverID, eventID string, media model.GameMedia, data []byte) error {
@@ -88,7 +93,9 @@ func (r *GameMediaRepository) Append(ctx context.Context, sparkID, serverID, eve
 
 		source := model.GameEvent{ID: event.EventID, Type: event.Type, Title: event.Title, OccurredAt: event.OccurredAt, Data: event.Data, FieldLabels: labelsForGameFields(labels[event.Type], event.Data)}
 
-		return NewIntegrationRepository(tx).RouteEvent(ctx, integrations.GameMediaEvent(serverID, source, event.ID, media), time.Now())
+		_, err = r.publisher.inTransaction(tx).Publish(ctx, events.GameMediaRecorded{GameEventRecorded: events.GameEventRecorded{ServerID: serverID, RecordID: event.ID, Event: source}, Media: media}, time.Now())
+
+		return err
 	})
 }
 

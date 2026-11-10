@@ -24,12 +24,12 @@ vi.mock("../../src/components/servers/ServerFileBrowser", () => ({
 vi.mock("../../src/components/servers/ServerBackups", () => ({
   ServerBackups: () => null,
 }));
-vi.mock("../../src/components/servers/ServerGameEvents", () => ({
-  ServerGameEvents: () => <div>Activity content</div>,
+vi.mock("../../src/components/servers/ServerActivity", () => ({
+  ServerActivity: () => <div>Activity content</div>,
 }));
 
 test.each([true, false, undefined])(
-  "activity visibility follows game integration setting %s, including direct links",
+  "activity is available independently of game integration setting %s, including direct links",
   async (enabled) => {
     const server: Server = {
       id: "game",
@@ -57,15 +57,8 @@ test.each([true, false, undefined])(
     vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(server));
     render(<ServerOperationsPage serverID="game" tab="activity" />);
     await screen.findByRole("heading", { name: "Test server" });
-    expect(screen.queryByRole("link", { name: "Game activity" }) !== null).toBe(
-      enabled === true,
-    );
-    if (enabled) {
-      expect(screen.getByText("Activity content")).toBeDefined();
-      expect(screen.queryByText("Console content")).toBeNull();
-    } else {
-      expect(screen.queryByText("Activity content")).toBeNull();
-      expect(screen.getByText("Console content")).toBeDefined();
-    }
+    expect(screen.getByRole("link", { name: "Activity" })).toBeDefined();
+    expect(screen.getByText("Activity content")).toBeDefined();
+    expect(screen.queryByText("Console content")).toBeNull();
   },
 );

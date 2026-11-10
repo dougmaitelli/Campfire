@@ -3,7 +3,7 @@ import { login, openScreen } from "./screens";
 import { jobFixture } from "./jobFixtures";
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
 
-test("admins can find, filter and manage jobs across servers while drawers stay scoped", async ({
+test("admins can manage global jobs and open server Activity from resource details", async ({
   page,
 }) => {
   let failed = jobFixture({
@@ -121,19 +121,23 @@ test("admins can find, filter and manage jobs across servers while drawers stay 
   await expect(failure.getByText("Running", { exact: true })).toBeVisible();
   await failure.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(failure.getByText("Cancelled", { exact: true })).toBeVisible();
-  const scoped = page.waitForRequest("**/api/v1/servers/creative/jobs");
   await jobs
     .getByRole("row", { name: "Transfer running-transfer", exact: true })
     .getByRole("link", { name: "Creative", exact: true })
     .click();
   const drawer = page.getByRole("dialog", { name: "Server", exact: true });
-  await drawer.getByRole("tab", { name: "Jobs", exact: true }).click();
-  await scoped;
-  await expect(page).toHaveURL(/#jobs$/);
   await expect(
-    drawer.getByRole("heading", { name: "No jobs yet.", exact: true }),
+    drawer.getByRole("tab", { name: "Jobs", exact: true }),
+  ).toHaveCount(0);
+  await expect(page).toHaveURL(/#jobs$/);
+  await drawer
+    .getByRole("link", { name: "Open console for Creative", exact: true })
+    .click();
+  await expect(page).toHaveURL(/#servers\/creative\/console$/);
+  await page.getByRole("link", { name: "Activity", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Activity", exact: true }),
   ).toBeVisible();
-  await expect(drawer.locator(".content-state-icon svg")).toBeVisible();
 });
 
 test("non-admin users cannot open platform jobs or request their history", async ({

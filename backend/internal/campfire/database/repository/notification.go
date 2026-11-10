@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/events"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
@@ -100,7 +101,7 @@ func (r *NotificationRepository) MarkAllRead(ctx context.Context, access Notific
 	return r.db.WithContext(ctx).Model(&database.NotificationRecipient{}).Where("user_id = ? AND read_at = 0 AND notification_id IN (?)", access.UserID, query.Select("notifications.id")).Update("read_at", now.Unix()).Error
 }
 
-func emitNotification(tx *gorm.DB, item *database.Notification, queue bool) error {
+func storeNotification(tx *gorm.DB, item *database.Notification, queue bool) error {
 	if err := tx.Create(item).Error; err != nil {
 		return err
 	}
@@ -143,11 +144,16 @@ func emitNotification(tx *gorm.DB, item *database.Notification, queue bool) erro
 
 // Emit atomically stores a message, recipients and optional external delivery.
 func (r *NotificationRepository) Emit(ctx context.Context, item *database.Notification, queue bool) error {
-	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error { return emitNotification(tx, item, queue) })
+	publication, err := NewEventPublisher(r.db, queue).Publish(ctx, events.NotificationRequested{ID: item.ID, SourceKey: item.SourceKey, TargetType: item.TargetType, TargetID: item.TargetID, Kind: item.Kind, Severity: item.Severity, Title: item.Title, Body: item.Body}, time.Unix(item.CreatedAt, 0))
+	if err == nil {
+		item.ID = publication.NotificationID
+	}
+
+	return err
 }
 
-// Observe commits an alert state transition and its notification together.
-func (r *NotificationRepository) Observe(ctx context.Context, key string, queue bool, transition func(*database.AlertState) *database.Notification) error {
+// Observe commits a monitoring transition and every publication handler together.
+func (r *NotificationRepository) Observe(ctx context.Context, key string, queue bool, transition func(*database.AlertState) *events.MonitoringAlertChanged) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var state database.AlertState
 		if err := tx.Take(&state, "key = ?", key).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -162,7 +168,8 @@ func (r *NotificationRepository) Observe(ctx context.Context, key string, queue 
 		}
 
 		if item != nil {
-			return emitNotification(tx, item, queue)
+			_, err := NewEventPublisher(tx, queue).Publish(ctx, *item, time.Unix(state.LastObservedAt, 0))
+			return err
 		}
 
 		return nil

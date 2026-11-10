@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"campfire/internal/campfire/database"
-	"campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/events"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 
@@ -39,7 +39,7 @@ func (q GameEventQuery) ValidFilters() bool {
 	}
 
 	for field, value := range q.Fields {
-		if !model.ValidGameEventType(field) || len(value) > limits.GameFieldStringLength || !utf8.ValidString(value) {
+		if !model.ValidGameEventType(field) || len(value) > limits.GameFieldStringLength || !utf8.ValidString(value) || strings.ContainsRune(value, 0) {
 			return false
 		}
 	}
@@ -61,10 +61,15 @@ type GameEventFilterOptions struct {
 }
 
 // GameEventRepository owns durable deduplication and bounded retained history.
-type GameEventRepository struct{ db *gorm.DB }
+type GameEventRepository struct {
+	db        *gorm.DB
+	publisher *EventPublisher
+}
 
 // NewGameEventRepository uses the panel's shared transactional database.
-func NewGameEventRepository(db *gorm.DB) *GameEventRepository { return &GameEventRepository{db: db} }
+func NewGameEventRepository(db *gorm.DB, publishers ...*EventPublisher) *GameEventRepository {
+	return &GameEventRepository{db: db, publisher: eventPublisher(db, publishers)}
+}
 
 // FilterOptions streams only the columns needed for dropdown choices, independently
 // of the displayed page or active filters.
@@ -170,7 +175,7 @@ func (r *GameEventRepository) Append(ctx context.Context, sparkID, serverID stri
 			}
 
 			event.FieldLabels = labelsForGameFields(labels[event.Type], event.Data)
-			if err := NewIntegrationRepository(tx).RouteEvent(ctx, integrations.GameEvent(serverID, event), now); err != nil {
+			if _, err := r.publisher.inTransaction(tx).Publish(ctx, events.GameEventRecorded{ServerID: serverID, RecordID: row.ID, Event: event}, now); err != nil {
 				return err
 			}
 		}
@@ -210,11 +215,7 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 	}
 
 	if input.Search != "" {
-		encoded, _ := json.Marshal(strings.ToLower(input.Search))
-		textPattern := eventLikePattern(strings.ToLower(input.Search))
-		dataPattern := eventLikePattern(string(encoded[1 : len(encoded)-1]))
-
-		query = query.Where("(LOWER(title) LIKE ? ESCAPE '!' OR LOWER(data) LIKE ? ESCAPE '!')", textPattern, dataPattern)
+		query = searchGameEvents(query, input.Search)
 	}
 
 	for field, value := range input.Fields {
@@ -263,6 +264,16 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 	}
 
 	return page, nil
+}
+
+// Game data uses JSON escaping while titles remain plain text. Both history
+// views share these patterns so searches match the values displayed to users.
+func searchGameEvents(query *gorm.DB, search string) *gorm.DB {
+	encoded, _ := json.Marshal(strings.ToLower(search))
+	textPattern := eventLikePattern(strings.ToLower(search))
+	dataPattern := eventLikePattern(string(encoded[1 : len(encoded)-1]))
+
+	return query.Where("(LOWER(title) LIKE ? ESCAPE '!' OR LOWER(data) LIKE ? ESCAPE '!')", textPattern, dataPattern)
 }
 
 func eventLikePattern(value string) string {

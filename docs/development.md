@@ -156,6 +156,73 @@ still be used with regular `make dev` for a final live smoke test.
 
 ## Tests
 
+### Server activity
+
+Application producers publish typed facts through `repository.EventPublisher`.
+The provider-independent types and source references live in `campfire/events`.
+The publisher runs the explicit source-history, audit, panel-notification and integration-routing
+handlers in the source's database transaction. A failure in either handler rolls
+back the source and all follow-up records. Inbox messages and recipient records
+commit immediately. It performs no provider requests; existing durable workers
+deliver Apprise and integration messages after commit.
+Source repositories retain their replay guards, so retries do not duplicate
+alerts, events, operation results, or completed media uploads.
+
+Notification policy belongs to the handlers: console alerts create safe inbox
+guidance and matching integration messages; game, power, and operation events
+use configured integration subscriptions; resource/account notifications retain
+their existing inbox/Apprise path. Monitoring reports alert/recovery facts instead
+of constructing notifications. Those facts retain a `monitoring_alerts` source and
+create their inbox/Apprise message in the same transaction. Job creation and status
+transitions also publish facts; failed, completed and cancelled jobs create audit
+records. Byte-progress updates do not create audit noise. Request auditing and
+operation completion auditing use the same publisher. Adding an event or notification sink requires
+an explicit handler. The publisher does not create another activity table or
+automatically forward every panel notification to integrations. The application
+configures the publisher's external-delivery setting once and passes it to the
+source repositories; source transactions preserve that setting.
+
+The server Activity tab reads existing game events, job checkpoints, operation
+runs, console alerts, and server-targeted notifications. It does not create a
+second activity log. The feed groups retained sources with linked notifications.
+Open a source to inspect individual notification outcomes, retry delivery, and
+load older related messages without leaving its drawer.
+Pagination uses panel-recorded time and a stable timestamp/key cursor.
+
+The panel API provides `GET /api/v1/servers/{id}/activity`,
+`GET /api/v1/servers/{id}/activity/filters`,
+`GET /api/v1/servers/{id}/activity/{entryKey}`,
+`GET /api/v1/servers/{id}/activity/{entryKey}/notifications`, and
+`POST /api/v1/servers/{id}/activity/{entryKey}/retry`. Activity details return the
+activity alone; every page of related notifications uses the nested notifications
+endpoint with an optional `before` cursor. Existing source permissions
+apply before filtering, counts, and pagination. The retry endpoint scopes one
+integration or Apprise delivery to the requested server. Global Jobs remains an
+administrative cross-server view; individual server jobs appear in Activity.
+The filter endpoint discovers game choices for `kind=game`. Game choices are cached while the retained event
+count and newest ID remain unchanged; ingestion and retention invalidate them.
+An Activity entry includes `delivery_check_pending` when an enabled integration
+has scheduled a check for an unconfirmed notification or a worker holds a valid
+lease for that check. Older pages poll while the flag is set.
+
+Schema changes add indexed, non-null `source_key` text columns (default `''`) to
+`notifications` and `integration_messages`, plus a non-null `received_at` integer
+column (default `0`) on `log_alert_issues`. New alerts retain the panel receipt
+time separately from the Spark's detection time, including after inbox retention.
+Historical alert receipts use an exactly linked panel notification when retained,
+otherwise preserving the original detection time. Source references are internal
+panel data; Spark and game-publication protocols and capability IDs are unchanged.
+Upgrade backfills only exact console-alert and operation references already
+encoded in historical integration event IDs. Other old messages stay standalone.
+The additional `monitoring_alerts` table retains `id`, `target_type`, `target_id`,
+`code`, `kind`, `severity`, `title`, `body`, and `created_at`. It uses the operation
+history retention setting; notification and delivery retention remain independent.
+Activity responses include optional `attachment_name` and
+`attachment_content_type` fields, and monitoring source details include
+`monitoring_alert`. These additions introduce no new permission or capability IDs.
+Source and notification retention remain independent: if a source expires, its
+retained notification remains visible without an active source link.
+
 Frontend tests run through Vitest and import application TypeScript directly using
 the Vite toolchain:
 

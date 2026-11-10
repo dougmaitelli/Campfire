@@ -20,9 +20,8 @@ import {
   syncServerConfiguration,
   type Server,
 } from "../api/servers";
-import { RuntimeState } from "../contracts/domains";
 import type { ActionMenuItem } from "../components/forms/ActionMenu";
-import { ServerState } from "../components/servers/ServerState";
+import { serverActivityURL } from "../api/serverActivity";
 import { useAuthentication } from "./useAuthentication";
 import { useConfirmation } from "./useConfirmation";
 import { ServerDrawer } from "../drawers/ServerDrawer";
@@ -34,11 +33,6 @@ const ServerCopyFlow = lazy(() =>
 const ServerTransferDrawer = lazy(() =>
   import("../drawers/ServerTransferDrawer").then((module) => ({
     default: module.ServerTransferDrawer,
-  })),
-);
-const ServerDetailsDrawer = lazy(() =>
-  import("../drawers/ServerDetailsDrawer").then((module) => ({
-    default: module.ServerDetailsDrawer,
   })),
 );
 
@@ -55,7 +49,6 @@ export function useServerManagement(
   const canTransfer = canPerformServer(server, "transfer", session);
   const canConfigure = canPerformServer(server, "configure");
   const canEdit = canPerformServer(server, "edit");
-  const canViewJobs = canPerformServer(server, "viewJobs", session);
   const [editor, setEditor] = useState<{
     server: Server;
     options: ServerOptions;
@@ -69,7 +62,6 @@ export function useServerManagement(
     mode: "copy" | "quick";
   } | null>(null);
   const [transfer, setTransfer] = useState(false);
-  const [jobs, setJobs] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +99,6 @@ export function useServerManagement(
         ]);
         if (!controller.signal.aborted) {
           setCopy({ template, options, servers, mode });
-          setJobs(false);
         }
       } else {
         const [options, servers] = await Promise.all([
@@ -123,7 +114,6 @@ export function useServerManagement(
             servers,
             revision: mode === "revision",
           });
-          setJobs(false);
         }
       }
     } catch (cause) {
@@ -265,19 +255,8 @@ export function useServerManagement(
             icon: "arrow-right",
             disabled: busy,
             onSelect: () => {
-              setJobs(false);
               setTransfer(true);
             },
-          } satisfies ActionMenuItem,
-        ]
-      : []),
-    ...(server && canViewJobs
-      ? [
-          {
-            label: t("common.jobs"),
-            icon: "jobs",
-            disabled: busy,
-            onSelect: () => setJobs(true),
           } satisfies ActionMenuItem,
         ]
       : []),
@@ -334,7 +313,9 @@ export function useServerManagement(
             }}
             onSubmitted={() => {
               setCopy(null);
-              setJobs(true);
+              window.location.hash = serverActivityURL(server.id, {
+                kind: "operations",
+              });
             }}
           />
         )}
@@ -344,25 +325,10 @@ export function useServerManagement(
             onClose={() => setTransfer(false)}
             onSubmitted={() => {
               setTransfer(false);
-              setJobs(true);
+              window.location.hash = serverActivityURL(server.id, {
+                kind: "operations",
+              });
             }}
-          />
-        )}
-        {jobs && (
-          <ServerDetailsDrawer
-            id={server.id}
-            initialTab="jobs"
-            onChanged={refresh}
-            title={
-              <>
-                <span>{server.name}</span>
-                <ServerState
-                  state={status?.state ?? RuntimeState.Unknown}
-                  ready={status?.ready ?? true}
-                />
-              </>
-            }
-            onClose={() => setJobs(false)}
           />
         )}
       </Suspense>

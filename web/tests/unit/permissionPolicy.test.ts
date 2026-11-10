@@ -70,7 +70,7 @@ describe("UI permission policy", () => {
     );
   });
 
-  it("requires both platform grants for transfers and permits configuration-only job history", () => {
+  it("requires both platform grants for transfers", () => {
     for (const permission of [
       Permission.SparksManage,
       Permission.ServersManageAll,
@@ -82,11 +82,6 @@ describe("UI permission policy", () => {
       permissions: [Permission.SparksManage, Permission.ServersManageAll],
     };
     expect(canPerformServer(server(), "transfer", manager)).toBe(true);
-    expect(canPerformServer(server(), "viewJobs", manager)).toBe(true);
-    expect(
-      canPerformServer(server(Permission.ServerConfigure), "viewJobs"),
-    ).toBe(true);
-    expect(canPerformServer(server(), "viewJobs")).toBe(false);
   });
 
   it("requires administration for admin pages, owner selection and user preview", () => {

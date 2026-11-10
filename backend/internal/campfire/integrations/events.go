@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"campfire/internal/campfire/events"
 	"campfire/internal/shared/model"
 )
 
@@ -17,6 +18,7 @@ import (
 // Source IDs are namespaced so different producers cannot collide in a binding.
 type Event struct {
 	ID          string                `json:"id"`
+	SourceKey   string                `json:"source_key,omitempty"`
 	ServerID    string                `json:"server_id"`
 	Category    Category              `json:"category"`
 	Type        string                `json:"type"`
@@ -37,6 +39,10 @@ type EventAttachment struct {
 
 // Validate excludes unbounded or structured data from notification payloads.
 func (e Event) Validate() error {
+	if !events.ValidSourceKey(e.SourceKey) {
+		return errors.New("invalid integration source reference")
+	}
+
 	if !validID(e.ID) || !validID(e.ServerID) || !e.Category.Valid() || !model.ValidGameEventType(e.Type) || e.OccurredAt < -62135596800 || e.OccurredAt > 253402300799 || e.Title == "" || len(e.Title) > 1024 || len(e.Body) > 8192 || !utf8.ValidString(e.Title+e.Body) || len(e.Data) > 32 {
 		return errors.New("invalid integration event")
 	}
@@ -125,13 +131,14 @@ func GameMediaEvent(serverID string, event model.GameEvent, storedEventID int64,
 	digest := sha256.Sum256([]byte(event.ID + "\x00" + media.ID))
 	result.ID = "game_media:" + hex.EncodeToString(digest[:])
 	result.Attachment = &EventAttachment{GameEventID: storedEventID, Media: media}
+	result.SourceKey = events.GameEventSourceKey(storedEventID)
 
 	return result
 }
 
 // ConsoleAlert deliberately omits evidence, paths, and raw console output.
 func ConsoleAlert(serverID string, alert model.DetectedLogAlert) Event {
-	return Event{ID: "console_alert:" + alert.ID, ServerID: serverID, Category: ConsoleAlerts, Type: "console.alert", Title: alert.Title, Body: alert.Message, OccurredAt: alert.DetectedAt, Data: map[string]any{"severity": string(alert.Severity), "phase": string(alert.Phase)}}
+	return Event{ID: "console_alert:" + alert.ID, SourceKey: "console_alert:" + alert.ID, ServerID: serverID, Category: ConsoleAlerts, Type: "console.alert", Title: alert.Title, Body: alert.Message, OccurredAt: alert.DetectedAt, Data: map[string]any{"severity": string(alert.Severity), "phase": string(alert.Phase)}}
 }
 
 // OperationResult never equates dispatch acceptance with successful completion.
@@ -156,5 +163,5 @@ func OperationResult(serverID, id string, action model.ServerAction, state model
 		data["backup_mode"] = string(backupMode.Normalized())
 	}
 
-	return Event{ID: "operation:" + id, ServerID: serverID, Category: category, Type: string(action) + "." + string(state), Title: "Server " + string(action) + " " + string(state), OccurredAt: now.Unix(), Data: data}, true
+	return Event{ID: "operation:" + id, SourceKey: "operation:" + id, ServerID: serverID, Category: category, Type: string(action) + "." + string(state), Title: "Server " + string(action) + " " + string(state), OccurredAt: now.Unix(), Data: data}, true
 }

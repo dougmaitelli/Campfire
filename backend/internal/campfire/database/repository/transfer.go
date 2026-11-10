@@ -12,13 +12,18 @@ import (
 )
 
 // TransferRepository owns durable transfer history and atomic reservations.
-type TransferRepository struct{ db *gorm.DB }
+type TransferRepository struct {
+	db        *gorm.DB
+	publisher *EventPublisher
+}
 
 // Jobs returns the shared checkpoint repository.
-func (r *TransferRepository) Jobs() *JobRepository { return NewJobRepository(r.db) }
+func (r *TransferRepository) Jobs() *JobRepository { return NewJobRepository(r.db, r.publisher) }
 
 // NewTransferRepository creates a transfer repository.
-func NewTransferRepository(db *gorm.DB) *TransferRepository { return &TransferRepository{db: db} }
+func NewTransferRepository(db *gorm.DB, publishers ...*EventPublisher) *TransferRepository {
+	return &TransferRepository{db: db, publisher: eventPublisher(db, publishers)}
+}
 
 func transferRecord(id string, c model.ServerConfiguration) database.Server {
 	return database.Server{ID: id, SparkID: c.SparkID, CPULimit: c.CPULimit, MemoryMB: c.MemoryMB, DiskMB: c.DiskMB, Ports: c.Ports}
@@ -113,13 +118,13 @@ func (r *TransferRepository) Create(ctx context.Context, transfer model.Transfer
 
 		job := database.ServerJob{ID: transfer.ID, Type: model.JobTransfer, SourceServerID: transfer.ServerID, TargetServerID: transfer.ServerID, SourceSparkID: transfer.SourceSparkID, TargetSparkID: transfer.TargetSparkID, Data: string(data), Status: model.JobPending, Step: model.JobPreparing, Attempt: 1, CreatedAt: transfer.CreatedAt, UpdatedAt: transfer.UpdatedAt}
 
-		return tx.Create(&job).Error
+		return NewJobRepository(tx, r.publisher).Create(ctx, &job)
 	})
 }
 
 // Get resolves transfer work from the protected server and placement data.
 func (r *TransferRepository) Get(ctx context.Context, id string) (model.TransferWork, error) {
-	store := NewJobRepository(r.db)
+	store := r.Jobs()
 
 	job, err := store.Get(ctx, id)
 	if err != nil {
@@ -135,7 +140,7 @@ func (r *TransferRepository) Get(ctx context.Context, id string) (model.Transfer
 
 // Advance conditionally checkpoints a transfer workflow step.
 func (r *TransferRepository) Advance(ctx context.Context, id string, phase model.TransferPhase, changes map[string]any) error {
-	store := NewJobRepository(r.db)
+	store := r.Jobs()
 
 	job, err := expectedJob(ctx, store, id)
 	if err != nil {
@@ -179,7 +184,7 @@ func (r *TransferRepository) Advance(ctx context.Context, id string, phase model
 // Commit atomically changes placement after verified import.
 func (r *TransferRepository) Commit(ctx context.Context, id string) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		store := NewJobRepository(tx)
+		store := NewJobRepository(tx, r.publisher)
 
 		job, err := expectedJob(ctx, store, id)
 		if err != nil {
@@ -229,10 +234,10 @@ func (r *TransferRepository) Commit(ctx context.Context, id string) error {
 
 // Retry requests a new attempt without releasing reservations.
 func (r *TransferRepository) Retry(ctx context.Context, id string) error {
-	return NewJobRepository(r.db).Change(ctx, id, false)
+	return r.Jobs().Change(ctx, id, false)
 }
 
 // Cancel requests cleanup before placement commit begins.
 func (r *TransferRepository) Cancel(ctx context.Context, id string) error {
-	return NewJobRepository(r.db).Change(ctx, id, true)
+	return r.Jobs().Change(ctx, id, true)
 }

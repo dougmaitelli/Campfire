@@ -155,8 +155,16 @@ enabling an integration does not replay existing activity. Recording is atomic
 with each source update, and repeated source observations do not duplicate its
 messages.
 
-Notification history is not currently displayed in the panel. The per-binding
-messages API reports pending, delivered, failed, and unconfirmed messages. Transient
+The server's **Activity** tab groups game events, operations, jobs, and alerts
+with the notifications they generated. Choose **Notifications** to inspect each
+destination separately, filter by provider or destination, and open a delivery's
+source. Notification details show attempts, recovery actions, and a Discord link
+when available. Reading Activity does not change personal inbox read state.
+Access follows the source's existing permissions; retry actions retain their
+existing configuration or notification-management requirements.
+
+The per-binding messages API also reports pending, delivered, failed, and
+unconfirmed messages. Transient
 failures use bounded retries; Discord rate limits defer delivery until the
 requested cooldown expires. One unavailable destination does not stop other
 destinations. Disabling a connection or server integration stops new sends; a

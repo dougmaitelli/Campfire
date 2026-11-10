@@ -43,8 +43,8 @@ filters, card fields, and freshness behavior.
    response is lost, retrying the same drafts does not duplicate integrations.
 6. Reopen the integration settings to confirm **Card publishing** reaches
    **Published**, and check matching messages in Discord. Enabling an integration
-   does not replay old activity. Notification history is not currently shown in
-   the panel.
+   does not replay old activity. Open the server's **Activity** tab and choose
+   **Notifications** to inspect delivery outcomes or retry a failed message.
 
 Global setup is administrator-only. Click a saved connection row to edit it.
 Per-server configuration requires

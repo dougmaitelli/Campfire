@@ -38,10 +38,6 @@ export interface GameEvent {
   attachments?: GameAttachment[];
 }
 
-export interface GameEventPage {
-  items: GameEvent[];
-  next_before?: number;
-}
 export interface GameEventFilterOptions {
   types: string[];
   fields: Record<string, string[]>;
@@ -68,19 +64,11 @@ export function gameEventFieldLabel(
     ? labels[0]!
     : key;
 }
-export interface GameEventFilter {
-  search?: string;
-  fields?: Record<string, string>;
-  type?: string;
-  from?: number;
-  to?: number;
-  before?: number;
-}
 
 function positive(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
-function isAttachment(value: unknown): value is GameAttachment {
+export function isGameAttachment(value: unknown): value is GameAttachment {
   return (
     object(value) &&
     typeof value.id === "string" &&
@@ -96,7 +84,10 @@ function isAttachment(value: unknown): value is GameAttachment {
     value.size <= GameLimits.MediaBytes
   );
 }
-function isEvent(value: unknown, serverID: string): value is GameEvent {
+export function isGameEvent(
+  value: unknown,
+  serverID: string,
+): value is GameEvent {
   return (
     object(value) &&
     positive(value.id) &&
@@ -112,7 +103,7 @@ function isEvent(value: unknown, serverID: string): value is GameEvent {
     (value.attachments === undefined ||
       (Array.isArray(value.attachments) &&
         value.attachments.length <= 4 &&
-        value.attachments.every(isAttachment))) &&
+        value.attachments.every(isGameAttachment))) &&
     object(value.data) &&
     validGameFieldLabels(value.field_labels, value.data) &&
     Object.values(value.data).every(
@@ -153,32 +144,4 @@ export async function readGameEventFilterOptions(
   )
     throw new Error(i18n.t("gameEvents.unexpectedResponse"));
   return value as unknown as GameEventFilterOptions;
-}
-
-export async function readGameEvents(
-  serverID: string,
-  filter: GameEventFilter,
-  signal: AbortSignal,
-): Promise<GameEventPage> {
-  const query = new URLSearchParams({ limit: "25" });
-  for (const [key, value] of Object.entries(filter))
-    if (key !== "fields" && value !== undefined && value !== "")
-      query.set(key, String(value));
-  for (const [field, value] of Object.entries(filter.fields ?? {}))
-    query.set(`data.${field}`, value);
-  const value = await readJSON(
-    await apiFetch(
-      `/api/v1/servers/${encodeURIComponent(serverID)}/events?${query}`,
-      { signal },
-    ),
-  );
-  if (
-    !object(value) ||
-    !Array.isArray(value.items) ||
-    value.items.length > 25 ||
-    !value.items.every((item) => isEvent(item, serverID)) ||
-    (value.next_before !== undefined && !positive(value.next_before))
-  )
-    throw new Error(i18n.t("gameEvents.unexpectedResponse"));
-  return value as unknown as GameEventPage;
 }

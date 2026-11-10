@@ -23,11 +23,9 @@ function isFinished(job: ServerJob) {
 }
 
 export function JobList({
-  serverID,
   filter,
   onChanged = unchanged,
 }: {
-  serverID?: string | undefined;
   filter?: JobFilter | undefined;
   onChanged?: (() => Promise<void>) | undefined;
 }) {
@@ -63,7 +61,7 @@ export function JobList({
           const result =
             page > 0 && !status && cached && cached.items.every(isFinished)
               ? cached
-              : await listJobs(serverID, signal, cursor || undefined, {
+              : await listJobs(undefined, signal, cursor || undefined, {
                   type,
                   status,
                 });
@@ -110,7 +108,7 @@ export function JobList({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [serverID, type, status, pages, revision, onChanged]);
+  }, [type, status, pages, revision, onChanged]);
   async function change(job: ServerJob, action: "retry" | "cancel") {
     if (pending.current) return;
     pending.current = true;
@@ -135,8 +133,8 @@ export function JobList({
   }
   return (
     <section
-      className={`server-jobs${serverID ? "" : " server-jobs-global"}`}
-      aria-label={t("serverDetailsDrawer.jobs")}
+      className="server-jobs server-jobs-global"
+      aria-label={t("common.jobs")}
       aria-busy={loading}
     >
       {error && jobs.length > 0 && (
@@ -176,7 +174,7 @@ export function JobList({
             <JobRow
               key={job.id}
               job={job}
-              serverID={serverID}
+              serverID={undefined}
               busy={busy}
               onChange={change}
             />

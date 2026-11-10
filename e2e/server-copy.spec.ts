@@ -4,10 +4,11 @@ import {
   login,
   openScreen,
   openServerActions,
-  openServerJobs,
+  openServerOperations,
+  openServerJob,
 } from "./screens";
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
-import { jobFixture } from "./jobFixtures";
+import { jobFixture, mockJobActivity } from "./jobFixtures";
 
 interface DestinationSpark {
   id: string;
@@ -71,9 +72,9 @@ test("Copy prefills the creation wizard and creates an independent settings-only
   };
   expect(server.id).not.toBe("survival");
   await expect(drawer).toHaveCount(0);
-  await expect(
-    page.getByRole("tab", { name: "Jobs", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(
+    /#servers\/survival\/activity\?kind=operations$/,
+  );
   expect(
     await (
       await page.request.get(`/api/v1/servers/${server.id}/status`)
@@ -167,10 +168,12 @@ test("Quick copy asks only for a Spark and copies a running server's files", asy
   };
   await expect(drawer).toHaveCount(0);
   const history = page.getByRole("region", {
-    name: "Jobs",
+    name: "Activity",
     exact: true,
   });
-  await expect(history.getByText("Complete", { exact: true })).toBeVisible({
+  await expect(
+    history.locator("tbody").getByText("Complete", { exact: true }),
+  ).toBeVisible({
     timeout: 20_000,
   });
   expect(
@@ -191,8 +194,10 @@ test("Quick copy asks only for a Spark and copies a running server's files", asy
     ),
   ).toBeTruthy();
   await page.reload();
-  const details = await openServerJobs(page);
-  await expect(details.getByText("Complete", { exact: true })).toBeVisible();
+  const details = await openServerOperations(page);
+  await expect(
+    details.locator("tbody").getByText("Complete", { exact: true }),
+  ).toBeVisible();
 });
 
 for (const action of ["Copy", "Quick copy", "Transfer"] as const) {
@@ -269,7 +274,14 @@ for (const action of ["Copy", "Quick copy", "Transfer"] as const) {
       })
       .click();
     expect((await response).ok()).toBeTruthy();
-    const jobs = page.getByRole("region", { name: "Jobs", exact: true });
+    await expect(page).toHaveURL(/\/activity\?kind=operations$/);
+    const history = await page.request.get("/api/v1/servers/creative/jobs");
+    expect(history.ok()).toBeTruthy();
+    const queued = (
+      (await history.json()) as { items: { id: string; status: string }[] }
+    ).items.find((job) => job.status === JobStatus.Pending);
+    expect(queued).toBeDefined();
+    const jobs = await openServerJob(page, "creative", queued!.id);
     await expect(jobs.getByText("Waiting", { exact: true })).toBeVisible();
     await expect(
       jobs.getByText("Waiting for Offline to connect.", { exact: true }),
@@ -289,7 +301,7 @@ for (const action of ["Copy", "Quick copy", "Transfer"] as const) {
   });
 }
 
-test("the server Jobs tab shows both copy and transfer progress with retry and cancellation", async ({
+test("Operations links copy and transfer progress with retry and cancellation", async ({
   page,
 }) => {
   await login(page);
@@ -310,10 +322,19 @@ test("the server Jobs tab shows both copy and transfer progress with retry and c
     transferred_bytes: 1024 ** 3,
     can_cancel: false,
   });
-  await page.route("**/api/v1/servers/survival/jobs", (route) =>
-    route.fulfill({ json: { items: [job, completed], next: "" } }),
-  );
-  const drawer = await openServerJobs(page);
+  await mockJobActivity(page, "survival", () => [job, completed]);
+  const activity = await openServerOperations(page);
+  await expect(
+    activity.getByRole("row", {
+      name: "Transfer completed-transfer",
+      exact: true,
+    }),
+  ).toContainText("Complete");
+  await screenshot(page, "server-jobs.png", activity.getByRole("table"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await activity.getByRole("table").scrollIntoViewIfNeeded();
+  await screenshot(page, "server-jobs-mobile.png", activity.getByRole("table"));
+  const drawer = await openServerJob(page, "survival", job.id);
   const history = drawer.getByRole("row", {
     name: "Copy current-copy",
     exact: true,
@@ -324,25 +345,19 @@ test("the server Jobs tab shows both copy and transfer progress with retry and c
       exact: true,
     }),
   ).toHaveAttribute("aria-valuetext", "384 MiB / 1 GiB");
-  await expect(
-    drawer.getByRole("row", {
-      name: "Transfer completed-transfer",
-      exact: true,
-    }),
-  ).toContainText("Complete");
-  await screenshot(page, "server-jobs.png", drawer);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "server-jobs-mobile.png", drawer);
-  await drawer.getByRole("tab", { name: "Details", exact: true }).click();
-  await expect(history).toHaveCount(0);
-  await drawer.getByRole("tab", { name: "Jobs", exact: true }).click();
+  await page.goBack();
+  await expect(drawer).toHaveCount(0);
+  await page.goForward();
+  await expect(history).toBeVisible();
   job = {
     ...job,
     status: JobStatus.Failed,
     can_retry: true,
     error: "Destination Spark disconnected. Retry to copy the retained backup.",
   };
-  await expect(history.getByRole("alert")).toHaveText(job.error);
+  await expect(history.getByRole("alert")).toHaveText(job.error, {
+    timeout: 15_000,
+  });
   await page.route("**/api/v1/jobs/current-copy/retry", async (route) => {
     job = { ...job, status: JobStatus.Running, can_retry: false, error: "" };
     await route.fulfill({ json: job });
@@ -379,9 +394,7 @@ test("scoped copy history identifies the other server and the copy direction", a
     finished_at: 1792670400,
   });
   for (const id of ["survival", "modded"])
-    await page.route(`**/api/v1/servers/${id}/jobs`, (route) =>
-      route.fulfill({ json: { items: [running, cancelled], next: "" } }),
-    );
+    await mockJobActivity(page, id, () => [running, cancelled]);
   for (const scope of [
     { name: "Survival", peer: "Modded", peerID: "modded", direction: "→" },
     {
@@ -391,10 +404,14 @@ test("scoped copy history identifies the other server and the copy direction", a
       direction: "←",
     },
   ]) {
-    const drawer = await openServerJobs(page, scope.name);
     for (const width of [1400, 390]) {
       await page.setViewportSize({ width, height: 900 });
       for (const job of [running, cancelled]) {
+        const drawer = await openServerJob(
+          page,
+          scope.name.toLowerCase(),
+          job.id,
+        );
         const row = drawer.getByRole("row", {
           name: `Copy ${job.id}`,
           exact: true,
@@ -413,12 +430,12 @@ test("scoped copy history identifies the other server and the copy direction", a
             "href",
             `#servers/${scope.peerID}/console`,
           );
+        await drawer
+          .getByRole("button", { name: "Close", exact: true })
+          .first()
+          .click();
       }
     }
-    await drawer
-      .getByRole("button", { name: "Close", exact: true })
-      .first()
-      .click();
   }
 });
 
@@ -507,9 +524,7 @@ test("retrying access changes after creation does not create another copy", asyn
   failGrant = false;
   await drawer.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(drawer).toHaveCount(0);
-  await expect(
-    page.getByRole("tab", { name: "Jobs", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(/\/activity\?kind=operations$/);
   expect(creations).toBe(1);
 });
 
@@ -551,7 +566,7 @@ test("the shared Jobs list polls active jobs and caches completed older pages", 
   jobs[0] = jobFixture({ id: "active-job" });
   let headRequests = 0;
   let olderRequests = 0;
-  await page.route("**/api/v1/servers/survival/jobs*", (route) => {
+  await page.route(/\/api\/v1\/jobs(?:\?|$)/, (route) => {
     const older = new URL(route.request().url()).searchParams.get("before");
     if (older) olderRequests++;
     else headRequests++;
@@ -562,7 +577,8 @@ test("the shared Jobs list polls active jobs and caches completed older pages", 
       },
     });
   });
-  const drawer = await openServerJobs(page);
+  await openScreen(page, "jobs", "Jobs");
+  const drawer = page.locator("main");
   const rows = drawer.locator(".server-job-history-item");
   await expect(rows).toHaveCount(50);
   await drawer
@@ -607,16 +623,22 @@ test("configuration access can read copy history without platform transfer or Sp
       })
     ).ok(),
   ).toBeTruthy();
+  expect(
+    (
+      await request.post("/api/v1/servers/survival/quick-copy", {
+        headers,
+        data: { spark_id: "mock-america" },
+      })
+    ).ok(),
+  ).toBeTruthy();
   const protectedRequests: string[] = [];
   page.on("request", (request) => {
     if (/\/transfers$|\/api\/v1\/sparks(?:\?|$)/.test(request.url()))
       protectedRequests.push(request.url());
   });
   await page.reload();
-  const drawer = await openServerJobs(page);
-  await expect(
-    drawer.getByRole("region", { name: "Jobs", exact: true }),
-  ).toContainText("No jobs yet.");
+  const drawer = await openServerOperations(page);
+  await expect(drawer.getByRole("row", { name: /^Copy / })).toHaveCount(1);
   await expect(drawer.getByRole("row", { name: /^Transfer / })).toHaveCount(0);
   expect(protectedRequests).toEqual([]);
 });

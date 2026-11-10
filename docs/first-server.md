@@ -63,11 +63,12 @@ and console history are not copied. Creating a copy requires server creation,
 source configuration, and destination provisioning access; including files also
 requires source file-read access.
 
-Progress, retry, and cancellation appear in the server details drawer's **Jobs**
-tab, alongside transfer history. Admins can also open **Jobs** in the sidebar to
+Progress, retry, and cancellation appear in the server's **Activity** tab. Choose
+**Operations** and open a copy or transfer to follow its progress.
+Admins can also open **Jobs** in the sidebar to
 review jobs across every server and filter by status or job type.
-Reopen the server's Jobs tab after closing it or reloading
-the panel through **More server actions → Jobs** to follow the same copy. Failed copies retain their reservations and cannot start until
+Reopen **Activity → Operations** after closing the details or reloading
+the panel to follow the same copy. Failed copies retain their reservations and cannot start until
 recovered or cancelled. Copy and transfer jobs use durable archive staging and
 resume confirmed progress after panel or Spark restarts. Server configuration
 and Ember definitions remain protected until the job finishes or cancellation

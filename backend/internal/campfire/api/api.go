@@ -19,20 +19,21 @@ import (
 
 // API translates HTTP requests into service calls.
 type API struct {
-	sparks        *service.SparkService
-	embers        *service.EmberService
-	servers       *service.ServerService
-	agents        *agents.Hub
-	deployment    *service.DeploymentService
-	auth          *service.AuthService
-	access        *service.AccessService
-	origin        string
-	oidc          *service.OIDCService
-	activity      *service.ActivityService
-	notifications *service.NotificationService
-	integrations  *integrationservice.DiscordIntegrationService
-	backupImports *service.BackupImports
-	now           func() time.Time
+	sparks         *service.SparkService
+	embers         *service.EmberService
+	servers        *service.ServerService
+	agents         *agents.Hub
+	deployment     *service.DeploymentService
+	auth           *service.AuthService
+	access         *service.AccessService
+	origin         string
+	oidc           *service.OIDCService
+	activity       *service.ActivityService
+	serverActivity *repository.ServerActivityRepository
+	notifications  *service.NotificationService
+	integrations   *integrationservice.DiscordIntegrationService
+	backupImports  *service.BackupImports
+	now            func() time.Time
 }
 
 // WithClock sets the time source for API timestamps and calendar previews.
@@ -55,6 +56,12 @@ func (a *API) WithIntegrations(integration *integrationservice.DiscordIntegratio
 
 // WithActivity enables schedules, retained executions and the audit boundary.
 func (a *API) WithActivity(activity *service.ActivityService) *API { a.activity = activity; return a }
+
+// WithServerActivity enables the unified read model over retained server history.
+func (a *API) WithServerActivity(store *repository.ServerActivityRepository) *API {
+	a.serverActivity = store
+	return a
+}
 
 // WithOIDC enables the optional provider login routes.
 func (a *API) WithOIDC(provider *service.OIDCService) *API { a.oidc = provider; return a }

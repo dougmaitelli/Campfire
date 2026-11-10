@@ -16,13 +16,18 @@ import (
 )
 
 // CopyRepository validates copy creation and resolves protected workflow inputs.
-type CopyRepository struct{ db *gorm.DB }
+type CopyRepository struct {
+	db        *gorm.DB
+	publisher *EventPublisher
+}
 
 // Jobs returns the shared checkpoint repository.
-func (r *CopyRepository) Jobs() *JobRepository { return NewJobRepository(r.db) }
+func (r *CopyRepository) Jobs() *JobRepository { return NewJobRepository(r.db, r.publisher) }
 
 // NewCopyRepository constructs the durable copy store.
-func NewCopyRepository(db *gorm.DB) *CopyRepository { return &CopyRepository{db: db} }
+func NewCopyRepository(db *gorm.DB, publishers ...*EventPublisher) *CopyRepository {
+	return &CopyRepository{db: db, publisher: eventPublisher(db, publishers)}
+}
 
 // Guard serializes copies with existing placement and mutation reservations.
 func (r *CopyRepository) Guard(ctx context.Context, id string) error {
@@ -96,7 +101,7 @@ func (r *CopyRepository) Create(ctx context.Context, source model.Server, ember 
 		now := time.Now().Unix()
 		job := database.ServerJob{ID: rand.Text(), Type: model.JobCopy, SourceServerID: source.ID, TargetServerID: target.ID, SourceSparkID: source.SparkID, TargetSparkID: target.SparkID, Data: "{}", Status: model.JobPending, Step: model.JobPreparing, Attempt: 1, CreatedAt: now, UpdatedAt: now}
 
-		return tx.Create(&job).Error
+		return NewJobRepository(tx, r.publisher).Create(ctx, &job)
 	})
 
 	return target, err
@@ -190,7 +195,7 @@ func copyPortAvailable(candidate model.ServerPort, reserved []model.ServerPort) 
 
 // Get resolves execution inputs from protected records.
 func (r *CopyRepository) Get(ctx context.Context, id string) (model.CopyWork, error) {
-	store := NewJobRepository(r.db)
+	store := r.Jobs()
 
 	job, err := store.Get(ctx, id)
 	if err != nil {
@@ -221,7 +226,7 @@ type CopyCheckpoint struct {
 
 // Advance conditionally checkpoints a copy workflow step.
 func (r *CopyRepository) Advance(ctx context.Context, id string, phase model.CopyPhase, checkpoint CopyCheckpoint) error {
-	store := NewJobRepository(r.db)
+	store := r.Jobs()
 
 	job, err := expectedJob(ctx, store, id)
 	if err != nil {
@@ -271,13 +276,13 @@ func (r *CopyRepository) Advance(ctx context.Context, id string, phase model.Cop
 
 // Change requests retry or cancellation through the shared repository.
 func (r *CopyRepository) Change(ctx context.Context, id string, cancel bool) error {
-	return NewJobRepository(r.db).Change(ctx, id, cancel)
+	return r.Jobs().Change(ctx, id, cancel)
 }
 
 // FinishCancel releases the destination only after runtime cleanup.
 func (r *CopyRepository) FinishCancel(ctx context.Context, id string) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		store := NewJobRepository(tx)
+		store := NewJobRepository(tx, r.publisher)
 
 		job, err := expectedJob(ctx, store, id)
 		if err != nil {
@@ -288,12 +293,12 @@ func (r *CopyRepository) FinishCancel(ctx context.Context, id string) error {
 			return ErrJobState
 		}
 
-		return NewCopyRepository(tx).finishCancel(ctx, job)
+		return NewCopyRepository(tx, r.publisher).finishCancel(ctx, job)
 	})
 }
 
 func (r *CopyRepository) finishCancel(ctx context.Context, job database.ServerJob) error {
-	if err := NewJobRepository(r.db).Finish(ctx, job, true); err != nil {
+	if err := r.Jobs().Finish(ctx, job, true); err != nil {
 		return err
 	}
 

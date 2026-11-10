@@ -355,7 +355,7 @@ test("independent destinations separate backups, public cards, and scoped game r
   await unfinishedRule
     .getByRole("combobox", { name: "Event field", exact: true })
     .click();
-  await page.getByRole("option", { name: "player", exact: true }).click();
+  await page.getByRole("option", { name: "Player name", exact: true }).click();
   await expect(save).toBeDisabled();
   await drawer.getByRole("button", { name: "General", exact: true }).click();
   await drawer
@@ -366,7 +366,7 @@ test("independent destinations separate backups, public cards, and scoped game r
   ).toHaveText("Choose an event type");
   await expect(
     unfinishedRule.getByRole("combobox", { name: "Event field", exact: true }),
-  ).toHaveText("player");
+  ).toHaveText("Player name");
   await expect(save).toBeDisabled();
   await unfinishedRule
     .getByRole("combobox", { name: "Event type", exact: true })

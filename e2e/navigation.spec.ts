@@ -320,7 +320,7 @@ test("view-only server rows hide power actions and fall back to an allowed tab",
     .getByRole("button", { name: "Open Survival", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Game activity", exact: true }),
+    page.getByRole("heading", { name: "Activity", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Console", exact: true }),

@@ -3,11 +3,10 @@ package repository
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"time"
 
 	"campfire/internal/campfire/database"
-	"campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/events"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
@@ -16,10 +15,15 @@ import (
 )
 
 // ActivityRepository persists recurring schedules, executions and audit metadata.
-type ActivityRepository struct{ db *gorm.DB }
+type ActivityRepository struct {
+	db        *gorm.DB
+	publisher *EventPublisher
+}
 
 // NewActivityRepository constructs activity storage on the panel database.
-func NewActivityRepository(db *gorm.DB) *ActivityRepository { return &ActivityRepository{db: db} }
+func NewActivityRepository(db *gorm.DB, publishers ...*EventPublisher) *ActivityRepository {
+	return &ActivityRepository{db: db, publisher: eventPublisher(db, publishers)}
+}
 
 func scheduleUsers(tx *gorm.DB) *gorm.DB {
 	return tx.Model(&database.Schedule{}).Select("schedules.*, COALESCE(users.username, '') AS username").Joins("LEFT JOIN users ON users.id = schedules.run_as_user_id")
@@ -317,24 +321,9 @@ func (r *ActivityRepository) FinishRun(ctx context.Context, run database.Schedul
 			return nil
 		}
 
-		if event, ok := integrations.OperationResult(run.ServerID, run.ID, run.Action, state, run.BackupMode, now); ok {
-			if err := NewIntegrationRepository(tx).RouteEvent(ctx, event, now); err != nil {
-				return err
-			}
-		}
+		_, err := r.publisher.inTransaction(tx).Publish(ctx, events.OperationFinished{ServerID: run.ServerID, OperationID: run.ID, UserID: run.UserID, Username: run.Username, Action: run.Action, State: state, BackupMode: run.BackupMode}, now)
 
-		var actorID *int64
-
-		var user database.User
-
-		err := tx.Unscoped().Select("id").Take(&user, run.UserID).Error
-		if err == nil {
-			actorID = &user.ID
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-
-		return tx.Create(&database.AuditEvent{ID: rand.Text(), UserID: actorID, Username: run.Username, Action: model.ResourceAuditAction("server", string(run.Action)), Target: "server:" + run.ServerID, Outcome: model.AuditOutcome(state), CreatedAt: now.Unix()}).Error
+		return err
 	})
 }
 
@@ -351,18 +340,30 @@ func (r *ActivityRepository) Recover(ctx context.Context, now time.Time) error {
 		}
 	}
 
-	return r.db.WithContext(ctx).Model(&database.AuditEvent{}).Where("outcome = ?", model.AuditPending).Update("outcome", model.AuditInterrupted).Error
+	var requests []database.AuditEvent
+
+	return r.db.WithContext(ctx).Where("outcome = ?", model.AuditPending).FindInBatches(&requests, 100, func(_ *gorm.DB, _ int) error {
+		for _, request := range requests {
+			request.Outcome = model.AuditInterrupted
+			if err := r.FinishAudit(ctx, request); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}).Error
 }
 
 // BeginAudit durably records intent before an authenticated mutation.
 func (r *ActivityRepository) BeginAudit(ctx context.Context, event *database.AuditEvent) error {
-	return r.db.WithContext(ctx).Create(event).Error
+	_, err := r.publisher.Publish(ctx, requestEvent(*event), time.Unix(event.CreatedAt, 0))
+	return err
 }
 
 // FinishAudit records only allowlisted action, target, actor and outcome metadata.
 func (r *ActivityRepository) FinishAudit(ctx context.Context, event database.AuditEvent) error {
-	return r.db.WithContext(ctx).Model(&database.AuditEvent{}).Where("id = ?", event.ID).
-		Select("UserID", "Username", "APITokenID", "Action", "Target", "Outcome", "Status").Updates(event).Error
+	_, err := r.publisher.Publish(ctx, events.RequestFinished{RequestStarted: requestEvent(event)}, time.Unix(event.CreatedAt, 0))
+	return err
 }
 
 // Audit lists administrator-only metadata with bounded pagination and optional filters.

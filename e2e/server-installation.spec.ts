@@ -103,7 +103,7 @@ test("first installation starts from an empty state and keeps failed installer o
   expect(attempts).toBe(2);
 });
 
-test("users without operation permission see the installation state without its action", async ({
+test("view-only users can read Activity before installation without an install action", async ({
   page,
 }) => {
   await login(page);
@@ -124,12 +124,10 @@ test("users without operation permission see the installation state without its 
   });
   await page.goto("/#servers/survival/console");
   await expect(
-    page.getByRole("heading", { name: "Ready to install", exact: true }),
+    page.getByRole("heading", { name: "Activity", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Ask a server operator to install this server.", {
-      exact: true,
-    }),
+    page.getByRole("region", { name: "Activity", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Install", exact: true }),

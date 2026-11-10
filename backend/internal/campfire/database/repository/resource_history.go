@@ -11,11 +11,14 @@ import (
 )
 
 // ResourceHistoryRepository stores shared samples and filters inventory in SQL.
-type ResourceHistoryRepository struct{ db *gorm.DB }
+type ResourceHistoryRepository struct {
+	db        *gorm.DB
+	publisher *EventPublisher
+}
 
 // NewResourceHistoryRepository constructs persistent resource history storage.
-func NewResourceHistoryRepository(db *gorm.DB) *ResourceHistoryRepository {
-	return &ResourceHistoryRepository{db: db}
+func NewResourceHistoryRepository(db *gorm.DB, publishers ...*EventPublisher) *ResourceHistoryRepository {
+	return &ResourceHistoryRepository{db: db, publisher: eventPublisher(db, publishers)}
 }
 
 // Targets avoids loading Ember definitions and per-server permission queries.
@@ -69,7 +72,7 @@ func (r *ResourceHistoryRepository) Save(ctx context.Context, servers []database
 		}
 
 		if len(keptServers) > 0 {
-			if err := observeIntegrationPower(tx, keptServers); err != nil {
+			if err := observePowerEvents(tx, r.publisher, keptServers); err != nil {
 				return err
 			}
 

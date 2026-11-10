@@ -12,6 +12,7 @@ type LogAlertIssue struct {
 	ExecutionID string                 `gorm:"type:text;not null"`
 	Phase       model.LogPhase         `gorm:"type:text;not null"`
 	DetectedAt  int64                  `gorm:"not null"`
+	ReceivedAt  int64                  `gorm:"not null;default:0"`
 	Detection   model.DetectedLogAlert `gorm:"serializer:json;type:text;not null"`
 	DismissedAt int64                  `gorm:"not null;default:0;index:log_alert_server,priority:2"`
 	Archived    bool                   `gorm:"not null;default:false;index:log_alert_server,priority:3"`

@@ -418,11 +418,17 @@ func (s *ActivityService) Retry(ctx context.Context, principal Principal, id str
 		}
 	}
 
-	if !slices.Contains([]model.ExecutionState{model.ExecutionFailed, model.ExecutionInterrupted}, old.State) || !slices.Contains([]model.ServerAction{model.ServerActionInstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionBackup}, old.Action) {
+	if !RetryableExecution(old) {
 		return database.ScheduleRun{}, repository.ErrAccessInput
 	}
 
 	return s.attempt(ctx, principal, old)
+}
+
+// RetryableExecution shares lifecycle eligibility with history controls. Current
+// actor and source permissions are still checked on every retry request.
+func RetryableExecution(run database.ScheduleRun) bool {
+	return slices.Contains([]model.ExecutionState{model.ExecutionFailed, model.ExecutionInterrupted}, run.State) && slices.Contains([]model.ServerAction{model.ServerActionInstall, model.ServerActionStart, model.ServerActionStop, model.ServerActionRestart, model.ServerActionKill, model.ServerActionBackup}, run.Action)
 }
 
 func (s *ActivityService) finish(ctx context.Context, run database.ScheduleRun, state model.ExecutionState, message string) error {

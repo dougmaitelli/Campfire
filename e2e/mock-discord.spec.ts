@@ -52,25 +52,45 @@ test("mock Discord renders delivered game images and playable videos", async ({
   };
   const event = events.items.find((item) => item.attachments?.length);
   if (!event) throw new Error("Missing retained media fixture");
-  for (const media of event.attachments!) {
+  for (const media of [undefined, ...event.attachments!]) {
     expect(
       (
         await page.request.post("/__test/integrations/event", {
           headers: { "X-Campfire-E2E": "integration" },
           data: {
-            id: `game_media:viewer-${media.id}`,
+            id: `game_media:viewer-${media?.id ?? "text"}`,
+            source_key: `game_event:${event.id}`,
             server_id: "survival",
             category: "game",
             type: event.type,
             title: event.title,
             occurred_at: 1792670400,
             data: {},
-            attachment: { game_event_id: event.id, media },
+            ...(media
+              ? { attachment: { game_event_id: event.id, media } }
+              : {}),
           },
         })
       ).ok(),
     ).toBeTruthy();
   }
+  await page.goto(
+    `/#servers/survival/activity?kind=game&search=${encodeURIComponent(event.title)}`,
+  );
+  await page.getByRole("button", { name: event.title, exact: true }).click();
+  const notifications = page
+    .getByRole("dialog", { name: event.title, exact: true })
+    .getByRole("table", { name: "Notifications", exact: true });
+  await expect(notifications.locator("tbody tr")).toHaveCount(3);
+  await expect(
+    notifications.getByText("Text message", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    notifications.getByText("Image · mock-world.png", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    notifications.getByText("Video · mock-clip.webm", { exact: true }),
+  ).toBeVisible();
   await page.goto("/mock/discord");
   const image = page.getByRole("img", { name: "mock-world.png" });
   await expect(image).toBeVisible();

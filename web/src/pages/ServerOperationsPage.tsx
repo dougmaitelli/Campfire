@@ -35,7 +35,7 @@ import { lifecycleControlState } from "../components/servers/lifecycleControlSta
 import { Button } from "../components/forms/Button";
 import { ResourceTiles } from "../components/metrics/ResourceTiles";
 import { GameStateReadings } from "../components/servers/GameStateReadings";
-import { ServerGameEvents } from "../components/servers/ServerGameEvents";
+import { ServerActivity } from "../components/servers/ServerActivity";
 import { ResourceGraphs } from "../components/metrics/ResourceGraphs";
 import { ServerConsole } from "../components/servers/ServerConsole";
 import { ServerFileBrowser } from "../components/servers/ServerFileBrowser";
@@ -120,8 +120,6 @@ export function ServerOperationsPage({
   const installAttempted =
     requestedAction === ServerAction.Install ||
     status?.operation === ServerAction.Install;
-  const showInstallEmpty =
-    controls.install && !status?.busy && !installAttempted;
   const message = operationMessage(
     error && server
       ? {
@@ -141,13 +139,14 @@ export function ServerOperationsPage({
     activity: "view",
   } as const;
   const allowedTabs = Object.entries(tabPermissions)
-    .filter(
-      ([item, permission]) =>
-        canPerformServer(server, permission) &&
-        (item !== "activity" || server?.game_integration === true),
-    )
+    .filter(([, permission]) => canPerformServer(server, permission))
     .map(([item]) => item);
   const activeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0];
+  const showInstallEmpty =
+    controls.install &&
+    !status?.busy &&
+    !installAttempted &&
+    activeTab !== "activity";
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -445,7 +444,7 @@ export function ServerOperationsPage({
                   ["console", t("serverOperationsPage.consoleTab")],
                   ["files", t("serverOperationsPage.filesTab")],
                   ["backups", t("common.backups")],
-                  ["activity", t("gameEvents.title")],
+                  ["activity", t("serverActivity.title")],
                 ] as const
               )
                 .filter(([item]) => allowedTabs.includes(item))
@@ -460,7 +459,7 @@ export function ServerOperationsPage({
                 ))}
             </nav>
             {activeTab === "activity" ? (
-              <ServerGameEvents key={server.id} serverID={server.id} />
+              <ServerActivity key={server.id} server={server} />
             ) : activeTab ? (
               <>
                 {activeTab === "console" && (

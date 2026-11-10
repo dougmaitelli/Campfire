@@ -130,7 +130,7 @@ export function SchedulesPage() {
       if (timer !== undefined) clearTimeout(timer);
     };
   }, [filter, replaceSchedules, revision]);
-  async function perform(work: () => Promise<void>) {
+  async function perform(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);

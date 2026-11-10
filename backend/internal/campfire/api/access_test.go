@@ -104,7 +104,7 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	history := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 	deployment.History = history
 	deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
-	panel := api.New(sparks, embers, servers).WithDeployment(deployment)
+	panel := api.New(sparks, embers, servers).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithDeployment(deployment)
 	admin := authenticatedTestAPI(t, db, panel)
 
 	return &accessFixture{t, db, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games, service.NewRuntimeStatusService(deployment)}

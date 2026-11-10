@@ -155,7 +155,10 @@ export function getResourceRoute(kind: ResourceKind) {
 }
 
 export function parseResourceRoute(route: string) {
-  const [page = "", encodedID = "", tab] = route.replace(/^#/, "").split("/");
+  const [page = "", encodedID = "", tab] = route
+    .replace(/^#/, "")
+    .split("?")[0]!
+    .split("/");
   try {
     return { page, id: decodeURIComponent(encodedID), tab };
   } catch {

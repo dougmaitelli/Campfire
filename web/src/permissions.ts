@@ -53,7 +53,6 @@ type ServerOperation =
   | keyof typeof serverRequirements
   | "manageAccess"
   | "edit"
-  | "viewJobs"
   | "transfer"
   | "updateEmber";
 
@@ -109,11 +108,6 @@ export function canPerformServer(
       return (
         canPerformServer(server, "configure") ||
         canPerformServer(server, "manageAccess")
-      );
-    case "viewJobs":
-      return (
-        canPerformServer(server, "configure") ||
-        canPerformServer(server, "transfer", principal)
       );
     case "transfer":
       return canPerformPlatform(principal, "transferServers");

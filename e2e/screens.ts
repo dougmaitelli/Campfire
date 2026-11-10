@@ -123,12 +123,27 @@ export async function inspectServer(page: Page) {
   ).toBeVisible();
 }
 
-export async function openServerJobs(page: Page, name = "Survival") {
-  const menu = await openServerActions(page, name);
-  await menu.getByRole("menuitem", { name: "Jobs", exact: true }).click();
-  const drawer = page.getByRole("dialog", { name: new RegExp(`^${name}`) });
+export async function openServerOperations(page: Page, name = "Survival") {
+  await openScreen(page, "servers", "Servers");
+  await page.getByRole("button", { name: `Open ${name}`, exact: true }).click();
+  const serverID = page.url().split("#servers/")[1]!.split("/")[0]!;
+  await page.goto(`/#servers/${serverID}/activity?kind=operations`);
+  const activity = page.getByRole("region", { name: "Activity", exact: true });
+  await expect(activity).toBeVisible();
+  return activity;
+}
+
+export async function openServerJob(
+  page: Page,
+  serverID: string,
+  jobID: string,
+) {
+  await page.goto(
+    `/#servers/${encodeURIComponent(serverID)}/activity?kind=operations&entry=${encodeURIComponent(`job:${jobID}`)}`,
+  );
+  const drawer = page.getByRole("dialog");
   await expect(
-    drawer.getByRole("tabpanel", { name: "Jobs", exact: true }),
+    drawer.getByRole("row", { name: new RegExp(` ${jobID}$`) }),
   ).toBeVisible();
   return drawer;
 }

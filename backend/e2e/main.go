@@ -233,15 +233,16 @@ func main() {
 		sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), remote)
 		sparks.Updates = service.NewSparkUpdateService(sparks, nil)
 		deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: remote}
-		deployment.Games = &service.GameIntegrationService{Servers: servers, Events: service.NewGameEventService(repository.NewGameEventRepository(db.ORM()))}
-		deployment.Games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM()))
-		deployment.History = service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
+		publisher := repository.NewEventPublisher(db.ORM(), false)
+		deployment.Games = &service.GameIntegrationService{Servers: servers, Events: service.NewGameEventService(repository.NewGameEventRepository(db.ORM(), publisher))}
+		deployment.Games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM(), publisher))
+		deployment.History = service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM(), publisher), deployment)
 		deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
-		deployment.Transfers = service.NewTransferService(repository.NewTransferRepository(db.ORM()), deployment)
-		copies = service.NewCopyService(repository.NewCopyRepository(db.ORM()), deployment)
+		deployment.Transfers = service.NewTransferService(repository.NewTransferRepository(db.ORM(), publisher), deployment)
+		copies = service.NewCopyService(repository.NewCopyRepository(db.ORM(), publisher), deployment)
 		deployment.Copies = copies
 		copies.Start(ctx)
-		activity := service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, auth)
+		activity := service.NewActivityService(repository.NewActivityRepository(db.ORM(), publisher), deployment, auth)
 		deployment.Activity = activity
 		notifications := service.NewNotificationService(repository.NewNotificationRepository(db.ORM()), deployment, auth)
 		deployment.LogAlerts = &service.LogAlertService{Store: repository.NewLogAlertRepository(db.ORM()), Notifications: notifications}
@@ -251,7 +252,7 @@ func main() {
 		integration = integrationservice.NewDiscordIntegrationService(db.ORM(), integrationservice.Secrets{Directory: filepath.Join(root, fmt.Sprintf("secrets-%d", generation))}, discord.NewClient(discordAPI.URL, discordAPI.Client())).WithCards(deployment)
 		integration.Start(ctx)
 		deliveryFixture = integrationfixture.DeliveryHandler(db.ORM(), fixed)
-		handler = api.New(sparks, embers, servers).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
+		handler = api.New(sparks, embers, servers).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
 	}
 	reset()
 	defer func() { integration.Close(); copies.Close(); statuses.Close(); must(db.Close()) }()

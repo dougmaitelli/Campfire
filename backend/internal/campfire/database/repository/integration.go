@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/events"
 	"campfire/internal/campfire/integrations"
 	"campfire/internal/shared/model"
 
@@ -174,6 +175,13 @@ func (r *IntegrationRepository) EnqueueMessage(ctx context.Context, bindingID, e
 
 	var row database.IntegrationMessage
 
+	var source struct {
+		SourceKey string `json:"source_key"`
+	}
+	if err := json.Unmarshal(payload, &source); err != nil || !events.ValidSourceKey(source.SourceKey) {
+		return integrations.Message{}, errors.New("invalid integration source reference")
+	}
+
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var binding database.ServerIntegration
 		if err := tx.Where("id = ?", bindingID).Take(&binding).Error; err != nil {
@@ -189,7 +197,7 @@ func (r *IntegrationRepository) EnqueueMessage(ctx context.Context, bindingID, e
 			return ErrIntegrationDisabled
 		}
 
-		row = database.IntegrationMessage{BindingID: bindingID, EventID: eventID, Category: category, DestinationID: binding.DestinationID, Payload: payload, State: model.DeliveryPending, NextAttemptAt: now.Unix(), CreatedAt: now.Unix()}
+		row = database.IntegrationMessage{SourceKey: source.SourceKey, BindingID: bindingID, EventID: eventID, Category: category, DestinationID: binding.DestinationID, Payload: payload, State: model.DeliveryPending, NextAttemptAt: now.Unix(), CreatedAt: now.Unix()}
 		if err := tx.Omit(clause.Associations).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "binding_id"}, {Name: "event_id"}}, DoNothing: true}).Create(&row).Error; err != nil {
 			return err
 		}

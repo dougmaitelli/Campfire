@@ -5,6 +5,7 @@ import "campfire/internal/shared/model"
 // Notification is an immutable message; read state belongs to each recipient.
 type Notification struct {
 	ID         int64                      `gorm:"primaryKey;autoIncrement" json:"id"`
+	SourceKey  string                     `gorm:"type:text;not null;default:'';index" json:"source_key,omitempty"`
 	TargetType model.NotificationTarget   `gorm:"type:text;not null;index:notification_target,priority:1" json:"target_type"`
 	TargetID   string                     `gorm:"type:text;not null;index:notification_target,priority:2" json:"target_id"`
 	Kind       model.NotificationKind     `gorm:"type:text;not null" json:"kind"`

@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"slices"
 	"time"
 
 	"campfire/internal/shared/model"
@@ -38,12 +39,12 @@ func (e *DeliveryFailure) Error() string { return e.Message }
 
 // DeliveryState hides worker phases while preserving actionable uncertainty.
 func DeliveryState(state model.DeliveryState) string {
-	switch state {
-	case model.DeliveryDelivered:
+	switch {
+	case state == model.DeliveryDelivered:
 		return "delivered"
-	case model.DeliveryFailed, MessageCredentialsBlocked, MessageDestinationBlocked:
+	case FailedMessage(state):
 		return "failed"
-	case MessageUncertain, MessageGlobalUncertain, MessageReconciling:
+	case slices.Contains(UncertainStates(), state):
 		return "uncertain"
 	default:
 		return "pending"
@@ -52,10 +53,15 @@ func DeliveryState(state model.DeliveryState) string {
 
 // FailedMessage includes operational pauses that need explicit intervention.
 func FailedMessage(state model.DeliveryState) bool {
-	return state == model.DeliveryFailed || state == MessageCredentialsBlocked || state == MessageDestinationBlocked
+	return slices.Contains(FailureStates(), state)
 }
 
 // FailureStates returns the persisted states represented as Failed in the UI.
 func FailureStates() []model.DeliveryState {
 	return []model.DeliveryState{model.DeliveryFailed, MessageCredentialsBlocked, MessageDestinationBlocked}
+}
+
+// UncertainStates returns the persisted states represented as Unconfirmed in the UI.
+func UncertainStates() []model.DeliveryState {
+	return []model.DeliveryState{MessageUncertain, MessageGlobalUncertain, MessageReconciling}
 }

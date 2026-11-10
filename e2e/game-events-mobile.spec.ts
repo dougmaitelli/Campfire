@@ -23,7 +23,7 @@ test("native activity date fields remain readable empty and filled on mobile", a
     ).ok(),
   ).toBeTruthy();
   await page.goto("/#servers/survival/activity");
-  const feed = page.getByRole("region", { name: "Game activity", exact: true });
+  const feed = page.getByRole("region", { name: "Activity", exact: true });
   await expect(
     feed.getByText("Alex joined the server", { exact: true }),
   ).toBeVisible();
@@ -42,14 +42,12 @@ test("native activity date fields remain readable empty and filled on mobile", a
   ]);
 
   await feed
-    .getByLabel("Occurred after", { exact: true })
+    .getByLabel("Recorded after", { exact: true })
     .fill("2030-01-01T10:30");
   await feed
-    .getByLabel("Occurred before", { exact: true })
+    .getByLabel("Recorded before", { exact: true })
     .fill("2030-01-02T14:45");
-  await feed
-    .getByRole("heading", { name: "Game activity", exact: true })
-    .click();
+  await feed.getByRole("heading", { name: "Activity", exact: true }).click();
   await prepareScreenshot(page);
   for (const hint of await filters
     .locator(".date-time-input-placeholder")

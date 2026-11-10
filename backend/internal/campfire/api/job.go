@@ -107,13 +107,7 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if slices.Contains(grants, permissions.ServerConfigure) {
-			types = append(types, model.JobCopy)
-		}
-
-		if currentUser(r).Allows(permissions.SparksManage) && currentUser(r).Allows(permissions.ServersManageAll) {
-			types = append(types, model.JobTransfer)
-		}
+		types = jobHistoryTypes(currentUser(r), grants)
 	}
 
 	var before *repository.JobCursor
@@ -170,6 +164,19 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		Items []jobProgress `json:"items"`
 		Next  string        `json:"next"`
 	}{items, next})
+}
+
+func jobHistoryTypes(principal service.Principal, grants []model.PermissionID) []model.JobType {
+	types := []model.JobType{}
+	if slices.Contains(grants, permissions.ServerConfigure) {
+		types = append(types, model.JobCopy)
+	}
+
+	if principal.Allows(permissions.SparksManage) && principal.Allows(permissions.ServersManageAll) {
+		types = append(types, model.JobTransfer)
+	}
+
+	return types
 }
 
 func (a *API) retryJob(w http.ResponseWriter, r *http.Request)  { a.changeJob(w, r, false) }

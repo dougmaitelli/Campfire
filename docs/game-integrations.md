@@ -13,8 +13,10 @@ State publications appear in the overview, server list, and server operations
 page. Campfire keeps only the latest snapshot per server in memory. There are no
 game-state charts or history, and a Campfire restart clears these snapshots.
 Events are durably retained in the database and appear in each server's
-**Game activity** tab, with optional screenshots and clips. Forwarding game
-publications to Discord is not implemented.
+**Activity** tab, with optional screenshots and clips. Choose **Game events** to
+focus on publications, or open an event to see its generated notifications.
+[Discord subscriptions](/Campfire/discord/) can forward matching publications
+and media to selected channels.
 
 ## Communication model
 
@@ -391,15 +393,17 @@ Spark IDs, and scalar data. Ordering follows receipt IDs, so clock differences
 cannot cause cursor pagination to skip events. Existing `server.view` permissions
 and token scopes protect access; operating the server is not required.
 
-The Game activity tab offers text search, type/time filters, and multiple field
-filters in one wrapping toolbar. Event types, field names, and field values are
+The Activity tab's **Game events** view offers text search, type/time filters,
+and multiple field filters in one wrapping toolbar. UI time filters use the
+panel's recorded time; the legacy events API's `from` and `to` filters use occurrence
+time. Event types, field names, and field values are
 dropdown choices from the server's entire retained activity, including older
 pages. Field conditions are added on demand with Add field filter; none are
 shown initially or after clearing filters. For example, choose `player` with value `Alex` and `state` with value
 `connected`. Field filters match whole scalar values; choosing Any value finds
 events where that field is present. Changing a field resets its value. All
 conditions are combined, and filtering happens before pagination. Older-page
-navigation preserves the filters. Clear filters returns to the newest events.
+navigation preserves the filters. Clear filters returns to the newest activity.
 The newest page refreshes every ten seconds.
 
 For example, `?search=Alex&data.player=Alex&data.state=connected` combines text and
@@ -651,7 +655,7 @@ can send the same HTTP requests with their own Unix-socket-capable client.
 ## Testing and troubleshooting an integration
 
 Start with a real Spark and one opted-in game server. Use the curl requests above
-from inside its container, then check the server's current state and Game activity
+from inside its container, then check the server's current state and Activity
 in Campfire. Test your mod with these cases before relying on its delivery:
 
 - Clear state with an empty snapshot, and omit a previously supplied custom field.

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"math"
@@ -11,6 +12,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/events"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
@@ -178,7 +180,7 @@ func (s *NotificationService) deliver(ctx context.Context) error {
 }
 
 // transitionAlert requires continuous observations and persists active episodes.
-func transitionAlert(state *database.AlertState, condition model.AlertCondition, now int64, hold, gap int64) model.NotificationKind {
+func transitionAlert(state *database.AlertState, condition model.AlertCondition, now int64, hold, gap int64) bool {
 	if condition == model.AlertUnknown || now < state.LastObservedAt || now-state.LastObservedAt > gap {
 		state.Since = 0
 		state.RecoverySince = 0
@@ -187,13 +189,13 @@ func transitionAlert(state *database.AlertState, condition model.AlertCondition,
 	state.LastObservedAt = now
 
 	if condition == model.AlertUnknown {
-		return ""
+		return false
 	}
 
 	if condition == model.AlertUnhealthy {
 		state.RecoverySince = 0
 		if state.Active {
-			return ""
+			return false
 		}
 
 		if state.Since == 0 {
@@ -204,12 +206,12 @@ func transitionAlert(state *database.AlertState, condition model.AlertCondition,
 			state.Active = true
 			state.Since = 0
 
-			return model.NotificationAlert
+			return true
 		}
 	} else {
 		state.Since = 0
 		if !state.Active {
-			return ""
+			return false
 		}
 
 		if state.RecoverySince == 0 {
@@ -220,11 +222,11 @@ func transitionAlert(state *database.AlertState, condition model.AlertCondition,
 			state.Active = false
 			state.RecoverySince = 0
 
-			return model.NotificationRecovery
+			return true
 		}
 	}
 
-	return ""
+	return false
 }
 
 type alertObservation struct {
@@ -238,28 +240,15 @@ type alertObservation struct {
 func (s *NotificationService) observe(ctx context.Context, observation alertObservation) error {
 	key := fmt.Sprintf("%s:%s:%s", observation.TargetType, observation.TargetID, observation.Code)
 
-	return s.Store.Observe(ctx, key, s.Apprise != nil, func(state *database.AlertState) *database.Notification {
+	return s.Store.Observe(ctx, key, s.Apprise != nil, func(state *database.AlertState) *events.MonitoringAlertChanged {
 		state.TargetType, state.TargetID = observation.TargetType, observation.TargetID
 
-		kind := transitionAlert(state, observation.Condition, observation.At.Unix(), int64(s.Config.Duration.Seconds()), int64((3*s.deployment.History.Interval + resourceSampleTimeout).Seconds()))
-		if kind == "" {
+		changed := transitionAlert(state, observation.Condition, observation.At.Unix(), int64(s.Config.Duration.Seconds()), int64((3*s.deployment.History.Interval + resourceSampleTimeout).Seconds()))
+		if !changed {
 			return nil
 		}
 
-		title := fmt.Sprintf("%s — %s alert", observation.Name, observation.Code)
-
-		severity := model.NotificationWarning
-		if observation.Code == "health" || observation.Code == "quota" {
-			severity = model.NotificationFailure
-		}
-
-		if kind == model.NotificationRecovery {
-			title = fmt.Sprintf("%s — %s recovered", observation.Name, observation.Code)
-			observation.Body = "The " + observation.Code + " condition has remained healthy for the configured recovery period."
-			severity = model.NotificationSuccess
-		}
-
-		return &database.Notification{TargetType: observation.TargetType, TargetID: observation.TargetID, Kind: kind, Severity: severity, Title: title, Body: observation.Body, CreatedAt: observation.At.Unix()}
+		return &events.MonitoringAlertChanged{ID: rand.Text(), TargetType: observation.TargetType, TargetID: observation.TargetID, Name: observation.Name, Code: observation.Code, Body: observation.Body, Active: state.Active}
 	})
 }
 
