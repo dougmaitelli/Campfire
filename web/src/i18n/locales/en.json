@@ -967,6 +967,7 @@
     "backups2": "backups",
     "backupsExcludeLinksAndSpecialFilesAndAreLimitedTo": "Backups exclude links and special files and are limited to 100 GiB and 100,000 entries. Manual and scheduled backups use this policy. Deleting the server also deletes its local and S3 backups.",
     "createBackup": "Create backup",
+    "fullBackup": "Full backup",
     "created": "Created",
     "deleteLocal": "Delete local",
     "deleteS3": "Delete S3",

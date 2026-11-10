@@ -1,3 +1,7 @@
+.action-menu-trigger {
+  gap: 8px;
+}
+
 .action-menu {
   inset: auto;
   margin: 8px 0 0;

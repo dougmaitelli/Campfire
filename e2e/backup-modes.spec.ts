@@ -14,12 +14,24 @@ test("manual backups send the selected type and save-data restore describes its 
     .all()) {
     await expect(restore).toBeEnabled();
   }
-  const type = page.getByRole("combobox", { name: "Backup type", exact: true });
-  await type.click();
-  await page
-    .getByRole("option", { name: "Save data only", exact: true })
-    .click();
+  await expect(
+    page.getByRole("combobox", { name: "Backup type", exact: true }),
+  ).toHaveCount(0);
+  const create = page.getByRole("button", {
+    name: "Create backup",
+    exact: true,
+  });
+  await create.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("menuitem", { name: "Full backup", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: "Save data only", exact: true }),
+  ).toBeFocused();
   await screenshot(page, "backup-savedata.png");
+  await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
   const backups = page.getByRole("table", {
     name: "Server backups",
@@ -30,6 +42,11 @@ test("manual backups send the selected type and save-data restore describes its 
     .filter({ hasText: "mock-nightly" });
   for (const width of [320, 390, 600, 768]) {
     await page.setViewportSize({ width, height: 844 });
+    await create.click();
+    await expect(
+      page.getByRole("menu", { name: "Create backup", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await page.keyboard.press("Escape");
     const name = firstBackup.getByText("mock-nightly.tar.gz", { exact: true });
     await name.scrollIntoViewIfNeeded();
     await expect(name).toBeInViewport({ ratio: 1 });
@@ -38,7 +55,9 @@ test("manual backups send the selected type and save-data restore describes its 
     await expect(firstBackup.getByRole("link")).toBeInViewport({ ratio: 1 });
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  await create.click();
   await screenshot(page, "backup-savedata-mobile.png");
+  await page.keyboard.press("Escape");
   const actions = firstBackup.getByRole("button", {
     name: /^Backup actions for /,
   });
@@ -54,6 +73,9 @@ test("manual backups send the selected type and save-data restore describes its 
   );
   await page
     .getByRole("button", { name: "Create backup", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Save data only", exact: true })
     .click();
   expect((await request).postDataJSON()).toMatchObject({
     action: "backup",
@@ -161,7 +183,7 @@ test("backup schedules retain their explicit type", async ({ page }) => {
   await expect(stopOption).toBeDisabled();
 });
 
-test("save-data mode is unavailable when the applied Ember has no paths", async ({
+test("backup menu only offers supported types and creates a full backup", async ({
   page,
 }) => {
   await login(page);
@@ -175,11 +197,23 @@ test("save-data mode is unavailable when the applied Ember has no paths", async 
   });
   await openServerTab(page, "backups", "Backups");
   await page
-    .getByRole("combobox", { name: "Backup type", exact: true })
+    .getByRole("button", { name: "Create backup", exact: true })
     .click();
   await expect(
-    page.getByRole("option", { name: "Save data only", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("menuitem", { name: "Save data only", exact: true }),
+  ).toHaveCount(0);
+  const request = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      request.url().endsWith("/servers/survival/actions"),
+  );
+  await page
+    .getByRole("menuitem", { name: "Full backup", exact: true })
+    .click();
+  expect((await request).postDataJSON()).toMatchObject({
+    action: "backup",
+    backup_mode: "full",
+  });
 });
 
 test("full and save-data retention settings persist independently", async ({

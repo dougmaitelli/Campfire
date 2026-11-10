@@ -16,7 +16,7 @@ import {
   type Backup,
   BackupMode,
 } from "../../api/backups";
-import { BackupModeField } from "./BackupModeField";
+import { ActionMenu, type ActionMenuItem } from "../forms/ActionMenu";
 import {
   serverAction,
   serverStatus,
@@ -52,9 +52,6 @@ export function ServerBackups({ server }: { server: Server }) {
   const { t } = useTranslation();
   const confirmation = useConfirmation();
   const [entries, setEntries] = useState<Backup[]>([]);
-  const [backupMode, setBackupMode] = useState<BackupMode>(BackupMode.Full);
-  const invalidBackupMode =
-    backupMode === BackupMode.Savedata && !server.savedata_available;
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const canDelete = canPerformServer(server, "deleteBackups");
   const canCreate = canPerformServer(server, "createBackups");
@@ -193,14 +190,25 @@ export function ServerBackups({ server }: { server: Server }) {
       if (mounted.current) setBusy(false);
     }
   }
-  async function submit(action: "backup" | "restore", name?: string) {
+  async function submit(
+    action: "backup" | "restore",
+    {
+      name,
+      backupMode = BackupMode.Full,
+    }: { name?: string; backupMode?: BackupMode } = {},
+  ) {
     if (
       pending.current ||
       !(action === ServerAction.Backup ? canCreateNow : canRestoreNow) ||
       !(action === "backup" ? canCreate : canRestore)
     )
       return;
-    if (action === "backup" && invalidBackupMode) return;
+    if (
+      action === "backup" &&
+      backupMode === BackupMode.Savedata &&
+      !server.savedata_available
+    )
+      return;
     if (action === "restore" && running && !canOperate) return;
     pending.current = true;
     setBusy(true);
@@ -303,7 +311,7 @@ export function ServerBackups({ server }: { server: Server }) {
             error={restoreError}
             onClose={() => setRestore(null)}
             onConfirm={() => {
-              void submit("restore", restore.name);
+              void submit("restore", { name: restore.name });
             }}
           >
             <p className="field-help backup-restore-name">
@@ -353,25 +361,38 @@ export function ServerBackups({ server }: { server: Server }) {
         )}
         {canCreate && (
           <ListToolbar className="backup-toolbar">
-            <BackupModeField
-              value={backupMode}
-              onChange={setBackupMode}
-              available={server.savedata_available === true}
-              disabled={busy || status?.busy === true}
-            />
             <ActionGroup>
               <Button disabled={!canChange} onClick={() => setImportOpen(true)}>
                 {t("backupImports.upload")}
               </Button>
-              <Button
+              <ActionMenu
+                label={t("serverBackups.createBackup")}
+                iconOnly={false}
                 variant="primary"
-                disabled={!canCreateNow || invalidBackupMode}
-                onClick={() => {
-                  void submit("backup");
-                }}
-              >
-                {t("serverBackups.createBackup")}
-              </Button>
+                disabled={!canCreateNow}
+                items={[
+                  {
+                    label: t("serverBackups.fullBackup"),
+                    icon: "backups",
+                    onSelect: () => {
+                      void submit("backup", { backupMode: BackupMode.Full });
+                    },
+                  },
+                  ...(server.savedata_available
+                    ? [
+                        {
+                          label: t("backupModes.savedata"),
+                          icon: "folder",
+                          onSelect: () => {
+                            void submit("backup", {
+                              backupMode: BackupMode.Savedata,
+                            });
+                          },
+                        } satisfies ActionMenuItem,
+                      ]
+                    : []),
+                ]}
+              />
             </ActionGroup>
           </ListToolbar>
         )}

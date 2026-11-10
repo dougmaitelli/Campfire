@@ -1,4 +1,5 @@
 import { useId, useRef, type ComponentProps } from "react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "./Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import "./action-menu.css";
@@ -16,9 +17,15 @@ export interface ActionMenuItem {
 export function ActionMenu({
   label,
   items,
+  iconOnly = true,
+  variant = "default",
+  disabled = false,
 }: {
   label: string;
   items: ActionMenuItem[];
+  iconOnly?: boolean;
+  variant?: ComponentProps<typeof Button>["variant"];
+  disabled?: boolean;
 }) {
   const id = useId();
   const menu = useRef<HTMLDivElement>(null);
@@ -26,13 +33,23 @@ export function ActionMenu({
     <>
       <Button
         type="button"
-        iconOnly
+        iconOnly={iconOnly}
+        variant={variant}
+        disabled={disabled}
+        className={iconOnly ? undefined : "action-menu-trigger"}
         title={label}
         aria-label={label}
         aria-haspopup="menu"
         popoverTarget={id}
       >
-        <NavigationIcon name="more" />
+        {iconOnly ? (
+          <NavigationIcon name="more" />
+        ) : (
+          <>
+            {label}
+            <ChevronDown size={16} aria-hidden="true" />
+          </>
+        )}
       </Button>
       <div
         id={id}
@@ -93,7 +110,9 @@ export function ActionMenu({
             role="menuitem"
             tabIndex={-1}
             className={item.tone ? `action-menu-${item.tone}` : undefined}
-            disabled={item.disabled === true || item.loading === true}
+            disabled={
+              disabled || item.disabled === true || item.loading === true
+            }
             aria-busy={item.loading}
             onClick={() => {
               menu.current?.hidePopover();

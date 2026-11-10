@@ -76,6 +76,9 @@ for (const action of [ServerAction.Backup, ServerAction.Restore]) {
       await page
         .getByRole("button", { name: "Create backup", exact: true })
         .click();
+      await page
+        .getByRole("menuitem", { name: "Full backup", exact: true })
+        .click();
     } else {
       await page
         .getByRole("row")
