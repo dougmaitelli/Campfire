@@ -16,6 +16,12 @@
     overflow-wrap: anywhere;
   }
 
+  & > div[data-change] {
+    padding-inline: 12px;
+    border-inline-start: 2px solid var(--accent-border);
+    background: var(--accent-subtle);
+  }
+
   & dt {
     color: var(--muted);
   }

@@ -20,6 +20,7 @@ export interface WizardStep {
   title: string;
   content: ReactNode;
   validate?: () => string | null;
+  changed?: boolean | undefined;
 }
 
 interface WizardProps {
@@ -169,6 +170,9 @@ export function Wizard({
             <button
               type="button"
               className="wizard-step-link"
+              data-changed={item.changed ? true : undefined}
+              aria-description={item.changed ? t("changes.step") : undefined}
+              title={item.changed ? t("changes.step") : undefined}
               disabled={
                 busy || (!allowAllSteps && position > completedThrough + 1)
               }

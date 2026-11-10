@@ -3,7 +3,7 @@
   margin-bottom: 20px;
 
   & > label,
-  & > .form-field-label-row > label {
+  & > .form-field-label-row label {
     display: block;
     margin: 0 0 8px;
     font-size: 14px;
@@ -17,7 +17,7 @@
     gap: 12px;
     margin-bottom: 8px;
 
-    & > label {
+    & label {
       margin: 0;
     }
   }
@@ -29,6 +29,12 @@
     width: 100%;
     margin-bottom: 0;
   }
+}
+.form-field-label-with-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  row-gap: 4px;
 }
 .form-field-action {
   padding: 0;
@@ -57,6 +63,12 @@
     color: var(--muted);
     cursor: default;
   }
+}
+.form-field[data-change]
+  > :is(.text-input, .textarea, .select, .toggle-switch):not(:focus-visible) {
+  border-color: var(--accent-border);
+  outline: 1px solid var(--accent-border);
+  outline-offset: 2px;
 }
 .form-field > .field-help,
 .form-field-error {

@@ -5,6 +5,7 @@ import { expect, test, vi } from "vitest";
 import type { EmberVariable } from "../../src/api/embers";
 import { ServerVariableField } from "../../src/components/servers/ServerVariableField";
 import { ServerReview } from "../../src/components/servers/ServerReview";
+import { serverConfigurationChanges } from "../../src/utils/serverConfigurationChanges";
 
 const variable: EmberVariable = {
   name: "ENABLE_CROSSPLAY",
@@ -92,6 +93,83 @@ test("untyped 0/1 variables remain text inputs", () => {
     (screen.getByRole("textbox", { name: "TEXT_SETTING" }) as HTMLInputElement)
       .value,
   ).toBe("1");
+});
+
+test("change descriptions preserve control names and disappear when a value is reverted", () => {
+  const props = { variable, value: "1", disabled: false, onChange: vi.fn() };
+  const view = render(<ServerVariableField {...props} change="added" />);
+  const toggle = screen.getByRole("switch", {
+    name: "ENABLE_CROSSPLAY",
+  });
+  expect(screen.getByLabelText("ENABLE_CROSSPLAY", { exact: true })).toBe(
+    toggle,
+  );
+  expect(toggle.closest(".form-field")?.getAttribute("data-change")).toBe(
+    "added",
+  );
+  expect(
+    document.getElementById(toggle.getAttribute("aria-describedby")!)
+      ?.textContent,
+  ).toBe("Added");
+  view.rerender(<ServerVariableField {...props} />);
+  expect(toggle.closest(".form-field")?.hasAttribute("data-change")).toBe(
+    false,
+  );
+  expect(toggle.hasAttribute("aria-describedby")).toBe(false);
+});
+
+test("update reviews mark saved-value changes, removed variables, and reset startup overrides", () => {
+  const value = {
+    name: "Test",
+    description: "",
+    spark_id: "spark",
+    ember_id: "ember",
+    image: "new",
+    cpu_limit: 1,
+    memory_mb: 1024,
+    disk_mb: 1024,
+    ports: [],
+    variables: { ADDED: "" },
+  };
+  const before = {
+    ...value,
+    image: "old",
+    startup_override: "custom",
+    variables: { REMOVED: "old value" },
+  };
+  render(
+    <ServerReview
+      value={value}
+      changes={serverConfigurationChanges(before, value)}
+      sparkName="Spark"
+      emberName="Ember"
+      notice=""
+    />,
+  );
+  expect(
+    screen
+      .getByText("ADDED", { exact: true })
+      .closest("div")
+      ?.getAttribute("data-change"),
+  ).toBe("added");
+  expect(
+    screen
+      .getByText("REMOVED", { exact: true })
+      .closest("div")
+      ?.getAttribute("data-change"),
+  ).toBe("removed");
+  expect(
+    screen
+      .getByText("Use Ember default")
+      .closest("div")
+      ?.getAttribute("data-change"),
+  ).toBe("changed");
+  expect(
+    screen
+      .getByText("new", { exact: true })
+      .closest("div")
+      ?.getAttribute("data-change"),
+  ).toBe("changed");
 });
 
 test("read-only reviews format only declared booleans and preserve empty values", () => {

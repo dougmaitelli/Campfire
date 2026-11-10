@@ -65,6 +65,11 @@ import { serverAction, ServerAction } from "../api/runtime";
 import { ProgressBar } from "../components/status/ProgressBar";
 import { ServerIntegrationsStep } from "../components/servers/ServerIntegrationsStep";
 import { useServerIntegrations } from "../hooks/useServerIntegrations";
+import {
+  serverConfigurationChanges,
+  type ConfigurationChange,
+} from "../utils/serverConfigurationChanges";
+import { ChangeIndicator } from "../components/status/ChangeIndicator";
 
 interface ServerDrawerProps {
   copy?: CopyTemplate | undefined;
@@ -289,6 +294,28 @@ export function ServerDrawer({
   const visibleVariables = (ember?.variables ?? []).filter(
     (variable) => !variable.hidden,
   );
+  const changes =
+    applyRevision && server
+      ? serverConfigurationChanges(server, value)
+      : undefined;
+  const removedVariables = Object.entries(changes?.variables ?? {})
+    .filter(([, change]) => change === "removed")
+    .map(([name]) => name);
+  const variablesChanged = Object.keys(changes?.variables ?? {}).length > 0;
+  const anyChanges =
+    variablesChanged || Object.keys(changes?.fields ?? {}).length > 0;
+  function portChange(
+    index: number,
+    keys: (keyof ServerPort)[],
+  ): ConfigurationChange | undefined {
+    if (!changes?.fields.ports || !server) return undefined;
+    const before = server.ports[index];
+    const after = value.ports[index];
+    if (!before) return "added";
+    return keys.some((key) => before[key] !== after?.[key])
+      ? "changed"
+      : undefined;
+  }
   function changePort(index: number, changes: Partial<ServerPort>) {
     setValue({
       ...value,
@@ -469,6 +496,16 @@ export function ServerDrawer({
         {
           id: "basics",
           title: t("serverDrawer.general"),
+          changed: (
+            [
+              "name",
+              "description",
+              "image",
+              "startup_command",
+              "startup_override",
+              "game_integration",
+            ] as const
+          ).some((key) => !!changes?.fields[key]),
           validate: () =>
             copy?.server.ember_update_available
               ? i18n.t("serverCopy.updateRequired")
@@ -588,7 +625,10 @@ export function ServerDrawer({
                   ))}
                 </Select>
               </FormField>
-              <FormField label={t("serverDrawer.serverName")}>
+              <FormField
+                label={t("serverDrawer.serverName")}
+                change={changes?.fields.name}
+              >
                 <TextInput
                   id="server-name"
                   required
@@ -600,7 +640,10 @@ export function ServerDrawer({
                   placeholder={t("serverDrawer.fridayMinecraft")}
                 />
               </FormField>
-              <FormField label={t("serverDrawer.descriptionOptional")}>
+              <FormField
+                label={t("serverDrawer.descriptionOptional")}
+                change={changes?.fields.description}
+              >
                 <Textarea
                   id="server-description"
                   placeholder={t("common.descriptionPlaceholder")}
@@ -664,6 +707,7 @@ export function ServerDrawer({
               {Object.keys(ember?.startup_commands ?? {}).length > 0 && (
                 <FormField
                   label={t("serverDrawer.startupCommand")}
+                  change={changes?.fields.startup_command}
                   description={t(
                     "serverDrawer.chooseTheStartupOptionThisServerWillUseChangesApply",
                   )}
@@ -708,6 +752,7 @@ export function ServerDrawer({
               )}
               <FormField
                 label={t("serverDrawer.customStartupCommand")}
+                change={changes?.fields.startup_override}
                 labelAction={{
                   label: t("serverDrawer.resetStartupCommand"),
                   disabled:
@@ -737,7 +782,10 @@ export function ServerDrawer({
                   }
                 />
               </FormField>
-              <FormField label={t("serverDrawer.gameIntegration")}>
+              <FormField
+                label={t("serverDrawer.gameIntegration")}
+                change={changes?.fields.game_integration}
+              >
                 <ToggleSwitch
                   aria-label={t("serverDrawer.gameIntegration")}
                   checked={value.game_integration ?? false}
@@ -753,7 +801,10 @@ export function ServerDrawer({
               <p className="field-help">
                 {t("serverDrawer.gameIntegrationHelp")}
               </p>
-              <FormField label={t("serverDrawer.image")}>
+              <FormField
+                label={t("serverDrawer.image")}
+                change={changes?.fields.image}
+              >
                 <Select
                   id="server-image"
                   disabled={runtimeRestricted}
@@ -773,17 +824,19 @@ export function ServerDrawer({
             </>
           ),
         },
-        ...(visibleVariables.length > 0
+        ...(visibleVariables.length > 0 || removedVariables.length > 0
           ? [
               {
                 id: "variables",
                 title: t("serverDrawer.variables"),
+                changed: variablesChanged,
                 content: (
                   <div className="server-variable-fields">
                     {visibleVariables.map((variable) => (
                       <ServerVariableField
                         key={variable.name}
                         variable={variable}
+                        change={changes?.variables[variable.name]}
                         disabled={runtimeRestricted}
                         value={
                           value.variables[variable.name] ?? variable.default
@@ -799,6 +852,17 @@ export function ServerDrawer({
                         }
                       />
                     ))}
+                    {removedVariables.length > 0 && (
+                      <div className="server-removed-variables">
+                        <h4>{t("changes.removedVariables")}</h4>
+                        {removedVariables.map((name) => (
+                          <div key={name}>
+                            {name}
+                            <ChangeIndicator change="removed" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ),
               },
@@ -807,6 +871,9 @@ export function ServerDrawer({
         {
           id: "resources",
           title: t("serverDrawer.resourcesPorts"),
+          changed: (
+            ["cpu_limit", "memory_mb", "disk_mb", "ports"] as const
+          ).some((key) => !!changes?.fields[key]),
           validate: () =>
             value.ports.length > 0 &&
             (ember?.required_ports ?? []).some(
@@ -834,7 +901,10 @@ export function ServerDrawer({
                   }}
                 />
               </p>
-              <FormField label={t("serverDrawer.cpuCores")}>
+              <FormField
+                label={t("serverDrawer.cpuCores")}
+                change={changes?.fields.cpu_limit}
+              >
                 <TextInput
                   id="server-cpu"
                   type="number"
@@ -853,7 +923,10 @@ export function ServerDrawer({
               </FormField>
               <div className="server-form-grid">
                 <div>
-                  <FormField label={t("serverDrawer.memoryMiB")}>
+                  <FormField
+                    label={t("serverDrawer.memoryMiB")}
+                    change={changes?.fields.memory_mb}
+                  >
                     <TextInput
                       id="server-memory"
                       type="number"
@@ -876,6 +949,7 @@ export function ServerDrawer({
                 <div>
                   <FormField
                     label={t("serverDrawer.diskMiB")}
+                    change={changes?.fields.disk_mb}
                     description={t(
                       "serverDrawer.use0ForUnlimitedHardLimitsRequireDiskQuotaSupport",
                     )}
@@ -900,6 +974,7 @@ export function ServerDrawer({
               </div>
               <h4 className="server-drawer-heading">
                 {t("serverDrawer.portMappings")}
+                {changes?.fields.ports && <ChangeIndicator change="changed" />}
               </h4>
               <p className="field-help">
                 {t(
@@ -950,7 +1025,14 @@ export function ServerDrawer({
                   );
                   return (
                     <>
-                      <FormField label={i18n.t("serverDrawer.hostPort")}>
+                      <FormField
+                        label={i18n.t("serverDrawer.hostPort")}
+                        change={portChange(index, [
+                          "bind_ip",
+                          "host_port",
+                          "protocol",
+                        ])}
+                      >
                         <Select
                           id={`mapping-allocation-${index}`}
                           required
@@ -997,7 +1079,10 @@ export function ServerDrawer({
                           )}
                         </Select>
                       </FormField>
-                      <FormField label={i18n.t("serverDrawer.containerPort")}>
+                      <FormField
+                        label={i18n.t("serverDrawer.containerPort")}
+                        change={portChange(index, ["container_port"])}
+                      >
                         <TextInput
                           id={`mapping-container-${index}`}
                           type="number"
@@ -1200,6 +1285,7 @@ export function ServerDrawer({
         {
           id: "review",
           title: t("common.review"),
+          changed: anyChanges,
           validate: integrations.validate,
           content: (
             <>
@@ -1268,6 +1354,7 @@ export function ServerDrawer({
               {!accessOnly && (
                 <ServerReview
                   value={value}
+                  changes={changes}
                   variableTypes={Object.fromEntries(
                     (ember?.variables ?? []).map((variable) => [
                       variable.name,

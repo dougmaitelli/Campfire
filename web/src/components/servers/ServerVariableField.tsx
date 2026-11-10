@@ -3,20 +3,23 @@ import type { EmberVariable } from "../../api/embers";
 import { FormField } from "../forms/FormField";
 import { TextInput } from "../forms/TextInput";
 import { ToggleSwitch } from "../forms/ToggleSwitch";
+import type { ConfigurationChange } from "../../utils/serverConfigurationChanges";
 
 export function ServerVariableField({
   variable,
   value,
   disabled,
   onChange,
+  change,
 }: {
   variable: EmberVariable;
   value: string;
   disabled: boolean;
   onChange: (value: string) => void;
+  change?: ConfigurationChange | undefined;
 }) {
   return (
-    <FormField label={variable.name}>
+    <FormField label={variable.name} change={change}>
       {variable.validation?.type === VariableType.Boolean ? (
         <ToggleSwitch
           id={`variable-${variable.name}`}

@@ -1,4 +1,12 @@
 {
+  "changes": {
+    "added": "Added",
+    "changed": "Changed",
+    "removed": "Removed",
+    "step": "Contains changes",
+    "removedValue": "Will be removed",
+    "removedVariables": "Removed variables"
+  },
   "serverIntegrations": {
     "gameFilterHelp": "Event types are alternatives. Field filters apply only to their event type; all must match.",
     "chooseType": "Choose an event type",

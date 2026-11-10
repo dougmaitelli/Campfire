@@ -84,6 +84,17 @@
   border: 1px solid var(--border);
   border-radius: 50%;
 }
+.wizard-step-link[data-changed] .wizard-step-number::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+}
 .wizard-progress [aria-current="step"] {
   color: var(--accent);
 

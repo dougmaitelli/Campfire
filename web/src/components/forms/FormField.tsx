@@ -5,6 +5,8 @@ import {
   type ReactNode,
   type AriaAttributes,
 } from "react";
+import { ChangeIndicator } from "../status/ChangeIndicator";
+import type { ConfigurationChange } from "../../utils/serverConfigurationChanges";
 import "./form-field.css";
 
 type FieldControlProps = AriaAttributes & { id?: string };
@@ -20,6 +22,7 @@ export function FormField({
   error,
   children,
   className,
+  change,
 }: {
   label: ReactNode;
   labelAction?: FieldAction | undefined;
@@ -27,6 +30,7 @@ export function FormField({
   error?: ReactNode;
   children: ReactElement<FieldControlProps>;
   className?: string;
+  change?: ConfigurationChange | undefined;
 }) {
   const generatedId = useId();
   const id = children.props.id ?? generatedId;
@@ -34,36 +38,50 @@ export function FormField({
     children.props["aria-describedby"],
     description && `${id}-help`,
     error && `${id}-error`,
+    change && `${id}-change`,
   ]
     .filter(Boolean)
     .join(" ");
+  const fieldLabel = <label htmlFor={id}>{label}</label>;
+  const labelContent = change ? (
+    <div className="form-field-label-with-change">
+      {fieldLabel}
+      <ChangeIndicator id={`${id}-change`} change={change} />
+    </div>
+  ) : (
+    fieldLabel
+  );
   return (
-    <div className={["form-field", className].filter(Boolean).join(" ")}>
-      {labelAction ? (
+    <div
+      className={["form-field", className].filter(Boolean).join(" ")}
+      data-change={change}
+    >
+      {labelAction || change ? (
         <div className="form-field-label-row">
-          <label htmlFor={id}>{label}</label>
-          {labelAction.href !== undefined ? (
-            <a
-              className="form-field-action"
-              href={labelAction.href}
-              target={labelAction.target}
-              rel={labelAction.rel}
-            >
-              {labelAction.label}
-            </a>
-          ) : (
-            <button
-              type="button"
-              className="form-field-action"
-              onClick={labelAction.onClick}
-              disabled={labelAction.disabled}
-            >
-              {labelAction.label}
-            </button>
-          )}
+          {labelContent}
+          {labelAction &&
+            (labelAction.href !== undefined ? (
+              <a
+                className="form-field-action"
+                href={labelAction.href}
+                target={labelAction.target}
+                rel={labelAction.rel}
+              >
+                {labelAction.label}
+              </a>
+            ) : (
+              <button
+                type="button"
+                className="form-field-action"
+                onClick={labelAction.onClick}
+                disabled={labelAction.disabled}
+              >
+                {labelAction.label}
+              </button>
+            ))}
         </div>
       ) : (
-        <label htmlFor={id}>{label}</label>
+        fieldLabel
       )}
       {cloneElement(children, {
         id,

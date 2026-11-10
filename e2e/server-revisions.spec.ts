@@ -165,6 +165,23 @@ for (const mobile of [false, true]) {
       data: {
         ...ember,
         startup: `${ember.startup} # updated`,
+        images: { "Java 25": "ghcr.io/ptero-eggs/yolks:java_25" },
+        variables: [
+          ...(ember.variables ?? []).map((variable) =>
+            variable.name === "INSTALL_CHANNEL"
+              ? { ...variable, default: "preview" }
+              : variable.name === "MC_VERSION"
+                ? { ...variable, default: "1.21.4" }
+                : variable,
+          ),
+          {
+            name: "ENABLE_CROSSPLAY",
+            default: "1",
+            required: false,
+            editable: true,
+            validation: { type: "boolean" },
+          },
+        ],
         savedata_paths: [{ path: "new-save-directory", required: false }],
       },
     });
@@ -203,8 +220,86 @@ for (const mobile of [false, true]) {
         exact: false,
       }),
     ).toBeVisible();
+    const field = (id: string) =>
+      editor.locator(".form-field").filter({ has: page.locator(`#${id}`) });
+    await expect(field("server-image")).toHaveAttribute(
+      "data-change",
+      "changed",
+    );
+    // The inherited startup changed in the Ember, but there is no saved override change.
+    await expect(field("server-startup-override")).not.toHaveAttribute(
+      "data-change",
+    );
+    await expect(
+      editor.getByRole("button", { name: "General", exact: true }),
+    ).toHaveAccessibleDescription("Contains changes");
+    await expect(
+      editor.getByRole("button", { name: "Variables", exact: true }),
+    ).toHaveAccessibleDescription("Contains changes");
+    await expect(
+      editor.getByRole("button", { name: "Resources & ports", exact: true }),
+    ).not.toHaveAttribute("data-changed");
     await screenshot(page, `server-ember-revision${suffix}.png`, editor);
+    await editor
+      .getByRole("button", { name: "Variables", exact: true })
+      .click();
+    await expect(field("variable-INSTALL_CHANNEL")).toHaveAttribute(
+      "data-change",
+      "changed",
+    );
+    await expect(
+      editor.getByLabel("INSTALL_CHANNEL", { exact: true }),
+    ).toHaveValue("preview");
+    await expect(field("variable-ENABLE_CROSSPLAY")).toHaveAttribute(
+      "data-change",
+      "added",
+    );
+    await expect(
+      editor.getByRole("switch", { name: "ENABLE_CROSSPLAY", exact: true }),
+    ).toHaveAccessibleDescription("Added");
+    await expect(field("variable-MC_VERSION")).not.toHaveAttribute(
+      "data-change",
+    );
+    await expect(editor.getByLabel("MC_VERSION", { exact: true })).toHaveValue(
+      "latest",
+    );
+    await editor.getByRole("button", { name: "General", exact: true }).click();
+    await editor
+      .getByLabel("Startup command text", { exact: true })
+      .fill("java -jar custom.jar");
+    await expect(field("server-startup-override")).toHaveAttribute(
+      "data-change",
+      "changed",
+    );
+    await editor
+      .getByRole("button", { name: "Use Ember default", exact: true })
+      .click();
+    await expect(field("server-startup-override")).not.toHaveAttribute(
+      "data-change",
+    );
+    await editor
+      .getByLabel("Server name", { exact: true })
+      .fill("Temporary name");
+    await expect(field("server-name")).toHaveAttribute(
+      "data-change",
+      "changed",
+    );
+    await editor.getByLabel("Server name", { exact: true }).fill("Survival");
+    await expect(field("server-name")).not.toHaveAttribute("data-change");
+    await editor
+      .getByRole("button", { name: "Resources & ports", exact: true })
+      .click();
+    await editor.locator("#server-cpu").fill("3");
+    await expect(field("server-cpu")).toHaveAttribute("data-change", "changed");
     await editor.getByRole("button", { name: "Review", exact: true }).click();
+    await expect(
+      editor.locator('.details-list > div[data-change="changed"]'),
+    ).toHaveCount(3);
+    await expect(
+      editor.locator('.details-list > div[data-change="added"]'),
+    ).toHaveCount(1);
+    if (!mobile)
+      await screenshot(page, "server-ember-revision-review.png", editor);
     await editor
       .getByRole("button", { name: "Update Ember", exact: true })
       .click();
