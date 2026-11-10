@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/integrations"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -35,7 +37,7 @@ func (r *GameMediaRepository) Append(ctx context.Context, sparkID, serverID, eve
 		}
 
 		var event database.GameEvent
-		if err := tx.Select("id").Where("server_id = ? AND event_id = ?", serverID, eventID).Take(&event).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Where("server_id = ? AND event_id = ?", serverID, eventID).Take(&event).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			return model.ErrGameMediaEventMissing
 		} else if err != nil {
 			return err
@@ -75,7 +77,18 @@ func (r *GameMediaRepository) Append(ctx context.Context, sparkID, serverID, eve
 
 		row := database.GameMedia{GameEventID: event.ID, ServerID: serverID, AttachmentID: media.ID, Name: media.Name, ContentType: media.ContentType, Size: media.Size, Digest: hex.EncodeToString(digest[:]), Data: data}
 
-		return tx.Omit("Event").Create(&row).Error
+		if err := tx.Omit("Event").Create(&row).Error; err != nil {
+			return err
+		}
+
+		labels, err := readGameEventLabels(tx, serverID, event.Type)
+		if err != nil {
+			return err
+		}
+
+		source := model.GameEvent{ID: event.EventID, Type: event.Type, Title: event.Title, OccurredAt: event.OccurredAt, Data: event.Data, FieldLabels: labelsForGameFields(labels[event.Type], event.Data)}
+
+		return NewIntegrationRepository(tx).RouteEvent(ctx, integrations.GameMediaEvent(serverID, source, event.ID, media), time.Now())
 	})
 }
 

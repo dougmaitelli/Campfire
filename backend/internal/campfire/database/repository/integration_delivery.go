@@ -19,6 +19,7 @@ import (
 type IntegrationClaim struct {
 	integrations.Message
 	Connection integrations.Connection
+	ServerID   string
 	ServerName string
 	Reconcile  bool
 }
@@ -128,7 +129,7 @@ func (r *IntegrationRepository) ClaimMessage(ctx context.Context, now time.Time)
 			return err
 		}
 
-		claim = &IntegrationClaim{Message: integrationMessage(row), Connection: connection, ServerName: server.Name, Reconcile: reconcile}
+		claim = &IntegrationClaim{Message: integrationMessage(row), Connection: connection, ServerID: binding.ServerID, ServerName: server.Name, Reconcile: reconcile}
 
 		return nil
 	})

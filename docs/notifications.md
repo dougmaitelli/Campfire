@@ -62,7 +62,7 @@ bot token. Available servers load automatically; use **Add bot to Discord** besi
 the server selector to install it with the required permissions. Returning to the
 panel refreshes the server choices. Choose one and save.
 
-The bot needs **View Channel**, **Send Messages**, **Embed Links**, and **Read
+The bot needs **View Channel**, **Send Messages**, **Embed Links**, **Attach Files**, and **Read
 Message History** in the destination channel. Campfire checks role permissions
 and channel overrides, including member-specific overrides. The channel selector
 explains missing permissions before allowing a test message.

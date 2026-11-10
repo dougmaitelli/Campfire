@@ -805,7 +805,7 @@ test("administrators add, edit, test, disable, and remove Discord connections", 
   );
   const inviteURL = new URL((await invite.getAttribute("href"))!);
   expect(inviteURL.searchParams.get("scope")).toBe("bot");
-  expect(inviteURL.searchParams.get("permissions")).toBe("84992");
+  expect(inviteURL.searchParams.get("permissions")).toBe("117760");
   expect(inviteURL.href).not.toContain("campfire-test-discord-token");
   await screenshot(page, "integrations-discord-add.png", drawer);
   await save.click();

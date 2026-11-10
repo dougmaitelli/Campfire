@@ -1,6 +1,119 @@
 import { test, expect } from "./fixtures";
 import { login } from "./screens";
 
+test("mock Discord renders delivered game images and playable videos", async ({
+  page,
+  baseURL,
+}) => {
+  await login(page);
+  const { csrf_token } = (await (
+    await page.request.get("/api/v1/auth/session")
+  ).json()) as { csrf_token: string };
+  const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
+  expect(
+    (
+      await page.request.put("/api/v1/integrations/discord", {
+        headers,
+        data: {
+          enabled: true,
+          guild_id: "200",
+          token: "campfire-test-discord-token",
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await page.request.post("/api/v1/servers/survival/integrations/discord", {
+        headers,
+        data: {
+          enabled: true,
+          channel_id: "400",
+          subscriptions: [{ category: "game" }],
+          card: { enabled: false, fields: [] },
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const events = (await (
+    await page.request.get("/api/v1/servers/survival/events")
+  ).json()) as {
+    items: {
+      id: number;
+      type: string;
+      title: string;
+      attachments?: {
+        id: string;
+        name: string;
+        content_type: string;
+        size: number;
+      }[];
+    }[];
+  };
+  const event = events.items.find((item) => item.attachments?.length);
+  if (!event) throw new Error("Missing retained media fixture");
+  for (const media of event.attachments!) {
+    expect(
+      (
+        await page.request.post("/__test/integrations/event", {
+          headers: { "X-Campfire-E2E": "integration" },
+          data: {
+            id: `game_media:viewer-${media.id}`,
+            server_id: "survival",
+            category: "game",
+            type: event.type,
+            title: event.title,
+            occurred_at: 1792670400,
+            data: {},
+            attachment: { game_event_id: event.id, media },
+          },
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+  await page.goto("/mock/discord");
+  const image = page.getByRole("img", { name: "mock-world.png" });
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate((node) => (node as HTMLImageElement).naturalWidth),
+    )
+    .toBe(320);
+  const video = page.getByLabel("mock-clip.webm", { exact: true });
+  await expect(video).toBeVisible();
+  await video.evaluate(async (node) => {
+    const clip = node as HTMLVideoElement;
+    await clip.play();
+    clip.pause();
+  });
+  expect(
+    await video.evaluate((node) => (node as HTMLVideoElement).duration),
+  ).toBeGreaterThan(0);
+  const download = page.getByRole("link", {
+    name: "mock-world.png",
+    exact: true,
+  });
+  const url = await download.getAttribute("href");
+  if (!url) throw new Error("Missing mock attachment download URL");
+  const range = await page.request.get(url, {
+    headers: { Range: "bytes=0-15" },
+  });
+  expect(range.status()).toBe(206);
+  expect((await range.body()).length).toBe(16);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(image).toBeVisible();
+  expect(
+    await image.evaluate((node) => node.getBoundingClientRect().right),
+  ).toBeLessThanOrEqual(390);
+  await page
+    .getByRole("article")
+    .filter({ has: image })
+    .getByRole("button", { name: "Delete message", exact: true })
+    .click();
+  await expect(image).toHaveCount(0);
+  expect((await page.request.get(url)).status()).toBe(404);
+});
+
 test("mock Discord shows real deliveries, edits one card, and recreates a deleted card", async ({
   page,
   baseURL,

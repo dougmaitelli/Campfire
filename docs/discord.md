@@ -15,7 +15,7 @@ filters, card fields, and freshness behavior.
    Discord's
    [bot authorization flow](https://docs.discord.com/developers/topics/oauth2#bot-authorization-flow)
    uses the `bot` scope.
-2. Give the bot **View Channel**, **Send Messages**, **Embed Links**, and **Read
+2. Give the bot **View Channel**, **Send Messages**, **Embed Links**, **Attach Files**, and **Read
    Message History** in each destination text channel. Channel overrides can
    remove permissions granted by a role. Campfire checks the effective
    [Discord permissions](https://docs.discord.com/developers/topics/permissions)
@@ -51,6 +51,26 @@ Per-server configuration requires
 `server.configure` and its prerequisite grants. Console-alert sharing
 also needs console-read access; backup-event sharing needs backup-read access.
 Owners, administrators, and server editors can configure integrations.
+
+## Game screenshots and clips
+
+Game-event subscriptions also forward their image and video uploads as native
+Discord attachments. Each completed upload follows the event as its own message
+with the same title and fields, and uses the same event-type and field filters.
+Files arriving after the text notification are still delivered, and upload
+retries do not create duplicate attachment messages. Existing activity is not
+replayed when a destination is enabled.
+
+Files are uploaded directly from retained game media; Discord does not need
+access to authenticated panel URLs. Campfire uses Discord's default 20 MiB
+per-file allowance. Larger files stay available in Activity and produce a
+notification explaining the limit. If activity retention removes a file before
+delivery, its notification explains that the attachment has expired. Files already
+uploaded to Discord remain there independently of panel retention.
+
+The mock Discord viewer displays the same uploads as images and playable videos,
+with download links. It stores disposable copies separately from panel media and
+removes them when their mock message is deleted or the development session resets.
 
 ## Delivery and card recovery
 

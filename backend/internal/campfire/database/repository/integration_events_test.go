@@ -48,6 +48,46 @@ func outgoingEvents(t *testing.T, db *database.Database) []database.IntegrationM
 	return messages
 }
 
+func TestGameMediaRoutingInheritsEventFiltersAndDeduplicatesUploadRetries(t *testing.T) {
+	db, store := integrationEventStore(t)
+
+	binding, err := store.GetBinding(t.Context(), "binding")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	binding.Subscriptions = []integrations.Subscription{{Category: integrations.GameEvents, Rules: []integrations.EventRule{{Type: "game.capture", Fields: map[string]string{"player": "Alex"}}}}}
+	if err := store.UpdateBinding(t.Context(), binding); err != nil {
+		t.Fatal(err)
+	}
+
+	events, media := repository.NewGameEventRepository(db.ORM()), repository.NewGameMediaRepository(db.ORM())
+
+	now := time.Now()
+	for _, player := range []string{"Alex", "Sam"} {
+		event := model.GameEvent{ID: player, Type: "game.capture", Title: "Capture", OccurredAt: now, Data: map[string]any{"player": player}, FieldLabels: model.GameFieldLabels{"player": "Player name"}}
+		if err := events.Append(t.Context(), "node", "first", event, now, time.Hour, 20); err != nil {
+			t.Fatal(err)
+		}
+
+		for range 2 {
+			if err := media.Append(t.Context(), "node", "first", event.ID, model.GameMedia{ID: "image", Name: "shot.png", ContentType: "image/png", Size: 5}, []byte("image")); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	messages := outgoingEvents(t, db)
+	if len(messages) != 2 {
+		t.Fatal("media ignored event filters or upload deduplication", len(messages))
+	}
+
+	var event integrations.Event
+	if err := json.Unmarshal(messages[1].Payload, &event); err != nil || event.Attachment == nil || event.Attachment.GameEventID < 1 || event.Attachment.Media.ID != "image" || event.Data["player"] != "Alex" || event.FieldLabels["player"] != "Player name" {
+		t.Fatal("media lost its source, metadata or filter fields", event, err)
+	}
+}
+
 func TestIntegrationRoutingIsProviderIndependentFilteredAndImmutable(t *testing.T) {
 	db, store := integrationEventStore(t)
 

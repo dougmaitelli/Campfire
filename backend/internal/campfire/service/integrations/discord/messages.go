@@ -93,7 +93,7 @@ func notificationEmbed(serverName string, event integrations.Event, nonce string
 
 // SendEvent uses Discord's nonce deduplication for one immediate retry of an
 // ambiguous response. Later recovery searches for the durable footer reference.
-func (c *Client) SendEvent(ctx context.Context, token, channelID, serverName, nonce string, event integrations.Event) (string, error) {
+func (c *Client) SendEvent(ctx context.Context, token, channelID, serverName, nonce string, event integrations.Event, attachments ...Attachment) (string, error) {
 	if !ValidID(channelID) || event.Validate() != nil {
 		return "", &Error{"Invalid notification destination or payload."}
 	}
@@ -107,6 +107,15 @@ func (c *Client) SendEvent(ctx context.Context, token, channelID, serverName, no
 		} `json:"allowed_mentions"`
 	}{Embeds: []messageEmbed{notificationEmbed(serverName, event, nonce)}, Nonce: nonce, EnforceNonce: true}
 	payload.AllowedMentions.Parse = []string{}
+
+	if len(attachments) > 0 {
+		body, err := attachmentBody(payload, attachments)
+		if err != nil {
+			return "", err
+		}
+
+		return c.sendMessage(ctx, token, channelID, body)
+	}
 
 	return c.sendMessage(ctx, token, channelID, payload)
 }

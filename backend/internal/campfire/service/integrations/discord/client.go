@@ -17,10 +17,11 @@ const (
 	viewChannel   = uint64(1 << 10)
 	sendMessages  = uint64(1 << 11)
 	embedLinks    = uint64(1 << 14)
+	attachFiles   = uint64(1 << 15)
 	readHistory   = uint64(1 << 16)
 	administrator = uint64(1 << 3)
 	// RequiredBotPermissions is the single permission policy for setup and delivery.
-	RequiredBotPermissions = viewChannel | sendMessages | embedLinks | readHistory
+	RequiredBotPermissions = viewChannel | sendMessages | embedLinks | attachFiles | readHistory
 )
 
 // Error reports safe actionable failures without echoing Discord response bodies.
@@ -348,7 +349,7 @@ func missingPermissions(bits uint64) []string {
 	for _, permission := range []struct {
 		bit  uint64
 		name string
-	}{{viewChannel, "View Channel"}, {sendMessages, "Send Messages"}, {embedLinks, "Embed Links"}, {readHistory, "Read Message History"}} {
+	}{{viewChannel, "View Channel"}, {sendMessages, "Send Messages"}, {embedLinks, "Embed Links"}, {attachFiles, "Attach Files"}, {readHistory, "Read Message History"}} {
 		if RequiredBotPermissions&permission.bit != 0 && bits&permission.bit == 0 {
 			missing = append(missing, permission.name)
 		}

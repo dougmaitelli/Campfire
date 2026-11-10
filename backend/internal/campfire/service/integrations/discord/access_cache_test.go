@@ -26,7 +26,7 @@ func TestDeliveryAccessCacheCoalescesExpiresAndInvalidates(t *testing.T) {
 		responses := map[string]string{
 			"/users/@me":              `{"id":"100","username":"Bot","bot":true}`,
 			"/users/@me/guilds":       `[{"id":"200","name":"Community"}]`,
-			"/guilds/200/roles":       `[{"id":"200","permissions":"84992"}]`,
+			"/guilds/200/roles":       `[{"id":"200","permissions":"117760"}]`,
 			"/guilds/200/members/100": `{"roles":[]}`,
 			"/guilds/200/channels":    `[{"id":"400","guild_id":"200","name":"updates","type":0}]`,
 		}

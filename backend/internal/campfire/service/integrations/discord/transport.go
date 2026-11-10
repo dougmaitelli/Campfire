@@ -130,7 +130,11 @@ func (c *Client) do(ctx context.Context, token, method, path string, payload, ou
 
 	var body io.Reader
 
-	if payload != nil {
+	contentType := "application/json"
+
+	if encoded, ok := payload.(multipartBody); ok {
+		body, contentType = bytes.NewReader(encoded.data), encoded.contentType
+	} else if payload != nil {
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return &Failure{Cause: &Error{"Unable to prepare the Discord request."}, Permanent: true}
@@ -146,7 +150,7 @@ func (c *Client) do(ctx context.Context, token, method, path string, payload, ou
 
 	request.Header.Set("Authorization", "Bot "+token)
 	request.Header.Set("User-Agent", "Campfire Discord integration")
-	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Content-Type", contentType)
 
 	mutating := method == http.MethodPost
 

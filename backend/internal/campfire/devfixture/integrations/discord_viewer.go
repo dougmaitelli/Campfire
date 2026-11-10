@@ -3,10 +3,13 @@
 package integrations
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
+	"mime"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 //go:embed discord-viewer/*
@@ -105,11 +108,33 @@ func (d *Discord) ViewerHandler() http.Handler {
 		d.deleteMessage(index)
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("GET /mock/discord/messages/{id}/attachments/{attachment}", func(w http.ResponseWriter, r *http.Request) {
+		d.mu.Lock()
+
+		var found *discordAttachment
+
+		for _, attachment := range d.attachments[r.PathValue("id")] {
+			if attachment.ID == r.PathValue("attachment") {
+				found = &attachment
+				break
+			}
+		}
+		d.mu.Unlock()
+
+		if found == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", found.ContentType)
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": found.Filename}))
+		http.ServeContent(w, r, found.Filename, time.Time{}, bytes.NewReader(found.Data))
+	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; frame-ancestors 'none'; base-uri 'none'")
 
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			// No CORS is offered, and a custom header prevents cross-site form writes.

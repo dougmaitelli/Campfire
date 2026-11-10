@@ -5,6 +5,23 @@
   background: #191b22;
   line-height: 1.5;
 }
+.attachment {
+  margin: 12px 0 0;
+}
+.attachment img,
+.attachment video {
+  display: block;
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 6px;
+}
+.attachment figcaption {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.attachment a {
+  color: #a8c7fa;
+}
 * {
   box-sizing: border-box;
 }

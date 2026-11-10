@@ -10,11 +10,13 @@ import (
 	"campfire/internal/campfire/database/repository"
 	core "campfire/internal/campfire/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	"campfire/internal/shared/model"
 )
 
 type discordProvider struct {
 	secrets Secrets
 	client  *discord.Client
+	media   *repository.GameMediaRepository
 }
 
 func discordDeliveryFailure(err error) error {
@@ -86,7 +88,26 @@ func (p *discordProvider) Send(ctx context.Context, claim repository.Integration
 		return "", err
 	}
 
-	id, err := p.client.SendEvent(ctx, token, claim.DestinationID, claim.ServerName, discord.MessageNonce(claim.BindingID, claim.EventID), event)
+	var attachments []discord.Attachment
+
+	if ref := event.Attachment; ref != nil {
+		if ref.Media.Size > discord.AttachmentFileLimit {
+			event.Body = "Attachment " + ref.Media.Name + " exceeds Discord's 20 MiB upload limit."
+		} else {
+			media, readErr := p.media.Get(ctx, claim.ServerID, ref.GameEventID, ref.Media.ID)
+			if errors.Is(readErr, model.ErrGameMediaNotFound) {
+				event.Body = "Attachment " + ref.Media.Name + " is no longer available in retained game activity."
+			} else if readErr != nil {
+				return "", &core.DeliveryFailure{Message: "The game attachment could not be read. Delivery will be retried."}
+			} else if media.Metadata() != ref.Media {
+				return "", &core.DeliveryFailure{Message: "The saved game attachment reference is invalid.", Permanent: true}
+			} else {
+				attachments = append(attachments, discord.Attachment{Media: media.Metadata(), Data: media.Data})
+			}
+		}
+	}
+
+	id, err := p.client.SendEvent(ctx, token, claim.DestinationID, claim.ServerName, discord.MessageNonce(claim.BindingID, claim.EventID), event, attachments...)
 
 	return id, discordDeliveryFailure(err)
 }

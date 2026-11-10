@@ -127,6 +127,33 @@ function render() {
       if (embed.footer?.text) card.append(element("footer", embed.footer.text));
       article.append(card);
     }
+    for (const attachment of message.attachments ?? []) {
+      const group = element("figure", undefined, "attachment");
+      if (attachment.content_type.startsWith("image/")) {
+        const image = element("img");
+        image.src = attachment.url;
+        image.alt = attachment.filename;
+        image.loading = "lazy";
+        group.append(image);
+      } else if (attachment.content_type.startsWith("video/")) {
+        const video = element("video");
+        video.controls = true;
+        video.preload = "metadata";
+        video.setAttribute("aria-label", attachment.filename);
+        const source = element("source");
+        source.src = attachment.url;
+        source.type = attachment.content_type;
+        video.append(source);
+        group.append(video);
+      }
+      const caption = element("figcaption");
+      const download = element("a", attachment.filename);
+      download.href = attachment.url;
+      download.download = attachment.filename;
+      caption.append(download);
+      group.append(caption);
+      article.append(group);
+    }
     messages.append(article);
   }
 }

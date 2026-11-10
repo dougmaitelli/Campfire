@@ -20,12 +20,14 @@ const DiscordToken = "campfire-test-discord-token"
 // Discord keeps a simulated provider's messages and channel failures in memory.
 // Its HTTP API and viewer share this state; neither is registered in production.
 type Discord struct {
-	mu       sync.Mutex
-	messages []map[string]any
-	nonces   map[string]map[string]any
-	attempts map[string]int
-	failures map[string]string
-	sequence int
+	mu          sync.Mutex
+	messages    []map[string]any
+	nonces      map[string]map[string]any
+	attempts    map[string]int
+	failures    map[string]string
+	sequence    int
+	attachments map[string][]discordAttachment
+	mediaBytes  int
 }
 
 // NewDiscord creates a fresh disposable provider.
@@ -46,6 +48,8 @@ func (d *Discord) Reset() {
 	d.attempts = map[string]int{}
 	d.failures = map[string]string{}
 	d.sequence = 499
+	d.attachments = map[string][]discordAttachment{}
+	d.mediaBytes = 0
 }
 
 // DiscordHandler preserves the small HTTP-fixture entry point for service tests.
@@ -174,12 +178,8 @@ func (d *Discord) serveAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Discord) createMessage(w http.ResponseWriter, r *http.Request, channelID, credential string) any {
-	var payload struct {
-		Nonce   string           `json:"nonce"`
-		Content string           `json:"content"`
-		Embeds  []map[string]any `json:"embeds"`
-	}
-	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&payload) != nil {
+	payload, attachments, err := readDiscordMessage(w, r)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return nil
 	}
@@ -221,14 +221,25 @@ func (d *Discord) createMessage(w http.ResponseWriter, r *http.Request, channelI
 	}
 
 	d.sequence++
+
 	message := map[string]any{"id": strconv.Itoa(d.sequence), "channel_id": channelID, "timestamp": time.Now().UTC(), "author": map[string]string{"id": "100"}, "content": payload.Content, "embeds": payload.Embeds}
+	if len(attachments) > 0 {
+		id := strconv.Itoa(d.sequence)
+		for index := range attachments {
+			attachments[index].URL = "/mock/discord/messages/" + id + "/attachments/" + attachments[index].ID
+			d.mediaBytes += len(attachments[index].Data)
+		}
+
+		d.attachments[id] = attachments
+		message["attachments"] = attachments
+	}
 
 	d.messages = append(d.messages, message)
 	if payload.Nonce != "" {
 		d.nonces[key] = message
 	}
 	// Keep long-running development sessions bounded, like a retained channel history.
-	if len(d.messages) > 2000 {
+	for len(d.messages) > 2000 || d.mediaBytes > 64<<20 {
 		d.deleteMessage(0)
 	}
 
@@ -247,6 +258,14 @@ func (d *Discord) findMessage(channelID, id string) int {
 
 func (d *Discord) deleteMessage(index int) {
 	id := d.messages[index]["id"]
+	if id, ok := id.(string); ok {
+		for _, attachment := range d.attachments[id] {
+			d.mediaBytes -= len(attachment.Data)
+		}
+
+		delete(d.attachments, id)
+	}
+
 	for key, message := range d.nonces {
 		if message["id"] == id {
 			delete(d.nonces, key)

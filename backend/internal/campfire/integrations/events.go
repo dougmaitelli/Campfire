@@ -25,6 +25,14 @@ type Event struct {
 	OccurredAt  int64                 `json:"occurred_at"`
 	Data        map[string]any        `json:"data"`
 	FieldLabels model.GameFieldLabels `json:"field_labels,omitempty"`
+	Attachment  *EventAttachment      `json:"attachment,omitempty"`
+}
+
+// EventAttachment references retained bytes; notification payloads never copy
+// media blobs or expose authenticated panel download URLs to providers.
+type EventAttachment struct {
+	GameEventID int64           `json:"game_event_id"`
+	Media       model.GameMedia `json:"media"`
 }
 
 // Validate excludes unbounded or structured data from notification payloads.
@@ -41,6 +49,10 @@ func (e Event) Validate() error {
 		if _, ok := ScalarText(value); !ok {
 			return errors.New("invalid integration event value")
 		}
+	}
+
+	if e.Attachment != nil && (e.Category != GameEvents || e.Attachment.GameEventID < 1 || !e.Attachment.Media.Valid() || e.Attachment.Media.Size < 1) {
+		return errors.New("invalid integration event attachment")
 	}
 
 	return e.FieldLabels.Validate(e.Data)
@@ -104,6 +116,17 @@ func GameEvent(serverID string, event model.GameEvent) Event {
 	}
 
 	return Event{ID: "game:" + hex.EncodeToString(id[:]), ServerID: serverID, Category: GameEvents, Type: event.Type, Title: event.Title, OccurredAt: event.OccurredAt.Unix(), Data: data, FieldLabels: event.FieldLabels}
+}
+
+// GameMediaEvent routes each completed upload with the original event's filter
+// fields, including uploads arriving after the text notification was delivered.
+func GameMediaEvent(serverID string, event model.GameEvent, storedEventID int64, media model.GameMedia) Event {
+	result := GameEvent(serverID, event)
+	digest := sha256.Sum256([]byte(event.ID + "\x00" + media.ID))
+	result.ID = "game_media:" + hex.EncodeToString(digest[:])
+	result.Attachment = &EventAttachment{GameEventID: storedEventID, Media: media}
+
+	return result
 }
 
 // ConsoleAlert deliberately omits evidence, paths, and raw console output.

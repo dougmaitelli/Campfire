@@ -17,7 +17,7 @@ func TestBotInviteUsesPublicIdentityAndCentralPermissionPolicy(t *testing.T) {
 	}
 
 	query := link.Query()
-	if link.Scheme != "https" || link.Host != "discord.com" || link.Path != "/oauth2/authorize" || query.Get("client_id") != "100" || query.Get("scope") != "bot" || query.Get("permissions") != "84992" || query.Get("guild_id") != "200" || len(query) != 4 {
+	if link.Scheme != "https" || link.Host != "discord.com" || link.Path != "/oauth2/authorize" || query.Get("client_id") != "100" || query.Get("scope") != "bot" || query.Get("permissions") != "117760" || query.Get("guild_id") != "200" || len(query) != 4 {
 		t.Fatal("unexpected bot grant", link)
 	}
 
@@ -27,7 +27,7 @@ func TestBotInviteUsesPublicIdentityAndCentralPermissionPolicy(t *testing.T) {
 }
 
 func TestRequiredBotPermissionsIncludeEverySetupRequirement(t *testing.T) {
-	if RequiredBotPermissions != 84992 || len(RequiredPermissionNames()) != 4 {
+	if RequiredBotPermissions != 117760 || len(RequiredPermissionNames()) != 5 {
 		t.Fatal("required permission mask or guidance is inconsistent", RequiredBotPermissions, RequiredPermissionNames())
 	}
 }
@@ -42,6 +42,7 @@ func TestEffectivePermissionsHonorChannelOverridePrecedence(t *testing.T) {
 	}{
 		{"base role", RequiredBotPermissions, false, nil, true},
 		{"missing history", RequiredBotPermissions &^ readHistory, false, nil, false},
+		{"missing attachments", RequiredBotPermissions &^ attachFiles, false, nil, false},
 		{"everyone denies", RequiredBotPermissions, false, []overwrite{{ID: "200", Type: 0, Allow: "0", Deny: "2048"}}, false},
 		{"role restores", RequiredBotPermissions, false, []overwrite{{ID: "200", Type: 0, Allow: "0", Deny: "2048"}, {ID: "300", Type: 0, Allow: "2048", Deny: "0"}}, true},
 		{"member denies", RequiredBotPermissions, false, []overwrite{{ID: "100", Type: 1, Allow: "0", Deny: "2048"}}, false},
@@ -58,7 +59,7 @@ func TestEffectivePermissionsHonorChannelOverridePrecedence(t *testing.T) {
 		})
 	}
 
-	if bits, err := permissions("18446744073709636608"); err != nil || bits&RequiredBotPermissions != RequiredBotPermissions {
+	if bits, err := permissions("18446744073709669376"); err != nil || bits&RequiredBotPermissions != RequiredBotPermissions {
 		t.Fatal("higher Discord permission bits broke the required mask", bits, err)
 	}
 }

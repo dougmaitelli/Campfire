@@ -57,7 +57,7 @@ type DiscordIntegrationStatus struct {
 
 // NewDiscordIntegrationService keeps provider transport separate from persistence.
 func NewDiscordIntegrationService(db *gorm.DB, secrets Secrets, client *discord.Client) *DiscordIntegrationService {
-	provider := &discordProvider{secrets: secrets, client: client}
+	provider := &discordProvider{secrets: secrets, client: client, media: repository.NewGameMediaRepository(db)}
 	store := repository.NewIntegrationRepository(db)
 
 	return &DiscordIntegrationService{db: db, secrets: secrets, client: client, delivery: &DeliveryWorker{Store: store, Providers: map[string]MessageProvider{"discord": provider}}, cards: &CardWorker{Store: store, Providers: map[string]CardProvider{"discord": provider}}}
