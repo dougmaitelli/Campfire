@@ -31,7 +31,7 @@ test("mobile login supports password visibility and keyboard submission", async 
 });
 
 for (const localLogin of [false, true]) {
-  test(`OpenID Connect login with local login ${localLogin ? "enabled" : "disabled"}`, async ({
+  test(`OIDC login with local login ${localLogin ? "enabled" : "disabled"}`, async ({
     page,
   }) => {
     await page.route("**/api/v1/auth/session", (route) =>
@@ -68,7 +68,7 @@ for (const localLogin of [false, true]) {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto("/?oidc_error=failed");
     await expect(page.getByRole("alert")).toContainText(
-      "OpenID Connect sign-in failed",
+      "OIDC sign-in failed",
     );
     await expect(provider).toBeVisible();
     await page.route("**/api/v1/auth/oidc/start", (route) =>

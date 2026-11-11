@@ -158,7 +158,7 @@ export function AccountMenu() {
                   components={{ navigationIcon: <NavigationIcon name="key" /> }}
                 />
               </button>
-              {auth.session?.oidc_enabled && (
+              {auth.session?.oidc_enabled && !auth.session.oidc_linked && (
                 <button
                   type="button"
                   onClick={() => {

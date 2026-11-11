@@ -175,6 +175,11 @@ func (s *OIDCService) Start(ctx context.Context, linkToken string) (string, stri
 	return s.oauth.AuthCodeURL(attempt.state, oidc.Nonce(attempt.nonce), oauth2.S256ChallengeOption(attempt.verifier)), cookie, nil
 }
 
+// Linked reports whether an account is linked to this provider.
+func (s *OIDCService) Linked(ctx context.Context, userID int64) (bool, error) {
+	return s.auth.store.HasOIDCIdentity(ctx, userID, s.issuer)
+}
+
 // Complete consumes a flow before exchanging its code and validating the signed ID token.
 func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) (database.UserSession, string, error) {
 	s.mu.Lock()

@@ -253,8 +253,8 @@
     "accountOptions": "Account options",
     "accountOptionsFor": "Account options for {{name}}",
     "apiTokens": "<navigationIcon/>API tokens",
-    "linkOpenIDConnect": "<navigationIcon/>Link OpenID Connect",
-    "openidConnectFailedTheIdentityMayAlreadyBelongToAnother": "OpenID Connect failed. The identity may already belong to another account. Try again or contact your administrator.",
+    "linkOpenIDConnect": "<navigationIcon/>Link OIDC",
+    "openidConnectFailedTheIdentityMayAlreadyBelongToAnother": "OIDC failed. The identity may already belong to another account. Try again or contact your administrator.",
     "signOut": "Sign out",
     "unableToUpdateAccount": "Unable to update account."
   },
@@ -313,7 +313,7 @@
   },
   "auth": {
     "unexpectedAuthenticationResponse": "Unexpected authentication response.",
-    "unexpectedOpenIDConnectResponse": "Unexpected OpenID Connect response."
+    "unexpectedOpenIDConnectResponse": "Unexpected OIDC response."
   },
   "authenticationPage": {
     "aHomeForYourGameServers": "A home for your game servers.",
@@ -330,7 +330,7 @@
     "createAdministrator": "Create administrator",
     "createTheAdministratorAccountToManageYourGameServers": "Create the administrator account to manage your game servers.",
     "forgotYourPasswordUseTheResetPasswordCommandOnYour": "Forgot your password? Use the reset-password command on your Campfire host.",
-    "openidConnectSignInFailedPleaseTryAgainOrContact": "OpenID Connect sign-in failed. Please try again or contact your administrator.",
+    "openidConnectSignInFailedPleaseTryAgainOrContact": "OIDC sign-in failed. Please try again or contact your administrator.",
     "password": "Password",
     "pleaseWait": "Please wait…",
     "retry": "Retry",

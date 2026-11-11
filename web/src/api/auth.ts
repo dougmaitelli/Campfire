@@ -13,6 +13,7 @@ export interface AuthState {
   setup_required: boolean;
   local_login?: boolean;
   oidc_enabled?: boolean;
+  oidc_linked?: boolean;
   username?: string;
   name?: string;
   picture?: string;
@@ -49,6 +50,7 @@ function isAuthState(value: unknown): value is AuthState {
     typeof value.local_login === "boolean" &&
     "oidc_enabled" in value &&
     typeof value.oidc_enabled === "boolean" &&
+    (!("oidc_linked" in value) || typeof value.oidc_linked === "boolean") &&
     (!("name" in value) || typeof value.name === "string") &&
     (!("picture" in value) || typeof value.picture === "string") &&
     (!("view_as_ended" in value) || typeof value.view_as_ended === "boolean") &&

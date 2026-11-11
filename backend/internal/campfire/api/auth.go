@@ -25,6 +25,7 @@ type authState struct {
 	ExpiresAt   int64        `json:"expires_at,omitempty"`
 	LocalLogin  bool         `json:"local_login"`
 	OIDCEnabled bool         `json:"oidc_enabled"`
+	OIDCLinked  bool         `json:"oidc_linked"`
 	ViewAs      *viewAsState `json:"view_as,omitempty"`
 	ViewAsEnded bool         `json:"view_as_ended,omitempty"`
 }
@@ -250,6 +251,13 @@ func (a *API) writeLoginState(w http.ResponseWriter, r *http.Request, session da
 	}
 
 	state.OIDCEnabled = a.oidc != nil
+	if a.oidc != nil {
+		state.OIDCLinked, err = a.oidc.Linked(r.Context(), principal.UserID)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+	}
 
 	writeJSON(w, http.StatusOK, state)
 }
@@ -262,7 +270,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 	}
 
 	if !localLogin {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "local login is disabled; sign in with OpenID Connect"})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "local login is disabled; sign in with OIDC"})
 		return
 	}
 

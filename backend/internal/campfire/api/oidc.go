@@ -25,7 +25,7 @@ func (a *API) oidcFlowCookie(w http.ResponseWriter, r *http.Request, value strin
 
 func (a *API) startOIDC(w http.ResponseWriter, r *http.Request, link bool) {
 	if a.oidc == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "OpenID Connect is not enabled"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "OIDC is not enabled"})
 		return
 	}
 
@@ -70,7 +70,7 @@ func (a *API) oidcLink(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 	if a.oidc == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "OpenID Connect is not enabled"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "OIDC is not enabled"})
 		return
 	}
 

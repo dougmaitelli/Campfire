@@ -181,6 +181,14 @@ func oidcEmailAccount(tx *gorm.DB, email string, verified bool) (database.User, 
 	return user, nil
 }
 
+// HasOIDCIdentity reports whether an account is linked to the configured issuer.
+func (r *AuthRepository) HasOIDCIdentity(ctx context.Context, userID int64, issuer string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&database.OIDCIdentity{}).Where("user_id = ? AND issuer = ?", userID, issuer).Count(&count).Error
+
+	return count > 0, err
+}
+
 // HasOIDCAdmin prevents enabling OIDC-only login before an administrator can use it.
 func (r *AuthRepository) HasOIDCAdmin(ctx context.Context, issuer string) (bool, error) {
 	var count int64

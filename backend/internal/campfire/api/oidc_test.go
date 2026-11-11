@@ -83,7 +83,7 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	t.Cleanup(providerServer.Close)
 	issuer = providerServer.URL
 
-	config := service.OIDCConfig{Issuer: issuer, ClientID: "campfire", PublicURL: "https://panel.example.com", DisableLocal: true}
+	config := service.OIDCConfig{Issuer: issuer, ClientID: "campfire", PublicURL: "https://panel.example.com", DisableLocal: false}
 
 	provider, err := service.NewOIDCService(ctx, auth, config)
 	if err != nil {
@@ -126,6 +126,10 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	}
 
 	localCookie := &http.Cookie{Name: "campfire_session", Value: raw}
+	response = authRequest(handler, "GET", "/api/v1/auth/session", "", localCookie, "", "")
+	if !strings.Contains(response.Body.String(), `"oidc_linked":false`) {
+		t.Fatal("unlinked account advertised as linked", response.Code, response.Body)
+	}
 	if response := authRequest(handler, "POST", "/api/v1/auth/oidc/link", "", localCookie, "", ""); response.Code != http.StatusForbidden {
 		t.Fatal("account linking did not require CSRF", response.Code)
 	}
@@ -138,6 +142,21 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	if err := db.ORM().Omit("User").Create(&database.OIDCIdentity{Issuer: issuer, Subject: "admin", UserID: user.ID}).Error; err != nil {
 		t.Fatal(err)
 	}
+
+	response = authRequest(handler, "GET", "/api/v1/auth/session", "", localCookie, "", "")
+	if !strings.Contains(response.Body.String(), `"oidc_linked":true`) {
+		t.Fatal("linked account advertised as unlinked", response.Code, response.Body)
+	}
+
+	// An OIDC browser session must be revoked by logout, including in OIDC-only mode.
+	oidcSession, oidcRaw, err := auth.Login(ctx, "admin", testAdminPassword, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ORM().Model(&database.UserSession{}).Where("hash = ?", oidcSession.Hash).Update("provider", issuer).Error; err != nil {
+		t.Fatal(err)
+	}
+	oidcSessionCookie := &http.Cookie{Name: "campfire_session", Value: oidcRaw}
 
 	config.DisableLocal = true
 	if _, err := service.NewOIDCService(ctx, auth, config); err != nil {
@@ -160,5 +179,28 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 
 	if response := authRequest(handler, "POST", "/api/v1/auth/oidc/link", "", localCookie, local.CSRF, ""); response.Code != http.StatusUnauthorized {
 		t.Fatal("local session survived disabled login", response.Code)
+	}
+
+	response = authRequest(handler, "GET", "/api/v1/auth/session", "", oidcSessionCookie, "", "")
+	if !strings.Contains(response.Body.String(), `"authenticated":true`) || !strings.Contains(response.Body.String(), `"oidc_linked":true`) {
+		t.Fatal("OIDC session unavailable", response.Code, response.Body)
+	}
+	response = authRequest(handler, "POST", "/api/v1/auth/logout", "", oidcSessionCookie, oidcSession.CSRF, config.PublicURL)
+	if response.Code != http.StatusNoContent {
+		t.Fatal("OIDC logout failed", response.Code, response.Body)
+	}
+	cleared := false
+	for _, cookie := range response.Result().Cookies() {
+		if cookie.Name == "campfire_session" && cookie.Path == "/api" && cookie.MaxAge == -1 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Fatal("logout did not clear the session cookie")
+	}
+	// Even replaying the old cookie must not restore the session.
+	response = authRequest(handler, "GET", "/api/v1/auth/session", "", oidcSessionCookie, "", "")
+	if !strings.Contains(response.Body.String(), `"authenticated":false`) {
+		t.Fatal("OIDC session survived logout", response.Code, response.Body)
 	}
 }
