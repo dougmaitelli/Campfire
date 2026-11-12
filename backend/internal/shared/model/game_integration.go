@@ -16,12 +16,13 @@ import (
 // GamePublicationLimit bounds local requests and forwarded publications.
 const GamePublicationLimit = 16 << 10
 
-// GamePublication is a versioned snapshot or event, without a publisher-selected
+// GamePublication is a versioned registration, snapshot or event, without a publisher-selected
 // server identity. Spark derives identity from the container's private socket.
 type GamePublication struct {
-	Version int        `json:"version"`
-	State   *GameState `json:"state,omitempty"`
-	Event   *GameEvent `json:"event,omitempty"`
+	Version      int               `json:"version"`
+	Registration *GameRegistration `json:"registration,omitempty"`
+	State        *GameState        `json:"state,omitempty"`
+	Event        *GameEvent        `json:"event,omitempty"`
 }
 
 // GameState replaces the entire preceding snapshot. All fields are optional.
@@ -56,12 +57,26 @@ func (labels GameFieldLabels) Label(key string) string {
 
 // Validate accepts bounded, single-line labels only for fields in this publication.
 func (labels GameFieldLabels) Validate(fields map[string]any) error {
+	if err := labels.validateDefinitions(); err != nil {
+		return err
+	}
+
+	for key := range labels {
+		if _, exists := fields[key]; !exists {
+			return errors.New("game field label has no corresponding field")
+		}
+	}
+
+	return nil
+}
+
+func (labels GameFieldLabels) validateDefinitions() error {
 	if len(labels) > limits.GameFields {
 		return errors.New("too many game field labels")
 	}
 
 	for key, label := range labels {
-		if _, exists := fields[key]; !exists || !validGameFieldName(key) || label == "" || len(label) > limits.GameFieldLabelLength || !utf8.ValidString(label) || strings.TrimSpace(label) != label || strings.ContainsFunc(label, unicode.IsControl) {
+		if !validGameFieldName(key) || label == "" || len(label) > limits.GameFieldLabelLength || !utf8.ValidString(label) || strings.TrimSpace(label) != label || strings.ContainsFunc(label, unicode.IsControl) {
 			return errors.New("invalid game field label")
 		}
 	}
@@ -78,8 +93,22 @@ func validGameFieldName(value string) bool {
 
 // Validate applies the same schema and size bounds at both ends of the wire.
 func (p GamePublication) Validate() error {
-	if p.Version != 1 || (p.State == nil) == (p.Event == nil) {
-		return errors.New("version 1 requires exactly one state or event")
+	kinds := 0
+
+	for _, present := range []bool{p.State != nil, p.Event != nil, p.Registration != nil} {
+		if present {
+			kinds++
+		}
+	}
+
+	if p.Version != 1 || kinds != 1 {
+		return errors.New("version 1 requires exactly one registration, state or event")
+	}
+
+	if p.Registration != nil {
+		if err := p.Registration.Validate(); err != nil {
+			return err
+		}
 	}
 
 	if s := p.State; s != nil {

@@ -138,10 +138,16 @@ func testWireGameIntegration(t *testing.T, hub *agents.Hub, sparkID, directory s
 	defer client.CloseIdleConnections()
 
 	for _, body := range []string{
+		`{"version":1,"registration":{"revision":1,"state_fields":{"map":"World name"},"event_fields":{"player.joined":{"player":"Player name"}}}}`,
 		`{"version":1,"state":{"players":3,"capacity":20,"fields":{"map":"world"},"field_labels":{"map":"World name"}}}`,
 		`{"version":1,"event":{"id":"joined-1","type":"player.joined","occurred_at":"2026-10-24T00:00:00Z","title":"Player joined","data":{"player":"Alex"},"field_labels":{"player":"Player name"}}}`,
 	} {
-		request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://spark/v1/publish", strings.NewReader(body))
+		method, path := http.MethodPost, "/v1/publish"
+		if strings.Contains(body, `"registration"`) {
+			method, path = http.MethodPut, "/v1/registration"
+		}
+
+		request, err := http.NewRequestWithContext(ctx, method, "http://spark"+path, strings.NewReader(body))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -168,6 +174,10 @@ func testWireGameIntegration(t *testing.T, hub *agents.Hub, sparkID, directory s
 		case frame := <-received:
 			if frame.ServerID != d.ServerID || frame.Publication.Validate() != nil {
 				t.Fatal("invalid received identity or publication", frame)
+			}
+
+			if registration := frame.Publication.Registration; registration != nil && registration.StateFields["map"] != "World name" {
+				t.Fatal("forwarding lost registration definitions", frame)
 			}
 
 			if state := frame.Publication.State; state != nil && state.FieldLabels["map"] != "World name" {

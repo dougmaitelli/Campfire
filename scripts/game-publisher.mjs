@@ -12,6 +12,63 @@ if (!socketPath || !["state", "event"].includes(kind)) {
   );
 }
 
+function send(path, method, publication) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(publication);
+    const request = http.request(
+      {
+        socketPath,
+        path,
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+        },
+        timeout: 12000,
+      },
+      (response) => {
+        response.setEncoding("utf8");
+        let detail = "";
+        response.on("data", (chunk) => {
+          detail += chunk;
+        });
+        response.on("error", reject);
+        response.on("end", () => {
+          if (response.statusCode !== 204 && response.statusCode !== 202) {
+            reject(
+              new Error(`Request failed (${response.statusCode}): ${detail}`),
+            );
+            return;
+          }
+          resolve(response.statusCode);
+        });
+      },
+    );
+    request.on("timeout", () =>
+      request.destroy(new Error("Request timed out")),
+    );
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
+// The manifest is stable across retries and process restarts. Increase revision
+// when changing definitions; data publications never repeat these labels.
+await send("/v1/registration", "PUT", {
+  version: 1,
+  registration: {
+    revision: 1,
+    state_fields: { game_mode: "Game mode" },
+    event_fields: {
+      "game.announcement": {
+        world: "World name",
+        message: "Message",
+        mod_version: "Mod version",
+      },
+    },
+  },
+});
+
 const publication = {
   version: 1,
   ...(kind === "state"
@@ -27,43 +84,9 @@ const publication = {
       }),
 };
 
-const body = JSON.stringify(publication);
-const request = http.request(
-  {
-    socketPath,
-    path: "/v1/publish",
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Length": Buffer.byteLength(body),
-    },
-    timeout: 12000,
-  },
-  (response) => {
-    response.setEncoding("utf8");
-    let detail = "";
-    response.on("data", (chunk) => {
-      detail += chunk;
-    });
-    response.on("end", () => {
-      if (response.statusCode !== 204 && response.statusCode !== 202) {
-        console.error(`Publication failed (${response.statusCode}): ${detail}`);
-        process.exitCode = 1;
-        return;
-      }
-      console.log(
-        response.statusCode === 202
-          ? "Spark durably queued the event for delivery."
-          : `Campfire acknowledged ${kind} publication.`,
-      );
-    });
-  },
+const status = await send("/v1/publish", "POST", publication);
+console.log(
+  status === 202
+    ? "Spark durably queued the event for delivery."
+    : `Campfire acknowledged ${kind} publication.`,
 );
-request.on("timeout", () =>
-  request.destroy(new Error("Publication timed out")),
-);
-request.on("error", (error) => {
-  console.error(error.message);
-  process.exitCode = 1;
-});
-request.end(body);

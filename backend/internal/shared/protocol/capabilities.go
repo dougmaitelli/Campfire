@@ -36,31 +36,32 @@ func CommandTimeout(command Command) time.Duration {
 // of the wire protocol. Incompatible feature changes require a new capability
 // version; only explicitly negotiated names are supported.
 const (
-	CapabilityConfigure       = "server.configure.v2"
-	CapabilityLifecycle       = "server.lifecycle.v1"
-	CapabilityFiles           = "server.files.v1"
-	CapabilityFilePermissions = "server.files.permissions.v1"
-	CapabilityFileTransfer    = "server.files.transfer.v1"
-	CapabilityFileArchive     = "server.files.archive.v1"
-	CapabilityBackups         = "server.backups.v4"
-	CapabilityBackupRemote    = "server.backups.remote.v1"
-	CapabilityMetrics         = "server.metrics.v1"
-	CapabilityConsole         = "server.console.stream.v1"
-	CapabilityLogAlerts       = "server.log-alerts.v1"
-	CapabilityDiskQuota       = "server.disk-quota.v1"
-	CapabilityJobs            = "server.jobs.v1"
-	CapabilityReinstall       = "server.reinstall.v1"
-	CapabilitySelfUpdate      = "spark.self-update.v1"
-	CapabilitySelfReinstall   = "spark.self-reinstall.v1"
-	CapabilityPrune           = "spark.prune.v1"
-	CapabilityGameIntegration = "server.game-integration.v1"
-	CapabilityGameEvents      = "server.game-events.v1"
-	CapabilityGameMedia       = "server.game-media.v1"
+	CapabilityConfigure        = "server.configure.v2"
+	CapabilityLifecycle        = "server.lifecycle.v1"
+	CapabilityFiles            = "server.files.v1"
+	CapabilityFilePermissions  = "server.files.permissions.v1"
+	CapabilityFileTransfer     = "server.files.transfer.v1"
+	CapabilityFileArchive      = "server.files.archive.v1"
+	CapabilityBackups          = "server.backups.v4"
+	CapabilityBackupRemote     = "server.backups.remote.v1"
+	CapabilityMetrics          = "server.metrics.v1"
+	CapabilityConsole          = "server.console.stream.v1"
+	CapabilityLogAlerts        = "server.log-alerts.v1"
+	CapabilityDiskQuota        = "server.disk-quota.v1"
+	CapabilityJobs             = "server.jobs.v1"
+	CapabilityReinstall        = "server.reinstall.v1"
+	CapabilitySelfUpdate       = "spark.self-update.v1"
+	CapabilitySelfReinstall    = "spark.self-reinstall.v1"
+	CapabilityPrune            = "spark.prune.v1"
+	CapabilityGameIntegration  = "server.game-integration.v1"
+	CapabilityGameEvents       = "server.game-events.v1"
+	CapabilityGameMedia        = "server.game-media.v1"
+	CapabilityGameRegistration = "server.game-registration.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.

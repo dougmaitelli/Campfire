@@ -18,13 +18,14 @@ type GameIntegrationService struct {
 	Servers interface {
 		Get(context.Context, string) (model.Server, error)
 	}
-	Events  *GameEventService
-	Media   *GameMediaService
-	mu      sync.Mutex
-	states  map[string]gameStateRecord
-	blocked map[string]time.Time
-	started map[string]gameRuntimeStart
-	now     func() time.Time
+	Events        *GameEventService
+	Media         *GameMediaService
+	mu            sync.Mutex
+	states        map[string]gameStateRecord
+	blocked       map[string]time.Time
+	started       map[string]gameRuntimeStart
+	registrations map[string]*model.GameRegistration
+	now           func() time.Time
 }
 
 type gameRuntimeStart struct {
@@ -93,7 +94,13 @@ func (s *GameIntegrationService) Receive(ctx context.Context, sparkID string, fr
 	}
 
 	kind := "state"
-	if frame.Publication.Event != nil {
+	if frame.Publication.Registration != nil {
+		kind = "registration"
+
+		if err := s.register(ctx, sparkID, frame.ServerID, *frame.Publication.Registration); err != nil {
+			return err
+		}
+	} else if frame.Publication.Event != nil {
 		kind = "event"
 
 		if s.Events == nil {
@@ -110,11 +117,22 @@ func (s *GameIntegrationService) Receive(ctx context.Context, sparkID string, fr
 			return errors.New("game state unavailable during runtime transition")
 		}
 
+		registration, err := s.registration(ctx, frame.ServerID)
+		if err != nil {
+			s.mu.Unlock()
+			return err
+		}
+
+		state := cloneGameState(frame.Publication.State)
+		if registration != nil {
+			state.FieldLabels = registeredStateLabels(registration, state.Fields)
+		}
+
 		if s.states == nil {
 			s.states = make(map[string]gameStateRecord)
 		}
 
-		s.states[frame.ServerID] = gameStateRecord{sparkID: sparkID, received: s.clock(), state: cloneGameState(frame.Publication.State)}
+		s.states[frame.ServerID] = gameStateRecord{sparkID: sparkID, received: s.clock(), state: state}
 		s.mu.Unlock()
 	}
 
@@ -226,6 +244,12 @@ func (s *GameIntegrationService) Retain(targets []model.ResourceTarget) {
 	for id := range s.blocked {
 		if !keep[id] {
 			delete(s.blocked, id)
+		}
+	}
+
+	for id := range s.registrations {
+		if !keep[id] {
+			delete(s.registrations, id)
 		}
 	}
 

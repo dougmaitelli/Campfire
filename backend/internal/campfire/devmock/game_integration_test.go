@@ -48,6 +48,10 @@ func TestGameSimulationIngestionLifecycleAndReplay(t *testing.T) {
 			t.Fatalf("unexpected snapshot: %+v", view)
 		}
 
+		if fields > 0 && view.State.FieldLabels["game_mode"] != "Game mode" {
+			t.Fatal("registration did not label state fields", view.State)
+		}
+
 		if view.State.Capacity == nil || *view.State.Capacity != 20 {
 			t.Fatal("missing capacity", view.State)
 		}
@@ -138,7 +142,7 @@ func TestGameSimulationIngestionLifecycleAndReplay(t *testing.T) {
 	}
 
 	_, _, features := runtime.SparkFeatures(server.SparkID)
-	for _, capability := range []string{protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents} {
+	for _, capability := range []string{protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents, protocol.CapabilityGameRegistration} {
 		if !slices.Contains(features, capability) {
 			t.Fatal("missing simulated capability", capability)
 		}

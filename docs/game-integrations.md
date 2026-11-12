@@ -26,7 +26,7 @@ Game mod or adapter
     | HTTP over its private Unix socket
     v
 Spark on the game host
-    |-- state/events --> existing client-certificate-authenticated WebSocket
+    |-- registration/state/events --> existing client-certificate-authenticated WebSocket
     `-- media --------> HTTPS with the same Spark client identity
                              |
                              v
@@ -45,11 +45,12 @@ their correlation IDs; they are not part of the mod's HTTP API.
 
 The local acknowledgement depends on what you send:
 
-| Publication | Local success    | What success guarantees                                                            |
-| ----------- | ---------------- | ---------------------------------------------------------------------------------- |
-| State       | `204 No Content` | Campfire accepted this complete snapshot into memory.                              |
-| Event       | `202 Accepted`   | Spark persisted the event in its local queue; panel delivery may still be pending. |
-| Media       | `204 No Content` | Campfire committed the attachment's metadata and bytes.                            |
+| Publication  | Local success    | What success guarantees                                                            |
+| ------------ | ---------------- | ---------------------------------------------------------------------------------- |
+| Registration | `204 No Content` | Campfire durably stored the label definitions.                                     |
+| State        | `204 No Content` | Campfire accepted this complete snapshot into memory.                              |
+| Event        | `202 Accepted`   | Spark persisted the event in its local queue; panel delivery may still be pending. |
+| Media        | `204 No Content` | Campfire committed the attachment's metadata and bytes.                            |
 
 State is not queued while disconnected. Events can queue while the panel is
 unreachable, subject to capacity and lifetime limits. Media is streamed directly
@@ -97,14 +98,15 @@ send queued events through the older, non-durable ingestion contract.
 The local `/v1` API and JSON `version` are separate from the Spark wire-protocol
 version. Spark and Campfire negotiate support themselves:
 
-| Capability                   | Contract                                                                 |
-| ---------------------------- | ------------------------------------------------------------------------ |
-| `server.game-integration.v1` | State and event publication transport                                    |
-| `server.game-events.v1`      | Persistent event queues and panel acknowledgements after database commit |
-| `server.game-media.v1`       | Separate authenticated media uploads                                     |
+| Capability                    | Contract                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `server.game-integration.v1`  | State and event publication transport                                        |
+| `server.game-events.v1`       | Persistent event queues and panel acknowledgements after database commit     |
+| `server.game-media.v1`        | Separate authenticated media uploads                                         |
+| `server.game-registration.v1` | Persistent startup label registration with revision-checked acknowledgements |
 
 A connected panel without durable event support causes event publication to
-return `503`. Media also returns `503` when its support was not negotiated. A
+return `503`. Media and registration also return `503` when their support was not negotiated. A
 successful socket connection alone does not establish that every publication
 type is supported.
 
@@ -151,13 +153,54 @@ payloads in one request. The raw JSON request must fit within 16 KiB, including
 whitespace. Unknown envelope, state, and event properties are rejected. Put custom
 values inside `state.fields` or `event.data`.
 
+### Startup registration
+
+Before publishing data, register the integration's label definitions with
+`PUT /v1/registration` over the same private socket. Registration is explicit,
+not an ordinary "integration started" game event, and creates no activity entry.
+
+```sh
+curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
+  --include --max-time 12 \
+  -X PUT -H 'Content-Type: application/json' \
+  --data '{"version":1,"registration":{"revision":1,"state_fields":{"game_mode":"Game mode"},"event_fields":{"game.announcement":{"world":"World name","message":"Message","mod_version":"Mod version"}}}}' \
+  http://spark/v1/registration
+```
+
+- `revision` is a positive, monotonically increasing integer, at most
+  `9007199254740991`. Repeating identical definitions at the same revision is
+  idempotent. Changed definitions require a higher revision; stale revisions or
+  reusing a revision with different definitions return `409`.
+- `state_fields` maps state field keys to labels. `event_fields` maps event types
+  to their field-label maps. Both are optional; omitted definitions are removed
+  when a newer registration replaces the manifest. An empty manifest is valid.
+- Each label map has at most 32 fields, and a manifest has at most 32 event types.
+  Field keys, event types, and labels use the limits described below. The entire
+  envelope must fit within 16 KiB. Registration contains no field values, so
+  fields can be declared before they appear in any state update or event.
+- Wait for `204` before publishing data. `503` means registration has not been
+  acknowledged; retry the same manifest with bounded backoff. Registration is
+  not queued offline. Never fall back to claiming successful registration.
+- Definitions persist in Campfire across Spark reconnects and panel restarts.
+  Register again at adapter startup; no repeated registration or label metadata
+  is needed on individual publications. Deleting the server removes its manifest.
+- Registration is authoritative. Inline labels from old or queued publications
+  cannot override it. Fields without registered labels display their raw keys.
+  Registered labels survive event retention, and a newer registration can rename
+  fields in retained history without requiring a new event.
+- Upgrade both Spark and Campfire before registering. The new
+  `server.game-registration.v1` capability must be negotiated. Older publishers
+  may continue publishing without registration using the legacy behavior below.
+
+After registration, send only field keys and values in snapshots and events.
+
 ### State snapshots
 
 ```sh
 curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
   --include --max-time 12 \
   -H 'Content-Type: application/json' \
-  --data '{"version":1,"state":{"players":3,"capacity":20,"fields":{"game_mode":"survival"},"field_labels":{"game_mode":"Game mode"}}}' \
+  --data '{"version":1,"state":{"players":3,"capacity":20,"fields":{"game_mode":"survival"}}}' \
   http://spark/v1/publish
 ```
 
@@ -191,8 +234,7 @@ generate the event ID and occurrence timestamp once when the event happens.
     "type": "game.announcement",
     "occurred_at": "2026-10-24T00:00:00Z",
     "title": "A new adventure begins",
-    "data": { "world": "survival" },
-    "field_labels": { "world": "World name" }
+    "data": { "world": "survival" }
   }
 }
 ```
@@ -257,6 +299,11 @@ envelope by itself.
 
 ### Custom field labels
 
+Prefer startup registration for new publishers. The inline `field_labels`
+properties below remain supported for older publishers that have not registered.
+For registered servers, labels come exclusively from the current manifest;
+label-free state updates and events need no metadata updates.
+
 `state.field_labels` and `event.field_labels` are optional maps from stable field
 keys to display labels. Every labeled key must also exist in the same snapshot's
 `fields` or event's `data`. Labels must be nonempty UTF-8 strings of at most 128
@@ -266,10 +313,10 @@ For example, `"field_labels": {"game_mode": "Game mode"}` changes display text
 without changing the `game_mode` key used by filters and saved card selections.
 Campfire does not guess labels from key spelling or special-case game fields.
 
-State labels belong to the complete snapshot and must be included again in each
+Without registration, state labels belong to the complete snapshot and must be included again in each
 snapshot that needs them. Omitted labels fall back to the exact key.
 
-Event labels update a shared dictionary scoped to the server, event type, and
+Without registration, event labels update a shared dictionary scoped to the server, event type, and
 field key. Newly accepted events can rename labels for both new and older retained
 events. Omitting a label leaves the known definition unchanged; without a known
 definition the exact key is displayed. To reset display text to a key, publish that
@@ -279,8 +326,8 @@ The dictionary persists across panel restarts. It stores no event values.
 Activity and notification-filter dropdowns use these labels while keeping keys as
 filter identity. With all event types selected, a field uses its label only if
 the types reporting it agree; conflicting labels fall back to the key. A field
-disappears from discovery when no retained event contains it. Startup and hourly
-retention cleanup remove unused dictionary entries, including definitions for
+disappears from discovery when no retained event contains it. For unregistered
+publishers, startup and hourly retention cleanup remove unused dictionary entries, including definitions for
 event types that are no longer published. Deleting a server removes its dictionary.
 Discord notifications use the known labels when the notification is queued;
 previously sent Discord messages are not rewritten after a label change.
@@ -538,7 +585,8 @@ thread. Serialization and transport should not stall a tick or player action.
 A typical integration uses the following lifecycle:
 
 1. Read `CAMPFIRE_GAME_SOCKET` and start a background publisher when configured.
-2. Send a complete state snapshot after startup, then periodically, such as every
+2. Register the label manifest at startup and wait for `204`, then send a complete
+   state snapshot periodically, such as every
    15 seconds. Keep only the newest unsent snapshot while disconnected.
 3. On each event hook, create one envelope with a new ID and fixed occurrence
    time. If loss before Spark accepts it matters, persist it in a bounded
@@ -577,7 +625,7 @@ publishing without any attachment handling.
 
 ### Minimal Node.js transport
 
-This example uses only Node.js built-ins and makes one event-publication attempt.
+This example uses only Node.js built-ins, registers metadata, and makes one event-publication attempt.
 It demonstrates the socket transport and response handling; a production mod's
 worker should implement the retry and outbox policy above. In particular, retain
 the constructed `publication` instead of generating a new ID on each attempt.
@@ -588,7 +636,7 @@ import { randomUUID } from "node:crypto";
 
 const socketPath = process.env.CAMPFIRE_GAME_SOCKET;
 
-async function publish(publication) {
+async function publish(publication, path = "/v1/publish", method = "POST") {
   if (!socketPath) throw new Error("Campfire integration is not configured");
   const body = Buffer.from(JSON.stringify(publication));
   if (body.length > 16 * 1024) throw new Error("Publication exceeds 16 KiB");
@@ -598,8 +646,8 @@ async function publish(publication) {
       {
         socketPath,
         hostname: "spark",
-        path: "/v1/publish",
-        method: "POST",
+        path,
+        method,
         headers: {
           "Content-Type": "application/json",
           "Content-Length": body.length,
@@ -628,6 +676,30 @@ async function publish(publication) {
     request.on("error", reject);
     request.end(body);
   });
+}
+
+const registration = await publish(
+  {
+    version: 1,
+    registration: {
+      revision: 1,
+      state_fields: { game_mode: "Game mode" },
+      event_fields: {
+        "game.announcement": {
+          world: "World name",
+          message: "Message",
+          mod_version: "Mod version",
+        },
+      },
+    },
+  },
+  "/v1/registration",
+  "PUT",
+);
+if (registration.status !== 204) {
+  throw new Error(
+    `Registration HTTP ${registration.status}: ${registration.detail}`,
+  );
 }
 
 const publication = {

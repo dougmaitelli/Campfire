@@ -145,13 +145,16 @@ func (r *GameEventRepository) FilterOptions(ctx context.Context, serverID string
 // Append commits the event, source check, and retention changes together.
 func (r *GameEventRepository) Append(ctx context.Context, sparkID, serverID string, event model.GameEvent, now time.Time, retention time.Duration, maximum int) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		var count int64
-		if err := tx.Model(&database.Server{}).Where("id = ? AND spark_id = ? AND game_integration = ?", serverID, sparkID, true).Count(&count).Error; err != nil {
-			return err
-		}
+		// Share the source lock with concurrent events, but serialize against
+		// registration replacement and placement changes. An old queued event
+		// cannot race registration and restore its inline labels afterward.
+		var source database.Server
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Select("id").Where("id = ? AND spark_id = ? AND game_integration = ?", serverID, sparkID, true).Take(&source).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrGameEventPlacement
+			}
 
-		if count == 0 {
-			return ErrGameEventPlacement
+			return err
 		}
 
 		row := database.GameEvent{ServerID: serverID, SparkID: sparkID, EventID: event.ID, Type: event.Type, Title: event.Title, OccurredAt: event.OccurredAt.UTC(), ReceivedAt: now.Unix(), Data: event.Data}

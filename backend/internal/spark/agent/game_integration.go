@@ -42,11 +42,12 @@ type gameIntegrations struct {
 }
 
 type gameSession struct {
-	events  bool
-	ctx     context.Context
-	send    func(protocol.Message) error
-	pending map[string]chan *protocol.CommandError
-	upload  gameMediaSender
+	events       bool
+	registration bool
+	ctx          context.Context
+	send         func(protocol.Message) error
+	pending      map[string]chan *protocol.CommandError
+	upload       gameMediaSender
 }
 
 func newGameIntegrations(ctx context.Context, directory string, authorize func(string) bool) (*gameIntegrations, error) {
@@ -151,7 +152,7 @@ func (g *gameIntegrations) mount(id string) (string, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("PUT /v1/events/{event}/media/{attachment}", func(w http.ResponseWriter, r *http.Request) { g.mediaUpload(w, r, id) })
 	mux.HandleFunc("GET /v1/events/queue", func(w http.ResponseWriter, r *http.Request) { g.queueStatus(w, r, id) })
-	mux.HandleFunc("POST /v1/publish", func(w http.ResponseWriter, r *http.Request) {
+	publish := func(w http.ResponseWriter, r *http.Request) {
 		rateMu.Lock()
 		if time.Since(window) >= time.Second {
 			window, requests = time.Now(), 0
@@ -169,7 +170,9 @@ func (g *gameIntegrations) mount(id string) (string, error) {
 		}
 
 		g.publish(w, r, id)
-	})
+	}
+	mux.HandleFunc("POST /v1/publish", publish)
+	mux.HandleFunc("PUT /v1/registration", publish)
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 12 * time.Second, IdleTimeout: 5 * time.Second, MaxHeaderBytes: 4096}
 
 	g.endpoints[id] = server
@@ -238,6 +241,11 @@ func (g *gameIntegrations) publish(w http.ResponseWriter, r *http.Request, id st
 		return
 	}
 
+	if (r.URL.Path == "/v1/registration") != (publication.Registration != nil) {
+		http.Error(w, "use PUT /v1/registration for registration and POST /v1/publish for data", http.StatusBadRequest)
+		return
+	}
+
 	if publication.Event != nil {
 		if err := g.enqueueEvent(id, publication); err != nil {
 			status := http.StatusServiceUnavailable
@@ -265,7 +273,14 @@ func (g *gameIntegrations) publish(w http.ResponseWriter, r *http.Request, id st
 	defer cancel()
 
 	if err := g.forward(ctx, id, publication); err != nil {
-		http.Error(w, "publication not acknowledged; retry with the same event ID", http.StatusServiceUnavailable)
+		var rejection *protocol.CommandError
+		if publication.Registration != nil && errors.As(err, &rejection) && rejection.Code == protocol.ErrorPublicationRejected {
+			http.Error(w, "registration rejected; check placement and use a newer revision for changed definitions", http.StatusConflict)
+			return
+		}
+
+		http.Error(w, "publication not acknowledged; retry registration or send the newest state", http.StatusServiceUnavailable)
+
 		return
 	}
 
@@ -287,6 +302,11 @@ func (g *gameIntegrations) forward(ctx context.Context, serverID string, publica
 	if publication.Event != nil && !session.events {
 		g.mu.Unlock()
 		return errors.New("durable game events require an updated Campfire")
+	}
+
+	if publication.Registration != nil && !session.registration {
+		g.mu.Unlock()
+		return errors.New("game registration requires an updated Campfire")
 	}
 
 	session.pending[requestID] = ack
@@ -316,11 +336,11 @@ func (g *gameIntegrations) forward(ctx context.Context, serverID string, publica
 	}
 }
 
-func (g *gameIntegrations) attach(ctx context.Context, send func(protocol.Message) error, durableEvents ...bool) {
+func (g *gameIntegrations) attach(ctx context.Context, send func(protocol.Message) error, features ...bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.session = &gameSession{ctx: ctx, send: send, pending: make(map[string]chan *protocol.CommandError), events: len(durableEvents) > 0 && durableEvents[0]}
+	g.session = &gameSession{ctx: ctx, send: send, pending: make(map[string]chan *protocol.CommandError), events: len(features) > 0 && features[0], registration: len(features) > 1 && features[1]}
 	for _, item := range g.events {
 		item.next = time.Time{}
 	}

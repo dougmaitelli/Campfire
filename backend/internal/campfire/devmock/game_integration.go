@@ -18,12 +18,13 @@ import (
 )
 
 type gameSession struct {
-	id      string
-	step    int
-	players int
-	paused  bool
-	next    time.Time
-	last    *model.GameEvent
+	id         string
+	step       int
+	players    int
+	paused     bool
+	registered bool
+	next       time.Time
+	last       *model.GameEvent
 }
 
 // StartGameSimulation connects mock publishers to the real ingestion services.
@@ -91,6 +92,23 @@ func (r *Runtime) publishGame(ctx context.Context, record runtimeRecord, now tim
 		return nil
 	}
 
+	if !session.registered {
+		registration := &model.GameRegistration{
+			Revision:    1,
+			StateFields: model.GameFieldLabels{"game_mode": "Game mode"},
+			EventFields: map[string]model.GameFieldLabels{
+				"game.announcement": {"game": "Game"},
+				"player.joined":     {"player": "Player name", "state": "Connection state"},
+				"player.left":       {"player": "Player name"},
+			},
+		}
+		if err := r.receiveGame(ctx, record, model.GamePublication{Version: 1, Registration: registration}); err != nil {
+			return err
+		}
+
+		session.registered = true
+	}
+
 	if !now.Before(session.next) {
 		if session.last == nil || session.last.ID != fmt.Sprintf("%s-%d", session.id, session.step) {
 			event := model.GameEvent{ID: fmt.Sprintf("%s-%d", session.id, session.step), OccurredAt: now.UTC()}
@@ -100,13 +118,11 @@ func (r *Runtime) publishGame(ctx context.Context, record runtimeRecord, now tim
 			case 1:
 				event.Type, event.Title = "player.joined", "Alex joined the mock server"
 				event.Data = map[string]any{"player": "Alex"}
-				event.FieldLabels = model.GameFieldLabels{"player": "Player name"}
 			case 2:
 				event.Type, event.Title = "game.announcement", "Welcome to the mock server"
 			case 3:
 				event.Type, event.Title = "player.left", "Alex left the mock server"
 				event.Data = map[string]any{"player": "Alex"}
-				event.FieldLabels = model.GameFieldLabels{"player": "Player name"}
 			}
 
 			session.last = &event
@@ -149,7 +165,6 @@ func (r *Runtime) publishGame(ctx context.Context, record runtimeRecord, now tim
 	state := &model.GameState{Players: new(session.players), Capacity: new(20)}
 	if session.players == 0 {
 		state.Fields = map[string]any{"game_mode": "Survival"}
-		state.FieldLabels = model.GameFieldLabels{"game_mode": "Game mode"}
 	}
 
 	return r.receiveGame(ctx, record, model.GamePublication{Version: 1, State: state})

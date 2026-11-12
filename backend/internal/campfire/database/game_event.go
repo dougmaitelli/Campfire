@@ -23,8 +23,17 @@ type GameEvent struct {
 	Attachments []GameMedia           `gorm:"foreignKey:GameEventID;constraint:OnDelete:CASCADE" json:"attachments,omitempty"`
 }
 
+// GameIntegrationRegistration persists publisher metadata independently of event retention.
+type GameIntegrationRegistration struct {
+	ServerID   string                 `gorm:"primaryKey;type:text"`
+	Server     Server                 `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE"`
+	Revision   int64                  `gorm:"not null"`
+	Definition model.GameRegistration `gorm:"serializer:json;type:text;not null"`
+}
+
 // GameEventFieldLabel stores the latest publisher label within one event type.
-// Retention removes definitions after their last referring event is removed.
+// Retention removes legacy definitions after their last referring event is removed;
+// registered definitions remain until the manifest is replaced or the server deleted.
 type GameEventFieldLabel struct {
 	ServerID  string `gorm:"primaryKey;type:text"`
 	Server    Server `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE"`

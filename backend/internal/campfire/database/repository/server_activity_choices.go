@@ -7,8 +7,9 @@ import (
 )
 
 type activityGameRevision struct {
-	Count  int64
-	LastID int64
+	Count        int64
+	LastID       int64
+	Registration int64
 }
 
 type activityGameChoices struct {
@@ -17,10 +18,15 @@ type activityGameChoices struct {
 }
 
 // Events and their data are immutable. An indexed count/last-ID query detects
-// both ingestion (including label updates) and retention without decoding JSON.
+// ingestion and retention without decoding JSON. Registration revisions also
+// invalidate cached labels even when no new event has arrived.
 func (r *ServerActivityRepository) cachedGameChoices(ctx context.Context, serverID string) (GameEventFilterOptions, error) {
 	var revision activityGameRevision
 	if err := r.db.WithContext(ctx).Model(&database.GameEvent{}).Select("COUNT(*) AS count, COALESCE(MAX(id), 0) AS last_id").Where("server_id = ?", serverID).Scan(&revision).Error; err != nil {
+		return GameEventFilterOptions{}, err
+	}
+
+	if err := r.db.WithContext(ctx).Model(&database.GameIntegrationRegistration{}).Select("revision").Where("server_id = ?", serverID).Scan(&revision.Registration).Error; err != nil {
 		return GameEventFilterOptions{}, err
 	}
 

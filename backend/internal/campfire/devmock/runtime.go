@@ -88,7 +88,7 @@ func (r *Runtime) SparkFeatures(id string) (int, string, []string) {
 
 	features = append(features, protocol.CapabilityFilePermissions, protocol.CapabilityJobs)
 	if r.games != nil {
-		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents)
+		features = append(features, protocol.CapabilityGameIntegration, protocol.CapabilityGameEvents, protocol.CapabilityGameRegistration)
 		if r.games.Media != nil {
 			features = append(features, protocol.CapabilityGameMedia)
 		}

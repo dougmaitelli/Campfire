@@ -195,7 +195,7 @@ func migrate(db *gorm.DB) error {
 				&Notification{}, &MonitoringAlert{},
 				&BackupPolicy{}, &Backup{},
 				&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
-				&GameEvent{}, &GameEventFieldLabel{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{},
+				&GameEvent{}, &GameEventFieldLabel{}, &GameIntegrationRegistration{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{},
 				&Integration{}, &ServerIntegration{}, &IntegrationMessage{},
 			); err != nil {
 				return err
@@ -257,6 +257,7 @@ func migrate(db *gorm.DB) error {
 			&ServerResourceBucket{}, &SparkResourceBucket{},
 			&GameEvent{},
 			&GameEventFieldLabel{},
+			&GameIntegrationRegistration{},
 			&GameMedia{},
 			&LogAlertIssue{},
 			&Integration{}, &ServerIntegration{}, &IntegrationMessage{},

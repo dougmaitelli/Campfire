@@ -26,6 +26,8 @@ func (h *Hub) gameFrame(ctx context.Context, sparkID string, current *peer, fram
 	ack := &protocol.GameAck{ID: frame.ID}
 	if frame.Publication.Event != nil && protocol.Require(current.info.Capabilities, protocol.CapabilityGameEvents) != nil {
 		ack.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "Durable game events were not negotiated."}
+	} else if frame.Publication.Registration != nil && protocol.Require(current.info.Capabilities, protocol.CapabilityGameRegistration) != nil {
+		ack.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "Game registration was not negotiated."}
 	} else if frame.Publication.Validate() != nil {
 		ack.Error = &protocol.CommandError{Code: protocol.ErrorInvalidPublication, Message: "Invalid game publication."}
 	} else if h.receiveGame == nil {
