@@ -126,10 +126,12 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	}
 
 	localCookie := &http.Cookie{Name: "campfire_session", Value: raw}
+
 	response = authRequest(handler, "GET", "/api/v1/auth/session", "", localCookie, "", "")
 	if !strings.Contains(response.Body.String(), `"oidc_linked":false`) {
 		t.Fatal("unlinked account advertised as linked", response.Code, response.Body)
 	}
+
 	if response := authRequest(handler, "POST", "/api/v1/auth/oidc/link", "", localCookie, "", ""); response.Code != http.StatusForbidden {
 		t.Fatal("account linking did not require CSRF", response.Code)
 	}
@@ -153,9 +155,11 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if err := db.ORM().Model(&database.UserSession{}).Where("hash = ?", oidcSession.Hash).Update("provider", issuer).Error; err != nil {
 		t.Fatal(err)
 	}
+
 	oidcSessionCookie := &http.Cookie{Name: "campfire_session", Value: oidcRaw}
 
 	config.DisableLocal = true
@@ -185,16 +189,20 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 	if !strings.Contains(response.Body.String(), `"authenticated":true`) || !strings.Contains(response.Body.String(), `"oidc_linked":true`) {
 		t.Fatal("OIDC session unavailable", response.Code, response.Body)
 	}
+
 	response = authRequest(handler, "POST", "/api/v1/auth/logout", "", oidcSessionCookie, oidcSession.CSRF, config.PublicURL)
 	if response.Code != http.StatusNoContent {
 		t.Fatal("OIDC logout failed", response.Code, response.Body)
 	}
+
 	cleared := false
+
 	for _, cookie := range response.Result().Cookies() {
 		if cookie.Name == "campfire_session" && cookie.Path == "/api" && cookie.MaxAge == -1 {
 			cleared = true
 		}
 	}
+
 	if !cleared {
 		t.Fatal("logout did not clear the session cookie")
 	}

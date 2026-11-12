@@ -184,6 +184,7 @@ func oidcEmailAccount(tx *gorm.DB, email string, verified bool) (database.User, 
 // HasOIDCIdentity reports whether an account is linked to the configured issuer.
 func (r *AuthRepository) HasOIDCIdentity(ctx context.Context, userID int64, issuer string) (bool, error) {
 	var count int64
+
 	err := r.db.WithContext(ctx).Model(&database.OIDCIdentity{}).Where("user_id = ? AND issuer = ?", userID, issuer).Count(&count).Error
 
 	return count > 0, err
