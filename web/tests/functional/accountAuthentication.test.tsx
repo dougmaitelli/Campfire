@@ -51,9 +51,9 @@ test.each([true, false])(
         name: "Account options for oidc-user",
       }),
     );
-    expect(
-      screen.queryByRole("button", { name: /Link OIDC/i }) !== null,
-    ).toBe(!linked);
+    expect(screen.queryByRole("button", { name: /Link OIDC/i }) !== null).toBe(
+      !linked,
+    );
   },
 );
 

@@ -67,9 +67,7 @@ for (const localLogin of [false, true]) {
     await screenshot(page, `login-${state}-mobile.png`);
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto("/?oidc_error=failed");
-    await expect(page.getByRole("alert")).toContainText(
-      "OIDC sign-in failed",
-    );
+    await expect(page.getByRole("alert")).toContainText("OIDC sign-in failed");
     await expect(provider).toBeVisible();
     await page.route("**/api/v1/auth/oidc/start", (route) =>
       route.fulfill({
