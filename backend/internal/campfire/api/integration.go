@@ -43,8 +43,13 @@ func (a *API) previewDiscordIntegration(w http.ResponseWriter, r *http.Request) 
 
 	preview, err := a.integrations.Preview(r.Context(), currentUser(r), input.Token)
 	if err != nil {
-		writeError(w, err)
-		return
+		if preview.InviteURL == "" {
+			writeError(w, err)
+			return
+		}
+
+		// Keep setup possible when identity validation succeeds but guild discovery fails.
+		preview.GuildError = "Discord servers could not be loaded. Add the bot to Discord, then try again."
 	}
 
 	writeJSON(w, http.StatusOK, preview)

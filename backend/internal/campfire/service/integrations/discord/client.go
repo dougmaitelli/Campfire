@@ -45,9 +45,10 @@ type Guild struct {
 
 // Preview allows administrators to choose a guild without entering its ID.
 type Preview struct {
-	Bot       User    `json:"bot"`
-	Guilds    []Guild `json:"guilds"`
-	InviteURL string  `json:"invite_url"`
+	Bot        User    `json:"bot"`
+	Guilds     []Guild `json:"guilds"`
+	InviteURL  string  `json:"invite_url"`
+	GuildError string  `json:"guild_error,omitempty"`
 }
 
 // Channel reports effective permissions for a supported text destination.
@@ -119,7 +120,12 @@ func (c *Client) Preview(ctx context.Context, token string) (Preview, error) {
 	for {
 		var page []Guild
 
-		if err := c.request(ctx, token, "GET", "/users/@me/guilds?limit=200&after="+url.QueryEscape(after), nil, &page); err != nil {
+		query := url.Values{"limit": {"200"}}
+		if after != "" {
+			query.Set("after", after)
+		}
+
+		if err := c.request(ctx, token, "GET", "/users/@me/guilds?"+query.Encode(), nil, &page); err != nil {
 			return result, err
 		}
 

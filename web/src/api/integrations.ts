@@ -92,6 +92,7 @@ export async function previewDiscord(
   bot: { id: string; username: string };
   guilds: DiscordGuild[];
   invite_url: string;
+  guild_error?: string | undefined;
 }> {
   const value = await readJSON(
     await apiJSON(
@@ -106,6 +107,8 @@ export async function previewDiscord(
     typeof value.bot.id !== "string" ||
     typeof value.bot.username !== "string" ||
     typeof value.invite_url !== "string" ||
+    (value.guild_error !== undefined &&
+      typeof value.guild_error !== "string") ||
     !Array.isArray(value.guilds) ||
     !value.guilds.every(
       (item) =>
@@ -119,6 +122,7 @@ export async function previewDiscord(
     bot: { id: value.bot.id, username: value.bot.username },
     guilds: value.guilds as DiscordGuild[],
     invite_url: value.invite_url,
+    guild_error: value.guild_error,
   };
 }
 

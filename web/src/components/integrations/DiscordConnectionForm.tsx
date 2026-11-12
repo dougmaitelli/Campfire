@@ -105,7 +105,9 @@ export function DiscordConnectionForm({
             setLookup({
               token: suppliedToken,
               guilds: preview.guilds,
-              error: preview.guilds.length ? null : t("integrations.noServers"),
+              error:
+                preview.guild_error ??
+                (preview.guilds.length ? null : t("integrations.noServers")),
               inviteURL: preview.invite_url,
             });
             setGuildID((selected) =>
