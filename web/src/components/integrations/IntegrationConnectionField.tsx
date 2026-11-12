@@ -22,6 +22,7 @@ export function IntegrationConnectionField({
   return (
     <FormField label={t("serverIntegrations.connection")}>
       <Select
+        required
         value={value}
         disabled={disabled || readOnly}
         onValueChange={onChange}

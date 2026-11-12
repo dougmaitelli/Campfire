@@ -104,6 +104,7 @@ export function ServerIntegrationFields({
             }
           >
             <Select
+              required
               value={input.channel_id}
               disabled={locked || !connection.enabled}
               onValueChange={(channel_id) => onChange({ ...input, channel_id })}
