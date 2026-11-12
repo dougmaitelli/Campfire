@@ -5,9 +5,25 @@ import {
   type IntegrationCard,
 } from "../../api/integrations";
 import { InlineMessage } from "../status/InlineMessage";
-import { ServerState } from "./ServerState";
 import { RuntimeState } from "../../contracts/domains";
 import "./integration-card-preview.css";
+
+// Match the status emoji used by Discord's RenderServerCard, without the
+// panel's CSS status dot, glow, or localized state labels.
+const statusIndicators: Partial<Record<RuntimeState, string>> = {
+  running: "🟢",
+  dead: "🔴",
+  unknown: "🔴",
+  starting: "🟠",
+  stopping: "🟠",
+  restarting: "🟠",
+  installing: "🟠",
+  updating: "🟠",
+  reinstalling: "🟠",
+  deleting: "🟠",
+  not_installed: "🟠",
+  paused: "🟠",
+};
 
 export function IntegrationCardPreview({
   serverID,
@@ -64,6 +80,9 @@ export function IntegrationCardPreview({
   const card = current?.card;
   const expired =
     card !== undefined && card.expires_at > 0 && now >= card.expires_at;
+  const state = expired
+    ? RuntimeState.Unknown
+    : (card?.state ?? RuntimeState.Unknown);
   return (
     <section
       className="integration-card-preview"
@@ -75,18 +94,16 @@ export function IntegrationCardPreview({
       ) : !card ? (
         <p className="field-help">{t("common.loading")}</p>
       ) : (
-        <div
-          className="integration-server-card"
-          data-state={expired ? RuntimeState.Unknown : card.state}
-        >
+        <div className="integration-server-card" data-state={state}>
           <strong>{card.name}</strong>
           <dl>
             <div>
               <dt>{t("common.status")}</dt>
               <dd>
-                <ServerState
-                  state={expired ? RuntimeState.Unknown : card.state}
-                />
+                <span aria-hidden="true">
+                  {statusIndicators[state] ?? "⚪"}
+                </span>{" "}
+                {state.replaceAll("_", " ")}
               </dd>
             </div>
             {card.addresses.length > 0 && (

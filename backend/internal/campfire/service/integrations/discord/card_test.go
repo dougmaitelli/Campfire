@@ -10,6 +10,39 @@ import (
 	"campfire/internal/shared/model"
 )
 
+func TestServerCardStatusIndicators(t *testing.T) {
+	for _, test := range []struct {
+		state model.RuntimeState
+		value string
+		color int
+	}{
+		{model.RuntimeStateRunning, "🟢 running", 0x80b976},
+		{model.RuntimeStateStopped, "⚪ stopped", 0x8b8b8b},
+		{model.RuntimeStateExited, "⚪ exited", 0x8b8b8b},
+		{model.RuntimeStateDead, "🔴 dead", 0xd46c69},
+		{model.RuntimeStateUnknown, "🔴 unknown", 0xd46c69},
+		{"", "🔴 unknown", 0xd46c69},
+		{model.RuntimeStateNotInstalled, "🟠 not installed", 0xe0ac62},
+		{model.RuntimeStatePaused, "🟠 paused", 0xe0ac62},
+		{model.RuntimeStateStarting, "🟠 starting", 0xe0ac62},
+		{model.RuntimeStateStopping, "🟠 stopping", 0xe0ac62},
+		{model.RuntimeStateRestarting, "🟠 restarting", 0xe0ac62},
+		{model.RuntimeStateInstalling, "🟠 installing", 0xe0ac62},
+		{model.RuntimeStateUpdating, "🟠 updating", 0xe0ac62},
+		{model.RuntimeStateReinstalling, "🟠 reinstalling", 0xe0ac62},
+		{model.RuntimeStateDeleting, "🟠 deleting", 0xe0ac62},
+	} {
+		t.Run(string(test.state), func(t *testing.T) {
+			message := RenderServerCard(core.ServerCard{Name: "Server", State: test.state})
+
+			status := message.Embeds[0].Fields[0]
+			if status.Name != "Status" || status.Value != test.value || message.Embeds[0].Color != test.color {
+				t.Fatal("status indicator and embed color are inconsistent", message)
+			}
+		})
+	}
+}
+
 func TestServerCardRenderingIsBoundedAndContainsEverySelectedField(t *testing.T) {
 	card := core.ServerCard{Name: strings.Repeat("😀 **@everyone**", 100), State: model.RuntimeStateRunning, Addresses: []string{strings.Repeat("games.example.test:25565 / TCP\n", 100)}}
 	for index := range 32 {
