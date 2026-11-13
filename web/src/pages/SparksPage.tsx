@@ -2,7 +2,6 @@ import { Capability } from "../contracts/capabilities";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
-import { Button } from "../components/forms/Button";
 import type { ActionMenuItem } from "../components/forms/ActionMenu";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -254,13 +253,11 @@ export function SparksPage() {
       <PageHeader
         title={t("common.sparks")}
         description={t("sparksPage.theNodesThatHostYourGameServers")}
-        actions={
-          <>
-            <Button variant="primary" onClick={openAdd}>
-              {t("sparksPage.addSpark")}
-            </Button>
-          </>
-        }
+        primaryAction={{
+          label: t("sparksPage.addSpark"),
+          compactLabel: t("common.addAction"),
+          onClick: openAdd,
+        }}
       />
       {(deleteError ?? (sparks.length ? error : null)) && (
         <InlineMessage role="alert">{error ?? deleteError}</InlineMessage>

@@ -117,29 +117,31 @@ export function ServersPage() {
         description={t(
           "serversPage.serverConfigurationAccessAndAllocatedResources",
         )}
+        primaryAction={
+          canProvision
+            ? {
+                label: t("serversPage.createServer"),
+                compactLabel: t("common.createAction"),
+                disabled: !canCreate,
+                onClick: create,
+              }
+            : undefined
+        }
         actions={
-          <>
-            {canProvision && (
-              <Button variant="primary" disabled={!canCreate} onClick={create}>
-                {t("serversPage.createServer")}
-              </Button>
-            )}
-            {canProvision && (
-              <ActionMenu
-                label={t("common.actions")}
-                items={[
-                  {
-                    label: t("backupImports.create"),
-                    icon: "backups",
-                    disabled:
-                      loading ||
-                      !options.sparks.some((spark) => !spark.disabled),
-                    onSelect: () => setImportOpen(true),
-                  },
-                ]}
-              />
-            )}
-          </>
+          canProvision && (
+            <ActionMenu
+              label={t("common.actions")}
+              items={[
+                {
+                  label: t("backupImports.create"),
+                  icon: "backups",
+                  disabled:
+                    loading || !options.sparks.some((spark) => !spark.disabled),
+                  onSelect: () => setImportOpen(true),
+                },
+              ]}
+            />
+          )
         }
       />
       {error && servers.items.length > 0 && (

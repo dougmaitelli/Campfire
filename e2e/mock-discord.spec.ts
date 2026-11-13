@@ -238,7 +238,7 @@ test("mock Discord shows real deliveries, edits one card, and recreates a delete
   ).toBeVisible();
   const originalID = await card.getAttribute("data-message-id");
   await saveCard(["players"]);
-  await expect(card).toContainText("players");
+  await expect(card.getByText("Players", { exact: true })).toBeVisible();
   await expect(card).toContainText("edited");
   await expect(card).toHaveAttribute("data-message-id", originalID!);
   await card

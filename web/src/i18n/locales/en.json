@@ -384,6 +384,8 @@
     "unableToCompleteTheRequest": "Unable to complete the request."
   },
   "common": {
+    "createAction": "Create",
+    "addAction": "Add",
     "jobs": "Jobs",
     "descriptionPlaceholder": "Optional notes",
     "actions": "Actions",

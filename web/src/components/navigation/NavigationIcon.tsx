@@ -31,6 +31,7 @@ import {
   Menu,
   MoreHorizontal,
   Play,
+  Plus,
   Pin,
   PinOff,
   RotateCcw,
@@ -58,6 +59,7 @@ type NavigationIconName =
   | "logout"
   | "mail"
   | "mail-open"
+  | "plus"
   | "menu"
   | "more"
   | "chevron"
@@ -139,6 +141,7 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   logout: LogOut,
   mail: Mail,
   "mail-open": MailOpen,
+  plus: Plus,
   chevron: ChevronUp,
   key: KeyRound,
   link: Link,
