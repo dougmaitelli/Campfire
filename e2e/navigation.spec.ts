@@ -156,7 +156,7 @@ test("unsaved file edits can block or allow navigation", async ({ page }) => {
 });
 
 for (const mobile of [false, true]) {
-  test(`server rows open the console with three power controls (${mobile ? "mobile" : "desktop"})`, async ({
+  test(`server rows open the console with desktop-only quick power controls (${mobile ? "mobile" : "desktop"})`, async ({
     page,
   }) => {
     await login(page);
@@ -165,10 +165,14 @@ for (const mobile of [false, true]) {
     const row = page.getByRole("row").filter({
       has: page.getByRole("button", { name: "Open Survival", exact: true }),
     });
-    for (const action of ["Start", "Stop", "Restart"])
-      await expect(
-        row.getByRole("button", { name: `${action} Survival`, exact: true }),
-      ).toBeVisible();
+    for (const action of ["Start", "Stop", "Restart"]) {
+      const control = row.getByRole("button", {
+        name: `${action} Survival`,
+        exact: true,
+      });
+      if (mobile) await expect(control).toBeHidden();
+      else await expect(control).toBeVisible();
+    }
     await expect(
       row.getByRole("link", { name: "Open console for Survival", exact: true }),
     ).toHaveCount(0);
@@ -180,6 +184,10 @@ for (const mobile of [false, true]) {
     await expect(
       page.getByRole("region", { name: "Console output", exact: true }),
     ).toBeVisible();
+    for (const action of ["Start", "Stop", "Restart"])
+      await expect(
+        page.getByRole("button", { name: action, exact: true }),
+      ).toBeVisible();
   });
 }
 

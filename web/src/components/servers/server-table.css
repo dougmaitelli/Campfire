@@ -93,7 +93,7 @@
 
 @container (max-width: 32rem) {
   .table-cards.server-table tbody td.game-state-card-cell {
-    grid-row: 3;
+    grid-row: 2;
   }
 
   .table-cards.server-table tbody tr {
@@ -114,7 +114,6 @@
   }
 
   .table-cards.server-table tbody .table-actions {
-    grid-column: 1 / -1;
-    grid-row: 2;
+    display: none;
   }
 }
