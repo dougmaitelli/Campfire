@@ -250,7 +250,9 @@ export function ServersPage() {
               </th>
               <th scope="col">{t("serversPage.sparkEmber")}</th>
               <th scope="col">{t("serversPage.resources")}</th>
-              <th scope="col">{t("common.ports")}</th>
+              <th scope="col" className="table-mobile-hidden">
+                {t("common.ports")}
+              </th>
               <th scope="col" className="table-actions">
                 <span className="visually-hidden">{t("common.actions")}</span>
               </th>
@@ -379,7 +381,10 @@ export function ServersPage() {
                       elapsed={monitoring.elapsed}
                     />
                   </td>
-                  <td data-label={t("common.ports")}>
+                  <td
+                    className="table-mobile-hidden"
+                    data-label={t("common.ports")}
+                  >
                     <PortGroups
                       ports={server.ports.map((port) => ({
                         address: server.game_address || port.bind_ip,
