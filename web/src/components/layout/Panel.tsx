@@ -4,6 +4,7 @@ import "./panel.css";
 
 interface PanelProps {
   title: ReactNode;
+  className?: string;
   description?: string | undefined;
   headingID?: string;
   headingActions?: ReactNode;
@@ -15,6 +16,7 @@ interface PanelProps {
 
 export function Panel({
   title,
+  className,
   description,
   headingID,
   headingActions,
@@ -27,7 +29,10 @@ export function Panel({
   const id = headingID ?? generatedID;
   const { t } = useTranslation();
   return (
-    <section className="panel" aria-labelledby={id}>
+    <section
+      className={className ? `panel ${className}` : "panel"}
+      aria-labelledby={id}
+    >
       {leading && <div className="panel-leading">{leading}</div>}
       <header className="panel-heading">
         <div>

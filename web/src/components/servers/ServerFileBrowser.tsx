@@ -602,6 +602,7 @@ export function ServerFileBrowser({
 
   return (
     <Panel
+      className="server-file-browser"
       title={t("serverFileBrowser.files")}
       leading={
         !editor && (
@@ -1013,7 +1014,7 @@ export function ServerFileBrowser({
                   )}
                   <th className="file-icon-cell" />
                   <th className="file-name-column">{t("common.name")}</th>
-                  <th className="table-fit">
+                  <th className="table-fit table-mobile-hidden">
                     {t("serverFileBrowser.fileType")}
                   </th>
                   <th className="table-fit">{t("common.size")}</th>
@@ -1095,7 +1096,7 @@ export function ServerFileBrowser({
                         )}
                       </button>
                     </td>
-                    <td className="table-fit file-entry-meta">
+                    <td className="table-fit file-entry-meta table-mobile-hidden">
                       {entry.kind === FileKind.Directory
                         ? t("serverFileBrowser.folderType")
                         : entry.kind === "unsupported"
