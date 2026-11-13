@@ -10,17 +10,16 @@ import (
 
 func TestServerCardSelectsOnlyRequestedFreshValues(t *testing.T) {
 	server := model.Server{ServerConfiguration: model.ServerConfiguration{Name: "Survival", Variables: map[string]string{"TOKEN": "private"}}}
-	settings := CardSettings{Enabled: true, Fields: []string{"players", "capacity", "field.online_names", "field.invite_code", "field.pvp", "field.round", "field.missing"}}
-	game := &model.GameState{Players: new(0), Capacity: new(20), Fields: map[string]any{"online_names": "Alex, Sam", "invite_code": "ABCD", "pvp": false, "round": float64(0), "private": "hidden"}}
-	game.FieldLabels = model.GameFieldLabels{"online_names": "Online players", "invite_code": "Join code"}
-	card := BuildServerCard(server, model.RuntimeStateRunning, game, settings)
+	settings := CardSettings{Enabled: true, Fields: []string{"players", "capacity", "field.world", "field.invite_code", "field.pvp", "field.round", "field.missing"}}
+	game := &model.GameState{Players: new(0), Capacity: new(20), Fields: map[string]any{"world": "Meadows", "invite_code": "ABCD", "pvp": false, "round": float64(0), "private": "hidden"}}
+	game.FieldLabels = model.GameFieldLabels{"world": "World name", "invite_code": "Join code"}
+	card := BuildServerCard(server, model.RuntimeStateRunning, game, settings, game.FieldLabels)
 
 	want := []CardField{
-		{ID: "players", Name: "players", Value: "0", Available: true},
-		{ID: "capacity", Name: "capacity", Value: "20", Available: true},
-		{ID: "field.online_names", Name: "Online players", Value: "Alex, Sam", Available: true},
+		{ID: "players", Name: "Players", Value: "0 / 20", Available: true},
+		{ID: "field.world", Name: "World name", Value: "Meadows", Available: true},
 		{ID: "field.invite_code", Name: "Join code", Value: "ABCD", Available: true},
-		{ID: "field.pvp", Name: "pvp", Value: "false", Available: true},
+		{ID: "field.pvp", Name: "pvp", Value: "No", Available: true},
 		{ID: "field.round", Name: "round", Value: "0", Available: true},
 		{ID: "field.missing", Name: "missing"},
 	}
@@ -29,7 +28,7 @@ func TestServerCardSelectsOnlyRequestedFreshValues(t *testing.T) {
 	}
 
 	for _, state := range []model.RuntimeState{model.RuntimeStateStopped, model.RuntimeStateUnknown, model.RuntimeStateRestarting} {
-		card = BuildServerCard(server, state, game, settings)
+		card = BuildServerCard(server, state, game, settings, game.FieldLabels)
 		for _, field := range card.Fields {
 			if field.Available || field.Value != "" {
 				t.Fatal("non-running card exposed game state", state, field)
@@ -53,7 +52,7 @@ func TestServerCardAddressResolution(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			server := model.Server{GameAddress: test.host, ServerConfiguration: model.ServerConfiguration{Ports: test.ports}}
-			if got := BuildServerCard(server, model.RuntimeStateStopped, nil, CardSettings{}).Addresses; !reflect.DeepEqual(got, test.want) {
+			if got := BuildServerCard(server, model.RuntimeStateStopped, nil, CardSettings{}, nil).Addresses; !reflect.DeepEqual(got, test.want) {
 				t.Fatal(got, test.want)
 			}
 		})

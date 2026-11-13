@@ -24,7 +24,7 @@ export function ActivityTable({
       aria-label={t(
         notifications ? "serverActivity.notifications" : "serverActivity.title",
       )}
-      className="activity-table table-cards"
+      className="activity-table"
       empty={!items.length}
       loading={loading ?? false}
       error={error}
@@ -62,15 +62,13 @@ export function ActivityTable({
                 : undefined
             }
           >
-            <td data-label={t("serverActivity.recorded")}>
+            <td>
               <time dateTime={new Date(item.created_at * 1000).toISOString()}>
                 {new Date(item.created_at * 1000).toLocaleString(i18n.language)}
               </time>
             </td>
-            <td data-label={t("serverActivity.type")}>
-              {t(`serverActivity.kinds.${item.kind}`)}
-            </td>
-            <td data-label={t("serverActivity.summary")}>
+            <td>{t(`serverActivity.kinds.${item.kind}`)}</td>
+            <td>
               <button
                 type="button"
                 className="table-row-trigger"
@@ -93,16 +91,10 @@ export function ActivityTable({
                 </span>
               )}
             </td>
-            <td data-label={t("common.status")}>
+            <td>
               <ActivityStatus state={item.state} />
             </td>
-            <td
-              data-label={t(
-                notifications
-                  ? "serverActivity.destination"
-                  : "serverActivity.notifications",
-              )}
-            >
+            <td>
               {item.kind === "notification" ? (
                 <>
                   <span>{item.provider}</span>

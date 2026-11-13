@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"maps"
 
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/model"
@@ -68,6 +69,29 @@ func (s *GameIntegrationService) register(ctx context.Context, sparkID, serverID
 	}
 
 	return nil
+}
+
+// StateLabels returns definitions independently of game-value freshness. A
+// registration is durable server metadata; unregistered publishers use the last
+// accepted snapshot's labels. Callers receive an independent copy.
+func (s *GameIntegrationService) StateLabels(ctx context.Context, serverID string) (model.GameFieldLabels, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	registration, err := s.registration(ctx, serverID)
+	if err != nil {
+		return nil, err
+	}
+
+	if registration != nil {
+		return maps.Clone(registration.StateFields), nil
+	}
+
+	if record, ok := s.states[serverID]; ok && record.state != nil {
+		return maps.Clone(record.state.FieldLabels), nil
+	}
+
+	return nil, nil
 }
 
 func registeredStateLabels(registration *model.GameRegistration, fields map[string]any) model.GameFieldLabels {

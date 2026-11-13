@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/database/repository"
 	core "campfire/internal/campfire/integrations"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
@@ -24,8 +25,18 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 	}
 
 	now := time.Now()
-	games := &GameIntegrationService{Servers: deployment.Servers, now: func() time.Time { return now }}
+	games := &GameIntegrationService{
+		Servers: deployment.Servers, now: func() time.Time { return now },
+		Events: NewGameEventService(repository.NewGameEventRepository(db.ORM())),
+	}
+
 	deployment.Games = games
+	if err := games.register(t.Context(), "node", "game", model.GameRegistration{
+		Revision: 1, StateFields: model.GameFieldLabels{"invite_code": "Invite code"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
 	publication := protocol.GameFrame{ServerID: "game", Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(3), Fields: map[string]any{"invite_code": "ABCD", "private": "unselected"}}}}
 	settings := core.CardSettings{Fields: []string{"players", "field.invite_code"}}
 
@@ -74,6 +85,10 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 			card, err := deployment.IntegrationCard(t.Context(), "game", settings)
 			if err != nil || len(card.Fields) != 2 || card.Fields[0].Available != (scenario == "fresh") || card.Fields[1].Available != (scenario == "fresh") {
 				t.Fatal("incorrect current game values", card, err)
+			}
+
+			if card.Fields[1].Name != "Invite code" {
+				t.Fatal("durable labels disappeared with unavailable values", scenario, card)
 			}
 
 			if scenario == "fresh" && (card.Fields[0].Value != "3" || card.Fields[1].Value != "ABCD") {

@@ -52,7 +52,15 @@ func (s *DeploymentService) IntegrationCard(ctx context.Context, id string, sett
 		}
 	}
 
-	card := core.BuildServerCard(server, state, game, settings)
+	var labels model.GameFieldLabels
+	if s.Games != nil {
+		labels, err = s.Games.StateLabels(ctx, id)
+		if err != nil {
+			return core.ServerCard{}, err
+		}
+	}
+
+	card := core.BuildServerCard(server, state, game, settings, labels)
 	card.ExpiresAt = expires
 
 	return card, nil

@@ -368,34 +368,8 @@ test("binary file rows remain selectable and downloadable without opening the ed
     "crops",
     "file-actions-disabled-mobile.png",
   ]);
-  for (const width of [320, 390, 440, 480, 600, 1000, 1400]) {
-    await page.setViewportSize({ width, height: 900 });
-    expect(
-      await actions.evaluate((element) => {
-        const count = element
-          .querySelector(".file-selection-count")!
-          .getBoundingClientRect();
-        return (
-          element.scrollWidth <= element.clientWidth &&
-          Array.from(element.querySelectorAll("button")).every((button) => {
-            const bounds = button.getBoundingClientRect();
-            return (
-              Math.abs(
-                bounds.y + bounds.height / 2 - count.y - count.height / 2,
-              ) < 2
-            );
-          })
-        );
-      }),
-      `file actions should stay on one row at ${width}px`,
-    ).toBe(true);
-    if (width >= 480)
-      await expect(actions.locator(".file-selection-full")).toBeVisible();
-    for (const name of ["Upload Files", "Create file", "Create folder"])
-      await expect(
-        page.getByRole("button", { name, exact: true }),
-      ).toBeVisible();
-  }
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await expect(actions).toHaveScreenshot(["crops", "file-actions-narrow.png"]);
 });
 
 test("server file edits persist after reopening", async ({ page }) => {

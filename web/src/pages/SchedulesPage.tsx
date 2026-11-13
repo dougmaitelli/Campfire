@@ -215,20 +215,15 @@ export function SchedulesPage() {
         description={t(
           "schedulesPage.oneOffAndRecurringOperationsWithExecutionHistory",
         )}
-        actions={
-          <>
-            <Button
-              variant="primary"
-              disabled={!managed.length}
-              onClick={() => {
-                setDetails(null);
-                setOpen(true);
-              }}
-            >
-              {t("schedulesPage.createSchedule")}
-            </Button>
-          </>
-        }
+        primaryAction={{
+          label: t("schedulesPage.createSchedule"),
+          compactLabel: t("common.createAction"),
+          disabled: !managed.length,
+          onClick: () => {
+            setDetails(null);
+            setOpen(true);
+          },
+        }}
       />
       {(error ??
         (schedules.items.length ? schedules.error : null) ??

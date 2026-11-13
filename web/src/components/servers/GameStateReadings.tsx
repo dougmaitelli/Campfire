@@ -1,7 +1,8 @@
 import { RuntimeState } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { gameStateFresh, type GameStateView } from "../../api/gameState";
-import { gameFieldLabel } from "../../api/gameFields";
+import { presentGameFields } from "../../utils/gameFieldPresentation";
+import { GameFieldReading } from "./GameField";
 import { containerFresh, type ResourceUsage } from "../../api/monitoring";
 import "./game-state-readings.css";
 
@@ -20,7 +21,7 @@ export function GameStateReadings({
   runtimeState?: string | undefined;
   busy?: boolean | undefined;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (!game) return null;
   const available =
     !busy &&
@@ -43,36 +44,17 @@ export function GameStateReadings({
     >
       {state ? (
         <dl>
-          {state.players !== undefined && (
-            <div>
-              <dt>{t("gameState.players")}</dt>
-              <dd>
-                {state.capacity !== undefined
-                  ? t("gameState.playersWithCapacity", {
-                      players: state.players,
-                      capacity: state.capacity,
-                    })
-                  : state.players.toLocaleString()}
-              </dd>
-            </div>
-          )}
-          {state.players === undefined && state.capacity !== undefined && (
-            <div>
-              <dt>{t("gameState.capacity")}</dt>
-              <dd>{state.capacity.toLocaleString()}</dd>
-            </div>
-          )}
-          {Object.entries(state.fields ?? {}).map(([key, value]) => (
-            <div key={key}>
-              <dt>{gameFieldLabel(state.field_labels, key)}</dt>
-              <dd>
-                {typeof value === "boolean"
-                  ? t(value ? "gameState.yes" : "gameState.no")
-                  : typeof value === "number"
-                    ? value.toLocaleString()
-                    : value}
-              </dd>
-            </div>
+          {presentGameFields(
+            state,
+            undefined,
+            t,
+            i18n.resolvedLanguage ?? "en",
+          ).map((field) => (
+            <GameFieldReading
+              key={field.id}
+              field={field}
+              unavailable={t("serverIntegrations.valueUnavailable")}
+            />
           ))}
         </dl>
       ) : (

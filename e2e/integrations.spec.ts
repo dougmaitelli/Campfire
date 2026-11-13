@@ -97,8 +97,8 @@ test("alert settings discovers game-card fields and limits selection before savi
     .getByRole("checkbox", { name: "Show a live server card", exact: true })
     .check();
   for (const name of [
-    "players",
-    "capacity",
+    "Players",
+    "Capacity",
     ...Array.from({ length: 30 }, (_, i) => `key${i}`),
   ]) {
     await drawer.getByRole("checkbox", { name, exact: true }).check();
@@ -110,7 +110,7 @@ test("alert settings discovers game-card fields and limits selection before savi
     drawer.getByRole("checkbox", { name: "key31", exact: true }),
   ).toBeDisabled();
   await drawer
-    .getByRole("checkbox", { name: "players", exact: true })
+    .getByRole("checkbox", { name: "Players", exact: true })
     .uncheck();
   await drawer.getByRole("checkbox", { name: "key30", exact: true }).check();
   await expect(
@@ -312,6 +312,10 @@ test("per-server Discord settings persist, enforce channel access, and keep card
           value: string;
           available: boolean;
         }[];
+        preview: { embeds: { fields: { name: string; value: string }[] }[] };
+        expired_preview: {
+          embeds: { fields: { name: string; value: string }[] }[];
+        };
       };
       if (hasGameState) {
         card.state = "running";
@@ -326,11 +330,32 @@ test("per-server Discord settings persist, enforce channel access, and keep card
           "field.map": "World",
         };
         for (const field of card.fields) {
-          if (field.id === "field.invite_code") field.name = "Join code";
-          if (field.id === "field.map") field.name = "World name";
+          if (field.id === "field.invite_code") {
+            field.name = "Join code";
+          }
+          if (field.id === "field.map") {
+            field.name = "World name";
+          }
           field.value = values[field.id] ?? "";
           field.available = field.id in values;
         }
+        card.preview.embeds[0]!.fields = [
+          { name: "Status", value: "Running" },
+          { name: "Address", value: card.addresses.join("\n") },
+          ...card.fields.map((field) => ({
+            name: field.name,
+            value: field.available ? field.value : "Unavailable",
+          })),
+        ];
+        card.expired_preview = structuredClone(card.preview);
+        card.expired_preview.embeds[0]!.fields = [
+          { name: "Status", value: "Unknown" },
+          { name: "Address", value: card.addresses.join("\n") },
+          ...card.fields.map((field) => ({
+            name: field.name,
+            value: "Unavailable",
+          })),
+        ];
       }
       await route.fulfill({ response, json: card });
     },
@@ -382,7 +407,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
     "Console alerts",
     "Backups",
     "Show a live server card",
-    "players",
+    "Players",
     "Join code",
   ])
     await drawer.getByRole("checkbox", { name, exact: true }).check();
@@ -437,7 +462,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   await expect(cardPreview).toContainText("games.example.test:25565 / TCP");
   await expect(cardPreview).toContainText("test-invite");
   await expect(cardPreview).toContainText("Join code");
-  await expect(cardPreview).not.toContainText("capacity");
+  await expect(cardPreview).not.toContainText("Capacity");
   const publishing = drawer.getByRole("region", {
     name: "Card publishing",
     exact: true,
@@ -485,7 +510,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
     drawer.getByRole("combobox", { name: "Field value", exact: true }),
   ).toHaveText("Alex");
   await expect(
-    drawer.getByRole("checkbox", { name: "players", exact: true }),
+    drawer.getByRole("checkbox", { name: "Players", exact: true }),
   ).toBeChecked();
   await expect(
     drawer.getByRole("checkbox", { name: "invite_code", exact: true }),
@@ -496,16 +521,16 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   await expect(cardPreview).toContainText("Unavailable");
   await expect(cardPreview).not.toContainText("test-invite");
   await expect(
-    drawer.getByRole("checkbox", { name: "capacity", exact: true }),
+    drawer.getByRole("checkbox", { name: "Capacity", exact: true }),
   ).toHaveCount(0);
   const playerCount = drawer.getByRole("checkbox", {
-    name: "players",
+    name: "Players",
     exact: true,
   });
   await playerCount.uncheck();
-  await expect(cardPreview).not.toContainText("players");
+  await expect(cardPreview).not.toContainText("Players");
   await playerCount.check();
-  await expect(cardPreview).toContainText("players");
+  await expect(cardPreview).toContainText("Players");
   await expect(cardPreview).not.toContainText("test-invite");
   await page.setViewportSize({ width: 320, height: 844 });
   await cardPreview.scrollIntoViewIfNeeded();

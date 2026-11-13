@@ -96,27 +96,24 @@ export function EmbersPage() {
       <PageHeader
         title={t("common.embers")}
         description={t("embersPage.gameDefinitionsUsedToConfigureYourServers")}
-        actions={
-          <>
-            <Button
-              variant="primary"
-              onClick={() => {
-                setCreating(true);
-                setImporting(true);
-              }}
-            >
-              {t("embersPage.createEmber")}
-            </Button>
-            <Button
-              onClick={() => {
-                setCreating(false);
-                setImporting(true);
-              }}
-            >
-              {t("embersPage.importEmber")}
-            </Button>
-          </>
-        }
+        primaryAction={{
+          label: t("embersPage.createEmber"),
+          compactLabel: t("common.createAction"),
+          onClick: () => {
+            setCreating(true);
+            setImporting(true);
+          },
+        }}
+        secondaryActions={[
+          {
+            label: t("embersPage.importEmber"),
+            icon: "upload",
+            onSelect: () => {
+              setCreating(false);
+              setImporting(true);
+            },
+          },
+        ]}
       />
       <ListToolbar>
         <Button

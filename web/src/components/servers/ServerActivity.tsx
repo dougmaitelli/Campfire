@@ -43,7 +43,7 @@ export function ServerActivity({ server }: { server: Server }) {
     },
     [server.id, signature],
   );
-  const { items, loading, error, refresh } = useCollection(
+  const { items, loading, error, connectionError, refresh } = useCollection(
     load,
     filter.before && poll !== 2000 ? undefined : poll,
   );
@@ -108,7 +108,7 @@ export function ServerActivity({ server }: { server: Server }) {
       )}
       <ActivityTable
         items={page?.items ?? []}
-        loading={loading || (!page && !error)}
+        loading={loading || (!page && !error && !connectionError)}
         error={error}
         onOpen={open}
         onRetry={() => void refresh()}

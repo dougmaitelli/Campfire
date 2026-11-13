@@ -1,3 +1,11 @@
+.server-file-browser {
+  & > .panel-leading,
+  & > .panel-heading,
+  & > .panel-footer,
+  & > .panel-content-area > .panel-content {
+    padding-inline: 0;
+  }
+}
 .file-breadcrumbs,
 .file-toolbar,
 .file-bulk-actions {
@@ -224,7 +232,7 @@
   resize: vertical;
 }
 
-@container file-browser (max-width: 40rem) {
+@container file-browser (max-width: 48rem) {
   .file-selection-bar {
     gap: 8px;
     padding-inline: 12px;

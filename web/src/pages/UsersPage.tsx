@@ -4,7 +4,6 @@ import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { SearchField } from "../components/forms/SearchField";
-import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -45,20 +44,15 @@ export function UsersPage() {
       <PageHeader
         title={t("common.users")}
         description={t("usersPage.accountsRolesAndSignInAccess")}
-        actions={
-          <>
-            <Button
-              variant="primary"
-              disabled={roles.loading || !!roles.error}
-              onClick={() => {
-                setEditing(null);
-                setOpen(true);
-              }}
-            >
-              {t("usersPage.createUser")}
-            </Button>
-          </>
-        }
+        primaryAction={{
+          label: t("usersPage.createUser"),
+          compactLabel: t("common.createAction"),
+          disabled: roles.loading || !!roles.error,
+          onClick: () => {
+            setEditing(null);
+            setOpen(true);
+          },
+        }}
       />
       {users.items.length > 0 && (users.error ?? roles.error) && (
         <InlineMessage role="alert">{users.error ?? roles.error}</InlineMessage>

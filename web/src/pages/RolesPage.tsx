@@ -2,7 +2,6 @@ import { RoleScope } from "../contracts/domains";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
 import { ContentPanel } from "../components/layout/ContentPanel";
-import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useEffect, useState } from "react";
@@ -128,19 +127,14 @@ export function RolesPage() {
       <PageHeader
         title={t("common.roles")}
         description={t("rolesPage.platformCapabilitiesAndServerScopedAccess")}
-        actions={
-          <>
-            <Button
-              variant="primary"
-              onClick={() => {
-                setEditing(null);
-                setOpen(true);
-              }}
-            >
-              {t("rolesPage.createRole")}
-            </Button>
-          </>
-        }
+        primaryAction={{
+          label: t("rolesPage.createRole"),
+          compactLabel: t("common.createAction"),
+          onClick: () => {
+            setEditing(null);
+            setOpen(true);
+          },
+        }}
       />
       {(error ?? (roles.items.length ? roles.error : null)) && (
         <InlineMessage role="alert">{error ?? roles.error}</InlineMessage>

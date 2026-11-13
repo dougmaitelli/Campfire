@@ -1,6 +1,7 @@
 import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
-import type { ComponentProps, ReactNode } from "react";
+import { useContext, type ComponentProps, type ReactNode } from "react";
+import { RequestErrorContext } from "../../hooks/useRequestError";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { Button } from "../forms/Button";
 import "./content-state.css";
@@ -27,6 +28,8 @@ export function ContentState({
   compact?: boolean;
 }) {
   const { t } = useTranslation();
+  const connection = useContext(RequestErrorContext);
+  const unavailable = connection?.disconnected && !loading && !error;
   return (
     <div
       className={[
@@ -49,7 +52,10 @@ export function ContentState({
           ? t("contentState.loading", { resource: resource })
           : error
             ? t("contentState.unableToLoad", { resource: resource })
-            : (emptyMessage ?? t("contentState.noYet", { resource: resource }))}
+            : unavailable
+              ? t("connection.dataUnavailable")
+              : (emptyMessage ??
+                t("contentState.noYet", { resource: resource }))}
       </h2>
       {!loading &&
         (error ? (
@@ -61,12 +67,12 @@ export function ContentState({
               </Button>
             )}
           </>
-        ) : (
+        ) : !unavailable ? (
           <>
             {emptyDescription && <p>{emptyDescription}</p>}
             {emptyAction}
           </>
-        ))}
+        ) : null)}
     </div>
   );
 }

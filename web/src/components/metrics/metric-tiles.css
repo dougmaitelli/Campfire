@@ -36,3 +36,60 @@
     }
   }
 }
+
+@container (max-width: 32rem) {
+  .metric-tiles {
+    gap: 16px;
+  }
+
+  .metric-tiles > .usage-reading-icon {
+    --resource-allocation-font-size: clamp(10px, 3.6cqi, 12px);
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 8px;
+    padding-block: 8px;
+
+    &::before {
+      inset-inline-start: -8px;
+    }
+
+    & .usage-icon {
+      grid-row: 1;
+      padding-top: 0;
+    }
+
+    & .usage-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    & .usage-label {
+      font-size: 12px;
+    }
+
+    & .usage-value,
+    & .resource-meter {
+      grid-column: 1 / -1;
+    }
+
+    & .usage-value {
+      font-size: clamp(12px, 5cqi, 16px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    & .resource-allocation {
+      margin-inline-start: 4px;
+    }
+  }
+}
+
+@container (max-width: 20rem) {
+  .metric-tiles {
+    gap: 8px;
+  }
+
+  .metric-tiles > .usage-reading-icon::before {
+    inset-inline-start: -4px;
+  }
+}

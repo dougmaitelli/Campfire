@@ -332,8 +332,9 @@ test("Operations links copy and transfer progress with retry and cancellation", 
   ).toContainText("Complete");
   await screenshot(page, "server-jobs.png", activity.getByRole("table"));
   await page.setViewportSize({ width: 390, height: 844 });
-  await activity.getByRole("table").scrollIntoViewIfNeeded();
-  await screenshot(page, "server-jobs-mobile.png", activity.getByRole("table"));
+  const tableViewport = activity.locator(".table-container");
+  await tableViewport.scrollIntoViewIfNeeded();
+  await screenshot(page, "server-jobs-mobile.png", tableViewport);
   const drawer = await openServerJob(page, "survival", job.id);
   const history = drawer.getByRole("row", {
     name: "Copy current-copy",

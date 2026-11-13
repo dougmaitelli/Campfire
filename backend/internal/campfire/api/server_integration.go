@@ -2,10 +2,12 @@ package api
 
 import (
 	"net/http"
+	"slices"
 	"strconv"
 
 	core "campfire/internal/campfire/integrations"
 	"campfire/internal/campfire/service/integrations"
+	"campfire/internal/campfire/service/integrations/discord"
 	"campfire/internal/shared/model"
 )
 
@@ -31,7 +33,19 @@ func (a *API) serverDiscordCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, card)
+	expired := card
+	expired.State = model.RuntimeStateUnknown
+
+	expired.Fields = slices.Clone(card.Fields)
+	for i := range expired.Fields {
+		expired.Fields[i].Available = false
+	}
+
+	writeJSON(w, http.StatusOK, struct {
+		core.ServerCard
+		Preview        discord.CardMessage `json:"preview"`
+		ExpiredPreview discord.CardMessage `json:"expired_preview"`
+	}{card, discord.PreviewServerCard(card), discord.PreviewServerCard(expired)})
 }
 
 func (a *API) retryServerDiscordCard(w http.ResponseWriter, r *http.Request) {
@@ -212,7 +226,19 @@ func (a *API) serverDiscordIntegrations(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, items)
+	var labels model.GameFieldLabels
+	if a.deployment != nil && a.deployment.Games != nil {
+		labels, err = a.deployment.Games.StateLabels(r.Context(), r.PathValue("id"))
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, struct {
+		integrations.ServerIntegrationList
+		FieldLabels model.GameFieldLabels `json:"field_labels,omitempty"`
+	}{items, labels})
 }
 
 func (a *API) removeServerDiscordIntegration(w http.ResponseWriter, r *http.Request) {

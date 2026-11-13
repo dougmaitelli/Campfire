@@ -25,10 +25,13 @@ import {
   ListTodo,
   LoaderCircle,
   LogOut,
+  Mail,
+  MailOpen,
   MemoryStick,
   Menu,
   MoreHorizontal,
   Play,
+  Plus,
   Pin,
   PinOff,
   RotateCcw,
@@ -54,6 +57,9 @@ import type { NavigationIcon as IconName } from "../../routing/navigation";
 type NavigationIconName =
   | IconName
   | "logout"
+  | "mail"
+  | "mail-open"
+  | "plus"
   | "menu"
   | "more"
   | "chevron"
@@ -133,6 +139,9 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   warning: TriangleAlert,
   table: Table,
   logout: LogOut,
+  mail: Mail,
+  "mail-open": MailOpen,
+  plus: Plus,
   chevron: ChevronUp,
   key: KeyRound,
   link: Link,

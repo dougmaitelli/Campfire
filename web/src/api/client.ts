@@ -18,6 +18,20 @@ export class APIError extends Error {
   }
 }
 
+export class ConnectionError extends Error {
+  constructor(cause: unknown) {
+    super(i18n.t("connection.requestFailed"), { cause });
+    this.name = "ConnectionError";
+  }
+}
+
+function requestFailure(cause: unknown): unknown {
+  return (cause instanceof Error || cause instanceof DOMException) &&
+    ["TypeError", "NetworkError", "TimeoutError"].includes(cause.name)
+    ? new ConnectionError(cause)
+    : cause;
+}
+
 export function setCSRFToken(token: string) {
   csrfToken = token;
 }
@@ -32,13 +46,18 @@ export async function apiFetch(
     !["GET", "HEAD", "OPTIONS"].includes((init.method ?? "GET").toUpperCase())
   )
     headers.set("X-CSRF-Token", csrfToken);
-  const response = await fetch(url, {
-    ...init,
-    credentials: "same-origin",
-    cache: "no-store",
-    headers,
-    signal: init.signal ?? AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers,
+      signal: init.signal ?? AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
+    });
+  } catch (cause) {
+    throw requestFailure(cause);
+  }
   if (response.status === 401) {
     csrfToken = "";
     window.dispatchEvent(new Event(BrowserEvent.Unauthenticated));
@@ -72,7 +91,7 @@ export async function readJSON(response: Response): Promise<unknown> {
   try {
     body = await response.json();
   } catch (cause) {
-    if (!(cause instanceof SyntaxError)) throw cause;
+    if (!(cause instanceof SyntaxError)) throw requestFailure(cause);
     const path = response.url ? new URL(response.url).pathname : "the API";
     const contentType =
       response.headers.get("Content-Type")?.split(";")[0] ??

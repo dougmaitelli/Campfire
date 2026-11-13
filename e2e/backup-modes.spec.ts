@@ -48,7 +48,7 @@ test("manual backups send the selected type and save-data restore describes its 
     ).toBeInViewport({ ratio: 1 });
     await page.keyboard.press("Escape");
     const name = firstBackup.getByText("mock-nightly.tar.gz", { exact: true });
-    await name.scrollIntoViewIfNeeded();
+    await firstBackup.scrollIntoViewIfNeeded();
     await expect(name).toBeInViewport({ ratio: 1 });
     for (const action of await firstBackup.getByRole("button").all())
       await expect(action).toBeInViewport({ ratio: 1 });

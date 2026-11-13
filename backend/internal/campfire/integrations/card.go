@@ -8,16 +8,12 @@ import (
 	"strconv"
 	"strings"
 
+	"campfire/internal/shared/gamefields"
 	"campfire/internal/shared/model"
 )
 
 // CardField contains only an explicitly selected, current game value.
-type CardField struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Value     string `json:"value"`
-	Available bool   `json:"available"`
-}
+type CardField = gamefields.Field
 
 // ServerCard is a provider-independent view, without deployment or secret data.
 type ServerCard struct {
@@ -35,7 +31,7 @@ func (c CardSettings) Validate() error {
 	}
 
 	for _, field := range c.Fields {
-		if field != "players" && field != "capacity" && (!strings.HasPrefix(field, "field.") || !model.ValidGameEventType(strings.TrimPrefix(field, "field."))) {
+		if _, builtin := gamefields.Builtin(field); !builtin && (!strings.HasPrefix(field, "field.") || !model.ValidGameEventType(strings.TrimPrefix(field, "field."))) {
 			return errors.New("invalid server card field")
 		}
 	}
@@ -45,8 +41,8 @@ func (c CardSettings) Validate() error {
 
 // BuildServerCard accepts only a fresh game snapshot from the runtime source.
 // Missing values remain unavailable; unselected fields never enter the card.
-func BuildServerCard(server model.Server, state model.RuntimeState, game *model.GameState, settings CardSettings) ServerCard {
-	card := ServerCard{Name: server.Name, State: state, Addresses: cardAddresses(server), Fields: []CardField{}}
+func BuildServerCard(server model.Server, state model.RuntimeState, game *model.GameState, settings CardSettings, labels model.GameFieldLabels) ServerCard {
+	card := ServerCard{Name: server.Name, State: state, Addresses: cardAddresses(server)}
 	if state == "" {
 		card.State = model.RuntimeStateUnknown
 	}
@@ -55,27 +51,9 @@ func BuildServerCard(server model.Server, state model.RuntimeState, game *model.
 		game = nil
 	}
 
-	for _, id := range settings.Fields {
-		field := CardField{ID: id, Name: strings.TrimPrefix(id, "field.")}
-		switch id {
-		case "players":
-			if game != nil && game.Players != nil {
-				field.Value, field.Available = strconv.Itoa(*game.Players), true
-			}
-		case "capacity":
-			if game != nil && game.Capacity != nil {
-				field.Value, field.Available = strconv.Itoa(*game.Capacity), true
-			}
-		default:
-			if game != nil {
-				field.Name = game.FieldLabels.Label(strings.TrimPrefix(id, "field."))
-				field.Value, field.Available = ScalarText(game.Fields[strings.TrimPrefix(id, "field.")])
-				field.Available = field.Available && strings.TrimSpace(field.Value) != ""
-			}
-		}
-
-		card.Fields = append(card.Fields, field)
-	}
+	// External publications currently use the catalog's explicit English locale.
+	// The preview consumes these exact names and values rather than reformatting.
+	card.Fields = gamefields.Present(game, settings.Fields, labels, nil)
 
 	return card
 }

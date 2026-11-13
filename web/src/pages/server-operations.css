@@ -1,5 +1,5 @@
 .server-operations .page-header-title {
-  gap: 24px;
+  gap: 4px 24px;
 }
 
 .operations-breadcrumbs {
@@ -28,7 +28,13 @@
   }
 }
 .operations-resources {
+  container: operations-resources / inline-size;
   min-width: 0;
+
+  & .metric-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 0;
+  }
 }
 .ember-update-notice {
   display: grid;

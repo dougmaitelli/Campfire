@@ -10,7 +10,10 @@ import {
   type ServerIntegrationSettings,
 } from "../api/integrations";
 import type { Server } from "../api/servers";
-import { gameFieldLabel } from "../api/gameFields";
+import {
+  customGameFieldLabel,
+  gameStateFieldIDs,
+} from "../utils/gameFieldPresentation";
 import { IntegrationLimits } from "../config/policies";
 import type { GameEventRuleDraft } from "../components/servers/GameEventSubscriptionEditor";
 import { needsIntegrationPublishingCheck } from "../utils/integrationSettings";
@@ -50,29 +53,37 @@ function initialRules(value: ServerIntegrationInput): GameEventRuleDraft[] {
 export function useServerIntegrations(server: Server | null, active: boolean) {
   const { t } = useTranslation();
   const serverID = server?.id;
+  const [overview, setOverview] = useState<ServerIntegrationList | null>(null);
   const monitoring = useMonitoring(active && server?.game_integration === true);
   const game = monitoring.snapshot?.servers.find((item) => item.id === serverID)
     ?.game?.state;
   const [availableFields, setAvailableFields] = useState<
-    Record<string, string>
+    Record<string, string | undefined>
   >({});
-  const reportedFields = Object.fromEntries<string>([
-    ...(game?.players !== undefined ? [["players", "players"] as const] : []),
-    ...(game?.capacity !== undefined
-      ? [["capacity", "capacity"] as const]
-      : []),
-    ...Object.keys(game?.fields ?? {}).map(
-      (field) =>
-        [`field.${field}`, gameFieldLabel(game?.field_labels, field)] as const,
+  // Retain IDs and optional publisher labels, not translated or fallback text.
+  // This preserves provenance and lets consumers react to locale changes.
+  const reportedFields = {
+    ...Object.fromEntries(
+      Object.entries(overview?.field_labels ?? {}).map(([key, label]) => [
+        `field.${key}`,
+        label,
+      ]),
     ),
-  ]);
+    ...Object.fromEntries(
+      (game ? gameStateFieldIDs(game) : []).map((id) => [
+        id,
+        customGameFieldLabel(game?.field_labels, id) ??
+          customGameFieldLabel(overview?.field_labels, id),
+      ]),
+    ),
+  };
   if (
     Object.entries(reportedFields).some(
-      ([key, label]) => availableFields[key] !== label,
+      ([key, label]) =>
+        !Object.hasOwn(availableFields, key) || availableFields[key] !== label,
     )
   )
     setAvailableFields({ ...availableFields, ...reportedFields });
-  const [overview, setOverview] = useState<ServerIntegrationList | null>(null);
   const [items, setItems] = useState<ServerIntegrationDraft[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [loading, setLoading] = useState(active);

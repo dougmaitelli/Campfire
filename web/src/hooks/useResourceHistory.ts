@@ -1,6 +1,7 @@
 import { API_READ_TIMEOUT_MS } from "../api/client";
 import { useEffect, useState } from "react";
 import i18n from "../i18n";
+import { useRequestError } from "./useRequestError";
 import {
   readResourceHistory,
   type ResourceHistory,
@@ -13,7 +14,7 @@ export function useResourceHistory(serverID: string | undefined) {
   const [result, setResult] = useState<{
     id: string;
     history?: ResourceHistory;
-    error?: string;
+    error?: Error | string;
   } | null>(null);
   useEffect(() => {
     if (!serverID) return;
@@ -40,7 +41,7 @@ export function useResourceHistory(serverID: string | undefined) {
               : {}),
             error:
               cause instanceof Error
-                ? cause.message
+                ? cause
                 : i18n.t("resourceHistory.loadFailed"),
           }));
       }
@@ -53,5 +54,13 @@ export function useResourceHistory(serverID: string | undefined) {
       clearTimeout(timer);
     };
   }, [serverID]);
-  return result?.id === serverID ? result : null;
+  const current = result?.id === serverID ? result : null;
+  const { error } = useRequestError(current?.error);
+  return current
+    ? {
+        id: current.id,
+        ...(current.history ? { history: current.history } : {}),
+        ...(error ? { error } : {}),
+      }
+    : null;
 }
