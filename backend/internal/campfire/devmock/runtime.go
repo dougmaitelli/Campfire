@@ -300,7 +300,7 @@ func (r *Runtime) Action(ctx context.Context, spark string, request model.Runtim
 		}
 	}
 
-	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == model.RuntimeStateRunning, Busy: record.TransitionAt != 0, OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
+	status := model.RuntimeStatus{ServerID: record.ServerID, State: record.State, Ready: record.State == model.RuntimeStateRunning, Busy: record.TransitionAt != 0, FileSystemBusy: record.TransitionAt != 0 && record.Operation.LocksFileSystem(), OperationID: record.OperationID, Operation: record.Operation, DiskQuotaEnforced: quotaEnforced(record)}
 	status.RestartRequired = record.State == model.RuntimeStateRunning && record.ActiveRevision != model.ContainerRevision(record.Deployment)
 
 	status.LogObservation = record.LogObservation

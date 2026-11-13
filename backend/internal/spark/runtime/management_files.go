@@ -125,7 +125,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.Status.Busy {
+	if e.Status.FileSystemBusy {
 		return model.FileResult{}, fileFailure(model.FileBusy, "Wait for the current server operation to finish.")
 	}
 

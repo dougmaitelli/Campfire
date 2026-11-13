@@ -13,10 +13,15 @@ archives, and chmod require `server.files.write`; deletion requires
 grants also include power controls and console reading. The role editor selects
 their ancestor permissions automatically.
 
-Browsing, downloads, and file changes work while a game is running. Stopping the
-game before changing files is recommended to avoid conflicts with the game's
-own writes. Other active server operations can temporarily prevent file access.
-Text edits check the file revision: reload a changed file before saving again.
+Browsing, downloads, and file changes work while a game is running, starting,
+stopping, or restarting, including a force-stop. Stopping the game before changing
+files is recommended to avoid conflicts with the game's own writes. Installation,
+updates, reinstalls, backups/restores, deletion, and transfers can still restrict
+file access. Text edits check the file revision: reload a changed file before
+saving again.
+
+This requires an up-to-date Spark. Older Sparks may still block file access during
+power operations.
 
 ## Paths and the server data root
 

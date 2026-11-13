@@ -234,8 +234,81 @@ func TestManagedFileRunningAndBusyGuards(t *testing.T) {
 	}
 
 	entry.Status.Busy = true
+	entry.Status.FileSystemBusy = true
 
 	if _, err := m.Files(context.Background(), d, model.FileRequest{ServerID: d.ServerID, Operation: "list", Path: "."}); err == nil || !strings.Contains(err.Error(), "operation") {
 		t.Fatal("busy runtime allowed file access")
+	}
+}
+
+func TestManagedFilesDuringBusyOperations(t *testing.T) {
+	for _, tc := range []struct {
+		action  model.ServerAction
+		state   model.RuntimeState
+		allowed bool
+	}{
+		{model.ServerActionStart, model.RuntimeStateStarting, true},
+		{model.ServerActionStop, model.RuntimeStateStopping, true},
+		{model.ServerActionRestart, model.RuntimeStateRestarting, true},
+		{model.ServerActionKill, model.RuntimeStateStopping, true},
+		{model.ServerActionInstall, model.RuntimeStateInstalling, false},
+		{model.ServerActionUpdate, model.RuntimeStateUpdating, false},
+		{model.ServerActionReinstall, model.RuntimeStateReinstalling, false},
+		{model.ServerActionRestore, model.RuntimeStateStopped, false},
+		{model.ServerActionDelete, model.RuntimeStateDeleting, false},
+		{model.ServerActionTransfer, model.RuntimeStateStopped, false},
+		{model.ServerActionBackup, model.RuntimeStateRunning, false},
+		{"", model.RuntimeStateRunning, false},
+	} {
+		name := string(tc.action)
+		if name == "" {
+			name = "unspecified"
+		}
+
+		t.Run(name, func(t *testing.T) {
+			m, d := fileTestManager(t)
+
+			root := filepath.Join(m.root(d.ServerID), "data")
+			if err := os.WriteFile(filepath.Join(root, "server.properties"), []byte("motd=Community server\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			e, err := m.load(d.ServerID)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tc.action.LocksFileSystem() == tc.allowed {
+				t.Fatalf("incorrect filesystem locking policy for %s", name)
+			}
+
+			e.Status = model.RuntimeStatus{ServerID: d.ServerID, State: tc.state, Busy: true, FileSystemBusy: tc.action.LocksFileSystem(), Operation: tc.action, OperationState: model.OperationRunning}
+			for _, request := range []model.FileRequest{
+				{Operation: model.FileOperationList, Path: "."},
+				{Operation: model.FileOperationRead, Path: "server.properties"},
+				{Operation: model.FileOperationWrite, Path: "notes.txt", Data: []byte("Maintenance notes\n"), Revision: "absent"},
+			} {
+				request.ServerID = d.ServerID
+
+				_, err := m.Files(t.Context(), d, request)
+				if tc.allowed {
+					if err != nil {
+						t.Fatalf("%s during %s: %v", request.Operation, name, err)
+					}
+				} else {
+					var failure *model.FileError
+					if !errors.As(err, &failure) || failure.Code != model.FileBusy {
+						t.Fatalf("%s during %s: expected file_busy, got %v", request.Operation, name, err)
+					}
+				}
+			}
+
+			if tc.allowed {
+				data, err := os.ReadFile(filepath.Join(root, "notes.txt"))
+				if err != nil || string(data) != "Maintenance notes\n" {
+					t.Fatalf("file write did not persist: %q, %v", data, err)
+				}
+			}
+		})
 	}
 }

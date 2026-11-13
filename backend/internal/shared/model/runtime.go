@@ -1,5 +1,7 @@
 package model
 
+import "encoding/json"
+
 // RuntimeState describes the server state exposed by Spark and the panel.
 type RuntimeState string
 
@@ -48,6 +50,17 @@ const (
 	ServerActionTransfer  ServerAction = "transfer"
 )
 
+// LocksFileSystem reports whether an asynchronous action needs exclusive game-data access.
+// Unrecognized actions remain locked until explicitly classified as safe.
+func (a ServerAction) LocksFileSystem() bool {
+	switch a {
+	case ServerActionStart, ServerActionStop, ServerActionRestart, ServerActionKill:
+		return false
+	default:
+		return true
+	}
+}
+
 // OperationState identifies the lifecycle state of an asynchronous operation.
 type OperationState string
 
@@ -95,6 +108,7 @@ type RuntimeStatus struct {
 	Error              string           `json:"error,omitempty"`
 	ErrorCode          RuntimeErrorCode `json:"error_code,omitempty"`
 	Busy               bool             `json:"busy"`
+	FileSystemBusy     bool             `json:"file_system_busy"`
 	RestartRequired    bool             `json:"restart_required"`
 	DiskQuotaEnforced  bool             `json:"disk_quota_enforced"`
 	DiskQuotaError     string           `json:"disk_quota_error,omitempty"`
@@ -103,4 +117,26 @@ type RuntimeStatus struct {
 	Metrics            *ResourceUsage   `json:"metrics,omitempty"`
 	LogObservation     *LogObservation  `json:"log_observation,omitempty"`
 	LogMonitorError    string           `json:"log_monitor_error,omitempty"`
+}
+
+// UnmarshalJSON preserves conservative file locking when an older Spark only reports Busy.
+func (s *RuntimeStatus) UnmarshalJSON(data []byte) error {
+	type statusJSON RuntimeStatus
+
+	var wire struct {
+		statusJSON
+		FileSystemBusy *bool `json:"file_system_busy"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+
+	*s = RuntimeStatus(wire.statusJSON)
+
+	s.FileSystemBusy = s.Busy
+	if wire.FileSystemBusy != nil {
+		s.FileSystemBusy = *wire.FileSystemBusy
+	}
+
+	return nil
 }

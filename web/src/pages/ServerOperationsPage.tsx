@@ -500,9 +500,13 @@ export function ServerOperationsPage({
                       [
                         RuntimeState.Running,
                         RuntimeState.Stopped,
+                        RuntimeState.Exited,
                         RuntimeState.NotInstalled,
+                        RuntimeState.Starting,
+                        RuntimeState.Stopping,
+                        RuntimeState.Restarting,
                       ].some((value) => value === status?.state) &&
-                      status?.busy !== true
+                      (status?.file_system_busy ?? status?.busy) !== true
                     }
                   />
                 )}

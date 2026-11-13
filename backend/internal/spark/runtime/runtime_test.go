@@ -143,6 +143,10 @@ func awaitRequest(t *testing.T, m *Manager, d model.Deployment, request model.Ru
 		t.Fatal(err)
 	}
 
+	if status.FileSystemBusy != (status.Busy && status.Operation.LocksFileSystem()) {
+		t.Fatalf("incorrect filesystem lock at operation admission: %+v", status)
+	}
+
 	for status.Busy {
 		select {
 		case <-ctx.Done():
@@ -154,6 +158,10 @@ func awaitRequest(t *testing.T, m *Manager, d model.Deployment, request model.Ru
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+
+	if status.FileSystemBusy {
+		t.Fatalf("filesystem remained locked after operation finished: %+v", status)
 	}
 
 	return status
@@ -490,6 +498,10 @@ func TestFailedInstallBusyAndCancellation(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("shutdown did not cancel installation")
+	}
+
+	if status := m.entries[d.ServerID].Status; status.Busy || status.FileSystemBusy {
+		t.Fatalf("shutdown left the operation or filesystem busy: %+v", status)
 	}
 }
 

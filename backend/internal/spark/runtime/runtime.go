@@ -124,6 +124,7 @@ func (m *Manager) load(id string) (*entry, error) {
 	}
 
 	m.entries[id] = e
+	e.Status.FileSystemBusy = false
 	e.Status.DiskQuotaEnforced = false
 
 	return e, nil
@@ -166,13 +167,13 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	if q.Action == model.ServerActionMetrics {
 		usage, err := m.Measure(ctx, d)
 
-		busy := true
+		busy, fileSystemBusy := true, true
 		if state, loadErr := m.load(d.ServerID); loadErr == nil && state.mu.TryLock() {
-			busy = state.Status.Busy
+			busy, fileSystemBusy = state.Status.Busy, state.Status.FileSystemBusy
 			state.mu.Unlock()
 		}
 
-		return model.RuntimeStatus{ServerID: d.ServerID, State: usage.State, Busy: busy, Metrics: &usage}, err
+		return model.RuntimeStatus{ServerID: d.ServerID, State: usage.State, Busy: busy, FileSystemBusy: fileSystemBusy, Metrics: &usage}, err
 	}
 
 	e, err := m.load(q.ServerID)
@@ -193,6 +194,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		if q.Action == model.ServerActionStatus {
 			status, err := m.observe(ctx, d, e)
 			status.Busy = transfer.State != model.JobStateRetired && transfer.State != model.JobStateDiscarded
+			status.FileSystemBusy = true
 			status.Progress, status.Operation, status.OperationID = "Spark transfer: "+string(transfer.State), model.ServerActionTransfer, transfer.ID
 			status.Error = transfer.Error
 
@@ -350,9 +352,9 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		phase = model.RuntimeStateStopped
 	}
 
-	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, OperationState: model.OperationQueued, Progress: "Queued", Busy: true}
+	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, OperationState: model.OperationQueued, Progress: "Queued", Busy: true, FileSystemBusy: q.Action.LocksFileSystem()}
 	if err := m.persist(q.ServerID, e); err != nil {
-		e.Status.Busy = false
+		e.Status.Busy, e.Status.FileSystemBusy = false, false
 		return model.RuntimeStatus{}, err
 	}
 
@@ -360,7 +362,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	if m.closed {
 		m.mu.Unlock()
 
-		e.Status.Busy = false
+		e.Status.Busy, e.Status.FileSystemBusy = false, false
 
 		return model.RuntimeStatus{}, errors.New("runtime is shutting down")
 	}
@@ -423,7 +425,7 @@ func (m *Manager) run(ctx context.Context, cancel context.CancelFunc, d model.De
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.Status.Busy = false
+	e.Status.Busy, e.Status.FileSystemBusy = false, false
 
 	e.Status.Progress = "Complete"
 	e.Status.OperationState = model.OperationSucceeded

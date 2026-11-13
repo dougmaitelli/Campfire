@@ -18,6 +18,7 @@ export interface RuntimeStatus {
   state: RuntimeState;
   ready: boolean;
   busy: boolean;
+  file_system_busy?: boolean;
   restart_required?: boolean;
   progress?: string;
   error?: string;
@@ -44,6 +45,8 @@ function isRuntimeStatus(value: unknown): value is RuntimeStatus {
     typeof value.ready === "boolean" &&
     "busy" in value &&
     typeof value.busy === "boolean" &&
+    (!("file_system_busy" in value) ||
+      typeof value.file_system_busy === "boolean") &&
     (!("restart_required" in value) ||
       typeof value.restart_required === "boolean") &&
     "disk_quota_enforced" in value &&
