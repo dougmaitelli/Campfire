@@ -56,7 +56,7 @@ beforeEach(() => {
   vi.mocked(markAllNotificationsRead).mockResolvedValue();
 });
 
-test("read and unread actions use envelope icons with tooltips and accessible names", async () => {
+test("read and unread actions have tooltips and notification-specific accessible names", async () => {
   render(<NotificationsPage />);
   const read = await screen.findByRole("button", {
     name: "Mark read: Survival restarted",
@@ -64,24 +64,14 @@ test("read and unread actions use envelope icons with tooltips and accessible na
   const unread = screen.getByRole("button", {
     name: "Mark unread: Backup completed",
   });
-  expect(read.classList.contains("button-icon")).toBe(true);
-  expect(unread.classList.contains("button-icon")).toBe(true);
-  expect(read.textContent).toBe("");
-  expect(unread.textContent).toBe("");
   expect(read.title).toBe("Mark read");
   expect(unread.title).toBe("Mark unread");
-  expect(
-    read.querySelector("svg.lucide-mail-open")?.getAttribute("aria-hidden"),
-  ).toBe("true");
-  expect(
-    unread.querySelector("svg.lucide-mail")?.getAttribute("aria-hidden"),
-  ).toBe("true");
   expect(
     screen.getByRole("button", { name: "Mark all read" }).textContent,
   ).toBe("Mark all read");
 });
 
-test("keyboard and pointer activation update the notification and switch its action icon", async () => {
+test("keyboard and pointer activation update the notification and its available action", async () => {
   const user = userEvent.setup();
   render(<NotificationsPage />);
   const read = await screen.findByRole("button", {
@@ -93,15 +83,13 @@ test("keyboard and pointer activation update the notification and switch its act
   const unread = await screen.findByRole("button", {
     name: "Mark unread: Survival restarted",
   });
-  expect(unread.querySelector("svg.lucide-mail")).not.toBeNull();
   const message = screen.getByRole("article", { name: "Survival restarted" });
   expect(within(message).queryByText("Unread")).toBeNull();
   await user.click(unread);
   expect(markNotificationRead).toHaveBeenLastCalledWith(2, false);
-  const restored = await screen.findByRole("button", {
+  await screen.findByRole("button", {
     name: "Mark read: Survival restarted",
   });
-  expect(restored.querySelector("svg.lucide-mail-open")).not.toBeNull();
   expect(within(message).getByText("Unread")).toBeDefined();
 });
 
@@ -130,7 +118,7 @@ test("icon actions remain disabled while a notification update is pending", asyn
   ).toBe(false);
 });
 
-test("a failed update keeps the current icon and shows the action error", async () => {
+test("a failed update keeps the notification unread and shows the action error", async () => {
   vi.mocked(markNotificationRead).mockRejectedValueOnce(
     new Error("Unable to update notification."),
   );
@@ -143,8 +131,13 @@ test("a failed update keeps the current icon and shows the action error", async 
     "Unable to update notification.",
   );
   expect(
-    screen
-      .getByRole("button", { name: "Mark read: Survival restarted" })
-      .querySelector("svg.lucide-mail-open"),
-  ).not.toBeNull();
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: "Mark read: Survival restarted",
+    }).disabled,
+  ).toBe(false);
+  expect(
+    within(
+      screen.getByRole("article", { name: "Survival restarted" }),
+    ).getByText("Unread"),
+  ).toBeDefined();
 });

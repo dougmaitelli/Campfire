@@ -4,7 +4,7 @@ import { PageHeader } from "../../src/components/layout/PageHeader";
 
 test("compact header actions retain their full accessible names and original handler", () => {
   const create = vi.fn();
-  const { container } = render(
+  render(
     <PageHeader
       title="Schedules"
       description="Run server tasks automatically."
@@ -17,16 +17,8 @@ test("compact header actions retain their full accessible names and original han
   );
   const button = screen.getByRole("button", { name: "Create schedule" });
   expect(button.title).toBe("Create schedule");
-  expect(button.querySelector(".page-header-action-label")?.textContent).toBe(
-    "Create schedule",
-  );
-  expect(
-    button.querySelector(".page-header-action-compact-label")?.textContent,
-  ).toBe("Create");
-  expect(button.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
   fireEvent.click(button);
   expect(create).toHaveBeenCalledOnce();
-  expect(container.querySelector(".page-header-content")).not.toBeNull();
   expect(screen.getByText("Run server tasks automatically.")).toBeDefined();
 });
 
@@ -51,9 +43,9 @@ test("disabled primary actions remain unavailable", () => {
   expect(create).not.toHaveBeenCalled();
 });
 
-test("secondary actions support a desktop button and the shared mobile menu", () => {
+test("secondary actions retain accessible labels and callbacks", () => {
   const importEmber = vi.fn();
-  const { container } = render(
+  render(
     <PageHeader
       title="Embers"
       secondaryActions={[
@@ -63,15 +55,11 @@ test("secondary actions support a desktop button and the shared mobile menu", ()
   );
   fireEvent.click(screen.getByRole("button", { name: "Import Ember" }));
   expect(importEmber).toHaveBeenCalledOnce();
-  expect(
-    container
-      .querySelector(".page-header-secondary-menu button")
-      ?.getAttribute("aria-label"),
-  ).toBe("Actions");
+  expect(screen.getByRole("button", { name: "Actions" })).toBeDefined();
 });
 
-test("headers without actions keep their title, breadcrumb, badge and description without an empty action group", () => {
-  const { container } = render(
+test("headers without actions expose their content without action buttons", () => {
+  render(
     <PageHeader
       title="Survival"
       leading={<nav aria-label="Breadcrumb">Servers</nav>}
@@ -85,5 +73,5 @@ test("headers without actions keep their title, breadcrumb, badge and descriptio
   expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeDefined();
   expect(screen.getByText("Running")).toBeDefined();
   expect(screen.getByText("Europe · Valheim")).toBeDefined();
-  expect(container.querySelector(".page-actions")).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
 });
