@@ -162,18 +162,26 @@ func TestServerDiscordIntegrationAPIEnforcesResourceAndSourceGrants(t *testing.T
 	expectAccess(t, allowed, "PUT", base, `{"upserts":[{"id":"","settings":{}}]}`, http.StatusBadRequest)
 	expectAccess(t, allowed, "PUT", base, fmt.Sprintf(`{"upserts":[{"id":%q,"settings":%s}],"remove_ids":[%q]}`, binding.ID, settings, binding.ID), http.StatusBadRequest)
 
-	preview := request(allowed, "GET", base+"/card?field=players&field=field.online_names", "")
+	preview := request(allowed, "GET", base+"/card?field=players&field=field.world", "")
 
-	var card core.ServerCard
+	var card struct {
+		core.ServerCard
+		Preview        discord.CardMessage `json:"preview"`
+		ExpiredPreview discord.CardMessage `json:"expired_preview"`
+	}
 	if preview.Code != http.StatusOK || json.Unmarshal(preview.Body.Bytes(), &card) != nil || len(card.Fields) != 2 || card.Fields[0].Available || card.Fields[1].Available || strings.Contains(preview.Body.String(), "variables") || strings.Contains(preview.Body.String(), "credential") {
 		t.Fatal("invalid or private card preview", preview.Code, preview.Body)
+	}
+
+	if len(card.Preview.Embeds) != 1 || len(card.ExpiredPreview.Embeds) != 1 || card.Preview.Embeds[0].Fields[0].Value != "🔴 unknown" || card.Preview.Embeds[0].Fields[1].Name != "Players" || card.ExpiredPreview.Embeds[0].Fields[1].Value != "Unavailable" {
+		t.Fatal("missing rendered live or expired presentation", preview.Body)
 	}
 
 	expectAccess(t, allowed, "GET", base+"/card?field=variables.token", "", http.StatusBadRequest)
 	expectAccess(t, allowed, "GET", base+"/card?field=players&field=players", "", http.StatusBadRequest)
 
 	unchanged := request(allowed, "GET", endpoint, "")
-	if strings.Contains(unchanged.Body.String(), "online_names") {
+	if strings.Contains(unchanged.Body.String(), "field.world") {
 		t.Fatal("preview mutated saved field selection", unchanged.Body)
 	}
 

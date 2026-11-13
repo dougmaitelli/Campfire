@@ -2,6 +2,7 @@ package discord
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -40,6 +41,60 @@ func TestServerCardStatusIndicators(t *testing.T) {
 				t.Fatal("status indicator and embed color are inconsistent", message)
 			}
 		})
+	}
+}
+
+func TestServerCardUsesSharedGameFieldPresentation(t *testing.T) {
+	game := &model.GameState{
+		Players: new(3), Capacity: new(20),
+		Fields:      map[string]any{"world": "Meadows", "raw_key": false, "players": true},
+		FieldLabels: model.GameFieldLabels{"world": "World name", "players": "Player tracking"},
+	}
+	card := core.BuildServerCard(model.Server{}, model.RuntimeStateRunning, game, core.CardSettings{
+		Fields: []string{"players", "capacity", "field.world", "field.raw_key", "field.players"},
+	}, game.FieldLabels)
+	message := RenderServerCard(card)
+
+	want := []embedField{
+		{Name: "Status", Value: "🟢 running", Inline: true},
+		{Name: "Players", Value: "3 / 20", Inline: true},
+		{Name: "World name", Value: "Meadows", Inline: true},
+		{Name: `raw\_key`, Value: "No", Inline: true},
+		{Name: "Player tracking", Value: "Yes", Inline: true},
+	}
+	if got := message.Embeds[0].Fields; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestPreviewUsesActualDiscordLimitsAndEmbedSplitting(t *testing.T) {
+	card := core.ServerCard{Name: strings.Repeat("Server ", 60), State: model.RuntimeStateRunning}
+	for index := range 32 {
+		card.Fields = append(card.Fields, core.CardField{ID: fmt.Sprintf("field.value%d", index), Name: strings.Repeat("*", 100), Value: strings.Repeat("value_", 300), Available: true})
+	}
+
+	sent := RenderServerCard(card)
+
+	preview := PreviewServerCard(card)
+	if len(preview.Embeds) != 2 || len(preview.Embeds) != len(sent.Embeds) {
+		t.Fatal("preview lost Discord's continuation embeds", preview)
+	}
+
+	for i, embed := range preview.Embeds {
+		if embed.Title != sent.Embeds[i].Title || len(embed.Fields) != len(sent.Embeds[i].Fields) {
+			t.Fatal("preview has different title limits or field counts", preview)
+		}
+
+		for j, field := range embed.Fields {
+			actual := sent.Embeds[i].Fields[j]
+			if field.Name != strings.ReplaceAll(actual.Name, `\*`, `*`) || field.Value != strings.ReplaceAll(actual.Value, `\_`, `_`) {
+				t.Fatal("preview did not project the exact bounded payload", field, actual)
+			}
+		}
+	}
+
+	if card.Fields[0].Name != strings.Repeat("*", 100) || card.Fields[0].Value != strings.Repeat("value_", 300) {
+		t.Fatal("rendering mutated the source card")
 	}
 }
 

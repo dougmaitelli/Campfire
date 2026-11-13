@@ -19,7 +19,6 @@
 
   & dt {
     color: var(--muted);
-    text-transform: capitalize;
   }
 
   & dd {

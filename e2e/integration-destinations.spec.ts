@@ -426,7 +426,7 @@ test("independent destinations separate backups, public cards, and scoped game r
     }),
   ).not.toBeChecked();
   await expect(
-    drawer.getByRole("checkbox", { name: "players", exact: true }),
+    drawer.getByRole("checkbox", { name: "Players", exact: true }),
   ).toHaveCount(0);
   await drawer
     .getByRole("button", { name: "Remove integration", exact: true })

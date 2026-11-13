@@ -17,6 +17,30 @@ type CardMessage struct {
 	} `json:"allowed_mentions"`
 }
 
+// PreviewServerCard projects the actual Discord payload into plain text for the
+// browser. Limits, budgeting, embed splitting, and status rendering all come from
+// RenderServerCard, not a second approximation in the frontend.
+func PreviewServerCard(card core.ServerCard) CardMessage {
+	message := RenderServerCard(card)
+	unescape := strings.NewReplacer(
+		`\\`, `\`, "\\`", "`", `\*`, `*`, `\_`, `_`, `\~`, `~`,
+		`\[`, `[`, `\]`, `]`, `\<`, `<`, `\>`, `>`, `\|`, `|`,
+	)
+
+	for i := range message.Embeds {
+		embed := &message.Embeds[i]
+		embed.Title = unescape.Replace(embed.Title)
+
+		embed.Footer.Text = unescape.Replace(embed.Footer.Text)
+		for j := range embed.Fields {
+			embed.Fields[j].Name = unescape.Replace(embed.Fields[j].Name)
+			embed.Fields[j].Value = unescape.Replace(embed.Fields[j].Value)
+		}
+	}
+
+	return message
+}
+
 // RenderServerCard preserves every selected field within Discord's field and
 // total-text limits. Large selections use a second embed in the same message.
 func RenderServerCard(card core.ServerCard) CardMessage {

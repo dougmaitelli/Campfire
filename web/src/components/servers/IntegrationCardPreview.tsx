@@ -5,25 +5,9 @@ import {
   type IntegrationCard,
 } from "../../api/integrations";
 import { InlineMessage } from "../status/InlineMessage";
+import { GameFieldReading } from "./GameField";
 import { RuntimeState } from "../../contracts/domains";
 import "./integration-card-preview.css";
-
-// Match the status emoji used by Discord's RenderServerCard, without the
-// panel's CSS status dot, glow, or localized state labels.
-const statusIndicators: Partial<Record<RuntimeState, string>> = {
-  running: "🟢",
-  dead: "🔴",
-  unknown: "🔴",
-  starting: "🟠",
-  stopping: "🟠",
-  restarting: "🟠",
-  installing: "🟠",
-  updating: "🟠",
-  reinstalling: "🟠",
-  deleting: "🟠",
-  not_installed: "🟠",
-  paused: "🟠",
-};
 
 export function IntegrationCardPreview({
   serverID,
@@ -83,6 +67,7 @@ export function IntegrationCardPreview({
   const state = expired
     ? RuntimeState.Unknown
     : (card?.state ?? RuntimeState.Unknown);
+  const preview = expired ? card.expired_preview : card?.preview;
   return (
     <section
       className="integration-card-preview"
@@ -94,39 +79,25 @@ export function IntegrationCardPreview({
       ) : !card ? (
         <p className="field-help">{t("common.loading")}</p>
       ) : (
-        <div className="integration-server-card" data-state={state}>
-          <strong>{card.name}</strong>
-          <dl>
-            <div>
-              <dt>{t("common.status")}</dt>
-              <dd>
-                <span aria-hidden="true">
-                  {statusIndicators[state] ?? "⚪"}
-                </span>{" "}
-                {state.replaceAll("_", " ")}
-              </dd>
-            </div>
-            {card.addresses.length > 0 && (
-              <div>
-                <dt>{t("serverIntegrations.address")}</dt>
-                <dd>{card.addresses.join("\n")}</dd>
-              </div>
-            )}
-            {card.fields.map((field) => (
-              <div key={field.id}>
-                <dt>{field.name}</dt>
-                <dd>
-                  {field.available && !expired
-                    ? field.value
-                    : t("serverIntegrations.valueUnavailable")}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <span className="field-help">
-            {t("serverIntegrations.previewFooter")}
-          </span>
-        </div>
+        preview?.embeds.map((embed, index) => (
+          <div
+            className="integration-server-card"
+            data-state={state}
+            key={index}
+          >
+            <strong>{embed.title}</strong>
+            <dl>
+              {embed.fields.map((field, fieldIndex) => (
+                <GameFieldReading
+                  key={fieldIndex}
+                  field={field}
+                  unavailable=""
+                />
+              ))}
+            </dl>
+            <span className="field-help">{embed.footer.text}</span>
+          </div>
+        ))
       )}
     </section>
   );

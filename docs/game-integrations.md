@@ -311,7 +311,7 @@ bytes, with no control characters or leading/trailing whitespace. They count
 toward the existing 16 KiB publication limit. Labels are plain text, never HTML.
 For example, `"field_labels": {"game_mode": "Game mode"}` changes display text
 without changing the `game_mode` key used by filters and saved card selections.
-Campfire does not guess labels from key spelling or special-case game fields.
+Campfire does not guess custom-field labels from key spelling.
 
 Without registration, state labels belong to the complete snapshot and must be included again in each
 snapshot that needs them. Omitted labels fall back to the exact key.
@@ -343,6 +343,21 @@ other fields show none of those values. A capacity without a player count is sho
 as capacity; a missing player count is never interpreted as zero. Custom scalar
 fields are displayed as text, numbers, or booleans. An empty snapshot clears the
 previous fields.
+
+Campfire owns the built-in `players` and `capacity` definitions and translated
+labels; integrations do not need to register labels for them. Custom state fields
+use the integration's label when available, otherwise the exact key. Translated
+labels, integration-provided labels, and fallback keys retain their supplied casing.
+These rules apply to server readings, card-field selectors, card previews, and
+Discord cards. Boolean state values use translated Yes/No text.
+
+Player count and capacity render together as `3 / 20` when both are displayed;
+capacity is not repeated as a separate reading. For cards, both fields must be
+selected and available before combining them. Selecting only players never
+exposes an unselected capacity. Custom fields named `players` or `capacity`
+remain independent custom fields and do not inherit built-in formatting.
+External cards and their previews currently use English, independently of the
+panel user's language.
 
 Publish a complete snapshot periodically, for example every 15 seconds, even if
 the values have not changed. Snapshots become stale after 60 seconds without an

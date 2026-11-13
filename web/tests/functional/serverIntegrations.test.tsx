@@ -272,10 +272,10 @@ test("shared wizard discovers reported card fields and retains them through snap
     useServerIntegrations({ ...server, game_integration: true }, true),
   );
   const expected = {
-    players: "players",
-    capacity: "capacity",
+    players: undefined,
+    capacity: undefined,
     "field.invite_code": "Join code",
-    "field.pvp": "pvp",
+    "field.pvp": undefined,
   };
   await waitFor(() => expect(result.current.availableFields).toEqual(expected));
   act(() => result.current.add());
@@ -284,6 +284,21 @@ test("shared wizard discovers reported card fields and retains them through snap
     timeout: 2000,
   });
   expect(result.current.availableFields).toEqual(expected);
+});
+
+test("registered field labels remain available without a fresh monitoring snapshot", async () => {
+  vi.mocked(listServerDiscord).mockResolvedValue({
+    ...overview,
+    field_labels: { world: "World name", invite_code: "Join code" },
+  });
+  const { result } = renderHook(() => useServerIntegrations(server, true));
+  await waitFor(() =>
+    expect(result.current.availableFields).toEqual({
+      "field.world": "World name",
+      "field.invite_code": "Join code",
+    }),
+  );
+  expect(readMonitoring).not.toHaveBeenCalled();
 });
 
 test("inactive integration configuration does not start field discovery", async () => {

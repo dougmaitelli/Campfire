@@ -151,3 +151,40 @@ test("game state shows optional fields and hides stale values", async ({
   await expect(readings).toBeFocused();
   await expect(readings).toHaveAccessibleDescription(/^Last updated /);
 });
+
+test("field labels and raw keys retain their supplied casing", async ({
+  page,
+}) => {
+  await login(page);
+  const labels = ["World name", "Server.status", "Server URL", "Invite code"];
+  await page.route("**/api/v1/monitoring", async (route) => {
+    const response = await route.fetch();
+    const snapshot = (await response.json()) as GameMonitoringResponse;
+    const server = snapshot.servers.find((item) => item.id === "survival")!;
+    server.game = {
+      updated_at: snapshot.collected_at,
+      fresh_for_seconds: 60,
+      status: "fresh",
+      state: {
+        fields: {
+          ...Object.fromEntries(labels.map((_, i) => [`label${i}`, "value"])),
+          raw_key: "value",
+        },
+        field_labels: Object.fromEntries(
+          labels.map((label, i) => [`label${i}`, label]),
+        ),
+      },
+    };
+    await route.fulfill({ response, json: snapshot });
+  });
+  await page.reload();
+  const readings = page.getByRole("group", { name: "Game data", exact: true });
+  await expect(readings.locator("dt")).toHaveText([...labels, "raw_key"]);
+  expect(
+    await readings
+      .locator("dt")
+      .evaluateAll((elements) =>
+        elements.map((element) => (element as HTMLElement).innerText),
+      ),
+  ).toEqual([...labels, "raw_key"]);
+});

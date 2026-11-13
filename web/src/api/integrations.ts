@@ -4,6 +4,8 @@ import i18n from "../i18n";
 import { isPermissionID, type PermissionID } from "./permissions";
 import { RuntimeState } from "../contracts/domains";
 import { isEnumValue } from "../utils/validation";
+import type { PresentedGameField } from "../utils/gameFieldPresentation";
+import { validGameFieldLabels, type GameFieldLabels } from "./gameFields";
 
 export interface DiscordChannel {
   id: string;
@@ -188,6 +190,7 @@ export interface ServerIntegrationSettings extends ServerIntegrationInput {
 }
 
 export interface ServerIntegrationList {
+  field_labels?: GameFieldLabels;
   connections: IntegrationConnection[];
   configured: boolean;
   available: boolean;
@@ -273,6 +276,9 @@ export async function listServerDiscord(
     typeof value.configured !== "boolean" ||
     typeof value.available !== "boolean" ||
     typeof value.guild_name !== "string" ||
+    (value.field_labels !== undefined &&
+      (!isRecord(value.field_labels) ||
+        !validGameFieldLabels(value.field_labels, value.field_labels))) ||
     !Array.isArray(value.connections) ||
     !value.connections.every(
       (connection: unknown) =>
@@ -343,12 +349,46 @@ export async function retryIntegrationCard(
   await apiJSON(`${bindingURL(serverID, bindingID)}/card/retry`, {});
 }
 
+export interface RenderedIntegrationCard {
+  embeds: {
+    title: string;
+    fields: { name: string; value: string }[];
+    footer: { text: string };
+  }[];
+}
+
+function renderedIntegrationCard(
+  value: unknown,
+): value is RenderedIntegrationCard {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.embeds) &&
+    value.embeds.length > 0 &&
+    value.embeds.every(
+      (embed: unknown) =>
+        isRecord(embed) &&
+        typeof embed.title === "string" &&
+        isRecord(embed.footer) &&
+        typeof embed.footer.text === "string" &&
+        Array.isArray(embed.fields) &&
+        embed.fields.every(
+          (field: unknown) =>
+            isRecord(field) &&
+            typeof field.name === "string" &&
+            typeof field.value === "string",
+        ),
+    )
+  );
+}
+
 export interface IntegrationCard {
   name: string;
   state: RuntimeState;
   addresses: string[];
   expires_at: number;
-  fields: { id: string; name: string; value: string; available: boolean }[];
+  fields: PresentedGameField[];
+  preview: RenderedIntegrationCard;
+  expired_preview: RenderedIntegrationCard;
 }
 
 export async function previewIntegrationCard(
@@ -365,6 +405,8 @@ export async function previewIntegrationCard(
   );
   if (
     !isRecord(value) ||
+    !renderedIntegrationCard(value.preview) ||
+    !renderedIntegrationCard(value.expired_preview) ||
     typeof value.name !== "string" ||
     !isEnumValue(RuntimeState, value.state) ||
     !strings(value.addresses) ||
