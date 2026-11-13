@@ -18,6 +18,7 @@ import {
 } from "../api/notifications";
 import { useNotifications } from "../hooks/useNotifications";
 import { StatusPill } from "../components/status/StatusPill";
+import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import "./notifications.css";
 
 export function NotificationsPage() {
@@ -208,6 +209,12 @@ export function NotificationsPage() {
             </div>
             <Button
               size="small"
+              iconOnly
+              title={i18n.t(
+                item.read_at
+                  ? "notificationsPage.markUnread"
+                  : "notificationsPage.markRead",
+              )}
               aria-label={i18n.t(
                 item.read_at
                   ? "notificationsPage.markUnreadTitle"
@@ -221,9 +228,7 @@ export function NotificationsPage() {
                 );
               }}
             >
-              {item.read_at
-                ? i18n.t("notificationsPage.markUnread")
-                : i18n.t("notificationsPage.markRead")}
+              <NavigationIcon name={item.read_at ? "mail" : "mail-open"} />
             </Button>
           </article>
         ))}
