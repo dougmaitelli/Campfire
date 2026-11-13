@@ -28,6 +28,7 @@ import type { LifecycleAction } from "../contracts/domains";
 import { useServerRuntime } from "../hooks/useServerRuntime";
 import { useServerManagement } from "../hooks/useServerManagement";
 import { useMonitoring } from "../hooks/useMonitoring";
+import { useRequestError } from "../hooks/useRequestError";
 import { ServerState } from "../components/servers/ServerState";
 import { ServerLifecycleControls } from "../components/servers/ServerLifecycleControls";
 import { ServerInstallationCard } from "../components/servers/ServerInstallationCard";
@@ -89,6 +90,8 @@ export function ServerOperationsPage({
   }, []);
   const links = useResourceLinks();
   const [error, setError] = useState<string | null>(null);
+  const [loadCause, setLoadError] = useState<Error | string | null>(null);
+  const { error: loadError } = useRequestError(loadCause);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [currentOperationID, setCurrentOperationID] = useState<string | null>(
@@ -172,7 +175,7 @@ export function ServerOperationsPage({
           generation === metadataGeneration.current
         ) {
           setServer(value);
-          if (!loaded) setError(null);
+          setLoadError(null);
           loaded = true;
         }
       } catch (cause) {
@@ -191,9 +194,9 @@ export function ServerOperationsPage({
           return;
         }
         if (!controller.signal.aborted && !loaded)
-          setError(
+          setLoadError(
             cause instanceof Error
-              ? cause.message
+              ? cause
               : i18n.t("serverOperationsPage.unableToLoadServer"),
           );
       } finally {
@@ -396,7 +399,9 @@ export function ServerOperationsPage({
           onServerSaved={onServerSaved}
         />
       )}
-      {error && !server && <InlineMessage role="alert">{error}</InlineMessage>}
+      {loadError && !server && (
+        <InlineMessage role="alert">{loadError}</InlineMessage>
+      )}
       {loading && (
         <ContentState loading resource={t("serverOperationsPage.server")} />
       )}

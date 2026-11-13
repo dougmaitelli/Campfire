@@ -1,5 +1,6 @@
 import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
+import { useRequestError } from "./useRequestError";
 import { useCallback, useEffect, useState } from "react";
 import { readMonitoring, type MonitoringSnapshot } from "../api/monitoring";
 
@@ -7,7 +8,8 @@ const DEFAULT_MONITORING_INTERVAL_SECONDS = 10;
 
 export function useMonitoring(active = true) {
   const [snapshot, setSnapshot] = useState<MonitoringSnapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [cause, setError] = useState<Error | string | null>(null);
+  const { error } = useRequestError(active ? cause : null);
   const [loading, setLoading] = useState(active);
   const [revision, setRevision] = useState(0);
   const [received, setReceived] = useState(0);
@@ -41,7 +43,7 @@ export function useMonitoring(active = true) {
         if (!controller.signal.aborted)
           setError(
             cause instanceof Error
-              ? cause.message
+              ? cause
               : i18n.t("useMonitoring.unableToRefreshUsage"),
           );
       } finally {
@@ -60,7 +62,6 @@ export function useMonitoring(active = true) {
   }, [revision, active]);
   const refresh = useCallback(() => {
     setLoading(true);
-    setError(null);
     setRevision((value) => value + 1);
   }, []);
   return {

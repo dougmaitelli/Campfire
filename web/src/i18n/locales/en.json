@@ -1,4 +1,9 @@
 {
+  "connection": {
+    "interrupted": "Connection to Campfire interrupted. Retrying…",
+    "requestFailed": "Connection to Campfire interrupted.",
+    "dataUnavailable": "Data unavailable while reconnecting."
+  },
   "serverActivity": {
     "title": "Activity",
     "newest": "Newest activity",

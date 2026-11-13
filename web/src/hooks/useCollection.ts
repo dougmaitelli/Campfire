@@ -1,4 +1,6 @@
 import i18n from "../i18n";
+import { useRequestError } from "./useRequestError";
+import { ConnectionError } from "../api/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useCollection<T extends { id: string | number }>(
@@ -7,7 +9,8 @@ export function useCollection<T extends { id: string | number }>(
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [cause, setError] = useState<Error | string | null>(null);
+  const { error, connectionError } = useRequestError(cause);
   const active = useRef<AbortController | null>(null);
   const load = useCallback(
     (controller: AbortController) =>
@@ -22,7 +25,7 @@ export function useCollection<T extends { id: string | number }>(
           if (!controller.signal.aborted)
             setError(
               cause instanceof Error
-                ? cause.message
+                ? cause
                 : i18n.t("useCollection.unableToLoadData"),
             );
         })
@@ -37,7 +40,6 @@ export function useCollection<T extends { id: string | number }>(
     const controller = new AbortController();
     active.current = controller;
     setLoading(true);
-    setError(null);
     await load(controller);
   }, [load]);
   useEffect(() => {
@@ -62,6 +64,16 @@ export function useCollection<T extends { id: string | number }>(
       clearTimeout(timer);
     };
   }, [load, refreshIntervalMs]);
+  useEffect(() => {
+    // One-shot lists also need a recovery path once their inline connection
+    // error is replaced by the shared notice. Never retry writes or API errors.
+    if (!(cause instanceof ConnectionError) || (refreshIntervalMs ?? 0) > 0)
+      return;
+    const timer = setTimeout(() => {
+      if (!active.current) void refresh();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [cause, refreshIntervalMs, refresh]);
   const upsert = useCallback((item: T) => {
     active.current?.abort();
     setItems((current) =>
@@ -78,5 +90,5 @@ export function useCollection<T extends { id: string | number }>(
     setLoading(false);
     setError(null);
   }, []);
-  return { items, loading, error, refresh, upsert, replace };
+  return { items, loading, error, connectionError, refresh, upsert, replace };
 }

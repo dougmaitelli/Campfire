@@ -221,7 +221,7 @@ test("Activity reports request failures and retries", async () => {
     });
   start();
   expect((await screen.findByRole("alert")).textContent).toContain(
-    "Connection unavailable",
+    "Connection to Campfire interrupted.",
   );
   await userEvent
     .setup()
@@ -456,7 +456,7 @@ test("filter choices retry independently while Activity remains available", asyn
   });
   start({ kind: "game" });
   await screen.findByRole("button", { name: event.title });
-  await screen.findByText("Choices unavailable");
+  await screen.findByText("Connection to Campfire interrupted.");
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Try again" }));
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());

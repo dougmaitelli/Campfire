@@ -13,6 +13,7 @@ import {
   useAuthentication,
 } from "./hooks/useAuthentication";
 import { canPerformPlatform } from "./permissions";
+import { ConnectionStatusProvider } from "./components/status/ConnectionStatus";
 
 export function App() {
   useTranslation();
@@ -27,7 +28,9 @@ function AuthenticatedApp() {
   useTranslation();
   const auth = useAuthentication();
   return auth.session?.authenticated ? (
-    <ManagementApp />
+    <ConnectionStatusProvider key={auth.session.user_id}>
+      <ManagementApp />
+    </ConnectionStatusProvider>
   ) : (
     <AuthenticationPage />
   );

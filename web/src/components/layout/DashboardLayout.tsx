@@ -6,6 +6,7 @@ import { ViewAsBanner } from "./ViewAsBanner";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { useNotifications } from "../../hooks/useNotifications";
 import { MobileNavigation } from "../navigation/MobileNavigation";
+import { ConnectionNotice } from "../status/ConnectionStatus";
 import "./dashboard.css";
 
 interface DashboardLayoutProps {
@@ -53,6 +54,7 @@ export function DashboardLayout({ page, children }: DashboardLayoutProps) {
             )}
           </a>
         </div>
+        <ConnectionNotice />
         {children}
       </main>
     </div>
