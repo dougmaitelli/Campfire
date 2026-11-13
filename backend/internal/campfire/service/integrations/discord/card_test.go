@@ -11,34 +11,39 @@ import (
 	"campfire/internal/shared/model"
 )
 
-func TestServerCardStatusIndicators(t *testing.T) {
+func TestServerCardStatusLabelsAndColors(t *testing.T) {
 	for _, test := range []struct {
 		state model.RuntimeState
 		value string
 		color int
 	}{
-		{model.RuntimeStateRunning, "🟢 running", 0x80b976},
-		{model.RuntimeStateStopped, "⚪ stopped", 0x8b8b8b},
-		{model.RuntimeStateExited, "⚪ exited", 0x8b8b8b},
-		{model.RuntimeStateDead, "🔴 dead", 0xd46c69},
-		{model.RuntimeStateUnknown, "🔴 unknown", 0xd46c69},
-		{"", "🔴 unknown", 0xd46c69},
-		{model.RuntimeStateNotInstalled, "🟠 not installed", 0xe0ac62},
-		{model.RuntimeStatePaused, "🟠 paused", 0xe0ac62},
-		{model.RuntimeStateStarting, "🟠 starting", 0xe0ac62},
-		{model.RuntimeStateStopping, "🟠 stopping", 0xe0ac62},
-		{model.RuntimeStateRestarting, "🟠 restarting", 0xe0ac62},
-		{model.RuntimeStateInstalling, "🟠 installing", 0xe0ac62},
-		{model.RuntimeStateUpdating, "🟠 updating", 0xe0ac62},
-		{model.RuntimeStateReinstalling, "🟠 reinstalling", 0xe0ac62},
-		{model.RuntimeStateDeleting, "🟠 deleting", 0xe0ac62},
+		{model.RuntimeStateRunning, "Running", 0x80b976},
+		{model.RuntimeStateStopped, "Stopped", 0x8b8b8b},
+		{model.RuntimeStateExited, "Exited", 0x8b8b8b},
+		{model.RuntimeStateDead, "Dead", 0xd46c69},
+		{model.RuntimeStateUnknown, "Unknown", 0xd46c69},
+		{"", "Unknown", 0xd46c69},
+		{model.RuntimeStateNotInstalled, "Not installed", 0xe0ac62},
+		{model.RuntimeStatePaused, "Paused", 0xe0ac62},
+		{model.RuntimeStateStarting, "Starting", 0xe0ac62},
+		{model.RuntimeStateStopping, "Stopping", 0xe0ac62},
+		{model.RuntimeStateRestarting, "Restarting", 0xe0ac62},
+		{model.RuntimeStateInstalling, "Installing", 0xe0ac62},
+		{model.RuntimeStateUpdating, "Updating", 0xe0ac62},
+		{model.RuntimeStateReinstalling, "Reinstalling", 0xe0ac62},
+		{model.RuntimeStateDeleting, "Deleting", 0xe0ac62},
 	} {
 		t.Run(string(test.state), func(t *testing.T) {
 			message := RenderServerCard(core.ServerCard{Name: "Server", State: test.state})
 
 			status := message.Embeds[0].Fields[0]
 			if status.Name != "Status" || status.Value != test.value || message.Embeds[0].Color != test.color {
-				t.Fatal("status indicator and embed color are inconsistent", message)
+				t.Fatal("status label or embed color is incorrect", message)
+			}
+
+			preview := PreviewServerCard(core.ServerCard{Name: "Server", State: test.state})
+			if preview.Embeds[0].Fields[0] != status || preview.Embeds[0].Color != test.color {
+				t.Fatal("preview status differs from the published card", preview, message)
 			}
 		})
 	}
@@ -56,7 +61,7 @@ func TestServerCardUsesSharedGameFieldPresentation(t *testing.T) {
 	message := RenderServerCard(card)
 
 	want := []embedField{
-		{Name: "Status", Value: "🟢 running", Inline: true},
+		{Name: "Status", Value: "Running", Inline: true},
 		{Name: "Players", Value: "3 / 20", Inline: true},
 		{Name: "World name", Value: "Meadows", Inline: true},
 		{Name: `raw\_key`, Value: "No", Inline: true},

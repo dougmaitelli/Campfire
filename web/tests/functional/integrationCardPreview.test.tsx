@@ -30,7 +30,7 @@ const card: IntegrationCard = {
       {
         title: "Game server",
         fields: [
-          { name: "Status", value: "🟢 running" },
+          { name: "Status", value: "Running" },
           { name: "Address", value: "games.example.test:25565" },
           { name: "Players", value: "3" },
         ],
@@ -43,7 +43,7 @@ const card: IntegrationCard = {
       {
         title: "Game server",
         fields: [
-          { name: "Status", value: "🔴 unknown" },
+          { name: "Status", value: "Unknown" },
           { name: "Address", value: "games.example.test:25565" },
           { name: "Players", value: "Unavailable" },
         ],
@@ -73,7 +73,7 @@ test("preview consumes the actual Discord presentation without adding formatting
     />,
   );
   await screen.findByText("Game server");
-  expect(container.querySelector("dd")?.textContent).toBe("🟢 running");
+  expect(container.querySelector("dd")?.textContent).toBe("Running");
   expect(screen.getByText("Server.status…")).toBeTruthy();
   expect(screen.getByText("truncated value…")).toBeTruthy();
   expect(screen.queryByText("unbounded value")).toBeNull();
@@ -89,7 +89,7 @@ test("expired preview uses the server's unknown presentation and hides stale val
     <IntegrationCardPreview serverID="server" fields={["players"]} />,
   );
   await screen.findByText("Game server");
-  expect(container.querySelector("dd")?.textContent).toBe("🔴 unknown");
+  expect(container.querySelector("dd")?.textContent).toBe("Unknown");
   expect(screen.getByText("games.example.test:25565")).toBeTruthy();
   expect(screen.getByText("Unavailable")).toBeTruthy();
   expect(screen.queryByText("3")).toBeNull();

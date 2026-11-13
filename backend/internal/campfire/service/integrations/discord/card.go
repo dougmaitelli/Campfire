@@ -49,6 +49,8 @@ func RenderServerCard(card core.ServerCard) CardMessage {
 		state = "unknown"
 	}
 
+	state = strings.ToUpper(state[:1]) + state[1:]
+
 	fields := []embedField{{Name: "Status", Value: state, Inline: true}}
 	if len(card.Addresses) > 0 {
 		fields = append(fields, embedField{Name: "Address", Value: strings.Join(card.Addresses, "\n")})
@@ -63,19 +65,16 @@ func RenderServerCard(card core.ServerCard) CardMessage {
 		fields = append(fields, embedField{Name: field.Name, Value: value, Inline: true})
 	}
 
-	color, indicator := 0x8b8b8b, "⚪"
+	color := 0x8b8b8b
 
 	switch card.State {
 	case model.RuntimeStateRunning:
-		color, indicator = 0x80b976, "🟢"
+		color = 0x80b976
 	case model.RuntimeStateDead, model.RuntimeStateUnknown, "":
-		color, indicator = 0xd46c69, "🔴"
+		color = 0xd46c69
 	case model.RuntimeStateStarting, model.RuntimeStateStopping, model.RuntimeStateRestarting, model.RuntimeStateInstalling, model.RuntimeStateUpdating, model.RuntimeStateReinstalling, model.RuntimeStateDeleting, model.RuntimeStateNotInstalled, model.RuntimeStatePaused:
-		color, indicator = 0xe0ac62, "🟠"
+		color = 0xe0ac62
 	}
-
-	// Discord embed fields cannot use the preview's CSS status indicator.
-	fields[0].Value = indicator + " " + state
 
 	result := CardMessage{Embeds: []messageEmbed{}}
 	result.AllowedMentions.Parse = []string{}

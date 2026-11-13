@@ -173,7 +173,7 @@ func TestServerDiscordIntegrationAPIEnforcesResourceAndSourceGrants(t *testing.T
 		t.Fatal("invalid or private card preview", preview.Code, preview.Body)
 	}
 
-	if len(card.Preview.Embeds) != 1 || len(card.ExpiredPreview.Embeds) != 1 || card.Preview.Embeds[0].Fields[0].Value != "🔴 unknown" || card.Preview.Embeds[0].Fields[1].Name != "Players" || card.ExpiredPreview.Embeds[0].Fields[1].Value != "Unavailable" {
+	if len(card.Preview.Embeds) != 1 || len(card.ExpiredPreview.Embeds) != 1 || card.Preview.Embeds[0].Fields[0].Value != "Unknown" || card.Preview.Embeds[0].Fields[1].Name != "Players" || card.ExpiredPreview.Embeds[0].Fields[1].Value != "Unavailable" {
 		t.Fatal("missing rendered live or expired presentation", preview.Body)
 	}
 

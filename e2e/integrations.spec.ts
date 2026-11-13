@@ -340,7 +340,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
           field.available = field.id in values;
         }
         card.preview.embeds[0]!.fields = [
-          { name: "Status", value: "🟢 running" },
+          { name: "Status", value: "Running" },
           { name: "Address", value: card.addresses.join("\n") },
           ...card.fields.map((field) => ({
             name: field.name,
@@ -349,7 +349,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
         ];
         card.expired_preview = structuredClone(card.preview);
         card.expired_preview.embeds[0]!.fields = [
-          { name: "Status", value: "🔴 unknown" },
+          { name: "Status", value: "Unknown" },
           { name: "Address", value: card.addresses.join("\n") },
           ...card.fields.map((field) => ({
             name: field.name,
