@@ -210,6 +210,7 @@ export function NotificationsPage() {
             <Button
               size="small"
               iconOnly
+              variant={item.read_at ? "default" : "primary"}
               title={i18n.t(
                 item.read_at
                   ? "notificationsPage.markUnread"
@@ -228,7 +229,7 @@ export function NotificationsPage() {
                 );
               }}
             >
-              <NavigationIcon name={item.read_at ? "mail" : "mail-open"} />
+              <NavigationIcon name={item.read_at ? "mail-open" : "mail"} />
             </Button>
           </article>
         ))}
