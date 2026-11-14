@@ -41,7 +41,12 @@ func Seed(ctx context.Context, tx *gorm.DB, now time.Time) ([]Server, error) {
 	team := database.Role{Name: "Community managers", Scope: model.RoleScopePlatform, Permissions: []database.RolePermission{{Permission: accessperm.ServersCreate}, {Permission: accessperm.AuditView}}}
 
 	maintainers := database.Role{Name: "World maintainers", Scope: model.RoleScopeServer}
-	for _, action := range accessperm.Legacy([]model.PermissionID{accessperm.ServerView, accessperm.ServerOperate, accessperm.ServerConfigure}) {
+	for _, action := range accessperm.Expand([]model.PermissionID{
+		accessperm.ServerConfigure, accessperm.ServerReinstall, accessperm.ServerConsoleWrite,
+		accessperm.ServerFilesDelete, accessperm.ServerBackupsCreate, accessperm.ServerBackupsDownload,
+		accessperm.ServerBackupsRestore, accessperm.ServerBackupsDelete,
+		accessperm.ServerSchedulesManage, accessperm.ServerSchedulesRun,
+	}) {
 		maintainers.Permissions = append(maintainers.Permissions, database.RolePermission{Permission: action})
 	}
 

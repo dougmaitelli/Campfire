@@ -5,14 +5,13 @@ import (
 	"testing"
 )
 
-func TestRuntimeStatusFileSystemBusyCompatibility(t *testing.T) {
+func TestRuntimeStatusFileSystemBusyRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		json string
 		want bool
 	}{
-		{"older idle Spark", `{"server_id":"game","busy":false}`, false},
-		{"older busy Spark", `{"server_id":"game","busy":true}`, true},
+		{"idle", `{"server_id":"game","busy":false,"file_system_busy":false}`, false},
 		{"power operation", `{"server_id":"game","busy":true,"file_system_busy":false}`, false},
 		{"filesystem operation", `{"server_id":"game","busy":true,"file_system_busy":true}`, true},
 	} {

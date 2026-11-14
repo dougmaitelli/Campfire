@@ -61,18 +61,10 @@ func TestLogMatchesHaveIndependentCaseBehaviorAndAlwaysIgnoreColor(t *testing.T)
 	}
 }
 
-func TestLogAlertDecodesEarlierRuleWideCaseFlag(t *testing.T) {
-	var rule LogAlert
-	if err := json.Unmarshal([]byte(`{"title":"Problem","message":"Fix","severity":"error","ignore_case":true,"strip_ansi":true,"any":[{"value":"Fatal"},{"value":"^Error$","regex":true}]}`), &rule); err != nil {
-		t.Fatal(err)
-	}
-
-	if !CompileLogMatcher(rule.Any).Matches("FATAL") || !CompileLogMatcher(rule.Any).Matches("ERROR") {
-		t.Fatal("earlier rule lost case-insensitive matching")
-	}
-
-	if rule.Key() != "76019351881331f2c64407ae589878cf19bb04201476c8776ca89bed304efff8" {
-		t.Fatal("moving the case flag changed an existing rule's identity")
+func TestLogAlertRoundTripPreservesPerConditionCaseFlags(t *testing.T) {
+	rule := LogAlert{
+		Title: "Problem", Message: "Fix", Severity: LogError,
+		Any: []LogMatch{{Value: "Fatal", IgnoreCase: true}, {Value: "^Error$", Regex: true}},
 	}
 
 	encoded, err := json.Marshal(rule)
@@ -80,13 +72,18 @@ func TestLogAlertDecodesEarlierRuleWideCaseFlag(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var document map[string]json.RawMessage
-	if err := json.Unmarshal(encoded, &document); err != nil {
+	var decoded LogAlert
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
 		t.Fatal(err)
 	}
 
-	if document["ignore_case"] != nil || document["strip_ansi"] != nil {
-		t.Fatal("obsolete rule flags were serialized", string(encoded))
+	if decoded.Key() != rule.Key() {
+		t.Fatal("round trip changed rule identity")
+	}
+
+	matcher := CompileLogMatcher(decoded.Any)
+	if !matcher.Matches("FATAL") || !matcher.Matches("Error") || matcher.Matches("ERROR") {
+		t.Fatal("round trip changed per-condition matching behavior")
 	}
 }
 

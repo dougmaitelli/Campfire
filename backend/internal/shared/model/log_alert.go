@@ -1,7 +1,6 @@
 package model
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -21,36 +20,6 @@ type LogAlert struct {
 	Phase    LogPhase        `json:"phase,omitempty"`
 	Any      []LogMatch      `json:"any"`
 	Action   *LogAlertAction `json:"action,omitempty"`
-}
-
-// UnmarshalJSON moves the earlier rule-wide flag onto its match conditions.
-// New definitions serialize only per-condition flags.
-func (a *LogAlert) UnmarshalJSON(data []byte) error {
-	type fields LogAlert
-
-	decoded := struct {
-		*fields
-		IgnoreCase bool `json:"ignore_case"`
-		StripANSI  bool `json:"strip_ansi"`
-	}{fields: (*fields)(a)}
-	if err := decodeLogSettings(data, &decoded); err != nil {
-		return err
-	}
-
-	if decoded.IgnoreCase {
-		for index := range a.Any {
-			a.Any[index].IgnoreCase = true
-		}
-	}
-
-	return nil
-}
-
-func decodeLogSettings(data []byte, target any) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-
-	return decoder.Decode(target)
 }
 
 // LogSeverity is distinct from process state and notification delivery state.

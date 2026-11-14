@@ -32,6 +32,7 @@ function status(
     operation_state: busy ? OperationState.Running : OperationState.Succeeded,
     ready: true,
     busy,
+    file_system_busy: busy && action === "restore",
     disk_quota_enforced: false,
   };
 }

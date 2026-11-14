@@ -6,15 +6,15 @@ import (
 	"testing"
 )
 
-func TestNativeDefinitionMigratesEarlierConsoleMatchingOptions(t *testing.T) {
+func TestNativeDefinitionPreservesConsoleMatchingOptions(t *testing.T) {
 	var document map[string]any
 	if err := json.Unmarshal(eggFixture(t, "native.json"), &document); err != nil {
 		t.Fatal(err)
 	}
 
 	delete(document, "ready")
-	document["readiness"] = map[string]any{"any": []map[string]any{{"value": "^Ready$", "regex": true}}, "strip_ansi": true}
-	document["log_alerts"] = []map[string]any{{"title": "Problem", "message": "Review settings", "severity": "error", "any": []map[string]any{{"value": "FAILURE"}}, "ignore_case": true, "strip_ansi": false}}
+	document["readiness"] = map[string]any{"any": []map[string]any{{"value": "^Ready$", "regex": true}}}
+	document["log_alerts"] = []map[string]any{{"title": "Problem", "message": "Review settings", "severity": "error", "any": []map[string]any{{"value": "FAILURE", "ignore_case": true}}}}
 
 	data, err := json.Marshal(document)
 	if err != nil {
@@ -23,7 +23,7 @@ func TestNativeDefinitionMigratesEarlierConsoleMatchingOptions(t *testing.T) {
 
 	preview := PreviewEmber(data, ImportOptions{})
 	if len(preview.Errors) != 0 || preview.Ember == nil || !preview.Ember.LogAlerts[0].Any[0].IgnoreCase {
-		t.Fatal("earlier native matching options did not load", preview.Errors)
+		t.Fatal("native matching options did not load", preview.Errors)
 	}
 
 	normalized, err := json.Marshal(preview.Ember)

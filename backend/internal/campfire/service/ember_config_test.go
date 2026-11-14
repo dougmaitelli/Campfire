@@ -2,11 +2,10 @@ package service
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
-func TestNativeEmberDropsRetiredConfigStringKeys(t *testing.T) {
+func TestNativeEmberRejectsUnknownConfigSettings(t *testing.T) {
 	var definition map[string]any
 
 	if err := json.Unmarshal(eggFixture(t, "native.json"), &definition); err != nil {
@@ -14,7 +13,7 @@ func TestNativeEmberDropsRetiredConfigStringKeys(t *testing.T) {
 	}
 
 	definition["configs"] = []any{map[string]any{
-		"path": "settings.json", "parser": "json", "values": map[string]string{"port": "25565"}, "strings": []string{"port"},
+		"path": "settings.json", "parser": "json", "values": map[string]string{"port": "25565"}, "unexpected": true,
 	}}
 
 	data, err := json.Marshal(definition)
@@ -24,13 +23,7 @@ func TestNativeEmberDropsRetiredConfigStringKeys(t *testing.T) {
 
 	report := PreviewEmber(data, ImportOptions{})
 
-	if len(report.Errors) != 0 || report.Ember == nil {
-		t.Fatalf("legacy definition was rejected: %+v", report.Errors)
-	}
-
-	normalized, err := json.Marshal(report.Ember)
-
-	if err != nil || strings.Contains(string(normalized), `"strings"`) {
-		t.Fatalf("retired configuration was retained: %s, %v", normalized, err)
+	if len(report.Errors) == 0 || report.Ember != nil {
+		t.Fatal("unknown configuration setting was accepted")
 	}
 }

@@ -96,14 +96,12 @@ test.each([{ kind: ["file"] }, { kind: "unknown" }, { kind: null }])(
   },
 );
 
-test.each([true, false, undefined])(
-  "runtime responses accept filesystem busy state %s, including older Sparks",
+test.each([true, false])(
+  "runtime responses accept filesystem busy state %s",
   async (fileSystemBusy) => {
     const status = {
       ...runtimeStatus({ server_id: "server" }),
-      ...(fileSystemBusy === undefined
-        ? {}
-        : { file_system_busy: fileSystemBusy }),
+      file_system_busy: fileSystemBusy,
     };
     vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(status));
     await expect(
@@ -112,7 +110,7 @@ test.each([true, false, undefined])(
   },
 );
 
-test.each(["false", 0, null])(
+test.each(["false", 0, null, undefined])(
   "runtime responses reject malformed filesystem busy state %s",
   async (fileSystemBusy) => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(

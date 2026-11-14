@@ -244,6 +244,7 @@ for (const failed of ["stop", "start"] as const) {
           operation: failed,
           operation_state: "failed",
           busy: false,
+          file_system_busy: false,
           error: `${failed} failed`,
         },
       });

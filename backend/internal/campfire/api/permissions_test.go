@@ -76,7 +76,7 @@ func TestServerFeaturePermissionsAndOwnerOnlyAccess(t *testing.T) {
 		})
 	}
 
-	for _, invalid := range []model.PermissionID{accessperm.LegacyServerShare, "server.files.permissions", "server.backups.configure"} {
+	for _, invalid := range []model.PermissionID{"server.share", "server.files.permissions", "server.backups.configure"} {
 		body, err := json.Marshal(map[string]any{"name": "Invalid", "scope": "server", "permissions": []model.PermissionID{accessperm.ServerView, invalid}})
 		if err != nil {
 			t.Fatal(err)

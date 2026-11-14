@@ -108,12 +108,9 @@ The built-in **Operator** role has broader grants: console commands, file
 management including deletion, backup viewing, creation, restoration and
 downloading, and schedule viewing.
 
-### Existing roles on upgrade
-
-On upgrade, existing operator roles and API token scopes receive explicit feature
-grants. This migration runs once. Overview-only grants remain overview-only;
-viewing schedules requires operation access under the new hierarchy. The built-in
-Operator role retains its existing access.
+Role grants and API token scopes are stored explicitly. Reopening the database
+does not expand or rewrite them. Overview-only grants remain overview-only;
+viewing schedules requires operation access.
 
 ## View as another user
 

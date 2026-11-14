@@ -40,6 +40,7 @@ export function useServerRuntime(ids: string[]) {
                 state: RuntimeState.Unknown,
                 ready: false,
                 busy: false,
+                file_system_busy: false,
                 disk_quota_enforced: false,
                 progress: i18n.t("useServerRuntime.sparkOrDockerUnavailable"),
               },

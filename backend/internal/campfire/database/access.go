@@ -31,10 +31,16 @@ func seedRoles(tx *gorm.DB) error {
 	}
 
 	permissions := map[int64][]model.PermissionID{
-		AdminRole:    {accessperm.UsersManage, accessperm.RolesManage, accessperm.SparksManage, accessperm.EmbersManage, accessperm.ServersCreate, accessperm.ServersManageAll},
-		CreatorRole:  {accessperm.ServersCreate},
-		OwnerRole:    accessperm.All(),
-		OperatorRole: accessperm.Legacy([]model.PermissionID{accessperm.ServerView, accessperm.ServerOperate}),
+		AdminRole:   {accessperm.UsersManage, accessperm.RolesManage, accessperm.SparksManage, accessperm.EmbersManage, accessperm.ServersCreate, accessperm.ServersManageAll},
+		CreatorRole: {accessperm.ServersCreate},
+		OwnerRole:   accessperm.All(),
+		OperatorRole: {
+			accessperm.ServerView, accessperm.ServerOperate,
+			accessperm.ServerConsoleRead, accessperm.ServerConsoleWrite,
+			accessperm.ServerFilesRead, accessperm.ServerFilesWrite, accessperm.ServerFilesDelete,
+			accessperm.ServerBackupsRead, accessperm.ServerBackupsCreate, accessperm.ServerBackupsDownload, accessperm.ServerBackupsRestore,
+			accessperm.ServerSchedulesRead,
+		},
 	}
 	for roleID, actions := range permissions {
 		for _, action := range actions {

@@ -1,7 +1,5 @@
 package model
 
-import "encoding/json"
-
 // RuntimeState describes the server state exposed by Spark and the panel.
 type RuntimeState string
 
@@ -117,26 +115,4 @@ type RuntimeStatus struct {
 	Metrics            *ResourceUsage   `json:"metrics,omitempty"`
 	LogObservation     *LogObservation  `json:"log_observation,omitempty"`
 	LogMonitorError    string           `json:"log_monitor_error,omitempty"`
-}
-
-// UnmarshalJSON preserves conservative file locking when an older Spark only reports Busy.
-func (s *RuntimeStatus) UnmarshalJSON(data []byte) error {
-	type statusJSON RuntimeStatus
-
-	var wire struct {
-		statusJSON
-		FileSystemBusy *bool `json:"file_system_busy"`
-	}
-	if err := json.Unmarshal(data, &wire); err != nil {
-		return err
-	}
-
-	*s = RuntimeStatus(wire.statusJSON)
-
-	s.FileSystemBusy = s.Busy
-	if wire.FileSystemBusy != nil {
-		s.FileSystemBusy = *wire.FileSystemBusy
-	}
-
-	return nil
 }

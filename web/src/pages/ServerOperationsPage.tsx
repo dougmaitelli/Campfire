@@ -506,7 +506,7 @@ export function ServerOperationsPage({
                         RuntimeState.Stopping,
                         RuntimeState.Restarting,
                       ].some((value) => value === status?.state) &&
-                      (status?.file_system_busy ?? status?.busy) !== true
+                      status?.file_system_busy !== true
                     }
                   />
                 )}

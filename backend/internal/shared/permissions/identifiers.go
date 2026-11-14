@@ -36,6 +36,4 @@ const (
 	ServerSchedulesRead   = "server.schedules.read"
 	ServerSchedulesManage = "server.schedules.manage"
 	ServerSchedulesRun    = "server.schedules.run"
-	// LegacyServerShare is accepted only by the one-time migration.
-	LegacyServerShare = "server.share"
 )

@@ -11,7 +11,7 @@ import (
 	"campfire/internal/shared/model"
 )
 
-// reinstall keeps existing files for the legacy update operation.
+// reinstall keeps existing files for the update operation.
 func (m *Manager) reinstall(ctx context.Context, d model.Deployment, e *entry, pull bool) error {
 	return m.reinstallMode(ctx, d, e, pull, false)
 }

@@ -352,15 +352,9 @@ func TestIntegrationInvalidConfigurationCannotEnterStorage(t *testing.T) {
 	}
 }
 
-func TestIntegrationAdditiveMigrationAndReopenPreserveExistingData(t *testing.T) {
+func TestIntegrationReopenPreservesExistingData(t *testing.T) {
 	db, _, source := integrationStore(t)
 	ctx := t.Context()
-
-	for _, table := range []any{&database.IntegrationMessage{}, &database.ServerIntegration{}, &database.Integration{}} {
-		if err := db.ORM().Migrator().DropTable(table); err != nil {
-			t.Fatal(err)
-		}
-	}
 
 	user := database.User{Username: "existing", PasswordHash: "unchanged", CredentialVersion: 7, RoleID: database.AdminRole}
 	if err := db.ORM().Omit("Role").Create(&user).Error; err != nil {
@@ -380,18 +374,18 @@ func TestIntegrationAdditiveMigrationAndReopenPreserveExistingData(t *testing.T)
 
 	for _, table := range []any{&database.Integration{}, &database.ServerIntegration{}, &database.IntegrationMessage{}} {
 		if !upgraded.ORM().Migrator().HasTable(table) {
-			t.Fatalf("upgrade did not create %T", table)
+			t.Fatalf("reopen lost %T", table)
 		}
 	}
 
 	var preserved database.User
 	if err := upgraded.ORM().Where("id = ?", user.ID).Take(&preserved).Error; err != nil || preserved.PasswordHash != user.PasswordHash || preserved.CredentialVersion != user.CredentialVersion {
-		t.Fatal("additive migration changed existing credentials", err)
+		t.Fatal("reopen changed existing credentials", err)
 	}
 
 	var server database.Server
 	if err := upgraded.ORM().Where("id = ?", "first").Take(&server).Error; err != nil || server.Variables["KEEP"] != "value" {
-		t.Fatal("additive migration changed server configuration", err)
+		t.Fatal("reopen changed server configuration", err)
 	}
 
 	store := repository.NewIntegrationRepository(upgraded.ORM())

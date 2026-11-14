@@ -74,21 +74,3 @@ for (const [action, state] of [
     await expect(await openProperties(page)).not.toBeEditable();
   });
 }
-
-for (const busy of [false, true]) {
-  test(`older Sparks fall back to busy=${busy} for file editing`, async ({
-    page,
-  }) => {
-    await login(page);
-    await mockServerStatus(page, "survival", () => ({
-      server_id: "survival",
-      state: busy ? RuntimeState.Restarting : RuntimeState.Stopped,
-      ready: false,
-      busy,
-      disk_quota_enforced: true,
-    }));
-    const editor = await openProperties(page);
-    if (busy) await expect(editor).not.toBeEditable();
-    else await expect(editor).toBeEditable();
-  });
-}

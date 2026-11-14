@@ -16,6 +16,7 @@ test("first installation starts from an empty state and keeps failed installer o
     state: RuntimeState.NotInstalled,
     ready: false,
     busy: false,
+    file_system_busy: false,
     disk_quota_enforced: false,
   };
   let status: Record<string, unknown> = initial;
@@ -35,6 +36,7 @@ test("first installation starts from an empty state and keeps failed installer o
         ...initial,
         state: RuntimeState.Installing,
         busy: true,
+        file_system_busy: true,
         operation: ServerAction.Install,
         operation_state: OperationState.Running,
       };
@@ -112,6 +114,7 @@ test("view-only users can read Activity before installation without an install a
     state: RuntimeState.NotInstalled,
     ready: false,
     busy: false,
+    file_system_busy: false,
     disk_quota_enforced: false,
   }));
   await page.route("**/api/v1/servers/survival", async (route) => {

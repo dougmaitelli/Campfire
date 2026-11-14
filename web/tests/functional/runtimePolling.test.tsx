@@ -21,6 +21,7 @@ test("fleet polling uses one request and preserves a newer action response", asy
     server_id: ids[0]!,
     state: RuntimeState.Starting,
     busy: true,
+    file_system_busy: false,
     ready: false,
     disk_quota_enforced: false,
   };

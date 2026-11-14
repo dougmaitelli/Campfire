@@ -101,24 +101,3 @@ func TestOperationParentsAndScopeRevocation(t *testing.T) {
 		t.Fatal("removing operation scope did not prune its complete subtree", limited)
 	}
 }
-
-func TestLegacyGrantsAreExpandedOnce(t *testing.T) {
-	legacy := Legacy([]ID{ServerView, ServerOperate, ServerConfigure, LegacyServerShare})
-	for _, id := range []ID{ServerConsoleWrite, ServerFilesDelete, ServerBackupsCreate, ServerBackupsDownload, ServerBackupsRestore, ServerBackupsDelete, ServerReinstall, ServerSchedulesManage, ServerSchedulesRun} {
-		if !slices.Contains(legacy, id) {
-			t.Fatal("legacy access lost", id)
-		}
-	}
-
-	if slices.Contains(legacy, LegacyServerShare) {
-		t.Fatal("sharing permission survived migration")
-	}
-
-	if slices.Contains(Expand([]ID{ServerOperate}), ServerFilesRead) {
-		t.Fatal("legacy expansion is still implicit")
-	}
-
-	if !slices.Equal(Legacy([]ID{ServerView}), []ID{ServerView}) {
-		t.Fatal("legacy overview access acquired operation through schedules")
-	}
-}

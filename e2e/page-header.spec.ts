@@ -8,6 +8,7 @@ test("server console header on mobile", async ({ page }) => {
     state: "running",
     ready: true,
     busy: false,
+    file_system_busy: false,
     disk_quota_enforced: true,
   }));
   await page.goto("/#servers/survival/console");

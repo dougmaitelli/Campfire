@@ -52,18 +52,6 @@ type Readiness struct {
 	Any []ReadinessMatch `json:"any"`
 }
 
-// UnmarshalJSON accepts the retired color option without serializing it again.
-func (r *Readiness) UnmarshalJSON(data []byte) error {
-	type fields Readiness
-
-	decoded := struct {
-		*fields
-		StripANSI bool `json:"strip_ansi"`
-	}{fields: (*fields)(r)}
-
-	return decodeLogSettings(data, &decoded)
-}
-
 // RequiredPort identifies a container port required by a game.
 type RequiredPort struct {
 	Container   int             `json:"container"`

@@ -1,4 +1,4 @@
-// Package database owns SQLite and PostgreSQL setup and schema migrations.
+// Package database owns SQLite and PostgreSQL setup and the release schema.
 package database
 
 import (
@@ -24,10 +24,13 @@ type Database struct {
 	sql *sql.DB
 }
 
-const schemaVersion = 2
+// Marker 2 is reserved for an equivalent schema accepted by the adoption path.
+// Future schema changes must use a marker above 2 to avoid treating a different
+// schema as a metadata-only adoption.
+const schemaVersion = 1
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
-// It applies the same transactional schema migrations to either backend.
+// It initializes the same transactional baseline schema on either backend.
 func Open(ctx context.Context, source string) (*Database, error) {
 	driver, err := dialector(source)
 	if err != nil {
@@ -124,186 +127,98 @@ func (d *Database) Close() error {
 	return d.sql.Close()
 }
 
-func migrate(db *gorm.DB) error {
-	if db.Name() == "sqlite" {
-		if err := db.Exec("PRAGMA foreign_keys = OFF").Error; err != nil {
-			return err
-		}
-		defer db.Exec("PRAGMA foreign_keys = ON")
+// baselineModels is the complete schema, not a sequence of development upgrades.
+func baselineModels() []any {
+	return []any{
+		&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
+		&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
+		&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{}, &MonitoringAlert{},
+		&ServerJob{}, &BackupPolicy{}, &Backup{}, &APIToken{},
+		&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
+		&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
+		&GameEvent{}, &GameEventFieldLabel{}, &GameIntegrationRegistration{}, &GameMedia{},
+		&LogAlertIssue{}, &Integration{}, &ServerIntegration{}, &IntegrationMessage{},
 	}
+}
 
+func migrate(db *gorm.DB) error {
 	return Transaction(db, func(tx *gorm.DB) error {
-		activitySourcesMissing := !tx.Migrator().HasColumn(&IntegrationMessage{}, "SourceKey")
-		alertReceiptsMissing := !tx.Migrator().HasColumn(&LogAlertIssue{}, "ReceivedAt")
-		// Pre-1.0 job checkpoints are disposable; retain all other tables.
-		for _, table := range []string{"server_copies", "server_transfers"} {
-			if tx.Migrator().HasTable(table) {
-				if err := tx.Migrator().DropTable(table); err != nil {
-					return err
-				}
-			}
-		}
-
 		if !tx.Migrator().HasTable(&schemaMigration{}) {
+			tables, err := tx.Migrator().GetTables()
+			if err != nil {
+				return err
+			}
+
+			if len(tables) != 0 {
+				return errors.New("unversioned database is not empty; older development data is unsupported")
+			}
+
 			if err := tx.Migrator().CreateTable(&schemaMigration{}); err != nil {
-				return fmt.Errorf("initialize migrations: %w", err)
-			}
-		}
-
-		var version int
-		if err := tx.Model(&schemaMigration{}).Select("COALESCE(MAX(version), 0)").Scan(&version).Error; err != nil {
-			return fmt.Errorf("read schema version: %w", err)
-		}
-
-		legacyUsers := tx.Migrator().HasTable("admin_credentials") || tx.Migrator().HasTable("users") && !tx.Migrator().HasColumn(&User{}, "CredentialVersion")
-		if version >= 1 && version <= 4 && legacyUsers {
-			return fmt.Errorf("database schema version %d predates the release baseline; upgrade to Campfire commit 204d134 first", version)
-		}
-
-		if version == 1 || version == schemaVersion {
-			if !tx.Migrator().HasColumn(&Server{}, "StartupOverride") {
-				if err := tx.Migrator().AddColumn(&Server{}, "StartupOverride"); err != nil {
-					return err
-				}
+				return fmt.Errorf("initialize schema version: %w", err)
 			}
 
-			if !tx.Migrator().HasColumn(&Server{}, "GameIntegration") {
-				if err := tx.Migrator().AddColumn(&Server{}, "GameIntegration"); err != nil {
-					return err
-				}
-			}
-
-			if !tx.Migrator().HasColumn(&Server{}, "StartupCommand") {
-				if err := tx.Migrator().AddColumn(&Server{}, "StartupCommand"); err != nil {
-					return err
-				}
-			}
-
-			for _, field := range []string{"OIDCNameManaged", "OIDCEmailManaged"} {
-				if !tx.Migrator().HasColumn(&User{}, field) {
-					if err := tx.Migrator().AddColumn(&User{}, field); err != nil {
-						return err
-					}
-				}
-			}
-
-			if err := migrateIntegrationDestinations(tx); err != nil {
-				return err
-			}
-
-			if err := tx.AutoMigrate(
-				&Notification{}, &MonitoringAlert{},
-				&BackupPolicy{}, &Backup{},
-				&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
-				&GameEvent{}, &GameEventFieldLabel{}, &GameIntegrationRegistration{}, &GameMedia{}, &Schedule{}, &ScheduleRun{}, &LogAlertIssue{}, &ServerJob{},
-				&Integration{}, &ServerIntegration{}, &IntegrationMessage{},
-			); err != nil {
-				return err
-			}
-
-			if err := removeDiskHistory(tx); err != nil {
-				return err
-			}
-
-			if activitySourcesMissing {
-				if err := backfillActivitySources(tx); err != nil {
-					return err
-				}
-			}
-
-			if alertReceiptsMissing {
-				if err := backfillAlertReceipts(tx); err != nil {
-					return err
-				}
-			}
-
-			if version == 1 {
-				if err := migratePermissions(tx); err != nil {
-					return err
-				}
-
-				if err := tx.Where("1 = 1").Delete(&schemaMigration{}).Error; err != nil {
-					return err
-				}
-
-				return tx.Create(&schemaMigration{Version: schemaVersion}).Error
-			}
-
-			return nil
-		}
-
-		prerelease := version == 5 && legacyUsers || version == 6 && tx.Migrator().HasColumn(&Schedule{}, "version")
-		if version != 0 && !prerelease {
-			return fmt.Errorf("database schema version %d is newer than supported version %d", version, schemaVersion)
-		}
-
-		if version != 0 {
-			if err := importPrereleaseSchema(tx); err != nil {
-				return fmt.Errorf("import pre-release schema: %w", err)
-			}
-		}
-
-		if err := migrateIntegrationDestinations(tx); err != nil {
-			return err
-		}
-
-		if err := tx.AutoMigrate(
-			&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
-			&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
-			&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{}, &MonitoringAlert{},
-			&ServerJob{}, &BackupPolicy{}, &Backup{}, &APIToken{},
-			&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
-			&ServerResourceSample{}, &SparkResourceSample{},
-			&ServerResourceBucket{}, &SparkResourceBucket{},
-			&GameEvent{},
-			&GameEventFieldLabel{},
-			&GameIntegrationRegistration{},
-			&GameMedia{},
-			&LogAlertIssue{},
-			&Integration{}, &ServerIntegration{}, &IntegrationMessage{},
-		); err != nil {
-			return fmt.Errorf("apply initial schema: %w", err)
-		}
-
-		if version == 0 {
-			if activitySourcesMissing {
-				if err := backfillActivitySources(tx); err != nil {
-					return err
-				}
-			}
-
-			if alertReceiptsMissing {
-				if err := backfillAlertReceipts(tx); err != nil {
-					return err
-				}
+			if err := tx.AutoMigrate(baselineModels()...); err != nil {
+				return fmt.Errorf("initialize baseline schema: %w", err)
 			}
 
 			if err := seedRoles(tx); err != nil {
 				return fmt.Errorf("seed built-in roles: %w", err)
 			}
-		} else if err := migratePermissions(tx); err != nil {
+
+			return tx.Create(&schemaMigration{Version: schemaVersion}).Error
+		}
+
+		var versions []int
+		if err := tx.Model(&schemaMigration{}).Pluck("version", &versions).Error; err != nil {
+			return fmt.Errorf("read schema version: %w", err)
+		}
+
+		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 2) {
+			return fmt.Errorf("unsupported database schema history %v; expected baseline version %d", versions, schemaVersion)
+		}
+
+		// Marker 2 identifies an equivalent schema. Validate the baseline before
+		// relabeling it; never repair an older database or AutoMigrate existing data.
+		// Validation also distinguishes this baseline from old development marker 1.
+		if err := validateBaseline(tx); err != nil {
 			return err
 		}
 
-		if tx.Name() == "sqlite" {
-			var violations []struct{ Table string }
-			if err := tx.Raw("PRAGMA foreign_key_check").Scan(&violations).Error; err != nil {
-				return err
-			}
-
-			if len(violations) != 0 {
-				return errors.New("migration produced invalid foreign keys")
-			}
-		}
-
-		if err := tx.Where("1 = 1").Delete(&schemaMigration{}).Error; err != nil {
-			return err
-		}
-
-		if err := tx.Create(&schemaMigration{Version: schemaVersion}).Error; err != nil {
-			return fmt.Errorf("record initial migration: %w", err)
+		if versions[0] == 2 {
+			return tx.Model(&schemaMigration{}).Where("version = ?", 2).Update("version", schemaVersion).Error
 		}
 
 		return nil
 	})
+}
+
+func validateBaseline(tx *gorm.DB) error {
+	for _, model := range baselineModels() {
+		statement := &gorm.Statement{DB: tx}
+		if err := statement.Parse(model); err != nil {
+			return err
+		}
+
+		if !tx.Migrator().HasTable(model) {
+			return fmt.Errorf("database does not match the release baseline: missing table %s; older development data is unsupported", statement.Schema.Table)
+		}
+
+		columns, err := tx.Migrator().ColumnTypes(model)
+		if err != nil {
+			return fmt.Errorf("inspect baseline table %s: %w", statement.Schema.Table, err)
+		}
+
+		present := make(map[string]bool, len(columns))
+		for _, column := range columns {
+			present[column.Name()] = true
+		}
+
+		for _, field := range statement.Schema.Fields {
+			if field.DBName != "" && !field.IgnoreMigration && !present[field.DBName] {
+				return fmt.Errorf("database does not match the release baseline: missing column %s.%s; older development data is unsupported", statement.Schema.Table, field.DBName)
+			}
+		}
+	}
+
+	return nil
 }

@@ -60,6 +60,7 @@ for (const screen of ["overview", "server"] as const) {
       state,
       ready: state === "running",
       busy: state === "starting",
+      file_system_busy: false,
       disk_quota_enforced: true,
       operation_id: "test-start",
       operation: "start",

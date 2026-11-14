@@ -111,23 +111,6 @@ func Restrict(actions []ID) []ID {
 	}
 }
 
-// Legacy converts the old broad grants once during database migration.
-func Legacy(actions []ID) []ID {
-	result := slices.DeleteFunc(slices.Clone(actions), func(value ID) bool { return value == LegacyServerShare })
-	if slices.Contains(actions, ServerOperate) {
-		result = append(result, ServerConsoleWrite, ServerFilesDelete, ServerBackupsCreate, ServerBackupsDownload, ServerBackupsRestore, ServerSchedulesRead)
-	}
-
-	if slices.Contains(actions, ServerConfigure) {
-		result = append(result, ServerBackupsDelete)
-		if slices.Contains(actions, ServerOperate) {
-			result = append(result, ServerReinstall, ServerSchedulesManage, ServerSchedulesRun)
-		}
-	}
-
-	return Expand(result)
-}
-
 // File maps public HTTP and SFTP operations to the same grant.
 func File(operation model.FileOperation) ID {
 	switch operation {

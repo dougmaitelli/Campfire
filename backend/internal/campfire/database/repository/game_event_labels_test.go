@@ -125,8 +125,8 @@ func TestGameEventLabelRetentionRemovesOnlyUnreferencedDefinitions(t *testing.T)
 	}
 }
 
-func TestGameEventLabelDictionaryUpgradePreservesExistingHistory(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "upgrade.db")
+func TestGameEventLabelDictionaryReopenPreservesExistingHistory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "reopen.db")
 
 	db, err := database.Open(t.Context(), path)
 	if err != nil {
@@ -143,11 +143,6 @@ func TestGameEventLabelDictionaryUpgradePreservesExistingHistory(t *testing.T) {
 		if err := db.ORM().Omit("Spark", "Ember", "Owner", "Server").Create(row).Error; err != nil {
 			t.Fatal(err)
 		}
-	}
-
-	// Model an existing release database without the new dictionary table.
-	if err := db.ORM().Migrator().DropTable(&database.GameEventFieldLabel{}); err != nil {
-		t.Fatal(err)
 	}
 
 	if err := db.Close(); err != nil {
@@ -171,6 +166,6 @@ func TestGameEventLabelDictionaryUpgradePreservesExistingHistory(t *testing.T) {
 
 	page, err := store.List(t.Context(), "game", repository.GameEventQuery{Limit: 10})
 	if err != nil || len(page.Items) != 2 || page.Items[1].EventID != "existing" || page.Items[1].FieldLabels["player"] != "Player name" {
-		t.Fatal("dictionary migration changed history or failed label discovery", page, err)
+		t.Fatal("reopen changed history or failed label discovery", page, err)
 	}
 }

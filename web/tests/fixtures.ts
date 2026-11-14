@@ -8,6 +8,7 @@ export function runtimeStatus(
     state: "stopped",
     ready: true,
     busy: false,
+    file_system_busy: false,
     disk_quota_enforced: false,
     ...overrides,
   };
