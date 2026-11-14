@@ -48,7 +48,7 @@ jobs:
             browser:
               - '{e2e/**,screenshots/**}'
             docs:
-              - '{docs/**,screenshots/**,README.md,config/**,compose*.yaml,web/public/favicon.svg,Makefile,scripts/package-release.mjs,.github/workflows/pages.yml,.github/workflows/ci.yml}'
+              - '{docs/**,screenshots/**,README.md,config/**,compose*.yaml,web/public/brand/**,web/public/favicon.png,Makefile,scripts/package-release.mjs,.github/workflows/pages.yml,.github/workflows/ci.yml}'
 
   validate:
     needs: changes

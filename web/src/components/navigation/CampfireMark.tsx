@@ -1,19 +1,75 @@
+import { useId } from "react";
+
 export function CampfireMark() {
+  const logGap = useId();
+
   return (
     <svg
       className="campfire-mark"
-      viewBox="0 0 38 48"
+      viewBox="0 0 64 68"
       fill="none"
       aria-hidden="true"
     >
+      <defs>
+        <mask
+          id={logGap}
+          maskUnits="userSpaceOnUse"
+          x="0"
+          y="0"
+          width="64"
+          height="68"
+        >
+          <path fill="white" d="M0 0H64V68H0Z" />
+          <path
+            d="M12 58L51 44"
+            stroke="black"
+            strokeWidth="13"
+            strokeLinecap="round"
+          />
+        </mask>
+      </defs>
+      <g mask={`url(#${logGap})`}>
+        <path
+          d="M12 44L51 58"
+          stroke="#926044"
+          strokeWidth="10"
+          strokeLinecap="round"
+        />
+        <path
+          d="M10.5 46.3L49.5 60.3"
+          stroke="#754933"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+      </g>
       <path
-        fill="var(--accent)"
-        d="M17 3Q18 2 19 3C22 5 24 8 25 14L27 12Q30 16 29 25Q27 29 21 30Q23 27 20 25V22Q18 22 18 24Q15 26 16 30Q10 30 9 25Q6 21 11 13Q12 11 13 12V14Q14 15 15 14V12Q19 8 17 3Z"
+        d="M12 58L51 44"
+        stroke="#926044"
+        strokeWidth="10"
+        strokeLinecap="round"
       />
       <path
-        d="M4 30Q6 29 9 30L15 33V35L7 36Q3 37 3 34V32Q3 31 4 30ZM30 30Q34 28 35 31V34L7 46Q3 47 3 43V41Q3 40 6 39L30 30ZM28 39L33 40Q36 41 35 44Q34 47 31 46L23 43L22 41L26 39Z"
-        fill="#8b5a3c"
+        d="M13 60.7L52 46.7"
+        stroke="#754933"
+        strokeWidth="4"
+        strokeLinecap="round"
       />
+      <g transform="translate(0 4)">
+        <g className="campfire-flame">
+          <path
+            fill="#f99a48"
+            d="M28.5 5.5C27.5 4.5 26.5 5.3 27.1 6.8C29.7 13.2 27.3 18.1 24.4 22.7C22.8 24.8 21.1 24.4 21.1 21.8L21.4 18.8C21.6 17.4 20.6 16.8 19.6 18C15.5 23.4 13.5 29.1 15 34.4C16.8 41.1 22.6 44 31.6 44C41.3 44 47.2 39.6 48.1 32.4C48.6 28.7 47.5 24.2 45 20.7C44.1 19.5 43.3 19.9 43 21.3C42.6 23.5 41.9 25.2 40 25.9C40.6 17.8 36.9 10.6 28.5 5.5Z"
+          />
+          <path
+            fill="#df7139"
+            d="M45 20.7C47.5 24.2 48.6 28.7 48.1 32.4C47.2 39.6 41.3 44 31.6 44C25.1 44 20.3 42.4 17 38.6C21.4 41.6 28.8 41.4 34.2 38.5C40.4 35.2 43.3 29.1 45 20.7Z"
+          />
+          <path
+            fill="#ffcf7d"
+            d="M30.4 28C30 27.3 29.2 27.6 29.1 28.5C28.7 31.9 25.9 33.2 25.2 36.5C24.2 40.9 27 43.7 31.5 44C35.2 43.8 37.6 41.1 36.6 37.3C36.4 36.5 35.7 36.4 35.3 37.1C34.5 38.3 33.6 38.6 33.3 37.2C33.2 33.7 32.3 30.6 30.4 28Z"
+          />
+        </g>
+      </g>
     </svg>
   );
 }

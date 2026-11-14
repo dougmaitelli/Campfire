@@ -48,8 +48,8 @@
   font-family: var(--font-heading);
 
   & svg {
-    width: 30px;
-    height: 38px;
+    width: 44px;
+    height: 48px;
     flex-shrink: 0;
   }
 }
@@ -170,7 +170,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .authentication-page:has([role="status"]) .campfire-mark > path:first-child {
+  .authentication-page:has([role="status"]) .campfire-flame {
     transform-origin: 50% 60%;
     animation: flame-connect 1200ms ease-in-out infinite alternate;
   }

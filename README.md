@@ -1,8 +1,8 @@
-<p align="center">
-  <img src="web/public/favicon.svg" alt="Campfire" width="96">
-</p>
-
-<h1 align="center">Campfire</h1>
+<h1 align="center">
+  <img src="web/public/brand/campfire.svg" alt="" width="144">
+  <br>
+  Campfire
+</h1>
 
 [![CI](https://github.com/dougmaitelli/Campfire/actions/workflows/ci.yml/badge.svg)](https://github.com/dougmaitelli/Campfire/actions/workflows/ci.yml)
 [![GitHub release](https://img.shields.io/github/v/release/dougmaitelli/Campfire)](https://github.com/dougmaitelli/Campfire/releases)

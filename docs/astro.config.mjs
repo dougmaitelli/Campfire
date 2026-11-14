@@ -10,8 +10,8 @@ export default defineConfig({
     starlight({
       title: "Campfire",
       description: "Host and manage game servers across your Linux machines.",
-      logo: { src: "../web/public/favicon.svg", alt: "Campfire" },
-      favicon: "/favicon.svg",
+      logo: { src: "../web/public/brand/campfire.svg", alt: "Campfire" },
+      favicon: "/favicon.png",
       customCss: ["./styles/docs.css"],
       components: { Hero: "./components/Hero.astro" },
       editLink: {

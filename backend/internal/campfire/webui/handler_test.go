@@ -15,7 +15,8 @@ func TestFrontendRoutingAndCacheBoundaries(t *testing.T) {
 	files := fstest.MapFS{
 		"index.html":             {Data: []byte("<!doctype html><div id=\"root\"></div>")},
 		"assets/app-12345678.js": {Data: []byte("console.log('Campfire')")},
-		"favicon.svg":            {Data: []byte("<svg></svg>")},
+		"favicon.png":            {Data: []byte("\x89PNG\r\n\x1a\n")},
+		"brand/campfire.svg":     {Data: []byte("<svg></svg>")},
 		"install-spark.sh":       {Data: []byte("#!/usr/bin/env bash\nset -euo pipefail\n")},
 	}
 	handler := newHandler(api.New(nil, nil, nil).Handler(), files)
@@ -30,7 +31,8 @@ func TestFrontendRoutingAndCacheBoundaries(t *testing.T) {
 		{"HEAD", "/", 200, "", "no-cache"},
 		{"GET", "/servers/example", 200, "<!doctype html>", "no-cache"},
 		{"GET", "/assets/app-12345678.js", 200, "console.log", "public, max-age=31536000, immutable"},
-		{"GET", "/favicon.svg", 200, "<svg>", "no-cache"},
+		{"GET", "/favicon.png", 200, "PNG", "no-cache"},
+		{"GET", "/brand/campfire.svg", 200, "<svg>", "no-cache"},
 		{"GET", "/install-spark.sh", 200, "#!/usr/bin/env bash", "no-cache"},
 		{"GET", "/assets/missing.js", 404, "", ""},
 		{"GET", "/assets/missing", 404, "", ""},
