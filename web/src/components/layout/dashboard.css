@@ -102,7 +102,7 @@
 
 @media (max-width: 48rem) {
   .main-content {
-    --table-inline-outset: 6px;
+    --table-inline-outset: 20px;
   }
 }
 

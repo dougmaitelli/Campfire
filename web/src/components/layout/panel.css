@@ -109,7 +109,8 @@
 }
 @media (max-width: 48rem) {
   .panel-content {
-    --table-inline-outset: 12px;
+    /* Include the page gutter and this section's padding. */
+    --table-inline-outset: 40px;
   }
 }
 

@@ -21,7 +21,7 @@
   container-type: inline-size;
 }
 
-.table-container:has(> .data-table:not(.server-table, .table-compact)) {
+.table-container:has(> .data-table:not(.table-compact)) {
   margin-inline: calc(0px - var(--table-inline-outset, 0px));
 }
 

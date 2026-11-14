@@ -80,3 +80,9 @@
     background: var(--surface);
   }
 }
+
+@media (max-width: 48rem) {
+  .drawer .panel-content {
+    --table-inline-outset: 24px;
+  }
+}
