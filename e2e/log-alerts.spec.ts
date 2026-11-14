@@ -77,18 +77,14 @@ test("actionable errors can be authored, detected without an open console, acted
     .getByLabel("Configuration file path", { exact: true })
     .fill("eula.txt");
   await page.setViewportSize({ width: 390, height: 844 });
-  await condition
-    .getByLabel("Use a regular expression", { exact: true })
-    .scrollIntoViewIfNeeded();
-  const inputBottom = (await condition
-    .getByRole("textbox", { name: "Message or pattern", exact: true })
-    .boundingBox())!;
-  const checkboxTop = (await condition
-    .getByText("Use a regular expression", { exact: true })
-    .boundingBox())!;
-  expect(
-    checkboxTop.y - inputBottom.y - inputBottom.height,
-  ).toBeLessThanOrEqual(14);
+  const regularExpression = condition.getByRole("checkbox", {
+    name: "Use a regular expression",
+    exact: true,
+  });
+  await regularExpression.check();
+  await expect(regularExpression).toBeChecked();
+  await regularExpression.uncheck();
+  await expect(regularExpression).not.toBeChecked();
   await page.setViewportSize({ width: 1400, height: 900 });
 
   await drawer
@@ -124,7 +120,7 @@ test("actionable errors can be authored, detected without an open console, acted
   expect(edited.log_alerts![0]).not.toHaveProperty("ignore_case");
   expect(edited.log_alerts![0]).not.toHaveProperty("strip_ansi");
   expect(edited.log_alerts![0]!.any).toEqual([
-    { value: "agree to the EULA", ignore_case: true },
+    { value: "agree to the EULA", ignore_case: true, regex: false },
   ]);
   expect(edited.log_alerts![0]!.action).toEqual({
     type: "open_file",

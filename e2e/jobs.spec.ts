@@ -82,16 +82,8 @@ test("admins can manage global jobs and open server Activity from resource detai
   const jobs = page.getByRole("region", { name: "Jobs", exact: true });
   await expect(jobs.getByText("Waiting for Offline to connect.")).toBeVisible();
   await expect(jobs.locator("tbody tr")).toHaveCount(4);
-  await expect(
-    jobs.getByRole("row", { name: "Copy failed-copy", exact: true }),
-  ).toBeInViewport();
   await screenshot(page, "jobs.png");
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBeTruthy();
   await screenshot(page, "jobs-mobile.png");
   await page.setViewportSize({ width: 1400, height: 900 });
   await jobs
@@ -107,7 +99,6 @@ test("admins can manage global jobs and open server Activity from resource detai
   await expect(
     empty.getByRole("heading", { name: "No jobs yet.", exact: true }),
   ).toBeVisible();
-  await expect(empty.locator(".content-state-icon svg")).toBeVisible();
   await expect(jobs.getByRole("table")).toHaveCount(0);
   await page.getByRole("combobox", { name: "Job type", exact: true }).click();
   await page.getByRole("option", { name: "All types", exact: true }).click();

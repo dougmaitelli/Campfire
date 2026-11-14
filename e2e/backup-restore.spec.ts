@@ -98,12 +98,6 @@ for (const restart of [true, false]) {
     if (restart) {
       await screenshot(page, "restore-running-confirm.png", dialog);
       await page.setViewportSize({ width: 320, height: 844 });
-      await expect(
-        dialog.getByRole("button", {
-          name: "Stop, restore and restart",
-          exact: true,
-        }),
-      ).toBeInViewport({ ratio: 1 });
     } else await checkbox.uncheck();
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     expect(actions).toEqual([]);

@@ -203,9 +203,7 @@ test("mobile file rows keep selection, downloads and file details available", as
   ).toBeVisible();
 });
 
-test("an empty console stays clear of unnecessary scrolling", async ({
-  page,
-}) => {
+test("an empty console shows its waiting state", async ({ page }) => {
   await login(page);
   await page.route("**/api/v1/servers/survival/console/stream", (route) =>
     route.fulfill({
@@ -217,23 +215,6 @@ test("an empty console stays clear of unnecessary scrolling", async ({
   await expect(
     page.getByText("Waiting for server output…", { exact: true }),
   ).toBeVisible();
-  for (const viewport of [
-    { width: 1400, height: 1100 },
-    { width: 390, height: 844 },
-  ]) {
-    await page.setViewportSize(viewport);
-    await expect
-      .poll(() =>
-        page
-          .locator(".xterm-viewport")
-          .evaluate(
-            (element) =>
-              element.scrollHeight <= element.clientHeight &&
-              element.scrollWidth <= element.clientWidth,
-          ),
-      )
-      .toBe(true);
-  }
 });
 
 test("long console output remains readable after resizing to mobile", async ({

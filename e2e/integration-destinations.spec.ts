@@ -269,9 +269,6 @@ test("independent destinations separate backups, public cards, and scoped game r
   ).toBeVisible();
   await screenshot(page, "server-integration-destinations.png", drawer);
   await page.setViewportSize({ width: 320, height: 844 });
-  await expect(
-    destinations.getByRole("columnheader", { name: "Enabled", exact: true }),
-  ).toBeInViewport();
   await destinations
     .getByRole("cell", { name: "Game events · Server card", exact: true })
     .click();

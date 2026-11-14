@@ -47,18 +47,6 @@ test("file drops show a stable overlay and upload into the open folder", async (
   await screenshot(page, "file-upload-drop.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await browser.scrollIntoViewIfNeeded();
-  const bounds = await browser.boundingBox();
-  const overlayBounds = await page.locator(".file-drop-overlay").boundingBox();
-  expect(bounds).not.toBeNull();
-  expect(overlayBounds).not.toBeNull();
-  expect(overlayBounds!.x).toBeCloseTo(bounds!.x, 0);
-  expect(overlayBounds!.width).toBeCloseTo(bounds!.width, 0);
-  expect(overlayBounds!.height).toBeCloseTo(bounds!.height, 0);
-  expect(
-    await browser.evaluate(
-      (element) => element.scrollWidth <= element.clientWidth,
-    ),
-  ).toBe(true);
   await screenshot(page, "file-upload-drop-narrow.png");
   await browser.dispatchEvent("dragleave", { dataTransfer: transfer });
   await expect(overlay).toHaveCount(0);

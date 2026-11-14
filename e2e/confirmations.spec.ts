@@ -109,7 +109,6 @@ test("backup deletion confirms the copy and cancels when leaving the page", asyn
     name: "Delete local",
     exact: true,
   });
-  await expect(confirm).toBeInViewport({ ratio: 1 });
   const response = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&

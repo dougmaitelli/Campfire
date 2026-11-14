@@ -252,16 +252,13 @@ for (const mobile of [false, true]) {
         exact: false,
       }),
     ).toBeVisible();
-    const field = (id: string) =>
-      editor.locator(".form-field").filter({ has: page.locator(`#${id}`) });
-    await expect(field("server-image")).toHaveAttribute(
-      "data-change",
-      "changed",
-    );
+    await expect(
+      editor.getByRole("combobox", { name: "Image", exact: true }),
+    ).toHaveAccessibleDescription("Changed");
     // The inherited startup changed in the Ember, but there is no saved override change.
-    await expect(field("server-startup-override")).not.toHaveAttribute(
-      "data-change",
-    );
+    await expect(
+      editor.getByLabel("Startup command text", { exact: true }),
+    ).not.toHaveAccessibleDescription(/Changed/);
     await expect(
       editor.getByRole("button", { name: "General", exact: true }),
     ).toHaveAccessibleDescription("Contains changes");
@@ -270,28 +267,23 @@ for (const mobile of [false, true]) {
     ).toHaveAccessibleDescription("Contains changes");
     await expect(
       editor.getByRole("button", { name: "Resources & ports", exact: true }),
-    ).not.toHaveAttribute("data-changed");
+    ).not.toHaveAccessibleDescription("Contains changes");
     await screenshot(page, `server-ember-revision${suffix}.png`, editor);
     await editor
       .getByRole("button", { name: "Variables", exact: true })
       .click();
-    await expect(field("variable-INSTALL_CHANNEL")).toHaveAttribute(
-      "data-change",
-      "changed",
-    );
+    await expect(
+      editor.getByLabel("INSTALL_CHANNEL", { exact: true }),
+    ).toHaveAccessibleDescription(/Changed/);
     await expect(
       editor.getByLabel("INSTALL_CHANNEL", { exact: true }),
     ).toHaveValue("preview");
-    await expect(field("variable-ENABLE_CROSSPLAY")).toHaveAttribute(
-      "data-change",
-      "added",
-    );
     await expect(
       editor.getByRole("switch", { name: "ENABLE_CROSSPLAY", exact: true }),
     ).toHaveAccessibleDescription("Added");
-    await expect(field("variable-MC_VERSION")).not.toHaveAttribute(
-      "data-change",
-    );
+    await expect(
+      editor.getByLabel("MC_VERSION", { exact: true }),
+    ).not.toHaveAccessibleDescription(/Changed/);
     await expect(editor.getByLabel("MC_VERSION", { exact: true })).toHaveValue(
       "latest",
     );
@@ -299,37 +291,37 @@ for (const mobile of [false, true]) {
     await editor
       .getByLabel("Startup command text", { exact: true })
       .fill("java -jar custom.jar");
-    await expect(field("server-startup-override")).toHaveAttribute(
-      "data-change",
-      "changed",
-    );
+    await expect(
+      editor.getByLabel("Startup command text", { exact: true }),
+    ).toHaveAccessibleDescription(/Changed/);
     await editor
       .getByRole("button", { name: "Use Ember default", exact: true })
       .click();
-    await expect(field("server-startup-override")).not.toHaveAttribute(
-      "data-change",
-    );
+    await expect(
+      editor.getByLabel("Startup command text", { exact: true }),
+    ).not.toHaveAccessibleDescription(/Changed/);
     await editor
       .getByLabel("Server name", { exact: true })
       .fill("Temporary name");
-    await expect(field("server-name")).toHaveAttribute(
-      "data-change",
-      "changed",
-    );
+    await expect(
+      editor.getByLabel("Server name", { exact: true }),
+    ).toHaveAccessibleDescription("Changed");
     await editor.getByLabel("Server name", { exact: true }).fill("Survival");
-    await expect(field("server-name")).not.toHaveAttribute("data-change");
+    await expect(
+      editor.getByLabel("Server name", { exact: true }),
+    ).not.toHaveAccessibleDescription("Changed");
     await editor
       .getByRole("button", { name: "Resources & ports", exact: true })
       .click();
-    await editor.locator("#server-cpu").fill("3");
-    await expect(field("server-cpu")).toHaveAttribute("data-change", "changed");
+    const cpu = editor.getByRole("spinbutton", {
+      name: "CPU cores",
+      exact: true,
+    });
+    await cpu.fill("3");
+    await expect(cpu).toHaveAccessibleDescription("Changed");
     await editor.getByRole("button", { name: "Review", exact: true }).click();
-    await expect(
-      editor.locator('.details-list > div[data-change="changed"]'),
-    ).toHaveCount(3);
-    await expect(
-      editor.locator('.details-list > div[data-change="added"]'),
-    ).toHaveCount(1);
+    await expect(editor.getByText("Changed", { exact: true })).toHaveCount(3);
+    await expect(editor.getByText("Added", { exact: true })).toHaveCount(1);
     if (!mobile)
       await screenshot(page, "server-ember-revision-review.png", editor);
     await editor

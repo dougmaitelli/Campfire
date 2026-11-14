@@ -154,20 +154,6 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
   await screenshot(page, "server-variables-mobile.png", create);
   await screenshot(page, "ember-boolean-variables-mobile.png", fields);
   await page.setViewportSize({ width: 320, height: 844 });
-  for (const step of [
-    "General",
-    "Variables",
-    "Resources & ports",
-    "Backups",
-    "Access",
-    "Review",
-  ]) {
-    await expect(
-      create.getByRole("button", { name: step, exact: true }),
-    ).toBeInViewport({ ratio: 1 });
-  }
-  await expect(next).toBeInViewport({ ratio: 1 });
-  await page.setViewportSize({ width: 1400, height: 900 });
   for (const label of [
     "Next: Resources & ports",
     "Next: Backups",

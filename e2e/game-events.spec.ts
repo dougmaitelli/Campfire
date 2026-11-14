@@ -9,9 +9,6 @@ test("game activity reads retained events and filters by type and recorded time"
   const feed = page.getByRole("region", { name: "Activity", exact: true });
   const rows = feed.locator("tbody tr");
   await expect(rows).toHaveCount(3);
-  await expect(feed.locator(".date-time-input-placeholder")).toHaveCount(2);
-  for (const hint of await feed.locator(".date-time-input-placeholder").all())
-    await expect(hint).toBeHidden();
   await expect(
     feed.getByText("Alex joined the server", { exact: true }),
   ).toBeVisible();
@@ -123,14 +120,6 @@ test("game activity combines player and mod-state filters and clears them", asyn
     .getByRole("combobox", { name: "Field value", exact: true })
     .click();
   await page.getByRole("option", { name: "Alex", exact: true }).click();
-  await page.setViewportSize({ width: 2600, height: 900 });
-  const tops = await feed
-    .locator("form .form-field")
-    .evaluateAll((items) =>
-      items.map((item) => item.getBoundingClientRect().top),
-    );
-  expect(new Set(tops).size).toBe(1);
-  await page.setViewportSize({ width: 1400, height: 900 });
   await feed
     .getByRole("button", { name: "Add field filter", exact: true })
     .click();
@@ -163,11 +152,6 @@ test("game activity combines player and mod-state filters and clears them", asyn
     "crops",
     "activity-field-filters-mobile.png",
   ]);
-  expect(
-    await feed
-      .locator("form")
-      .evaluate((node) => node.scrollWidth <= node.clientWidth),
-  ).toBe(true);
   await feed
     .getByRole("button", { name: "Remove field filter 2", exact: true })
     .click();

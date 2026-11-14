@@ -468,7 +468,7 @@ test("copy options open directly into their drawer after loading", async ({
     ).toHaveCount(0);
     release?.();
     const drawer = page.getByRole("dialog", { name: action, exact: true });
-    await expect(drawer).toHaveClass(/drawer/);
+    await expect(drawer).toBeVisible();
     await expect(
       drawer.getByRole("heading", { name: "Jobs", exact: true }),
     ).toHaveCount(0);

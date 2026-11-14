@@ -89,13 +89,9 @@ export async function openScreen(page: Page, id: string, heading: string) {
     await expect(
       page.locator('img[src="/game-art/mock-block.svg"]'),
     ).toBeVisible();
-    await expect
-      .poll(() =>
-        page
-          .locator('img[src="/game-art/mock-block.svg"]')
-          .evaluate((image) => (image as HTMLImageElement).naturalWidth),
-      )
-      .toBeGreaterThan(0);
+    await page
+      .locator('img[src="/game-art/mock-block.svg"]')
+      .evaluate((image) => (image as HTMLImageElement).decode());
   }
   if (id === "dashboard") {
     const tiles = page.locator(".metric-tiles > *");

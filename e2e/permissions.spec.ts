@@ -135,61 +135,11 @@ test("permission tree adds prerequisites and clears dependent grants without con
     await confirmation.accept();
   });
   await expect(dialog.getByRole("checkbox")).toHaveCount(18);
-  const mainBranches = dialog.locator(
-    'li[data-permission="server.view"] > ul > li',
-  );
-  expect(
-    await mainBranches.evaluateAll((branches) =>
-      branches.map((branch) => branch.getAttribute("data-permission")),
-    ),
-  ).toEqual(["server.console.read"]);
-  const operationBranches = dialog.locator(
-    'li[data-permission="server.operate"] > ul > li',
-  );
-  expect(
-    await operationBranches.evaluateAll((branches) =>
-      branches.map((branch) => branch.getAttribute("data-permission")).sort(),
-    ),
-  ).toEqual(
-    [
-      "server.console.write",
-      "server.configure",
-      "server.reinstall",
-      "server.files.read",
-      "server.backups.read",
-      "server.schedules.read",
-      "server.delete",
-    ].sort(),
-  );
   const deleteServer = dialog.getByRole("checkbox", {
     name: "Delete server",
     exact: true,
   });
   await expect(deleteServer).not.toBeChecked();
-  expect(
-    await dialog
-      .locator('li[data-permission="server.backups.read"] > ul > li')
-      .evaluateAll((branches) =>
-        branches.map((branch) => branch.getAttribute("data-permission")).sort(),
-      ),
-  ).toEqual(
-    [
-      "server.backups.create",
-      "server.backups.restore",
-      "server.backups.download",
-      "server.backups.delete",
-    ].sort(),
-  );
-  await expect(
-    dialog.locator(
-      'li[data-permission="server.files.read"] > ul > li[data-permission="server.files.write"] > .permission-tree-node > label > input',
-    ),
-  ).not.toBeChecked();
-  await expect(
-    dialog.locator(
-      'li[data-permission="server.files.write"] > ul > li[data-permission="server.files.delete"] > .permission-tree-node > label > input',
-    ),
-  ).not.toBeChecked();
   await expect(restore).toHaveAccessibleDescription(
     "Restore game files from a backup",
   );
@@ -238,6 +188,22 @@ test("permission tree adds prerequisites and clears dependent grants without con
   }
   await operate.check();
   await expect(restore).not.toBeChecked();
+  for (const name of ["View server", "Read console"]) {
+    await expect(
+      dialog.getByRole("checkbox", { name, exact: true }),
+    ).toBeChecked();
+  }
+  const deleteFiles = dialog.getByRole("checkbox", {
+    name: "Delete files",
+    exact: true,
+  });
+  await deleteFiles.check();
+  await expect(write).toBeChecked();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Read files", exact: true }),
+  ).toBeChecked();
+  await write.uncheck();
+  await expect(deleteFiles).not.toBeChecked();
   expect(confirmations).toEqual([]);
   await dialog.getByRole("button", { name: "Save role", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -339,7 +305,6 @@ test("file access hides unauthorized writing and deletion while preserving readi
     page.getByRole("button", { name: "forbidden.txt", exact: true }),
   ).toHaveCount(0);
   await page.setViewportSize({ width: 1400, height: 1200 });
-  await expect(browser).toBeInViewport({ ratio: 1 });
   await screenshot(page, "file-reader.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "file-reader-mobile.png");

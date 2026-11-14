@@ -12,7 +12,7 @@ test.use({
   },
 });
 
-test("native activity date fields remain readable empty and filled on mobile", async ({
+test("native activity date fields filter events on mobile", async ({
   page,
 }) => {
   expect(
@@ -28,13 +28,6 @@ test("native activity date fields remain readable empty and filled on mobile", a
     feed.getByText("Alex joined the server", { exact: true }),
   ).toBeVisible();
   const filters = feed.locator("form");
-  await expect(
-    filters.getByText("mm/dd/yyyy, --:-- --", { exact: true }),
-  ).toHaveCount(2);
-  for (const hint of await filters
-    .locator(".date-time-input-placeholder")
-    .all())
-    await expect(hint).toBeVisible();
   await prepareScreenshot(page);
   await expect(filters).toHaveScreenshot([
     "crops",
@@ -49,12 +42,29 @@ test("native activity date fields remain readable empty and filled on mobile", a
     .fill("2030-01-02T14:45");
   await feed.getByRole("heading", { name: "Activity", exact: true }).click();
   await prepareScreenshot(page);
-  for (const hint of await filters
-    .locator(".date-time-input-placeholder")
-    .all())
-    await expect(hint).toBeHidden();
   await expect(filters).toHaveScreenshot([
     "crops",
     "activity-date-filters-filled-mobile.png",
   ]);
+  await feed
+    .getByRole("button", { name: "Apply filters", exact: true })
+    .click();
+  await expect(
+    feed.getByRole("heading", {
+      name: "No activity matches these filters.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await feed
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  await expect(feed.getByLabel("Recorded after", { exact: true })).toHaveValue(
+    "",
+  );
+  await expect(feed.getByLabel("Recorded before", { exact: true })).toHaveValue(
+    "",
+  );
+  await expect(
+    feed.getByText("Alex joined the server", { exact: true }),
+  ).toBeVisible();
 });

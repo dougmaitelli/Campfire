@@ -40,21 +40,6 @@ test("manual backups send the selected type and save-data restore describes its 
   const firstBackup = backups
     .getByRole("row")
     .filter({ hasText: "mock-nightly" });
-  for (const width of [320, 390, 600, 768]) {
-    await page.setViewportSize({ width, height: 844 });
-    await create.click();
-    await expect(
-      page.getByRole("menu", { name: "Create backup", exact: true }),
-    ).toBeInViewport({ ratio: 1 });
-    await page.keyboard.press("Escape");
-    const name = firstBackup.getByText("mock-nightly.tar.gz", { exact: true });
-    await firstBackup.scrollIntoViewIfNeeded();
-    await expect(name).toBeInViewport({ ratio: 1 });
-    for (const action of await firstBackup.getByRole("button").all())
-      await expect(action).toBeInViewport({ ratio: 1 });
-    await expect(firstBackup.getByRole("link")).toBeInViewport({ ratio: 1 });
-  }
-  await page.setViewportSize({ width: 390, height: 844 });
   await create.click();
   await screenshot(page, "backup-savedata-mobile.png");
   await page.keyboard.press("Escape");

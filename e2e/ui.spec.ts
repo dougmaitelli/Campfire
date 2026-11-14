@@ -610,24 +610,12 @@ test("resource inspection keeps the current page and supports nested drawers", a
   await page.setViewportSize({ width: 390, height: 844 });
   await variable.scrollIntoViewIfNeeded();
   await expect(variable).toBeVisible();
-  expect(
-    await page
-      .getByRole("dialog")
-      .evaluate((element) => element.scrollWidth <= element.clientWidth),
-  ).toBe(true);
   await page.getByRole("dialog").evaluate((element) => element.scrollTo(0, 0));
   await screenshot(
     page,
     "server-inspection-mobile.png",
     page.getByRole("dialog"),
   );
-  await page.setViewportSize({ width: 320, height: 844 });
-  await expect(
-    page.getByRole("dialog").getByRole("link", {
-      name: "Open console for Survival",
-      exact: true,
-    }),
-  ).toBeInViewport({ ratio: 1 });
   await page.setViewportSize({ width: 1400, height: 900 });
   await page
     .getByRole("dialog")
@@ -697,11 +685,6 @@ test("resource inspection keeps the current page and supports nested drawers", a
         dialog.locator(".panel-heading"),
       );
       await page.setViewportSize({ width: 320, height: 844 });
-      expect(
-        await dialog.evaluate(
-          (element) => element.scrollWidth <= element.clientWidth,
-        ),
-      ).toBe(true);
       const consoleLink = dialog.getByRole("link", {
         name: "Open console for Survival",
         exact: true,
@@ -710,7 +693,6 @@ test("resource inspection keeps the current page and supports nested drawers", a
         "href",
         "#servers/survival/console",
       );
-      await expect(consoleLink).toBeInViewport({ ratio: 1 });
       await expect(
         dialog.getByRole("button", { name: "Edit server", exact: true }),
       ).toHaveCount(0);

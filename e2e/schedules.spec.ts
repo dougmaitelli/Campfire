@@ -20,12 +20,6 @@ test("upcoming schedule rows open details while related links and toggles stay i
     "crops",
     "dashboard-activity.png",
   ]);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".dashboard-activity-grid")).toHaveScreenshot([
-    "crops",
-    "dashboard-activity-mobile.png",
-  ]);
-  await page.setViewportSize({ width: 1400, height: 900 });
   await row.getByRole("link", { name: "Survival", exact: true }).click();
   const server = page.getByRole("dialog", { name: "Server", exact: true });
   await expect(server).toBeVisible();

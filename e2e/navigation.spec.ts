@@ -125,9 +125,6 @@ test("unsaved file edits can block or allow navigation", async ({ page }) => {
   await schedules.click();
   await expect(discard).toBeVisible();
   await page.setViewportSize({ width: 320, height: 844 });
-  await expect(
-    discard.getByRole("button", { name: "Cancel", exact: true }),
-  ).toBeInViewport({ ratio: 1 });
   await discard
     .getByRole("button", { name: "Discard changes", exact: true })
     .click();

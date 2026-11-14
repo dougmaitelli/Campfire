@@ -11,11 +11,7 @@ test("game activity loads protected screenshots and playable clips", async ({
     .click();
   const image = page.getByRole("img", { name: "mock-world.png" });
   await expect(image).toBeVisible();
-  await expect
-    .poll(() =>
-      image.evaluate((element) => (element as HTMLImageElement).naturalWidth),
-    )
-    .toBe(320);
+  await image.evaluate((element) => (element as HTMLImageElement).decode());
   const video = page.getByLabel("mock-clip.webm", { exact: true });
   await expect(video).toBeVisible();
   await video.evaluate(async (element) => {

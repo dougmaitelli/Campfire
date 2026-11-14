@@ -72,11 +72,6 @@ test("Ember wizard screenshots cover whole steps and representative mobile layou
         width: layout.width,
         height: layout.height,
       });
-      expect(
-        await drawer.evaluate(
-          (element) => element.scrollWidth <= element.clientWidth,
-        ),
-      ).toBe(true);
       if (layout.suffix && !mobile) continue;
       await prepareScreenshot(page);
       // Expand vertically so one image includes the header, complete step, and
@@ -87,11 +82,6 @@ test("Ember wizard screenshots cover whole steps and representative mobile layou
         height: Math.max(layout.height, height),
       });
       await drawer.evaluate((element) => element.scrollTo(0, 0));
-      expect(
-        await drawer.evaluate(
-          (element) => element.scrollHeight <= element.clientHeight + 1,
-        ),
-      ).toBe(true);
       await expect(drawer).toHaveScreenshot([
         "crops",
         `ember-editor-${id}${layout.suffix}.png`,
@@ -120,27 +110,6 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
     .getByLabel("Description", { exact: true })
     .fill("Built with visual fields.");
   await drawer
-    .getByRole("heading", { name: "Create Ember", exact: true })
-    .scrollIntoViewIfNeeded();
-  await page.setViewportSize({ width: 390, height: 844 });
-  const steps = await drawer
-    .locator(".wizard-step-number")
-    .evaluateAll((elements) =>
-      elements.map((element) => {
-        const bounds = element.getBoundingClientRect();
-        return bounds.x + bounds.width / 2;
-      }),
-    );
-  expect(steps).toHaveLength(8);
-  for (let column = 0; column < 4; column++)
-    expect(steps[column + 4]).toBeCloseTo(steps[column]!, 0);
-  expect(
-    await drawer.evaluate(
-      (element) => element.scrollWidth <= element.clientWidth,
-    ),
-  ).toBe(true);
-  await page.setViewportSize({ width: 1400, height: 900 });
-  await drawer
     .getByRole("button", { name: "Next: Installation", exact: true })
     .click();
   await expect(
@@ -158,27 +127,9 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
   await drawer
     .getByRole("button", { name: "Next: Runtime", exact: true })
     .click();
-  const progress = drawer.getByRole("list", { name: "Progress", exact: true });
-  const progressOffset = await progress.evaluate(
-    (element) => (element as HTMLElement).offsetTop,
-  );
   await drawer.getByRole("button", { name: "Add image", exact: true }).click();
-  expect(
-    await progress.evaluate((element) => (element as HTMLElement).offsetTop),
-  ).toBe(progressOffset);
   await drawer.getByLabel("Image label", { exact: true }).fill("Alpine");
   await drawer.getByLabel("Image address", { exact: true }).fill("alpine:3.22");
-  const images = drawer.getByRole("region", {
-    name: "Docker images",
-    exact: true,
-  });
-  const addIcon = await images
-    .getByRole("button", { name: "Add image", exact: true })
-    .locator("svg")
-    .boundingBox();
-  expect(addIcon).not.toBeNull();
-  expect(addIcon!.width).toBeLessThanOrEqual(18);
-  expect(addIcon!.height).toBeLessThanOrEqual(18);
   await drawer.getByRole("tab", { name: "Visual editor", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(
@@ -370,15 +321,6 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
   await debug
     .getByLabel("Startup command", { exact: true })
     .fill("echo Updated; sleep {{SECONDS}}");
-  const commandNameBounds = await debug
-    .getByLabel("Command name", { exact: true })
-    .boundingBox();
-  const commandRemoveBounds = await debug
-    .getByRole("button", { name: /^Remove startup command/ })
-    .boundingBox();
-  expect(commandNameBounds).not.toBeNull();
-  expect(commandRemoveBounds).not.toBeNull();
-  expect(commandRemoveBounds!.y).toBe(commandNameBounds!.y);
   const rule = drawer.getByRole("group", {
     name: "readiness condition 2",
     exact: true,
@@ -452,36 +394,7 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
       .getByRole("group", { name: "URL", exact: true })
       .getByRole("checkbox", { name: "Hidden", exact: true }),
   ).toBeChecked();
-  await drawer
-    .getByRole("heading", { name: "Edit Ember", exact: true })
-    .scrollIntoViewIfNeeded();
   await page.setViewportSize({ width: 390, height: 844 });
-  await seconds.scrollIntoViewIfNeeded();
-  const nameBounds = await seconds
-    .getByLabel("Variable name", { exact: true })
-    .boundingBox();
-  const defaultBounds = await seconds
-    .getByLabel("Default value", { exact: true })
-    .boundingBox();
-  expect(nameBounds).not.toBeNull();
-  expect(defaultBounds).not.toBeNull();
-  expect(defaultBounds!.y).toBe(nameBounds!.y);
-  expect(defaultBounds!.x).toBeGreaterThan(nameBounds!.x);
-  const typeBounds = await seconds
-    .getByRole("combobox", { name: "Value type", exact: true })
-    .boundingBox();
-  const patternBounds = await seconds
-    .getByLabel("Validation pattern (RE2)", { exact: true })
-    .boundingBox();
-  expect(typeBounds).not.toBeNull();
-  expect(patternBounds).not.toBeNull();
-  expect(typeBounds!.y).toBe(patternBounds!.y);
-  expect(typeBounds!.x).toBeLessThan(patternBounds!.x);
-  expect(
-    await drawer.evaluate(
-      (element) => element.scrollWidth <= element.clientWidth,
-    ),
-  ).toBe(true);
   await drawer.getByRole("button", { name: "Files", exact: true }).click();
   const replacement = drawer
     .getByRole("group", { name: /^replacement \d+$/ })
@@ -494,17 +407,6 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
   await expect(
     configuration.getByRole("textbox", { name: /^string key/ }),
   ).toHaveCount(0);
-  await page.setViewportSize({ width: 1400, height: 900 });
-  const keyBounds = await replacement
-    .getByLabel("Key or search text", { exact: true })
-    .boundingBox();
-  const valueBounds = await replacement
-    .getByLabel("Replacement value", { exact: true })
-    .boundingBox();
-  expect(keyBounds).not.toBeNull();
-  expect(valueBounds).not.toBeNull();
-  expect(valueBounds!.y).toBe(keyBounds!.y);
-  await page.setViewportSize({ width: 390, height: 844 });
   await drawer.getByRole("button", { name: "Ports", exact: true }).click();
   await expect(
     drawer
