@@ -129,7 +129,7 @@ to see messages. Open **Integrations** from the panel account menu to edit,
 disable, or remove the connection. These changes survive backend rebuilds.
 To add it again, choose **Add integration → Discord**, enter the fake token, and
 select **Campfire Community** once servers load automatically. In a game's console,
-open **Actions → Edit server → Integrations** to select notifications and card fields. Use
+open **More server actions → Edit server → Integrations** to select notifications and card fields. Use
 `mock-game next`, power actions, or backups to exercise the normal event pipeline.
 
 The viewer displays the actual outgoing embeds by channel. Card edits keep the
@@ -205,16 +205,12 @@ An Activity entry includes `delivery_check_pending` when an enabled integration
 has scheduled a check for an unconfirmed notification or a worker holds a valid
 lease for that check. Older pages poll while the flag is set.
 
-Schema changes add indexed, non-null `source_key` text columns (default `''`) to
-`notifications` and `integration_messages`, plus a non-null `received_at` integer
-column (default `0`) on `log_alert_issues`. New alerts retain the panel receipt
+The `notifications` and `integration_messages` tables store indexed, non-null
+`source_key` text columns (default `''`). The `log_alert_issues` table stores a
+non-null `received_at` integer column (default `0`), retaining the panel receipt
 time separately from the Spark's detection time, including after inbox retention.
-Historical alert receipts use an exactly linked panel notification when retained,
-otherwise preserving the original detection time. Source references are internal
-panel data; Spark and game-publication protocols and capability IDs are unchanged.
-Upgrade backfills only exact console-alert and operation references already
-encoded in historical integration event IDs. Other old messages stay standalone.
-The additional `monitoring_alerts` table retains `id`, `target_type`, `target_id`,
+Source references are internal panel data, not Spark or game-publication protocol
+fields. The `monitoring_alerts` table retains `id`, `target_type`, `target_id`,
 `code`, `kind`, `severity`, `title`, `body`, and `created_at`. It uses the operation
 history retention setting; notification and delivery retention remain independent.
 Activity responses include optional `attachment_name` and

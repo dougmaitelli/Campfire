@@ -34,6 +34,36 @@ does not stop the server or run the installer. Save-data paths apply immediately
 container changes take effect on the next restart. The available-update and pending-restart notices
 are independent, so both can appear if the Ember changes again before a restart.
 
+## Move a server to another Spark
+
+A transfer moves the existing server's game data and completed backups to another
+Spark. Unlike a copy, it keeps the same server identity, ownership, access grants,
+and schedules. Transferring requires both the platform `sparks.manage` and
+`servers.manage_all` permissions; ordinary server operation access is not enough.
+
+1. Apply any pending Ember update, finish active operations, and stop the server.
+   A not-installed server can also be transferred. The source Spark must be
+   reachable so Campfire can confirm the server is idle.
+2. Open **More server actions → Transfer** and choose a different, enabled Spark.
+   The destination needs capacity for the server and support for its required
+   features. It can be disconnected when the job is queued; work waits for the
+   required Sparks to connect.
+3. Review each destination interface and host port against the displayed allowed
+   ranges. Container ports and protocols stay unchanged. Ensure the new host's
+   firewall allows the selected ports, and note the destination game address.
+4. Choose **Transfer server**, then follow the job in **Activity → Operations**.
+   Keep enough free space for archive staging and destination restoration. The
+   server stays stopped throughout the transfer.
+5. After completion, check its new placement and start it when ready. Players may
+   need the new game address and host ports.
+
+Closing the drawer or restarting the panel does not cancel the job. Failed jobs
+retain their recovery state; inspect the error and retry rather than creating a
+second transfer. Cancellation is available before placement is committed and
+cleans up the unfinished destination while preserving the source. Cleanup may
+wait for a disconnected Spark. After placement is committed, allow cleanup to
+finish instead of trying to cancel the move.
+
 ## Copy a server
 
 Open a server from **Servers**, then open **More server actions**.

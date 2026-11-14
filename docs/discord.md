@@ -28,7 +28,7 @@ filters, card fields, and freshness behavior.
 4. Edit the saved connection, expand **Test delivery**, choose a channel, and
    send a test message. This checks
    the saved connection before configuring game servers.
-5. Open a game's console and choose **Actions → Edit server → Integrations → Add integration**.
+5. Open a game's console and choose **More server actions → Edit server → Integrations → Add integration**.
    Select a saved integration; a sole integration is preselected in the dropdown
    above the channel. Choose a channel, enable the
    destination, and select notification categories and optional card fields.
@@ -83,8 +83,9 @@ removes them when their mock message is deleted or the development session reset
 | A deliberately deleted card             | Leave the binding enabled. Campfire checks quiet cards periodically and recreates a confirmed missing message. |
 | Cleanup pending after a move or disable | Restore the bot's access to the old channel and retry. The saved reference is retained until cleanup succeeds. |
 
-Notification status and manual recovery remain available through the per-binding
-messages API; there is no notification-history interface in the panel yet.
+Open **Activity → Notifications** on the server to inspect delivery history and
+manual recovery actions. The per-binding messages API also exposes delivery status.
+See [Activity and delivery troubleshooting](../notifications/#activity-and-delivery-troubleshooting).
 Transient delivery failures retry automatically with backoff. Rate-limit
 responses defer work for the requested cooldown. Known failures eventually stop
 retrying and remain visible. Credential failures pause the connection; channel
@@ -156,7 +157,7 @@ Campfire does not replace a missing key while encrypted credentials already
 exist. Avoid clearing message identities during recovery: an interrupted send
 may have succeeded before its response was lost.
 
-## Initial-version scope
+## Supported scope
 
 - One global Discord bot and Discord server are supported. A game server can have
   several destination channels with independent notifications, filters, cards,
@@ -164,7 +165,8 @@ may have succeeded before its response was lost.
 - The bot and Discord-server identity cannot be changed while stored game-server
   bindings exist. Disabling bindings preserves them. Token rotation for the
   same bot remains supported.
-- Online names and invite codes can be selected when a mod reports them as
-  scalar game fields. A structured player roster is a separate extension; see
-  [Game integrations](../game-integrations/).
+- Online names, invite codes, and other custom state can be selected when a mod
+  reports them as scalar or flat-list game fields. Lists display as comma-separated
+  values; empty lists display as **None**. This is not a dedicated structured
+  player-roster protocol. See [Game integrations](../game-integrations/).
 - Discord commands and inbound chat are outside this version's scope.

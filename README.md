@@ -32,19 +32,23 @@ for an example.
 
 ## Features
 
-- **Multiple game hosts** — enroll Sparks, track their connection status, and allocate CPU, memory, disk, and game ports to servers
+- **Multiple game hosts** — enroll Sparks, track their connection status, update agents remotely, clean up unused Docker resources, and allocate CPU, memory, disk, and game ports to servers
 - **Game server controls** — install, start, stop, restart, and inspect background operations from the browser
+- **Server copies and transfers** — copy settings or game files, quickly duplicate servers, and move servers between Sparks with durable jobs, progress tracking, retry, and cancellation
 - **Console and resource history** — stream game and installer output, send commands, and follow CPU and memory graphs
+- **Actionable console alerts** — detect Ember-defined errors, retain guidance under Needs attention, and open the relevant file or server settings
 - **File management** — browse game files, edit text, upload and download files, and compress or extract archives
 - **Optional SFTP gateway** — access game files through the panel using a personal API token and the same server permissions
-- **Backups and restoration** — full-server or Ember-defined save-data backups, portable backup uploads and server recreation, live creation, optional stop/backup/start for schedules, S3-compatible off-host storage, and per-server retention
-- **Recurring schedules** — configure future server actions with execution history separate from direct operations
+- **Backups and restoration** — full-server or Ember-defined save-data backups, named and pinned snapshots, portable backup uploads and server recreation, live creation, optional stop/backup/start for schedules, S3-compatible off-host storage, and per-server retention
+- **Scheduled actions** — configure one-time or recurring cron schedules with time zones and execution history separate from direct operations
 - **Ember imports and updates** — preview native definitions or supported Egg conversions, review warnings, and explicitly apply definition updates
 - **Users and roles** — combine platform roles, server ownership, and server memberships to control access; inspect linked resources in drawers without leaving the current page
 - **Permission preview** — Admin-only, read-only “View as…” to inspect another user's access
 - **Authentication and API tokens** — local password accounts, optional OpenID Connect, and scoped, expiring personal tokens
 - **Monitoring and notifications** — view live resource usage, receive sustained resource and health alerts, and optionally deliver notifications through Apprise
-- **Game integrations** — display player counts, game state, and retained events published by game mods or adapters
+- **Game integrations** — display player counts, custom game state including player-name lists, and retained events with screenshots and clips published by game mods or adapters
+- **Discord integration** — send filtered event notifications and game media to multiple channel destinations, and publish live server cards with selected game fields
+- **Server activity** — follow operations, jobs, game events, and alerts alongside their notification delivery outcomes
 - **Audit history** — record administrative changes, authentication events, and operation outcomes with configurable retention
 - **SQLite or PostgreSQL** — use an embedded database or an existing PostgreSQL service
 - **Two deployment options** — run the panel in Docker or as a Linux binary; the production binary includes the web UI

@@ -22,7 +22,31 @@ Spark connects outbound to the panel's agent TLS listener, normally port `8443`.
 It needs no inbound management port. Game traffic uses the host's allocated game
 ports, separately from the management connection.
 
+## Capacity and networking
+
+Edit a Spark's **Resources & networking** settings to define the capacity
+available to game servers and the host port ranges they may reserve. CPU, memory,
+and disk limits are allocation budgets; set a limit to `0` for no configured
+limit. Leave enough capacity for the host operating system, Docker, backup
+archives, and temporary restoration files rather than allocating the whole host.
+
+Port allocations specify a bind address, TCP or UDP, and a port or range. Each
+server reserves host ports from these allocations while its Ember defines the
+container ports. Configure both protocols when the game requires them. Allocation
+does not open a firewall or configure router forwarding: make the selected host
+ports reachable separately.
+
+The Spark's game address is what players use to reach its servers; it is distinct
+from the panel's agent connection URL and the interface Docker binds. Check it
+when moving servers between hosts. Review existing reservations before reducing
+capacity or removing port allocations.
+
 ## Maintenance
+
+Use **Update** when Campfire offers a newer bundled Spark build. Remote updates
+require a connected agent with update support; clients without that capability
+need a manual upgrade. Updates install the package supplied by the current panel,
+not an independently selected release.
 
 Use **Re-enroll** in Spark details when replacing its credentials. Successful
 re-enrollment replaces the previous identity and briefly restarts the service.
@@ -41,6 +65,18 @@ check the configured agent address, outbound reachability, certificate trust,
 and whether the Spark is enabled in the panel. An expired identity needs
 re-enrollment. The **Features** view shows which operations a connected version supports.
 
-Before restarting or updating Spark, let active installation, file, and backup
-operations finish. Move or delete its servers before removing a Spark from the
+Feature support is negotiated with the connected agent. A **Partial support**
+entry means only some operations in that feature group are supported; it is not
+confirmation that every related action is available. Update Spark when a required
+capability is missing, then check the reported features again.
+
+Use **Prune** to remove leftover Campfire installer containers, containers for
+deleted servers, unused images tracked by Campfire, and unused volumes labeled
+for Campfire. It preserves running and stopped game servers, their game files and
+backups, and other applications' resources. It is not a general Docker system
+prune. Finish active server operations and transfers before confirming cleanup,
+and inspect the result for reclaimed resources.
+
+Before restarting or updating Spark, let active installation, file, backup, and
+transfer operations finish. Move or delete its servers before removing a Spark from the
 panel, then stop or uninstall the service on the old host.

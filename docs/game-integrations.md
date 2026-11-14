@@ -18,6 +18,32 @@ focus on publications, or open an event to see its generated notifications.
 [Discord subscriptions](/Campfire/discord/) can forward matching publications
 and media to selected channels.
 
+## Use a game integration
+
+For server operators, the publishing API below is normally handled by a compatible
+mod or adapter, not by commands you need to run yourself.
+
+1. Install a compatible publisher using its own installation instructions. The
+   [Campfire Valheim plugin](https://github.com/dougmaitelli/campfire-plugin-valheim)
+   is one available integration; check its requirements and privacy settings
+   before enabling player-name reporting.
+2. In Campfire, open **More server actions → Edit server**, enable **Enable game
+   integration**, and save the server.
+3. Restart the game through Campfire so its container receives the private Spark
+   socket. The mod discovers that socket automatically; it does not need a panel
+   API token or an exposed network port.
+4. Check the overview, server list, or server page for current state. Open
+   **Activity → Game events** for retained events and any screenshots or clips
+   published by the integration. Available fields and events depend on the mod.
+5. Optionally configure a [Discord destination](../discord/). Select the game
+   fields to show on its live card and the event subscriptions to forward.
+   Enabling game publishing alone does not send anything to Discord.
+
+If state is missing, check that both Campfire and Spark are current, the feature
+is enabled, the game was restarted, and the publisher loaded successfully. State
+is a live snapshot, not history; unavailable or expired values do not mean zero
+players. Check the mod's logs and documentation for publication failures.
+
 ## Communication model
 
 ```text
@@ -73,10 +99,11 @@ The hostname in examples such as `http://spark/v1/publish` is just an HTTP host
 value. The connection goes through the configured socket, not DNS or TCP. Do not
 send these requests to the panel's public URL or its `/api/v1` endpoints.
 
-The publisher interface has three routes:
+The publisher interface has four routes:
 
 | Method and path                                   | Request                                | Success response                              |
 | ------------------------------------------------- | -------------------------------------- | --------------------------------------------- |
+| `PUT /v1/registration`                            | Label-registration envelope            | Empty `204`                                   |
 | `POST /v1/publish`                                | One JSON state or event envelope       | Empty `204` for state; empty `202` for events |
 | `GET /v1/events/queue`                            | No body                                | `200` with queue-status JSON                  |
 | `PUT /v1/events/{event_id}/media/{attachment_id}` | Raw attachment bytes and media headers | Empty `204`                                   |

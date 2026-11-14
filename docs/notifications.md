@@ -81,7 +81,7 @@ only. The database stores an opaque reference, and API responses and audit event
 exclude the token. Back up this directory together with the panel database; a
 database backup alone does not contain the credentials or their encryption key.
 
-Open a game's console page and choose **Actions → Edit server → Integrations** to configure
+Open a game's console page and choose **More server actions → Edit server → Integrations** to configure
 that server's destinations. Add one for each channel, with independent
 notification categories, filters, and optional server card fields. For example,
 publish backup events to an admin channel and the card to a public channel.
@@ -103,9 +103,11 @@ server card publishes one live card independently of notification subscriptions.
 The card includes the server name, observed runtime status, and game address with
 host ports when available. Wildcard bind addresses are not shown as connectable
 addresses. Select player count, player capacity, and individual reported game
-fields to include. For example, a mod can report an invite code or a string of
-online player names. Available choices come from reported values, with saved
-choices retained while offline. Game fields use their reported keys as labels.
+fields to include. For example, a mod can report an invite code or a list of
+online player names. Flat lists display as comma-separated values; empty lists
+show **None**, distinct from unavailable state. Available choices come from
+reported values, with saved choices retained while offline. Game fields use
+registered display labels when available, falling back to their reported keys.
 Unselected fields, server variables, and console contents
 are excluded. No structured player-roster protocol is added.
 
@@ -154,6 +156,27 @@ Only new events matching enabled subscriptions are recorded for delivery;
 enabling an integration does not replay existing activity. Recording is atomic
 with each source update, and repeated source observations do not duplicate its
 messages.
+
+## Activity and delivery troubleshooting
+
+Open a server's **Activity** tab to investigate what happened without changing
+anyone's personal inbox read state:
+
+1. Choose **Operations** to follow operations and copy or transfer jobs, **Game
+   events** for mod publications, or **Notifications** for delivery outcomes.
+2. Use the available filters to narrow the history. Game events offer event-type
+   and field filters; notifications can be filtered by provider and destination.
+3. Open a source entry to inspect its details and related notifications. Open a
+   notification to inspect its destination, attempts, and source, or follow its
+   Discord link when available.
+4. For a known failed delivery, fix the connection or permissions and choose
+   **Retry**. For an unconfirmed delivery, use **Check delivery**: the original
+   send may have succeeded, so Campfire searches for its receipt rather than
+   blindly sending a duplicate. An unresolved check can remain unconfirmed.
+
+Job retry and cancellation act on the job itself, not its notifications. Follow
+[copy and transfer recovery](../first-server/#copy-a-server) for those operations.
+Administrators can use **Jobs** for a cross-server job view.
 
 The server's **Activity** tab groups game events, operations, jobs, and alerts
 with the notifications they generated. Choose **Notifications** to inspect each

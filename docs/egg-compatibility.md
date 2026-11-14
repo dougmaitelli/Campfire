@@ -108,8 +108,7 @@ numbers. Other values remain strings, including leading-zero values such as
 evaluate the type of each matching value separately.
 
 To keep a numeric-looking value as text, have the installer create the key with
-a string value in the initial configuration file. The retired `strings` list
-is accepted in older definitions and discarded when they are loaded or imported.
+a string value in the initial configuration file.
 
 ## What to review
 
