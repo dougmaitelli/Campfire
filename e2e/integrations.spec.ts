@@ -824,6 +824,9 @@ test("administrators add, edit, test, disable, and remove Discord connections", 
   expect(inviteURL.searchParams.get("scope")).toBe("bot");
   expect(inviteURL.searchParams.get("permissions")).toBe("117760");
   expect(inviteURL.href).not.toContain("campfire-test-discord-token");
+  // Async token discovery can change focus; match the baseline deliberately.
+  await token.click();
+  await expect(token).toBeFocused();
   await screenshot(page, "integrations-discord-add.png", drawer);
   await save.click();
   const connection = drawer.getByRole("table", {
