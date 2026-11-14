@@ -330,8 +330,6 @@ test("view-only server rows hide power actions and fall back to an allowed tab",
       const listing = page.locator(".table-container").filter({ has: row });
       await screenshot(page, "servers-view-only.png", listing);
       await page.setViewportSize({ width: 390, height: 844 });
-      await listing.scrollIntoViewIfNeeded();
-      await screenshot(page, "servers-view-only-mobile.png", listing);
     }
   }
   await page

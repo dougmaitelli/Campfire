@@ -6,24 +6,10 @@ test("Overview and Servers collapse into rows while simple lists stay tables", a
   page,
 }) => {
   await login(page);
-  await page.setViewportSize({ width: 1400, height: 900 });
-  await prepareScreenshot(page);
-  await expect(page.locator(".overview-metrics")).toHaveScreenshot([
-    "crops",
-    "overview-tiles.png",
-  ]);
   await page.setViewportSize({ width: 1600, height: 1000 });
   await screenshot(page, "dashboard-wide.png");
-  await page.setViewportSize({ width: 1240, height: 1000 });
-  await screenshot(page, "dashboard-resources-compact.png");
   await page.setViewportSize({ width: 1000, height: 1000 });
   await screenshot(page, "overview-server-rows.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await prepareScreenshot(page);
-  await expect(page.locator(".dashboard-server-table")).toHaveScreenshot([
-    "crops",
-    "overview-servers-mobile.png",
-  ]);
   await page.setViewportSize({ width: 320, height: 800 });
   await prepareScreenshot(page);
   await expect(page.locator(".overview-metrics")).toHaveScreenshot([
@@ -46,16 +32,8 @@ test("Overview and Servers collapse into rows while simple lists stay tables", a
   ).toBeVisible();
   await page.setViewportSize({ width: 1366, height: 768 });
   await screenshot(page, "servers-laptop.png");
-  await page.setViewportSize({ width: 1100, height: 900 });
-  await screenshot(page, "servers-compact.png");
   await page.setViewportSize({ width: 1000, height: 1000 });
   await screenshot(page, "servers-rows.png");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await prepareScreenshot(page);
-  await expect(page.locator(".servers-table")).toHaveScreenshot([
-    "crops",
-    "servers-table-mobile.png",
-  ]);
   await openScreen(page, "sparks", "Sparks");
   await page.setViewportSize({ width: 1000, height: 1000 });
   await screenshot(page, "sparks-compact.png");

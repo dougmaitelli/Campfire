@@ -165,7 +165,10 @@ test("a stopped-server restore confirms the replacement and remains stopped", as
   });
   await expect(dialog).toContainText("The server will remain stopped");
   await expect(dialog.getByRole("checkbox")).toHaveCount(0);
-  await screenshot(page, "restore-stopped-confirm.png", dialog);
+  await expect(dialog).toContainText(
+    "This replaces all current game files with this backup.",
+  );
+  await expect(dialog).toContainText("mock-nightly.tar.gz");
   await page.setViewportSize({ width: 390, height: 844 });
   await dialog.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(dialog).toHaveCount(0);

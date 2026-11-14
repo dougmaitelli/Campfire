@@ -67,7 +67,6 @@ test("server permission presets replace the selection with their complete grants
     "server.view",
   ]);
   await preset.click();
-  await screenshot(page, "role-permission-presets.png", drawer);
   await page
     .getByRole("option", { name: "Server administrator", exact: true })
     .click();

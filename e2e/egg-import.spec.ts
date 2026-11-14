@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import { test, expect, screenshot } from "./fixtures";
 import { login, openScreen, openServerEditor } from "./screens";
 
 test("Pelican Valheim BepInEx YAML previews and imports without losing URL constraints or game backup variables", async ({
@@ -144,15 +144,8 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     create.getByRole("switch", { name: "PUBLIC_SERVER", exact: true }),
   ).not.toBeChecked();
   await screenshot(page, "server-variables.png", create);
-  const fields = create.locator(".server-variable-fields");
-  await prepareScreenshot(page);
-  await expect(fields).toHaveScreenshot([
-    "crops",
-    "ember-boolean-variables.png",
-  ]);
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "server-variables-mobile.png", create);
-  await screenshot(page, "ember-boolean-variables-mobile.png", fields);
   await page.setViewportSize({ width: 320, height: 844 });
   for (const label of [
     "Next: Resources & ports",

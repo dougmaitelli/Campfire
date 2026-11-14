@@ -69,9 +69,9 @@ test("only Admin can start a persistent read-only user preview and return to the
   expect(await denied.json()).toEqual({
     error: "View as is read-only. Return to Admin to make changes.",
   });
-  await screenshot(page, "view-as-mobile.png");
+  await screenshot(page, "view-as-banner-mobile.png", preview);
   await page.setViewportSize({ width: 1400, height: 900 });
-  await screenshot(page, "view-as.png");
+  await screenshot(page, "view-as-banner.png", preview);
   await page.reload();
   await expect(preview).toBeVisible();
   await page

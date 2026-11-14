@@ -1,4 +1,4 @@
-import { test, expect, prepareScreenshot, screenshot } from "./fixtures";
+import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openScreen, openServerTab } from "./screens";
 import { ExecutionState } from "../web/src/contracts/domains";
 
@@ -93,7 +93,6 @@ test("backup deletion confirms the copy and cancels when leaving the page", asyn
   await remove.click();
   await expect(dialog).toContainText("local copy of mock-nightly.tar.gz");
   await expect(dialog).toContainText("Other copies are kept");
-  await screenshot(page, "confirmation-delete-backup.png", dialog);
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(requests).toEqual([]);
   await expect(row).toBeVisible();

@@ -53,18 +53,24 @@ test("wizard Next disables immediately for missing and invalid required fields",
   await expect(access).toBeDisabled();
   await cpu.fill("4");
   await expect(access).toBeEnabled();
+  await dialog
+    .getByRole("button", { name: "Add port range", exact: true })
+    .click();
+  await screenshot(page, "spark-resources-networking.png", dialog);
   await dialog.getByRole("button", { name: "Back", exact: true }).click();
   await name.fill("");
   await expect(next).toBeDisabled();
   await name.fill("Test node");
   await next.click();
   await access.click();
+  await screenshot(page, "spark-access.png", dialog);
   await dialog
     .getByRole("button", { name: "Next: Review", exact: true })
     .click();
   await expect(
     dialog.getByRole("button", { name: "Add Spark", exact: true }),
   ).toBeEnabled();
+  await screenshot(page, "spark-review.png", dialog);
 });
 
 test("drawer actions support keyboard navigation and dismiss before confirmations", async ({

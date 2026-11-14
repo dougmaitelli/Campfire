@@ -128,9 +128,7 @@ test("copying without file-read access hides Quick copy and the file-copy option
   await expect(
     drawer.getByRole("checkbox", { name: /^Copy game files/ }),
   ).toHaveCount(0);
-  await screenshot(page, "server-copy-settings-only.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
-  await screenshot(page, "server-copy-settings-only-mobile.png", drawer);
   await drawer
     .getByRole("button", { name: "Next: Variables", exact: true })
     .click();

@@ -30,7 +30,7 @@ test("manual backups send the selected type and save-data restore describes its 
   await expect(
     page.getByRole("menuitem", { name: "Save data only", exact: true }),
   ).toBeFocused();
-  await screenshot(page, "backup-savedata.png");
+  await screenshot(page, "backup-type-menu.png", page.getByRole("menu"));
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
   const backups = page.getByRole("table", {
@@ -41,7 +41,9 @@ test("manual backups send the selected type and save-data restore describes its 
     .getByRole("row")
     .filter({ hasText: "mock-nightly" });
   await create.click();
-  await screenshot(page, "backup-savedata-mobile.png");
+  await expect(
+    page.getByRole("menuitem", { name: "Save data only", exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   const actions = firstBackup.getByRole("button", {
     name: /^Backup actions for /,
@@ -100,8 +102,10 @@ test("manual backups send the selected type and save-data restore describes its 
   });
   await expect(confirmation).toContainText("keeps other installed files");
   await expect(confirmation).toContainText("The server will remain stopped");
-  await page.setViewportSize({ width: 1400, height: 900 });
-  await screenshot(page, "restore-savedata-confirm.png", confirmation);
+  await expect(confirmation).toContainText("Save data before game update");
+  await expect(confirmation).toContainText(
+    "Changes to save data since this backup will be lost.",
+  );
   await confirmation
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
@@ -212,6 +216,8 @@ test("full and save-data retention settings persist independently", async ({
     "Next: Backups",
   ]) {
     await drawer.getByRole("button", { name, exact: true }).click();
+    if (name === "Next: Resources & ports")
+      await screenshot(page, "server-resources-ports.png", drawer);
   }
   const full = drawer.getByRole("group", { name: "Full server", exact: true });
   const savedata = drawer.getByRole("group", {
@@ -237,6 +243,11 @@ test("full and save-data retention settings persist independently", async ({
     "Save changes",
   ]) {
     await drawer.getByRole("button", { name, exact: true }).click();
+    if (name === "Next: Access") {
+      await page.setViewportSize({ width: 1400, height: 900 });
+      await screenshot(page, "server-access.png", drawer);
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
   }
   await page
     .getByRole("dialog", { name: "Save server changes?", exact: true })

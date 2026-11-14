@@ -167,12 +167,13 @@ test("upload progress measures the queue and cancellation keeps completed files"
       page.getByText("Uploading file 2 of 3", { exact: true }),
     ).toBeVisible();
     await expect(progress).toHaveAttribute("aria-valuetext", "1 MiB of 3 MiB");
-    await screenshot(page, "file-upload-progress.png");
+    const upload = page.getByRole("region", {
+      name: "Upload progress",
+      exact: true,
+    });
+    await screenshot(page, "file-upload-progress.png", upload);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page
-      .getByRole("region", { name: "Upload progress", exact: true })
-      .scrollIntoViewIfNeeded();
-    await screenshot(page, "file-upload-progress-mobile.png");
+    await screenshot(page, "file-upload-progress-mobile.png", upload);
     await page
       .getByRole("button", { name: "Cancel upload", exact: true })
       .click();

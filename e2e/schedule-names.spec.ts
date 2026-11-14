@@ -1,4 +1,4 @@
-import { test, expect, screenshot } from "./fixtures";
+import { test, expect } from "./fixtures";
 import { login, openScreen } from "./screens";
 
 test("new schedule names follow selections and persist without being typed", async ({
@@ -23,11 +23,6 @@ test("new schedule names follow selections and persist without being typed", asy
   await expect(
     drawer.getByRole("button", { name: "Save schedule", exact: true }),
   ).toBeEnabled();
-  await screenshot(page, "schedule-generated-name.png", drawer);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await name.scrollIntoViewIfNeeded();
-  await screenshot(page, "schedule-generated-name-mobile.png", drawer);
-  await page.setViewportSize({ width: 1400, height: 900 });
   await drawer.getByRole("combobox", { name: "Action", exact: true }).click();
   await page.getByRole("option", { name: "Restart", exact: true }).click();
   await drawer.getByRole("button", { name: "Hourly", exact: true }).click();

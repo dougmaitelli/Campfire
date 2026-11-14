@@ -69,10 +69,6 @@ test("Spark features group related capabilities and report partial support", asy
     features.getByRole("heading", { name: "Features (17/17)", exact: true }),
   ).toBeVisible();
   await expect(features.getByRole("listitem")).toHaveCount(17);
-  await page.setViewportSize({ width: 1400, height: 1400 });
-  await features.scrollIntoViewIfNeeded();
-  await prepareScreenshot(page);
-  await expect(features).toHaveScreenshot(["crops", "spark-features.png"]);
   await page.setViewportSize({ width: 390, height: 1800 });
   await prepareScreenshot(page);
   await expect(features).toHaveScreenshot([

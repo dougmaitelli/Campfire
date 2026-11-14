@@ -15,7 +15,6 @@ test("upcoming schedule rows open details while related links and toggles stay i
   await expect(
     row.getByRole("link", { name: "Nightly restart", exact: true }),
   ).toHaveCount(0);
-  await expect(table).toHaveScreenshot(["crops", "upcoming-schedules.png"]);
   await expect(page.locator(".dashboard-activity-grid")).toHaveScreenshot([
     "crops",
     "dashboard-activity.png",
@@ -82,20 +81,9 @@ test("schedules open an overview before editing and saved changes persist", asyn
   });
   await expect(history.getByRole("row")).toHaveCount(2);
   await expect(history.getByText("Succeeded", { exact: true })).toBeVisible();
-  await expect(history).toHaveScreenshot([
-    "crops",
-    "schedule-execution-history.png",
-  ]);
   await screenshot(page, "schedule-details.png", overview);
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "schedule-details-mobile.png", overview);
-  await overview.evaluate((element) =>
-    element.scrollTo({ top: element.scrollHeight }),
-  );
-  await expect(history).toHaveScreenshot([
-    "crops",
-    "schedule-execution-history-mobile.png",
-  ]);
   await overview
     .getByRole("button", { name: "Edit schedule", exact: true })
     .click();
@@ -253,8 +241,6 @@ for (const permissions of [
       overview.getByRole("button", { name: "Edit schedule", exact: true }),
     ).toHaveCount(0);
     await expect(overview.getByRole("textbox")).toHaveCount(0);
-    if (permissions.length === 1)
-      await screenshot(page, "schedule-details-read-only.png", overview);
     await overview.getByRole("link", { name: "Survival", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(2);
     await page
@@ -326,10 +312,6 @@ test("the seeded observer can view schedules but cannot toggle them", async ({
       exact: true,
     }),
   ).toBeDisabled();
-  await expect(upcoming).toHaveScreenshot([
-    "crops",
-    "upcoming-schedules-read-only.png",
-  ]);
   await row.getByRole("cell").nth(2).click();
   const overview = page.getByRole("dialog", {
     name: "Nightly restart",

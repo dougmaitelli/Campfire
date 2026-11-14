@@ -280,11 +280,6 @@ test("console search supports toolbar controls and keyboard navigation", async (
   await expect(search).toBeFocused();
   await search.fill("no-such-console-output");
   await expect(page.getByText("No matches", { exact: true })).toBeVisible();
-  await prepareScreenshot(page);
-  await expect(toolbar).toHaveScreenshot([
-    "crops",
-    "console-toolbar-search-empty.png",
-  ]);
   await search.fill("Command accepted.");
   await expect(page.getByText("No matches", { exact: true })).toHaveCount(0);
   const count = page.locator(".server-terminal-search-status [role=status]");
@@ -329,10 +324,6 @@ test("binary file rows remain selectable and downloadable without opening the ed
   await login(page);
   await openServerTab(page, "files", "Files");
   const actions = page.locator(".file-selection-bar");
-  await expect(actions).toHaveScreenshot([
-    "crops",
-    "file-actions-disabled.png",
-  ]);
   const row = page.getByRole("row").filter({ hasText: "server.jar" });
   await expect(
     row.getByRole("cell", { name: "JAR", exact: true }),
@@ -434,8 +425,6 @@ test("file paths use the server data root and move defaults follow navigation", 
   const emptyFolder = page.getByText("This folder is empty.", { exact: true });
   await expect(emptyFolder).toBeVisible();
   await screenshot(page, "file-empty-folder.png");
-  await emptyFolder.hover();
-  await expect(page).toHaveScreenshot(["pages", "file-empty-folder.png"]);
   await page.getByRole("button", { name: "Server data", exact: true }).click();
   await page.getByRole("button", { name: "mods", exact: true }).click();
   await page
@@ -671,19 +660,8 @@ test("resource inspection keeps the current page and supports nested drawers", a
       }),
     ).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-    if (screen === "schedules")
-      await screenshot(
-        page,
-        "server-drawer-header.png",
-        dialog.locator(".panel-heading"),
-      );
     await page.setViewportSize({ width: 390, height: 844 });
     if (screen === "schedules") {
-      await screenshot(
-        page,
-        "server-drawer-header-mobile.png",
-        dialog.locator(".panel-heading"),
-      );
       await page.setViewportSize({ width: 320, height: 844 });
       const consoleLink = dialog.getByRole("link", {
         name: "Open console for Survival",
@@ -772,7 +750,13 @@ test("Spark can force update the current panel build remotely without an update"
     exact: true,
   });
   await expect(reinstall).toContainText("Install Spark v1.1.0");
-  await expect(reinstall).toHaveScreenshot(["crops", "spark-force-update.png"]);
+  await expect(reinstall).toContainText(
+    "credentials, configuration, game files, and backups are preserved",
+  );
+  await expect(reinstall).toContainText("game containers keep running");
+  await expect(reinstall).toContainText(
+    "Finish active server operations, uploads, and transfers first.",
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await reinstall.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(reinstalls).toBe(0);

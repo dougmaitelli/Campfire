@@ -920,7 +920,9 @@ test("administrators add, edit, test, disable, and remove Discord connections", 
   await expect(confirmation).toContainText(
     "Messages already sent to Discord will remain.",
   );
-  await screenshot(page, "integration-remove.png", confirmation);
+  await expect(confirmation).toContainText(
+    "Disconnect all game servers and remove the saved bot token and delivery history from Campfire.",
+  );
   await page.keyboard.press("Escape");
   await expect(confirmation).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 844 });

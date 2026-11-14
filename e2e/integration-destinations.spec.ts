@@ -432,7 +432,12 @@ test("independent destinations separate backups, public cards, and scoped game r
     name: "Remove server integration?",
     exact: true,
   });
-  await screenshot(page, "integration-destination-remove.png", confirmation);
+  await expect(confirmation).toContainText(
+    "This integration will be removed when you save the server.",
+  );
+  await expect(confirmation).toContainText(
+    "Messages already sent to Discord will remain.",
+  );
   await confirmation
     .getByRole("button", { name: "Remove integration", exact: true })
     .click();

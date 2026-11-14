@@ -156,7 +156,12 @@ test("pending deployment sync is distinct from Ember value review", async ({
     .locator(".ember-update-notice")
     .filter({ hasText: "Deployment sync pending" });
   await expect(notice).toBeVisible();
-  await screenshot(page, "server-deployment-sync.png", notice);
+  await expect(notice).toContainText(
+    "Saved settings are ready to sync to Spark. Container changes take effect on the next restart.",
+  );
+  await expect(
+    notice.getByRole("button", { name: "Sync deployment", exact: true }),
+  ).toBeEnabled();
   await page
     .getByRole("button", { name: "More server actions", exact: true })
     .click();
