@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import {
   APIError,
+  ConnectionError,
   apiFetch,
   apiJSON,
   jsonRequest,
@@ -131,11 +132,13 @@ test.each([
   },
 );
 
-test("retains transport failures", async () => {
+test("classifies transport failures while preserving their cause", async () => {
   const failure = new TypeError("connection interrupted");
   const response = Response.json({});
   vi.spyOn(response, "json").mockRejectedValue(failure);
-  await expect(readJSON(response)).rejects.toBe(failure);
+  const result = readJSON(response);
+  await expect(result).rejects.toBeInstanceOf(ConnectionError);
+  await expect(result).rejects.toHaveProperty("cause", failure);
 });
 
 test("requests advertise JSON while preserving explicit Accept headers", async () => {

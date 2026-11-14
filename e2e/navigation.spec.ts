@@ -155,40 +155,53 @@ test("unsaved file edits can block or allow navigation", async ({ page }) => {
   ).toBeVisible();
 });
 
-for (const mobile of [false, true]) {
-  test(`server rows open the console with desktop-only quick power controls (${mobile ? "mobile" : "desktop"})`, async ({
-    page,
-  }) => {
-    await login(page);
-    await openScreen(page, "servers", "Servers");
-    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
-    const row = page.getByRole("row").filter({
-      has: page.getByRole("button", { name: "Open Survival", exact: true }),
-    });
-    for (const action of ["Start", "Stop", "Restart"]) {
-      const control = row.getByRole("button", {
-        name: `${action} Survival`,
-        exact: true,
+for (const [screen, heading] of [
+  ["dashboard", "Overview"],
+  ["servers", "Servers"],
+] as const) {
+  for (const width of [1400, 1000, 390]) {
+    test(`${heading} rows open the console with desktop-only quick power controls at ${width}px`, async ({
+      page,
+    }) => {
+      await login(page);
+      await openScreen(page, screen, heading);
+      await page.setViewportSize({ width, height: 900 });
+      const row = page.getByRole("row").filter({
+        has: page.getByRole("button", { name: "Open Survival", exact: true }),
       });
-      if (mobile) await expect(control).toBeHidden();
-      else await expect(control).toBeVisible();
-    }
-    await expect(
-      row.getByRole("link", { name: "Open console for Survival", exact: true }),
-    ).toHaveCount(0);
-    await row
-      .getByRole("button", { name: "Open Survival", exact: true })
-      .press("Enter");
-    await expect(page).toHaveURL(/#servers\/survival\/console$/);
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(
-      page.getByRole("region", { name: "Console output", exact: true }),
-    ).toBeVisible();
-    for (const action of ["Start", "Stop", "Restart"])
+      for (const action of ["Start", "Stop", "Restart"]) {
+        const control = row.getByRole("button", {
+          name: `${action} Survival`,
+          exact: true,
+        });
+        if (width === 390) await expect(control).toBeHidden();
+        else await expect(control).toBeVisible();
+      }
+      if (screen === "servers") {
+        const address = row.getByText("127.0.0.1", { exact: true });
+        if (width === 390) await expect(address).toBeHidden();
+        else await expect(address).toBeVisible();
+      }
       await expect(
-        page.getByRole("button", { name: action, exact: true }),
+        row.getByRole("link", {
+          name: "Open console for Survival",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      await row
+        .getByRole("button", { name: "Open Survival", exact: true })
+        .press("Enter");
+      await expect(page).toHaveURL(/#servers\/survival\/console$/);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        page.getByRole("region", { name: "Console output", exact: true }),
       ).toBeVisible();
-  });
+      for (const action of ["Start", "Stop", "Restart"])
+        await expect(
+          page.getByRole("button", { name: action, exact: true }),
+        ).toBeVisible();
+    });
+  }
 }
 
 test("server page actions edit configuration directly and keep the console open", async ({

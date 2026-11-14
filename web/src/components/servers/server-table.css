@@ -6,7 +6,7 @@
   color: var(--warning);
 }
 
-.server-table td.game-state-card-cell {
+.server-table td.game-state-inline-cell {
   display: none;
 }
 
@@ -35,85 +35,112 @@
 }
 
 @container (max-width: 48rem) {
-  .table-cards.server-table tbody .server-game-state-row {
-    display: none;
-  }
-
-  .table-cards.server-table tbody tr {
-    --server-card-art-size: 48px;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    column-gap: 12px;
-  }
-
-  .server-table:where(.table-cards) tbody td {
-    grid-column: span 3;
-  }
-
-  .table-cards.server-table tbody .game-art-cell {
-    grid-area: auto;
-    position: absolute;
-    inset-block-start: var(--table-card-inset);
-    inset-inline-start: var(--table-card-inset);
-    width: var(--server-card-art-size);
-  }
-
-  .table-cards.server-table tbody .game-art-name {
-    padding-inline-start: calc(
-      var(--server-card-art-size) + var(--table-card-inset)
-    );
-    min-height: var(--server-card-art-size);
-  }
-
-  .table-cards.server-table tbody td.game-state-card-cell {
+  .data-table.server-table {
     display: block;
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
 
-  .server-table .game-state-card-cell .game-state-readings {
-    margin: 0;
-  }
+    & thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
 
-  .table-cards.server-table tbody .table-primary {
-    grid-column: 1 / span 2;
-    grid-row: 1;
-  }
+    & tbody {
+      display: block;
+    }
 
-  .table-cards.server-table tbody .table-state {
-    grid-column: 3;
-    grid-row: 1;
-  }
+    & tbody tr {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      gap: 6px 12px;
+      padding: var(--table-row-padding-block, 16px) var(--table-row-edge-inset);
+      border-bottom: 1px solid var(--border);
 
-  .table-cards.server-table tbody .table-actions {
-    grid-column: 4 / -1;
-    grid-row: 1;
-    align-self: start;
-  }
-}
+      &:has(.game-art-cell) {
+        grid-template-columns: auto minmax(0, 1fr) max-content;
+      }
+    }
 
-@container (max-width: 32rem) {
-  .table-cards.server-table tbody td.game-state-card-cell {
-    grid-row: 2;
-  }
+    & tbody td {
+      grid-column: 1 / -1;
+      width: auto;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+    }
 
-  .table-cards.server-table tbody tr {
-    grid-template-columns: minmax(0, 1fr) max-content;
-  }
+    & tbody .game-art-cell {
+      grid-column: 1;
+      grid-row: 1;
+    }
 
-  .server-table:where(.table-cards) tbody td {
-    grid-column: 1 / -1;
-  }
+    & tbody .table-primary {
+      grid-column: 1;
+      grid-row: 1;
+    }
 
-  .table-cards.server-table tbody .table-primary {
-    grid-column: 1;
-  }
+    & tbody .game-art-name {
+      grid-column: 2;
+      padding-inline-start: 0;
+    }
 
-  .table-cards.server-table tbody .table-state {
-    grid-column: 2;
-    justify-self: end;
-  }
+    & tbody .table-state {
+      grid-column: -2 / -1;
+      grid-row: 1;
+      justify-self: end;
+      max-width: 45cqi;
+      text-align: end;
 
-  .table-cards.server-table tbody .table-actions {
-    display: none;
+      & .server-state {
+        align-items: flex-end;
+      }
+
+      & .server-state-timing {
+        padding-inline-start: 0;
+        white-space: normal;
+      }
+    }
+
+    & .table-row-caret {
+      padding-inline-end: var(--table-row-caret-space);
+
+      &::after {
+        content: "";
+      }
+    }
+
+    /* Keep navigation on the row when the action cell is visible. */
+    & .table-row-caret > td:last-child::after {
+      content: none;
+    }
+
+    & tbody .server-game-state-row {
+      display: none;
+    }
+
+    & tbody td.game-state-inline-cell {
+      display: block;
+
+      & .game-state-readings {
+        margin: 0;
+      }
+    }
+
+    & .server-placement .row-description {
+      display: inline;
+      margin: 0;
+
+      &::before {
+        content: " · ";
+      }
+    }
+
+    & .resource-readings-compact {
+      grid-template-columns: max-content max-content minmax(0, 1fr);
+    }
   }
 }

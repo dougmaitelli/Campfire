@@ -1,7 +1,5 @@
 .resource-readings {
   display: grid;
-  gap: 10px;
-  min-width: 235px;
 }
 .resource-readings-compact {
   grid-template-columns: max-content max-content minmax(64px, 1fr);
@@ -18,10 +16,6 @@
   & .usage-value {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-  }
-
-  & > .usage-age {
-    font-size: 11px;
   }
 }
 
@@ -46,14 +40,5 @@
 @container (48rem < width <= 60rem) {
   .data-table .resource-readings-compact {
     grid-template-columns: max-content max-content minmax(32px, 1fr);
-  }
-}
-
-@container (max-width: 48rem) {
-  .table-cards tbody .resource-reading-column {
-    display: none;
-  }
-  .table-cards tbody td.resource-readings-group {
-    grid-column: 1 / -1;
   }
 }

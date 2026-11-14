@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import { ResourceReading } from "./ResourceReading";
 import {
   useResourceReadingProps,
@@ -10,7 +9,6 @@ export function ResourceReadings({
   layout = "compact",
   ...options
 }: ResourceReadingOptions & { layout?: "compact" | "columns" }) {
-  const { t } = useTranslation();
   const readings = useResourceReadingProps(options);
   const compact = (
     <div className="resource-readings resource-readings-compact">
@@ -23,20 +21,11 @@ export function ResourceReadings({
     return (
       <>
         {readings.map(({ key, ...reading }) => (
-          <td
-            className="resource-reading-column"
-            key={key}
-            data-label={reading.label}
-          >
+          <td className="resource-reading-column" key={key}>
             <ResourceReading {...reading} showLabel={false} />
           </td>
         ))}
-        <td
-          className="resource-readings-group"
-          data-label={t("common.resources")}
-        >
-          {compact}
-        </td>
+        <td className="resource-readings-group">{compact}</td>
       </>
     );
   return compact;

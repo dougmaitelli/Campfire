@@ -357,7 +357,7 @@ export function DashboardPage() {
               <InlineMessage role="alert">{serverActionError}</InlineMessage>
             )}
             <Table
-              className="server-table dashboard-server-table table-cards"
+              className="server-table dashboard-server-table"
               empty={visibleServers.length === 0}
               {...(serverSearch
                 ? { emptyMessage: t("serversPage.noMatchingServers") }
@@ -397,7 +397,7 @@ export function DashboardPage() {
                   <th className="resource-readings-group">
                     {t("common.resources")}
                   </th>
-                  <th className="table-actions">
+                  <th className="table-actions table-mobile-hidden">
                     <span className="visually-hidden">
                       {t("common.actions")}
                     </span>
@@ -425,7 +425,6 @@ export function DashboardPage() {
                           ? "table-primary game-art-name"
                           : "table-primary"
                       }
-                      data-label={t("common.server")}
                     >
                       <button
                         type="button"
@@ -454,14 +453,11 @@ export function DashboardPage() {
                       />
                     </td>
                     {server.game && (
-                      <td className="game-state-card-cell">
+                      <td className="game-state-inline-cell">
                         {renderGameState(server)}
                       </td>
                     )}
-                    <td
-                      className="table-state"
-                      data-label={t("dashboardPage.state")}
-                    >
+                    <td className="table-state">
                       <ServerState
                         now={
                           (monitor.snapshot?.collected_at ?? 0) +
@@ -493,7 +489,7 @@ export function DashboardPage() {
                       elapsed={monitor.elapsed}
                       layout="columns"
                     />
-                    <td className="table-actions">
+                    <td className="table-actions table-mobile-hidden">
                       <ServerQuickControls
                         id={server.id}
                         name={server.name}

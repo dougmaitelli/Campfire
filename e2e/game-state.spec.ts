@@ -53,7 +53,7 @@ test("game state shows optional fields and hides stale values", async ({
   await expect(readings).not.toContainText("Last updated");
   await readings.hover();
   await expect(readings).toHaveAttribute("title", /^Last updated /);
-  const card = page.getByRole("row").filter({
+  const serverRow = page.getByRole("row").filter({
     has: page.getByRole("button", { name: "Open Survival", exact: true }),
   });
   for (const [width, size] of [
@@ -71,15 +71,16 @@ test("game state shows optional fields and hides stale values", async ({
   }
   await page.setViewportSize({ width: 1000, height: 1000 });
   await prepareScreenshot(page);
-  await expect(card).toHaveScreenshot([
+  await expect(serverRow).toHaveScreenshot([
     "crops",
-    "overview-game-state-card.png",
+    "overview-game-state-row.png",
   ]);
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
-  await expect(card).toHaveScreenshot([
+  await serverRow.hover();
+  await expect(serverRow).toHaveScreenshot([
     "crops",
-    "overview-game-state-card-mobile.png",
+    "overview-game-state-row-mobile.png",
   ]);
   await openScreen(page, "servers", "Servers");
   for (const [width, size] of [
@@ -88,27 +89,15 @@ test("game state shows optional fields and hides stale values", async ({
   ] as const) {
     await page.setViewportSize({ width, height: 1000 });
     await prepareScreenshot(page);
+    await page
+      .getByRole("row")
+      .filter({ has: readings })
+      .filter({ visible: true })
+      .hover();
     await expect(
       page.getByRole("table", { name: "Game servers", exact: true }),
     ).toHaveScreenshot(["crops", `servers-game-state-table-${size}.png`]);
   }
-  const integrationRow = page
-    .getByRole("row")
-    .filter({ has: readings })
-    .filter({ visible: true });
-  await integrationRow.hover();
-  const primaryRow = page.getByRole("row").filter({
-    has: page.getByRole("button", {
-      name: "Open Survival",
-      exact: true,
-    }),
-  });
-  await expect(primaryRow).toHaveCSS(
-    "background-color",
-    await integrationRow.evaluate(
-      (row) => getComputedStyle(row).backgroundColor,
-    ),
-  );
   await readings.click();
   await expect(page).toHaveURL(/#servers\/survival\/console$/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -122,7 +111,7 @@ test("game state shows optional fields and hides stale values", async ({
         exact: true,
       }),
     }),
-  ).toHaveScreenshot(["crops", "servers-game-state-card.png"]);
+  ).toHaveScreenshot(["crops", "servers-game-state-row.png"]);
   await openScreen(page, "dashboard", "Overview");
   await page.setViewportSize({ width: 1400, height: 1000 });
   await readings.click();

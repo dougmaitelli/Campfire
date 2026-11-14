@@ -21,7 +21,7 @@
   container-type: inline-size;
 }
 
-.table-container:has(> .data-table:not(.table-cards, .table-compact)) {
+.table-container:has(> .data-table:not(.server-table, .table-compact)) {
   margin-inline: calc(0px - var(--table-inline-outset, 0px));
 }
 
@@ -33,7 +33,6 @@
   --table-row-edge-inset: max(12px, var(--table-cell-padding-inline));
   --table-row-caret-space: 56px;
   --table-row-caret-inset: 24px;
-  --table-card-inset: 16px;
   width: 100%;
   max-width: 100%;
   border-collapse: collapse;
@@ -163,8 +162,8 @@
 }
 
 @container (max-width: 32rem) {
-  .data-table:not(.table-cards) td,
-  .data-table:not(.table-cards) .row-description {
+  .data-table td,
+  .data-table .row-description {
     overflow-wrap: anywhere;
   }
 
@@ -257,84 +256,5 @@
       padding: 0;
       border: 0;
     }
-  }
-}
-
-@container (max-width: 48rem) {
-  .data-table.table-cards,
-  .data-table.table-cards tbody {
-    display: block;
-  }
-
-  .data-table.table-cards thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .data-table.table-cards tbody {
-    display: grid;
-    gap: 12px;
-  }
-
-  .data-table.table-cards :where(tbody tr) {
-    --table-row-caret-inset: var(--table-card-inset);
-    --table-row-caret-space: calc(var(--table-card-inset) + 24px);
-    position: relative;
-    display: grid;
-    gap: 16px 24px;
-    padding: var(--table-card-inset);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    min-width: 0;
-  }
-
-  .data-table.table-cards tbody td {
-    width: auto;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    text-align: start;
-    white-space: normal;
-  }
-
-  .table-cards td[data-label]::before {
-    content: attr(data-label) / "";
-    display: block;
-    margin-bottom: 6px;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .table-cards tbody .table-actions {
-    display: flex;
-    width: auto;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-  }
-
-  .table-cards tbody .table-actions:empty {
-    display: none;
-  }
-
-  .table-cards .table-row-caret > td:last-child::after {
-    display: none;
-  }
-
-  .table-cards .table-row-caret {
-    padding-inline-end: var(--table-row-caret-space);
-  }
-
-  .table-cards .table-row-caret::after {
-    content: "";
   }
 }

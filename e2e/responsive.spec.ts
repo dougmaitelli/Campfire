@@ -2,7 +2,7 @@ import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
 import { login, openScreen, openServerTab } from "./screens";
 import { ExecutionState } from "../web/src/contracts/domains";
 
-test("Overview and Servers lists support cards while simple lists stay tables", async ({
+test("Overview and Servers collapse into rows while simple lists stay tables", async ({
   page,
 }) => {
   await login(page);
@@ -17,7 +17,7 @@ test("Overview and Servers lists support cards while simple lists stay tables", 
   await page.setViewportSize({ width: 1240, height: 1000 });
   await screenshot(page, "dashboard-resources-compact.png");
   await page.setViewportSize({ width: 1000, height: 1000 });
-  await screenshot(page, "overview-server-cards.png");
+  await screenshot(page, "overview-server-rows.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
   await expect(page.locator(".dashboard-server-table")).toHaveScreenshot([
@@ -49,7 +49,7 @@ test("Overview and Servers lists support cards while simple lists stay tables", 
   await page.setViewportSize({ width: 1100, height: 900 });
   await screenshot(page, "servers-compact.png");
   await page.setViewportSize({ width: 1000, height: 1000 });
-  await screenshot(page, "servers-cards.png");
+  await screenshot(page, "servers-rows.png");
   await page.setViewportSize({ width: 390, height: 844 });
   await prepareScreenshot(page);
   await expect(page.locator(".servers-table")).toHaveScreenshot([

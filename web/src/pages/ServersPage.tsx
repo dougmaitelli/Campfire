@@ -205,7 +205,7 @@ export function ServersPage() {
       )}
       <ContentPanel aria-busy={loading}>
         <Table
-          className="server-table servers-table table-cards"
+          className="server-table servers-table"
           empty={visible.length === 0}
           loading={servers.loading}
           error={servers.error}
@@ -253,7 +253,7 @@ export function ServersPage() {
               <th scope="col" className="table-mobile-hidden">
                 {t("common.ports")}
               </th>
-              <th scope="col" className="table-actions">
+              <th scope="col" className="table-actions table-mobile-hidden">
                 <span className="visually-hidden">{t("common.actions")}</span>
               </th>
             </tr>
@@ -297,7 +297,6 @@ export function ServersPage() {
                         ? "table-primary game-art-name"
                         : "table-primary"
                     }
-                    data-label={t("common.server")}
                   >
                     <button
                       type="button"
@@ -320,12 +319,9 @@ export function ServersPage() {
                     />
                   </td>
                   {monitored?.game && (
-                    <td className="game-state-card-cell">{gameReadings}</td>
+                    <td className="game-state-inline-cell">{gameReadings}</td>
                   )}
-                  <td
-                    className="table-state"
-                    data-label={t("serversPage.state")}
-                  >
+                  <td className="table-state">
                     <ServerState
                       now={
                         (monitoring.snapshot?.collected_at ?? 0) +
@@ -357,7 +353,7 @@ export function ServersPage() {
                         </span>
                       )}
                   </td>
-                  <td data-label={t("serversPage.sparkEmber")}>
+                  <td className="server-placement">
                     <ResourceLink href={links.spark(server.spark_id)}>
                       {server.spark_name}
                     </ResourceLink>
@@ -367,7 +363,7 @@ export function ServersPage() {
                       </ResourceLink>
                     </span>
                   </td>
-                  <td data-label={t("serversPage.resources")}>
+                  <td>
                     <ResourceReadings
                       layout="compact"
                       usage={
@@ -381,10 +377,7 @@ export function ServersPage() {
                       elapsed={monitoring.elapsed}
                     />
                   </td>
-                  <td
-                    className="table-mobile-hidden"
-                    data-label={t("common.ports")}
-                  >
+                  <td className="table-mobile-hidden">
                     <PortGroups
                       ports={server.ports.map((port) => ({
                         address: server.game_address || port.bind_ip,
@@ -397,7 +390,7 @@ export function ServersPage() {
                       }))}
                     />
                   </td>
-                  <td className="table-actions">
+                  <td className="table-actions table-mobile-hidden">
                     <ServerQuickControls
                       id={server.id}
                       name={server.name}

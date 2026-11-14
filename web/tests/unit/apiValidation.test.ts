@@ -106,7 +106,9 @@ test.each([true, false, undefined])(
         : { file_system_busy: fileSystemBusy }),
     };
     vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(status));
-    await expect(serverStatus("server")).resolves.toEqual(status);
+    await expect(
+      serverStatus("server", new AbortController().signal),
+    ).resolves.toEqual(status);
   },
 );
 
@@ -119,9 +121,9 @@ test.each(["false", 0, null])(
         file_system_busy: fileSystemBusy,
       }),
     );
-    await expect(serverStatus("server")).rejects.toThrow(
-      "Unexpected runtime response",
-    );
+    await expect(
+      serverStatus("server", new AbortController().signal),
+    ).rejects.toThrow("Unexpected runtime response");
   },
 );
 
