@@ -44,6 +44,7 @@ test("manual backups send the selected type and save-data restore describes its 
   await expect(
     page.getByRole("menuitem", { name: "Save data only", exact: true }),
   ).toBeVisible();
+  await screenshot(page, "server-backups-mobile.png");
   await page.keyboard.press("Escape");
   const actions = firstBackup.getByRole("button", {
     name: /^Backup actions for /,

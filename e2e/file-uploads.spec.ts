@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, screenshot } from "./fixtures";
+import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
 import { login, openServerTab } from "./screens";
 
 async function draggedFiles(
@@ -167,13 +167,15 @@ test("upload progress measures the queue and cancellation keeps completed files"
       page.getByText("Uploading file 2 of 3", { exact: true }),
     ).toBeVisible();
     await expect(progress).toHaveAttribute("aria-valuetext", "1 MiB of 3 MiB");
-    const upload = page.getByRole("region", {
-      name: "Upload progress",
-      exact: true,
-    });
-    await screenshot(page, "file-upload-progress.png", upload);
+    const panel = page.locator(".server-file-browser");
+    await prepareScreenshot(page);
+    await expect(panel).toHaveScreenshot(["crops", "file-browser-upload.png"]);
     await page.setViewportSize({ width: 390, height: 844 });
-    await screenshot(page, "file-upload-progress-mobile.png", upload);
+    await prepareScreenshot(page);
+    await expect(panel).toHaveScreenshot([
+      "crops",
+      "file-browser-upload-mobile.png",
+    ]);
     await page
       .getByRole("button", { name: "Cancel upload", exact: true })
       .click();
