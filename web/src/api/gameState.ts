@@ -2,10 +2,13 @@ import { GameLimits } from "../config/policies";
 import { GameStateStatus } from "../contracts/domains";
 import { isRecord as object, isEnumValue } from "../utils/validation";
 import { validGameFieldLabels, type GameFieldLabels } from "./gameFields";
+export type GameStateScalar = string | number | boolean;
+export type GameStateFieldValue = GameStateScalar | GameStateScalar[];
+
 export interface GameState {
   players?: number;
   capacity?: number;
-  fields?: Record<string, string | number | boolean>;
+  fields?: Record<string, GameStateFieldValue>;
   field_labels?: GameFieldLabels;
 }
 
@@ -23,6 +26,21 @@ function count(value: unknown): value is number {
     value >= 0 &&
     value <= GameLimits.Players
   );
+}
+
+function scalar(value: unknown): value is GameStateScalar {
+  return (
+    typeof value === "boolean" ||
+    (typeof value === "string" &&
+      new TextEncoder().encode(value).length <= GameLimits.FieldStringLength) ||
+    (typeof value === "number" && Number.isFinite(value))
+  );
+}
+
+function fieldValue(value: unknown): value is GameStateFieldValue {
+  return Array.isArray(value)
+    ? value.length <= GameLimits.FieldListItems && value.every(scalar)
+    : scalar(value);
 }
 
 export function isGameStateView(value: unknown): value is GameStateView {
@@ -50,11 +68,7 @@ export function isGameStateView(value: unknown): value is GameStateView {
         Object.entries(state.fields).length <= GameLimits.Fields &&
         Object.entries(state.fields).every(
           ([key, field]) =>
-            /^[a-z][a-z0-9_.-]{0,63}$/.test(key) &&
-            (typeof field === "boolean" ||
-              (typeof field === "string" &&
-                field.length <= GameLimits.FieldStringLength) ||
-              (typeof field === "number" && Number.isFinite(field))),
+            /^[a-z][a-z0-9_.-]{0,63}$/.test(key) && fieldValue(field),
         )))
   );
 }

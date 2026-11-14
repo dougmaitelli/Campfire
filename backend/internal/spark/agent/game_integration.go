@@ -44,6 +44,7 @@ type gameIntegrations struct {
 type gameSession struct {
 	events       bool
 	registration bool
+	stateLists   bool
 	ctx          context.Context
 	send         func(protocol.Message) error
 	pending      map[string]chan *protocol.CommandError
@@ -309,6 +310,11 @@ func (g *gameIntegrations) forward(ctx context.Context, serverID string, publica
 		return errors.New("game registration requires an updated Campfire")
 	}
 
+	if publication.State.HasListFields() && !session.stateLists {
+		g.mu.Unlock()
+		return errors.New("list-valued game state requires an updated Campfire")
+	}
+
 	session.pending[requestID] = ack
 
 	g.mu.Unlock()
@@ -340,7 +346,7 @@ func (g *gameIntegrations) attach(ctx context.Context, send func(protocol.Messag
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.session = &gameSession{ctx: ctx, send: send, pending: make(map[string]chan *protocol.CommandError), events: len(features) > 0 && features[0], registration: len(features) > 1 && features[1]}
+	g.session = &gameSession{ctx: ctx, send: send, pending: make(map[string]chan *protocol.CommandError), events: len(features) > 0 && features[0], registration: len(features) > 1 && features[1], stateLists: len(features) > 2 && features[2]}
 	for _, item := range g.events {
 		item.next = time.Time{}
 	}

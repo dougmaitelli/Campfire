@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -65,6 +66,12 @@ func cloneGameState(state *model.GameState) *model.GameState {
 	result := *state
 
 	result.Fields = maps.Clone(state.Fields)
+	for key, value := range result.Fields {
+		if list, ok := value.([]any); ok {
+			result.Fields[key] = slices.Clone(list)
+		}
+	}
+
 	result.FieldLabels = maps.Clone(state.FieldLabels)
 
 	if state.Players != nil {

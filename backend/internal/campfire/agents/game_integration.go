@@ -28,6 +28,8 @@ func (h *Hub) gameFrame(ctx context.Context, sparkID string, current *peer, fram
 		ack.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "Durable game events were not negotiated."}
 	} else if frame.Publication.Registration != nil && protocol.Require(current.info.Capabilities, protocol.CapabilityGameRegistration) != nil {
 		ack.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "Game registration was not negotiated."}
+	} else if frame.Publication.State.HasListFields() && protocol.Require(current.info.Capabilities, protocol.CapabilityGameStateLists) != nil {
+		ack.Error = &protocol.CommandError{Code: protocol.ErrorUnsupportedCapability, Message: "List-valued game state was not negotiated."}
 	} else if frame.Publication.Validate() != nil {
 		ack.Error = &protocol.CommandError{Code: protocol.ErrorInvalidPublication, Message: "Invalid game publication."}
 	} else if h.receiveGame == nil {

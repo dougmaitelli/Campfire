@@ -46,6 +46,7 @@ const (
 	GameFieldNameLength       = 64
 	GameFieldLabelLength      = 128
 	GameFieldStringLength     = 1024
+	GameFieldListItems        = 64
 	MinimumFreshSeconds       = 15
 	FreshIntervals            = 3
 	DefaultGameEventRetention = 30 * 24 * time.Hour

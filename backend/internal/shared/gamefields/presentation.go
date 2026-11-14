@@ -43,6 +43,7 @@ var englishMessages = map[string]string{
 	"gameState.playersWithCapacity": "{{players}} / {{capacity}}",
 	"gameState.yes":                 "Yes",
 	"gameState.no":                  "No",
+	"gameState.emptyList":           "None",
 }
 
 // Builtin is the sole lookup for the built-in/custom distinction.
@@ -160,7 +161,31 @@ func valueText(state *model.GameState, id string, translate Translate) (string, 
 		return "", false
 	}
 
-	switch value := state.Fields[strings.TrimPrefix(id, "field.")].(type) {
+	value := state.Fields[strings.TrimPrefix(id, "field.")]
+	if list, ok := value.([]any); ok {
+		if list == nil {
+			return "", false
+		}
+
+		items := make([]string, 0, len(list))
+		for _, item := range list {
+			if text, available := scalarText(item, translate); available {
+				items = append(items, text)
+			}
+		}
+
+		if len(items) == 0 {
+			return translate("gameState.emptyList", nil), true
+		}
+
+		return strings.Join(items, ", "), true
+	}
+
+	return scalarText(value, translate)
+}
+
+func scalarText(value any, translate Translate) (string, bool) {
+	switch value := value.(type) {
 	case string:
 		return value, strings.TrimSpace(value) != ""
 	case float64:

@@ -104,6 +104,7 @@ version. Spark and Campfire negotiate support themselves:
 | `server.game-events.v1`       | Persistent event queues and panel acknowledgements after database commit     |
 | `server.game-media.v1`        | Separate authenticated media uploads                                         |
 | `server.game-registration.v1` | Persistent startup label registration with revision-checked acknowledgements |
+| `server.game-state-lists.v1`  | Flat list values in custom active-state fields                               |
 
 A connected panel without durable event support causes event publication to
 return `503`. Media and registration also return `503` when their support was not negotiated. A
@@ -207,14 +208,15 @@ curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
 State is a complete replacement snapshot. Omitted fields clear previous values
 in the dashboard. `players` and `capacity` are optional integers
 between 0 and 1,000,000. `fields` is an optional map for game-specific scalar
-values, such as `map` or `game_mode`. An empty `state` object is valid.
+or flat-list values, such as `map`, `game_mode`, or `player_names`. An empty
+`state` object is valid.
 
-| State property | Required | Type and limits                        |
-| -------------- | -------- | -------------------------------------- |
-| `players`      | No       | Integer from `0` to `1000000`          |
-| `capacity`     | No       | Integer from `0` to `1000000`          |
-| `fields`       | No       | Up to 32 named scalar values           |
-| `field_labels` | No       | Optional key-to-label map for `fields` |
+| State property | Required | Type and limits                           |
+| -------------- | -------- | ----------------------------------------- |
+| `players`      | No       | Integer from `0` to `1000000`             |
+| `capacity`     | No       | Integer from `0` to `1000000`             |
+| `fields`       | No       | Up to 32 named scalar or flat-list values |
+| `field_labels` | No       | Optional key-to-label map for `fields`    |
 
 For example, `{"version":1,"state":{}}` clears the previously published snapshot.
 An omitted player count means unknown; use `0` only when you know there are no
@@ -271,18 +273,23 @@ Event types are supplied by the integration. Examples include `player.joined`,
 or any particular game model, and it does not translate an event type into a game
 command.
 
-### Custom scalar fields
+### Custom fields
 
 Field names and event types start with a lowercase ASCII letter and contain only
 lowercase letters, digits, underscores, dots, or hyphens, up to 64 bytes. Each
-scalar map permits at most 32 entries whose values are strings (up to 1,024 bytes),
-finite JSON numbers, or booleans. Nested objects, arrays, and null values are
-unsupported in these maps.
+map permits at most 32 entries. Scalar values are strings (up to 1,024 UTF-8 bytes),
+finite JSON numbers, or booleans. `state.fields` also accepts flat lists of up to
+64 scalar values per field; each list element has the same scalar limits.
+Empty lists and mixed scalar types are allowed. Objects, nested lists, and null
+values (including null list elements) are rejected. `event.data` remains scalar-only:
+event discovery and filters do not accept lists.
 
 The name pattern is `^[a-z][a-z0-9_.-]{0,63}$`. Length limits are byte limits,
 not counts of displayed characters. Use strings for opaque IDs and exact large
-integers; JSON numbers are decoded as floating-point values. For collections,
-publish summaries or separate events rather than embedding arrays or objects.
+integers; JSON numbers are decoded as floating-point values. The existing 16 KiB
+limit still applies to the entire publication, including all list elements and
+labels. For larger collections, publish a bounded summary rather than an
+unbounded list.
 
 Valid scalar fields look like:
 
@@ -296,6 +303,48 @@ Valid scalar fields look like:
 
 This map belongs inside `state.fields` or `event.data`; it is not a publication
 envelope by itself.
+
+### Lists in active server state
+
+Publish a current player list as a custom field, for example:
+
+```json
+{
+  "version": 1,
+  "state": {
+    "players": 2,
+    "capacity": 20,
+    "fields": { "player_names": ["Alex", "Sam"] }
+  }
+}
+```
+
+Register `"player_names": "Online players"` in `registration.state_fields` to
+provide its display label. The registration format is unchanged. Enable that
+field in the server's Discord card settings; internally its selection ID is
+`field.player_names`. Only selected fields are included in cards.
+
+Lists preserve publisher order and duplicates and are displayed as comma-separated
+text (`Alex, Sam`). Numbers and booleans use the same formatting as scalar fields;
+blank string elements are omitted from display. An empty list (or a list containing
+only blank strings) displays as **None**, not **Unavailable**. Omit the field when
+its value is unknown. A list does not automatically change the built-in player
+count; publish `players` separately when known. Every snapshot replaces the
+previous one, so `[]` clears the roster, while omitting the field removes it.
+Stale snapshots and stopped servers never expose previous player names.
+
+Discord escapes list text, disables mentions, and applies its existing per-field
+and total-message limits, truncating long lists with an ellipsis. The card preview
+uses the same bounded payload as the published card. Player names are shared with
+users who can view server state and with the configured Discord destination when
+this field is selected; publish only information appropriate for those audiences.
+
+This is an optional extension of publication version `1`. Upgrade both Spark and
+Campfire before publishing list values. The `server.game-state-lists.v1` capability
+must be negotiated; a newer Spark connected to an older Campfire returns HTTP 503
+without forwarding list-valued state. An older Spark rejects lists with HTTP 400.
+Existing scalar publishers continue to work without the new capability. Lists
+are transient current state, not retained events or an offline publication queue.
 
 ### Custom field labels
 
@@ -341,8 +390,9 @@ older Spark versions reject unknown publication properties.
 All game fields are optional. Games without player counts, maps, game modes, or
 other fields show none of those values. A capacity without a player count is shown
 as capacity; a missing player count is never interpreted as zero. Custom scalar
-fields are displayed as text, numbers, or booleans. An empty snapshot clears the
-previous fields.
+fields are displayed as text, numbers, or booleans; custom list fields use the
+same scalar formatting for each element. An empty snapshot clears the previous
+fields.
 
 Campfire owns the built-in `players` and `capacity` definitions and translated
 labels; integrations do not need to register labels for them. Custom state fields
@@ -758,16 +808,16 @@ in Campfire. Test your mod with these cases before relying on its delivery:
   `409`, then retry the identical upload after the event arrives.
 - Exercise shutdown and failed publication without blocking the game thread.
 
-| Symptom                                           | Check                                                                                                                    |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Environment variable absent                       | Integration is enabled for this server and its container was recreated through Campfire.                                 |
-| Socket missing or connection refused              | Correct container and socket path; Spark is running; reconnect after a restart.                                          |
-| `400` on otherwise valid-looking JSON             | Exactly one version 1 envelope, no extra properties, valid timestamps, scalar-only maps, and byte lengths within limits. |
-| State returns `503` around restart or restore     | Wait for a healthy running observation, then send the newest complete snapshot.                                          |
-| Events return `202` but do not appear             | Inspect queue status, Spark logs, panel connectivity, event capability support, expiration, and placement changes.       |
-| Player counts disappear while the server runs     | Send periodic full snapshots; event traffic does not refresh state freshness.                                            |
-| Media returns `400`                               | Exact MIME header, matching file signature, valid filename, raw bytes, and supported image dimensions.                   |
-| Media repeatedly returns `409` with `Retry-After` | Verify the producer event ID, queue delivery, and that the parent event remains in retained history.                     |
+| Symptom                                           | Check                                                                                                                                                 |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Environment variable absent                       | Integration is enabled for this server and its container was recreated through Campfire.                                                              |
+| Socket missing or connection refused              | Correct container and socket path; Spark is running; reconnect after a restart.                                                                       |
+| `400` on otherwise valid-looking JSON             | Exactly one version 1 envelope, no extra properties, valid timestamps, scalar event data or bounded flat state lists, and byte lengths within limits. |
+| State returns `503` around restart or restore     | Wait for a healthy running observation, then send the newest complete snapshot.                                                                       |
+| Events return `202` but do not appear             | Inspect queue status, Spark logs, panel connectivity, event capability support, expiration, and placement changes.                                    |
+| Player counts disappear while the server runs     | Send periodic full snapshots; event traffic does not refresh state freshness.                                                                         |
+| Media returns `400`                               | Exact MIME header, matching file signature, valid filename, raw bytes, and supported image dimensions.                                                |
+| Media repeatedly returns `409` with `Retry-After` | Verify the producer event ID, queue delivery, and that the parent event remains in retained history.                                                  |
 
 Spark service logs are available through `journalctl -u spark`; panel ingestion
 errors are in the Campfire logs. Do not add panel administrator tokens or Spark

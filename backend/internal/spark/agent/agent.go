@@ -489,7 +489,7 @@ func connectAgent(ctx context.Context, address, id string, config *tls.Config, n
 
 	configurations.NegotiatedProtocol = wireVersion
 	if configurations.games != nil && protocol.Require(welcome.Capabilities, protocol.CapabilityGameIntegration) == nil {
-		configurations.games.attach(ctx, send, protocol.Require(welcome.Capabilities, protocol.CapabilityGameEvents) == nil, protocol.Require(welcome.Capabilities, protocol.CapabilityGameRegistration) == nil)
+		configurations.games.attach(ctx, send, protocol.Require(welcome.Capabilities, protocol.CapabilityGameEvents) == nil, protocol.Require(welcome.Capabilities, protocol.CapabilityGameRegistration) == nil, protocol.Require(welcome.Capabilities, protocol.CapabilityGameStateLists) == nil)
 
 		if protocol.Require(welcome.Capabilities, protocol.CapabilityGameMedia) == nil {
 			upload, closeMedia := mediaSender(address, config, netDial)

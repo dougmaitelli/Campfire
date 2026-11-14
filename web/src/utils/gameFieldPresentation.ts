@@ -69,6 +69,23 @@ function valueText(
   const value = builtin
     ? state[builtin.id]
     : state.fields?.[id.replace(/^field\./, "")];
+  if (Array.isArray(value)) {
+    const items = value.flatMap((item) => {
+      const text = scalarText(item, translate, numbers);
+      return text === undefined ? [] : [text];
+    });
+    return items.length
+      ? items.join(", ")
+      : translate("gameState.emptyList", {});
+  }
+  return scalarText(value, translate, numbers);
+}
+
+function scalarText(
+  value: unknown,
+  translate: TranslateGameField,
+  numbers: Intl.NumberFormat,
+): string | undefined {
   if (typeof value === "boolean")
     return translate(value ? "gameState.yes" : "gameState.no", {});
   if (typeof value === "number")

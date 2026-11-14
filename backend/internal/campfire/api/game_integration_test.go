@@ -3,6 +3,7 @@ package api_test
 import (
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
@@ -35,7 +36,7 @@ func TestMonitoringGameStateAuthorizationAndInvalidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	frame := protocol.GameFrame{ID: "request", ServerID: server.ID, Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(4), Fields: map[string]any{"map": "world"}}}}
+	frame := protocol.GameFrame{ID: "request", ServerID: server.ID, Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(4), Fields: map[string]any{"map": "world", "player_names": []any{"Alex", "Sam"}}}}}
 	if err := f.games.Receive(t.Context(), server.SparkID, frame); err != nil {
 		t.Fatal(err)
 	}
@@ -59,6 +60,10 @@ func TestMonitoringGameStateAuthorizationAndInvalidation(t *testing.T) {
 	snapshot := read(f.admin)
 	if len(snapshot.Servers) != 1 || snapshot.Servers[0].Game == nil || snapshot.Servers[0].Game.Status != "fresh" || *snapshot.Servers[0].Game.State.Players != 4 {
 		t.Fatal("current game state missing", snapshot)
+	}
+
+	if got := snapshot.Servers[0].Game.State.Fields["player_names"]; !reflect.DeepEqual(got, []any{"Alex", "Sam"}) {
+		t.Fatal("monitoring did not preserve list values", got)
 	}
 
 	endpoint := "/api/v1/servers/" + server.ID

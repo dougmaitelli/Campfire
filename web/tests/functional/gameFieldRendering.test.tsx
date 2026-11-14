@@ -21,6 +21,42 @@ const usage: ResourceUsage = {
   disk_quota_error: "",
 };
 
+test("server readings render list fields as text and clear stale player names", () => {
+  const props = {
+    now: 100,
+    elapsed: 0,
+    usage,
+    game: {
+      updated_at: 100,
+      fresh_for_seconds: 60,
+      status: "fresh" as const,
+      state: {
+        fields: { player_names: ["Alex", "<script>Sam</script>"] },
+        field_labels: { player_names: "Online players" },
+      },
+    },
+  };
+  const { container, rerender } = render(<GameStateReadings {...props} />);
+  expect(screen.getByText("Online players")).toBeTruthy();
+  expect(screen.getByText("Alex, <script>Sam</script>")).toBeTruthy();
+  expect(container.querySelector("script")).toBeNull();
+  rerender(
+    <GameStateReadings
+      {...props}
+      game={{
+        ...props.game,
+        state: {
+          ...props.game.state,
+          fields: { player_names: [] },
+        },
+      }}
+    />,
+  );
+  expect(screen.getByText("None")).toBeTruthy();
+  rerender(<GameStateReadings {...props} now={160} />);
+  expect(screen.queryByText("Alex, <script>Sam</script>")).toBeNull();
+});
+
 test("server readings preserve translated labels, display labels, and raw-key fallbacks", async () => {
   i18n.addResourceBundle("test", "translation", {
     gameState: {

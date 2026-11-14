@@ -57,11 +57,12 @@ const (
 	CapabilityGameEvents       = "server.game-events.v1"
 	CapabilityGameMedia        = "server.game-media.v1"
 	CapabilityGameRegistration = "server.game-registration.v1"
+	CapabilityGameStateLists   = "server.game-state-lists.v1"
 )
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration, CapabilityGameStateLists}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.

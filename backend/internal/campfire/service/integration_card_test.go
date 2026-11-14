@@ -32,13 +32,13 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 
 	deployment.Games = games
 	if err := games.register(t.Context(), "node", "game", model.GameRegistration{
-		Revision: 1, StateFields: model.GameFieldLabels{"invite_code": "Invite code"},
+		Revision: 1, StateFields: model.GameFieldLabels{"invite_code": "Invite code", "player_names": "Online players"},
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	publication := protocol.GameFrame{ServerID: "game", Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(3), Fields: map[string]any{"invite_code": "ABCD", "private": "unselected"}}}}
-	settings := core.CardSettings{Fields: []string{"players", "field.invite_code"}}
+	publication := protocol.GameFrame{ServerID: "game", Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(3), Fields: map[string]any{"invite_code": "ABCD", "player_names": []any{"Alex", "Sam"}, "private": []any{"unselected"}}}}}
+	settings := core.CardSettings{Fields: []string{"players", "field.invite_code", "field.player_names"}}
 
 	for _, scenario := range []string{"fresh", "expired publication", "stale sample", "sample error", "disconnected", "old placement", "stopped", "stale status", "invalidated", "disabled"} {
 		t.Run(scenario, func(t *testing.T) {
@@ -83,15 +83,15 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 			}
 
 			card, err := deployment.IntegrationCard(t.Context(), "game", settings)
-			if err != nil || len(card.Fields) != 2 || card.Fields[0].Available != (scenario == "fresh") || card.Fields[1].Available != (scenario == "fresh") {
+			if err != nil || len(card.Fields) != 3 || card.Fields[0].Available != (scenario == "fresh") || card.Fields[1].Available != (scenario == "fresh") || card.Fields[2].Available != (scenario == "fresh") {
 				t.Fatal("incorrect current game values", card, err)
 			}
 
-			if card.Fields[1].Name != "Invite code" {
+			if card.Fields[1].Name != "Invite code" || card.Fields[2].Name != "Online players" {
 				t.Fatal("durable labels disappeared with unavailable values", scenario, card)
 			}
 
-			if scenario == "fresh" && (card.Fields[0].Value != "3" || card.Fields[1].Value != "ABCD") {
+			if scenario == "fresh" && (card.Fields[0].Value != "3" || card.Fields[1].Value != "ABCD" || card.Fields[2].Value != "Alex, Sam") {
 				t.Fatal(card)
 			}
 

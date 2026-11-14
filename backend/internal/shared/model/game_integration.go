@@ -33,6 +33,19 @@ type GameState struct {
 	FieldLabels GameFieldLabels `json:"field_labels,omitempty"`
 }
 
+// HasListFields reports whether this snapshot needs list-value support.
+func (s *GameState) HasListFields() bool {
+	if s != nil {
+		for _, value := range s.Fields {
+			if _, ok := value.([]any); ok {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // GameEvent IDs identify retries of the same event within one server's history.
 type GameEvent struct {
 	ID          string          `json:"id"`
@@ -116,7 +129,7 @@ func (p GamePublication) Validate() error {
 			return errors.New("invalid player count or capacity")
 		}
 
-		if !validGameFields(s.Fields) {
+		if !validGameFields(s.Fields, true) {
 			return errors.New("invalid state fields")
 		}
 
@@ -126,7 +139,7 @@ func (p GamePublication) Validate() error {
 	}
 
 	if e := p.Event; e != nil {
-		if len(e.ID) < 1 || len(e.ID) > 128 || !ValidGameEventType(e.Type) || e.OccurredAt.IsZero() || len(e.Title) < 1 || len(e.Title) > 256 || !validGameFields(e.Data) {
+		if len(e.ID) < 1 || len(e.ID) > 128 || !ValidGameEventType(e.Type) || e.OccurredAt.IsZero() || len(e.Title) < 1 || len(e.Title) > 256 || !validGameFields(e.Data, false) {
 			return errors.New("invalid game event")
 		}
 
@@ -143,7 +156,7 @@ func (p GamePublication) Validate() error {
 	return nil
 }
 
-func validGameFields(fields map[string]any) bool {
+func validGameFields(fields map[string]any, allowLists bool) bool {
 	if len(fields) > limits.GameFields {
 		return false
 	}
@@ -153,20 +166,33 @@ func validGameFields(fields map[string]any) bool {
 			return false
 		}
 
-		switch v := value.(type) {
-		case string:
-			if len(v) > limits.GameFieldStringLength {
+		if list, ok := value.([]any); ok {
+			if !allowLists || list == nil || len(list) > limits.GameFieldListItems {
 				return false
 			}
-		case float64:
-			if math.IsNaN(v) || math.IsInf(v, 0) {
-				return false
+
+			for _, item := range list {
+				if !validGameScalar(item) {
+					return false
+				}
 			}
-		case bool:
-		default:
+		} else if !validGameScalar(value) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func validGameScalar(value any) bool {
+	switch v := value.(type) {
+	case string:
+		return len(v) <= limits.GameFieldStringLength
+	case float64:
+		return !math.IsNaN(v) && !math.IsInf(v, 0)
+	case bool:
+		return true
+	default:
+		return false
+	}
 }

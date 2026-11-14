@@ -1646,6 +1646,7 @@
     "players": "Players",
     "capacity": "Capacity",
     "playersWithCapacity": "{{players}} / {{capacity}}",
+    "emptyList": "None",
     "yes": "Yes",
     "no": "No",
     "unavailable": "Game data unavailable",
