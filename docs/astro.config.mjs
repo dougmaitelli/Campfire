@@ -6,6 +6,7 @@ export default defineConfig({
   base: "/Campfire",
   srcDir: ".",
   outDir: "./dist",
+  redirects: { "/console": "/Campfire/servers/#console" },
   integrations: [
     starlight({
       title: "Campfire",
@@ -49,11 +50,12 @@ export default defineConfig({
           label: "Managing games",
           items: [
             { label: "Sparks", slug: "spark-agent" },
-            { label: "Embers and Egg imports", slug: "egg-compatibility" },
-            { label: "Console", slug: "console" },
+            { label: "Embers", slug: "embers" },
+            { label: "Servers", slug: "servers" },
             { label: "Files and SFTP", slug: "server-files" },
             { label: "Schedules", slug: "schedules" },
             { label: "Backups", slug: "server-backups" },
+            { label: "Copies and transfers", slug: "server-transfers" },
           ],
         },
         {
@@ -66,9 +68,10 @@ export default defineConfig({
         {
           label: "Development",
           items: [
-            { label: "Local development", slug: "development" },
-            { label: "Game integrations", slug: "game-integrations" },
             { label: "Architecture", slug: "architecture" },
+            { label: "Local development", slug: "development" },
+            { label: "Ember schema", slug: "ember-schema" },
+            { label: "Game integrations", slug: "game-integrations" },
           ],
         },
       ],

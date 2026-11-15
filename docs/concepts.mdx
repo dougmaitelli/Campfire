@@ -3,6 +3,8 @@ title: How Campfire works
 description: Understand the relationship between the Campfire panel, Spark game hosts, Ember game definitions, and game servers.
 ---
 
+import { Aside } from "@astrojs/starlight/components";
+
 Campfire manages games through a central panel, agents on your game hosts, and
 reusable game definitions. The names below appear in the interface and throughout
 these guides.
@@ -48,7 +50,7 @@ including servers on different Sparks. Importing an Ember adds the definition to
 Campfire; creating and installing a server from it is a separate step.
 
 You can import native Embers or convert supported Pterodactyl and Pelican Eggs.
-See [importing game definitions](/Campfire/egg-compatibility/).
+See [importing game definitions](/Campfire/embers/).
 
 ## Servers: the games you run
 
@@ -66,7 +68,7 @@ Two servers can share a Spark and an Ember while keeping separate worlds,
 settings, and game ports. Players connect directly to the game ports on the
 hosting Spark, while you manage the servers through Campfire.
 
-## An example: two Minecraft worlds
+<Aside type="note" title="Example: two Minecraft worlds">
 
 Suppose you want a survival world and a creative world for your friends:
 
@@ -81,6 +83,8 @@ Suppose you want a survival world and a creative world for your friends:
 You now have **one Campfire panel, one Spark, one Ember, and two servers**. Adding
 another game host means adding a Spark; adding another world means creating a
 server.
+
+</Aside>
 
 ## Choose how to install
 

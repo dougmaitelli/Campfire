@@ -18,6 +18,19 @@ func TestHistoryRetentionConfiguration(t *testing.T) {
 		t.Fatal("independent retention values lost", config, err)
 	}
 
+	for _, days := range []string{"90", "0"} {
+		config, err := parseHistoryRetention(days, days)
+		if err != nil {
+			t.Fatalf("retention %s rejected: %v", days, err)
+		}
+		if days == "90" && (config.AuditDays != 90 || config.OperationDays != 90) {
+			t.Fatal("90-day retention values lost", config)
+		}
+		if days == "0" && (config.AuditDays != 0 || config.OperationDays != 0) {
+			t.Fatal("explicit unlimited retention values lost", config)
+		}
+	}
+
 	t.Setenv(settings.CampfireAuditRetentionDays.EnvironmentName, "invalid")
 
 	if err := Run(t.Context(), []string{"--" + settings.CampfireListen.FlagName, "127.0.0.1:0"}); err == nil {

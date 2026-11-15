@@ -21,6 +21,30 @@ The schedule runs with its owner's current access. Keep the account enabled and
 the required server permissions in place. The panel must be running to dispatch
 scheduled work, and the Spark must be available to execute it.
 
+### Cron syntax
+
+Recurring schedules use five fields, with no seconds field:
+
+```text
+minute  hour  day-of-month  month  day-of-week
+0–59    0–23  1–31          1–12   0–6 (Sunday = 0)
+```
+
+Use `*` for every value, commas for lists, hyphens for ranges, and `/` for steps.
+Month and weekday names such as `JAN` and `MON` are also accepted. Choose the time
+zone separately; do not put it inside the expression. Shortcuts such as `@daily`
+and six-field expressions are not supported.
+
+| Expression         | Runs                                         |
+| ------------------ | -------------------------------------------- |
+| `0 4 * * *`        | Every day at 04:00 in the selected time zone |
+| `*/30 * * * *`     | Every hour at minutes 00 and 30              |
+| `0 18 * * MON-FRI` | Weekdays at 18:00 in the selected time zone  |
+
+When both day-of-month and day-of-week are restricted, either can match. Use `*`
+for the day field you do not intend to restrict. Review the displayed next run
+after saving, especially for times affected by daylight saving changes.
+
 ## Check the result
 
 Open a schedule from its row to view its settings and execution history. The
@@ -35,12 +59,9 @@ underlying action's permission. The same grants are required to retry a schedule
 execution. Jobs created or enabled through an API token retain its scope limit
 and recheck the account's current access before dispatch.
 
-Backup schedules run live by default. Select **Stop server during backup** to
-stop a running server before creating the backup and start it again afterwards.
-A server that was already stopped remains stopped. Spark attempts the restart
-even if backup creation fails; inspect execution history for the final result.
-Each backup schedule selects **Full server** or **Save data only**. Save-data mode
-is available only when the server's applied Ember declares `savedata_paths`.
-If those declarations are later removed, a save-data schedule fails with an error;
-it never silently creates a full backup instead. Existing schedules use full mode.
-See [backups](/Campfire/server-backups/) for restoration and off-host storage.
+For backup schedules, choose **Full server** or **Save data only**, and optionally
+**Stop server during backup**. See [backup types](/Campfire/server-backups/#choose-a-backup-type)
+and [scheduled backup behavior](/Campfire/server-backups/#scheduled-backups)
+for save-data requirements, consistency, and stop/restart handling. If an Ember's
+save-data declarations are removed, a save-data schedule fails rather than
+silently switching to a full backup.

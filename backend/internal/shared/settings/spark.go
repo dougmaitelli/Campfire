@@ -8,7 +8,7 @@ var (
 	SparkData             = cliutil.Setting{FlagName: "data", EnvironmentName: "SPARK_DATA"}
 	SparkCAFile           = cliutil.Setting{FlagName: "ca-file", EnvironmentName: "SPARK_CA_FILE"}
 	SparkTokenFile        = cliutil.Setting{FlagName: "token-file", EnvironmentName: "SPARK_TOKEN_FILE"}
-	SparkEnrollmentToken  = cliutil.Setting{EnvironmentName: "CAMPFIRE_ENROLLMENT_TOKEN"}
+	SparkEnrollmentToken  = cliutil.Setting{EnvironmentName: "SPARK_ENROLLMENT_TOKEN"}
 	SparkUpdateInfo       = cliutil.Setting{FlagName: "update-info"}
 	SparkEnrollOnly       = cliutil.Setting{FlagName: "enroll-only"}
 	SparkGameIntegrations = cliutil.Setting{FlagName: "game-integrations"}

@@ -84,8 +84,8 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	tlsCert := settings.CampfireAgentTLSCert.String(flags, "", "agent HTTPS certificate")
 	tlsKey := settings.CampfireAgentTLSKey.String(flags, "", "agent HTTPS private key")
 	version := flags.Bool(settings.Version.FlagName, false, "print release version and exit")
-	auditRetention := settings.CampfireAuditRetentionDays.String(flags, "0", "audit record age limit in days; 0 keeps forever")
-	operationRetention := settings.CampfireOperationRetentionDays.String(flags, "0", "completed operation history age limit in days; 0 keeps forever")
+	auditRetention := settings.CampfireAuditRetentionDays.String(flags, "90", "audit record age limit in days; 0 keeps forever")
+	operationRetention := settings.CampfireOperationRetentionDays.String(flags, "90", "completed operation history age limit in days; 0 keeps forever")
 	gameEventRetention := settings.CampfireGameEventRetentionDays.String(flags, strconv.Itoa(int(limits.DefaultGameEventRetention/(24*time.Hour))), "game event retention in days, 1–3650")
 	gameEventLimit := settings.CampfireGameEventLimit.String(flags, strconv.Itoa(limits.DefaultGameEventLimit), "retained game events per server, 1–100000")
 

@@ -9,9 +9,8 @@ Spark's private metadata.
 
 Browsing and downloading require `server.files.read`. Editing, uploads, moving,
 archives, and chmod require `server.files.write`; deletion requires
-`server.files.delete`. File reading is a child of `server.operate`, so all file
-grants also include power controls and console reading. The role editor selects
-their ancestor permissions automatically.
+`server.files.delete`. See the [permission hierarchy](/Campfire/authentication/#permission-hierarchy)
+for prerequisite grants.
 
 Browsing, downloads, and file changes work while a game is running, starting,
 stopping, or restarting, including a force-stop. Stopping the game before changing
@@ -19,9 +18,6 @@ files is recommended to avoid conflicts with the game's own writes. Installation
 updates, reinstalls, backups/restores, deletion, and transfers can still restrict
 file access. Text edits check the file revision: reload a changed file before
 saving again.
-
-This requires an up-to-date Spark. Older Sparks may still block file access during
-power operations.
 
 ## Paths and the server data root
 
@@ -34,36 +30,24 @@ Paths always start at this data root. For example, `/config/fabric/` is a folder
 and `/config/fabric/settings.json` is a file. A move destination has the same
 meaning regardless of which folder you are viewing.
 
-The file HTTP API (`/api/v1/servers/{id}/files` and `/files/download`) uses this
-same namespace for `path`, archive `paths`, and `destination`. Listing responses
-return rooted directory paths ending in `/`. Relative request paths remain
-accepted for existing clients and are normalized at the API boundary. Parent
-traversal (`..`), backslashes, and control characters are rejected; Spark still
-enforces its existing file containment and symbolic-link restrictions.
-
-## Transfers and archives
+## Uploads
 
 The browser displays the configured upload limit. Its default is 1024 MiB per
 file; operators can change `CAMPFIRE_MAX_UPLOAD_MIB` on the panel. The text editor
 has a separate 1 MiB limit. Uploads show progress and can be cancelled.
 
-Choose **Upload Files** or drag files from your computer onto the file browser.
-A **Release to upload** overlay identifies the destination folder. Uploads require file writing access;
-folder drops are unsupported, and existing files are not overwritten.
+Choose **Upload Files** or drag files onto the file browser to upload into the
+open folder. Folder drops are unsupported, and existing files are not overwritten.
+**Cancel upload** stops the current file and remaining queue; completed uploads
+are kept.
 
-The progress bar shows the bytes transferred across the selected files, the
-current filename, and its position in the queue. **Cancel upload** stops the
-current file and the remaining queue; files already uploaded are kept. The file
-list refreshes when the upload finishes or is cancelled.
+## Archives
 
 Use **Compress** to create a `.tar.gz` archive. **Extract** accepts `.zip`,
 `.tar.gz`, `.tgz`, and `.rar` and requires a new destination folder. RAR support
 includes single-volume, unencrypted RAR 4 and RAR 5 archives, with decoder
 dictionaries up to 128 MiB. Split and password-protected RAR archives are unsupported.
-While extraction runs, the dialog displays an indeterminate progress bar; it
-does not report a percentage or time remaining. Stopping the game
-first is recommended to avoid concurrent changes during compression or
-extraction. Leave enough disk space for the original files and the archive or
+Stop the game first to avoid concurrent changes during compression or extraction. Leave enough disk space for the original files and the archive or
 extracted copy. Archives do not merge into an existing destination.
 
 Extraction assigns files and folders to the server's runtime user and replaces
@@ -71,6 +55,8 @@ archive permissions with private, writable defaults: `0600` for files and `0700`
 for directories. Executable files receive `0700`; group, other, and special
 permission bits are discarded. ZIP files created on some platforms do not record
 executable permissions.
+
+## Permissions
 
 Select files or folders and choose **Permissions** to apply an octal mode to all
 selected items.
@@ -86,8 +72,7 @@ publish that TCP port separately from HTTP. Connect to the panel's SFTP address,
 use the server ID shown in **Files** as the username, and use a personal API
 token as the password. Verify the panel's SSH host-key fingerprint in your client.
 
-The account and token need `server.files.read` and its ancestors, including
-`server.operate`, console reading, and server viewing. Add
+The account and token need `server.files.read` and its prerequisites. Add
 `server.files.write` for uploads and file changes, and `server.files.delete` for
 deletion. SFTP exposes only that server's game files and checks current access on
 each operation. Shell access, forwarding, upload resume, and in-place editing are

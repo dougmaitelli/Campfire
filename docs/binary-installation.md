@@ -2,7 +2,10 @@
 title: Linux binary installation
 ---
 
-Download the release archive for Linux amd64 or arm64 and its companion checksum file. From the download directory, replace `VERSION` and `ARCH` below with the downloaded values:
+Download the Linux amd64 or arm64 archive and its companion checksum file from
+[GitHub Releases](https://github.com/dougmaitelli/Campfire/releases).
+From the download directory, replace `VERSION` and `ARCH` below with the
+downloaded values:
 
 ```sh
 sha256sum -c campfire_VERSION_linux_ARCH.tar.gz.sha256
@@ -21,7 +24,9 @@ sudo install -m 0600 campfire.env.example /etc/campfire/campfire.env
 sudo install -m 0644 deploy/systemd/campfire.service /etc/systemd/system/
 ```
 
-Edit `/etc/campfire/campfire.env` to set `CAMPFIRE_PUBLIC_URL` to your HTTPS origin. Configure the reverse proxy and agent connectivity as described in the Docker setup, then start the panel:
+Edit `/etc/campfire/campfire.env` to set `CAMPFIRE_PUBLIC_URL` to your HTTPS origin.
+Configure the [reverse proxy and agent connectivity](/Campfire/getting-started/#networking),
+then start the panel:
 
 ```sh
 sudo systemctl daemon-reload
@@ -29,4 +34,4 @@ sudo systemctl enable --now campfire
 sudo journalctl -u campfire -b
 ```
 
-Use the setup token from the journal to create the first administrator. The service persists state in `/var/lib/campfire` and listens for browser traffic at `127.0.0.1:8080`. Continue with [adding a game host](/Campfire/spark-agent/).
+Use the setup token from the journal to create the first administrator. The service persists state in `/var/lib/campfire` and listens for browser traffic at `127.0.0.1:8080`. Continue with [adding a Spark](/Campfire/spark-agent/).

@@ -3,337 +3,175 @@ title: Game integrations
 description: Build game mods and adapters that publish state, events, screenshots, and clips through Spark.
 ---
 
-This guide describes the version 1 publishing API for game mods, plugins, and
-adapters. A publisher sends HTTP requests to its game's local Spark Unix socket.
-Spark supplies the server identity and forwards the data to Campfire. Your mod
-does not connect to the panel directly, implement the Spark protocol, or receive
-panel API tokens or Spark certificates.
+Game mods, plugins, and adapters publish through a private Spark Unix socket in
+the game container. Spark supplies the server identity and forwards publications
+to Campfire. Publishers do not need panel API tokens, Spark certificates, or a
+public network endpoint.
 
-State publications appear in the overview, server list, and server operations
-page. Campfire keeps only the latest snapshot per server in memory. There are no
-game-state charts or history, and a Campfire restart clears these snapshots.
-Events are durably retained in the database and appear in each server's
-**Activity** tab, with optional screenshots and clips. Choose **Game events** to
-focus on publications, or open an event to see its generated notifications.
-[Discord subscriptions](/Campfire/discord/) can forward matching publications
-and media to selected channels.
+Current state appears in server readings; events and media appear in
+**Activity → Game events**. [Discord destinations](/Campfire/discord/) can forward
+matching events and media and display selected state fields on live cards.
 
 ## Use a game integration
 
-For server operators, the publishing API below is normally handled by a compatible
-mod or adapter, not by commands you need to run yourself.
+For server operators, a compatible mod handles the publishing API described below.
 
-1. Install a compatible publisher using its own installation instructions. The
+1. Install a publisher using its own instructions. The
    [Campfire Valheim plugin](https://github.com/dougmaitelli/campfire-plugin-valheim)
-   is one available integration; check its requirements and privacy settings
-   before enabling player-name reporting.
-2. In Campfire, open **More server actions → Edit server**, enable **Enable game
-   integration**, and save the server.
-3. Restart the game through Campfire so its container receives the private Spark
-   socket. The mod discovers that socket automatically; it does not need a panel
-   API token or an exposed network port.
-4. Check the overview, server list, or server page for current state. Open
-   **Activity → Game events** for retained events and any screenshots or clips
-   published by the integration. Available fields and events depend on the mod.
-5. Optionally configure a [Discord destination](../discord/). Select the game
-   fields to show on its live card and the event subscriptions to forward.
-   Enabling game publishing alone does not send anything to Discord.
+   is one available integration; review its requirements and privacy settings.
+2. Open **More server actions → Edit server**, enable **Enable game integration**,
+   and save.
+3. Restart the game through Campfire so its container receives the private socket.
+4. Check server readings and **Activity → Game events**. Available fields and
+   events depend on the mod.
+5. Optionally configure a [Discord destination](/Campfire/discord/). Enabling
+   publishing alone does not send data to Discord.
 
-If state is missing, check that both Campfire and Spark are current, the feature
-is enabled, the game was restarted, and the publisher loaded successfully. State
-is a live snapshot, not history; unavailable or expired values do not mean zero
-players. Check the mod's logs and documentation for publication failures.
+If data is missing, check the feature setting, container restart, mod logs, and
+Spark connection. Expired or unavailable state does not mean zero players.
 
-## Communication model
+## Connect and register
 
-```text
-Game mod or adapter
-    |
-    | HTTP over its private Unix socket
-    v
-Spark on the game host
-    |-- registration/state/events --> existing client-certificate-authenticated WebSocket
-    `-- media --------> HTTPS with the same Spark client identity
-                             |
-                             v
-                    Campfire agent listener
-                        |-- state --> latest snapshot in memory
-                        |-- events/media --> panel database
-                        `-- authorized panel API --> browser or API client
-```
+### Socket discovery
 
-For JSON publications, Spark checks the payload and local server configuration,
-adds the server ID, and sends a `game.publish` message over its existing panel
-connection. Campfire verifies that this Spark still hosts the server and that
-game integration is enabled. Its `game.ack` response confirms either snapshot
-ingestion or a committed event transaction. Spark handles these messages and
-their correlation IDs; they are not part of the mod's HTTP API.
+At startup, read `CAMPFIRE_GAME_SOCKET`. If absent, leave the integration inactive
+rather than failing the game. Use an HTTP client supporting `AF_UNIX` stream
+sockets, or an adapter process in the same container. No Campfire SDK is required.
 
-The local acknowledgement depends on what you send:
+Use the supplied socket path exactly. After a Spark restart, reconnect to that
+path if an existing connection fails. The hostname in `http://spark/v1/publish`
+is only an HTTP host value: requests travel through the socket, not DNS or TCP.
+Do not send them to the panel's public URL or `/api/v1` endpoints.
 
-| Publication  | Local success    | What success guarantees                                                            |
-| ------------ | ---------------- | ---------------------------------------------------------------------------------- |
-| Registration | `204 No Content` | Campfire durably stored the label definitions.                                     |
-| State        | `204 No Content` | Campfire accepted this complete snapshot into memory.                              |
-| Event        | `202 Accepted`   | Spark persisted the event in its local queue; panel delivery may still be pending. |
-| Media        | `204 No Content` | Campfire committed the attachment's metadata and bytes.                            |
+| Method and path                                   | Request                          | Success                                                                             |
+| ------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| `PUT /v1/registration`                            | Label-registration JSON envelope | `204`: definitions durably stored in Campfire                                       |
+| `POST /v1/publish`                                | One state or event JSON envelope | State: `204`, snapshot accepted in memory; event: `202`, persisted in Spark's queue |
+| `GET /v1/events/queue`                            | No body                          | `200` with queue-status JSON                                                        |
+| `PUT /v1/events/{event_id}/media/{attachment_id}` | Raw bytes and media headers      | `204`: attachment committed in Campfire                                             |
 
-State is not queued while disconnected. Events can queue while the panel is
-unreachable, subject to capacity and lifetime limits. Media is streamed directly
-and must be retried by the producer if interrupted.
+Success responses other than queue status have no body. Errors are plain text;
+use HTTP status and `Retry-After`, not error wording, to decide how to recover.
 
-## Mod startup and endpoint discovery
+### Startup registration and labels
 
-The integration needs an HTTP client that can connect to an `AF_UNIX` stream
-socket. A mod can use its runtime's Unix-socket support or delegate publishing to
-an adapter process inside the same game container. No Campfire-specific SDK is
-required.
-
-At startup, read `CAMPFIRE_GAME_SOCKET`. When it is absent, leave the integration
-inactive rather than failing the game server. When it is present, use that exact
-path; do not derive host paths, server IDs, or the panel address. After a Spark
-restart, an existing connection may fail even though the socket path is unchanged.
-Reconnect to the path on the next attempt.
-
-The hostname in examples such as `http://spark/v1/publish` is just an HTTP host
-value. The connection goes through the configured socket, not DNS or TCP. Do not
-send these requests to the panel's public URL or its `/api/v1` endpoints.
-
-The publisher interface has four routes:
-
-| Method and path                                   | Request                                | Success response                              |
-| ------------------------------------------------- | -------------------------------------- | --------------------------------------------- |
-| `PUT /v1/registration`                            | Label-registration envelope            | Empty `204`                                   |
-| `POST /v1/publish`                                | One JSON state or event envelope       | Empty `204` for state; empty `202` for events |
-| `GET /v1/events/queue`                            | No body                                | `200` with queue-status JSON                  |
-| `PUT /v1/events/{event_id}/media/{attachment_id}` | Raw attachment bytes and media headers | Empty `204`                                   |
-
-Use `Content-Type: application/json` for publications. Media requires its exact
-supported MIME type. Publication errors are plain text; do not assume a JSON
-error body or parse error wording as a stable error code. Use the HTTP status and
-`Retry-After` header to decide what to do next.
-
-## Enable publishing
-
-In the dashboard, edit a game server and select **Enable game integration**.
-Publishing is disabled by default for each server. Spark automatically advertises
-support as `server.game-integration.v1`; no host flag or environment variable is
-required. Durable event delivery additionally negotiates `server.game-events.v1`.
-An older Campfire can still receive supported state snapshots, but Spark will not
-send queued events through the older, non-durable ingestion contract.
-
-The local `/v1` API and JSON `version` are separate from the Spark wire-protocol
-version. Spark and Campfire negotiate support themselves:
-
-| Capability                    | Contract                                                                     |
-| ----------------------------- | ---------------------------------------------------------------------------- |
-| `server.game-integration.v1`  | State and event publication transport                                        |
-| `server.game-events.v1`       | Persistent event queues and panel acknowledgements after database commit     |
-| `server.game-media.v1`        | Separate authenticated media uploads                                         |
-| `server.game-registration.v1` | Persistent startup label registration with revision-checked acknowledgements |
-| `server.game-state-lists.v1`  | Flat list values in custom active-state fields                               |
-
-A connected panel without durable event support causes event publication to
-return `503`. Media and registration also return `503` when their support was not negotiated. A
-successful socket connection alone does not establish that every publication
-type is supported.
-
-Start or restart the game server through Campfire after enabling the feature.
-Newly created game containers receive:
-
-- A read-only bind mount at `/run/campfire-game` containing `publish.sock`.
-- `CAMPFIRE_GAME_SOCKET=/run/campfire-game/publish.sock` in their environment.
-
-The directory mount is read-only; connecting to the socket and publishing through
-its HTTP API is still allowed.
-
-Existing running containers need recreation through a server restart to gain the
-mount. Spark recreates listeners for saved server configurations after its own
-restart; directory mounts allow containers to reconnect to the replacement socket.
-Disabling publishing revokes access when Spark receives the updated configuration
-and removes the listener. Restart the game server to remove its container mount.
-
-Keep Spark's data directory private and on the same host filesystem visible to
-Docker, as with existing game-data mounts. Use a short absolute `--data` path:
-Unix socket paths are OS-limited (typically 107 bytes on Linux), and startup fails
-if an endpoint path is too long. Endpoint subdirectories use hashed server IDs.
-
-Each game sees only its own socket directory. Socket permissions accommodate
-arbitrary game UIDs; the private host parent and isolated read-only container
-mount provide access control. No network listener, public port, game API token,
-or Spark identity credential is exposed. Host administrators can access sockets.
-Every request also checks the saved local configuration, and Campfire checks
-authoritative placement, rejecting deleted or reassigned servers.
-
-## JSON envelope and payload schemas
-
-Send `POST /v1/publish` over the Unix socket with a version 1 JSON object containing
-exactly one `state` or `event`. Do not include a server ID: the socket determines it.
-
-| Property  | Required            | Type and meaning                       |
-| --------- | ------------------- | -------------------------------------- |
-| `version` | Yes                 | Integer `1`                            |
-| `state`   | Exactly one payload | Complete state object, described below |
-| `event`   | Exactly one payload | Event object, described below          |
-
-Do not batch multiple envelopes, send newline-delimited JSON, or include both
-payloads in one request. The raw JSON request must fit within 16 KiB, including
-whitespace. Unknown envelope, state, and event properties are rejected. Put custom
-values inside `state.fields` or `event.data`.
-
-### Startup registration
-
-Before publishing data, register the integration's label definitions with
-`PUT /v1/registration` over the same private socket. Registration is explicit,
-not an ordinary "integration started" game event, and creates no activity entry.
-
-```sh
-curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
-  --include --max-time 12 \
-  -X PUT -H 'Content-Type: application/json' \
-  --data '{"version":1,"registration":{"revision":1,"state_fields":{"game_mode":"Game mode"},"event_fields":{"game.announcement":{"world":"World name","message":"Message","mod_version":"Mod version"}}}}' \
-  http://spark/v1/registration
-```
-
-- `revision` is a positive, monotonically increasing integer, at most
-  `9007199254740991`. Repeating identical definitions at the same revision is
-  idempotent. Changed definitions require a higher revision; stale revisions or
-  reusing a revision with different definitions return `409`.
-- `state_fields` maps state field keys to labels. `event_fields` maps event types
-  to their field-label maps. Both are optional; omitted definitions are removed
-  when a newer registration replaces the manifest. An empty manifest is valid.
-- Each label map has at most 32 fields, and a manifest has at most 32 event types.
-  Field keys, event types, and labels use the limits described below. The entire
-  envelope must fit within 16 KiB. Registration contains no field values, so
-  fields can be declared before they appear in any state update or event.
-- Wait for `204` before publishing data. `503` means registration has not been
-  acknowledged; retry the same manifest with bounded backoff. Registration is
-  not queued offline. Never fall back to claiming successful registration.
-- Definitions persist in Campfire across Spark reconnects and panel restarts.
-  Register again at adapter startup; no repeated registration or label metadata
-  is needed on individual publications. Deleting the server removes its manifest.
-- Registration is authoritative. Inline labels from old or queued publications
-  cannot override it. Fields without registered labels display their raw keys.
-  Registered labels survive event retention, and a newer registration can rename
-  fields in retained history without requiring a new event.
-- Upgrade both Spark and Campfire before registering. The new
-  `server.game-registration.v1` capability must be negotiated. Older publishers
-  may continue publishing without registration using the legacy behavior below.
-
-After registration, send only field keys and values in snapshots and events.
-
-### State snapshots
-
-```sh
-curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
-  --include --max-time 12 \
-  -H 'Content-Type: application/json' \
-  --data '{"version":1,"state":{"players":3,"capacity":20,"fields":{"game_mode":"survival"}}}' \
-  http://spark/v1/publish
-```
-
-State is a complete replacement snapshot. Omitted fields clear previous values
-in the dashboard. `players` and `capacity` are optional integers
-between 0 and 1,000,000. `fields` is an optional map for game-specific scalar
-or flat-list values, such as `map`, `game_mode`, or `player_names`. An empty
-`state` object is valid.
-
-| State property | Required | Type and limits                           |
-| -------------- | -------- | ----------------------------------------- |
-| `players`      | No       | Integer from `0` to `1000000`             |
-| `capacity`     | No       | Integer from `0` to `1000000`             |
-| `fields`       | No       | Up to 32 named scalar or flat-list values |
-| `field_labels` | No       | Optional key-to-label map for `fields`    |
-
-For example, `{"version":1,"state":{}}` clears the previously published snapshot.
-An omitted player count means unknown; use `0` only when you know there are no
-players. State has no producer timestamp or event ID. Campfire records when it
-receives the snapshot.
-
-### Events
-
-Save the following object as `event.json` for the request below. In a real mod,
-generate the event ID and occurrence timestamp once when the event happens.
+Before publishing, register field labels with `PUT /v1/registration` and
+`Content-Type: application/json`. Registration creates no Activity entry.
 
 ```json
 {
   "version": 1,
-  "event": {
-    "id": "announcement-unique-id",
-    "type": "game.announcement",
-    "occurred_at": "2026-10-24T00:00:00Z",
-    "title": "A new adventure begins",
-    "data": { "world": "survival" }
+  "registration": {
+    "revision": 1,
+    "state_fields": {
+      "game_mode": "Game mode",
+      "player_names": "Online players"
+    },
+    "event_fields": {
+      "player.joined": { "player": "Player name" }
+    }
   }
 }
 ```
 
+Save this as `registration.json` and send it from the game container:
+
 ```sh
 curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
-  --include --max-time 12 \
-  -H 'Content-Type: application/json' \
-  --data-binary @event.json \
-  http://spark/v1/publish
+  --include --max-time 12 --request PUT \
+  --header 'Content-Type: application/json' \
+  --data-binary @registration.json \
+  http://spark/v1/registration
 ```
 
-| Event property | Required | Type and limits                                                   |
-| -------------- | -------- | ----------------------------------------------------------------- |
-| `id`           | Yes      | String, 1–128 bytes; unique within this server's retained history |
-| `type`         | Yes      | Name matching the pattern below; namespacing is recommended       |
-| `occurred_at`  | Yes      | Nonzero RFC 3339 timestamp; UTC with `Z` is recommended           |
-| `title`        | Yes      | String, 1–256 bytes                                               |
-| `data`         | No       | Up to 32 named scalar values                                      |
-| `field_labels` | No       | Optional key-to-label map for `data`                              |
+| Property                    | Rules                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `version`                   | Integer `1`                                                                                    |
+| `registration.revision`     | Positive, monotonically increasing integer, at most `9007199254740991`                         |
+| `registration.state_fields` | Optional map of state field keys to labels; at most 32 entries                                 |
+| `registration.event_fields` | Optional map of event types to field-label maps; at most 32 event types and 32 fields per type |
 
-Event IDs must stay the same across retries. Campfire deduplicates them per server
-within retained history; the first stored payload wins. Reusing a queued ID with
-different content returns HTTP 409. Use a new ID for each distinct event.
+Field keys and event types follow the [field-name rules](#field-types-and-limits).
+Labels are nonempty UTF-8 strings of at most 128 bytes, without control characters
+or leading/trailing whitespace. They are plain text, not HTML. The envelope must
+fit within 16 KiB. Registration defines labels, not values, so fields can be
+registered before they are published.
 
-A UUID string is a suitable ID. Keep the entire envelope unchanged across retries,
-including `occurred_at`, `title`, `data`, and `field_labels`; generating a new timestamp during a
-retry changes the queued event. Two different servers may use the same event ID.
-The ID is not a global identity or an authorization token.
+Repeating identical definitions at the same revision is idempotent. Changed
+definitions require a higher revision; a stale revision or different definitions
+at the same revision return `409`. A newer manifest replaces all definitions:
+omitted definitions are removed, and an empty manifest is valid.
 
-Event types are supplied by the integration. Examples include `player.joined`,
-`player.left`, and `game.announcement`; game-specific names such as
-`valheim.boss_defeated` are also valid. Campfire does not require rounds, matches,
-or any particular game model, and it does not translate an event type into a game
-command.
+Wait for `204` before publishing. Registration is not queued offline; retry `503`
+with bounded backoff. Register at each adapter startup. Definitions persist across
+panel and Spark restarts until replaced or the server is deleted.
 
-### Custom fields
+Registered labels are authoritative; publications need only field keys and values.
+Unregistered keys display exactly as supplied. Labels do not change filter or
+card-selection identities. Updated registrations can rename fields in retained
+history, but do not rewrite messages already sent to Discord. Campfire supplies
+its own labels for built-in `players` and `capacity`.
 
-Field names and event types start with a lowercase ASCII letter and contain only
-lowercase letters, digits, underscores, dots, or hyphens, up to 64 bytes. Each
-map permits at most 32 entries. Scalar values are strings (up to 1,024 UTF-8 bytes),
-finite JSON numbers, or booleans. `state.fields` also accepts flat lists of up to
-64 scalar values per field; each list element has the same scalar limits.
-Empty lists and mixed scalar types are allowed. Objects, nested lists, and null
-values (including null list elements) are rejected. `event.data` remains scalar-only:
-event discovery and filters do not accept lists.
+#### Inline-label compatibility
 
-The name pattern is `^[a-z][a-z0-9_.-]{0,63}$`. Length limits are byte limits,
-not counts of displayed characters. Use strings for opaque IDs and exact large
-integers; JSON numbers are decoded as floating-point values. The existing 16 KiB
-limit still applies to the entire publication, including all list elements and
-labels. For larger collections, publish a bounded summary rather than an
-unbounded list.
+Publishers without registration may send `state.field_labels` or
+`event.field_labels`, mapping keys to labels using the same label limits. Each
+labeled key must exist in that publication's `fields` or `data`. Registered
+servers ignore inline labels in favor of their manifest.
 
-Valid scalar fields look like:
+Without registration, state labels must be repeated in each complete snapshot;
+omitted labels fall back to the key. Event labels update a persistent dictionary
+per server, event type, and field key. An omitted event label preserves the known
+label; publishing the key as its label resets its display text. Replaying an
+existing event ID does not update labels. Retention cleanup removes unused event
+label definitions.
 
-```json
-{
-  "map": "world",
-  "pvp": true,
-  "day": 42
-}
-```
+Activity filters retain keys as identity. When multiple event types disagree on
+a field label, discovery falls back to the key. Without retained events containing
+a field, it disappears from discovery. Prefer registration for new publishers.
 
-This map belongs inside `state.fields` or `event.data`; it is not a publication
-envelope by itself.
+### Host setup and capabilities
 
-### Lists in active server state
+Publishing is opt-in per server. After enabling it, a restart through Campfire
+adds a read-only directory mount at `/run/campfire-game` and sets
+`CAMPFIRE_GAME_SOCKET=/run/campfire-game/publish.sock`. The read-only mount permits
+socket connections; it does not expose host files or Spark credentials. Disabling
+publishing revokes access when Spark receives the configuration. Restart the game
+to remove the mount.
 
-Publish a current player list as a custom field, for example:
+Spark recreates listeners after its own restart. Keep its data directory private,
+on the host filesystem visible to Docker, and use a short absolute `--data` path:
+Linux Unix-socket paths are typically limited to 107 bytes. Host administrators
+can access the sockets. Requests are checked against local configuration and
+Campfire's authoritative server placement.
+
+The local API version is separate from capabilities negotiated between Spark and
+Campfire. A socket connection alone does not guarantee every operation is supported.
+
+| Capability                    | Required for                                              |
+| ----------------------------- | --------------------------------------------------------- |
+| `server.game-integration.v1`  | Base state and event transport                            |
+| `server.game-registration.v1` | Revision-checked label registration                       |
+| `server.game-state-lists.v1`  | Flat-list state fields                                    |
+| `server.game-events.v1`       | Durable event queues and committed panel acknowledgements |
+| `server.game-media.v1`        | Media uploads                                             |
+
+Keep both Spark and Campfire compatible with the features your publisher uses.
+Unsupported registration, durable events, or media return `503`. A Spark that
+supports lists returns `503` if Campfire does not; a Spark without list support
+rejects them with `400`. Publishers without these features can continue using
+supported scalar state and inline labels. Spark versions that do not recognize
+inline-label properties reject them.
+
+## Publish data
+
+Send `POST /v1/publish` with `Content-Type: application/json` and a version 1
+JSON envelope containing exactly one `state` or `event`. The socket determines
+the server: do not include a server ID. Do not batch envelopes or send
+newline-delimited JSON. Unknown envelope, state, and event properties are rejected;
+custom values belong in `state.fields` or `event.data`.
+
+### State snapshots
 
 ```json
 {
@@ -341,152 +179,176 @@ Publish a current player list as a custom field, for example:
   "state": {
     "players": 2,
     "capacity": 20,
-    "fields": { "player_names": ["Alex", "Sam"] }
+    "fields": {
+      "game_mode": "survival",
+      "player_names": ["Alex", "Sam"]
+    }
   }
 }
 ```
 
-Register `"player_names": "Online players"` in `registration.state_fields` to
-provide its display label. The registration format is unchanged. Enable that
-field in the server's Discord card settings; internally its selection ID is
-`field.player_names`. Only selected fields are included in cards.
+Save as `state.json` and publish:
 
-Lists preserve publisher order and duplicates and are displayed as comma-separated
-text (`Alex, Sam`). Numbers and booleans use the same formatting as scalar fields;
-blank string elements are omitted from display. An empty list (or a list containing
-only blank strings) displays as **None**, not **Unavailable**. Omit the field when
-its value is unknown. A list does not automatically change the built-in player
-count; publish `players` separately when known. Every snapshot replaces the
-previous one, so `[]` clears the roster, while omitting the field removes it.
-Stale snapshots and stopped servers never expose previous player names.
+```sh
+curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
+  --include --max-time 12 \
+  --header 'Content-Type: application/json' \
+  --data-binary @state.json http://spark/v1/publish
+```
 
-Discord escapes list text, disables mentions, and applies its existing per-field
-and total-message limits, truncating long lists with an ellipsis. The card preview
-uses the same bounded payload as the published card. Player names are shared with
-users who can view server state and with the configured Discord destination when
-this field is selected; publish only information appropriate for those audiences.
+| Property              | Rules                                                 |
+| --------------------- | ----------------------------------------------------- |
+| `players`, `capacity` | Optional integers from `0` to `1000000`               |
+| `fields`              | Optional map of up to 32 scalar or flat-list values   |
+| `field_labels`        | Optional inline-label map for unregistered publishers |
 
-This is an optional extension of publication version `1`. Upgrade both Spark and
-Campfire before publishing list values. The `server.game-state-lists.v1` capability
-must be negotiated; a newer Spark connected to an older Campfire returns HTTP 503
-without forwarding list-valued state. An older Spark rejects lists with HTTP 400.
-Existing scalar publishers continue to work without the new capability. Lists
-are transient current state, not retained events or an offline publication queue.
+State is a complete replacement: omitted fields clear previous values, and
+`{"version":1,"state":{}}` clears the snapshot. Omit unknown player counts;
+use `0` only when the count is known to be zero. Lists do not determine the
+built-in player count—publish `players` separately. State has no event ID or
+producer timestamp.
 
-### Custom field labels
+Publish a complete snapshot periodically, for example every 15 seconds. State
+expires after 60 seconds without an update; events do not refresh it. Only the
+latest snapshot is stored in memory, with no history, and a panel restart clears
+it. While disconnected, keep only the newest unsent snapshot.
 
-Prefer startup registration for new publishers. The inline `field_labels`
-properties below remain supported for older publishers that have not registered.
-For registered servers, labels come exclusively from the current manifest;
-label-free state updates and events need no metadata updates.
+Stopped, disconnected, or unknown runtime state suppresses game values. Lifecycle
+operations invalidate state and temporarily reject publications until a healthy,
+non-busy running observation reopens ingestion. Retry with bounded backoff. Stops
+or restarts outside Campfire take effect on the next runtime observation.
 
-`state.field_labels` and `event.field_labels` are optional maps from stable field
-keys to display labels. Every labeled key must also exist in the same snapshot's
-`fields` or event's `data`. Labels must be nonempty UTF-8 strings of at most 128
-bytes, with no control characters or leading/trailing whitespace. They count
-toward the existing 16 KiB publication limit. Labels are plain text, never HTML.
-For example, `"field_labels": {"game_mode": "Game mode"}` changes display text
-without changing the `game_mode` key used by filters and saved card selections.
-Campfire does not guess custom-field labels from key spelling.
+### Events
 
-Without registration, state labels belong to the complete snapshot and must be included again in each
-snapshot that needs them. Omitted labels fall back to the exact key.
+```json
+{
+  "version": 1,
+  "event": {
+    "id": "join-unique-id",
+    "type": "player.joined",
+    "occurred_at": "2026-10-24T00:00:00Z",
+    "title": "Alex joined",
+    "data": { "player": "Alex" }
+  }
+}
+```
 
-Without registration, event labels update a shared dictionary scoped to the server, event type, and
-field key. Newly accepted events can rename labels for both new and older retained
-events. Omitting a label leaves the known definition unchanged; without a known
-definition the exact key is displayed. To reset display text to a key, publish that
-key as its label. Replaying an existing event ID never updates the dictionary.
-The dictionary persists across panel restarts. It stores no event values.
+Send the event with the same curl request, substituting `event.json`. Generate
+its ID and timestamp once when the event happens, not on each request attempt.
 
-Activity and notification-filter dropdowns use these labels while keeping keys as
-filter identity. With all event types selected, a field uses its label only if
-the types reporting it agree; conflicting labels fall back to the key. A field
-disappears from discovery when no retained event contains it. For unregistered
-publishers, startup and hourly retention cleanup remove unused dictionary entries, including definitions for
-event types that are no longer published. Deleting a server removes its dictionary.
-Discord notifications use the known labels when the notification is queued;
-previously sent Discord messages are not rewritten after a label change.
+| Property       | Rules                                                                      |
+| -------------- | -------------------------------------------------------------------------- |
+| `id`           | Required string, 1–128 bytes; unique within this server's retained history |
+| `type`         | Required name following the field-name pattern; namespacing is recommended |
+| `occurred_at`  | Required nonzero RFC 3339 timestamp; UTC with `Z` is recommended           |
+| `title`        | Required string, 1–256 bytes                                               |
+| `data`         | Optional map of up to 32 scalar values; no lists                           |
+| `field_labels` | Optional inline-label map for unregistered publishers                      |
 
-This is an optional extension to publication version `1`. Publishers without
-labels continue to work. Upgrade both Spark and Campfire before sending labels;
-older Spark versions reject unknown publication properties.
+A UUID is a suitable event ID. Retain the entire envelope unchanged across retries.
+Campfire deduplicates per server within retained history; the first stored payload
+wins. Reusing a queued ID with different content returns `409`. Different servers
+may use the same ID; it is not an authorization token.
 
-## Current state and freshness
+Types such as `player.joined`, `game.announcement`, or `valheim.boss_defeated`
+are supplied by your integration. Campfire imposes no round or match model and
+does not translate event types into game commands.
 
-All game fields are optional. Games without player counts, maps, game modes, or
-other fields show none of those values. A capacity without a player count is shown
-as capacity; a missing player count is never interpreted as zero. Custom scalar
-fields are displayed as text, numbers, or booleans; custom list fields use the
-same scalar formatting for each element. An empty snapshot clears the previous
-fields.
+### Field types and limits
 
-Campfire owns the built-in `players` and `capacity` definitions and translated
-labels; integrations do not need to register labels for them. Custom state fields
-use the integration's label when available, otherwise the exact key. Translated
-labels, integration-provided labels, and fallback keys retain their supplied casing.
-These rules apply to server readings, card-field selectors, card previews, and
-Discord cards. Boolean state values use translated Yes/No text.
+| Item                        | Allowed values                                                     |
+| --------------------------- | ------------------------------------------------------------------ |
+| Field names and event types | `^[a-z][a-z0-9_.-]{0,63}$`                                         |
+| Field map                   | At most 32 entries                                                 |
+| Scalar                      | String up to 1,024 UTF-8 bytes, finite JSON number, or boolean     |
+| State list                  | At most 64 scalar elements; empty and mixed-type lists are allowed |
+| Event data                  | Scalars only                                                       |
+| JSON envelope               | At most 16 KiB, including whitespace, labels, and list elements    |
 
-Player count and capacity render together as `3 / 20` when both are displayed;
-capacity is not repeated as a separate reading. For cards, both fields must be
-selected and available before combining them. Selecting only players never
-exposes an unselected capacity. Custom fields named `players` or `capacity`
-remain independent custom fields and do not inherit built-in formatting.
-External cards and their previews currently use English, independently of the
-panel user's language.
+Objects, nested lists, and null values—including null list elements—are rejected.
+Lengths are byte limits, not character counts. Use strings for opaque IDs or exact
+large integers because JSON numbers are decoded as floating-point values. Publish
+bounded summaries rather than unbounded collections.
 
-Publish a complete snapshot periodically, for example every 15 seconds, even if
-the values have not changed. Snapshots become stale after 60 seconds without an
-update. The dashboard shows the last update time and replaces stale values with
-"Game data unavailable." The browser also expires displayed values if monitoring
-requests stop succeeding. Events do not refresh the state timestamp.
+Lists preserve order and duplicates and display as comma-separated values. Blank
+strings are omitted from display; an empty or all-blank list displays **None**.
+Omit a field when its value is unknown. List state is transient, not a retained
+event or offline queue. Player names are visible to users with server-view access
+and to Discord audiences when selected for a card; publish only appropriate data.
+See [live server cards](/Campfire/discord/#live-server-cards) for display choices.
 
-Game-data freshness is independent of runtime status. A server can remain running
-while its game data is unavailable. Unknown or disconnected runtime observations
-also suppress game values until the runtime is confirmed running again.
+## Screenshots and clips
 
-Lifecycle changes such as stop, restart, reinstall, or restore invalidate current
-game state immediately. State publications are temporarily rejected during the
-transition until a subsequent healthy, non-busy running observation reopens
-ingestion. Producers should retry with bounded backoff. The existing runtime
-sampler also detects stops and changes in Docker start times for restarts performed
-outside Campfire. External changes take effect on the next runtime observation.
+Publish an event first, then upload raw bytes through the same socket:
 
-Game state is returned as the optional `game` member of each authorized server in
-`GET /api/v1/monitoring`. The object includes `updated_at`, `fresh_for_seconds`, and
-`status` (`fresh`, `stale`, or `unavailable`). Only fresh, runtime-valid responses
-include `state`. Servers that have never published state omit `game`. Existing
-server visibility and token permissions apply to the monitoring response.
+```sh
+curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
+  --request PUT --include --max-time 125 \
+  --header 'Content-Type: image/png' \
+  --header 'X-Campfire-Media-Name: world.png' \
+  --data-binary @world.png \
+  http://spark/v1/events/join-unique-id/media/screenshot-1
+```
 
-## Event history and delivery
+Use the **producer event ID**, URL-encoded as one path segment, and a stable
+attachment ID. Encode each segment separately. Send raw bytes, not multipart,
+base64, or JSON. Set `Content-Length` when known; streamed bodies have the same
+limits.
 
-Spark persists events in private, atomically written queue files before returning
-HTTP 202. This means queued locally, not yet delivered. The queue survives Spark
-restarts. Campfire acknowledges an event only after its database transaction
-commits; Spark then removes the queue entry. Retries after a lost acknowledgement
-use the same event ID, so they do not create duplicate retained entries.
+| Item                              | Requirement or limit                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Attachment ID                     | 1–64 ASCII letters, digits, underscores, or hyphens                                                            |
+| `X-Campfire-Media-Name`           | Filename, 1–128 UTF-8 bytes; no path separators or control characters                                          |
+| `Content-Type`                    | Exactly `image/png`, `image/jpeg`, `video/mp4`, or `video/webm`, without parameters; must match file signature |
+| Image dimensions                  | Valid image header, at most 40 million pixels                                                                  |
+| Single attachment                 | 25 MiB                                                                                                         |
+| Attachments per event             | 4                                                                                                              |
+| Retained media per server / panel | 250 MiB / 1 GiB                                                                                                |
+| Concurrent uploads                | 2 per Spark and 2 across Campfire                                                                              |
+| Upload deadline                   | 2 minutes                                                                                                      |
 
-The queue holds at most 512 events per server and 4,096 per Spark, with a 24-hour
-delivery lifetime. When full, it rejects new events with HTTP 429 and
-`Retry-After: 5`, preserving existing entries. Transient delivery failures retry
-with backoff up to 30 seconds; reconnecting triggers an immediate retry.
-Expired events and events permanently rejected because their server was deleted
-or reassigned are dropped with a warning in Spark's log. This bounded queue does
-not promise delivery after its lifetime expires or server placement changes.
+Clips are stored without transcoding; playback depends on browser codec support.
+Media is streamed to Campfire using Spark's identity and is not queued locally.
+`204` confirms committed metadata and bytes. Retry a lost response with the same
+attachment ID, name, MIME type, and bytes; identical retries succeed without
+adding another attachment, while changed content returns `409`.
 
-Inspect a server's queue over its own socket:
+The event's `202` can precede arrival at Campfire. Media returns `409` with
+`Retry-After: 5` until the event is retained. Keep the file for retry, subject to a
+bounded retry budget. See [error handling](#delivery-and-error-handling) for other
+responses. Failed ingestion exposes no partial attachment.
+
+Attachments expire with their parent event. Deletion releases logical quota but
+does not guarantee immediate shrinking of database files; database/WAL space and
+backups can exceed the logical media budget. Discord destinations can forward
+attachments, subject to [Discord delivery limits](/Campfire/discord/#game-screenshots-and-clips).
+
+## Delivery and error handling
+
+### Event queue and retention
+
+`202` means Spark persisted the event locally, not that Campfire received it.
+The queue survives Spark restarts; entries are removed after a committed panel
+acknowledgement. Delivery retries use the same event ID.
+
+| Queue property                        | Limit or behavior                                                           |
+| ------------------------------------- | --------------------------------------------------------------------------- |
+| Capacity                              | 512 events per server; 4,096 per Spark                                      |
+| Delivery lifetime                     | 24 hours                                                                    |
+| Full queue                            | Rejects new events with `429` and `Retry-After: 5`; existing entries remain |
+| Transient delivery failure            | Backoff up to 30 seconds; reconnect triggers an immediate retry             |
+| Expired or permanently rejected event | Dropped with a warning in Spark logs                                        |
+
+Deletion or reassignment of a server can permanently reject queued events. Delivery
+is not strictly ordered: a delayed retry can arrive after a newer event. Include
+a game-specific sequence in `data` if needed. Delivery is neither unlimited nor
+an exactly-once guarantee.
+
+Inspect the server's queue:
 
 ```sh
 curl --unix-socket "$CAMPFIRE_GAME_SOCKET" http://spark/v1/events/queue
 ```
-
-The response contains `pending`, `limit`, `node_limit`, `dropped`, and `last_error`.
-Failure counters are local to this Spark process; pending queue files persist
-across restarts. A corrupt or oversized spool file prevents queue startup rather
-than silently deleting accepted data.
-
-A queue response looks like:
 
 ```json
 {
@@ -498,385 +360,153 @@ A queue response looks like:
 }
 ```
 
-This is aggregate status for the server, not a receipt for an individual event.
-`pending: 0` can mean delivery completed or events were dropped. Use retained event
-history to verify a particular event end to end.
+Counters and errors are local to the Spark process; pending entries persist.
+A corrupt or oversized spool file blocks queue startup rather than silently
+removing accepted data. Queue status is aggregate, not an event receipt:
+`pending: 0` can mean delivered or dropped. Verify individual events in retained
+history.
 
-Events are attempted oldest first, but a delayed retry can arrive after newer
-events. Do not depend on strict delivery order. Store a game-specific sequence in
-`data` when consumers need it. The queue can retry an event more than once;
-per-server deduplication prevents additional retained entries while that event's
-ID remains in history. This is not an unlimited or exactly-once delivery promise.
+Campfire retains up to 10,000 events per server for up to 30 days by default,
+using panel receipt time rather than the game's clock. Configure these limits in
+[Settings reference](/Campfire/configuration/#activity-and-game-event-retention).
+Once an event expires, its ID leaves the deduplication window. Server deletion
+removes its retained events and attachments.
 
-Campfire retains the newest 10,000 events per server for up to 30 days by default.
-Retention uses the trusted receipt time, independently of the game's clock.
-Limits apply during ingestion and cleanup runs at startup and hourly, including
-quiet servers. Configure them with:
+### Request limits and responses
 
-| Flag                          | Environment variable                 | Default | Range    |
-| ----------------------------- | ------------------------------------ | ------- | -------- |
-| `--game-event-retention-days` | `CAMPFIRE_GAME_EVENT_RETENTION_DAYS` | 30      | 1–3650   |
-| `--game-event-limit`          | `CAMPFIRE_GAME_EVENT_LIMIT`          | 10000   | 1–100000 |
+Each server permits 10 JSON publications per one-second window, with at most 32
+in-flight publications across Spark. State waits up to eight seconds for panel
+acknowledgement. Media has separate upload slots; queue inspection is a separate
+GET route.
 
-Once an event expires or is removed by the count limit, its ID is no longer in the
-deduplication window. Deleting a server also deletes its retained events.
+| Outcome                             | Producer action                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing socket, reset, or timeout   | Reconnect later. Retry an unchanged event or attachment; send only the newest state snapshot.                                                           |
+| `202` event                         | Stop resubmitting; Spark owns its bounded queued copy.                                                                                                  |
+| `204` registration, state, or media | The panel operation succeeded.                                                                                                                          |
+| `400`                               | Correct schema, metadata, encoding, or content.                                                                                                         |
+| `401` media                         | Check Spark's panel authentication; do not add a game API token.                                                                                        |
+| `403`                               | Stop publishing and report revoked configuration or server placement.                                                                                   |
+| `404` / `405`                       | Check the local `/v1` route and HTTP method.                                                                                                            |
+| `409` registration                  | Use the original manifest or a higher revision for changed definitions.                                                                                 |
+| `409` event                         | Restore the original queued payload, or use a new ID for a distinct event.                                                                              |
+| `409` media with `Retry-After`      | Wait for the parent event to reach retained history, then retry unchanged.                                                                              |
+| `409` media without `Retry-After`   | The attachment ID has different content or metadata; do not overwrite it.                                                                               |
+| `413`                               | Correct request size, or media attachment-count/storage limits; do not retry indefinitely.                                                              |
+| `429`                               | Apply backpressure and respect `Retry-After`: publication rate limits use one second, full event queues use five seconds. Media slots can also be busy. |
+| `503`                               | Retry with bounded backoff; persistent failures need connection, capability, runtime, or Spark-log investigation.                                       |
 
-The authorized endpoint `GET /api/v1/servers/{id}/events` returns
-`{ "items": [...], "next_before": 123 }`. `next_before` is omitted at the end.
-Supported query parameters are `limit` (1–100, default 50), `before` (receipt-order
-ID cursor), `type` (exact namespaced type), `search` (text in the title or event
-data), `data.<field>` (a mod-provided field value), and `from`/`to` (Unix seconds
-filtering occurrence time, inclusive start and exclusive end). Each event includes its
-original `event_id`, type, title, occurrence and receipt times, source server and
-Spark IDs, and scalar data. Ordering follows receipt IDs, so clock differences
-cannot cause cursor pagination to skip events. Existing `server.view` permissions
-and token scopes protect access; operating the server is not required.
+Log the HTTP status and bounded error text. Use capped exponential backoff with
+jitter and a finite retry budget; respect `Retry-After` whenever supplied.
 
-The Activity tab's **Game events** view offers text search, type/time filters,
-and multiple field filters in one wrapping toolbar. UI time filters use the
-panel's recorded time; the legacy events API's `from` and `to` filters use occurrence
-time. Event types, field names, and field values are
-dropdown choices from the server's entire retained activity, including older
-pages. Field conditions are added on demand with Add field filter; none are
-shown initially or after clearing filters. For example, choose `player` with value `Alex` and `state` with value
-`connected`. Field filters match whole scalar values; choosing Any value finds
-events where that field is present. Changing a field resets its value. All
-conditions are combined, and filtering happens before pagination. Older-page
-navigation preserves the filters. Clear filters returns to the newest activity.
-The newest page refreshes every ten seconds.
+### Publisher lifecycle
 
-For example, `?search=Alex&data.player=Alex&data.state=connected` combines text and
-field filters. `?data.player=` finds events with a player field regardless of its
-value. Use `true`/`false` for boolean values and their numeric text for numbers.
-Search and field values are limited to 1,024 bytes; field names follow the same
-rules as published data keys, and each name may appear once. The API accepts up
-to 32 field conditions. These filters use retained event data and require no mod
-or Spark protocol changes.
+Capture state through the game's supported APIs, then hand it to a background
+worker. Never perform socket I/O, uploads, sleeps, or retries on the simulation
+thread.
 
-`GET /api/v1/servers/{id}/events/filters` returns sorted, distinct `types` and a
-`fields` object mapping field names to their observed scalar values as strings.
-It uses the same `server.view` permissions as the events endpoint, is scoped to
-one server, and is independent of current filters and cursor pagination. The
-dropdown choices refresh every 30 seconds.
+1. Discover the socket and register labels before publishing.
+2. Send periodic complete state snapshots, keeping only the newest unsent state.
+3. Create each event envelope once. If loss before Spark accepts it matters,
+   persist it in a bounded producer outbox.
+4. Remove the outbox copy after `202`, acknowledging Spark's queue lifetime and
+   placement limits.
+5. Retain attachment bytes and metadata until `204` or your retry budget expires.
+6. Use a short, bounded shutdown flush; never block game shutdown indefinitely.
 
-## Screenshots and clips
+Rate-limit normal traffic so event bursts do not starve state heartbeats. Media
+support is optional; state/event publishers need not implement attachments.
 
-Media travels separately from JSON publications and the control websocket.
-Publish an event first, then send the raw file to the same mounted socket:
+## Read published data
 
-```sh
-curl --unix-socket "$CAMPFIRE_GAME_SOCKET" \
-  --request PUT \
-  --include --max-time 125 \
-  --header 'Content-Type: image/png' \
-  --header 'X-Campfire-Media-Name: world.png' \
-  --data-binary @world.png \
-  http://spark/v1/events/announcement-unique-id/media/screenshot-1
-```
+These are authenticated **panel** API endpoints for readers, not publisher routes.
+They require server-view access and applicable token scopes. Mods publishing
+through Spark do not need to call them.
 
-The event segment is the original producer event ID (`announcement-unique-id` in
-the JSON example), URL-encoded as a path segment. Use a URL encoder for each path
-segment, rather than encoding the entire path or concatenating unescaped IDs.
-The final segment is a stable attachment ID containing 1–64 ASCII letters,
-digits, underscores, or hyphens. File names are 1–128 UTF-8 bytes without path
-separators or control characters. The MIME type must be exactly `image/png`,
-`image/jpeg`, `video/mp4`, or `video/webm` and match the file signature. Screenshot
-headers must describe a valid image no larger than 40 million pixels. Clips are
-stored as supplied without transcoding or server-side capture; playback depends
-on the browser's codec support.
+### Current state
 
-Send the file as the request body, not multipart form data, base64, or a JSON
-field. Set `X-Campfire-Media-Name` to the display filename and `Content-Type` to
-the exact MIME type without parameters. Supply `Content-Length` when your client
-knows it; streamed uploads are still subject to the byte limit.
+`GET /api/v1/monitoring` returns an optional `game` object on each authorized
+server, with `updated_at`, `fresh_for_seconds`, and `status` (`fresh`, `stale`, or
+`unavailable`). Only fresh, runtime-valid responses include `state`. Servers that
+have never published omit `game`.
 
-Spark derives server identity from the socket, then streams the upload over HTTPS
-to Campfire's dedicated agent listener using its existing client certificate and
-trust configuration. There is no new game credential or public upload endpoint.
-Both peers must negotiate `server.game-media.v1`. Uploads have a two-minute
-deadline and two concurrent upload slots per Spark and across Campfire.
+### Retained events
 
-| Limit                          | Value   |
-| ------------------------------ | ------- |
-| Single attachment              | 25 MiB  |
-| Attachments per event          | 4       |
-| Retained media per server      | 250 MiB |
-| Retained media across Campfire | 1 GiB   |
+`GET /api/v1/servers/{id}/events` returns `{ "items": [...], "next_before": 123 }`;
+`next_before` is omitted at the end. Results are ordered by panel receipt ID.
 
-These are fixed initial limits. Quota checks and immutable attachment identity
-commit in the same database transaction. Metadata and bounded file bytes are
-stored together in SQLite or PostgreSQL. The media budgets bound logical stored
-bytes; database file/WAL space and backups can be larger. Event list responses
-include attachment metadata without loading or returning file bytes.
+| Query parameter | Meaning                                                         |
+| --------------- | --------------------------------------------------------------- |
+| `limit`         | 1–100; default 50                                               |
+| `before`        | Receipt-order ID cursor                                         |
+| `type`          | Exact event type                                                |
+| `search`        | Text in title or event data, at most 1,024 bytes                |
+| `data.<field>`  | Whole scalar value; empty matches any value for that field      |
+| `from`, `to`    | Occurrence time in Unix seconds; inclusive start, exclusive end |
 
-Unlike events, media is not queued on Spark. `204` confirms a committed upload;
-retrying the same attachment ID with identical name, MIME type, and bytes succeeds
-without adding another attachment. A lost response has an uncertain outcome, so
-reuse the same ID and bytes. Changed content or metadata returns `409`.
+Use `true`/`false` for booleans and numeric text for numbers. Field names follow
+publication rules, each name may appear once, and up to 32 field conditions are
+allowed. Values are limited to 1,024 bytes. Conditions combine before pagination.
+For example, `?search=Alex&data.player=Alex` combines text and field filtering.
+The Activity UI's time filters use panel-recorded time, not these occurrence-time
+parameters.
 
-An event's local `202` acknowledgement may precede its arrival at Campfire. Media
-for an event not yet retained returns `409` with `Retry-After: 5`; retry after the
-event queue catches up. `429` means upload slots are busy; `503` means disconnected,
-unsupported, or temporarily unavailable. Respect `Retry-After`, use bounded
-backoff, and retain the original file until upload succeeds or the producer gives
-up. `400` rejects invalid metadata/content, `403` rejects source placement, and
-`413` rejects file, attachment-count, or storage limits. No partial attachment is
-visible after failed ingestion. Do not retry permanent rejections indefinitely.
+Events include producer `event_id`, type, title, occurrence/receipt times, source
+server and Spark IDs, scalar data, and attachment metadata.
+`GET /api/v1/servers/{id}/events/filters` returns sorted distinct `types` and a
+`fields` map of observed scalar values as strings, across the server's retained
+history independently of filters or cursor position.
 
-An attachment's lifetime follows its parent event. Age/count pruning and server
-deletion cascade to media in the same database. Deletion frees the logical quota;
-it does not promise immediate shrinking of database files on disk.
+### Retained media
 
-The activity feed displays lazy-loaded images, clips with playback controls and
-no autoplay, and download links. `GET /api/v1/servers/{id}/events/{event}/media/{attachment}`
-uses the panel's numeric event ID and requires `server.view` authorization,
-including token scopes. It supports HTTP ranges for seeking; `?download=1`
-requests a download. Responses are private with no caching and cannot be used as
-public media links. Forwarding events or media to Discord is not implemented.
+`GET /api/v1/servers/{id}/events/{event}/media/{attachment}` uses the **panel's
+numeric event ID**, not the producer ID used for uploads. Attachment IDs remain
+the producer-assigned IDs. The endpoint supports HTTP ranges and `?download=1`.
+Responses are private and non-cacheable, not public media links.
 
-Keep these identifiers separate when building readers or attachment uploaders:
+## Test an integration
 
-| Identifier          | Assigned by       | Used for                                                                      |
-| ------------------- | ----------------- | ----------------------------------------------------------------------------- |
-| Producer event `id` | Your integration  | Deduplication and the local media-upload URL                                  |
-| Panel event `id`    | Campfire database | Reading retained media through `/api/v1/servers/.../events/{event}/media/...` |
-| Attachment `id`     | Your integration  | One immutable attachment within the event, for both upload and reading        |
+Use the curl requests from inside an opted-in game container with a real Spark,
+then verify state and Activity in Campfire. Test at least these cases:
 
-The panel event response exposes the producer ID as `event_id`. Do not substitute
-the numeric panel ID into the local socket's upload path.
+- Clear state with an empty snapshot and omit a previously supplied field.
+- Retry an event unchanged and verify one retained entry.
+- Disconnect the panel: state should fail transiently while supported events queue.
+- Restart Spark with pending events, reconnect to its socket, and verify delivery.
+- Stop heartbeats for more than 60 seconds and confirm state becomes unavailable.
+- Upload media immediately after `202`, handle a possible `409`, and retry unchanged.
+- Shut down during failed publication without blocking the game thread.
 
-## Request limits
+For failures, use the [response table](#request-limits-and-responses),
+`journalctl -u spark`, and Campfire logs. A missing socket usually means the feature
+is disabled, the container needs recreation, or Spark is unavailable. Do not add
+administrator tokens or Spark private keys to work around placement errors.
 
-- JSON publication requests are limited to 16 KiB; media uses the separate limits above.
-- Each server permits 10 JSON publication requests per one-second window. Media
-  uses its separate upload slots; queue inspection is a separate GET route.
-- Spark permits 32 in-flight publications across its local endpoints.
-- State publications wait up to eight seconds for acknowledgement. Events use the
-  durable queue; a local timeout can have an uncertain outcome, so retry with the
-  same event ID and payload.
-- Only the latest state is held in memory; no game-state history is stored.
+### Example publisher
 
-| HTTP status | Meaning                                                                             |
-| ----------- | ----------------------------------------------------------------------------------- |
-| 204         | Campfire validated and acknowledged the publication                                 |
-| 202         | Spark durably queued the event for delivery                                         |
-| 400         | Invalid schema, version, or trailing JSON                                           |
-| 403         | Local server configuration no longer authorizes this endpoint                       |
-| 409         | A pending event has the same ID but different content                               |
-| 413         | Request exceeds the size limit                                                      |
-| 429         | Request rate exceeded (one second) or event queue full (five seconds)               |
-| 503         | Busy, disconnected, unsupported, rejected by Campfire, or acknowledgement timed out |
-
-## Client lifecycle, retries, and backpressure
-
-Capture game state through the game's supported API or hooks. If those APIs must
-run on the game thread, take a snapshot there and hand it to a background worker.
-Do not perform socket I/O, media uploads, sleeps, or retries on the simulation
-thread. Serialization and transport should not stall a tick or player action.
-
-A typical integration uses the following lifecycle:
-
-1. Read `CAMPFIRE_GAME_SOCKET` and start a background publisher when configured.
-2. Register the label manifest at startup and wait for `204`, then send a complete
-   state snapshot periodically, such as every
-   15 seconds. Keep only the newest unsent snapshot while disconnected.
-3. On each event hook, create one envelope with a new ID and fixed occurrence
-   time. If loss before Spark accepts it matters, persist it in a bounded
-   producer outbox before sending.
-4. Retry transient failures using the same event envelope. After `202`, Spark
-   owns the queued copy; the producer can remove its own outbox copy. This does
-   not guarantee later panel delivery beyond Spark's queue lifetime and placement
-   rules.
-5. For attachments, retain the original bytes and metadata until upload returns
-   `204`. Retry the same attachment ID with exactly the same content.
-6. During shutdown, use a short, bounded flush period for any final event. Do not
-   block server shutdown indefinitely or invent a player count when it is unknown.
-
-Use capped exponential backoff with jitter and a finite retry budget. Respect
-`Retry-After` when present, and rate-limit normal traffic so event bursts do not
-consume all publication requests needed for state heartbeats.
-
-| Outcome                                      | Producer action                                                                                                                                                      |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Missing socket, connection reset, or timeout | Reconnect on a later attempt. An event may already have been accepted, so reuse its ID and payload. For state, send the newest complete snapshot.                    |
-| `202` for an event                           | Stop resubmitting; Spark accepted responsibility for its bounded queue.                                                                                              |
-| `204` for state or media                     | The corresponding panel operation succeeded.                                                                                                                         |
-| `400` or `413`                               | Correct the schema, metadata, encoding, or size. For media, also check attachment-count and retained-storage quotas. Do not retry an over-limit upload indefinitely. |
-| `401` on media upload                        | Spark's panel authentication failed. Check the agent connection and credentials; adding a game API token will not fix it.                                            |
-| `403`                                        | Stop publishing through this endpoint and report that local configuration or server placement no longer permits it.                                                  |
-| `404` or `405`                               | Check the HTTP method and local `/v1` route; these are not panel `/api/v1` write endpoints.                                                                          |
-| `409` for a JSON event                       | A pending event ID was reused with different content. Restore the original payload or use a new ID for a distinct event.                                             |
-| `409` for media with `Retry-After`           | The parent event has not reached retained history yet. Retry the unchanged attachment later.                                                                         |
-| `409` for media without `Retry-After`        | The attachment ID already has different content or metadata; do not overwrite it.                                                                                    |
-| `429`                                        | Apply backpressure. Wait for `Retry-After` before trying again; keep queues bounded.                                                                                 |
-| `503`                                        | Retry with bounded backoff. If persistent, check connection, feature compatibility, Spark logs, and runtime transitions.                                             |
-
-Success responses have no JSON body. Log the HTTP status and bounded response text
-for failures. If a mod does not support media, it can implement state and event
-publishing without any attachment handling.
-
-### Minimal Node.js transport
-
-This example uses only Node.js built-ins, registers metadata, and makes one event-publication attempt.
-It demonstrates the socket transport and response handling; a production mod's
-worker should implement the retry and outbox policy above. In particular, retain
-the constructed `publication` instead of generating a new ID on each attempt.
-
-```js
-import http from "node:http";
-import { randomUUID } from "node:crypto";
-
-const socketPath = process.env.CAMPFIRE_GAME_SOCKET;
-
-async function publish(publication, path = "/v1/publish", method = "POST") {
-  if (!socketPath) throw new Error("Campfire integration is not configured");
-  const body = Buffer.from(JSON.stringify(publication));
-  if (body.length > 16 * 1024) throw new Error("Publication exceeds 16 KiB");
-
-  return new Promise((resolve, reject) => {
-    const request = http.request(
-      {
-        socketPath,
-        hostname: "spark",
-        path,
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": body.length,
-        },
-        timeout: 12000,
-      },
-      (response) => {
-        let detail = "";
-        response.setEncoding("utf8");
-        response.on("data", (chunk) => {
-          detail += chunk;
-        });
-        response.on("error", reject);
-        response.on("end", () =>
-          resolve({
-            status: response.statusCode,
-            retryAfter: response.headers["retry-after"],
-            detail,
-          }),
-        );
-      },
-    );
-    request.on("timeout", () =>
-      request.destroy(new Error("Publication timed out")),
-    );
-    request.on("error", reject);
-    request.end(body);
-  });
-}
-
-const registration = await publish(
-  {
-    version: 1,
-    registration: {
-      revision: 1,
-      state_fields: { game_mode: "Game mode" },
-      event_fields: {
-        "game.announcement": {
-          world: "World name",
-          message: "Message",
-          mod_version: "Mod version",
-        },
-      },
-    },
-  },
-  "/v1/registration",
-  "PUT",
-);
-if (registration.status !== 204) {
-  throw new Error(
-    `Registration HTTP ${registration.status}: ${registration.detail}`,
-  );
-}
-
-const publication = {
-  version: 1,
-  event: {
-    id: randomUUID(),
-    type: "game.announcement",
-    occurred_at: new Date().toISOString(),
-    title: "Integration started",
-    data: { mod_version: "1.0.0" },
-  },
-};
-
-const result = await publish(publication);
-if (result.status !== 202) {
-  throw new Error(`HTTP ${result.status}: ${result.detail}`);
-}
-console.log("Spark queued the event; panel delivery may still be pending.");
-```
-
-For this demonstration, save the code as `publisher.mjs` and run it inside the
-opted-in game container with `node publisher.mjs`. Game runtimes without Node.js
-can send the same HTTP requests with their own Unix-socket-capable client.
-
-## Testing and troubleshooting an integration
-
-Start with a real Spark and one opted-in game server. Use the curl requests above
-from inside its container, then check the server's current state and Activity
-in Campfire. Test your mod with these cases before relying on its delivery:
-
-- Clear state with an empty snapshot, and omit a previously supplied custom field.
-- Resend an event with the same ID and payload; retained history should contain
-  one entry within the deduplication window.
-- Disconnect the panel: state requests should fail transiently, while supported
-  events can queue. Reconnect and check that retained history catches up.
-- Restart Spark with events pending and verify they survive. Reconnect any stale
-  HTTP connection to the unchanged socket path.
-- Let state heartbeats stop for more than 60 seconds and confirm stale values are
-  no longer presented as current.
-- Upload an attachment immediately after an event's `202`, handle the possible
-  `409`, then retry the identical upload after the event arrives.
-- Exercise shutdown and failed publication without blocking the game thread.
-
-| Symptom                                           | Check                                                                                                                                                 |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Environment variable absent                       | Integration is enabled for this server and its container was recreated through Campfire.                                                              |
-| Socket missing or connection refused              | Correct container and socket path; Spark is running; reconnect after a restart.                                                                       |
-| `400` on otherwise valid-looking JSON             | Exactly one version 1 envelope, no extra properties, valid timestamps, scalar event data or bounded flat state lists, and byte lengths within limits. |
-| State returns `503` around restart or restore     | Wait for a healthy running observation, then send the newest complete snapshot.                                                                       |
-| Events return `202` but do not appear             | Inspect queue status, Spark logs, panel connectivity, event capability support, expiration, and placement changes.                                    |
-| Player counts disappear while the server runs     | Send periodic full snapshots; event traffic does not refresh state freshness.                                                                         |
-| Media returns `400`                               | Exact MIME header, matching file signature, valid filename, raw bytes, and supported image dimensions.                                                |
-| Media repeatedly returns `409` with `Retry-After` | Verify the producer event ID, queue delivery, and that the parent event remains in retained history.                                                  |
-
-Spark service logs are available through `journalctl -u spark`; panel ingestion
-errors are in the Campfire logs. Do not add panel administrator tokens or Spark
-private keys to a mod to work around socket or placement errors.
-
-## Example publisher
-
-For dashboard and destination development without a game server, `make dev-mock`
-runs a live simulated publisher. See the
-[mock game integration guide](/Campfire/development/#mock-game-integration) for
-scenarios and console controls. It exercises panel behavior without providing a
-real game mod.
-
-The repository also includes a [small command-line publisher](https://github.com/dougmaitelli/Campfire/blob/master/scripts/game-publisher.mjs).
-Copy `scripts/game-publisher.mjs` into a game container with Node.js installed:
+The [Node.js publisher](https://github.com/dougmaitelli/Campfire/blob/master/scripts/game-publisher.mjs)
+uses built-in modules to register labels and send one state snapshot or event.
+Copy it into a game container with Node.js:
 
 ```sh
 node game-publisher.mjs state
 node game-publisher.mjs event
 ```
 
-The script discovers the socket through `CAMPFIRE_GAME_SOCKET`. For host-side
-development, pass the specific server's socket path as its second argument.
-It deliberately performs one publication without automatic retries.
+It discovers `CAMPFIRE_GAME_SOCKET`; host-side development can supply the specific
+server's socket path as the second argument. It makes one attempt, not a production
+retry/outbox implementation. Other runtimes can use the same HTTP contract with
+their own Unix-socket-capable clients.
 
-## Protocol implementation references
+For panel development without a real game, use the
+[mock publisher](/Campfire/development/#game-publications-and-alerts). It does not
+replace testing against the real Spark socket.
 
-When implementing a client, the contracts are defined by these sources:
+### Implementation references
 
 - [Publication schemas and limits](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/shared/model/game_integration.go)
-- [Local HTTP routes and forwarding](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/spark/agent/game_integration.go)
-- [Persistent event queue and retry behavior](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/spark/agent/game_event_queue.go)
-- [Media metadata and limits](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/shared/model/game_media.go)
-- [Media forwarding and authentication](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/spark/agent/game_media.go)
-- [Panel placement checks and state freshness](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/campfire/service/game_integration.go)
+- [Local HTTP routes](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/spark/agent/game_integration.go)
+- [Event queue](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/spark/agent/game_event_queue.go)
+- [Media schemas](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/shared/model/game_media.go)
+- [Media forwarding](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/spark/agent/game_media.go)
+- [Panel placement and freshness checks](https://github.com/dougmaitelli/Campfire/blob/master/backend/internal/campfire/service/game_integration.go)

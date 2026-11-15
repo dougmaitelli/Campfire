@@ -10,12 +10,41 @@ from **Users**; there is no public password registration.
 
 Built-in platform roles are **Admin**, **Server creator**, and **User**.
 Administrators can define custom platform roles and server access roles on **Roles**.
+Custom platform roles can grant `servers.create`; they cannot grant platform
+administration. Server access roles grant permissions on assigned servers only.
 
-Server creators need creation access to the chosen Spark. Administrators grant
-that access in the Spark's settings. Server ownership and server memberships
-control access to individual servers; assign members the permissions they need
-for viewing, operating, or configuring that server. Only its owner and panel
-administrators can change its access grants.
+### Creating servers and granting access
+
+Administrators grant Spark provisioning access to individual users or platform
+roles in the Spark's settings. This lets those users create servers on that Spark,
+including users with the **User** platform role; they do not need to be assigned
+**Server creator** first. Conversely, the **Server creator** role does not allow
+creation on every Spark: non-administrators still need a grant for the chosen
+Spark. Provisioning access does not grant Spark administration.
+
+Server ownership and server memberships control access to individual servers.
+Owners receive all server grants through the built-in **Owner** role, including
+server deletion. Members receive the grants of their assigned server access role,
+such as the built-in **Operator** role or a custom role. Only the actual owner and
+panel administrators can change server access grants; a role or preset with broad
+server permissions does not confer ownership.
+
+### Give someone access to a server
+
+1. Sign in as the server's owner or a panel administrator. The person receiving
+   access must already have a Campfire account.
+2. Open the server and choose **More server actions → Edit server**, then open
+   the **Access** step.
+3. Under **Access grants**, select **User**, choose the account, and select its
+   **Server access role**. Choose **Add access**.
+4. Continue to the review step and choose **Save changes**.
+
+To share with everyone assigned to a platform role, select **Platform role**
+instead of **User**. This grants the selected server access role on this server;
+it does not change anyone's platform role. Remove a grant from the same Access
+step and save to revoke it. Other grants or ownership can still provide access.
+
+### Server access roles
 
 Server access roles separate power controls, console access, files, backups, schedules,
 configuration, installation, and deletion. The role editor shows these grants in
@@ -50,41 +79,30 @@ server.view
         └── server.delete
 ```
 
-| Grant                     | Access and prerequisites                                                                                         |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `server.view`             | Server overview and status                                                                                       |
-| `server.console.read`     | Read logs; requires server viewing                                                                               |
-| `server.operate`          | Initial installation, start, stop, restart, and kill; includes console reading                                   |
-| `server.console.write`    | Send console commands; requires operation                                                                        |
-| `server.files.read`       | Browse, read, and download files, including SFTP; requires operation                                             |
-| `server.files.write`      | Upload, edit, rename, archive, extract, and chmod; includes file reading                                         |
-| `server.files.delete`     | Delete files; includes file writing                                                                              |
-| `server.backups.read`     | List backups; requires operation                                                                                 |
-| `server.backups.create`   | Create backups; requires backup listing                                                                          |
-| `server.backups.restore`  | Restore backups; requires backup listing and inherits operation                                                  |
-| `server.backups.download` | Download backup archives; requires backup listing                                                                |
-| `server.backups.delete`   | Delete backups; requires backup listing                                                                          |
-| `server.configure`        | Server settings and backup policy; requires operation                                                            |
-| `server.reinstall`        | Game update and reinstallation, including clean installation; requires operation                                 |
-| `server.delete`           | Delete the server; requires operation                                                                            |
-| `server.schedules.read`   | View schedules and execution history; requires operation                                                         |
-| `server.schedules.manage` | Create, edit, enable, and delete schedules; requires schedule reading and the scheduled action's grant when used |
-| `server.schedules.run`    | Run schedules and retry executions; requires schedule reading and the scheduled action's grant when used         |
+| Grant                     | Access and prerequisites                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `server.view`             | Overview, status, resource metrics/history, game events/media, and permission-filtered Activity                   |
+| `server.console.read`     | Read logs; requires server viewing                                                                                |
+| `server.operate`          | Initial installation, power controls, saved-configuration sync, and log-alert dismissal; includes console reading |
+| `server.console.write`    | Send console commands; requires operation                                                                         |
+| `server.files.read`       | Browse, read, and download files, including SFTP; requires operation                                              |
+| `server.files.write`      | Create directories, upload, edit, move, rename, archive, extract, and chmod; includes file reading                |
+| `server.files.delete`     | Delete files; includes file writing                                                                               |
+| `server.backups.read`     | List backups; requires operation                                                                                  |
+| `server.backups.create`   | Create, import, rename, and pin/unpin backups; requires backup listing                                            |
+| `server.backups.restore`  | Restore backups; requires backup listing and inherits operation                                                   |
+| `server.backups.download` | Download backup archives; requires backup listing                                                                 |
+| `server.backups.delete`   | Delete backups; requires backup listing                                                                           |
+| `server.configure`        | Server settings, backup policy, and per-server Discord integrations; requires operation                           |
+| `server.reinstall`        | Game update and reinstallation, including clean installation; requires operation                                  |
+| `server.delete`           | Delete the server; requires operation                                                                             |
+| `server.schedules.read`   | View schedules and execution history; requires operation                                                          |
+| `server.schedules.manage` | Create, edit, enable, and delete schedules; requires schedule reading and the scheduled action's grant when used  |
+| `server.schedules.run`    | Run schedules and retry executions; requires schedule reading and the scheduled action's grant when used          |
 
-Every server grant except `server.view` has one parent and ultimately requires
-`server.view`.
-Configuration, reinstallation, files, backups, and schedules are branches under
-`server.operate`, which inherits console reading. Reinstallation does not require
-configuration; restoration is under backup viewing. Their grants authorize those
-operations without file browser grants. Clean reinstallation uses the same
-`server.reinstall` grant and does not require file deletion. Selecting a child
-selects its complete chain of ancestors;
-selecting a parent does not grant its children or other branches.
-
-File deletion, backup deletion, and server deletion remain separate grants, shown
-in red in the role editor. Server deletion requires operation, but operation
-alone does not allow deletion. File permission changes such as chmod are part of
-file writing. Backup storage and retention settings are part of configuration.
+Reinstallation and backup restoration do not require file-browser grants. Clean
+reinstallation uses `server.reinstall`, not file deletion. File, backup, and
+server deletion are separate grants, highlighted in red in the role editor.
 
 ### Permission presets
 
@@ -100,17 +118,35 @@ the following grants and their ancestors; you can then adjust individual boxes.
 
 Server administrator applies only to assigned servers. It does not grant
 platform administration, ownership, or permission to change server access grants.
-The built-in platform **Admin** role retains exclusive Spark, user, and role
-administration. There is no separate sharing grant.
+The built-in platform **Admin** role retains exclusive platform administration,
+including Sparks, users, roles, Embers, global Discord connections, server ownership
+reassignment, and transfers between Sparks. There is no separate sharing grant.
 
 Basic operator grants only overview access, console reading, and basic operation.
 The built-in **Operator** role has broader grants: console commands, file
 management including deletion, backup viewing, creation, restoration and
 downloading, and schedule viewing.
 
-Role grants and API token scopes are stored explicitly. Reopening the database
-does not expand or rewrite them. Overview-only grants remain overview-only;
-viewing schedules requires operation access.
+### Permissions for related features
+
+- **Activity:** `server.view` permits opening Activity and reading game events and
+  media. Manual operation history additionally requires `server.operate`;
+  scheduled operation history requires `server.schedules.read`. Job details and
+  notification actions are filtered by their corresponding permissions, so
+  overview access does not expose every entry or action.
+- **Ember updates:** `server.configure` permits editing saved server settings, but
+  applying an updated Ember definition requires the platform
+  `servers.manage_all` permission. See [server configuration](/Campfire/servers/).
+- **Discord:** per-server integration settings require `server.configure`.
+  Setting up global Discord connections requires Admin access; an API token must
+  also have full-access scope. See [Discord integration](/Campfire/discord/).
+- **Copies:** creating a copy requires `servers.create`, source
+  `server.configure`, and provisioning access on the destination Spark. Including
+  game files also requires source `server.files.read`.
+- **Transfers:** moving an existing server to another Spark requires both
+  `sparks.manage` and `servers.manage_all`; ownership or server operation grants
+  alone are insufficient. See [copies and transfers](/Campfire/server-transfers/)
+  for job permissions and recovery.
 
 ## View as another user
 
@@ -197,6 +233,31 @@ grants on each operation. Scheduled executions retain the scopes of the token
 that authorized them and recheck current account access before dispatch.
 Changing server access grants requires an owner or administrator session, or
 their full-access token.
+
+### Platform token scopes
+
+Platform token scopes are separate from the grants available to custom platform
+roles. Selecting an administrative scope does not make an ordinary account an
+administrator. Admin tokens can be narrowed to specific platform actions; custom
+platform roles can grant only `servers.create`.
+
+| Scope                  | Limits token access to                                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `*`                    | All access the account already has; required for ownership-based access management and global Discord connection management |
+| `servers.create`       | Server creation and provisioning options, subject to Spark access                                                           |
+| `servers.manage_all`   | Platform server management, including ownership reassignment and applying Ember definitions                                 |
+| `sparks.manage`        | Spark administration; transfers also require `servers.manage_all`                                                           |
+| `embers.manage`        | Ember definition management                                                                                                 |
+| `users.manage`         | User administration                                                                                                         |
+| `roles.manage`         | Role administration                                                                                                         |
+| `audit.view`           | Platform audit history                                                                                                      |
+| `notifications.read`   | Reading the account's notifications                                                                                         |
+| `notifications.write`  | Marking the account's notifications as read                                                                                 |
+| `notifications.manage` | Notification delivery status, testing, and retries                                                                          |
+
+Server-specific endpoints still require their corresponding server scopes.
+Platform scopes do not replace the server permission hierarchy or bypass token
+scope checks.
 
 For a forgotten administrator password or an unavailable identity provider,
 see [password recovery](/Campfire/operations/#administrator-password-recovery).

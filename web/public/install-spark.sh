@@ -89,7 +89,7 @@ install -m 0755 "$stage/spark" /usr/local/bin/spark
 # A dedicated drop-in uses the saved identity rather than retaining the token.
 install -m 0644 "$stage/deploy/systemd/spark.service" /etc/systemd/system/spark.service
 install -d -m 0755 /etc/systemd/system/spark.service.d
-printf '[Service]\nEnvironmentFile=\nUnsetEnvironment=SPARK_PANEL SPARK_TOKEN_FILE SPARK_CA_FILE CAMPFIRE_ENROLLMENT_TOKEN\nEnvironment=SPARK_DATA=/var/lib/spark\n' > /etc/systemd/system/spark.service.d/installer.conf
+printf '[Service]\nEnvironmentFile=\nUnsetEnvironment=SPARK_PANEL SPARK_TOKEN_FILE SPARK_CA_FILE SPARK_ENROLLMENT_TOKEN\nEnvironment=SPARK_DATA=/var/lib/spark\n' > /etc/systemd/system/spark.service.d/installer.conf
 systemctl daemon-reload
 systemctl enable --now spark.service
 restart_previous=false

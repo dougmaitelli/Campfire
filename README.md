@@ -27,7 +27,7 @@ for an example.
 - [Documentation website](https://dougmaitelli.github.io/Campfire/)
 - [Getting started and core concepts](https://dougmaitelli.github.io/Campfire/concepts/)
 - [Configuration reference](https://dougmaitelli.github.io/Campfire/configuration/)
-- [Embers and Egg imports](https://dougmaitelli.github.io/Campfire/egg-compatibility/)
+- [Embers](https://dougmaitelli.github.io/Campfire/embers/)
 - [Development](https://dougmaitelli.github.io/Campfire/development/)
 
 ## Features

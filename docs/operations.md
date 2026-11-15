@@ -2,6 +2,8 @@
 title: Upgrades and recovery
 ---
 
+## What to preserve
+
 Game snapshots and installation recovery protect different data. Preserve:
 
 - The panel database and its persistent state directory, including the Spark signing authority and encrypted integration credentials
@@ -14,11 +16,42 @@ Discord delivery identities are stored in the database, while the token files
 and encryption key live in `integration-secrets` under the panel state directory.
 Restore them together; see [Discord backup and recovery](../discord/#back-up-and-restore).
 
-For Compose upgrades, select the desired image tag in your deployment configuration, then run `docker compose pull` and `docker compose up -d`. Check login, health, and Spark connections afterward. Upgrade Spark when required by protocol or feature compatibility; wait for active operations to finish before restarting an agent.
+## Docker Compose upgrades
 
-For binary upgrades, stop the relevant service, replace its binary with the verified new release, and restart it. Preserve the previous binary until verification succeeds. Database schema checks run at startup; a rollback may require restoring the matching pre-upgrade database and state as well as the previous image or binary. Do not use `docker compose down -v` during upgrades: it deletes persistent volumes.
+Select the desired image tag in your deployment configuration, then run:
 
-### Administrator password recovery
+```sh
+docker compose pull
+docker compose up -d
+```
+
+Check login, health, and Spark connections afterward. Do not use
+`docker compose down -v` during upgrades: it deletes persistent volumes.
+
+## Binary upgrades
+
+Stop the relevant service, replace its binary with the verified release, and
+restart it. Preserve the previous binary until verification succeeds.
+
+Upgrade Spark when required by protocol or feature compatibility. Wait for active
+operations to finish before restarting an agent.
+
+## Recovery and rollback
+
+Database schema checks run at startup. A rollback may require restoring the
+matching pre-upgrade database and state as well as the previous image or binary.
+
+## History retention when upgrading
+
+Audit and completed operation history are retained for **90 days** by default.
+Records older than the configured retention period are eligible for automatic
+deletion. To keep them indefinitely, set both
+`CAMPFIRE_AUDIT_RETENTION_DAYS=0` and `CAMPFIRE_OPERATION_RETENTION_DAYS=0` in the
+panel environment. Before upgrading, check that your retention settings match
+the history you want to preserve. See the
+[settings reference](/Campfire/configuration/#activity-and-game-event-retention).
+
+## Administrator password recovery
 
 Save a new password of at least 15 characters in a private, mode-`0600` regular file. On a binary installation, run:
 

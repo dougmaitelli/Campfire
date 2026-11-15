@@ -1,8 +1,8 @@
 ---
-title: Game hosts
+title: Sparks
 ---
 
-A Spark is a Linux host that runs game containers. It needs rootful Docker Engine
+Spark is the agent that runs game containers on a Linux game host. It needs rootful Docker Engine
 and the Docker CLI. Campfire's guided installer also needs systemd, curl,
 base64, and sudo access. Linux amd64 and arm64 packages are supported.
 
@@ -41,24 +41,35 @@ from the panel's agent connection URL and the interface Docker binds. Check it
 when moving servers between hosts. Review existing reservations before reducing
 capacity or removing port allocations.
 
+### Disk quotas and host storage
+
+Disk usage is measured on Spark. Hard game-data limits require Linux 5.14 or newer
+and XFS or ext4 with project quota accounting and enforcement enabled on the
+filesystem holding `SPARK_DATA/runtime`. XFS needs the `prjquota` or `pquota` mount
+option; ext4 also needs its project and quota filesystem features.
+
+Prepare the filesystem before starting Spark, and restart Spark after changing
+quota support. Without supported quotas, usage is monitored but hard disk limits
+are unavailable.
+
+Game-data allocations do not include backup archives, Docker images, or container
+writable layers. Host storage therefore needs separate capacity management.
+
 ## Maintenance
 
-Use **Update** when Campfire offers a newer bundled Spark build. Remote updates
-require a connected agent with update support; clients without that capability
-need a manual upgrade. Updates install the package supplied by the current panel,
-not an independently selected release.
+| Action           | When to use it                                                      |
+| ---------------- | ------------------------------------------------------------------- |
+| **Update**       | Install the newer Spark build offered by the panel.                 |
+| **Force update** | Reinstall the panel's bundled Spark build even when versions match. |
+| **Re-enroll**    | Replace the Spark's credentials and restart its service.            |
 
-Use **Re-enroll** in Spark details when replacing its credentials. Successful
-re-enrollment replaces the previous identity and briefly restarts the service.
-Preserve the Spark data directory across ordinary service and host restarts.
+Remote updates require a connected Spark supporting the selected action and use
+the current panel's bundled package, not an independently selected release.
+Updating preserves credentials, configuration, game files, and backups; game
+containers keep running. Preserve the Spark data directory across service and
+host restarts.
 
-Use **Force update** in Spark details to install the client build bundled with the
-current panel remotely, even when no update is detected or the installed version
-matches the panel. This requires a connected Spark with remote force update
-support. Confirm the action to download and verify the panel's package, replace
-the executable, and restart Spark. Credentials, configuration, game files, and
-backups are preserved; game containers keep running. Older clients need an
-ordinary update before they can support this action.
+### Connection and feature troubleshooting
 
 Inspect service logs with `sudo journalctl -u spark -f`. For connection problems,
 check the configured agent address, outbound reachability, certificate trust,
@@ -68,7 +79,10 @@ re-enrollment. The **Features** view shows which operations a connected version 
 Feature support is negotiated with the connected agent. A **Partial support**
 entry means only some operations in that feature group are supported; it is not
 confirmation that every related action is available. Update Spark when a required
-capability is missing, then check the reported features again.
+capability is missing, then check the reported features again. If remote update
+is unavailable, [upgrade the binary manually](/Campfire/operations/).
+
+### Cleanup and removal
 
 Use **Prune** to remove leftover Campfire installer containers, containers for
 deleted servers, unused images tracked by Campfire, and unused volumes labeled

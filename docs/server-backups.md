@@ -7,41 +7,47 @@ The overview's recent backups and the main **Backups** page list only archives
 from servers where you have `server.backups.read` permission.
 Storage indicators distinguish local archives on Spark from off-host S3 copies.
 
-`server.backups.read` allows listing backups and requires `server.operate`.
-Creation, restoration, downloading, and deletion each have separate grants under
-backup viewing: `server.backups.create`, `server.backups.restore`,
-`server.backups.download`, and `server.backups.delete`. Restoration inherits server
-operation without requiring file reading or writing. The Backup maintainer preset
-selects backup creation, restoration, and downloading, with their prerequisites;
-backup deletion must be granted separately. Backup storage and retention
-settings remain part of `server.configure`. See [accounts and access](/Campfire/authentication/) for
-the complete permission hierarchy.
+Creating, restoring, downloading, and deleting backups require separate grants;
+backup policy requires `server.configure`. See
+[Accounts and access](/Campfire/authentication/#permission-hierarchy) for the
+permissions and Backup maintainer preset.
 
-## Create and restore
+## Choose a backup type
+
+| Type               | Contents                                                   |
+| ------------------ | ---------------------------------------------------------- |
+| **Full server**    | The whole game-data directory                              |
+| **Save data only** | Files and folders declared by the Ember's `savedata_paths` |
+
+Choose the type for each manual backup or backup schedule; there is no server-wide
+default. Save-data backups require the latest Ember to declare save paths. Pending
+server-value reviews do not block either type. Path changes apply to new backup
+requests immediately, without deployment sync or restart.
+
+## Create a backup
 
 Backups can run while the server is running. Live backups copy files as they are
 read; they do not flush in-memory game saves or provide an atomic snapshot across
 files. Save the game first when possible, or stop it for a consistent backup.
-Every restore asks for confirmation and explains which files will be replaced.
-If the server is running, the dialog offers to stop it, restore the backup, and
-restart it. Clear **Restart server after restoring** to leave it stopped instead.
-The panel waits for each operation to succeed before starting the next. Keep the
-page open until the sequence finishes. A failed restore never starts the server.
+Missing required save paths fail backup creation; missing optional paths are
+recorded in the archive.
+
+### Scheduled backups
 
 Backup schedules offer **Stop server during backup**. When selected, Spark stops
 a running server, creates the backup, and attempts to start it again even if
 backup creation fails. A server that was already stopped remains stopped. The
 sequence runs as one operation on Spark and continues if the panel restarts.
 Follow its execution history and server status to confirm both the backup and
-restart completed.
+restart completed. See [Schedules](/Campfire/schedules/) to configure recurring work.
 
-Choose **Full server** to capture the whole game-data directory, or **Save data
-only** to capture the files and folders declared by the Ember's `savedata_paths`.
-Save-data backups are available when the latest Ember declares those paths;
-pending server-value reviews do not block full or save-data backups. Path changes
-apply to new backup requests immediately, without deployment sync or restart.
-Choose the type for each manual backup or backup schedule; there is no server-wide
-default. Existing schedules continue to create full backups.
+## Restore a backup
+
+Every restore asks for confirmation and explains which files will be replaced.
+If the server is running, the dialog offers to stop it, restore the backup, and
+restart it. Clear **Restart server after restoring** to leave it stopped instead.
+The panel waits for each operation to succeed before starting the next. Keep the
+page open until the sequence finishes. A failed restore never starts the server.
 
 A full restore replaces all game files. A save-data restore replaces only the
 captured paths, including removing files added under those paths since the backup.
@@ -52,14 +58,13 @@ already stopped remains stopped after either restore type. Check its console
 after starting it or completing a restore with restart selected.
 
 Each archive records its type and selected paths. Restoring an older backup uses
-that snapshot's paths even if the Ember has changed. Missing required paths fail
-backup creation; missing optional paths are recorded. Archives created before
-backup types were introduced restore as full snapshots.
+that snapshot's paths even if the Ember has changed.
 
-New archives are named `full-<id>.tar.gz` or `savedata-<id>.tar.gz`. Their first
-entry, `.campfire-backup.json`, records the mode, selected paths, missing optional
-paths, and Ember revision. Restore uses this metadata rather than guessing from
-the filename; older archive names remain supported.
+Keep enough host space for the current game directory and a staged replacement
+at the same time. Save-data restores also stage the installed files they preserve.
+Restores assign files to the server's runtime user and use private, writable
+permissions: `0600` for files and `0700` for directories and executable files.
+This prevents read-only permissions from blocking future saves.
 
 ## Portable backups and recovery
 
@@ -91,10 +96,10 @@ Uploading requires backup creation permission; restoration requires the separate
 backup restore permission. Creating from backup also requires server creation
 access to the destination Spark.
 
-Portable imports accept archives created with this feature, including archives
-downloaded from another Campfire installation. Older archives remain usable in
-their existing catalog but cannot be uploaded through this workflow. Review pending
-server-value changes before creating a portable snapshot. Backups made while that
+Portable imports require embedded server settings and an Ember definition and
+can come from another Campfire installation. Data-only archives can be restored
+from their existing catalog but cannot be uploaded through this workflow. Review
+pending server-value changes before creating a portable snapshot. Backups made while that
 review is pending still protect data but omit portable server settings.
 Uploads use the configured file-upload limit and expire after one hour. Keep
 enough free space on the panel for the uploaded archive and on Spark for the
@@ -115,13 +120,6 @@ snapshot may then be removed during the next cleanup. Unpinning is also required
 before manually deleting a backup. Deleting the server still deletes its backups,
 including pinned snapshots.
 
-Keep enough host space for the current game directory and a staged replacement
-at the same time. Save-data restores also stage the installed files they preserve.
-
-Restores assign ownership to the server's runtime user and normalize permissions
-to `0600` for files and `0700` for directories and executable files. This prevents
-read-only permissions from a migrated world from blocking future saves.
-
 ## Off-host storage and retention
 
 Configure the S3 bucket, region, optional compatible endpoint, and credentials
@@ -134,9 +132,7 @@ and remote retention policies. Inspect synchronization errors before assuming an
 archive has an off-host copy. Failed synchronization retains the local archive.
 Configure local and S3 keep-last counts and maximum ages separately for **Full
 server** and **Save data only** backups. Frequent save-data snapshots do not
-displace retained full snapshots. Existing retention settings remain the full
-backup limits; save-data limits start disabled. Zero disables each individual
-limit.
+displace retained full snapshots. Zero disables each individual limit.
 The panel and Sparks must be able to reach and trust the storage endpoint for
 upload and restore workflows.
 
