@@ -2,9 +2,10 @@
 title: Settings reference
 ---
 
-Command-line flags override environment values where a corresponding flag exists.
-A dash in the CLI column means the setting is environment-only. Deployment files
-may set values different from the binary defaults listed here. See the
+Every panel setting below supports both an environment variable and a CLI flag.
+Precedence is explicit CLI flag, then environment value, then built-in default.
+For boolean flags, use `--flag=true` or `--flag=false` (a bare flag means `true`).
+Deployment files may set values different from the binary defaults listed here. See the
 [panel environment example](https://github.com/dougmaitelli/Campfire/blob/master/config/campfire.env.example)
 for a configuration template.
 
@@ -55,13 +56,13 @@ See [accounts and access](/Campfire/authentication/) for provider setup and logi
 
 ## Off-host backups
 
-| Setting                  | CLI flag | Purpose                                                                    |
-| ------------------------ | -------- | -------------------------------------------------------------------------- |
-| `CAMPFIRE_S3_BUCKET`     | —        | Optional S3 bucket for off-host backup storage                             |
-| `CAMPFIRE_S3_REGION`     | —        | S3 region; defaults to `us-east-1`                                         |
-| `CAMPFIRE_S3_PREFIX`     | —        | Optional object-key prefix for S3 backups                                  |
-| `CAMPFIRE_S3_ENDPOINT`   | —        | Custom endpoint for S3-compatible storage                                  |
-| `CAMPFIRE_S3_PATH_STYLE` | —        | Use path-style S3 addressing for compatible providers; defaults to `false` |
+| Setting                  | CLI flag          | Purpose                                                                    |
+| ------------------------ | ----------------- | -------------------------------------------------------------------------- |
+| `CAMPFIRE_S3_BUCKET`     | `--s3-bucket`     | Optional S3 bucket for off-host backup storage                             |
+| `CAMPFIRE_S3_REGION`     | `--s3-region`     | S3 region; defaults to `us-east-1`                                         |
+| `CAMPFIRE_S3_PREFIX`     | `--s3-prefix`     | Optional object-key prefix for S3 backups                                  |
+| `CAMPFIRE_S3_ENDPOINT`   | `--s3-endpoint`   | Custom endpoint for S3-compatible storage                                  |
+| `CAMPFIRE_S3_PATH_STYLE` | `--s3-path-style` | Use path-style S3 addressing for compatible providers; defaults to `false` |
 
 S3 credentials use the AWS SDK credential chain, including `AWS_ACCESS_KEY_ID`,
 `AWS_SECRET_ACCESS_KEY`, and optional `AWS_SESSION_TOKEN`, shared configuration,
@@ -70,26 +71,26 @@ and retention separately for each server; see [game backups](/Campfire/server-ba
 
 ## Monitoring and alerts
 
-| Setting                              | CLI flag | Purpose                                                                                       |
-| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------- |
-| `CAMPFIRE_RESOURCE_INTERVAL_SECONDS` | —        | Resource collection and alert evaluation interval; defaults to `10` seconds                   |
-| `CAMPFIRE_RESOURCE_RETENTION_DAYS`   | —        | Resource-history retention in days; defaults to `30`; accepts `1–365`                         |
-| `CAMPFIRE_ALERT_CPU_PERCENT`         | —        | CPU alert threshold relative to the server allocation; defaults to `90`, or `0` to disable    |
-| `CAMPFIRE_ALERT_MEMORY_PERCENT`      | —        | Memory alert threshold relative to the server allocation; defaults to `90`, or `0` to disable |
-| `CAMPFIRE_ALERT_DISK_PERCENT`        | —        | Disk alert threshold relative to the server allocation; defaults to `90`, or `0` to disable   |
-| `CAMPFIRE_ALERT_DURATION_SECONDS`    | —        | How long an alert or recovery condition must persist; defaults to `120` seconds               |
-| `CAMPFIRE_ALERT_HEALTH_ENABLED`      | —        | Enable Spark connection and server health alerts; defaults to `true`                          |
+| Setting                              | CLI flag                      | Purpose                                                                                       |
+| ------------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------- |
+| `CAMPFIRE_RESOURCE_INTERVAL_SECONDS` | `--resource-interval-seconds` | Resource collection and alert evaluation interval; defaults to `10` seconds                   |
+| `CAMPFIRE_RESOURCE_RETENTION_DAYS`   | `--resource-retention-days`   | Resource-history retention in days; defaults to `30`; accepts `1–365`                         |
+| `CAMPFIRE_ALERT_CPU_PERCENT`         | `--alert-cpu-percent`         | CPU alert threshold relative to the server allocation; defaults to `90`, or `0` to disable    |
+| `CAMPFIRE_ALERT_MEMORY_PERCENT`      | `--alert-memory-percent`      | Memory alert threshold relative to the server allocation; defaults to `90`, or `0` to disable |
+| `CAMPFIRE_ALERT_DISK_PERCENT`        | `--alert-disk-percent`        | Disk alert threshold relative to the server allocation; defaults to `90`, or `0` to disable   |
+| `CAMPFIRE_ALERT_DURATION_SECONDS`    | `--alert-duration-seconds`    | How long an alert or recovery condition must persist; defaults to `120` seconds               |
+| `CAMPFIRE_ALERT_HEALTH_ENABLED`      | `--alert-health-enabled`      | Enable Spark connection and server health alerts; defaults to `true`                          |
 
 ### External notification delivery
 
 In-app notifications work without Apprise. These optional settings enable external
 delivery; URLs may contain credentials. See [notifications](/Campfire/notifications/).
 
-| Setting                 | CLI flag | Purpose                                         |
-| ----------------------- | -------- | ----------------------------------------------- |
-| `CAMPFIRE_APPRISE_URL`  | —        | Complete Apprise notification endpoint          |
-| `CAMPFIRE_APPRISE_TAGS` | —        | Comma-separated Apprise tags                    |
-| `CAMPFIRE_APPRISE_URLS` | —        | Comma-separated inline notification target URLs |
+| Setting                 | CLI flag         | Purpose                                         |
+| ----------------------- | ---------------- | ----------------------------------------------- |
+| `CAMPFIRE_APPRISE_URL`  | `--apprise-url`  | Complete Apprise notification endpoint          |
+| `CAMPFIRE_APPRISE_TAGS` | `--apprise-tags` | Comma-separated Apprise tags                    |
+| `CAMPFIRE_APPRISE_URLS` | `--apprise-urls` | Comma-separated inline notification target URLs |
 
 ## Activity and game-event retention
 

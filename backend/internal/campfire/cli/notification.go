@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,13 +12,13 @@ import (
 	"campfire/internal/shared/settings"
 )
 
-func notificationConfig() (service.AlertConfig, *service.AppriseClient, error) {
+func notificationConfig(flags *flag.FlagSet) (service.AlertConfig, *service.AppriseClient, error) {
 	config := service.DefaultAlertConfig()
 	for _, item := range []struct {
 		setting cliutil.Setting
 		target  *float64
 	}{{settings.CampfireAlertCPUPercent, &config.CPUPercent}, {settings.CampfireAlertMemoryPercent, &config.MemoryPercent}, {settings.CampfireAlertDiskPercent, &config.DiskPercent}} {
-		value, err := strconv.ParseFloat(item.setting.Value(strconv.FormatFloat(*item.target, 'g', -1, 64)), 64)
+		value, err := strconv.ParseFloat(settingValue(flags, item.setting, strconv.FormatFloat(*item.target, 'g', -1, 64)), 64)
 		if err != nil {
 			return config, nil, fmt.Errorf("%s must be a percentage", item.setting.EnvironmentName)
 		}
@@ -25,16 +26,16 @@ func notificationConfig() (service.AlertConfig, *service.AppriseClient, error) {
 		*item.target = value
 	}
 
-	duration, err := strconv.ParseInt(settings.CampfireAlertDurationSeconds.Value(strconv.FormatInt(int64(config.Duration.Seconds()), 10)), 10, 64)
+	duration, err := strconv.ParseInt(settingValue(flags, settings.CampfireAlertDurationSeconds, strconv.FormatInt(int64(config.Duration.Seconds()), 10)), 10, 64)
 	if err != nil || duration < 0 || duration > 86400 {
 		return config, nil, fmt.Errorf("%s is outside its supported range", settings.CampfireAlertDurationSeconds.EnvironmentName)
 	}
 
 	config.Duration = time.Duration(duration) * time.Second
 
-	health, err := settings.CampfireAlertHealthEnabled.BoolValue(config.Health)
+	health, err := strconv.ParseBool(settingValue(flags, settings.CampfireAlertHealthEnabled, strconv.FormatBool(config.Health)))
 	if err != nil {
-		return config, nil, err
+		return config, nil, fmt.Errorf("%s must be a boolean", settings.CampfireAlertHealthEnabled.EnvironmentName)
 	}
 
 	config.Health = health
@@ -53,7 +54,7 @@ func notificationConfig() (service.AlertConfig, *service.AppriseClient, error) {
 
 		return items
 	}
-	client, err := service.NewAppriseClient(service.AppriseConfig{URL: settings.CampfireAppriseURL.Value(""), URLs: split(settings.CampfireAppriseURLs.Value("")), Tags: split(settings.CampfireAppriseTags.Value(""))})
+	client, err := service.NewAppriseClient(service.AppriseConfig{URL: settingValue(flags, settings.CampfireAppriseURL, ""), URLs: split(settingValue(flags, settings.CampfireAppriseURLs, "")), Tags: split(settingValue(flags, settings.CampfireAppriseTags, ""))})
 
 	return config, client, err
 }

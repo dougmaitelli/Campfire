@@ -89,6 +89,8 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	gameEventRetention := settings.CampfireGameEventRetentionDays.String(flags, strconv.Itoa(int(limits.DefaultGameEventRetention/(24*time.Hour))), "game event retention in days, 1–3650")
 	gameEventLimit := settings.CampfireGameEventLimit.String(flags, strconv.Itoa(limits.DefaultGameEventLimit), "retained game events per server, 1–100000")
 
+	registerRuntimeSettings(flags)
+
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -125,7 +127,7 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 		return err
 	}
 
-	alerts, apprise, err := notificationConfig()
+	alerts, apprise, err := notificationConfig(flags)
 	if err != nil {
 		return err
 	}
@@ -290,7 +292,7 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 
 	resources := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM(), publisher), deployment)
 
-	resources.Interval, resources.Retention, err = resourceHistoryConfig()
+	resources.Interval, resources.Retention, err = resourceHistoryConfig(flags)
 	if err != nil {
 		return err
 	}
@@ -312,12 +314,12 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	}
 	defer activity.Close()
 
-	pathStyle, err := settings.CampfireS3PathStyle.BoolValue(false)
+	storageConfig, err := backupStorageConfig(flags)
 	if err != nil {
 		return err
 	}
 
-	objectStore, err := backupstorage.New(ctx, backupstorage.Config{Bucket: settings.CampfireS3Bucket.Value(""), Region: settings.CampfireS3Region.Value("us-east-1"), Endpoint: settings.CampfireS3Endpoint.Value(""), Prefix: settings.CampfireS3Prefix.Value(""), PathStyle: pathStyle})
+	objectStore, err := backupstorage.New(ctx, storageConfig)
 	if err != nil {
 		return fmt.Errorf("configure backup storage: %w", err)
 	}

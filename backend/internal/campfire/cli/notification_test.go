@@ -15,7 +15,7 @@ func TestNotificationConfigurationValidation(t *testing.T) {
 		t.Run(item.setting.EnvironmentName, func(t *testing.T) {
 			t.Setenv(item.setting.EnvironmentName, item.value)
 
-			if _, _, err := notificationConfig(); err == nil {
+			if _, _, err := notificationConfig(nil); err == nil {
 				t.Fatal("invalid configuration accepted")
 			}
 		})
