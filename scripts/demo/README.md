@@ -21,21 +21,21 @@ services or real Discord accounts are used. The activity event is published
 through the test backend's real notification queue to two mock destinations;
 both deliveries must succeed before the event drawer is captured.
 
-| Time | Sequence |
-| --- | --- |
-| 00–04 | Your servers. Your rules. |
-| 04–10 | Full overview page |
-| 10–22 | Create a server: game/host, variables, and review |
-| 22–28 | Full server console page |
-| 28–34 | Full file-management page |
-| 34–40 | Server backups |
-| 40–44 | Transfer destination |
-| 44–50 | Scheduled operations and execution history |
+| Time  | Sequence                                                      |
+| ----- | ------------------------------------------------------------- |
+| 00–04 | Your servers. Your rules.                                     |
+| 04–10 | Full overview page                                            |
+| 10–22 | Create a server: game/host, variables, and review             |
+| 22–28 | Full server console page                                      |
+| 28–34 | Full file-management page                                     |
+| 34–40 | Server backups                                                |
+| 40–44 | Transfer destination                                          |
+| 44–50 | Scheduled operations and execution history                    |
 | 50–56 | Discord notification categories, event types, and destination |
-| 56–62 | Persistent server-card settings and preview |
-| 62–68 | Game activity with triggered notification counts |
-| 68–72 | Event details with two delivered notifications |
-| 72–78 | Less managing. More playing. / project URL |
+| 56–62 | Persistent server-card settings and preview                   |
+| 62–68 | Game activity with triggered notification counts              |
+| 68–72 | Event details with two delivered notifications                |
+| 72–78 | Less managing. More playing. / project URL                    |
 
 The music is synthesized from oscillators and deterministic noise in `render.py`.
 It contains no downloaded recordings, stock music, third-party samples, or voice.
