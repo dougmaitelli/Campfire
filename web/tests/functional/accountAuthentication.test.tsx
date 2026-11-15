@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { AccountMenu } from "../../src/components/navigation/AccountMenu";
+import { Sidebar } from "../../src/components/navigation/Sidebar";
+import { navigation } from "../../src/routing/navigation";
 import {
   AuthenticationProvider,
   useAuthentication,
@@ -54,6 +56,35 @@ test.each([true, false])(
     expect(screen.queryByRole("button", { name: /Link OIDC/i }) !== null).toBe(
       !linked,
     );
+  },
+);
+
+test.each(["v1.2.3", "dev-1234567890abcdef", undefined])(
+  "sidebar displays the running version when available (%s)",
+  async (version) => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockImplementation(async () => Response.json({ ...session, version })),
+    );
+    render(
+      <AuthenticationProvider>
+        <Sidebar page={navigation[0]!} />
+      </AuthenticationProvider>,
+    );
+    await screen.findByRole("button", {
+      name: "Account options for oidc-user",
+    });
+    const label = document.querySelector(".brand-version");
+    if (version) {
+      expect(label?.textContent).toBe(
+        version.startsWith("dev-") ? "dev-12345678…" : version,
+      );
+      expect(label?.getAttribute("title")).toBe(version);
+    } else {
+      expect(label).toBeNull();
+    }
   },
 );
 

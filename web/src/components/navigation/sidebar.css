@@ -38,6 +38,23 @@
   text-decoration: none;
 }
 
+:where(.sidebar) .brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+:where(.sidebar) .brand-version {
+  margin-top: 2px;
+  color: var(--muted);
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
 :where(.sidebar) .brand-mark {
   display: flex;
   color: var(--accent);

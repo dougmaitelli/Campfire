@@ -13,13 +13,15 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/buildinfo"
 )
 
 const sessionCookie = "campfire_session"
 
 type authState struct {
-	Authenticated bool `json:"authenticated"`
-	SetupRequired bool `json:"setup_required"`
+	Version       string `json:"version,omitempty"`
+	Authenticated bool   `json:"authenticated"`
+	SetupRequired bool   `json:"setup_required"`
 	*service.Principal
 	CSRFToken   string       `json:"csrf_token,omitempty"`
 	ExpiresAt   int64        `json:"expires_at,omitempty"`
@@ -39,7 +41,7 @@ func currentUser(r *http.Request) service.Principal {
 
 func sessionState(session database.UserSession) authState {
 	principal := service.PrincipalFromSession(session)
-	return authState{Authenticated: true, Principal: &principal, CSRFToken: session.CSRF, ExpiresAt: session.ExpiresAt}
+	return authState{Version: buildinfo.Version, Authenticated: true, Principal: &principal, CSRFToken: session.CSRF, ExpiresAt: session.ExpiresAt}
 }
 
 func browserToken(r *http.Request) string {

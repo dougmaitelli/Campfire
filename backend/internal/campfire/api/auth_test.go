@@ -14,9 +14,11 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/shared/buildinfo"
 )
 
 type testAuthState struct {
+	Version       string `json:"version"`
 	Authenticated bool   `json:"authenticated"`
 	SetupRequired bool   `json:"setup_required"`
 	Username      string `json:"username"`
@@ -141,6 +143,10 @@ func TestAuthenticationBoundarySetupAndCSRF(t *testing.T) {
 	}
 
 	state, cookie := readAuthResponse(t, authRequest(handler, "POST", "/api/v1/auth/setup", setupBody(t, token), nil, "", "https://panel.example.com"))
+	if state.Version != buildinfo.Version {
+		t.Fatalf("expected running version %q, got %q", buildinfo.Version, state.Version)
+	}
+
 	if !cookie.Secure || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode || cookie.Path != "/api" || cookie.MaxAge != 43200 {
 		t.Fatalf("unsafe cookie attributes: %+v", cookie)
 	}

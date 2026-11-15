@@ -8,6 +8,7 @@ import { useAuthentication } from "../../hooks/useAuthentication";
 import { canPerformPlatform } from "../../permissions";
 import { AccountMenu } from "./AccountMenu";
 import { Button } from "../forms/Button";
+import { formatVersion } from "../../utils/formatVersion";
 import "./sidebar.css";
 
 export function Sidebar({
@@ -35,7 +36,14 @@ export function Sidebar({
           <span className="brand-mark">
             <CampfireMark />
           </span>
-          <span>{t("sidebar.campfire")}</span>
+          <span className="brand-text">
+            <span>{t("sidebar.campfire")}</span>
+            {auth.session?.version && (
+              <span className="brand-version" title={auth.session.version}>
+                {formatVersion(auth.session.version)}
+              </span>
+            )}
+          </span>
         </a>
         {onClose && (
           <Button

@@ -1,4 +1,16 @@
 import { test, expect, screenshot } from "./fixtures";
+import { login } from "./screens";
+
+test("sidebar version is stable for screenshot tests after login and reload", async ({
+  page,
+}) => {
+  await login(page);
+  const version = page.locator(".brand-version:visible");
+  await expect(version).toHaveText("v1.0.0");
+  await expect(version).toHaveAttribute("title", "v1.0.0");
+  await page.reload();
+  await expect(version).toHaveText("v1.0.0");
+});
 
 test("mobile login supports password visibility and keyboard submission", async ({
   page,

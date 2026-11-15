@@ -32,6 +32,23 @@ export const test = base.extend<{ guard: void }>({
         errors.push(`Unexpected external request: ${url}`);
         await route.abort();
       });
+      // Keep the sidebar stable across releases and local build metadata.
+      // Normalize all session-producing responses, including login and setup.
+      await page.route(
+        "**/api/v1/auth/{session,login,setup}",
+        async (route) => {
+          const response = await route.fetch();
+          if (!response.ok()) {
+            await route.fulfill({ response });
+            return;
+          }
+          const state = (await response.json()) as Record<string, unknown>;
+          await route.fulfill({
+            response,
+            json: { ...state, version: "v1.0.0" },
+          });
+        },
+      );
       await page.clock.setFixedTime(new Date("2026-10-22T12:00:00Z"));
       await use();
       expect(

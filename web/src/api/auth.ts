@@ -9,6 +9,7 @@ import {
 } from "./client";
 
 export interface AuthState {
+  version?: string;
   authenticated: boolean;
   setup_required: boolean;
   local_login?: boolean;
@@ -50,6 +51,7 @@ function isAuthState(value: unknown): value is AuthState {
     typeof value.local_login === "boolean" &&
     "oidc_enabled" in value &&
     typeof value.oidc_enabled === "boolean" &&
+    (!("version" in value) || typeof value.version === "string") &&
     (!("oidc_linked" in value) || typeof value.oidc_linked === "boolean") &&
     (!("name" in value) || typeof value.name === "string") &&
     (!("picture" in value) || typeof value.picture === "string") &&
