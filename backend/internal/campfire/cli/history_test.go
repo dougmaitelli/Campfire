@@ -23,9 +23,11 @@ func TestHistoryRetentionConfiguration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("retention %s rejected: %v", days, err)
 		}
+
 		if days == "90" && (config.AuditDays != 90 || config.OperationDays != 90) {
 			t.Fatal("90-day retention values lost", config)
 		}
+
 		if days == "0" && (config.AuditDays != 0 || config.OperationDays != 0) {
 			t.Fatal("explicit unlimited retention values lost", config)
 		}
