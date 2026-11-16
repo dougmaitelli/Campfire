@@ -89,19 +89,12 @@ func (a *API) serverDiscordMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	before := int64(0)
-
-	if raw := r.URL.Query().Get("before"); raw != "" {
-		value, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil || value < 1 {
-			writeError(w, integrations.ErrIntegrationInput)
-			return
-		}
-
-		before = value
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
 	}
 
-	items, err := a.integrations.ServerMessages(r.Context(), r.PathValue("id"), r.PathValue("bindingID"), permissions, before, r.URL.Query().Get("state"))
+	items, err := a.integrations.ServerMessagePage(r.Context(), r.PathValue("id"), r.PathValue("bindingID"), permissions, r.URL.Query().Get("state"), request)
 	if err != nil {
 		writeError(w, err)
 		return

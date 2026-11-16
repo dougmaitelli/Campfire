@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "react-i18next";
 import { JobStatus, JobType } from "../contracts/domains";
 import { PageHeader } from "../components/layout/PageHeader";
@@ -11,8 +11,16 @@ import { jobStatusLabels } from "../components/jobs/jobLabels";
 
 export function JobsPage() {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<JobStatus | "">("");
-  const [type, setType] = useState<JobType | "">("");
+  const navigation = usePagination();
+  const rawStatus = navigation.query.get("status") ?? "";
+  const rawType = navigation.query.get("type") ?? "";
+  const status =
+    Object.values(JobStatus).find((value) => value === rawStatus) ?? "";
+  const type = Object.values(JobType).find((value) => value === rawType) ?? "";
+  const setStatus = (value: string) =>
+    navigation.update({ status: value, page: null });
+  const setType = (value: string) =>
+    navigation.update({ type: value, page: null });
   return (
     <>
       <PageHeader

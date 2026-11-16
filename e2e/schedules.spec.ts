@@ -1,4 +1,4 @@
-import { test, expect, screenshot } from "./fixtures";
+import { test, expect, screenshot, pageFixture } from "./fixtures";
 import { login, openScreen } from "./screens";
 
 test("upcoming schedule rows open details while related links and toggles stay independent", async ({
@@ -358,7 +358,7 @@ test("the seeded observer can view schedules but cannot toggle them", async ({
   ).toBe(403);
 });
 
-test("schedule history loads older attempts without including other schedules", async ({
+test("schedule history navigates numbered pages without appending or including other schedules", async ({
   page,
 }) => {
   await login(page);
@@ -382,25 +382,39 @@ test("schedule history loads older attempts without including other schedules", 
   await page.route("**/api/v1/schedules/executions?*", (route) => {
     const query = new URL(route.request().url()).searchParams;
     if (query.get("schedule_id") !== "nightly-restart") return route.continue();
-    if (query.get("before")) {
-      expect(query.get("before")).toBe(`${runs[99]!.created_at}:attempt-99`);
-      return route.fulfill({ json: runs.slice(100) });
-    }
-    return route.fulfill({ json: runs.slice(0, 100) });
+    const number = Number(query.get("page") ?? 1);
+    expect(query.get("page_size")).toBe("50");
+    return route.fulfill({
+      json: pageFixture(
+        runs.slice((number - 1) * 50, number * 50),
+        number,
+        runs.length,
+      ),
+    });
   });
   await page.goto("/#schedules/nightly-restart");
   const history = page
     .getByRole("dialog")
     .getByRole("region", { name: "Execution history", exact: true });
-  await expect(history.getByRole("row")).toHaveCount(101);
+  await expect(history.getByRole("row")).toHaveCount(51);
+  await history.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(history.getByText("Attempt 50", { exact: true })).toBeVisible();
+  await expect(history.getByText("Attempt 0", { exact: true })).toHaveCount(0);
   await history
-    .getByRole("button", { name: "Load older executions", exact: true })
-    .click();
-  await expect(history.getByRole("row")).toHaveCount(103);
+    .getByRole("spinbutton", { name: "Go to page", exact: true })
+    .fill("3");
+  await history.getByRole("button", { name: "Go", exact: true }).click();
+  await expect(history.getByRole("row")).toHaveCount(3);
   await expect(history.getByText("Attempt 101", { exact: true })).toBeVisible();
   await expect(
-    history.getByRole("button", { name: "Load older executions", exact: true }),
-  ).toHaveCount(0);
+    history.getByRole("button", { name: "Next", exact: true }),
+  ).toBeDisabled();
+  await history.getByRole("button", { name: "Page 1", exact: true }).click();
+  await expect(history.getByText("Attempt 0", { exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(history.getByText("Attempt 101", { exact: true })).toBeVisible();
+  await page.goForward();
+  await expect(history.getByText("Attempt 0", { exact: true })).toBeVisible();
 });
 
 test("schedule history can retry a failed request and display an empty result", async ({
@@ -419,7 +433,7 @@ test("schedule history can retry a failed request and display an empty result", 
           status: 408,
           json: { error: "History request timed out." },
         })
-      : route.fulfill({ json: [] });
+      : route.fulfill({ json: pageFixture([]) });
   });
   await page.goto("/#schedules/nightly-restart");
   const overview = page.getByRole("dialog", {

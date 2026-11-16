@@ -1,3 +1,4 @@
+import { pageFixture } from "../pageFixture";
 import {
   afterAll,
   afterEach,
@@ -167,9 +168,9 @@ test("Activity paginates, keeps game filters in its URL and renders event data a
     if (!url.pathname.endsWith("/activity")) return Response.json(details);
     queries.push(url);
     return Response.json(
-      url.searchParams.has("before")
-        ? { items: [], next: "" }
-        : { items: [entry], next: "page-two" },
+      url.searchParams.get("page") === "2"
+        ? pageFixture([], 2, 51)
+        : pageFixture([entry], 1, 51),
     );
   });
   const user = userEvent.setup();
@@ -181,12 +182,12 @@ test("Activity paginates, keeps game filters in its URL and renders event data a
   expect(screen.getByText("Announcement text")).toBeDefined();
   expect(view.container.querySelector("script")).toBeNull();
   await user.click(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
-  await user.click(screen.getByRole("button", { name: "Older activity" }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", {
     name: "No activity matches these filters.",
   });
-  expect(queries.at(-1)?.searchParams.get("before")).toBe("page-two");
-  await user.click(screen.getByRole("button", { name: "Newest activity" }));
+  expect(queries.at(-1)?.searchParams.get("page")).toBe("2");
+  await user.click(screen.getByRole("button", { name: "Previous" }));
   await screen.findByRole("button", { name: event.title });
   await user.selectOptions(screen.getByLabelText("Activity type"), "game");
   await user.selectOptions(
@@ -204,7 +205,7 @@ test("Activity paginates, keeps game filters in its URL and renders event data a
     expect(queries.at(-1)?.searchParams.get("data.player")).toBe("Alex"),
   );
   expect(queries.at(-1)?.searchParams.get("type")).toBe("player.joined");
-  expect(queries.at(-1)?.searchParams.has("before")).toBe(false);
+  expect(queries.at(-1)?.searchParams.get("page")).toBe("1");
 });
 
 test("Activity reports request failures and retries", async () => {
@@ -217,7 +218,7 @@ test("Activity reports request failures and retries", async () => {
         failed = true;
         throw new TypeError("Connection unavailable");
       }
-      return Response.json({ items: [entry], next: "" });
+      return Response.json(pageFixture([entry]));
     });
   start();
   expect((await screen.findByRole("alert")).textContent).toContain(
@@ -287,8 +288,10 @@ test("related notifications distinguish text, image and video messages", async (
   }));
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
     Response.json(
-      String(input).endsWith("/notifications")
-        ? { items: messages, next: "" }
+      new URL(String(input), "https://panel.test").pathname.endsWith(
+        "/notifications",
+      )
+        ? pageFixture(messages)
         : { ...details, notification_count: 3 },
     ),
   );
@@ -346,21 +349,20 @@ test.each([true, false])(
 test("monitoring alerts are source activity with related notification delivery", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
     Response.json(
-      String(input).endsWith("/notifications")
-        ? {
-            items: [
-              {
-                ...entry,
-                key: "notification:1",
-                kind: "notification",
-                title: "Test server — CPU alert",
-                state: "created",
-                source_key: "monitoring_alert:cpu",
-                source_available: true,
-              },
-            ],
-            next: "",
-          }
+      new URL(String(input), "https://panel.test").pathname.endsWith(
+        "/notifications",
+      )
+        ? pageFixture([
+            {
+              ...entry,
+              key: "notification:1",
+              kind: "notification",
+              title: "Test server — CPU alert",
+              state: "created",
+              source_key: "monitoring_alert:cpu",
+              source_available: true,
+            },
+          ])
         : {
             ...entry,
             key: "monitoring_alert:cpu",
@@ -447,7 +449,7 @@ test("filter choices retry independently while Activity remains available", asyn
   let failed = false;
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     if (!String(input).includes("/filters?"))
-      return Response.json({ items: [entry], next: "" });
+      return Response.json(pageFixture([entry]));
     if (!failed) {
       failed = true;
       throw new TypeError("Choices unavailable");
@@ -550,19 +552,22 @@ test.each([
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       if (String(input).includes("/filters?")) return Response.json(choices);
       requests++;
-      return Response.json({
-        items: [
-          {
-            ...queued,
-            state: requests >= 4 ? "delivered" : state,
-            delivery_check_pending: deliveryCheckPending && requests < 4,
-          },
-        ],
-        next: "",
-      });
+      return Response.json(
+        pageFixture(
+          [
+            {
+              ...queued,
+              state: requests >= 4 ? "delivered" : state,
+              delivery_check_pending: deliveryCheckPending && requests < 4,
+            },
+          ],
+          2,
+          51,
+        ),
+      );
     });
     await act(async () => {
-      start({ before: "older-page" });
+      start({ page: 2 });
     });
     expect(screen.getByRole("table").textContent).toContain(label);
     const initial = requests;
@@ -578,7 +583,7 @@ test.each([
     await act(async () => {
       await vi.advanceTimersByTimeAsync(35000);
     });
-    expect(requests).toBe(finished);
+    expect(requests).toBeGreaterThan(finished);
   },
 );
 
@@ -587,9 +592,7 @@ test("Activity offers source filters and discovers choices only for game events"
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (input) =>
       Response.json(
-        String(input).includes("/filters?")
-          ? choices
-          : { items: [entry], next: "" },
+        String(input).includes("/filters?") ? choices : pageFixture([entry]),
       ),
     );
   start();
@@ -694,13 +697,13 @@ test("older related notifications load inside the source drawer without changing
     if (url.pathname.endsWith("/notifications")) {
       requests.push(url);
       return Response.json(
-        url.searchParams.has("before")
-          ? { items: [older], next: "" }
-          : { items: [message], next: "related-page" },
+        url.searchParams.get("page") === "2"
+          ? pageFixture([older], 2, 51)
+          : pageFixture([message], 1, 51),
       );
     }
     if (url.pathname.endsWith("/activity")) {
-      return Response.json({ items: [entry], next: "" });
+      return Response.json(pageFixture([entry]));
     }
     return Response.json({
       ...details,
@@ -714,7 +717,7 @@ test("older related notifications load inside the source drawer without changing
     search: "Morgan",
     from: event.received_at - 1,
     to: event.received_at + 1,
-    before: "older-page",
+    page: 2,
   });
   await userEvent
     .setup()
@@ -722,16 +725,14 @@ test("older related notifications load inside the source drawer without changing
   const route = window.location.hash;
   await userEvent
     .setup()
-    .click(
-      await screen.findByRole("button", { name: "Load older notifications" }),
-    );
+    .click(await screen.findByRole("button", { name: "Next" }));
   await screen.findByRole("button", { name: "Older message" });
-  expect(screen.getByRole("button", { name: "Newer message" })).toBeDefined();
-  expect(window.location.hash).toBe(route);
+  expect(screen.queryByRole("button", { name: "Newer message" })).toBeNull();
+  expect(window.location.hash).toBe(`${route}&notification_page=2`);
   expect(
-    screen.queryByRole("button", { name: "Load older notifications" }),
-  ).toBeNull();
-  expect(requests[0]?.search).toBe("");
+    screen.getByRole<HTMLButtonElement>("button", { name: "Next" }).disabled,
+  ).toBe(true);
+  expect(requests[0]?.searchParams.get("page")).toBe("1");
   expect(
     requests.every(
       (url) =>
@@ -739,7 +740,7 @@ test("older related notifications load inside the source drawer without changing
         `/api/v1/servers/${server.id}/activity/${encodeURIComponent(entry.key)}/notifications`,
     ),
   ).toBe(true);
-  expect(requests.at(-1)?.searchParams.get("before")).toBe("related-page");
+  expect(requests.at(-1)?.searchParams.get("page")).toBe("2");
   expect(requests.at(-1)?.searchParams.has("kind")).toBe(false);
 });
 
@@ -827,19 +828,19 @@ test.each(["request", "refresh", "navigation"])(
 test.each([
   {
     navigation: "stays on the original page",
-    pages: [{ before: "older-page" }],
+    pages: [{ page: 2 }],
   },
   {
     navigation: "moves to another page",
-    pages: [{ before: "different-page" }],
+    pages: [{ page: 3 }],
   },
   {
     navigation: "returns to the original page",
-    pages: [{ before: "different-page" }, { before: "older-page" }],
+    pages: [{ page: 3 }, { page: 2 }],
   },
   {
     navigation: "changes filters on an older page",
-    pages: [{ before: "older-page", search: "Server" }],
+    pages: [{ page: 2, search: "Server" }],
   },
 ])(
   "retry completion respects the current feed when the user $navigation",
@@ -851,7 +852,7 @@ test.each([
       title: "Server report",
       state: "failed",
     };
-    const filter = { before: "older-page" };
+    const filter = { page: 2 };
     const reads: URL[] = [];
     let state = item.state;
     let finish!: (response: Response) => void;
@@ -866,7 +867,13 @@ test.each([
         if (url.pathname.endsWith("/filters")) return Response.json(choices);
         if (url.pathname.endsWith("/activity")) {
           reads.push(url);
-          return Response.json({ items: [{ ...item, state }], next: "" });
+          return Response.json(
+            pageFixture(
+              [{ ...item, state }],
+              Number(url.searchParams.get("page")),
+              151,
+            ),
+          );
         }
         return Response.json({
           ...item,
@@ -908,7 +915,9 @@ test.each([
       finish(new Response(null, { status: 204 }));
     });
     expect(reads).toHaveLength(previousReads + 1);
-    expect(reads.at(-1)?.searchParams.get("before")).toBe(currentFilter.before);
+    expect(reads.at(-1)?.searchParams.get("page")).toBe(
+      String(currentFilter.page),
+    );
     expect(reads.at(-1)?.searchParams.get("search")).toBe(
       currentFilter.search ?? null,
     );

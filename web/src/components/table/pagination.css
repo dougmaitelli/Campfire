@@ -1,0 +1,25 @@
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+
+  & .pagination-pages,
+  & .pagination-page,
+  & form,
+  & label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  & .pagination-pages {
+    flex-wrap: wrap;
+  }
+  & input {
+    width: 5rem;
+  }
+  & [aria-current="page"] {
+    font-weight: 700;
+  }
+}

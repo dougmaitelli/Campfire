@@ -1,6 +1,8 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
+import { pageFixture } from "../pageFixture";
+import { replaceCurrentRoute } from "../../src/routing/useCurrentPage";
 import { NotificationsPage } from "../../src/pages/NotificationsPage";
 import type * as NotificationsAPI from "../../src/api/notifications";
 import {
@@ -23,6 +25,7 @@ vi.mock("../../src/api/notifications", async (importOriginal) => ({
 let items: Notification[];
 beforeEach(() => {
   vi.resetAllMocks();
+  replaceCurrentRoute("notifications");
   items = [
     {
       id: 2,
@@ -47,7 +50,9 @@ beforeEach(() => {
       read_at: 1792800000,
     },
   ];
-  vi.mocked(listNotifications).mockImplementation(async () => [...items]);
+  vi.mocked(listNotifications).mockImplementation(async () =>
+    pageFixture([...items]),
+  );
   vi.mocked(markNotificationRead).mockImplementation(async (id, read) => {
     items = items.map((item) =>
       item.id === id ? { ...item, read_at: read ? 1792800001 : 0 } : item,
@@ -140,4 +145,81 @@ test("a failed update keeps the notification unread and shows the action error",
       screen.getByRole("article", { name: "Survival restarted" }),
     ).getByText("Unread"),
   ).toBeDefined();
+});
+
+test("mark all read from a direct-linked later page uses the newest inbox watermark", async () => {
+  replaceCurrentRoute("notifications?page=2");
+  items = Array.from({ length: 101 }, (_, index) => ({
+    ...items[0]!,
+    id: 101 - index,
+    title: `Message ${101 - index}`,
+  }));
+  vi.mocked(listNotifications).mockImplementation(async (_signal, page = 1) =>
+    pageFixture(items.slice((page - 1) * 50, page * 50), page, items.length),
+  );
+  vi.mocked(markAllNotificationsRead).mockImplementation(async (through) => {
+    items = [
+      { ...items[0]!, id: 102, title: "New arrival" },
+      ...items.map((item) => ({
+        ...item,
+        read_at: item.id <= through ? 1792800001 : item.read_at,
+      })),
+    ];
+  });
+  render(<NotificationsPage />);
+  await screen.findByRole("article", { name: "Message 51" });
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Mark all read" }));
+  await waitFor(() =>
+    expect(markAllNotificationsRead).toHaveBeenCalledWith(101),
+  );
+  await waitFor(() =>
+    expect(listNotifications).toHaveBeenLastCalledWith(expect.anything(), 2),
+  );
+  expect(items.filter((item) => !item.read_at).map((item) => item.id)).toEqual([
+    102,
+  ]);
+  expect(window.location.hash).toBe("#notifications?page=2");
+  expect(screen.queryByRole("article", { name: "Message 101" })).toBeNull();
+});
+
+test("an empty newest page never sends the unbounded zero watermark", async () => {
+  replaceCurrentRoute("notifications?page=2");
+  vi.mocked(listNotifications).mockImplementation(async (_signal, page = 1) =>
+    pageFixture(page === 1 ? [] : items, page, page === 1 ? 0 : 52),
+  );
+  render(<NotificationsPage />);
+  await screen.findByRole("article", { name: "Survival restarted" });
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Mark all read" }));
+  await waitFor(() => expect(listNotifications).toHaveBeenCalledTimes(3));
+  expect(markAllNotificationsRead).not.toHaveBeenCalled();
+});
+
+test("a notification action completing after navigation refreshes only the current page", async () => {
+  let complete!: () => void;
+  vi.mocked(markNotificationRead).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        complete = resolve;
+      }),
+  );
+  vi.mocked(listNotifications).mockImplementation(async (_signal, page = 1) =>
+    pageFixture([{ ...items[0]!, title: `Page ${page} message` }], page, 51),
+  );
+  render(<NotificationsPage />);
+  await userEvent
+    .setup()
+    .click(
+      await screen.findByRole("button", { name: "Mark read: Page 1 message" }),
+    );
+  await act(async () => replaceCurrentRoute("notifications?page=2"));
+  await screen.findByRole("article", { name: "Page 2 message" });
+  vi.mocked(listNotifications).mockClear();
+  await act(async () => complete());
+  await waitFor(() => expect(listNotifications).toHaveBeenCalledTimes(1));
+  expect(listNotifications).toHaveBeenLastCalledWith(expect.anything(), 2);
+  expect(screen.getByRole("article", { name: "Page 2 message" })).toBeDefined();
 });

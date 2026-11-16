@@ -263,21 +263,44 @@ func (a *API) runSchedule(w http.ResponseWriter, r *http.Request) {
 func (a *API) listExecutions(w http.ResponseWriter, r *http.Request) {
 	p := currentUser(r)
 
-	items, err := a.activity.Store.ScheduleRuns(r.Context(), p.UserID, p.Admin, r.URL.Query().Get("server_id"), r.URL.Query().Get("before"), r.URL.Query().Get("schedule_id"))
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
+	}
+
+	all, err := a.access.CanReadAllScheduleExecutions(r.Context(), p)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 
-	visible := make([]database.ScheduleRun, 0, len(items))
-	for _, item := range items {
-		permissions, err := a.access.ServerPermissions(r.Context(), p, item.ServerID)
-		if err == nil && slices.Contains(permissions, accessperm.ServerSchedulesRead) {
-			visible = append(visible, item)
+	scope := repository.ExecutionAccess{AllServers: all}
+	if !scope.AllServers {
+		servers, err := a.servers.ListVisible(r.Context(), p)
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+
+		if err := a.access.ApplyServerPermissions(r.Context(), p, servers); err != nil {
+			writeError(w, err)
+			return
+		}
+
+		for _, server := range servers {
+			if slices.Contains(server.Permissions, accessperm.ServerSchedulesRead) {
+				scope.ServerIDs = append(scope.ServerIDs, server.ID)
+			}
 		}
 	}
 
-	writeJSON(w, http.StatusOK, visible)
+	items, err := a.activity.Store.ExecutionPage(r.Context(), scope, r.URL.Query().Get("server_id"), r.URL.Query().Get("schedule_id"), request)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, items)
 }
 
 func (a *API) retryExecution(w http.ResponseWriter, r *http.Request) {
@@ -292,7 +315,12 @@ func (a *API) retryExecution(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) listAudit(w http.ResponseWriter, r *http.Request) {
-	items, err := a.activity.Store.Audit(r.Context(), r.URL.Query().Get("before"), r.URL.Query().Get("action"), r.URL.Query().Get("target"))
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
+	}
+
+	items, err := a.activity.Store.AuditPage(r.Context(), r.URL.Query().Get("action"), r.URL.Query().Get("target"), request)
 	if err != nil {
 		writeError(w, err)
 		return

@@ -797,7 +797,7 @@ test("schedule history excludes direct server operations", async ({ page }) => {
   );
   const response = await page.request.get("/api/v1/schedules/executions");
   expect(response.ok()).toBeTruthy();
-  expect(await response.json()).toEqual([
+  expect(((await response.json()) as { items: unknown[] }).items).toEqual([
     expect.objectContaining({
       id: "scheduled-run",
       schedule_id: "nightly-restart",

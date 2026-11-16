@@ -6,6 +6,7 @@ import {
 import { isRecord as object, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
 import { apiFetch, readJSON, apiJSON } from "./client";
+import { readPage, pageQuery, type Page } from "./pagination";
 
 export const NOTIFICATIONS_REFRESH_INTERVAL_MS = 5000;
 
@@ -49,17 +50,12 @@ function isNotification(value: unknown): value is Notification {
 }
 export async function listNotifications(
   signal: AbortSignal,
-  before = 0,
+  page = 1,
   unread = false,
-): Promise<Notification[]> {
-  const query = new URLSearchParams({ unread: String(unread) });
-  if (before) query.set("before", String(before));
-  const body = await readJSON(
-    await apiFetch(`/api/v1/notifications?${query}`, { signal }),
-  );
-  if (!Array.isArray(body) || !body.every(isNotification))
-    throw new Error(i18n.t("notifications.unexpectedNotificationResponse"));
-  return body;
+): Promise<Page<Notification>> {
+  const query = pageQuery(page);
+  query.set("unread", String(unread));
+  return readPage(`/api/v1/notifications?${query}`, signal, isNotification);
 }
 export async function unreadNotifications(
   signal: AbortSignal,

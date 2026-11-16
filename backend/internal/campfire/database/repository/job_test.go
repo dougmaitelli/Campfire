@@ -8,6 +8,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -169,6 +170,11 @@ func TestJobHistoryBatchesNamesAndRetainsDeletedEndpoints(t *testing.T) {
 		if job.SourceName != "Current server" || job.SourceSparkName != "Current Spark" || job.TargetName != "deleted" || job.TargetSparkName != "deleted-spark" {
 			t.Fatal("history lost endpoint metadata", job)
 		}
+	}
+
+	page, err := store.Page(t.Context(), "server", []model.JobType{model.JobCopy}, repository.JobFilter{}, pagination.Request{Page: 2, Size: 10})
+	if err != nil || len(page.Items) != 10 || page.Pagination.TotalItems != 50 || page.Pagination.TotalPages != 5 || page.Items[0].SourceName != "Current server" {
+		t.Fatal("numbered job history failed", page, err)
 	}
 
 	item, err := store.HistoryItem(t.Context(), jobs[0].ID)

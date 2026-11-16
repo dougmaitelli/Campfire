@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 )
 
@@ -46,10 +47,10 @@ func TestSharedJobHistoryFiltersBeforePaginationAndHidesPrivateData(t *testing.T
 	response := request(regular, "GET", path, "")
 
 	var page struct {
-		Items []database.ServerJob `json:"items"`
-		Next  string               `json:"next"`
+		Items      []database.ServerJob `json:"items"`
+		Pagination pagination.Metadata  `json:"pagination"`
 	}
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 1 || page.Items[0].ID != "historical-copy" || page.Next != "" {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 1 || page.Items[0].ID != "historical-copy" || page.Pagination.TotalItems != 1 || page.Pagination.TotalPages != 1 {
 		t.Fatal("permissions were applied after pagination", response.Code, response.Body)
 	}
 
@@ -58,7 +59,7 @@ func TestSharedJobHistoryFiltersBeforePaginationAndHidesPrivateData(t *testing.T
 	expectAccess(t, f.admin, "GET", path+"?before=invalid", "", http.StatusBadRequest)
 
 	response = request(f.admin, "GET", path, "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 50 || page.Next == "" {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 50 || page.Pagination.TotalItems != 61 || page.Pagination.TotalPages != 2 {
 		t.Fatal("first history page is invalid", response.Code, response.Body)
 	}
 
@@ -73,8 +74,8 @@ func TestSharedJobHistoryFiltersBeforePaginationAndHidesPrivateData(t *testing.T
 		seen[job.ID] = true
 	}
 
-	response = request(f.admin, "GET", path+"?before="+page.Next, "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 11 || page.Next != "" {
+	response = request(f.admin, "GET", path+"?page=2", "")
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 11 || page.Pagination.Page != 2 {
 		t.Fatal("second history page is invalid", response.Code, response.Body)
 	}
 
@@ -113,11 +114,11 @@ func TestPlatformJobHistoryRequiresAdminAndFiltersAcrossServers(t *testing.T) {
 			database.ServerJob
 			SourceName string `json:"source_name"`
 		} `json:"items"`
-		Next string `json:"next"`
+		Pagination pagination.Metadata `json:"pagination"`
 	}
 
 	response := request(f.admin, "GET", "/api/v1/jobs", "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 50 || page.Next == "" {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 50 || page.Pagination.TotalItems != 71 || page.Pagination.TotalPages != 2 {
 		t.Fatal("platform history did not paginate across servers", response.Code, response.Body)
 	}
 
@@ -125,13 +126,13 @@ func TestPlatformJobHistoryRequiresAdminAndFiltersAcrossServers(t *testing.T) {
 		t.Fatal("deleted endpoint history was lost or exposed private data", response.Body)
 	}
 
-	response = request(f.admin, "GET", "/api/v1/jobs?before="+page.Next, "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 21 || page.Next != "" {
+	response = request(f.admin, "GET", "/api/v1/jobs?page=2", "")
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 21 || page.Pagination.Page != 2 {
 		t.Fatal("platform history lost older jobs", response.Code, response.Body)
 	}
 
 	response = request(f.admin, "GET", "/api/v1/jobs?status=pending&type=transfer", "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 1 || page.Items[0].ID != "old-pending" || page.Next != "" {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 1 || page.Items[0].ID != "old-pending" || page.Pagination.TotalItems != 1 || page.Pagination.TotalPages != 1 {
 		t.Fatal("platform filters were applied after pagination", response.Code, response.Body)
 	}
 

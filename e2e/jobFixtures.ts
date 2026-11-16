@@ -1,6 +1,7 @@
 import type { ServerJob } from "../web/src/contracts/jobs";
 import { JobType, JobStatus, JobStep } from "../web/src/contracts/domains";
 import type { Page } from "@playwright/test";
+import { pageFixture } from "./fixtures";
 
 export async function mockJobActivity(
   page: Page,
@@ -16,9 +17,19 @@ export async function mockJobActivity(
     source_available: false,
     notification_count: 0,
   });
-  await page.route(`**/api/v1/servers/${serverID}/activity?*`, (route) =>
-    route.fulfill({ json: { items: jobs().map(entry), next: "" } }),
-  );
+  await page.route(`**/api/v1/servers/${serverID}/activity?*`, (route) => {
+    const number = Number(
+      new URL(route.request().url()).searchParams.get("page") ?? 1,
+    );
+    const items = jobs().map(entry);
+    return route.fulfill({
+      json: pageFixture(
+        items.slice((number - 1) * 50, number * 50),
+        number,
+        items.length,
+      ),
+    });
+  });
   await page.route(
     `**/api/v1/servers/${serverID}/activity/job%3A*`,
     (route) => {

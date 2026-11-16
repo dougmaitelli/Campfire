@@ -9,6 +9,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -227,23 +228,32 @@ type IntegrationMessageStatus struct {
 
 // MessageStatuses returns bounded status pages without revealing event data.
 func (r *IntegrationRepository) MessageStatuses(ctx context.Context, bindingID string, categories []integrations.Category, before int64, state string) ([]IntegrationMessageStatus, error) {
+	page, err := r.messageStatusPage(ctx, bindingID, categories, before, state, pagination.Request{Page: 1, Size: 20})
+	return page.Items, err
+}
+
+// MessageStatusPage applies source permissions and delivery-state filters before paging.
+func (r *IntegrationRepository) MessageStatusPage(ctx context.Context, bindingID string, categories []integrations.Category, state string, request pagination.Request) (pagination.Page[IntegrationMessageStatus], error) {
+	return r.messageStatusPage(ctx, bindingID, categories, 0, state, request)
+}
+
+func (r *IntegrationRepository) messageStatusPage(ctx context.Context, bindingID string, categories []integrations.Category, before int64, state string, request pagination.Request) (pagination.Page[IntegrationMessageStatus], error) {
+	empty := pagination.New[IntegrationMessageStatus](nil, request, 0)
 	if bindingID == "" {
-		return []IntegrationMessageStatus{}, nil
+		return empty, nil
 	}
 
 	binding, err := r.GetBinding(ctx, bindingID)
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
 
 	connection, err := r.GetConnection(ctx, binding.IntegrationID)
 	if err != nil {
-		return nil, err
+		return empty, err
 	}
 
-	var rows []database.IntegrationMessage
-
-	query := r.db.WithContext(ctx).Where("binding_id = ? AND category IN ? AND state <> ?", bindingID, categories, integrations.MessageReceipt)
+	query := r.db.WithContext(ctx).Model(&database.IntegrationMessage{}).Where("binding_id = ? AND category IN ? AND state <> ?", bindingID, categories, integrations.MessageReceipt)
 	if before > 0 {
 		query = query.Where("id < ?", before)
 	}
@@ -259,16 +269,17 @@ func (r *IntegrationRepository) MessageStatuses(ctx context.Context, bindingID s
 		query = query.Where("state IN ?", []model.DeliveryState{model.DeliveryPending, integrations.MessageClaimed, integrations.MessageSending, integrations.MessageRateLimited, integrations.MessageGlobalLimited})
 	}
 
-	if err := query.Order("id DESC").Limit(20).Find(&rows).Error; err != nil {
-		return nil, err
+	page, err := pagination.Read[database.IntegrationMessage](query.Order("id DESC"), request)
+	if err != nil {
+		return empty, err
 	}
 
-	result := make([]IntegrationMessageStatus, 0, len(rows))
-	for _, row := range rows {
+	result := make([]IntegrationMessageStatus, 0, len(page.Items))
+	for _, row := range page.Items {
 		result = append(result, IntegrationMessageStatusFor(row, binding, connection))
 	}
 
-	return result, nil
+	return pagination.Page[IntegrationMessageStatus]{Items: result, Pagination: page.Pagination}, nil
 }
 
 // IntegrationMessageStatusFor shares recovery eligibility between the binding

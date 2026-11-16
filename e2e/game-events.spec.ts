@@ -57,16 +57,16 @@ test("game activity reads retained events and filters by type and recorded time"
     }),
   ).toBeVisible();
   const response = await page.request.get(
-    "/api/v1/servers/survival/events?limit=1",
+    "/api/v1/servers/survival/events?page_size=1",
   );
   expect(response.ok()).toBeTruthy();
   const first = (await response.json()) as {
     items: { id: number }[];
-    next_before: number;
+    pagination: { total_pages: number };
   };
   expect(first.items).toHaveLength(1);
   const second = await page.request.get(
-    `/api/v1/servers/survival/events?limit=1&before=${first.next_before}`,
+    "/api/v1/servers/survival/events?page_size=1&page=2",
   );
   const older = (await second.json()) as { items: { id: number }[] };
   expect(older.items[0]?.id).not.toBe(first.items[0]?.id);
@@ -237,24 +237,20 @@ test("game activity keeps field filters while paging through a live history", as
     const url = new URL(request.url());
     return (
       url.pathname.endsWith("/survival/activity") &&
-      url.searchParams.has("before")
+      url.searchParams.get("page") === "2"
     );
   });
-  await feed
-    .getByRole("button", { name: "Older activity", exact: true })
-    .click();
+  await feed.getByRole("button", { name: "Next", exact: true }).click();
   const query = new URL((await request).url()).searchParams;
   expect(query.get("search")).toBe("Alex");
   expect(query.get("data.player")).toBe("Alex");
   await expect(feed.locator("tbody tr")).toHaveCount(5);
   await expect(
-    feed.getByRole("button", { name: "Older activity", exact: true }),
-  ).toHaveCount(0);
+    feed.getByRole("button", { name: "Next", exact: true }),
+  ).toBeDisabled();
   await expect(
     feed.getByRole("combobox", { name: "Field value", exact: true }),
   ).toHaveText("Alex");
-  await feed
-    .getByRole("button", { name: "Newest activity", exact: true })
-    .click();
+  await feed.getByRole("button", { name: "Previous", exact: true }).click();
   await expect(feed.locator("tbody tr")).toHaveCount(50);
 });

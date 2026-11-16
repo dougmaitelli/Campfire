@@ -42,10 +42,18 @@ test("retrying schedule history requires confirmation before submitting", async 
   await login(page);
   await page.route("**/api/v1/schedules/executions?*", async (route) => {
     const response = await route.fetch();
-    const items = (await response.json()) as { state: ExecutionState }[];
+    const body = (await response.json()) as {
+      items: { state: ExecutionState }[];
+    };
     await route.fulfill({
       response,
-      json: items.map((item) => ({ ...item, state: ExecutionState.Failed })),
+      json: {
+        ...body,
+        items: body.items.map((item) => ({
+          ...item,
+          state: ExecutionState.Failed,
+        })),
+      },
     });
   });
   const requests: string[] = [];

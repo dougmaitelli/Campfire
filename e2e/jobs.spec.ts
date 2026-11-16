@@ -1,4 +1,4 @@
-import { test, expect, screenshot } from "./fixtures";
+import { test, expect, screenshot, pageFixture } from "./fixtures";
 import { login, openScreen } from "./screens";
 import { jobFixture } from "./jobFixtures";
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
@@ -50,18 +50,20 @@ test("admins can manage global jobs and open server Activity from resource detai
   });
   await page.route(/\/api\/v1\/jobs(?:\?.*)?$/, async (route) => {
     const query = new URL(route.request().url()).searchParams;
-    const items = query.has("before")
-      ? [older]
-      : [waiting, running, completed, failed].filter(
-          (job) =>
-            (!query.get("type") || job.type === query.get("type")) &&
-            (!query.get("status") || job.status === query.get("status")),
-        );
+    const items =
+      query.get("page") === "2"
+        ? [older]
+        : [waiting, running, completed, failed].filter(
+            (job) =>
+              (!query.get("type") || job.type === query.get("type")) &&
+              (!query.get("status") || job.status === query.get("status")),
+          );
     await route.fulfill({
-      json: {
+      json: pageFixture(
         items,
-        next: query.size === 0 ? "older-page" : "",
-      },
+        Number(query.get("page") ?? 1),
+        query.has("type") || query.has("status") ? items.length : 51,
+      ),
     });
   });
   await page.route("**/api/v1/jobs/failed-copy/retry", async (route) => {
@@ -86,10 +88,11 @@ test("admins can manage global jobs and open server Activity from resource detai
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "jobs-mobile.png");
   await page.setViewportSize({ width: 1400, height: 900 });
-  await jobs
-    .getByRole("button", { name: "Load older jobs", exact: true })
-    .click();
-  await expect(jobs.locator("tbody tr")).toHaveCount(5);
+  await jobs.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(jobs.locator("tbody tr")).toHaveCount(1);
+  await expect(
+    jobs.getByRole("row", { name: "Copy older-cancelled-copy", exact: true }),
+  ).toBeVisible();
   await page.getByRole("combobox", { name: "Status", exact: true }).click();
   await page.getByRole("option", { name: "Complete", exact: true }).click();
   await expect(jobs.locator("tbody tr")).toHaveCount(1);
@@ -173,21 +176,21 @@ test("completed-job filters refresh older pages when another job finishes", asyn
   });
   let completed = false;
   await page.route(/\/api\/v1\/jobs(?:\?.*)?$/, (route) => {
-    const older = new URL(route.request().url()).searchParams.has("before");
+    const older =
+      new URL(route.request().url()).searchParams.get("page") === "2";
     return route.fulfill({
-      json: {
-        items: older ? (completed ? [finished, oldest] : [oldest]) : [newest],
-        next: older ? "" : "older-page",
-      },
+      json: pageFixture(
+        older ? (completed ? [finished, oldest] : [oldest]) : [newest],
+        older ? 2 : 1,
+        52,
+      ),
     });
   });
   await login(page);
   await openScreen(page, "jobs", "Jobs");
   await page.getByRole("combobox", { name: "Status", exact: true }).click();
   await page.getByRole("option", { name: "Complete", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Load older jobs", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(
     page.getByRole("row", { name: "Copy oldest-completed", exact: true }),
   ).toBeVisible();

@@ -243,6 +243,23 @@ func TestServerDiscordIntegrationAPIEnforcesResourceAndSourceGrants(t *testing.T
 		t.Fatal("message status source access bypass", listed.Code, listed.Body)
 	}
 
+	var history struct {
+		Items      []repository.IntegrationMessageStatus `json:"items"`
+		Pagination struct {
+			TotalItems int `json:"total_items"`
+			TotalPages int `json:"total_pages"`
+		} `json:"pagination"`
+	}
+	if err := json.Unmarshal(listed.Body.Bytes(), &history); err != nil || len(history.Items) != 1 || history.Pagination.TotalItems != 1 || history.Pagination.TotalPages != 1 {
+		t.Fatal("delivery pagination counted inaccessible sources", listed.Body, err)
+	}
+
+	listed = request(allowed, "GET", endpoint+"/messages?state=failed&page=2", "")
+	if err := json.Unmarshal(listed.Body.Bytes(), &history); err != nil || len(history.Items) != 0 || history.Pagination.TotalItems != 1 {
+		t.Fatal("delivery page did not honor its offset", listed.Body, err)
+	}
+
+	expectAccess(t, allowed, "GET", endpoint+"/messages?page_size=101", "", http.StatusBadRequest)
 	retry := fmt.Sprintf("%s/messages/%d/retry", endpoint, game.ID)
 	expectAccess(t, limited, "POST", retry, `{}`, http.StatusForbidden)
 	expectAccess(t, panel.Handler(), "POST", retry, `{}`, http.StatusUnauthorized)

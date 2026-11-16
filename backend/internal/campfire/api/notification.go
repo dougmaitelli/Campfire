@@ -20,19 +20,12 @@ func (a *API) notificationsEnabled(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func (a *API) listNotifications(w http.ResponseWriter, r *http.Request) {
-	before := int64(0)
-
-	if raw := r.URL.Query().Get("before"); raw != "" {
-		value, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil || value < 1 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid notification cursor"})
-			return
-		}
-
-		before = value
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
 	}
 
-	items, err := a.notifications.List(r.Context(), currentUser(r), before, r.URL.Query().Get("unread") == "true")
+	items, err := a.notifications.Page(r.Context(), currentUser(r), r.URL.Query().Get("unread") == "true", request)
 	if err != nil {
 		writeError(w, err)
 		return

@@ -1,18 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { JobStatus } from "../../contracts/domains";
-import { API_READ_TIMEOUT_MS } from "../../api/client";
 import {
   listJobs,
   changeJob,
   type ServerJob,
   type JobFilter,
 } from "../../api/jobs";
+import { usePagination } from "../../hooks/usePagination";
+import { usePagedCollection } from "../../hooks/usePagedCollection";
 import { Button } from "../forms/Button";
 import { InlineMessage } from "../status/InlineMessage";
 import { Table } from "../table/Table";
+import { Pagination } from "../table/Pagination";
 import { JobRow } from "./JobRow";
-import i18n from "../../i18n";
 import "./job-list.css";
 
 async function unchanged() {}
@@ -32,99 +33,49 @@ export function JobList({
   const { t } = useTranslation();
   const type = filter?.type;
   const status = filter?.status;
-  const [jobs, setJobs] = useState<ServerJob[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [pages, setPages] = useState(1);
-  const [next, setNext] = useState("");
-  const [revision, setRevision] = useState(0);
-  const pending = useRef(false);
+  const navigation = usePagination();
   const active = useRef(new Set<string>());
-  useEffect(() => {
-    const controller = new AbortController();
-    const history = new Map<string, Awaited<ReturnType<typeof listJobs>>>();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function poll() {
-      let delay = 30_000;
-      try {
-        const signal = AbortSignal.any([
-          controller.signal,
-          AbortSignal.timeout(API_READ_TIMEOUT_MS),
-        ]);
-        const items: ServerJob[] = [];
-        let cursor = "";
-        for (let page = 0; page < pages; page++) {
-          const cached = history.get(cursor);
-          // Status filters can gain older jobs as they finish, even when all
-          // previously cached rows are terminal.
-          const result =
-            page > 0 && !status && cached && cached.items.every(isFinished)
-              ? cached
-              : await listJobs(undefined, signal, cursor || undefined, {
-                  type,
-                  status,
-                });
-          history.set(cursor, result);
-          items.push(...result.items);
-          cursor = result.next;
-          if (!cursor) break;
-        }
-        if (!controller.signal.aborted && !pending.current) {
-          const finished = items.some(
-            (job) => active.current.has(job.id) && isFinished(job),
-          );
-          active.current = new Set(
-            items.filter((job) => !isFinished(job)).map((job) => job.id),
-          );
-          setJobs(items);
-          setNext(cursor);
-          setLoading(false);
-          setError(null);
-          if (finished) await onChanged();
-        }
-        if (
-          items.some(
+  const [poll, setPoll] = useState(30000);
+  const load = useCallback(
+    async (signal: AbortSignal, page: number) => {
+      const result = await listJobs(undefined, signal, page, { type, status });
+      if (!signal.aborted) {
+        const finished = result.items.some(
+          (job) => active.current.has(job.id) && isFinished(job),
+        );
+        active.current = new Set(
+          result.items.filter((job) => !isFinished(job)).map((job) => job.id),
+        );
+        setPoll(
+          result.items.some(
             (job) => !isFinished(job) && job.status !== JobStatus.Failed,
           )
-        )
-          delay = 2000;
-      } catch (cause) {
-        if (!controller.signal.aborted) {
-          delay = 2000;
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : i18n.t("serverJobs.unableToLoad"),
-          );
-          setLoading(false);
-        }
+            ? 2000
+            : 30000,
+        );
+        if (finished) await onChanged();
       }
-      if (!controller.signal.aborted)
-        timer = setTimeout(() => void poll(), delay);
-    }
-    void poll();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [type, status, pages, revision, onChanged]);
+      return result;
+    },
+    [type, status, onChanged],
+  );
+  const history = usePagedCollection(load, navigation.page, poll);
+  const { items: jobs, loading } = history;
+  const [actionError, setError] = useState<string | null>(null);
+  const error = actionError ?? history.error;
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
   async function change(job: ServerJob, action: "retry" | "cancel") {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     setError(null);
     try {
-      const updated = await changeJob(job.id, action);
-      setJobs((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
-      );
-      setRevision((value) => value + 1);
+      await changeJob(job.id, action);
+      await history.refresh();
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : i18n.t("serverJobs.unableToChange"),
+        cause instanceof Error ? cause.message : t("serverJobs.unableToChange"),
       );
     } finally {
       pending.current = false;
@@ -142,7 +93,10 @@ export function JobList({
           {error}
           <Button
             disabled={busy}
-            onClick={() => setRevision((value) => value + 1)}
+            onClick={() => {
+              setError(null);
+              void history.refresh();
+            }}
           >
             {t("common.tryAgain")}
           </Button>
@@ -157,7 +111,7 @@ export function JobList({
         resource={t("common.jobs")}
         emptyMessage={t("serverJobs.empty")}
         emptyIcon="jobs"
-        onRetry={() => setRevision((value) => value + 1)}
+        onRetry={() => void history.refresh()}
       >
         <thead>
           <tr>
@@ -181,11 +135,11 @@ export function JobList({
           ))}
         </tbody>
       </Table>
-      {next && (
-        <Button disabled={busy} onClick={() => setPages((value) => value + 1)}>
-          {t("serverJobs.loadOlder")}
-        </Button>
-      )}
+      <Pagination
+        pagination={history.pagination}
+        onPageChange={navigation.setPage}
+        loading={loading || busy}
+      />
     </section>
   );
 }

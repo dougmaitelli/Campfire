@@ -13,6 +13,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/events"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
@@ -114,6 +115,15 @@ func (s *NotificationService) List(ctx context.Context, p Principal, before int6
 	}
 
 	return s.Store.List(ctx, notificationAccess(p), before, unread)
+}
+
+// Page returns a numbered inbox page with current access and token scopes.
+func (s *NotificationService) Page(ctx context.Context, p Principal, unread bool, request pagination.Request) (pagination.Page[repository.NotificationView], error) {
+	if !p.tokenAllows(accessperm.NotificationsRead) {
+		return pagination.New[repository.NotificationView](nil, request, 0), repository.ErrAccessDenied
+	}
+
+	return s.Store.Page(ctx, notificationAccess(p), unread, request)
 }
 
 // Unread returns the visible unread count for the current user.

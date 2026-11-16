@@ -66,7 +66,7 @@ func TestNotificationsIsolationRevocationAndScopedTokens(t *testing.T) {
 		t.Fatal("inbox visibility wrong", response.Code, response.Body)
 	}
 
-	if response := request(other, "GET", "/api/v1/notifications", ""); response.Code != http.StatusOK || response.Body.String() != "[]\n" {
+	if response := request(other, "GET", "/api/v1/notifications", ""); response.Code != http.StatusOK || !emptyPage(response.Body.Bytes()) {
 		t.Fatal("another user's inbox leaked", response.Code, response.Body)
 	}
 
@@ -90,13 +90,13 @@ func TestNotificationsIsolationRevocationAndScopedTokens(t *testing.T) {
 	expectAccess(t, token, "PUT", fmt.Sprintf("/api/v1/notifications/%d/read", item.ID), `{"read":true}`, http.StatusForbidden)
 
 	_, raw = createTestAPIToken(t, member, `["notifications.read"]`)
-	if response := request(bearerAPI(f.panel, raw), "GET", "/api/v1/notifications", ""); response.Body.String() != "[]\n" {
+	if response := request(bearerAPI(f.panel, raw), "GET", "/api/v1/notifications", ""); !emptyPage(response.Body.Bytes()) {
 		t.Fatal("token scope bypassed server.view", response.Body)
 	}
 
 	expectAccess(t, admin, "DELETE", endpoint+"/members/"+fmt.Sprint(user.ID), "", http.StatusNoContent)
 
-	if response := request(member, "GET", "/api/v1/notifications", ""); response.Body.String() != "[]\n" {
+	if response := request(member, "GET", "/api/v1/notifications", ""); !emptyPage(response.Body.Bytes()) {
 		t.Fatal("revoked notification access retained", response.Body)
 	}
 

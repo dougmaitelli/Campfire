@@ -210,17 +210,17 @@ test("independent destinations separate backups, public cards, and scoped game r
   }
   await expect
     .poll(async () => {
-      const items = (await (
+      const { items } = (await (
         await page.request.get(`${base}/${publicBinding.id}/messages`)
-      ).json()) as { state: string }[];
+      ).json()) as { items: { state: string }[] };
       return items.filter((item) => item.state === "delivered").length;
     })
     .toBe(2);
   await expect
     .poll(async () => {
-      const items = (await (
+      const { items } = (await (
         await page.request.get(`${base}/${adminBinding.id}/messages`)
-      ).json()) as { state: string }[];
+      ).json()) as { items: { state: string }[] };
       return items.filter((item) => item.state === "delivered").length;
     })
     .toBe(1);

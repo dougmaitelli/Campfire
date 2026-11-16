@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import { manageFiles } from "../../src/api/files";
 import { serverStatus } from "../../src/api/runtime";
 import { isResourceUsage } from "../../src/api/monitoring";
+import { pageFixture } from "../pageFixture";
 import { listNotifications } from "../../src/api/notifications";
 import { runtimeStatus } from "../fixtures";
 
@@ -20,11 +21,11 @@ test.each(["backup", "health", "schedule", "alert", "recovery", "test"])(
       read_at: 0,
     };
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json([notification]),
+      Response.json(pageFixture([notification])),
     );
     await expect(
       listNotifications(new AbortController().signal),
-    ).resolves.toEqual([notification]);
+    ).resolves.toEqual(pageFixture([notification]));
   },
 );
 

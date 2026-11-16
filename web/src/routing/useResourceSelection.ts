@@ -9,7 +9,13 @@ export function useResourceSelection<T extends { id: string | number }>(
   loaded: boolean,
 ) {
   const route = useCurrentRoute();
-  const [page, encodedID = ""] = route.split("/");
+  const [path, search = ""] = route.split("?");
+  const [page, encodedID = ""] = path!.split("/");
+  const listQuery = new URLSearchParams(search);
+  // Nested history pages belong to the selected resource, not its parent list.
+  listQuery.delete("execution_page");
+  listQuery.delete("notification_page");
+  const suffix = listQuery.size ? `?${listQuery}` : "";
   const pageID = page && getRoute(page) ? (page as PageID) : undefined;
   let id = "";
   try {
@@ -20,16 +26,18 @@ export function useResourceSelection<T extends { id: string | number }>(
   }
   const selected = items.find((item) => String(item.id) === id) ?? null;
   useEffect(() => {
-    if (loaded && id && !selected) replaceCurrentRoute(page ?? "", route);
-  }, [loaded, id, selected, page, route]);
+    if (loaded && id && !selected)
+      replaceCurrentRoute(`${page ?? ""}${suffix}`, route);
+  }, [loaded, id, selected, page, route, suffix]);
   const select = useCallback(
     (next: T | null) => {
-      window.location.hash =
+      const path =
         next && pageID
           ? (resourceHref(pageID, next.id) ?? page ?? "")
           : (page ?? "");
+      window.location.hash = `${path}${suffix}`;
     },
-    [page, pageID],
+    [page, pageID, suffix],
   );
   return { selected, select, missing: !!id && !selected };
 }

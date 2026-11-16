@@ -1,6 +1,8 @@
-import { API_READ_TIMEOUT_MS } from "../api/client";
-import i18n from "../i18n";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { listAudit } from "../api/activity";
+import { usePagination } from "../hooks/usePagination";
+import { usePagedCollection } from "../hooks/usePagedCollection";
 import { ResourceLink } from "../components/navigation/ResourceLink";
 import { useResourceLinks } from "../routing/useResourceLinks";
 import { ContentPanel } from "../components/layout/ContentPanel";
@@ -10,118 +12,36 @@ import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { PageHeader } from "../components/layout/PageHeader";
-import { useEffect, useRef, useState } from "react";
-import { activityCursor, listAudit, type AuditEvent } from "../api/activity";
-
 import { Table } from "../components/table/Table";
+import { Pagination } from "../components/table/Pagination";
 import { AuditOutcome } from "../components/activity/AuditOutcome";
-
-const AUDIT_REFRESH_INTERVAL_MS = 10000;
 
 export function AuditPage() {
   const { t } = useTranslation();
   const links = useResourceLinks();
-  const [items, setItems] = useState<AuditEvent[]>([]);
-  const [action, setAction] = useState("");
-  const [target, setTarget] = useState("");
-  const [filters, setFilters] = useState({ action: "", target: "" });
-  const [version, setVersion] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [older, setOlder] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const pending = useRef(false);
-  const generation = useRef(0);
-  const paged = useRef(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    const current = ++generation.current;
-    paged.current = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function poll() {
-      if (pending.current) {
-        timer = setTimeout(() => void poll(), AUDIT_REFRESH_INTERVAL_MS);
-        return;
-      }
-      await listAudit(
-        AbortSignal.any([
-          controller.signal,
-          AbortSignal.timeout(API_READ_TIMEOUT_MS),
-        ]),
-        "",
-        filters.action,
-        filters.target,
-      )
-        .then((next) => {
-          if (!controller.signal.aborted) {
-            setItems((previous) =>
-              paged.current
-                ? [
-                    ...new Map(
-                      [...previous, ...next].map((item) => [item.id, item]),
-                    ).values(),
-                  ].sort(
-                    (a, b) =>
-                      b.created_at - a.created_at || b.id.localeCompare(a.id),
-                  )
-                : next,
-            );
-            if (!paged.current) setOlder(next.length === 100);
-            setError(null);
-          }
-        })
-        .catch((cause: unknown) => {
-          if (!controller.signal.aborted)
-            setError(
-              cause instanceof Error
-                ? cause.message
-                : i18n.t("auditPage.unableToLoadAuditRecords"),
-            );
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-      if (!controller.signal.aborted && current === generation.current)
-        timer = setTimeout(() => void poll(), AUDIT_REFRESH_INTERVAL_MS);
-    }
-    void poll();
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [filters, version]);
-  async function more() {
-    if (pending.current || !items.length) return;
-    pending.current = true;
-    const current = generation.current;
-    setBusy(true);
-    try {
-      const next = await listAudit(
-        AbortSignal.timeout(API_READ_TIMEOUT_MS),
-        activityCursor(items.at(-1)),
-        filters.action,
-        filters.target,
-      );
-      if (current === generation.current) {
-        paged.current = true;
-        setItems((previous) => [
-          ...new Map(
-            [...previous, ...next].map((item) => [item.id, item]),
-          ).values(),
-        ]);
-        setOlder(next.length === 100);
-      }
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : i18n.t("auditPage.unableToLoadAuditRecords"),
-      );
-    } finally {
-      pending.current = false;
-      setBusy(false);
-    }
+  const navigation = usePagination();
+  const actionFilter = navigation.query.get("action") ?? "";
+  const targetFilter = navigation.query.get("target") ?? "";
+  const signature = JSON.stringify([actionFilter, targetFilter]);
+  const [draft, setDraft] = useState({
+    signature,
+    action: actionFilter,
+    target: targetFilter,
+  });
+  // Discard the previous URL's draft when navigating, including Back/Forward.
+  // Otherwise returning to its signature resurrects an already-submitted edit.
+  if (draft.signature !== signature) {
+    setDraft({ signature, action: actionFilter, target: targetFilter });
   }
+  const action = draft.signature === signature ? draft.action : actionFilter;
+  const target = draft.signature === signature ? draft.target : targetFilter;
+  const load = useCallback(
+    (signal: AbortSignal, page: number) =>
+      listAudit(signal, page, actionFilter, targetFilter),
+    [actionFilter, targetFilter],
+  );
+  const history = usePagedCollection(load, navigation.page);
+  const { items, loading, error } = history;
   return (
     <section aria-labelledby="page-title">
       <PageHeader
@@ -134,10 +54,13 @@ export function AuditPage() {
         <InlineMessage role="alert">{error}</InlineMessage>
       )}
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setLoading(true);
-          setFilters({ action: action.trim(), target: target.trim() });
+        onSubmit={(event) => {
+          event.preventDefault();
+          navigation.update({
+            action: action.trim(),
+            target: target.trim(),
+            page: null,
+          });
         }}
       >
         <ListToolbar>
@@ -146,7 +69,9 @@ export function AuditPage() {
               value={action}
               maxLength={100}
               placeholder={t("auditPage.serverRestart")}
-              onChange={(e) => setAction(e.target.value)}
+              onChange={(event) =>
+                setDraft({ signature, action: event.target.value, target })
+              }
             />
           </FormField>
           <FormField label={t("auditPage.target")}>
@@ -154,7 +79,9 @@ export function AuditPage() {
               value={target}
               maxLength={150}
               placeholder={t("auditPage.serverID")}
-              onChange={(e) => setTarget(e.target.value)}
+              onChange={(event) =>
+                setDraft({ signature, action, target: event.target.value })
+              }
             />
           </FormField>
           <Button>{t("auditPage.filter")}</Button>
@@ -167,10 +94,7 @@ export function AuditPage() {
           error={error}
           resource={t("auditPage.auditRecords")}
           emptyMessage={t("auditPage.noAuditRecords")}
-          onRetry={() => {
-            setLoading(true);
-            setVersion((value) => value + 1);
-          }}
+          onRetry={() => void history.refresh()}
         >
           <caption className="visually-hidden">
             {t("auditPage.auditRecords2")}
@@ -196,7 +120,7 @@ export function AuditPage() {
                         : undefined
                     }
                   >
-                    {item.username || i18n.t("auditPage.unauthenticated")}
+                    {item.username || t("auditPage.unauthenticated")}
                   </ResourceLink>
                   {item.api_token_id
                     ? t("auditPage.apiTokenReference", {
@@ -208,7 +132,7 @@ export function AuditPage() {
                   )}
                   {item.user?.deleted_at && (
                     <div className="field-help">
-                      {i18n.t("auditPage.deletedAccount")}
+                      {t("auditPage.deletedAccount")}
                     </div>
                   )}
                 </td>
@@ -225,16 +149,11 @@ export function AuditPage() {
             ))}
           </tbody>
         </Table>
-        {older && (
-          <Button
-            disabled={busy}
-            onClick={() => {
-              void more();
-            }}
-          >
-            {t("auditPage.loadOlderRecords")}
-          </Button>
-        )}
+        <Pagination
+          pagination={history.pagination}
+          onPageChange={navigation.setPage}
+          loading={loading}
+        />
       </ContentPanel>
     </section>
   );

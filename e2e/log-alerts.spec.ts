@@ -188,9 +188,9 @@ test("actionable errors can be authored, detected without an open console, acted
   ).json()) as DetectedLogAlert[];
   expect(issues).toHaveLength(1);
   const firstID = issues[0]!.id;
-  const inbox = (await (
+  const { items: inbox } = (await (
     await page.request.get("/api/v1/notifications")
-  ).json()) as { title: string; body: string }[];
+  ).json()) as { items: { title: string; body: string }[] };
   expect(
     inbox.filter(
       (item) =>

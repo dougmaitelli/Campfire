@@ -29,7 +29,12 @@ func (a *API) gameEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := repository.GameEventQuery{Limit: 50, Type: r.URL.Query().Get("type"), Search: r.URL.Query().Get("search"), Fields: map[string]string{}}
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
+	}
+
+	query := repository.GameEventQuery{Limit: request.Size, Type: r.URL.Query().Get("type"), Search: r.URL.Query().Get("search"), Fields: map[string]string{}}
 
 	for name, values := range r.URL.Query() {
 		if !strings.HasPrefix(name, "data.") {
@@ -44,10 +49,10 @@ func (a *API) gameEvents(w http.ResponseWriter, r *http.Request) {
 		query.Fields[strings.TrimPrefix(name, "data.")] = values[0]
 	}
 
-	for name, target := range map[string]*int64{"before": &query.Before, "from": &query.From, "to": &query.To} {
+	for name, target := range map[string]*int64{"from": &query.From, "to": &query.To} {
 		if raw := r.URL.Query().Get(name); raw != "" {
 			value, err := strconv.ParseInt(raw, 10, 64)
-			if err != nil || value < 1 || (name != "before" && value > 253402300799) {
+			if err != nil || value < 1 || value > 253402300799 {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid game event cursor or time range"})
 				return
 			}
@@ -56,22 +61,12 @@ func (a *API) gameEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		limit, err := strconv.Atoi(raw)
-		if err != nil || limit < 1 || limit > 100 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "event limit must be 1–100"})
-			return
-		}
-
-		query.Limit = limit
-	}
-
 	if query.From > 0 && query.To > 0 && query.From >= query.To || !query.ValidFilters() {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid game event filter"})
 		return
 	}
 
-	page, err := a.deployment.Games.Events.Store.List(r.Context(), r.PathValue("id"), query)
+	page, err := a.deployment.Games.Events.Store.List(r.Context(), r.PathValue("id"), query, request)
 	if err != nil {
 		writeError(w, err)
 		return

@@ -97,7 +97,7 @@ test("backup names and pins persist across server and catalog views", async ({
   ).toBeEnabled();
   const audit = await page.request.get("/api/v1/audit");
   expect(audit.ok()).toBeTruthy();
-  expect(await audit.json()).toEqual(
+  expect(((await audit.json()) as { items: unknown[] }).items).toEqual(
     expect.arrayContaining(
       ["rename", "pin", "unpin"].map((change) =>
         expect.objectContaining({

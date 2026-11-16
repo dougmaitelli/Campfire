@@ -116,6 +116,21 @@ func (s *AccessService) ServerPermissions(ctx context.Context, principal Princip
 	return principal.restrictServer(roleActions(role)), err
 }
 
+// CanReadAllScheduleExecutions authorizes retained history independently of the
+// current inventory, while enforcing token scopes and their prerequisites.
+func (s *AccessService) CanReadAllScheduleExecutions(ctx context.Context, principal Principal) (bool, error) {
+	if !principal.Admin {
+		return false, nil
+	}
+
+	role, err := s.store.Role(ctx, database.OwnerRole)
+	if err != nil {
+		return false, err
+	}
+
+	return slices.Contains(principal.restrictServer(roleActions(role)), accessperm.ServerSchedulesRead), nil
+}
+
 // ApplyServerPermissions authorizes a listing without per-server database reads.
 func (s *AccessService) ApplyServerPermissions(ctx context.Context, principal Principal, servers []model.Server) error {
 	ids := make([]string, 0, len(servers))

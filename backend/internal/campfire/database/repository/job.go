@@ -8,6 +8,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/events"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -255,6 +256,24 @@ func (r *JobRepository) ListAll(ctx context.Context, filter JobFilter, before *J
 	}
 
 	return r.historyPage(query, before)
+}
+
+// Page applies workflow visibility and filters before counts and offsets.
+func (r *JobRepository) Page(ctx context.Context, serverID string, types []model.JobType, filter JobFilter, request pagination.Request) (pagination.Page[JobHistory], error) {
+	query := r.history(ctx)
+	if serverID != "" {
+		query = query.Where("(source_server_id = ? OR target_server_id = ?) AND type IN ?", serverID, serverID, types)
+	}
+
+	if filter.Type != "" {
+		query = query.Where("server_jobs.type = ?", filter.Type)
+	}
+
+	if filter.Status != "" {
+		query = query.Where("server_jobs.status = ?", filter.Status)
+	}
+
+	return pagination.Read[JobHistory](query.Order("server_jobs.created_at DESC, server_jobs.id DESC"), request)
 }
 
 func (r *JobRepository) historyPage(query *gorm.DB, before *JobCursor) ([]JobHistory, error) {

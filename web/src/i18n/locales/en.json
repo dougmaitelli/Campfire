@@ -1,4 +1,14 @@
 {
+  "pagination": {
+    "label": "Pagination",
+    "unexpectedResponse": "Unexpected paginated response.",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}}",
+    "summary": "Page {{page}} of {{total}} · {{count}} records",
+    "goTo": "Go to page",
+    "go": "Go"
+  },
   "connection": {
     "interrupted": "Connection to Campfire interrupted. Retrying…",
     "requestFailed": "Connection to Campfire interrupted.",

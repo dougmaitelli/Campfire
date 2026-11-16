@@ -180,6 +180,40 @@ These have deliberately different delivery guarantees:
 See [Game integrations](/Campfire/game-integrations/) for the publishing contract,
 limits, and error handling.
 
+### History pagination
+
+Jobs, server Activity (including related notifications), personal notifications,
+audit history, schedule execution history, retained game events, and Discord
+delivery history (`/servers/{id}/integrations/discord/{bindingID}/messages`) use
+`page` (one-based, default 1) and `page_size` (default 50, maximum 100).
+Responses contain `items` and `pagination` with `page`, `page_size`,
+`total_items`, and `total_pages`. Invalid or duplicate pagination parameters and
+obsolete cursor parameters are rejected; page sizes are never silently clamped.
+An empty collection has zero total pages. An out-of-range page is empty but
+retains its requested page number and the collection totals.
+
+The shared `backend/internal/campfire/pagination` package counts and pages the
+same authorized, filtered query. Queries use a deterministic unique tie-breaker.
+Numbered pages are live, not snapshots: concurrent inserts, deletions, or permission
+changes can move page boundaries or change totals.
+
+Administrators with effective schedule-read permission can access retained schedule
+executions even after the server is deleted, including through an explicit
+`server_id` filter. Other callers are limited to currently authorized servers
+before totals and pages are calculated. Token scopes and permission prerequisites
+still apply; an empty server allowlist never grants unrestricted history access.
+
+The frontend uses a shared page reader, `usePagedCollection`, URL-based
+`usePagination`, and the composable `Pagination` control for Previous, numbered
+pages, Next, and Go to page. Navigation replaces rows instead of appending them;
+polling refreshes only the displayed page. Filter changes reset to page 1, and
+browser Back/Forward restores the URL state. Nested histories use separate page
+parameters. Controls are hidden for a single-page collection.
+
+Inventory and configuration collections remain unpaginated, including schedule
+definitions and the current active log-alert list; neither silently truncates
+its results. Worker batch and history-retention limits are separate concerns.
+
 ### Notification delivery
 
 Source changes and their notification records commit together. External provider

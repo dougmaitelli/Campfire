@@ -7,6 +7,7 @@ import (
 
 	"campfire/internal/campfire/database/repository"
 	core "campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 )
 
@@ -40,6 +41,27 @@ func (s *DiscordIntegrationService) ServerMessages(ctx context.Context, serverID
 	}
 
 	return store.MessageStatuses(ctx, binding.ID, messageCategories(permissions), before, state)
+}
+
+// ServerMessagePage counts and pages only delivery sources granted to the caller.
+func (s *DiscordIntegrationService) ServerMessagePage(ctx context.Context, serverID, bindingID string, permissions []model.PermissionID, state string, request pagination.Request) (pagination.Page[repository.IntegrationMessageStatus], error) {
+	empty := pagination.New[repository.IntegrationMessageStatus](nil, request, 0)
+	if err := s.requireServerIntegration(ctx, serverID, permissions); err != nil {
+		return empty, err
+	}
+
+	if !slices.Contains([]string{"", "pending", "delivered", "failed", "uncertain"}, state) {
+		return empty, ErrIntegrationInput
+	}
+
+	store := repository.NewIntegrationRepository(s.db)
+
+	binding, _, err := serverBinding(ctx, store, serverID, bindingID)
+	if err != nil {
+		return empty, err
+	}
+
+	return store.MessageStatusPage(ctx, binding.ID, messageCategories(permissions), state, request)
 }
 
 // RetryServerMessage requeues known failures or requests receipt-only recovery.

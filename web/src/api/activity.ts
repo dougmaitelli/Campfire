@@ -9,6 +9,7 @@ import i18n from "../i18n";
 import { apiFetch, readJSON, apiJSON } from "./client";
 import { isUser, type User } from "./access";
 import type { BackupMode } from "./backups";
+import { readPage, pageQuery } from "./pagination";
 
 export interface Schedule {
   backup_stop_server?: boolean;
@@ -68,12 +69,6 @@ export interface AuditEvent {
   outcome: AuditOutcome;
   status: number;
   created_at: number;
-}
-
-export function activityCursor(
-  item: { created_at: number; id: string } | undefined,
-): string {
-  return item ? `${item.created_at}:${item.id}` : "";
 }
 
 function strings(value: Record<string, unknown>, keys: string[]) {
@@ -159,26 +154,25 @@ export function listSchedules(signal: AbortSignal) {
 }
 export function listExecutions(
   signal: AbortSignal,
-  before = "",
+  page = 1,
   serverID = "",
   scheduleID = "",
 ) {
-  const query = new URLSearchParams({ before, server_id: serverID });
+  const query = pageQuery(page);
+  if (serverID) query.set("server_id", serverID);
   if (scheduleID) query.set("schedule_id", scheduleID);
-  return collection(
-    `/api/v1/schedules/executions?${query}`,
-    signal,
-    isExecution,
-  );
+  return readPage(`/api/v1/schedules/executions?${query}`, signal, isExecution);
 }
 export function listAudit(
   signal: AbortSignal,
-  before = "",
+  page = 1,
   action = "",
   target = "",
 ) {
-  const query = new URLSearchParams({ before, action, target });
-  return collection(`/api/v1/audit?${query}`, signal, isAudit);
+  const query = pageQuery(page);
+  if (action) query.set("action", action);
+  if (target) query.set("target", target);
+  return readPage(`/api/v1/audit?${query}`, signal, isAudit);
 }
 async function send(url: string, method: string, input?: unknown) {
   const response = await apiFetch(url, {

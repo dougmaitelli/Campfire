@@ -1,5 +1,11 @@
 import type { Page } from "@playwright/test";
-import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import {
+  test,
+  expect,
+  screenshot,
+  prepareScreenshot,
+  pageFixture,
+} from "./fixtures";
 import {
   login,
   openScreen,
@@ -548,9 +554,10 @@ test("server viewers do not request job histories they cannot read", async ({
   expect(requests).toEqual([]);
 });
 
-test("the shared Jobs list polls active jobs and caches completed older pages", async ({
+test("the shared Jobs list polls only the displayed page without appending", async ({
   page,
 }) => {
+  await page.clock.install();
   await login(page);
   const jobs = Array.from({ length: 53 }, (_, index) =>
     jobFixture({
@@ -566,30 +573,36 @@ test("the shared Jobs list polls active jobs and caches completed older pages", 
   let headRequests = 0;
   let olderRequests = 0;
   await page.route(/\/api\/v1\/jobs(?:\?|$)/, (route) => {
-    const older = new URL(route.request().url()).searchParams.get("before");
+    const older =
+      new URL(route.request().url()).searchParams.get("page") === "2";
     if (older) olderRequests++;
     else headRequests++;
     return route.fulfill({
-      json: {
-        items: older ? jobs.slice(50) : jobs.slice(0, 50),
-        next: older ? "" : "older-page",
-      },
+      json: pageFixture(
+        older ? jobs.slice(50) : jobs.slice(0, 50),
+        older ? 2 : 1,
+        jobs.length,
+      ),
     });
   });
   await openScreen(page, "jobs", "Jobs");
   const drawer = page.locator("main");
   const rows = drawer.locator(".server-job-history-item");
   await expect(rows).toHaveCount(50);
-  await drawer
-    .getByRole("button", { name: "Load older jobs", exact: true })
-    .click();
-  await expect(rows).toHaveCount(53);
+  const initialHead = headRequests;
+  await page.clock.runFor(6000);
+  await expect.poll(() => headRequests).toBeGreaterThan(initialHead);
+  await drawer.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(rows).toHaveCount(3);
   await expect(
-    drawer.getByRole("button", { name: "Load older jobs", exact: true }),
-  ).toHaveCount(0);
-  await expect.poll(() => headRequests).toBeGreaterThanOrEqual(3);
-  expect(olderRequests).toBe(1);
-  await expect(rows).toHaveCount(53);
+    drawer.getByRole("button", { name: "Next", exact: true }),
+  ).toBeDisabled();
+  const previousHead = headRequests;
+  const initialOlder = olderRequests;
+  await page.clock.runFor(60000);
+  await expect.poll(() => olderRequests).toBeGreaterThan(initialOlder);
+  expect(headRequests).toBe(previousHead);
+  await expect(rows).toHaveCount(3);
 });
 
 test("configuration access can read copy history without platform transfer or Spark access", async ({

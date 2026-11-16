@@ -49,14 +49,19 @@ test("Overview and Servers collapse into rows while simple lists stay tables", a
     .click();
   await page.route("**/api/v1/schedules/executions?*", async (route) => {
     const response = await route.fetch();
-    const runs = (await response.json()) as Record<string, unknown>[];
+    const body = (await response.json()) as {
+      items: Record<string, unknown>[];
+    };
     await route.fulfill({
       response,
-      json: runs.map((run) => ({
-        ...run,
-        state: ExecutionState.Failed,
-        message: "Server restart failed.",
-      })),
+      json: {
+        ...body,
+        items: body.items.map((run) => ({
+          ...run,
+          state: ExecutionState.Failed,
+          message: "Server restart failed.",
+        })),
+      },
     });
   });
   await openScreen(page, "schedules", "Schedules");

@@ -1,13 +1,12 @@
 package api
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
 
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 	permissions "campfire/internal/shared/permissions"
@@ -110,43 +109,17 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		types = jobHistoryTypes(currentUser(r), grants)
 	}
 
-	var before *repository.JobCursor
-
-	if cursor := r.URL.Query().Get("before"); cursor != "" {
-		data, err := base64.RawURLEncoding.DecodeString(cursor)
-
-		var value repository.JobCursor
-		if err != nil || len(data) > 512 || json.Unmarshal(data, &value) != nil || value.ID == "" || value.CreatedAt < 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid job cursor"})
-			return
-		}
-
-		before = &value
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
 	}
 
-	var (
-		jobs []repository.JobHistory
-		err  error
-	)
-
-	if serverID == "" {
-		jobs, err = store.ListAll(r.Context(), filter, before)
-	} else {
-		jobs, err = store.List(r.Context(), serverID, types, before)
-	}
+	page, err := store.Page(r.Context(), serverID, types, filter, request)
+	jobs := page.Items
 
 	if err != nil {
 		writeError(w, err)
 		return
-	}
-
-	next := ""
-
-	if len(jobs) > 50 {
-		jobs = jobs[:50]
-		last := jobs[len(jobs)-1]
-		data, _ := json.Marshal(repository.JobCursor{CreatedAt: last.CreatedAt, ID: last.ID})
-		next = base64.RawURLEncoding.EncodeToString(data)
 	}
 
 	items := make([]jobProgress, 0, len(jobs))
@@ -160,10 +133,7 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		items = append(items, item)
 	}
 
-	writeJSON(w, http.StatusOK, struct {
-		Items []jobProgress `json:"items"`
-		Next  string        `json:"next"`
-	}{items, next})
+	writeJSON(w, http.StatusOK, pagination.Page[jobProgress]{Items: items, Pagination: page.Pagination})
 }
 
 func jobHistoryTypes(principal service.Principal, grants []model.PermissionID) []model.JobType {

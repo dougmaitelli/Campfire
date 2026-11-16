@@ -1,4 +1,4 @@
-import { test, expect, screenshot } from "./fixtures";
+import { test, expect, screenshot, pageFixture } from "./fixtures";
 import { login } from "./screens";
 import { ExecutionState, ServerAction } from "../web/src/contracts/domains";
 
@@ -114,18 +114,16 @@ test("Activity groups a game event with its destination notifications and links 
   await page.route(
     `**/api/v1/servers/survival/activity/${encodeURIComponent(sourceKey)}/notifications*`,
     async (route) => {
-      if (
-        new URL(route.request().url()).searchParams.get("before") ===
-        "more-notifications"
-      ) {
-        await route.fulfill({ json: { items: [], next: "" } });
+      if (new URL(route.request().url()).searchParams.get("page") === "2") {
+        await route.fulfill({ json: pageFixture([], 2, 51) });
         return;
       }
       const response = await route.fetch();
       const notifications = (await response.json()) as {
-        next: string;
+        pagination: { total_items: number; total_pages: number };
       };
-      notifications.next = "more-notifications";
+      notifications.pagination.total_items = 51;
+      notifications.pagination.total_pages = 2;
       await route.fulfill({ response, json: notifications });
     },
   );
@@ -135,15 +133,14 @@ test("Activity groups a game event with its destination notifications and links 
   await activity
     .getByRole("button", { name: "Morgan joined the game", exact: true })
     .click();
-  await source
-    .getByRole("button", { name: "Load older notifications", exact: true })
-    .click();
+  await source.getByRole("button", { name: "Next", exact: true }).click();
   await expect(
-    source.getByRole("button", {
-      name: "Load older notifications",
-      exact: true,
-    }),
+    source.getByRole("button", { name: "Next", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    source.getByRole("table", { name: "Notifications", exact: true }),
   ).toHaveCount(0);
+  await source.getByRole("button", { name: "Previous", exact: true }).click();
   await expect(
     source
       .getByRole("table", { name: "Notifications", exact: true })
@@ -205,11 +202,24 @@ test("an authorized user can retry one failed notification from Activity", async
       })
     ).ok(),
   ).toBeTruthy();
-  const before = Buffer.from(
-    JSON.stringify({ at: 1893456000, key: "notification:1" }),
-  ).toString("base64url");
+  await page.route("**/api/v1/servers/survival/activity?*", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("page") !== "2") return route.continue();
+    url.searchParams.set("page", "1");
+    const response = await route.fetch({ url: url.toString() });
+    const value = (await response.json()) as {
+      pagination: { page: number; total_items: number; total_pages: number };
+    };
+    value.pagination = {
+      ...value.pagination,
+      page: 2,
+      total_items: 51,
+      total_pages: 2,
+    };
+    return route.fulfill({ response, json: value });
+  });
   await page.goto(
-    `/#servers/survival/activity?kind=game&search=Fixture+rejected&before=${before}`,
+    "/#servers/survival/activity?kind=game&search=Fixture+rejected&page=2",
   );
   const originalPage = page.url();
   const activity = page.getByRole("region", { name: "Activity", exact: true });
@@ -252,7 +262,7 @@ test("an authorized user can retry one failed notification from Activity", async
     await page.goBack();
     await expect(drawer).toHaveCount(0);
     const newest = activity.getByRole("button", {
-      name: "Newest activity",
+      name: "Previous",
       exact: true,
     });
     await newest.click();
@@ -262,6 +272,7 @@ test("an authorized user can retry one failed notification from Activity", async
     const filteredPage = new URL(originalPage);
     const filterQuery = new URLSearchParams(filteredPage.hash.split("?")[1]);
     filterQuery.set("search", "Fixture rejected notification");
+    filterQuery.delete("page");
     filteredPage.hash = `#servers/survival/activity?${filterQuery}`;
     await page.goto(filteredPage.toString());
     await expect(activity.locator("tbody tr")).toContainText(
@@ -339,7 +350,7 @@ test("Activity confirms an operation retry and follows its new attempt", async (
     notification_count: 0,
   });
   await page.route("**/api/v1/servers/survival/activity?*", (route) =>
-    route.fulfill({ json: { items: [entry(original)], next: "" } }),
+    route.fulfill({ json: pageFixture([entry(original)]) }),
   );
   for (const operation of [original, attempt])
     await page.route(

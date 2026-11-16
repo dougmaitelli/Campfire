@@ -6,6 +6,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/pagination"
 )
 
 func TestNotificationReadWatermarksAndDeliveryExhaustion(t *testing.T) {
@@ -40,6 +41,11 @@ func TestNotificationReadWatermarksAndDeliveryExhaustion(t *testing.T) {
 	items, err := store.List(ctx, access, second.ID, false)
 	if err != nil || len(items) != 1 || items[0].ID != first.ID {
 		t.Fatal("notification cursor failed", len(items), err)
+	}
+
+	page, err := store.Page(ctx, access, true, pagination.Request{Page: 1, Size: 1})
+	if err != nil || len(page.Items) != 1 || page.Items[0].ID != second.ID || page.Pagination.TotalItems != 1 || page.Pagination.TotalPages != 1 {
+		t.Fatal("numbered inbox ignored unread/access filters", page, err)
 	}
 
 	now := time.Now()

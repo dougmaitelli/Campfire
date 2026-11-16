@@ -11,6 +11,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 )
 
@@ -58,6 +59,11 @@ func TestGameEventDeduplicationPaginationRetentionAndPlacement(t *testing.T) {
 	filtered, err := store.List(t.Context(), "game", repository.GameEventQuery{Type: "player.joined", From: now.Add(3 * time.Minute).Unix(), To: now.Add(5 * time.Minute).Unix(), Limit: 10})
 	if err != nil || len(filtered.Items) != 1 || filtered.Items[0].EventID != "event-4" {
 		t.Fatal("type/time filter failed", filtered, err)
+	}
+
+	numbered, err := store.List(t.Context(), "game", repository.GameEventQuery{Limit: 2}, pagination.Request{Page: 2, Size: 2})
+	if err != nil || len(numbered.Items) != 1 || numbered.Items[0].EventID != "event-2" || numbered.Pagination.TotalItems != 3 || numbered.Pagination.TotalPages != 2 {
+		t.Fatal("numbered event pagination failed", numbered, err)
 	}
 
 	duplicate := gameEvent(4, now)

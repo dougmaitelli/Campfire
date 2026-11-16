@@ -54,7 +54,7 @@ func (a *API) serverActivityList(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query()
 
-	filter := repository.ServerActivityFilter{Kind: query.Get("kind"), Search: query.Get("search"), State: query.Get("state"), Before: query.Get("before"), GameType: query.Get("type"), Fields: map[string]string{}}
+	filter := repository.ServerActivityFilter{Kind: query.Get("kind"), Search: query.Get("search"), State: query.Get("state"), GameType: query.Get("type"), Fields: map[string]string{}}
 	for _, field := range []struct {
 		name  string
 		value *int64
@@ -86,7 +86,12 @@ func (a *API) serverActivityList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, err := store.List(r.Context(), r.PathValue("id"), access, filter)
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
+	}
+
+	page, err := store.List(r.Context(), r.PathValue("id"), access, filter, request)
 	if err != nil {
 		if errors.Is(err, repository.ErrActivityInput) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid activity cursor."})
@@ -186,7 +191,12 @@ func (a *API) serverActivityNotifications(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	page, err := store.Notifications(r.Context(), r.PathValue("id"), r.PathValue("entryKey"), access, r.URL.Query().Get("before"))
+	request, ok := pageRequest(w, r)
+	if !ok {
+		return
+	}
+
+	page, err := store.Notifications(r.Context(), r.PathValue("id"), r.PathValue("entryKey"), access, "", request)
 	if err != nil {
 		if errors.Is(err, repository.ErrActivityInput) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid activity cursor."})

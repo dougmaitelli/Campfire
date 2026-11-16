@@ -93,7 +93,7 @@ func (r *LogAlertRepository) Observe(ctx context.Context, sparkID, serverID stri
 // List returns active issues with evidence only when explicitly authorized.
 func (r *LogAlertRepository) List(ctx context.Context, serverID string, evidence bool) ([]model.DetectedLogAlert, error) {
 	var records []database.LogAlertIssue
-	if err := r.db.WithContext(ctx).Where("server_id = ? AND archived = false AND dismissed_at = 0", serverID).Order("detected_at DESC, id").Limit(64).Find(&records).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("server_id = ? AND archived = false AND dismissed_at = 0", serverID).Order("detected_at DESC, id").Find(&records).Error; err != nil {
 		return nil, err
 	}
 

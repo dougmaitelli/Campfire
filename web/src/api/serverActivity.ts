@@ -1,4 +1,5 @@
 import i18n from "../i18n";
+import { isPage as isNumberedPage, pageQuery, type Page } from "./pagination";
 import { isRecord } from "../utils/validation";
 import { apiFetch, apiJSON, readJSON } from "./client";
 import {
@@ -29,7 +30,8 @@ export interface ActivityFilter {
   from?: number;
   to?: number;
   fields?: Record<string, string>;
-  before?: string | undefined;
+  page?: number | undefined;
+  page_size?: number | undefined;
 }
 export interface ActivityEntry {
   key: string;
@@ -46,10 +48,7 @@ export interface ActivityEntry {
   attachment_content_type?: string;
   notification_count: number;
 }
-export interface ActivityPage {
-  items: ActivityEntry[];
-  next: string;
-}
+export type ActivityPage = Page<ActivityEntry>;
 export function activityInProgress(entry: ActivityEntry): boolean {
   return (
     entry.delivery_check_pending === true ||
@@ -126,13 +125,7 @@ function isEntry(value: unknown): value is ActivityEntry {
   );
 }
 function isPage(value: unknown): value is ActivityPage {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.items) &&
-    value.items.length <= 50 &&
-    value.items.every(isEntry) &&
-    typeof value.next === "string"
-  );
+  return isNumberedPage(value, isEntry);
 }
 function isNotification(value: unknown): value is ActivityNotification {
   if (
@@ -209,10 +202,18 @@ export function activityFilterFromQuery(
       ? (kind as ActivityKind)
       : "",
   };
-  for (const key of ["search", "type", "before"] as const) {
+  for (const key of ["search", "type"] as const) {
     const value = query.get(key);
     if (value) filter[key] = value;
   }
+  const page = Number(query.get("page") ?? 1);
+  if (
+    query.has("page") &&
+    Number.isSafeInteger(page) &&
+    page > 0 &&
+    page <= 21474836
+  )
+    filter.page = page;
   if (filter.kind === "operations" || filter.kind === "alert") {
     const state = query.get("state");
     if (state) filter.state = state;
@@ -242,10 +243,10 @@ export async function readActivity(
 export async function readRelatedNotifications(
   serverID: string,
   source: string,
-  before: string,
+  page: number,
   signal: AbortSignal,
 ): Promise<ActivityPage> {
-  const query = before ? `?${new URLSearchParams({ before })}` : "";
+  const query = `?${pageQuery(page)}`;
   return readActivityPage(
     `/api/v1/servers/${encodeURIComponent(serverID)}/activity/${encodeURIComponent(source)}/notifications${query}`,
     signal,

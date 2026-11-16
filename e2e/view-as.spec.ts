@@ -108,11 +108,15 @@ test("only Admin can start a persistent read-only user preview and return to the
   await expect(
     page.getByText("auth.view_as.stop", { exact: true }),
   ).toBeVisible();
-  const events = (await (await page.request.get("/api/v1/audit")).json()) as {
-    action: string;
-    user_id: number;
-    username: string;
-  }[];
+  const { items: events } = (await (
+    await page.request.get("/api/v1/audit")
+  ).json()) as {
+    items: {
+      action: string;
+      user_id: number;
+      username: string;
+    }[];
+  };
   const previewEvents = events.filter((event) =>
     event.action.startsWith("auth.view_as."),
   );

@@ -218,7 +218,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		}
 
 		var runs []database.ScheduleRun
-		if err := json.Unmarshal(response.Body.Bytes(), &runs); err != nil {
+		if err := unmarshalPageItems(response.Body.Bytes(), &runs); err != nil {
 			t.Fatal(err)
 		}
 
@@ -250,7 +250,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal(response.Code, response.Body)
 	}
 
-	if err := json.Unmarshal(response.Body.Bytes(), &scheduleRuns); err != nil {
+	if err := unmarshalPageItems(response.Body.Bytes(), &scheduleRuns); err != nil {
 		t.Fatal(err)
 	}
 
@@ -260,7 +260,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 
 	for _, selected := range []string{schedule.ID, "other-schedule"} {
 		response = request(ownerHandler, "GET", "/api/v1/schedules/executions?schedule_id="+selected, "")
-		if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &scheduleRuns) != nil {
+		if response.Code != http.StatusOK || unmarshalPageItems(response.Body.Bytes(), &scheduleRuns) != nil {
 			t.Fatal("filtered history request failed", response.Code, response.Body)
 		}
 
@@ -279,7 +279,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	_, restricted := createTestAPIToken(t, admin, `["audit.view"]`)
 	for _, path := range []string{"/api/v1/schedules", "/api/v1/schedules/executions"} {
 		filtered := request(bearerAPI(panel.Handler(), restricted), "GET", path, "")
-		if filtered.Code != http.StatusOK || filtered.Body.String() != "[]\n" {
+		if filtered.Code != http.StatusOK || (path == "/api/v1/schedules" && filtered.Body.String() != "[]\n" || path != "/api/v1/schedules" && !emptyPage(filtered.Body.Bytes())) {
 			t.Fatal("scoped token leaked activity", filtered.Code, filtered.Body)
 		}
 	}
@@ -301,7 +301,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	}
 
 	var events []database.AuditEvent
-	if err := json.Unmarshal(response.Body.Bytes(), &events); err != nil {
+	if err := unmarshalPageItems(response.Body.Bytes(), &events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -336,7 +336,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal(response.Code, response.Body)
 	}
 
-	if err := json.Unmarshal(response.Body.Bytes(), &events); err != nil {
+	if err := unmarshalPageItems(response.Body.Bytes(), &events); err != nil {
 		t.Fatal(err)
 	}
 

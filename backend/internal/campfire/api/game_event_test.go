@@ -73,12 +73,12 @@ func TestGameEventsPersistDeduplicateAndEnforceServerAccess(t *testing.T) {
 		t.Fatal("durable events changed current game state", snapshot)
 	}
 
-	page := read("?limit=2")
-	if len(page.Items) != 2 || page.NextBefore == 0 || page.Items[0].FieldLabels["player"] != "Player name" {
+	page := read("?page_size=2")
+	if len(page.Items) != 2 || page.Pagination == nil || page.Pagination.TotalPages != 2 || page.Items[0].FieldLabels["player"] != "Player name" {
 		t.Fatal("deduplication or pagination failed", page)
 	}
 
-	if next := read(fmt.Sprintf("?limit=2&before=%d", page.NextBefore)); len(next.Items) != 1 || next.NextBefore != 0 {
+	if next := read("?page_size=2&page=2"); len(next.Items) != 1 || next.Pagination.Page != 2 {
 		t.Fatal("cursor skipped retained event", next)
 	}
 
@@ -86,12 +86,12 @@ func TestGameEventsPersistDeduplicateAndEnforceServerAccess(t *testing.T) {
 		t.Fatal("event type filter ignored", page)
 	}
 
-	filtered := read("?search=alex&data.state=ready&data.player=Alex&limit=1")
-	if len(filtered.Items) != 1 || filtered.Items[0].EventID != "2" || filtered.NextBefore == 0 {
+	filtered := read("?search=alex&data.state=ready&data.player=Alex&page_size=1")
+	if len(filtered.Items) != 1 || filtered.Items[0].EventID != "2" || filtered.Pagination.TotalPages != 2 {
 		t.Fatal("combined game event filters ignored", filtered)
 	}
 
-	if older := read(fmt.Sprintf("?search=alex&data.state=ready&data.player=Alex&limit=1&before=%d", filtered.NextBefore)); len(older.Items) != 1 || older.Items[0].EventID != "0" || older.NextBefore != 0 {
+	if older := read("?search=alex&data.state=ready&data.player=Alex&page_size=1&page=2"); len(older.Items) != 1 || older.Items[0].EventID != "0" || older.Pagination.Page != 2 {
 		t.Fatal("filtered cursor lost an older event", older)
 	}
 

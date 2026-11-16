@@ -1,7 +1,8 @@
-import { apiFetch, apiJSON, readJSON, API_READ_TIMEOUT_MS } from "./client";
+import { apiJSON, readJSON, API_READ_TIMEOUT_MS } from "./client";
 import { JobType, JobStatus, JobStep } from "../contracts/domains";
 import { isRecord, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
+import { readPage, pageQuery, type Page } from "./pagination";
 
 import type { ServerJob } from "../contracts/jobs";
 export type { ServerJob } from "../contracts/jobs";
@@ -52,27 +53,16 @@ export function isJob(value: unknown): value is ServerJob {
 export async function listJobs(
   serverID: string | undefined,
   signal: AbortSignal,
-  before?: string,
+  page = 1,
   filter: JobFilter = {},
-): Promise<{ items: ServerJob[]; next: string }> {
-  const query = new URLSearchParams();
-  if (before) query.set("before", before);
+): Promise<Page<ServerJob>> {
+  const query = pageQuery(page);
   if (filter.type) query.set("type", filter.type);
   if (filter.status) query.set("status", filter.status);
   const path = serverID
     ? `/api/v1/servers/${encodeURIComponent(serverID)}/jobs`
     : "/api/v1/jobs";
-  const value = await readJSON(
-    await apiFetch(`${path}${query.size ? `?${query}` : ""}`, { signal }),
-  );
-  if (
-    !isRecord(value) ||
-    !Array.isArray(value.items) ||
-    !value.items.every(isJob) ||
-    typeof value.next !== "string"
-  )
-    throw new Error(i18n.t("serverJobs.unexpectedResponse"));
-  return { items: value.items, next: value.next };
+  return readPage(`${path}?${query}`, signal, isJob);
 }
 
 export async function changeJob(

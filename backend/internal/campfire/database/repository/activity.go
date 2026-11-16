@@ -7,6 +7,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/events"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
@@ -47,7 +48,7 @@ func (r *ActivityRepository) Schedules(ctx context.Context, userID int64, admin 
 		query = query.Where("server_id = ?", serverID)
 	}
 
-	err := query.Limit(500).Find(&items).Error
+	err := query.Find(&items).Error
 	for i := range items {
 		items[i].Command = ""
 	}
@@ -280,6 +281,46 @@ func (r *ActivityRepository) runs(ctx context.Context, userID int64, admin bool,
 	err = query.Limit(100).Find(&items).Error
 
 	return items, err
+}
+
+// ExecutionAccess explicitly separates unrestricted history access from a
+// server allowlist. An empty allowlist never grants access to all servers.
+type ExecutionAccess struct {
+	AllServers bool
+	ServerIDs  []string
+}
+
+// ExecutionPage applies execution access before counting or selecting a page.
+// Unrestricted readers can see retained history after its server is deleted.
+func (r *ActivityRepository) ExecutionPage(ctx context.Context, access ExecutionAccess, serverID, scheduleID string, request pagination.Request) (pagination.Page[database.ScheduleRun], error) {
+	query := r.db.WithContext(ctx).Model(&database.ScheduleRun{}).Omit("Content").Where("schedule_id <> ''")
+	if !access.AllServers {
+		query = query.Where("server_id IN ?", access.ServerIDs)
+	}
+
+	if serverID != "" {
+		query = query.Where("server_id = ?", serverID)
+	}
+
+	if scheduleID != "" {
+		query = query.Where("schedule_id = ?", scheduleID)
+	}
+
+	return pagination.Read[database.ScheduleRun](query.Order("created_at DESC, id DESC"), request)
+}
+
+// AuditPage counts and pages filtered administrator audit metadata.
+func (r *ActivityRepository) AuditPage(ctx context.Context, action, target string, request pagination.Request) (pagination.Page[database.AuditEvent], error) {
+	query := r.db.WithContext(ctx).Model(&database.AuditEvent{}).Preload("User", func(tx *gorm.DB) *gorm.DB { return tx.Unscoped() }).Preload("User.Role")
+	if action != "" {
+		query = query.Where("action = ?", action)
+	}
+
+	if target != "" {
+		query = query.Where("target = ?", target)
+	}
+
+	return pagination.Read[database.AuditEvent](query.Order("created_at DESC, id DESC"), request)
 }
 
 // Pending returns a bounded batch for the single panel worker.

@@ -10,6 +10,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	core "campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 )
 
@@ -195,6 +196,11 @@ func TestIntegrationStatusAndRetryEnforceCategoryAndDestination(t *testing.T) {
 	items, err := store.MessageStatuses(t.Context(), "binding", []core.Category{core.GameEvents}, 0, "failed")
 	if err != nil || len(items) != 1 || !items[0].CanRetry {
 		t.Fatal(items, err)
+	}
+
+	page, err := store.MessageStatusPage(t.Context(), "binding", []core.Category{core.GameEvents}, "failed", pagination.Request{Page: 1, Size: 1})
+	if err != nil || len(page.Items) != 1 || page.Pagination.TotalItems != 1 || page.Pagination.TotalPages != 1 || !page.Items[0].CanRetry {
+		t.Fatal("numbered delivery history failed", page, err)
 	}
 
 	if err := store.RetryMessage(t.Context(), "binding", message.ID, []core.Category{core.BackupEvents}, time.Now()); !errors.Is(err, repository.ErrIntegrationNotFound) {

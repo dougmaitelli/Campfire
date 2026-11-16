@@ -2,7 +2,6 @@ import {
   ServerAction,
   ExecutionState as ExecutionStatus,
 } from "../contracts/domains";
-import { API_READ_TIMEOUT_MS } from "../api/client";
 import i18n from "../i18n";
 import {
   canPerformServer,
@@ -22,10 +21,12 @@ import { InlineMessage } from "../components/status/InlineMessage";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Select } from "../components/forms/Select";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { usePagination } from "../hooks/usePagination";
+import { usePagedCollection } from "../hooks/usePagedCollection";
+import { Pagination } from "../components/table/Pagination";
 import { listServers } from "../api/servers";
 import {
-  activityCursor,
   listExecutions,
   listSchedules,
   retryExecution,
@@ -47,7 +48,6 @@ import { useConfirmation } from "../hooks/useConfirmation";
 function when(value: number) {
   return value ? new Date(value * 1000).toLocaleString() : "—";
 }
-const SCHEDULE_REFRESH_INTERVAL_MS = 10000;
 
 export function SchedulesPage() {
   const { t } = useTranslation();
@@ -56,99 +56,37 @@ export function SchedulesPage() {
   const retryLabel = t("schedulesPage.retry2");
   const links = useResourceLinks();
   const servers = useCollection(listServers);
-  const schedules = useCollection(listSchedules);
-  const [runs, setRuns] = useState<Execution[]>([]);
+  const schedules = useCollection(listSchedules, 10000);
   const { selected: details, select: setDetails } = useResourceSelection(
     schedules.items,
     !schedules.loading && !schedules.error,
   );
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [older, setOlder] = useState(false);
-  const paged = useRef(false);
+  const navigation = usePagination();
+  const filter = navigation.query.get("server_id") ?? "";
+  const setFilter = (value: string) =>
+    navigation.update({ server_id: value, page: null });
+  const load = useCallback(
+    (signal: AbortSignal, page: number) => listExecutions(signal, page, filter),
+    [filter],
+  );
+  const history = usePagedCollection(load, navigation.page);
+  const { items: runs, loading, error: loadError } = history;
   const pending = useRef(false);
-  const [revision, setRevision] = useState(0);
-  const generation = useRef(0);
   const managed = servers.items.filter((server) =>
     canPerformServer(server, "manageSchedules"),
   );
-  const replaceSchedules = schedules.replace;
-  useEffect(() => {
-    const controller = new AbortController();
-    generation.current++;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    async function poll() {
-      if (pending.current) {
-        timer = setTimeout(() => void poll(), SCHEDULE_REFRESH_INTERVAL_MS);
-        return;
-      }
-      const version = ++generation.current;
-      try {
-        const [items, recurring] = await Promise.all([
-          listExecutions(controller.signal, "", filter),
-          listSchedules(controller.signal),
-        ]);
-        if (!controller.signal.aborted && version === generation.current) {
-          setRuns((previous) =>
-            paged.current
-              ? [
-                  ...new Map(
-                    [...previous, ...items].map((item) => [item.id, item]),
-                  ).values(),
-                ].sort(
-                  (a, b) =>
-                    b.created_at - a.created_at || b.id.localeCompare(a.id),
-                )
-              : items,
-          );
-          replaceSchedules(recurring);
-          if (!paged.current) setOlder(items.length === 100);
-          setLoadError(null);
-        }
-      } catch (cause) {
-        if (!controller.signal.aborted)
-          setLoadError(
-            cause instanceof Error
-              ? cause.message
-              : i18n.t("schedulesPage.unableToLoadExecutions"),
-          );
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-      if (!controller.signal.aborted)
-        timer = setTimeout(() => {
-          void poll();
-        }, SCHEDULE_REFRESH_INTERVAL_MS);
-    }
-    void poll();
-    return () => {
-      controller.abort();
-      if (timer !== undefined) clearTimeout(timer);
-    };
-  }, [filter, replaceSchedules, revision]);
   async function perform(work: () => Promise<unknown>) {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     setError(null);
-    paged.current = false;
-    const version = generation.current;
     try {
       await work();
       await schedules.refresh();
-      const items = await listExecutions(
-        AbortSignal.timeout(API_READ_TIMEOUT_MS),
-        "",
-        filter,
-      );
-      if (version === generation.current) {
-        setRuns(items);
-        setOlder(items.length === 100);
-      }
+      await history.refresh();
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -176,37 +114,6 @@ export function SchedulesPage() {
     await perform(() => retryExecution(run.id));
   }
 
-  async function more() {
-    if (pending.current || !runs.length) return;
-    pending.current = true;
-    const version = ++generation.current;
-    paged.current = true;
-    setBusy(true);
-    try {
-      const items = await listExecutions(
-        AbortSignal.timeout(API_READ_TIMEOUT_MS),
-        activityCursor(runs.at(-1)),
-        filter,
-      );
-      if (version === generation.current) {
-        setRuns((current) => [
-          ...new Map(
-            [...current, ...items].map((item) => [item.id, item]),
-          ).values(),
-        ]);
-        setOlder(items.length === 100);
-      }
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : i18n.t("schedulesPage.unableToLoadHistory"),
-      );
-    } finally {
-      pending.current = false;
-      setBusy(false);
-    }
-  }
   return (
     <section aria-labelledby="page-title">
       {confirmation.dialog}
@@ -239,8 +146,6 @@ export function SchedulesPage() {
             value={filter}
             onValueChange={(selectedValue) => {
               setFilter(selectedValue);
-              setLoading(true);
-              paged.current = false;
             }}
           >
             <option value="">{t("schedulesPage.allAccessibleServers")}</option>
@@ -406,11 +311,7 @@ export function SchedulesPage() {
           error={loadError}
           resource={t("schedulesPage.executions")}
           emptyMessage={t("schedulesPage.noExecutionsRecorded")}
-          onRetry={() => {
-            setLoading(true);
-            paged.current = false;
-            setRevision((value) => value + 1);
-          }}
+          onRetry={() => void history.refresh()}
         >
           <caption className="visually-hidden">
             {t("schedulesPage.executionHistory")}
@@ -505,16 +406,11 @@ export function SchedulesPage() {
             ))}
           </tbody>
         </Table>
-        {older && (
-          <Button
-            disabled={busy}
-            onClick={() => {
-              void more();
-            }}
-          >
-            {t("schedulesPage.loadOlderExecutions")}
-          </Button>
-        )}
+        <Pagination
+          pagination={history.pagination}
+          onPageChange={navigation.setPage}
+          loading={loading || busy}
+        />
       </ContentPanel>
       {details && (
         <ScheduleDetailsDrawer

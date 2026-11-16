@@ -12,6 +12,9 @@ import {
 import { API_READ_TIMEOUT_MS } from "../../api/client";
 import { useCurrentRoute } from "../../routing/useCurrentPage";
 import { useCollection } from "../../hooks/useCollection";
+import { usePagination } from "../../hooks/usePagination";
+import { usePagedCollection } from "../../hooks/usePagedCollection";
+import { Pagination } from "../table/Pagination";
 import { ActivityFilters } from "../activity/ActivityFilters";
 import { ActivityTable } from "../activity/ActivityTable";
 import { ActivityDetailsDrawer } from "../activity/ActivityDetailsDrawer";
@@ -30,23 +33,22 @@ export function ServerActivity({ server }: { server: Server }) {
   const signature = activityQuery(filter).toString();
   const entry = query.get("entry") ?? "";
   const [poll, setPoll] = useState(10000);
+  const navigation = usePagination();
   const load = useCallback(
-    async (signal: AbortSignal) => {
+    async (signal: AbortSignal, page: number) => {
       const value = await readActivity(
         server.id,
-        activityFilterFromQuery(new URLSearchParams(signature)),
+        { ...activityFilterFromQuery(new URLSearchParams(signature)), page },
         AbortSignal.any([signal, AbortSignal.timeout(API_READ_TIMEOUT_MS)]),
       );
       if (!signal.aborted)
         setPoll(value.items.some(activityInProgress) ? 2000 : 10000);
-      return [{ id: signature, ...value }];
+      return value;
     },
     [server.id, signature],
   );
-  const { items, loading, error, connectionError, refresh } = useCollection(
-    load,
-    filter.before && poll !== 2000 ? undefined : poll,
-  );
+  const history = usePagedCollection(load, navigation.page, poll);
+  const { items, loading, error, refresh } = history;
   const currentRefresh = useRef<typeof refresh | null>(null);
   useEffect(() => {
     currentRefresh.current = refresh;
@@ -57,7 +59,6 @@ export function ServerActivity({ server }: { server: Server }) {
   async function refreshAfterChange() {
     await currentRefresh.current?.();
   }
-  const page = items.find((item) => item.id === signature);
   const gameFilters = filter.kind === "game";
   const loadChoices = useCallback(
     async (signal: AbortSignal) =>
@@ -100,46 +101,24 @@ export function ServerActivity({ server }: { server: Server }) {
           </Button>
         </InlineMessage>
       )}
-      {!!error && !!page?.items.length && (
+      {!!error && !!items.length && (
         <InlineMessage role="alert">
           {error}
           <Button onClick={() => void refresh()}>{t("common.tryAgain")}</Button>
         </InlineMessage>
       )}
       <ActivityTable
-        items={page?.items ?? []}
-        loading={loading || (!page && !error && !connectionError)}
+        items={items}
+        loading={loading}
         error={error}
         onOpen={open}
         onRetry={() => void refresh()}
       />
-      <div className="activity-actions">
-        {!!filter.before && (
-          <Button
-            onClick={() => {
-              window.location.hash = serverActivityURL(server.id, {
-                ...filter,
-                before: undefined,
-              });
-            }}
-          >
-            {t("serverActivity.newest")}
-          </Button>
-        )}
-        {!!page?.next && (
-          <Button
-            disabled={loading}
-            onClick={() => {
-              window.location.hash = serverActivityURL(server.id, {
-                ...filter,
-                before: page.next,
-              });
-            }}
-          >
-            {t("serverActivity.older")}
-          </Button>
-        )}
-      </div>
+      <Pagination
+        pagination={history.pagination}
+        onPageChange={navigation.setPage}
+        loading={loading}
+      />
       {entry && (
         <ActivityDetailsDrawer
           key={entry}

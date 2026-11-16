@@ -117,7 +117,11 @@ beforeEach(() => {
             { status: 403 },
           )
         : Response.json(alerts);
-    if (kind === "activity") return Response.json({ items: [entry], next: "" });
+    if (kind === "activity")
+      return Response.json({
+        items: [entry],
+        pagination: { page: 1, page_size: 50, total_items: 1, total_pages: 1 },
+      });
     if (kind === "dismiss") return new Response(null, { status: 204 });
     throw new Error(`Unexpected request: ${path}`);
   });

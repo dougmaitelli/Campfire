@@ -432,13 +432,30 @@ have never published omit `game`.
 
 ### Retained events
 
-`GET /api/v1/servers/{id}/events` returns `{ "items": [...], "next_before": 123 }`;
-`next_before` is omitted at the end. Results are ordered by panel receipt ID.
+`GET /api/v1/servers/{id}/events` uses the shared numbered-page response:
+
+```json
+{
+  "items": [],
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total_items": 0,
+    "total_pages": 0
+  }
+}
+```
+
+Results are ordered by panel receipt ID, newest first. Totals include only matching,
+authorized records. Out-of-range pages return an empty `items` array with the
+requested page number and current totals. New events or retention deletions can
+shift numbered page boundaries; this is not a snapshot. The old `limit` and
+`before` parameters are rejected rather than silently ignored.
 
 | Query parameter | Meaning                                                         |
 | --------------- | --------------------------------------------------------------- |
-| `limit`         | 1–100; default 50                                               |
-| `before`        | Receipt-order ID cursor                                         |
+| `page_size`     | 1–100; default 50; invalid sizes are rejected                   |
+| `page`          | One-based page number; default 1                                |
 | `type`          | Exact event type                                                |
 | `search`        | Text in title or event data, at most 1,024 bytes                |
 | `data.<field>`  | Whole scalar value; empty matches any value for that field      |
@@ -455,7 +472,7 @@ Events include producer `event_id`, type, title, occurrence/receipt times, sourc
 server and Spark IDs, scalar data, and attachment metadata.
 `GET /api/v1/servers/{id}/events/filters` returns sorted distinct `types` and a
 `fields` map of observed scalar values as strings, across the server's retained
-history independently of filters or cursor position.
+history independently of filters or page position.
 
 ### Retained media
 

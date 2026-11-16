@@ -13,6 +13,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
@@ -71,8 +72,9 @@ type ServerActivityEntry struct {
 
 // ServerActivityPage uses a stable timestamp/key cursor across heterogeneous IDs.
 type ServerActivityPage struct {
-	Items []ServerActivityEntry `json:"items"`
-	Next  string                `json:"next"`
+	Items      []ServerActivityEntry `json:"items"`
+	Next       string                `json:"next,omitempty"`
+	Pagination *pagination.Metadata  `json:"pagination,omitempty"`
 }
 
 type serverActivityCursor struct {
@@ -184,7 +186,7 @@ func activityUnion(db *gorm.DB, queries []*gorm.DB) *gorm.DB {
 }
 
 // List groups notifications under retained, accessible sources in All.
-func (r *ServerActivityRepository) List(ctx context.Context, serverID string, access ServerActivityAccess, filter ServerActivityFilter) (ServerActivityPage, error) {
+func (r *ServerActivityRepository) List(ctx context.Context, serverID string, access ServerActivityAccess, filter ServerActivityFilter, numbered ...pagination.Request) (ServerActivityPage, error) {
 	page := ServerActivityPage{Items: []ServerActivityEntry{}, Next: ""}
 	if err := filter.Validate(); err != nil {
 		return page, err
@@ -245,11 +247,11 @@ func (r *ServerActivityRepository) List(ctx context.Context, serverID string, ac
 		query = query.Where("created_at < ?", filter.To)
 	}
 
-	return r.readPage(ctx, serverID, access, query, filter.Before)
+	return r.readPage(ctx, serverID, access, query, filter.Before, numbered...)
 }
 
 // Notifications pages delivery outcomes for one retained, accessible source.
-func (r *ServerActivityRepository) Notifications(ctx context.Context, serverID, key string, access ServerActivityAccess, before string) (ServerActivityPage, error) {
+func (r *ServerActivityRepository) Notifications(ctx context.Context, serverID, key string, access ServerActivityAccess, before string, numbered ...pagination.Request) (ServerActivityPage, error) {
 	entry, err := r.entry(ctx, serverID, key, access)
 	if err != nil {
 		return ServerActivityPage{}, err
@@ -261,11 +263,22 @@ func (r *ServerActivityRepository) Notifications(ctx context.Context, serverID, 
 
 	query := activityUnion(r.db.WithContext(ctx), r.notifications(ctx, serverID, access).all()).Where("source_key = ?", key)
 
-	return r.readPage(ctx, serverID, access, query, before)
+	return r.readPage(ctx, serverID, access, query, before, numbered...)
 }
 
-func (r *ServerActivityRepository) readPage(ctx context.Context, serverID string, access ServerActivityAccess, query *gorm.DB, before string) (ServerActivityPage, error) {
+func (r *ServerActivityRepository) readPage(ctx context.Context, serverID string, access ServerActivityAccess, query *gorm.DB, before string, numbered ...pagination.Request) (ServerActivityPage, error) {
 	page := ServerActivityPage{Items: []ServerActivityEntry{}, Next: ""}
+
+	if len(numbered) > 0 {
+		result, err := pagination.Read[ServerActivityEntry](query.Select("key, kind, source_key, created_at, title, state, provider, destination, delivery_check_pending, attachment_name, attachment_content_type").Order("created_at DESC, key DESC"), numbered[0])
+
+		page.Items, page.Pagination = result.Items, &result.Pagination
+		if err != nil {
+			return page, err
+		}
+
+		return page, r.enrichEntries(ctx, serverID, access, page.Items)
+	}
 
 	if before != "" {
 		var cursor serverActivityCursor

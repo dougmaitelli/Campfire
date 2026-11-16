@@ -8,6 +8,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/events"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	accessperm "campfire/internal/shared/permissions"
@@ -59,6 +60,16 @@ func (r *NotificationRepository) List(ctx context.Context, access NotificationAc
 	err := query.Select("notifications.*, notification_recipients.read_at AS read_at").Order("notifications.id DESC").Limit(100).Scan(&items).Error
 
 	return items, err
+}
+
+// Page applies inbox access and the unread filter before counting and paging.
+func (r *NotificationRepository) Page(ctx context.Context, access NotificationAccess, unread bool, request pagination.Request) (pagination.Page[NotificationView], error) {
+	query := notificationVisible(r.db.WithContext(ctx), access)
+	if unread {
+		query = query.Where("notification_recipients.read_at = 0")
+	}
+
+	return pagination.Read[NotificationView](query.Select("notifications.*, notification_recipients.read_at AS read_at").Order("notifications.id DESC"), request)
 }
 
 // Unread counts only messages still visible with the user's current permissions.

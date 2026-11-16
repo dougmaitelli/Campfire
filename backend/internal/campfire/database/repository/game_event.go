@@ -11,6 +11,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/events"
+	"campfire/internal/campfire/pagination"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 
@@ -51,6 +52,7 @@ func (q GameEventQuery) ValidFilters() bool {
 type GameEventPage struct {
 	Items      []database.GameEvent `json:"items"`
 	NextBefore int64                `json:"next_before,omitempty"`
+	Pagination *pagination.Metadata `json:"pagination,omitempty"`
 }
 
 // GameEventFilterOptions contains choices from a server's entire retained history.
@@ -198,7 +200,7 @@ func pruneGameServer(tx *gorm.DB, serverID string, before int64, maximum int) er
 }
 
 // List returns receipt-ordered events; optional time filters use occurrence time.
-func (r *GameEventRepository) List(ctx context.Context, serverID string, input GameEventQuery) (GameEventPage, error) {
+func (r *GameEventRepository) List(ctx context.Context, serverID string, input GameEventQuery, numbered ...pagination.Request) (GameEventPage, error) {
 	page := GameEventPage{Items: []database.GameEvent{}}
 	if input.Limit < 1 || input.Limit > 100 {
 		return page, errors.New("invalid game event page limit")
@@ -240,13 +242,22 @@ func (r *GameEventRepository) List(ctx context.Context, serverID string, input G
 		query = query.Where("occurred_at < ?", time.Unix(input.To, 0).UTC())
 	}
 
-	if err := query.Order("id DESC").Limit(input.Limit + 1).Find(&page.Items).Error; err != nil {
-		return page, err
-	}
+	if len(numbered) > 0 {
+		result, err := pagination.Read[database.GameEvent](query.Model(&database.GameEvent{}).Order("id DESC"), numbered[0])
+		if err != nil {
+			return page, err
+		}
 
-	if len(page.Items) > input.Limit {
-		page.Items = page.Items[:input.Limit]
-		page.NextBefore = page.Items[len(page.Items)-1].ID
+		page.Items, page.Pagination = result.Items, &result.Pagination
+	} else {
+		if err := query.Order("id DESC").Limit(input.Limit + 1).Find(&page.Items).Error; err != nil {
+			return page, err
+		}
+
+		if len(page.Items) > input.Limit {
+			page.Items = page.Items[:input.Limit]
+			page.NextBefore = page.Items[len(page.Items)-1].ID
+		}
 	}
 
 	if len(page.Items) > 0 {

@@ -4,8 +4,9 @@ import {
   activityInProgress,
   readRelatedNotifications,
 } from "../../api/serverActivity";
-import { API_READ_TIMEOUT_MS } from "../../api/client";
-import { useCollection } from "../../hooks/useCollection";
+import { usePagination } from "../../hooks/usePagination";
+import { usePagedCollection } from "../../hooks/usePagedCollection";
+import { Pagination } from "../table/Pagination";
 import { Button } from "../forms/Button";
 import { InlineMessage } from "../status/InlineMessage";
 import { ActivityTable } from "./ActivityTable";
@@ -20,64 +21,48 @@ export function ActivityNotifications({
   onOpen: (key: string) => void;
 }) {
   const { t } = useTranslation();
-  const [pages, setPages] = useState(1);
+  const navigation = usePagination("notification_page");
   const [poll, setPoll] = useState(2000);
   const load = useCallback(
-    async (signal: AbortSignal) => {
-      const requestSignal = AbortSignal.any([
-        signal,
-        AbortSignal.timeout(API_READ_TIMEOUT_MS),
-      ]);
+    async (signal: AbortSignal, page: number) => {
       const value = await readRelatedNotifications(
         serverID,
         entryKey,
-        "",
-        requestSignal,
+        page,
+        signal,
       );
-      for (let page = 1; page < pages && value.next; page++) {
-        const older = await readRelatedNotifications(
-          serverID,
-          entryKey,
-          value.next,
-          requestSignal,
-        );
-        value.items.push(...older.items);
-        value.next = older.next;
-      }
       if (!signal.aborted)
         setPoll(value.items.some(activityInProgress) ? 2000 : 10000);
-      return [{ ...value, id: entryKey, pages }];
+      return value;
     },
-    [serverID, entryKey, pages],
+    [serverID, entryKey],
   );
-  const { items, loading, error, refresh } = useCollection(load, poll);
-  const page = items[0];
+  const history = usePagedCollection(load, navigation.page, poll);
   return (
     <section aria-label={t("serverActivity.notifications")}>
       <h3>{t("serverActivity.notifications")}</h3>
-      {error && !!page?.items.length && (
+      {history.error && !!history.items.length && (
         <InlineMessage role="alert">
-          {error}
-          <Button onClick={() => void refresh()}>{t("common.tryAgain")}</Button>
+          {history.error}
+          <Button onClick={() => void history.refresh()}>
+            {t("common.tryAgain")}
+          </Button>
         </InlineMessage>
       )}
       <ActivityTable
-        items={page?.items ?? []}
-        loading={loading}
-        error={error}
+        items={history.items}
+        loading={history.loading}
+        error={history.error}
         notifications
         onOpen={onOpen}
-        onRetry={() => void refresh()}
+        onRetry={() => void history.refresh()}
       />
-      {!!page?.next && (
-        <Button
-          disabled={!error && page.pages < pages}
-          loading={!error && page.pages < pages}
-          onClick={() => setPages((value) => value + 1)}
-        >
-          {t("serverActivity.olderNotifications")}
-        </Button>
-      )}
+      <Pagination
+        pagination={history.pagination}
+        onPageChange={navigation.setPage}
+        loading={history.loading}
+        label={t("serverActivity.notifications")}
+      />
     </section>
   );
 }
