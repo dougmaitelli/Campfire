@@ -226,6 +226,11 @@
 }
 
 @container (max-width: 42rem) {
+  .data-table :is(th, td).table-date {
+    white-space: normal;
+    overflow-wrap: normal;
+  }
+
   .data-table.table-stacked {
     display: block;
 

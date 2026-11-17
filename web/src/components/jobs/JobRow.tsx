@@ -138,7 +138,7 @@ export function JobRow({
           )}
         </div>
       </td>
-      <td className="server-job-created">
+      <td className="server-job-created table-date">
         <time dateTime={new Date(job.created_at * 1000).toISOString()}>
           {new Date(job.created_at * 1000).toLocaleString(i18n.language)}
         </time>

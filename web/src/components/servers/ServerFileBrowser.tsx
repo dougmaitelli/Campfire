@@ -1018,7 +1018,7 @@ export function ServerFileBrowser({
                     {t("serverFileBrowser.fileType")}
                   </th>
                   <th className="table-fit">{t("common.size")}</th>
-                  <th className="table-fit">
+                  <th className="table-fit table-date">
                     {t("serverFileBrowser.modified")}
                   </th>
                   <th
@@ -1109,7 +1109,7 @@ export function ServerFileBrowser({
                         ? formatBytes(entry.size)
                         : EMPTY_VALUE}
                     </td>
-                    <td className="table-fit file-entry-meta">
+                    <td className="table-fit file-entry-meta table-date">
                       <time dateTime={entry.modified_at}>
                         {new Date(entry.modified_at).toLocaleString()}
                       </time>
