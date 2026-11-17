@@ -396,25 +396,33 @@ test("schedule history navigates numbered pages without appending or including o
   const history = page
     .getByRole("dialog")
     .getByRole("region", { name: "Execution history", exact: true });
+  const goTo = history.getByRole("spinbutton", {
+    name: "Go to page",
+    exact: true,
+  });
   await expect(history.getByRole("row")).toHaveCount(51);
+  await expect(goTo).toHaveValue("1");
   await history.getByRole("button", { name: "Next", exact: true }).click();
   await expect(history.getByText("Attempt 50", { exact: true })).toBeVisible();
   await expect(history.getByText("Attempt 0", { exact: true })).toHaveCount(0);
-  await history
-    .getByRole("spinbutton", { name: "Go to page", exact: true })
-    .fill("3");
+  await expect(goTo).toHaveValue("2");
+  await goTo.fill("3");
   await history.getByRole("button", { name: "Go", exact: true }).click();
   await expect(history.getByRole("row")).toHaveCount(3);
+  await expect(goTo).toHaveValue("3");
   await expect(history.getByText("Attempt 101", { exact: true })).toBeVisible();
   await expect(
     history.getByRole("button", { name: "Next", exact: true }),
   ).toBeDisabled();
   await history.getByRole("button", { name: "Page 1", exact: true }).click();
   await expect(history.getByText("Attempt 0", { exact: true })).toBeVisible();
+  await expect(goTo).toHaveValue("1");
   await page.goBack();
   await expect(history.getByText("Attempt 101", { exact: true })).toBeVisible();
+  await expect(goTo).toHaveValue("3");
   await page.goForward();
   await expect(history.getByText("Attempt 0", { exact: true })).toBeVisible();
+  await expect(goTo).toHaveValue("1");
 });
 
 test("schedule history can retry a failed request and display an empty result", async ({

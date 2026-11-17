@@ -5,7 +5,7 @@
     "previous": "Previous",
     "next": "Next",
     "page": "Page {{page}}",
-    "summary": "Page {{page}} of {{total}} · {{count}} records",
+    "summary": "Showing {{start}}–{{end}} of {{count}}",
     "goTo": "Go to page",
     "go": "Go"
   },

@@ -16,6 +16,10 @@
   & .pagination-pages {
     flex-wrap: wrap;
   }
+  & .pagination-summary {
+    margin-inline-start: auto;
+    text-align: end;
+  }
   & input {
     width: 5rem;
   }

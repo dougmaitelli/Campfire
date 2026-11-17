@@ -84,8 +84,19 @@ test("admins can manage global jobs and open server Activity from resource detai
   const jobs = page.getByRole("region", { name: "Jobs", exact: true });
   await expect(jobs.getByText("Waiting for Offline to connect.")).toBeVisible();
   await expect(jobs.locator("tbody tr")).toHaveCount(4);
+  const summary = jobs.locator(".pagination-summary");
+  const summaryRightGap = () =>
+    summary.evaluate((element) =>
+      Math.abs(
+        element.parentElement!.getBoundingClientRect().right -
+          element.getBoundingClientRect().right,
+      ),
+    );
+  await expect(summary).toHaveText("Showing 1–50 of 51");
+  await expect.poll(summaryRightGap).toBeLessThanOrEqual(1);
   await screenshot(page, "jobs.png");
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(summaryRightGap).toBeLessThanOrEqual(1);
   await screenshot(page, "jobs-mobile.png");
   await page.setViewportSize({ width: 1400, height: 900 });
   await jobs.getByRole("button", { name: "Next", exact: true }).click();
@@ -93,6 +104,7 @@ test("admins can manage global jobs and open server Activity from resource detai
   await expect(
     jobs.getByRole("row", { name: "Copy older-cancelled-copy", exact: true }),
   ).toBeVisible();
+  await expect(summary).toHaveText("Showing 51–51 of 51");
   await page.getByRole("combobox", { name: "Status", exact: true }).click();
   await page.getByRole("option", { name: "Complete", exact: true }).click();
   await expect(jobs.locator("tbody tr")).toHaveCount(1);

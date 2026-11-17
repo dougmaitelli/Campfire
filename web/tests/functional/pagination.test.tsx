@@ -34,10 +34,15 @@ test("pagination supports previous, numbered links, next, and validated direct j
   expect(change).toHaveBeenLastCalledWith(20);
   await user.click(screen.getByRole("button", { name: "Next" }));
   expect(change).toHaveBeenLastCalledWith(6);
-  const input = screen.getByRole("spinbutton", { name: "Go to page" });
+  const input = screen.getByRole<HTMLInputElement>("spinbutton", {
+    name: "Go to page",
+  });
+  expect(input.value).toBe("5");
+  await user.clear(input);
   await user.type(input, "12");
   await user.click(screen.getByRole("button", { name: "Go" }));
   expect(change).toHaveBeenLastCalledWith(12);
+  expect(input.value).toBe("12");
   expect(
     screen.getByRole("button", { name: "Page 5" }).getAttribute("aria-current"),
   ).toBe("page");
@@ -55,6 +60,60 @@ test("pagination supports previous, numbered links, next, and validated direct j
   for (const button of screen.getAllByRole<HTMLButtonElement>("button"))
     expect(button.disabled).toBe(true);
 });
+
+test("Go to page defaults to the loaded page and follows navigation without clearing on polls", async () => {
+  const change = vi.fn();
+  const user = userEvent.setup();
+  const view = render(
+    <Pagination pagination={undefined} onPageChange={change} />,
+  );
+  const show = (page: number) =>
+    view.rerender(
+      <Pagination
+        pagination={pageFixture([], page, 1000).pagination}
+        onPageChange={change}
+      />,
+    );
+  const input = () =>
+    screen.getByRole<HTMLInputElement>("spinbutton", { name: "Go to page" });
+  show(3);
+  expect(input().value).toBe("3");
+  await user.clear(input());
+  await user.type(input(), "7");
+  show(3);
+  expect(input().value).toBe("7");
+  await user.click(screen.getByRole("button", { name: "Go" }));
+  expect(change).toHaveBeenLastCalledWith(7);
+  expect(input().value).toBe("7");
+  show(7);
+  expect(input().value).toBe("7");
+  await user.clear(input());
+  await user.type(input(), "12");
+  show(3);
+  expect(input().value).toBe("3");
+  show(1);
+  expect(input().value).toBe("1");
+});
+
+test.each([
+  { page: 1, count: 125, size: 50, summary: "Showing 1–50 of 125" },
+  { page: 2, count: 125, size: 50, summary: "Showing 51–100 of 125" },
+  { page: 3, count: 125, size: 50, summary: "Showing 101–125 of 125" },
+  { page: 4, count: 100, size: 10, summary: "Showing 31–40 of 100" },
+  { page: 4, count: 125, size: 50, summary: "Showing 0–0 of 125" },
+  { page: 2, count: 0, size: 50, summary: "Showing 0–0 of 0" },
+])(
+  "pagination shows the index range: $summary",
+  ({ page, count, size, summary }) => {
+    render(
+      <Pagination
+        pagination={pageFixture([], page, count, size).pagination}
+        onPageChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("status").textContent).toBe(summary);
+  },
+);
 
 test("single-page collections hide navigation and boundary buttons are disabled", () => {
   const view = render(
