@@ -38,14 +38,18 @@ export function ServerActivity({ server }: { server: Server }) {
     async (signal: AbortSignal, page: number) => {
       const value = await readActivity(
         server.id,
-        { ...activityFilterFromQuery(new URLSearchParams(signature)), page },
+        {
+          ...activityFilterFromQuery(new URLSearchParams(signature)),
+          page,
+          page_size: navigation.pageSize,
+        },
         AbortSignal.any([signal, AbortSignal.timeout(API_READ_TIMEOUT_MS)]),
       );
       if (!signal.aborted)
         setPoll(value.items.some(activityInProgress) ? 2000 : 10000);
       return value;
     },
-    [server.id, signature],
+    [server.id, signature, navigation.pageSize],
   );
   const history = usePagedCollection(load, navigation.page, poll);
   const { items, loading, error, refresh } = history;
@@ -90,7 +94,10 @@ export function ServerActivity({ server }: { server: Server }) {
         filter={filter}
         choices={choices.items.find((item) => item.id === server.id)}
         onApply={(next) => {
-          window.location.hash = serverActivityURL(server.id, next);
+          window.location.hash = serverActivityURL(server.id, {
+            ...next,
+            page_size: filter.page_size,
+          });
         }}
       />
       {choices.error && (
@@ -117,6 +124,7 @@ export function ServerActivity({ server }: { server: Server }) {
       <Pagination
         pagination={history.pagination}
         onPageChange={navigation.setPage}
+        onPageSizeChange={navigation.setPageSize}
         loading={loading}
       />
       {entry && (

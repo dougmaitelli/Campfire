@@ -21,7 +21,7 @@ func TestParse(t *testing.T) {
 	}
 
 	request, err := pagination.Parse(url.Values{})
-	if err != nil || request.Page != 1 || request.Size != 50 {
+	if err != nil || request.Page != 1 || request.Size != 20 {
 		t.Fatal(request, err)
 	}
 

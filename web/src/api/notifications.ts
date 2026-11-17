@@ -48,12 +48,18 @@ function isNotification(value: unknown): value is Notification {
     )
   );
 }
-export async function listNotifications(
-  signal: AbortSignal,
+export async function listNotifications({
+  signal,
   page = 1,
   unread = false,
-): Promise<Page<Notification>> {
-  const query = pageQuery(page);
+  pageSize,
+}: {
+  signal: AbortSignal;
+  page?: number;
+  unread?: boolean;
+  pageSize?: number;
+}): Promise<Page<Notification>> {
+  const query = pageQuery(page, pageSize);
   query.set("unread", String(unread));
   return readPage(`/api/v1/notifications?${query}`, signal, isNotification);
 }

@@ -559,7 +559,7 @@ test("the shared Jobs list polls only the displayed page without appending", asy
 }) => {
   await page.clock.install();
   await login(page);
-  const jobs = Array.from({ length: 53 }, (_, index) =>
+  const jobs = Array.from({ length: 23 }, (_, index) =>
     jobFixture({
       id: `job-${String(53 - index).padStart(3, "0")}`,
       type: index % 2 ? JobType.Transfer : JobType.Copy,
@@ -579,7 +579,7 @@ test("the shared Jobs list polls only the displayed page without appending", asy
     else headRequests++;
     return route.fulfill({
       json: pageFixture(
-        older ? jobs.slice(50) : jobs.slice(0, 50),
+        older ? jobs.slice(20) : jobs.slice(0, 20),
         older ? 2 : 1,
         jobs.length,
       ),
@@ -588,7 +588,7 @@ test("the shared Jobs list polls only the displayed page without appending", asy
   await openScreen(page, "jobs", "Jobs");
   const drawer = page.locator("main");
   const rows = drawer.locator(".server-job-history-item");
-  await expect(rows).toHaveCount(50);
+  await expect(rows).toHaveCount(20);
   const initialHead = headRequests;
   await page.clock.runFor(6000);
   await expect.poll(() => headRequests).toBeGreaterThan(initialHead);

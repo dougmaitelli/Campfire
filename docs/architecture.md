@@ -185,7 +185,7 @@ limits, and error handling.
 Jobs, server Activity (including related notifications), personal notifications,
 audit history, schedule execution history, retained game events, and Discord
 delivery history (`/servers/{id}/integrations/discord/{bindingID}/messages`) use
-`page` (one-based, default 1) and `page_size` (default 50, maximum 100).
+`page` (one-based, default 1) and `page_size` (default 20, maximum 100).
 Responses contain `items` and `pagination` with `page`, `page_size`,
 `total_items`, and `total_pages`. Invalid or duplicate pagination parameters and
 obsolete cursor parameters are rejected; page sizes are never silently clamped.

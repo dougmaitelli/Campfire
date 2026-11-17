@@ -21,8 +21,8 @@ export function ScheduleExecutionHistory({
   const navigation = usePagination("execution_page");
   const load = useCallback(
     (signal: AbortSignal, page: number) =>
-      listExecutions(signal, page, "", scheduleID),
-    [scheduleID],
+      listExecutions(signal, page, "", scheduleID, navigation.pageSize),
+    [scheduleID, navigation.pageSize],
   );
   const history = usePagedCollection(load, navigation.page);
   const { items } = history;
@@ -81,6 +81,7 @@ export function ScheduleExecutionHistory({
       <Pagination
         pagination={history.pagination}
         onPageChange={navigation.setPage}
+        onPageSizeChange={navigation.setPageSize}
         loading={history.loading}
       />
     </section>

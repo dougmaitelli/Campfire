@@ -154,8 +154,8 @@ test("mark all read from a direct-linked later page uses the newest inbox waterm
     id: 101 - index,
     title: `Message ${101 - index}`,
   }));
-  vi.mocked(listNotifications).mockImplementation(async (_signal, page = 1) =>
-    pageFixture(items.slice((page - 1) * 50, page * 50), page, items.length),
+  vi.mocked(listNotifications).mockImplementation(async ({ page = 1 }) =>
+    pageFixture(items.slice((page - 1) * 20, page * 20), page, items.length),
   );
   vi.mocked(markAllNotificationsRead).mockImplementation(async (through) => {
     items = [
@@ -167,7 +167,7 @@ test("mark all read from a direct-linked later page uses the newest inbox waterm
     ];
   });
   render(<NotificationsPage />);
-  await screen.findByRole("article", { name: "Message 51" });
+  await screen.findByRole("article", { name: "Message 81" });
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "Mark all read" }));
@@ -175,7 +175,11 @@ test("mark all read from a direct-linked later page uses the newest inbox waterm
     expect(markAllNotificationsRead).toHaveBeenCalledWith(101),
   );
   await waitFor(() =>
-    expect(listNotifications).toHaveBeenLastCalledWith(expect.anything(), 2),
+    expect(listNotifications).toHaveBeenLastCalledWith({
+      signal: expect.anything(),
+      page: 2,
+      pageSize: 20,
+    }),
   );
   expect(items.filter((item) => !item.read_at).map((item) => item.id)).toEqual([
     102,
@@ -186,7 +190,7 @@ test("mark all read from a direct-linked later page uses the newest inbox waterm
 
 test("an empty newest page never sends the unbounded zero watermark", async () => {
   replaceCurrentRoute("notifications?page=2");
-  vi.mocked(listNotifications).mockImplementation(async (_signal, page = 1) =>
+  vi.mocked(listNotifications).mockImplementation(async ({ page = 1 }) =>
     pageFixture(page === 1 ? [] : items, page, page === 1 ? 0 : 52),
   );
   render(<NotificationsPage />);
@@ -206,7 +210,7 @@ test("a notification action completing after navigation refreshes only the curre
         complete = resolve;
       }),
   );
-  vi.mocked(listNotifications).mockImplementation(async (_signal, page = 1) =>
+  vi.mocked(listNotifications).mockImplementation(async ({ page = 1 }) =>
     pageFixture([{ ...items[0]!, title: `Page ${page} message` }], page, 51),
   );
   render(<NotificationsPage />);
@@ -220,6 +224,10 @@ test("a notification action completing after navigation refreshes only the curre
   vi.mocked(listNotifications).mockClear();
   await act(async () => complete());
   await waitFor(() => expect(listNotifications).toHaveBeenCalledTimes(1));
-  expect(listNotifications).toHaveBeenLastCalledWith(expect.anything(), 2);
+  expect(listNotifications).toHaveBeenLastCalledWith({
+    signal: expect.anything(),
+    page: 2,
+    pageSize: 20,
+  });
   expect(screen.getByRole("article", { name: "Page 2 message" })).toBeDefined();
 });

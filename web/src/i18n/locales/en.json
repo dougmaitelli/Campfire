@@ -6,6 +6,7 @@
     "next": "Next",
     "page": "Page {{page}}",
     "summary": "Showing {{start}}–{{end}} of {{count}}",
+    "pageSize": "Rows per page",
     "goTo": "Go to page",
     "go": "Go"
   },

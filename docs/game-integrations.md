@@ -454,7 +454,7 @@ shift numbered page boundaries; this is not a snapshot. The old `limit` and
 
 | Query parameter | Meaning                                                         |
 | --------------- | --------------------------------------------------------------- |
-| `page_size`     | 1–100; default 50; invalid sizes are rejected                   |
+| `page_size`     | 1–100; default 20; invalid sizes are rejected                   |
 | `page`          | One-based page number; default 1                                |
 | `type`          | Exact event type                                                |
 | `search`        | Text in title or event data, at most 1,024 bytes                |

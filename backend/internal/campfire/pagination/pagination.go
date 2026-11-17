@@ -10,7 +10,7 @@ import (
 )
 
 // DefaultSize is the common history page size.
-const DefaultSize = 50
+const DefaultSize = 20
 
 // MaxSize bounds a single response without hiding collection totals.
 const MaxSize = 100

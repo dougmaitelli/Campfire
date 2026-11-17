@@ -38,7 +38,13 @@ export function JobList({
   const [poll, setPoll] = useState(30000);
   const load = useCallback(
     async (signal: AbortSignal, page: number) => {
-      const result = await listJobs(undefined, signal, page, { type, status });
+      const result = await listJobs(
+        undefined,
+        signal,
+        page,
+        { type, status },
+        navigation.pageSize,
+      );
       if (!signal.aborted) {
         const finished = result.items.some(
           (job) => active.current.has(job.id) && isFinished(job),
@@ -57,7 +63,7 @@ export function JobList({
       }
       return result;
     },
-    [type, status, onChanged],
+    [type, status, onChanged, navigation.pageSize],
   );
   const history = usePagedCollection(load, navigation.page, poll);
   const { items: jobs, loading } = history;
@@ -138,6 +144,7 @@ export function JobList({
       <Pagination
         pagination={history.pagination}
         onPageChange={navigation.setPage}
+        onPageSizeChange={navigation.setPageSize}
         loading={loading || busy}
       />
     </section>

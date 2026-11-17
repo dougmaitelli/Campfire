@@ -27,7 +27,7 @@ test("native activity date fields filter events on mobile", async ({
   await expect(
     feed.getByText("Alex joined the server", { exact: true }),
   ).toBeVisible();
-  const filters = feed.locator("form");
+  const filters = feed.locator(":scope > form");
   await prepareScreenshot(page);
   await expect(filters).toHaveScreenshot([
     "crops",

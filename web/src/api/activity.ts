@@ -157,8 +157,9 @@ export function listExecutions(
   page = 1,
   serverID = "",
   scheduleID = "",
+  pageSize?: number,
 ) {
-  const query = pageQuery(page);
+  const query = pageQuery(page, pageSize);
   if (serverID) query.set("server_id", serverID);
   if (scheduleID) query.set("schedule_id", scheduleID);
   return readPage(`/api/v1/schedules/executions?${query}`, signal, isExecution);
@@ -168,8 +169,9 @@ export function listAudit(
   page = 1,
   action = "",
   target = "",
+  pageSize?: number,
 ) {
-  const query = pageQuery(page);
+  const query = pageQuery(page, pageSize);
   if (action) query.set("action", action);
   if (target) query.set("target", target);
   return readPage(`/api/v1/audit?${query}`, signal, isAudit);

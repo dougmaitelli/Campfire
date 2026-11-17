@@ -698,8 +698,8 @@ test("older related notifications load inside the source drawer without changing
       requests.push(url);
       return Response.json(
         url.searchParams.get("page") === "2"
-          ? pageFixture([older], 2, 51)
-          : pageFixture([message], 1, 51),
+          ? pageFixture([older], 2, 21)
+          : pageFixture([message], 1, 21),
       );
     }
     if (url.pathname.endsWith("/activity")) {
@@ -723,14 +723,19 @@ test("older related notifications load inside the source drawer without changing
     .setup()
     .click(await screen.findByRole("button", { name: event.title }));
   const route = window.location.hash;
+  await screen.findByRole("button", { name: "Newer message" });
+  const notifications = within(
+    screen.getByRole("region", { name: "Notifications" }),
+  );
   await userEvent
     .setup()
-    .click(await screen.findByRole("button", { name: "Next" }));
+    .click(notifications.getByRole("button", { name: "Next" }));
   await screen.findByRole("button", { name: "Older message" });
   expect(screen.queryByRole("button", { name: "Newer message" })).toBeNull();
   expect(window.location.hash).toBe(`${route}&notification_page=2`);
   expect(
-    screen.getByRole<HTMLButtonElement>("button", { name: "Next" }).disabled,
+    notifications.getByRole<HTMLButtonElement>("button", { name: "Next" })
+      .disabled,
   ).toBe(true);
   expect(requests[0]?.searchParams.get("page")).toBe("1");
   expect(

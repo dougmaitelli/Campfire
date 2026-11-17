@@ -26,12 +26,13 @@ test("pagination supports previous, numbered links, next, and validated direct j
     <Pagination
       pagination={pageFixture([], 5, 1000).pagination}
       onPageChange={change}
+      onPageSizeChange={vi.fn()}
     />,
   );
   await user.click(screen.getByRole("button", { name: "Previous" }));
   expect(change).toHaveBeenLastCalledWith(4);
-  await user.click(screen.getByRole("button", { name: "Page 20" }));
-  expect(change).toHaveBeenLastCalledWith(20);
+  await user.click(screen.getByRole("button", { name: "Page 50" }));
+  expect(change).toHaveBeenLastCalledWith(50);
   await user.click(screen.getByRole("button", { name: "Next" }));
   expect(change).toHaveBeenLastCalledWith(6);
   const input = screen.getByRole<HTMLInputElement>("spinbutton", {
@@ -47,13 +48,14 @@ test("pagination supports previous, numbered links, next, and validated direct j
     screen.getByRole("button", { name: "Page 5" }).getAttribute("aria-current"),
   ).toBe("page");
   const calls = change.mock.calls.length;
-  fireEvent.change(input, { target: { value: "21" } });
+  fireEvent.change(input, { target: { value: "51" } });
   fireEvent.submit(input.closest("form")!);
   expect(change).toHaveBeenCalledTimes(calls);
   view.rerender(
     <Pagination
       pagination={pageFixture([], 1, 1000).pagination}
       onPageChange={change}
+      onPageSizeChange={vi.fn()}
       loading
     />,
   );
@@ -65,13 +67,18 @@ test("Go to page defaults to the loaded page and follows navigation without clea
   const change = vi.fn();
   const user = userEvent.setup();
   const view = render(
-    <Pagination pagination={undefined} onPageChange={change} />,
+    <Pagination
+      pagination={undefined}
+      onPageChange={change}
+      onPageSizeChange={vi.fn()}
+    />,
   );
   const show = (page: number) =>
     view.rerender(
       <Pagination
         pagination={pageFixture([], page, 1000).pagination}
         onPageChange={change}
+        onPageSizeChange={vi.fn()}
       />,
     );
   const input = () =>
@@ -109,24 +116,27 @@ test.each([
       <Pagination
         pagination={pageFixture([], page, count, size).pagination}
         onPageChange={vi.fn()}
+        onPageSizeChange={vi.fn()}
       />,
     );
     expect(screen.getByRole("status").textContent).toBe(summary);
   },
 );
 
-test("single-page collections hide navigation and boundary buttons are disabled", () => {
+test("empty collections hide navigation and boundary buttons are disabled", () => {
   const view = render(
     <Pagination
       pagination={pageFixture([]).pagination}
       onPageChange={vi.fn()}
+      onPageSizeChange={vi.fn()}
     />,
   );
   expect(screen.queryByRole("navigation")).toBeNull();
   view.rerender(
     <Pagination
-      pagination={pageFixture([], 1, 51).pagination}
+      pagination={pageFixture([], 1, 21).pagination}
       onPageChange={vi.fn()}
+      onPageSizeChange={vi.fn()}
     />,
   );
   expect(
@@ -135,8 +145,9 @@ test("single-page collections hide navigation and boundary buttons are disabled"
   ).toBe(true);
   view.rerender(
     <Pagination
-      pagination={pageFixture([], 2, 51).pagination}
+      pagination={pageFixture([], 2, 21).pagination}
       onPageChange={vi.fn()}
+      onPageSizeChange={vi.fn()}
     />,
   );
   expect(
@@ -148,7 +159,7 @@ test("page URLs preserve the selected route and nested drawer selection", async 
   expect(getCurrentPage("jobs?page=2").id).toBe("jobs");
   expect(getCurrentPage("audit?action=server.restart&page=3").id).toBe("audit");
   replaceCurrentRoute(
-    "schedules/nightly?server_id=game&page=2&execution_page=3",
+    "schedules/nightly?server_id=game&page=2&execution_page=3&page_size=50&execution_page_size=100&notification_page_size=50",
   );
   const schedules = [{ id: "nightly" }];
   function Selection() {
@@ -165,10 +176,14 @@ test("page URLs preserve the selected route and nested drawer selection", async 
   expect(screen.getByText("nightly")).toBeDefined();
   await userEvent.setup().click(screen.getByRole("button", { name: "Close" }));
   await screen.findByText("No selection");
-  expect(window.location.hash).toBe("#schedules?server_id=game&page=2");
+  expect(window.location.hash).toBe(
+    "#schedules?server_id=game&page=2&page_size=50",
+  );
   await userEvent.setup().click(screen.getByRole("button", { name: "Open" }));
   await screen.findByText("nightly");
-  expect(window.location.hash).toBe("#schedules/nightly?server_id=game&page=2");
+  expect(window.location.hash).toBe(
+    "#schedules/nightly?server_id=game&page=2&page_size=50",
+  );
 });
 
 test("shared page loading replaces rows and ignores superseded responses", async () => {
@@ -193,6 +208,7 @@ test("shared page loading replaces rows and ignores superseded responses", async
         <Pagination
           pagination={history.pagination}
           onPageChange={navigation.setPage}
+          onPageSizeChange={navigation.setPageSize}
           loading={history.loading}
         />
       </>

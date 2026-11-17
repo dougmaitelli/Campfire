@@ -36,13 +36,20 @@ test("URL navigation resets submitted and unsaved Audit drafts to the active fil
       1,
       "server.restart",
       "server:game",
+      20,
     ),
   );
   await user.clear(action!);
   await user.type(action!, "unsaved");
   await act(async () => replaceCurrentRoute("audit"));
   await waitFor(() =>
-    expect(listAudit).toHaveBeenLastCalledWith(expect.anything(), 1, "", ""),
+    expect(listAudit).toHaveBeenLastCalledWith(
+      expect.anything(),
+      1,
+      "",
+      "",
+      20,
+    ),
   );
   expect(action!.value).toBe("");
   expect(target!.value).toBe("");
@@ -57,6 +64,7 @@ test("URL navigation resets submitted and unsaved Audit drafts to the active fil
       2,
       "server.restart",
       "server:game",
+      20,
     ),
   );
   expect(action!.value).toBe("server.restart");

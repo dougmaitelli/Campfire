@@ -1,17 +1,20 @@
 import { useTranslation } from "react-i18next";
-import type { PaginationMetadata } from "../../api/pagination";
+import { PAGE_SIZES, type PaginationMetadata } from "../../api/pagination";
 import { Button } from "../forms/Button";
 import { TextInput } from "../forms/TextInput";
+import { Select } from "../forms/Select";
 import "./pagination.css";
 
 export function Pagination({
   pagination,
   onPageChange,
+  onPageSizeChange,
   loading = false,
   label,
 }: {
   pagination: PaginationMetadata | undefined;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
   loading?: boolean;
   label?: string;
 }) {
@@ -23,7 +26,7 @@ export function Pagination({
     total_pages: total,
     total_items: count,
   } = pagination;
-  if (total <= 1 && page === 1) return null;
+  if (!count && page === 1) return null;
   const offset = (page - 1) * size;
   const start = offset < count ? offset + 1 : 0;
   const end = offset < count ? Math.min(offset + size, count) : 0;
@@ -77,7 +80,7 @@ export function Pagination({
         <label>
           {t("pagination.goTo")}{" "}
           <TextInput
-            key={page}
+            key={`${page}:${size}`}
             name="page"
             type="number"
             min={1}
@@ -90,9 +93,28 @@ export function Pagination({
         </label>
         <Button disabled={loading || !total}>{t("pagination.go")}</Button>
       </form>
-      <span className="pagination-summary" role="status">
-        {t("pagination.summary", { start, end, count })}
-      </span>
+      <div className="pagination-meta">
+        <label>
+          {t("pagination.pageSize")}
+          <Select
+            aria-label={t("pagination.pageSize")}
+            value={size}
+            disabled={loading}
+            onValueChange={(value) => onPageSizeChange(Number(value))}
+          >
+            {[...new Set([...PAGE_SIZES, size])]
+              .sort((a, b) => a - b)
+              .map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+          </Select>
+        </label>
+        <span className="pagination-summary" role="status">
+          {t("pagination.summary", { start, end, count })}
+        </span>
+      </div>
     </nav>
   );
 }

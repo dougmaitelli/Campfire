@@ -16,7 +16,7 @@ test("game activity reads retained events and filters by type and recorded time"
     feed.getByText("Alex earned Stone Age", { exact: true }),
   ).toBeVisible();
   await prepareScreenshot(page);
-  await expect(feed.locator("form")).toHaveScreenshot([
+  await expect(feed.locator(":scope > form")).toHaveScreenshot([
     "crops",
     "activity-date-filters.png",
   ]);
@@ -43,7 +43,7 @@ test("game activity reads retained events and filters by type and recorded time"
     .fill("2030-01-01T00:00");
   await feed.getByRole("heading", { name: "Activity", exact: true }).click();
   await prepareScreenshot(page);
-  await expect(feed.locator("form")).toHaveScreenshot([
+  await expect(feed.locator(":scope > form")).toHaveScreenshot([
     "crops",
     "activity-date-filters-filled.png",
   ]);
@@ -143,12 +143,12 @@ test("game activity combines player and mod-state filters and clears them", asyn
     feed.getByText("Alex joined the server", { exact: true }),
   ).toBeVisible();
   await prepareScreenshot(page);
-  await expect(feed.locator("form")).toHaveScreenshot([
+  await expect(feed.locator(":scope > form")).toHaveScreenshot([
     "crops",
     "activity-field-filters.png",
   ]);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(feed.locator("form")).toHaveScreenshot([
+  await expect(feed.locator(":scope > form")).toHaveScreenshot([
     "crops",
     "activity-field-filters-mobile.png",
   ]);
@@ -206,7 +206,7 @@ test("game activity keeps field filters while paging through a live history", as
   page,
 }) => {
   await login(page);
-  for (let index = 0; index < 53; index++)
+  for (let index = 0; index < 23; index++)
     expect(
       (
         await page.request.post("/__test/integrations/game-event", {
@@ -229,7 +229,7 @@ test("game activity keeps field filters while paging through a live history", as
     "/#servers/survival/activity?kind=game&search=Alex&data.player=Alex",
   );
   const feed = page.getByRole("region", { name: "Activity", exact: true });
-  await expect(feed.locator("tbody tr")).toHaveCount(50);
+  await expect(feed.locator("tbody tr")).toHaveCount(20);
   await expect(
     feed.getByRole("combobox", { name: "Event field", exact: true }),
   ).toHaveText("Player name");
@@ -252,5 +252,5 @@ test("game activity keeps field filters while paging through a live history", as
     feed.getByRole("combobox", { name: "Field value", exact: true }),
   ).toHaveText("Alex");
   await feed.getByRole("button", { name: "Previous", exact: true }).click();
-  await expect(feed.locator("tbody tr")).toHaveCount(50);
+  await expect(feed.locator("tbody tr")).toHaveCount(20);
 });

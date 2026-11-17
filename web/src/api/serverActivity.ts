@@ -206,6 +206,14 @@ export function activityFilterFromQuery(
     const value = query.get(key);
     if (value) filter[key] = value;
   }
+  const size = Number(query.get("page_size"));
+  if (
+    query.has("page_size") &&
+    Number.isSafeInteger(size) &&
+    size >= 1 &&
+    size <= 100
+  )
+    filter.page_size = size;
   const page = Number(query.get("page") ?? 1);
   if (
     query.has("page") &&
@@ -245,8 +253,9 @@ export async function readRelatedNotifications(
   source: string,
   page: number,
   signal: AbortSignal,
+  pageSize?: number,
 ): Promise<ActivityPage> {
-  const query = `?${pageQuery(page)}`;
+  const query = `?${pageQuery(page, pageSize)}`;
   return readActivityPage(
     `/api/v1/servers/${encodeURIComponent(serverID)}/activity/${encodeURIComponent(source)}/notifications${query}`,
     signal,

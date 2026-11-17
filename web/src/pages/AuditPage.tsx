@@ -37,8 +37,8 @@ export function AuditPage() {
   const target = draft.signature === signature ? draft.target : targetFilter;
   const load = useCallback(
     (signal: AbortSignal, page: number) =>
-      listAudit(signal, page, actionFilter, targetFilter),
-    [actionFilter, targetFilter],
+      listAudit(signal, page, actionFilter, targetFilter, navigation.pageSize),
+    [actionFilter, targetFilter, navigation.pageSize],
   );
   const history = usePagedCollection(load, navigation.page);
   const { items, loading, error } = history;
@@ -152,6 +152,7 @@ export function AuditPage() {
         <Pagination
           pagination={history.pagination}
           onPageChange={navigation.setPage}
+          onPageSizeChange={navigation.setPageSize}
           loading={loading}
         />
       </ContentPanel>

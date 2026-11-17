@@ -15,6 +15,8 @@ export function useResourceSelection<T extends { id: string | number }>(
   // Nested history pages belong to the selected resource, not its parent list.
   listQuery.delete("execution_page");
   listQuery.delete("notification_page");
+  listQuery.delete("execution_page_size");
+  listQuery.delete("notification_page_size");
   const suffix = listQuery.size ? `?${listQuery}` : "";
   const pageID = page && getRoute(page) ? (page as PageID) : undefined;
   let id = "";

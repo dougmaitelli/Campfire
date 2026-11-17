@@ -24,7 +24,7 @@ test.each(["backup", "health", "schedule", "alert", "recovery", "test"])(
       Response.json(pageFixture([notification])),
     );
     await expect(
-      listNotifications(new AbortController().signal),
+      listNotifications({ signal: new AbortController().signal }),
     ).resolves.toEqual(pageFixture([notification]));
   },
 );

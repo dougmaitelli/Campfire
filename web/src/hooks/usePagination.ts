@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { PAGE_SIZE } from "../api/pagination";
 import { useCurrentRoute } from "../routing/useCurrentPage";
 
 // Keep page/filter state in the hash router so Back/Forward restores a page.
@@ -9,6 +10,12 @@ export function usePagination(parameter = "page") {
   const value = Number(query.get(parameter) ?? 1);
   const page =
     Number.isSafeInteger(value) && value > 0 && value <= 21474836 ? value : 1;
+  const sizeParameter = `${parameter}_size`;
+  const sizeValue = Number(query.get(sizeParameter) ?? PAGE_SIZE);
+  const pageSize =
+    Number.isSafeInteger(sizeValue) && sizeValue >= 1 && sizeValue <= 100
+      ? sizeValue
+      : PAGE_SIZE;
   const update = useCallback((changes: Record<string, string | null>) => {
     const current = window.location.hash.slice(1);
     const [path, search] = current.split("?");
@@ -23,5 +30,13 @@ export function usePagination(parameter = "page") {
     (next: number) => update({ [parameter]: next === 1 ? null : String(next) }),
     [parameter, update],
   );
-  return { page, setPage, query, update };
+  const setPageSize = useCallback(
+    (size: number) =>
+      update({
+        [parameter]: null,
+        [sizeParameter]: size === PAGE_SIZE ? null : String(size),
+      }),
+    [parameter, sizeParameter, update],
+  );
+  return { page, pageSize, setPage, setPageSize, query, update };
 }

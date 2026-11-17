@@ -18,15 +18,16 @@ export async function mockJobActivity(
     notification_count: 0,
   });
   await page.route(`**/api/v1/servers/${serverID}/activity?*`, (route) => {
-    const number = Number(
-      new URL(route.request().url()).searchParams.get("page") ?? 1,
-    );
+    const query = new URL(route.request().url()).searchParams;
+    const number = Number(query.get("page") ?? 1);
+    const size = Number(query.get("page_size") ?? 20);
     const items = jobs().map(entry);
     return route.fulfill({
       json: pageFixture(
-        items.slice((number - 1) * 50, number * 50),
+        items.slice((number - 1) * size, number * size),
         number,
         items.length,
+        size,
       ),
     });
   });

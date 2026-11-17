@@ -32,5 +32,6 @@ test("the shared reader validates the complete numbered-page contract", () => {
 });
 
 test("all numbered history requests use the same size and query names", () => {
-  expect(pageQuery(3).toString()).toBe("page=3&page_size=50");
+  expect(pageQuery(3).toString()).toBe("page=3&page_size=20");
+  expect(pageQuery(2, 100).toString()).toBe("page=2&page_size=100");
 });

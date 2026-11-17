@@ -16,9 +16,19 @@
   & .pagination-pages {
     flex-wrap: wrap;
   }
-  & .pagination-summary {
+  & .pagination-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
     margin-inline-start: auto;
+  }
+  & .pagination-summary {
     text-align: end;
+  }
+  & .select {
+    width: 5rem;
   }
   & input {
     width: 5rem;

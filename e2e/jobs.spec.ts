@@ -62,7 +62,7 @@ test("admins can manage global jobs and open server Activity from resource detai
       json: pageFixture(
         items,
         Number(query.get("page") ?? 1),
-        query.has("type") || query.has("status") ? items.length : 51,
+        query.has("type") || query.has("status") ? items.length : 21,
       ),
     });
   });
@@ -88,11 +88,11 @@ test("admins can manage global jobs and open server Activity from resource detai
   const summaryRightGap = () =>
     summary.evaluate((element) =>
       Math.abs(
-        element.parentElement!.getBoundingClientRect().right -
+        element.closest(".pagination")!.getBoundingClientRect().right -
           element.getBoundingClientRect().right,
       ),
     );
-  await expect(summary).toHaveText("Showing 1–50 of 51");
+  await expect(summary).toHaveText("Showing 1–20 of 21");
   await expect.poll(summaryRightGap).toBeLessThanOrEqual(1);
   await screenshot(page, "jobs.png");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -104,7 +104,7 @@ test("admins can manage global jobs and open server Activity from resource detai
   await expect(
     jobs.getByRole("row", { name: "Copy older-cancelled-copy", exact: true }),
   ).toBeVisible();
-  await expect(summary).toHaveText("Showing 51–51 of 51");
+  await expect(summary).toHaveText("Showing 21–21 of 21");
   await page.getByRole("combobox", { name: "Status", exact: true }).click();
   await page.getByRole("option", { name: "Complete", exact: true }).click();
   await expect(jobs.locator("tbody tr")).toHaveCount(1);

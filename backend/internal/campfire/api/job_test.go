@@ -59,7 +59,7 @@ func TestSharedJobHistoryFiltersBeforePaginationAndHidesPrivateData(t *testing.T
 	expectAccess(t, f.admin, "GET", path+"?before=invalid", "", http.StatusBadRequest)
 
 	response = request(f.admin, "GET", path, "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 50 || page.Pagination.TotalItems != 61 || page.Pagination.TotalPages != 2 {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 20 || page.Pagination.PageSize != 20 || page.Pagination.TotalItems != 61 || page.Pagination.TotalPages != 4 {
 		t.Fatal("first history page is invalid", response.Code, response.Body)
 	}
 
@@ -75,7 +75,7 @@ func TestSharedJobHistoryFiltersBeforePaginationAndHidesPrivateData(t *testing.T
 	}
 
 	response = request(f.admin, "GET", path+"?page=2", "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 11 || page.Pagination.Page != 2 {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 20 || page.Pagination.Page != 2 {
 		t.Fatal("second history page is invalid", response.Code, response.Body)
 	}
 
@@ -118,7 +118,7 @@ func TestPlatformJobHistoryRequiresAdminAndFiltersAcrossServers(t *testing.T) {
 	}
 
 	response := request(f.admin, "GET", "/api/v1/jobs", "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 50 || page.Pagination.TotalItems != 71 || page.Pagination.TotalPages != 2 {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 20 || page.Pagination.PageSize != 20 || page.Pagination.TotalItems != 71 || page.Pagination.TotalPages != 4 {
 		t.Fatal("platform history did not paginate across servers", response.Code, response.Body)
 	}
 
@@ -127,7 +127,7 @@ func TestPlatformJobHistoryRequiresAdminAndFiltersAcrossServers(t *testing.T) {
 	}
 
 	response = request(f.admin, "GET", "/api/v1/jobs?page=2", "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 21 || page.Pagination.Page != 2 {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 20 || page.Pagination.Page != 2 {
 		t.Fatal("platform history lost older jobs", response.Code, response.Body)
 	}
 
@@ -137,8 +137,15 @@ func TestPlatformJobHistoryRequiresAdminAndFiltersAcrossServers(t *testing.T) {
 	}
 
 	response = request(f.admin, "GET", "/api/v1/jobs?status=completed&type=copy", "")
-	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 35 {
+	if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 20 || page.Pagination.TotalItems != 35 {
 		t.Fatal("combined filters returned unrelated workflows", response.Code, response.Body)
+	}
+
+	for _, size := range []int{50, 100} {
+		response = request(f.admin, "GET", fmt.Sprintf("/api/v1/jobs?status=completed&type=copy&page_size=%d", size), "")
+		if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil || len(page.Items) != 35 || page.Pagination.PageSize != size || page.Pagination.TotalPages != 1 {
+			t.Fatal("custom page size lost filtered jobs", size, response.Code, response.Body)
+		}
 	}
 
 	for _, query := range []string{"type=unknown", "status=unknown", "before=invalid"} {

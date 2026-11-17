@@ -69,8 +69,9 @@ export function SchedulesPage() {
   const setFilter = (value: string) =>
     navigation.update({ server_id: value, page: null });
   const load = useCallback(
-    (signal: AbortSignal, page: number) => listExecutions(signal, page, filter),
-    [filter],
+    (signal: AbortSignal, page: number) =>
+      listExecutions(signal, page, filter, "", navigation.pageSize),
+    [filter, navigation.pageSize],
   );
   const history = usePagedCollection(load, navigation.page);
   const { items: runs, loading, error: loadError } = history;
@@ -409,6 +410,7 @@ export function SchedulesPage() {
         <Pagination
           pagination={history.pagination}
           onPageChange={navigation.setPage}
+          onPageSizeChange={navigation.setPageSize}
           loading={loading || busy}
         />
       </ContentPanel>

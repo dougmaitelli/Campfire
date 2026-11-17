@@ -65,7 +65,7 @@ export function pageFixture<T>(
   items: T[],
   page = 1,
   total = items.length,
-  size = 50,
+  size = 20,
 ) {
   return {
     items,

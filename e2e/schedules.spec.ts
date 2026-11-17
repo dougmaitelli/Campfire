@@ -363,7 +363,7 @@ test("schedule history navigates numbered pages without appending or including o
 }) => {
   await login(page);
   const at = Math.floor(new Date("2026-10-22T12:00:00Z").getTime() / 1000);
-  const runs = Array.from({ length: 102 }, (_, index) => ({
+  const runs = Array.from({ length: 42 }, (_, index) => ({
     id: `attempt-${index}`,
     schedule_id: "nightly-restart",
     retry_of: "",
@@ -383,16 +383,18 @@ test("schedule history navigates numbered pages without appending or including o
     const query = new URL(route.request().url()).searchParams;
     if (query.get("schedule_id") !== "nightly-restart") return route.continue();
     const number = Number(query.get("page") ?? 1);
-    expect(query.get("page_size")).toBe("50");
+    const size = Number(query.get("page_size") ?? 20);
+    expect([20, 50, 100]).toContain(size);
     return route.fulfill({
       json: pageFixture(
-        runs.slice((number - 1) * 50, number * 50),
+        runs.slice((number - 1) * size, number * size),
         number,
         runs.length,
+        size,
       ),
     });
   });
-  await page.goto("/#schedules/nightly-restart");
+  await page.goto("/#schedules/nightly-restart?page_size=100");
   const history = page
     .getByRole("dialog")
     .getByRole("region", { name: "Execution history", exact: true });
@@ -400,17 +402,17 @@ test("schedule history navigates numbered pages without appending or including o
     name: "Go to page",
     exact: true,
   });
-  await expect(history.getByRole("row")).toHaveCount(51);
+  await expect(history.getByRole("row")).toHaveCount(21);
   await expect(goTo).toHaveValue("1");
   await history.getByRole("button", { name: "Next", exact: true }).click();
-  await expect(history.getByText("Attempt 50", { exact: true })).toBeVisible();
+  await expect(history.getByText("Attempt 20", { exact: true })).toBeVisible();
   await expect(history.getByText("Attempt 0", { exact: true })).toHaveCount(0);
   await expect(goTo).toHaveValue("2");
   await goTo.fill("3");
   await history.getByRole("button", { name: "Go", exact: true }).click();
   await expect(history.getByRole("row")).toHaveCount(3);
   await expect(goTo).toHaveValue("3");
-  await expect(history.getByText("Attempt 101", { exact: true })).toBeVisible();
+  await expect(history.getByText("Attempt 41", { exact: true })).toBeVisible();
   await expect(
     history.getByRole("button", { name: "Next", exact: true }),
   ).toBeDisabled();
@@ -418,11 +420,24 @@ test("schedule history navigates numbered pages without appending or including o
   await expect(history.getByText("Attempt 0", { exact: true })).toBeVisible();
   await expect(goTo).toHaveValue("1");
   await page.goBack();
-  await expect(history.getByText("Attempt 101", { exact: true })).toBeVisible();
+  await expect(history.getByText("Attempt 41", { exact: true })).toBeVisible();
   await expect(goTo).toHaveValue("3");
   await page.goForward();
   await expect(history.getByText("Attempt 0", { exact: true })).toBeVisible();
   await expect(goTo).toHaveValue("1");
+  await history
+    .getByRole("combobox", { name: "Rows per page", exact: true })
+    .click();
+  await page.getByRole("option", { name: "50", exact: true }).click();
+  await expect(history.getByRole("row")).toHaveCount(43);
+  await expect(page).toHaveURL(
+    /#schedules\/nightly-restart\?page_size=100&execution_page_size=50$/,
+  );
+  await page.goBack();
+  await expect(history.getByRole("row")).toHaveCount(21);
+  await expect(
+    history.getByRole("combobox", { name: "Rows per page", exact: true }),
+  ).toHaveText("20");
 });
 
 test("schedule history can retry a failed request and display an empty result", async ({

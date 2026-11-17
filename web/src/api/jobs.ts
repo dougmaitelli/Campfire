@@ -55,8 +55,9 @@ export async function listJobs(
   signal: AbortSignal,
   page = 1,
   filter: JobFilter = {},
+  pageSize?: number,
 ): Promise<Page<ServerJob>> {
-  const query = pageQuery(page);
+  const query = pageQuery(page, pageSize);
   if (filter.type) query.set("type", filter.type);
   if (filter.status) query.set("status", filter.status);
   const path = serverID

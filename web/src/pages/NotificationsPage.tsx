@@ -34,8 +34,9 @@ export function NotificationsPage() {
   const inbox = useNotifications();
   const navigation = usePagination();
   const load = useCallback(
-    (signal: AbortSignal, page: number) => listNotifications(signal, page),
-    [],
+    (signal: AbortSignal, page: number) =>
+      listNotifications({ signal, page, pageSize: navigation.pageSize }),
+    [navigation.pageSize],
   );
   const history = usePagedCollection(
     load,
@@ -86,10 +87,10 @@ export function NotificationsPage() {
                   navigation.page === 1
                     ? items
                     : (
-                        await listNotifications(
-                          AbortSignal.timeout(API_READ_TIMEOUT_MS),
-                          1,
-                        )
+                        await listNotifications({
+                          signal: AbortSignal.timeout(API_READ_TIMEOUT_MS),
+                          page: 1,
+                        })
                       ).items;
                 if (newest.length)
                   await markAllNotificationsRead(
@@ -167,6 +168,7 @@ export function NotificationsPage() {
         <Pagination
           pagination={history.pagination}
           onPageChange={navigation.setPage}
+          onPageSizeChange={navigation.setPageSize}
           loading={loading || busy}
         />
       </ContentPanel>

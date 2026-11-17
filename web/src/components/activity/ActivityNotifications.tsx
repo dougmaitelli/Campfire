@@ -30,12 +30,13 @@ export function ActivityNotifications({
         entryKey,
         page,
         signal,
+        navigation.pageSize,
       );
       if (!signal.aborted)
         setPoll(value.items.some(activityInProgress) ? 2000 : 10000);
       return value;
     },
-    [serverID, entryKey],
+    [serverID, entryKey, navigation.pageSize],
   );
   const history = usePagedCollection(load, navigation.page, poll);
   return (
@@ -60,6 +61,7 @@ export function ActivityNotifications({
       <Pagination
         pagination={history.pagination}
         onPageChange={navigation.setPage}
+        onPageSizeChange={navigation.setPageSize}
         loading={history.loading}
         label={t("serverActivity.notifications")}
       />

@@ -2,7 +2,8 @@ import { isRecord } from "../utils/validation";
 import { apiFetch, readJSON } from "./client";
 import i18n from "../i18n";
 
-export const PAGE_SIZE = 50;
+export const PAGE_SIZE = 20;
+export const PAGE_SIZES = [20, 50, 100];
 export interface PaginationMetadata {
   page: number;
   page_size: number;
@@ -49,9 +50,9 @@ export async function readPage<T>(
     throw new Error(i18n.t("pagination.unexpectedResponse"));
   return value;
 }
-export function pageQuery(page = 1): URLSearchParams {
+export function pageQuery(page = 1, size = PAGE_SIZE): URLSearchParams {
   return new URLSearchParams({
     page: String(page),
-    page_size: String(PAGE_SIZE),
+    page_size: String(size),
   });
 }

@@ -115,14 +115,14 @@ test("Activity groups a game event with its destination notifications and links 
     `**/api/v1/servers/survival/activity/${encodeURIComponent(sourceKey)}/notifications*`,
     async (route) => {
       if (new URL(route.request().url()).searchParams.get("page") === "2") {
-        await route.fulfill({ json: pageFixture([], 2, 51) });
+        await route.fulfill({ json: pageFixture([], 2, 21) });
         return;
       }
       const response = await route.fetch();
       const notifications = (await response.json()) as {
         pagination: { total_items: number; total_pages: number };
       };
-      notifications.pagination.total_items = 51;
+      notifications.pagination.total_items = 21;
       notifications.pagination.total_pages = 2;
       await route.fulfill({ response, json: notifications });
     },
@@ -213,7 +213,7 @@ test("an authorized user can retry one failed notification from Activity", async
     value.pagination = {
       ...value.pagination,
       page: 2,
-      total_items: 51,
+      total_items: 21,
       total_pages: 2,
     };
     return route.fulfill({ response, json: value });
