@@ -42,6 +42,10 @@ func RunMock(ctx context.Context, args []string) error {
 		}
 
 		if err == nil {
+			err = runtime.EnableHistoryExamples(ctx)
+		}
+
+		if err == nil {
 			err = runtime.EnableIntegrationExample(ctx, discord, "data/mock/integration-secrets")
 		}
 

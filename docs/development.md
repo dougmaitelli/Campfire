@@ -44,6 +44,30 @@ For configuration-delivery recovery, send `mock-config resume` in the
 deployment**. Use `mock-config pause` to block delivery again. This affects both
 servers on the **Configuration recovery** Spark without blocking other operations.
 
+### History pagination
+
+Interactive dev-mock adds older history to exercise numbered pages without
+changing the shared browser-test and screenshot fixtures:
+
+| History             | Additional examples                                                                   | Useful checks                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Jobs                | 125 completed/cancelled copy and transfer jobs                                        | Three pages; **Copy + Completed** also spans multiple pages. Existing pending, running, and failed examples remain available. |
+| Notifications       | 125 read/unread account and Survival messages with varied severities                  | Page replacement, unread counts, and **Mark all read** from page two.                                                         |
+| Schedule executions | 125 runs across existing and retired schedules/servers                                | Global filters and retained-history access. **Nightly restart** alone has over 50 runs for its details drawer.                |
+| Survival Activity   | 125 historical game events, plus the jobs, executions, and server notifications above | Mixed-source pages; **Game + player.joined** also spans multiple pages.                                                       |
+| Audit               | 125 entries with different actions, targets, and outcomes                             | **server.start + server:survival** spans multiple pages; test filter resets and browser Back/Forward.                         |
+
+Administrators can see **Retired realm · Pagination** in execution history even
+though it has no current server record. Other accounts remain limited to servers
+they can currently access. Some Survival runs reference a retired schedule so
+schedule deletion can be tested independently of server deletion.
+
+Bulk jobs are terminal and never reserve servers or run background work. Historical
+records do not queue external notifications or game publications. New examples
+are seeded once per mock database: backend rebuilds preserve read state, edits,
+and deleted examples rather than adding duplicates or recreating servers. A new
+mock session starts with fresh fixtures.
+
 ### Game publications and alerts
 
 Running, online mock servers publish game state and a repeating cycle of player
