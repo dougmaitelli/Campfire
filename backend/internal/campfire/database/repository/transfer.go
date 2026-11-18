@@ -68,6 +68,15 @@ func reservedServers(tx *gorm.DB, sparkID, excludeID string) ([]database.Server,
 }
 
 func activeTransfer(tx *gorm.DB, serverID string) error {
+	var pending int64
+	if err := tx.Model(&database.Server{}).Where("id = ? AND deletion_pending = ?", serverID, true).Count(&pending).Error; err != nil {
+		return err
+	}
+
+	if pending != 0 {
+		return ErrServerDeleting
+	}
+
 	if err := guardJob(tx, serverID); err != nil {
 		return err
 	}

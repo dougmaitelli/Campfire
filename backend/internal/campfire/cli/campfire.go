@@ -356,7 +356,7 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	statuses.Start(ctx)
 	defer statuses.Close()
 
-	imports := service.NewBackupImports(filepath.Join(stateDir, "backup-imports"), service.BackupStagingCopies*deployment.UploadLimit())
+	imports := service.NewBackupImports(stateDir, service.BackupStagingCopies*deployment.UploadLimit())
 
 	discordClient := options.discord
 	if discordClient == nil {

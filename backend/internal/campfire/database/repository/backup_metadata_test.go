@@ -16,6 +16,16 @@ func TestBackupPinAndDeletionClaimsAreMutuallyExclusive(t *testing.T) {
 
 	t.Cleanup(func() { _ = db.Close() })
 
+	for _, record := range []any{
+		&database.Spark{ID: "spark", Name: "spark"},
+		&database.Ember{ID: "ember", Name: "ember"},
+		&database.Server{ID: "server", Name: "server", SparkID: "spark", EmberID: "ember"},
+	} {
+		if err := db.ORM().Omit("Spark", "Ember", "Owner").Create(record).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	row := database.Backup{ServerID: "server", Name: "snapshot.tar.gz", Local: true, Key: "immutable-key", Digest: "immutable-digest"}
 	store := repository.NewBackupRepository(db.ORM())
 
@@ -23,7 +33,12 @@ func TestBackupPinAndDeletionClaimsAreMutuallyExclusive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := store.UpdateMetadata(t.Context(), row.ServerID, row.Name, map[string]any{"pinned": true, "display_name": "Before update"}); err != nil {
+	row, err = store.Get(t.Context(), row.ServerID, row.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.UpdateArchiveMetadata(t.Context(), row, map[string]any{"pinned": true, "display_name": "Before update"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -40,7 +55,7 @@ func TestBackupPinAndDeletionClaimsAreMutuallyExclusive(t *testing.T) {
 		t.Fatal("discovery changed snapshot metadata or archive identity", kept, err)
 	}
 
-	if err := store.UpdateMetadata(t.Context(), row.ServerID, row.Name, map[string]any{"pinned": false}); err != nil {
+	if err := store.UpdateArchiveMetadata(t.Context(), row, map[string]any{"pinned": false}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -48,7 +63,7 @@ func TestBackupPinAndDeletionClaimsAreMutuallyExclusive(t *testing.T) {
 		t.Fatal("unpinned backup could not be claimed", claimed, err)
 	}
 
-	if err := store.UpdateMetadata(t.Context(), row.ServerID, row.Name, map[string]any{"pinned": true}); !errors.Is(err, repository.ErrAccessConflict) {
+	if err := store.UpdateArchiveMetadata(t.Context(), row, map[string]any{"pinned": true}); !errors.Is(err, repository.ErrAccessConflict) {
 		t.Fatal("pin acknowledged after deletion began", err)
 	}
 }

@@ -44,6 +44,7 @@ type BackupSource struct {
 
 // Backup describes a cataloged archive and its available copies.
 type Backup struct {
+	ID          string      `json:"id"`
 	DisplayName string      `json:"display_name"`
 	Pinned      bool        `json:"pinned"`
 	Portable    bool        `json:"portable"`
@@ -66,8 +67,12 @@ type BackupChanges struct {
 // CatalogBackup identifies an archive and its owning server in the backup catalog.
 type CatalogBackup struct {
 	Backup
-	ServerID   string `json:"server_id"`
-	ServerName string `json:"server_name"`
+	OwnerUserID *int64 `json:"-"`
+	ServerID    string `json:"server_id,omitempty"`
+	ServerName  string `json:"server_name"`
+	// Current storage location, not historical origin or server association.
+	LocalSparkID   string `json:"local_spark_id,omitempty"`
+	LocalSparkName string `json:"local_spark_name,omitempty"`
 }
 
 // BackupName restricts archives to immutable operation identifiers.

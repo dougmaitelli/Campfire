@@ -27,7 +27,7 @@ type Database struct {
 // Marker 2 is reserved for an equivalent schema accepted by the adoption path.
 // Future schema changes must use a marker above 2 to avoid treating a different
 // schema as a metadata-only adoption.
-const schemaVersion = 1
+const schemaVersion = 4
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It initializes the same transactional baseline schema on either backend.
@@ -173,26 +173,40 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 2) {
+		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3) {
 			return fmt.Errorf("unsupported database schema history %v; expected baseline version %d", versions, schemaVersion)
 		}
 
-		// Marker 2 identifies an equivalent schema. Validate the baseline before
-		// relabeling it; never repair an older database or AutoMigrate existing data.
-		// Validation also distinguishes this baseline from old development marker 1.
-		if err := validateBaseline(tx); err != nil {
+		legacy := versions[0] <= 2 && !tx.Migrator().HasColumn(&Backup{}, "id")
+		if err := validateBaseline(tx, legacy, versions[0] < 4); err != nil {
 			return err
 		}
 
-		if versions[0] == 2 {
-			return tx.Model(&schemaMigration{}).Where("version = ?", 2).Update("version", schemaVersion).Error
+		if versions[0] < 4 && !tx.Migrator().HasColumn(&Server{}, "deletion_pending") {
+			if err := tx.Migrator().AddColumn(&Server{}, "DeletionPending"); err != nil {
+				return err
+			}
+		}
+
+		if legacy {
+			if err := migrateIndependentBackups(tx); err != nil {
+				return err
+			}
+		}
+
+		if err := validateBackupIdentity(tx); err != nil {
+			return err
+		}
+
+		if versions[0] != schemaVersion {
+			return tx.Model(&schemaMigration{}).Where("version = ?", versions[0]).Update("version", schemaVersion).Error
 		}
 
 		return nil
 	})
 }
 
-func validateBaseline(tx *gorm.DB) error {
+func validateBaseline(tx *gorm.DB, legacyBackups, legacyDeletion bool) error {
 	for _, model := range baselineModels() {
 		statement := &gorm.Statement{DB: tx}
 		if err := statement.Parse(model); err != nil {
@@ -214,6 +228,14 @@ func validateBaseline(tx *gorm.DB) error {
 		}
 
 		for _, field := range statement.Schema.Fields {
+			if legacyDeletion && statement.Schema.Table == "servers" && field.DBName == "deletion_pending" {
+				continue
+			}
+
+			if legacyBackups && statement.Schema.Table == "backups" && (field.DBName == "id" || field.DBName == "owner_user_id" || field.DBName == "local_store" || field.DBName == "local_key") {
+				continue
+			}
+
 			if field.DBName != "" && !field.IgnoreMigration && !present[field.DBName] {
 				return fmt.Errorf("database does not match the release baseline: missing column %s.%s; older development data is unsupported", statement.Schema.Table, field.DBName)
 			}

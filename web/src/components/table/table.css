@@ -186,9 +186,16 @@
   }
 }
 
+/* Reserve the navigation gutter for every row in a table with carets. */
+.data-table:where(:has(> tbody > .table-row-caret))
+  > :where(tbody)
+  > :where(tr)
+  > :where(td):last-child {
+  padding-inline-end: var(--table-row-caret-space);
+}
+
 .data-table .table-row-caret > :where(td:last-child) {
   position: relative;
-  padding-inline-end: var(--table-row-caret-space);
 }
 
 .table-row-caret > td:last-child::after {

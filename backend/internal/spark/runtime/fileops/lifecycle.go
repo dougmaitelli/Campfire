@@ -37,6 +37,18 @@ func New(host Host) *Manager {
 	return &Manager{Host: host, ctx: ctx, cancel: cancel, operations: make(map[string]*extractionSession)}
 }
 
+// Close releases incomplete upload buffers under the runtime server-entry lock.
+func (s *State) Close() {
+	if s == nil {
+		return
+	}
+
+	for id, item := range s.uploads {
+		item.buffer.Close()
+		delete(s.uploads, id)
+	}
+}
+
 // ActiveUploads reports uploads awaiting publication; the caller holds the server lock.
 func (s *State) ActiveUploads() bool { return s != nil && len(s.uploads) > 0 }
 

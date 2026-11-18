@@ -34,8 +34,8 @@ func TestBackupUploadUsesStateStorageAndReservesAggregateCapacity(t *testing.T) 
 		}
 
 		data := make([]byte, model.FileLimit)
-		for upload.offset < size {
-			if err := upload.Chunk(upload.offset, data[:min(int64(len(data)), size-upload.offset)]); err != nil {
+		for upload.buffer.Offset < size {
+			if err := upload.Chunk(upload.buffer.Offset, data[:min(int64(len(data)), size-upload.buffer.Offset)]); err != nil {
 				return err
 			}
 		}
@@ -55,7 +55,7 @@ func TestBackupUploadUsesStateStorageAndReservesAggregateCapacity(t *testing.T) 
 
 	imports.Cancel(2, next)
 
-	entries, err := os.ReadDir(directory)
+	entries, err := os.ReadDir(filepath.Join(directory, "uploads"))
 	if err != nil || len(entries) != 0 {
 		t.Fatal("staging retained credential-bearing archives", err)
 	}
@@ -76,8 +76,14 @@ func TestBackupUploadsAreOwnerBoundCompleteAndCleaned(t *testing.T) {
 	}
 
 	err = imports.With(1, token, func(upload *BackupUpload) error {
-		if _, err := os.Stat(upload.file.Name()); !os.IsNotExist(err) {
-			t.Fatal("temporary archive is visible by path", err)
+		info, err := os.Stat(upload.file.Name())
+		if err != nil || info.Mode().Perm() != 0600 {
+			t.Fatal("upload buffer is not private", info, err)
+		}
+
+		directory, err := os.Stat(filepath.Dir(upload.file.Name()))
+		if err != nil || directory.Mode().Perm() != 0700 {
+			t.Fatal("upload storage is not private", directory, err)
 		}
 
 		if err := upload.Chunk(1, []byte("bad")); err == nil {

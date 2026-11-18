@@ -554,7 +554,6 @@ export function ServerBackups({ server }: { server: Server }) {
                     )}
                     {canCreate && (
                       <BackupMetadataActions
-                        serverID={server.id}
                         backup={entry}
                         disabled={busy || entry.state === BackupStatus.Deleting}
                         onSaved={(updated) => {

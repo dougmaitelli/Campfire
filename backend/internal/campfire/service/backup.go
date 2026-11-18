@@ -29,15 +29,16 @@ type BackupStorage interface {
 // BackupService catalogs completed archives and reconciles independent local
 // and off-host retention. One bounded worker runs per server, at most two total.
 type BackupService struct {
-	Store      *repository.BackupRepository
-	Deployment *DeploymentService
-	Remote     BackupStorage
-	mu         sync.Mutex
-	active     map[string]bool
-	uploading  map[string]string
-	cancel     context.CancelFunc
-	wg         sync.WaitGroup
-	cursor     int
+	Store            *repository.BackupRepository
+	Deployment       *DeploymentService
+	Remote           BackupStorage
+	LibraryDirectory string
+	mu               sync.Mutex
+	active           map[string]bool
+	uploading        map[string]string
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
+	cursor           int
 }
 
 // NewBackupService creates the catalog and optional S3 reconciliation service.
@@ -155,6 +156,15 @@ func (s *BackupService) discover(ctx context.Context, id string) error {
 		return err
 	}
 
+	return s.catalogLocal(ctx, id, result)
+}
+
+func (s *BackupService) catalogLocal(ctx context.Context, id string, result model.FileResult) error {
+	server, err := s.Deployment.Servers.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	seen := make(map[string]bool)
 	temporary := make(map[string]bool)
 
@@ -179,7 +189,7 @@ func (s *BackupService) discover(ctx context.Context, id string) error {
 		}
 
 		seen[item.Name] = true
-		if err := s.Store.Discover(ctx, database.Backup{Portable: item.Portable, Mode: item.BackupMode.Normalized(), ServerID: id, Name: item.Name, Size: item.Size, CreatedAt: item.ModifiedAt.UnixNano(), Local: true, Key: id + "/" + rand.Text() + "/" + item.Name}); err != nil {
+		if err := s.Store.Discover(ctx, database.Backup{Portable: item.Portable, Mode: item.BackupMode.Normalized(), ServerID: id, LocalStore: "spark:" + server.SparkID, LocalKey: id + "/" + item.Name, Name: item.Name, Size: item.Size, CreatedAt: item.ModifiedAt.UnixNano(), Local: true, Key: id + "/" + rand.Text() + "/" + item.Name}); err != nil {
 			return err
 		}
 	}
@@ -190,8 +200,8 @@ func (s *BackupService) discover(ctx context.Context, id string) error {
 	}
 
 	for _, row := range rows {
-		if row.Local != seen[row.Name] {
-			if err := s.Store.Update(ctx, id, row.Name, map[string]any{"local": seen[row.Name]}); err != nil {
+		if row.Local != seen[row.Name] || seen[row.Name] && row.LocalStore != "spark:"+server.SparkID {
+			if err := s.Store.Update(ctx, id, row.Name, map[string]any{"local": seen[row.Name], "local_store": "spark:" + server.SparkID, "local_key": id + "/" + row.Name}); err != nil {
 				return err
 			}
 		}
@@ -256,7 +266,7 @@ func backupView(row database.Backup, uploading bool) model.Backup {
 		state = model.BackupDeleting
 	}
 
-	return model.Backup{DisplayName: row.DisplayName, Pinned: row.Pinned, Portable: row.Portable, Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
+	return model.Backup{ID: row.ID, DisplayName: row.DisplayName, Pinned: row.Pinned, Portable: row.Portable, Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
 }
 
 // Catalog lists known backups across servers, including disconnected placements.
@@ -271,7 +281,7 @@ func (s *BackupService) Catalog(ctx context.Context) ([]model.CatalogBackup, err
 
 	items := make([]model.CatalogBackup, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, model.CatalogBackup{Backup: backupView(row.Backup, s.uploading[row.ServerID] == row.Name), ServerID: row.ServerID, ServerName: row.ServerName})
+		items = append(items, model.CatalogBackup{Backup: backupView(row.Backup, s.uploading[row.ServerID] == row.Name), OwnerUserID: row.OwnerUserID, ServerID: row.ServerID, ServerName: row.ServerName, LocalSparkID: row.LocalSparkID, LocalSparkName: row.LocalSparkName})
 	}
 
 	return items, nil
@@ -300,12 +310,20 @@ func (s *BackupService) Read(ctx context.Context, id, name string, offset int64)
 		return model.FileResult{}, err
 	}
 
+	return s.readArchive(ctx, row, offset)
+}
+
+func (s *BackupService) readArchive(ctx context.Context, row database.Backup, offset int64) (model.FileResult, error) {
 	if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
 		return model.FileResult{}, repository.ErrAccessConflict
 	}
 
 	if !row.Remote {
-		return s.Deployment.Files(ctx, id, model.FileRequest{Operation: model.FileOperationBackupRead, Path: name, Offset: offset})
+		if row.LocalStore == "panel" {
+			return s.readLibraryFile(row, offset)
+		}
+
+		return s.localArchiveFiles(ctx, row, model.FileOperationBackupRead, offset)
 	}
 
 	remote, err := s.storage(row)
@@ -319,7 +337,7 @@ func (s *BackupService) Read(ctx context.Context, id, name string, offset int64)
 
 	data, err := remote.Read(ctx, row.Key, row.Version, offset, int(min(int64(model.FileLimit), row.Size-offset)))
 
-	return model.FileResult{ServerID: id, Path: name, Size: row.Size, Revision: row.Digest, Data: data}, err
+	return model.FileResult{ServerID: row.ServerID, Path: row.Name, Size: row.Size, Revision: row.Digest, Data: data}, err
 }
 
 // Source issues a fresh object-specific URL only when restoration needs S3 bytes.
@@ -358,39 +376,6 @@ func (s *BackupService) Source(ctx context.Context, id, name string) (*model.Bac
 	return &model.BackupSource{URL: address, Size: row.Size, Digest: row.Digest}, nil
 }
 
-type backupStream struct {
-	s            *BackupService
-	ctx          context.Context
-	id, name     string
-	offset, size int64
-	buffer       []byte
-}
-
-func (r *backupStream) Read(p []byte) (int, error) {
-	if len(r.buffer) == 0 {
-		if r.offset == r.size {
-			return 0, io.EOF
-		}
-
-		chunk, err := r.s.Deployment.Files(r.ctx, r.id, model.FileRequest{Operation: model.FileOperationBackupRead, Path: r.name, Offset: r.offset})
-		if err != nil {
-			return 0, err
-		}
-
-		if chunk.Size != r.size || len(chunk.Data) == 0 || int64(len(chunk.Data)) > r.size-r.offset {
-			return 0, errors.New("backup changed during synchronization")
-		}
-
-		r.buffer = chunk.Data
-	}
-
-	n := copy(p, r.buffer)
-	r.buffer = r.buffer[n:]
-	r.offset += int64(n)
-
-	return n, nil
-}
-
 func (s *BackupService) upload(ctx context.Context, row database.Backup) error {
 	if s.Remote == nil {
 		return ErrDeploymentUnavailable
@@ -410,8 +395,14 @@ func (s *BackupService) upload(ctx context.Context, row database.Backup) error {
 		s.mu.Unlock()
 	}()
 
+	newReader := func() io.Reader {
+		return &backupChunkReader{ctx: ctx, size: row.Size, read: func(ctx context.Context, offset int64) (model.FileResult, error) {
+			return s.Deployment.Files(ctx, row.ServerID, model.FileRequest{Operation: model.FileOperationBackupRead, Path: row.Name, Offset: offset})
+		}}
+	}
+
 	hash := sha256.New()
-	if _, err := io.Copy(hash, &backupStream{s: s, ctx: ctx, id: row.ServerID, name: row.Name, size: row.Size}); err != nil {
+	if _, err := io.Copy(hash, newReader()); err != nil {
 		return err
 	}
 
@@ -424,7 +415,7 @@ func (s *BackupService) upload(ctx context.Context, row database.Backup) error {
 		return err
 	}
 
-	version, err := s.Remote.Put(ctx, row.Key, row.Size, digest, &backupStream{s: s, ctx: ctx, id: row.ServerID, name: row.Name, size: row.Size})
+	version, err := s.Remote.Put(ctx, row.Key, row.Size, digest, newReader())
 	if err != nil {
 		return err
 	}

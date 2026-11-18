@@ -88,6 +88,24 @@ func (m *Manager) Close() {
 	}
 	m.logMu.Unlock()
 	m.wg.Wait()
+	m.mu.Lock()
+
+	entries := make([]*entry, 0, len(m.entries))
+	for _, e := range m.entries {
+		entries = append(entries, e)
+	}
+	m.mu.Unlock()
+
+	for _, e := range entries {
+		e.mu.Lock()
+		e.files.Close()
+
+		for id, upload := range e.backupUploads {
+			upload.buffer.Close()
+			delete(e.backupUploads, id)
+		}
+		e.mu.Unlock()
+	}
 }
 
 func (m *Manager) root(id string) string { return filepath.Join(m.Directory, id) }
@@ -630,13 +648,22 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 			}
 		}
 
-		for _, name := range []string{"data", "backups", "restore-previous"} {
+		// Backups have an independent lifetime. Keep their directory and the
+		// saved runtime identity so retained archives remain readable on retries.
+		for _, name := range []string{"data", "restore-previous"} {
 			if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), name)); err != nil {
 				return err
 			}
 		}
 
 		e.mu.Lock()
+		// Preserve completed archives, not incomplete upload buffers.
+		for id, upload := range e.backupUploads {
+			upload.buffer.Close()
+			delete(e.backupUploads, id)
+		}
+
+		e.files.Close()
 		e.Installed = false
 		e.Revision = ""
 		e.mu.Unlock()

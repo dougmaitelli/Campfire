@@ -6,7 +6,7 @@ title: Upgrades and recovery
 
 Game snapshots and installation recovery protect different data. Preserve:
 
-- The panel database and its persistent state directory, including the Spark signing authority and encrypted integration credentials
+- The panel database and its persistent state directory, including the Spark signing authority, encrypted integration credentials, and finalized backup-library uploads in `backups/`
 - Each Spark's identity, runtime metadata, game data, and backup archives
 - Any separately configured S3 backups and their retention settings
 
@@ -38,8 +38,21 @@ operations to finish before restarting an agent.
 
 ## Recovery and rollback
 
-Database schema checks run at startup. A rollback may require restoring the
-matching pre-upgrade database and state as well as the previous image or binary.
+Database schema checks run at startup. Schema 4 accepts release markers 1/2 and
+the independent-backup schema 3, upgrading transactionally on SQLite and PostgreSQL.
+The archive migration assigns IDs, preserves storage keys and pins, and makes
+`server_id` nullable. Schema 3 archive IDs remain unchanged. Schema 4 also adds
+`servers.deletion_pending` (not null, default false) to fence retention and other
+mutations while a server deletion awaits completion or retry. It does not move
+or delete archive bytes. Unsupported or incomplete
+schemas fail closed rather than being silently repaired.
+
+A rollback to an older binary requires the matching pre-upgrade database and
+state backup; do not point it at the upgraded catalog. Upgrade Sparks before
+using server deletion: backup preservation is the default behavior in updated
+Sparks under the existing lifecycle capability, not a separately negotiated
+feature. Older binaries may still delete backup directories; the capability
+handshake does not distinguish that older behavior.
 
 ## History retention when upgrading
 

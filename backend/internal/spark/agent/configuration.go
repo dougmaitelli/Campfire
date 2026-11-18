@@ -70,6 +70,12 @@ func (s *ConfigurationStore) Files(ctx context.Context, id string, request model
 	}
 
 	data, err := os.ReadFile(filepath.Join(s.Directory, id, request.ServerID+".json"))
+	// Archive custody outlives game configuration. Only the authenticated panel
+	// may address these immutable backup operations, never arbitrary game files.
+	if errors.Is(err, os.ErrNotExist) && s.Runtime != nil && (request.Operation == model.FileOperationBackupList || request.Operation == model.FileOperationBackupRead || request.Operation == model.FileOperationBackupDelete) {
+		return s.Runtime.Files(ctx, model.Deployment{ServerID: request.ServerID}, request)
+	}
+
 	if err != nil {
 		return model.FileResult{}, &model.FileError{Code: model.FileNotFound, Message: "Install the server before managing its files."}
 	}

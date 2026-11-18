@@ -116,6 +116,43 @@ func (s *AccessService) ServerPermissions(ctx context.Context, principal Princip
 	return principal.restrictServer(roleActions(role)), err
 }
 
+// IndependentBackupPermissions authorizes archive custody without inventing a
+// server membership. Uploaded archives belong to their uploader; detached server
+// archives with no personal owner are administrator-only. Token scopes still apply.
+func (s *AccessService) IndependentBackupPermissions(ctx context.Context, principal Principal, owner *int64) ([]model.PermissionID, error) {
+	return s.IndependentBackupAuthorizer(ctx, principal)(owner)
+}
+
+// IndependentBackupAuthorizer creates a request-local permission reader for a
+// catalog. Custody is checked for every archive; the eligible permission set is
+// loaded once. Call sequentially within one request, never cache across requests.
+func (s *AccessService) IndependentBackupAuthorizer(ctx context.Context, principal Principal) func(*int64) ([]model.PermissionID, error) {
+	var (
+		loaded  bool
+		actions []model.PermissionID
+		err     error
+	)
+
+	return func(owner *int64) ([]model.PermissionID, error) {
+		if !principal.Admin && (owner == nil || *owner != principal.UserID) {
+			return nil, nil
+		}
+
+		if !loaded {
+			var role database.Role
+
+			role, err = s.store.Role(ctx, database.OwnerRole)
+			if err == nil {
+				actions = principal.restrictServer(roleActions(role))
+			}
+
+			loaded = true
+		}
+
+		return actions, err
+	}
+}
+
 // CanReadAllScheduleExecutions authorizes retained history independently of the
 // current inventory, while enforcing token scopes and their prerequisites.
 func (s *AccessService) CanReadAllScheduleExecutions(ctx context.Context, principal Principal) (bool, error) {

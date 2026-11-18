@@ -18,6 +18,7 @@ import (
 var (
 	ErrServerNotFound    = errors.New("server not found")
 	ErrServerConflict    = errors.New("server name or resource/port reservation conflicts")
+	ErrServerDeleting    = errors.New("server deletion is pending; retry deletion before other operations")
 	ErrServerPlacement   = errors.New("spark is missing, disabled, or does not provide the requested ports")
 	ErrSparkReservations = errors.New("spark changes would invalidate existing server reservations")
 )
@@ -265,10 +266,71 @@ func (r *ServerRepository) Get(ctx context.Context, id string) (model.Server, er
 	return server, nil
 }
 
+// GuardMutation fences pending deletion and unfinished jobs.
+func (r *ServerRepository) GuardMutation(ctx context.Context, id string) error {
+	return activeTransfer(r.db.WithContext(ctx), id)
+}
+
+// DeletionPending reports durable lifecycle intent independently of runtime reachability.
+func (r *ServerRepository) DeletionPending(ctx context.Context, id string) (bool, error) {
+	var server database.Server
+
+	err := r.db.WithContext(ctx).Select("deletion_pending").Where("id = ?", id).Take(&server).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = ErrServerNotFound
+	}
+
+	return server.DeletionPending, err
+}
+
+// BeginDeletion durably fences mutations/retention before any destructive RPC.
+// Retries keep this intent, including after uncertain delivery or panel restart.
+func (r *ServerRepository) BeginDeletion(ctx context.Context, id string) error {
+	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+		if err := guardJob(tx, id); err != nil {
+			return err
+		}
+
+		result := tx.Model(&database.Server{}).Where("id = ?", id).Update("deletion_pending", true)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected != 1 {
+			return ErrServerNotFound
+		}
+
+		return nil
+	})
+}
+
 // Delete removes a saved configuration and releases its reservations.
 func (r *ServerRepository) Delete(ctx context.Context, id string) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		if err := activeTransfer(tx, id); err != nil {
+		if err := guardJob(tx, id); err != nil {
+			return err
+		}
+
+		var server database.Server
+		if err := tx.Where("id = ?", id).Take(&server).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrServerNotFound
+			}
+
+			return err
+		}
+		// Archive storage locators are private and independent of association.
+		// Preserve old rows which have not yet been rediscovered after migration.
+		if err := tx.Model(&database.Backup{}).Where("server_id = ?", id).Updates(map[string]any{
+			"local_store": gorm.Expr("CASE WHEN local_store = '' THEN ? ELSE local_store END", "spark:"+server.SparkID),
+			"local_key":   gorm.Expr("CASE WHEN local_key = '' THEN server_id || '/' || name ELSE local_key END"),
+			"server_id":   nil, "owner_user_id": nil,
+			"deleting": false, "local_deleting": false, "remote_deleting": false, "error": "",
+		}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("server_id = ?", id).Delete(&database.BackupPolicy{}).Error; err != nil {
 			return err
 		}
 

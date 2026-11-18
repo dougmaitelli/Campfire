@@ -83,6 +83,10 @@ func (a *API) WithDeployment(deployment *service.DeploymentService) *API {
 	a.deployment = deployment
 	if deployment != nil {
 		a.servers.WithRuntimeGuard(deployment)
+
+		if deployment.Backups != nil {
+			deployment.Backups.LibraryDirectory = a.backupImports.ArchiveDirectory()
+		}
 	}
 
 	return a
@@ -94,6 +98,10 @@ func (a *API) WithAgentHub(hub *agents.Hub) *API { a.agents = hub; return a }
 // WithBackupImports places private uploads on the panel's writable state volume.
 func (a *API) WithBackupImports(imports *service.BackupImports) *API {
 	a.backupImports = imports
+	if a.deployment != nil && a.deployment.Backups != nil {
+		a.deployment.Backups.LibraryDirectory = imports.ArchiveDirectory()
+	}
+
 	return a
 }
 
@@ -144,9 +152,9 @@ func writeError(w http.ResponseWriter, err error) {
 		status, message = http.StatusConflict, commandError.Message
 	case errors.Is(err, repository.ErrAccessDenied):
 		status, message = http.StatusForbidden, err.Error()
-	case errors.Is(err, repository.ErrJobActive), errors.Is(err, repository.ErrJobState):
+	case errors.Is(err, repository.ErrJobActive), errors.Is(err, repository.ErrJobState), errors.Is(err, repository.ErrServerDeleting):
 		status, message = http.StatusConflict, err.Error()
-	case errors.Is(err, repository.ErrSparkInUse), errors.Is(err, repository.ErrEmberInUse):
+	case errors.Is(err, repository.ErrSparkInUse), errors.Is(err, repository.ErrSparkArchives), errors.Is(err, repository.ErrEmberInUse):
 		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, repository.ErrAccessInput), errors.Is(err, service.ErrAuthInput):
 		status, message = http.StatusBadRequest, err.Error()

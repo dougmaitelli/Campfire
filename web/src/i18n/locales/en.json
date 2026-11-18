@@ -183,7 +183,8 @@
     "upload": "Upload backup",
     "continue": "Continue",
     "archive": "Backup archive",
-    "description": "Upload a portable Campfire backup to recover a server or its save data.",
+    "description": "Upload a portable Campfire backup into the backup library. The completed archive is kept even if you cancel server creation.",
+    "serverDescription": "Upload a portable Campfire backup to this server’s Spark storage. Panel staging is temporary; no additional archive is kept on the panel.",
     "progress": "Backup upload progress",
     "uploading": "Uploading backup…",
     "validating": "Validating backup…",
@@ -196,6 +197,17 @@
     "savedataNotice": "Choose the destination and review the settings next. Game files will be installed before the save data is restored.",
     "restoreNotice": "The backup will be restored after creation. The server will remain stopped.",
     "importEmber": "This backup includes an Ember that is not in this panel. Creating the server will import that definition, including its installer. Continue only if you trust its source."
+  },
+  "backupLibrary": {
+    "done": "Done",
+    "uploadedNotice": "This archive is stored in Backups. You can download it or create a server from it later. Closing this drawer does not delete the archive.",
+    "unlinked": "No server",
+    "prepareDescription": "Inspect the stored archive and review the new server settings. The original backup will be kept.",
+    "deleteLabel": "Delete backup {{name}}",
+    "deleteTitle": "Permanently delete backup?",
+    "deleteDescription": "Permanently delete all remaining copies of {{name}}? This cannot be undone. If deletion fails, completed cleanup is kept; retry to remove the remaining copies.",
+    "deleteFailed": "Could not delete the backup. Retry to remove its remaining copies.",
+    "unpinFirst": "Unpin this backup before deleting it."
   },
   "backupModes": {
     "label": "Backup type",
@@ -379,7 +391,8 @@
     "local": "Local",
     "noBackupsYet": "No backups yet",
     "noMatchingBackups": "No matching backups",
-    "searchBackupsByArchiveOrServer": "Search backups by archive or server…",
+    "searchBackupsByArchiveOrServer": "Search archives, servers, or storage Sparks…",
+    "sparkStorage": "Spark: {{name}}",
     "size": "Size",
     "storage": "Storage"
   },
@@ -988,7 +1001,7 @@
     "pin": "Pin backup",
     "unpin": "Unpin backup",
     "pinned": "Pinned",
-    "pinHelp": "Pinned backups are kept until you unpin them or delete the server.",
+    "pinHelp": "Pinned backups are protected from deletion, including when their server is deleted. Unpin a backup before explicitly deleting it.",
     "unableToUpdate": "Unable to update backup."
   },
   "serverBackups": {
@@ -1016,7 +1029,7 @@
     "restoreStopNotConfirmed": "The server has started. Close this dialog and confirm stopping it before restoring.",
     "backups": "{{serverName}} backups",
     "backups2": "backups",
-    "backupsExcludeLinksAndSpecialFilesAndAreLimitedTo": "Backups exclude links and special files and are limited to 100 GiB and 100,000 entries. Manual and scheduled backups use this policy. Deleting the server also deletes its local and S3 backups.",
+    "backupsExcludeLinksAndSpecialFilesAndAreLimitedTo": "Backups exclude links and special files and are limited to 100 GiB and 100,000 entries. Manual and scheduled backups use this policy. Deleting the server preserves its local and S3 backups as independent archives.",
     "createBackup": "Create backup",
     "fullBackup": "Full backup",
     "created": "Created",
@@ -1340,7 +1353,7 @@
     "openConsole": "Open console for {{serverName}}",
     "open": "Open {{serverName}}",
     "console": "Console",
-    "permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease": "Permanently delete \"{{serverName}}\", its container, game files and backups, and release its resources and ports?",
+    "permanentlyDeleteItsContainerGameFilesAndBackupsAndRelease": "Permanently delete \"{{serverName}}\", its container and game files, and release its resources and ports? Backups are preserved in the backup library without automatic expiry. Former server access does not grant access to the independent archives.",
     "resources": "Resources",
     "searchServers": "Search servers",
     "serverConfigurationAccessAndAllocatedResources": "Server configuration, access, and allocated resources.",

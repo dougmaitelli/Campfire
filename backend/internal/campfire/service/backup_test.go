@@ -336,7 +336,7 @@ func TestBackupAgeRetentionAndExplicitCloudDeletion(t *testing.T) {
 	}
 }
 
-func TestBackupCleanupOnServerDeletionAndTransferGuards(t *testing.T) {
+func TestBackupDetachmentOnServerDeletionAndTransferGuards(t *testing.T) {
 	f, s, remote, _ := backupFixture(t)
 	ctx := context.Background()
 
@@ -378,30 +378,49 @@ func TestBackupCleanupOnServerDeletionAndTransferGuards(t *testing.T) {
 
 	remote.failDelete = true
 
-	if err := s.Deployment.Delete(ctx, f.server.ID); err == nil {
-		t.Fatal("server deletion ignored failed cloud cleanup")
-	}
+	pinned := true
 
-	if _, err := s.Deployment.Servers.Get(ctx, f.server.ID); err != nil {
-		t.Fatal("failed deletion removed server", err)
-	}
-
-	if _, err := os.Stat(filepath.Join(f.source.Directory, f.server.ID, "data", "world.bin")); err != nil {
-		t.Fatal("failed deletion removed game data", err)
-	}
-
-	remote.failDelete = false
-
-	if err := s.Deployment.Delete(ctx, f.server.ID); err != nil {
+	before, err := s.Update(ctx, f.server.ID, "snapshot.tar.gz", model.BackupChanges{Pinned: &pinned})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(remote.objects) != 0 {
-		t.Fatal("server deletion orphaned S3 backups")
+	if err := s.Deployment.Delete(ctx, f.server.ID); err != nil {
+		t.Fatal("server deletion must not purge cloud backups", err)
 	}
 
-	rows, err := s.Store.List(ctx, f.server.ID)
-	if err != nil || len(rows) != 0 {
-		t.Fatal("server deletion retained backup catalog", err)
+	if _, err := s.Deployment.Servers.Get(ctx, f.server.ID); !errors.Is(err, ErrServerNotFound) {
+		t.Fatal("server not deleted", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(f.source.Directory, f.server.ID, "data", "world.bin")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("game data retained", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(f.source.Directory, f.server.ID, "backups", "snapshot.tar.gz")); err != nil {
+		t.Fatal("local archive deleted", err)
+	}
+
+	if len(remote.objects) != 1 {
+		t.Fatal("S3 archive deleted")
+	}
+
+	row, err := s.Store.ByID(ctx, before.ID)
+	if err != nil || row.ServerID != "" || !row.Pinned || !row.Local || !row.Remote || row.OwnerUserID != nil {
+		t.Fatal("archive was not safely detached", row, err)
+	}
+
+	catalog, err := s.Catalog(ctx)
+	if err != nil || len(catalog) != 1 || catalog[0].ID != before.ID || catalog[0].ServerID != "" || catalog[0].ServerName != "" {
+		t.Fatal("independent catalog", catalog, err)
+	}
+
+	result, err := s.ReadArchive(ctx, before.ID, 0)
+	if err != nil || result.Size != int64(len(f.world)) || len(result.Data) == 0 || !bytes.Equal(result.Data, f.world[:len(result.Data)]) {
+		t.Fatal("independent archive could not be exported", err)
+	}
+
+	if err := s.DeleteArchive(ctx, row); err == nil {
+		t.Fatal("pinned archive purged")
 	}
 }

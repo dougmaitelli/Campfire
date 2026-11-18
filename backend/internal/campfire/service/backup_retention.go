@@ -125,7 +125,7 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 		if removeLocal || removeRemote {
 			row.LocalDeleting, row.RemoteDeleting = removeLocal, removeRemote
 
-			claimed, err := s.Store.BeginDeletion(ctx, id, row.Name, repository.BackupDeletion{Local: removeLocal, Remote: removeRemote})
+			claimed, err := s.Store.BeginDeletion(ctx, id, row.Name, repository.BackupDeletion{ArchiveID: row.ID, Local: removeLocal, Remote: removeRemote})
 			if err != nil {
 				return err
 			}
@@ -146,6 +146,10 @@ func (s *BackupService) reconcile(ctx context.Context, id string) error {
 // Delete persists intent before deleting either copy. Failed cleanup is retried
 // by the background worker without rediscovering and reuploading the archive.
 func (s *BackupService) Delete(ctx context.Context, id, name string, location model.BackupStorage) error {
+	return s.delete(ctx, id, name, location, "")
+}
+
+func (s *BackupService) delete(ctx context.Context, id, name string, location model.BackupStorage, expectedID string) error {
 	if !model.BackupName(name) || (location != model.BackupStorageAll && location != model.BackupStorageLocal && location != model.BackupStorageS3) {
 		return &model.FileError{Code: model.FileInvalid, Message: "Select a backup and storage location."}
 	}
@@ -167,6 +171,10 @@ func (s *BackupService) Delete(ctx context.Context, id, name string, location mo
 		return err
 	}
 
+	if expectedID != "" && row.ID != expectedID {
+		return repository.ErrAccessConflict
+	}
+
 	if row.Deleting || row.LocalDeleting || row.RemoteDeleting {
 		return &model.FileError{Code: model.FileBusy, Message: "Backup deletion is already pending."}
 	}
@@ -180,7 +188,7 @@ func (s *BackupService) Delete(ctx context.Context, id, name string, location mo
 
 	row.RemoteDeleting = location == model.BackupStorageAll || location == model.BackupStorageS3
 
-	claimed, err := s.Store.BeginDeletion(ctx, id, name, repository.BackupDeletion{Local: row.LocalDeleting, Remote: row.RemoteDeleting, All: row.Deleting, DisableSync: row.RemoteDeleting})
+	claimed, err := s.Store.BeginDeletion(ctx, id, name, repository.BackupDeletion{ArchiveID: row.ID, Local: row.LocalDeleting, Remote: row.RemoteDeleting, All: row.Deleting, DisableSync: row.RemoteDeleting})
 	if err != nil {
 		return err
 	}
@@ -212,17 +220,10 @@ func (s *BackupService) deleteCopies(ctx context.Context, row database.Backup) e
 		return &model.FileError{Code: model.FileBusy, Message: "Wait for the current server operation to finish."}
 	}
 
-	if row.RemoteDeleting && row.StoreID != "" {
-		remote, err := s.storage(row)
-		if err != nil {
+	if row.RemoteDeleting {
+		if err := s.deleteRemoteCopy(ctx, &row); err != nil {
 			return err
 		}
-
-		if err := remote.Delete(ctx, row.Key, row.Version); err != nil {
-			return err
-		}
-
-		row.Remote = false
 	}
 
 	if row.LocalDeleting {
@@ -239,7 +240,11 @@ func (s *BackupService) deleteCopies(ctx context.Context, row database.Backup) e
 			return err
 		}
 
-		row.Local = false
+		if err := s.Store.CheckpointArchiveCopyDeletion(ctx, row, model.BackupStorageLocal); err != nil {
+			return err
+		}
+
+		row.Local, row.LocalDeleting = false, false
 	}
 
 	if !row.Local && !row.Remote {
@@ -249,60 +254,39 @@ func (s *BackupService) deleteCopies(ctx context.Context, row database.Backup) e
 	return s.Store.Update(ctx, row.ServerID, row.Name, map[string]any{"local": row.Local, "remote": row.Remote, "local_deleting": false, "remote_deleting": false, "error": ""})
 }
 
-// BeforeServerDelete is called under the placement/lifecycle lock. It reserves
-// the backup worker and removes off-host objects before local game deletion.
+// BeforeServerDelete inventories local bytes under the lifecycle lock and holds
+// off backup workers until server deletion atomically clears the association.
+// Offline Sparks fail closed. No archive is deleted, including on retries.
 func (s *BackupService) BeforeServerDelete(ctx context.Context, id string) (func(), error) {
 	release, err := s.acquire(id)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := s.Store.List(ctx, id)
+	result, err := s.Deployment.filesUnlocked(ctx, id, model.FileRequest{Operation: model.FileOperationBackupList, Path: "."})
+	if err == nil {
+		err = s.catalogLocal(ctx, id, result)
+	}
+
+	if err == nil {
+		var rows []database.Backup
+
+		rows, err = s.Store.List(ctx, id)
+		for _, row := range rows {
+			// A failed checkpoint can mean the object is already gone. Do not
+			// detach and clear that uncertainty, or dispatch server deletion and
+			// fence the cleanup needed to settle it. Existing cleanup can retry.
+			if row.RemoteDeleting && row.StoreID != "" {
+				err = &model.FileError{Code: model.FileBusy, Message: "Finish pending backup copy deletion before deleting the server."}
+				break
+			}
+		}
+	}
+
 	if err != nil {
 		release()
 		return nil, err
 	}
 
-	for _, row := range rows {
-		if err := s.Store.Update(ctx, id, row.Name, map[string]any{"deleting": true, "local_deleting": true, "remote_deleting": true}); err != nil {
-			release()
-			return nil, err
-		}
-
-		if row.StoreID != "" {
-			remote, err := s.storage(row)
-			if err != nil {
-				release()
-				return nil, err
-			}
-
-			if err := remote.Delete(ctx, row.Key, row.Version); err != nil {
-				release()
-				return nil, err
-			}
-
-			if err := s.Store.Update(ctx, id, row.Name, map[string]any{"remote": false, "remote_deleting": false}); err != nil {
-				release()
-				return nil, err
-			}
-		}
-	}
-
 	return release, nil
-}
-
-// ForgetServer removes metadata after the runtime has confirmed local cleanup.
-func (s *BackupService) ForgetServer(ctx context.Context, id string) error {
-	rows, err := s.Store.List(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	for _, row := range rows {
-		if err := s.Store.Remove(ctx, id, row.Name); err != nil {
-			return err
-		}
-	}
-
-	return s.Store.ForgetServer(ctx, id)
 }

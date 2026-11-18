@@ -1,10 +1,12 @@
 package service
 
 import (
+	uploadstore "campfire/internal/shared/upload"
 	"context"
 	"crypto/rand"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -22,22 +24,31 @@ const backupUploadsPerAccount = 2
 // BackupStagingCopies bounds total reserved bytes independently of session count.
 const BackupStagingCopies = 2
 
-// BackupImports keeps private, bounded upload sessions owned by one account.
-// Archives are temporary and are removed on cancellation, publication or expiry.
+// BackupImports keeps bounded upload and preparation receipts owned by one account.
+// Incomplete buffers are temporary. Finalized archives belong to the library and
+// survive cancellation/expiry of a receipt or of the server-creation wizard.
 type BackupImports struct {
 	mu        sync.Mutex
 	uploads   map[string]*BackupUpload
 	directory string
 	limit     int64
 	reserved  int64
+	initErr   error
 }
 
 // BackupUpload fields are accessed only inside With's locked callback.
 type BackupUpload struct {
+	buffer        *uploadstore.Session
+	temporary     string
+	BackupID      string
+	OriginalName  string
+	LibraryOnly   bool
+	FromLibrary   bool
+	source        func(context.Context, int64) (model.FileResult, error)
 	owner         int64
 	mu            sync.Mutex
 	file          *os.File
-	size, offset  int64
+	size          int64
 	timer         *time.Timer
 	Target        string
 	Manifest      backuparchive.Manifest
@@ -48,7 +59,8 @@ type BackupUpload struct {
 	store         *BackupImports
 }
 
-// NewBackupImports creates an account-bound temporary archive store.
+// NewBackupImports creates account-bound sessions under a storage root. The CLI
+// supplies its persistent state directory; an empty root is for embedded/test use.
 func NewBackupImports(directory string, limit int64) *BackupImports {
 	return &BackupImports{uploads: make(map[string]*BackupUpload), directory: directory, limit: limit}
 }
@@ -62,13 +74,21 @@ func (s *BackupImports) Begin(owner int64, target string, size, limit int64) (st
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if err := s.ensureDirectory(); err != nil {
+		return "", err
+	}
+
 	count := 0
 
+	active := make(map[string]bool, len(s.uploads))
 	for _, upload := range s.uploads {
+		active[upload.temporary] = true
 		if upload.owner == owner {
 			count++
 		}
 	}
+
+	uploadstore.Prune(filepath.Join(s.directory, "uploads"), "upload-", time.Now().Add(-backupUploadLifetime), active)
 
 	if size < 1 || size > limit {
 		return "", importError("Backup exceeds the configured upload limit.")
@@ -82,25 +102,13 @@ func (s *BackupImports) Begin(owner int64, target string, size, limit int64) (st
 		return "", importError("Backup upload staging is full; cancel an upload or wait for it to expire.")
 	}
 
-	if s.directory != "" {
-		if err := os.MkdirAll(s.directory, 0700); err != nil {
-			return "", err
-		}
-	}
-
-	file, err := os.CreateTemp(s.directory, "campfire-backup-import-")
+	buffer, err := uploadstore.Create(filepath.Join(s.directory, "uploads"), "upload-", size, limit)
 	if err != nil {
-		return "", err
-	}
-	// Keep only the private descriptor, so crashes cannot leave credential-bearing
-	// archives behind in the panel's temporary directory.
-	if err := os.Remove(file.Name()); err != nil {
-		_ = file.Close()
 		return "", err
 	}
 
 	token := rand.Text()
-	upload := &BackupUpload{owner: owner, file: file, size: size, Target: target, store: s}
+	upload := &BackupUpload{owner: owner, buffer: buffer, temporary: buffer.File.Name(), file: buffer.File, size: size, Target: target, store: s}
 	s.uploads[token] = upload
 	s.reserved += size
 	upload.timer = time.AfterFunc(backupUploadLifetime, func() { s.Cancel(owner, token) })
@@ -135,7 +143,11 @@ func (s *BackupImports) Cancel(owner int64, token string) {
 		s.mu.Lock()
 		delete(s.uploads, token)
 		s.mu.Unlock()
-		upload.timer.Stop()
+
+		if upload.timer != nil {
+			upload.timer.Stop()
+		}
+
 		upload.closed = true
 		upload.releaseFile()
 
@@ -148,7 +160,7 @@ func (u *BackupUpload) releaseFile() {
 		return
 	}
 
-	_ = u.file.Close()
+	u.buffer.Close()
 	u.file = nil
 	u.store.mu.Lock()
 	u.store.reserved -= u.size
@@ -157,16 +169,13 @@ func (u *BackupUpload) releaseFile() {
 
 // Chunk appends the next bounded range without allowing gaps or overwrites.
 func (u *BackupUpload) Chunk(offset int64, data []byte) error {
-	if u.file == nil || u.Manifest.Format != 0 || offset != u.offset || len(data) > model.FileLimit || int64(len(data)) > u.size-u.offset {
+	if u.file == nil || u.Manifest.Format != 0 || offset != u.buffer.Offset || len(data) > model.FileLimit || int64(len(data)) > u.size-u.buffer.Offset {
 		return importError("Invalid backup upload offset or size.")
 	}
 
-	n, err := u.file.WriteAt(data, offset)
-	if err != nil || n != len(data) {
+	if err := u.buffer.Write(offset, data); err != nil {
 		return importError("Could not store backup upload.")
 	}
-
-	u.offset += int64(n)
 
 	return nil
 }
@@ -177,7 +186,7 @@ func (u *BackupUpload) Inspect(ctx context.Context) error {
 		return nil
 	}
 
-	if u.offset != u.size {
+	if err := u.buffer.Complete(); err != nil {
 		return importError("Backup upload is incomplete.")
 	}
 
@@ -247,7 +256,12 @@ func (u *BackupUpload) publishBytes(ctx context.Context, deployment *DeploymentS
 		return err
 	}
 
-	request := model.FileRequest{Operation: model.FileOperationBackupUploadBegin, Path: u.Name, Size: u.size, UploadLimit: deployment.UploadLimit()}
+	limit := deployment.UploadLimit()
+	if u.FromLibrary {
+		limit = model.FileTransferLimit
+	} // Existing archives are not browser uploads.
+
+	request := model.FileRequest{Operation: model.FileOperationBackupUploadBegin, Path: u.Name, Size: u.size, UploadLimit: limit}
 
 	result, err := deployment.filesUnlocked(ctx, id, request)
 	if err != nil {
@@ -271,9 +285,22 @@ func (u *BackupUpload) publishBytes(ctx context.Context, deployment *DeploymentS
 			return err
 		}
 
-		request.Data = make([]byte, min(int64(model.FileLimit), u.size-request.Offset))
-		if _, err := u.file.ReadAt(request.Data, request.Offset); err != nil {
-			return err
+		if u.source != nil {
+			chunk, err := u.source(ctx, request.Offset)
+			if err != nil {
+				return err
+			}
+
+			if chunk.Size != u.size || len(chunk.Data) == 0 || int64(len(chunk.Data)) > u.size-request.Offset {
+				return importError("Backup changed during publication.")
+			}
+
+			request.Data = chunk.Data
+		} else {
+			request.Data = make([]byte, min(int64(model.FileLimit), u.size-request.Offset))
+			if _, err := u.file.ReadAt(request.Data, request.Offset); err != nil {
+				return err
+			}
 		}
 
 		if _, err := deployment.filesUnlocked(ctx, id, request); err != nil {

@@ -8,6 +8,13 @@ import (
 	"campfire/internal/shared/model"
 )
 
+func TestServerDeletionUsesExistingLifecycleCapability(t *testing.T) {
+	required := RequiredCapabilities(Command{Name: ServerAction, Runtime: &model.RuntimeRequest{Action: model.ServerActionDelete}})
+	if !slices.Equal(required, []string{CapabilityLifecycle}) {
+		t.Fatal("backup preservation must not require an additional capability", required)
+	}
+}
+
 func TestNegotiationUsesVersionOverlapAndExplicitFeatures(t *testing.T) {
 	hello := Message{Protocol: ProtocolVersion + 1, MinimumProtocol: MinimumProtocolVersion, Capabilities: []string{CapabilityLifecycle, "future.feature.v1", CapabilityMetrics}}
 

@@ -19,6 +19,10 @@ type RuntimeDispatcher interface {
 
 // Action delivers current configuration before submitting a lifecycle operation.
 func (s *DeploymentService) Action(ctx context.Context, id string, action model.ServerAction) (model.RuntimeStatus, error) {
+	if action == model.ServerActionDelete {
+		return model.RuntimeStatus{}, ErrInvalidServer
+	}
+
 	return s.runAction(ctx, id, action, "")
 }
 
@@ -94,7 +98,7 @@ func (s *DeploymentService) runAction(ctx context.Context, id string, action mod
 }
 
 func (s *DeploymentService) runActionUnlocked(ctx context.Context, id string, action model.ServerAction, content string) (model.RuntimeStatus, error) {
-	if action != model.ServerActionStatus && action != model.ServerActionLogs {
+	if action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionDelete {
 		if err := s.guardServer(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}
@@ -289,7 +293,7 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 		return model.RuntimeStatus{}, fmt.Errorf("%w: review server values before installing game files", ErrInvalidServer)
 	}
 
-	if !server.EmberReviewRequired && action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionCommand && action != model.ServerActionStop && action != model.ServerActionKill && action != model.ServerActionBackup {
+	if !server.EmberReviewRequired && action != model.ServerActionDelete && action != model.ServerActionStatus && action != model.ServerActionLogs && action != model.ServerActionCommand && action != model.ServerActionStop && action != model.ServerActionKill && action != model.ServerActionBackup {
 		if _, err := s.sync(ctx, id); err != nil {
 			return model.RuntimeStatus{}, err
 		}
@@ -384,10 +388,6 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 	}
 	defer release()
 
-	if err := s.guardServer(ctx, id); err != nil {
-		return err
-	}
-
 	if checker, ok := s.Remote.(interface {
 		CheckRuntime(string, model.RuntimeRequest) error
 	}); ok {
@@ -407,6 +407,41 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 			return err
 		}
 		defer releaseBackups()
+	}
+
+	pending, err := s.Servers.store.DeletionPending(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if !pending {
+		server, err := s.Servers.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		// Prepare configuration before persisting intent. Failures here have not
+		// dispatched deletion and must not prevent correcting configuration.
+		if !server.EmberReviewRequired {
+			if _, err := s.sync(ctx, id); err != nil {
+				return err
+			}
+		} else {
+			// An uninstalled server may have no saved Spark configuration.
+			// Do not fence the review needed to deliver it. Status is read-only;
+			// once deletion is dispatched, ambiguous failures must keep intent.
+			status, err := s.runActionUnlocked(ctx, id, model.ServerActionStatus, "")
+			if err != nil {
+				return err
+			}
+
+			if status.State == model.RuntimeStateNotInstalled {
+				return fmt.Errorf("%w: review server values before deleting an uninstalled server", ErrInvalidServer)
+			}
+		}
+	}
+	// Retries use the already delivered configuration and never resume retention.
+	if err := s.Servers.store.BeginDeletion(ctx, id); err != nil {
+		return err
 	}
 
 	status, err := s.runActionUnlocked(ctx, id, model.ServerActionDelete, "")
@@ -432,12 +467,6 @@ func (s *DeploymentService) Delete(ctx context.Context, id string) error {
 
 	if status.Error != "" || status.State != model.RuntimeStateDeleted {
 		return ErrDeploymentUnavailable
-	}
-
-	if s.Backups != nil {
-		if err := s.Backups.ForgetServer(ctx, id); err != nil {
-			return err
-		}
 	}
 
 	if err := s.Servers.Delete(ctx, id); err != nil {

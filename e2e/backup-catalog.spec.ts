@@ -45,6 +45,102 @@ test("overview and backup catalog show only backups from assigned servers", asyn
   await expect(page.getByRole("link", { name: /^Download / })).toHaveCount(2);
 });
 
+test("independent archives can be found by current storage Spark or archive ID", async ({
+  page,
+}) => {
+  await login(page);
+  const session = (await (
+    await page.request.get("/api/v1/auth/session")
+  ).json()) as { csrf_token: string };
+  const listingResponse = await page.request.get(
+    "/api/v1/servers/survival/backups",
+  );
+  expect(listingResponse.ok()).toBeTruthy();
+  const listing = (await listingResponse.json()) as {
+    entries: { id: string }[];
+  };
+  expect(listing.entries.length).toBeGreaterThan(0);
+  const deleted = await page.request.delete("/api/v1/servers/survival", {
+    headers: { "X-CSRF-Token": session.csrf_token },
+  });
+  expect(deleted.ok()).toBeTruthy();
+  const catalog = (await (
+    await page.request.get("/api/v1/backups")
+  ).json()) as {
+    id: string;
+    server_id?: string;
+    local_spark_id?: string;
+    local_spark_name?: string;
+  }[];
+  const archived = catalog.find((item) => item.id === listing.entries[0]?.id);
+  expect(archived?.server_id).toBeFalsy();
+  expect(archived?.local_spark_id).toBeTruthy();
+  expect(archived?.local_spark_name).toBeTruthy();
+  if (!archived?.local_spark_id || !archived.local_spark_name)
+    throw new Error("Missing archive storage location");
+  const { id, local_spark_id: sparkID, local_spark_name: sparkName } = archived;
+  await page.goto("/#backups");
+  const table = page.getByRole("table");
+  const linked = table.locator("tbody > .table-row-caret").first();
+  const independent = table.locator("tbody > tr:not(.table-row-caret)").first();
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(linked).toBeVisible();
+    await expect(independent).toBeVisible();
+    const gutter = await linked.locator("td:last-child").evaluate((cell) => {
+      const style = getComputedStyle(cell);
+      return {
+        actual: parseFloat(style.paddingInlineEnd),
+        expected: parseFloat(style.getPropertyValue("--table-row-caret-space")),
+      };
+    });
+    expect(gutter.actual).toBe(gutter.expected);
+    const linkedActions = await linked.locator(".action-group").boundingBox();
+    const independentActions = await independent
+      .locator(".action-group")
+      .boundingBox();
+    if (!linkedActions || !independentActions)
+      throw new Error("Missing archive actions");
+    expect(
+      Math.abs(
+        linkedActions.x +
+          linkedActions.width -
+          independentActions.x -
+          independentActions.width,
+      ),
+    ).toBeLessThan(1);
+    expect(
+      await independent
+        .locator("td:last-child")
+        .evaluate((cell) => getComputedStyle(cell, "::after").content),
+    ).toBe("none");
+    await independent.locator("td").first().click();
+    await expect(page).toHaveURL(/#backups$/);
+    await expect(
+      page
+        .locator(".page-header .page-actions")
+        .getByRole("button", { name: "Upload backup", exact: true }),
+    ).toBeVisible();
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const search = page.getByRole("searchbox");
+  await search.fill(`spark:${sparkID}`);
+  await expect(page.getByRole("table").locator("tbody tr")).toHaveCount(
+    catalog.filter((item) => item.local_spark_id === sparkID).length,
+  );
+  await search.fill(id);
+  await expect(page.getByRole("table").locator("tbody tr")).toHaveCount(1);
+  await expect(page.getByRole("table").locator("tbody")).toContainText(
+    "No server",
+  );
+  await expect(page.getByRole("table").locator("tbody")).toContainText(
+    `Spark: ${sparkName}`,
+  );
+});
+
 test("server viewing without backup viewing returns an empty catalog", async ({
   page,
 }) => {
@@ -60,4 +156,7 @@ test("server viewing without backup viewing returns an empty catalog", async ({
     page.getByRole("heading", { name: "No backups yet", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /^Download / })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Upload backup", exact: true }),
+  ).toHaveCount(0);
 });

@@ -43,15 +43,11 @@ type DeploymentService struct {
 }
 
 func (s *DeploymentService) guardServer(ctx context.Context, id string) error {
-	if s.Copies != nil {
-		return s.Copies.Store.Guard(ctx, id)
+	if s.Servers == nil {
+		return ErrDeploymentUnavailable
 	}
 
-	if s.Transfers != nil {
-		return s.Transfers.Store.Guard(ctx, id)
-	}
-
-	return nil
+	return s.Servers.store.GuardMutation(ctx, id)
 }
 
 type deliveryLock struct {

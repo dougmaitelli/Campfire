@@ -33,6 +33,9 @@ type ServerStore interface {
 	ListVisible(context.Context, int64, bool) ([]model.Server, error)
 	Get(context.Context, string) (model.Server, error)
 	Delete(context.Context, string) error
+	BeginDeletion(context.Context, string) error
+	DeletionPending(context.Context, string) (bool, error)
+	GuardMutation(context.Context, string) error
 	AcknowledgeConfiguration(context.Context, model.Server, string) error
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
+	uploadstore "campfire/internal/shared/upload"
 	"campfire/internal/shared/utils"
 )
 
@@ -45,9 +46,9 @@ func removeAbandonedBackupUploads(directory string) {
 }
 
 type backupUpload struct {
-	path, temporary string
-	size, offset    int64
-	touched         time.Time
+	buffer  *uploadstore.Session
+	path    string
+	touched time.Time
 }
 
 // Called with the runtime entry locked. Publication is immutable and follows
@@ -73,7 +74,7 @@ func (m *Manager) uploadBackup(ctx context.Context, e *entry, q model.FileReques
 
 	for id, upload := range e.backupUploads {
 		if time.Since(upload.touched) > time.Hour {
-			_ = os.Remove(upload.temporary)
+			upload.buffer.Close()
 
 			delete(e.backupUploads, id)
 		}
@@ -97,14 +98,13 @@ func (m *Manager) uploadBackup(ctx context.Context, e *entry, q model.FileReques
 			return result, err
 		}
 
-		file, err := os.CreateTemp(directory, backupUploadPrefix)
+		buffer, err := uploadstore.Create(directory, backupUploadPrefix, q.Size, limit)
 		if err != nil {
 			return result, err
 		}
 
-		_ = file.Close()
 		result.UploadID = rand.Text()
-		e.backupUploads[result.UploadID] = &backupUpload{path: q.Path, temporary: file.Name(), size: q.Size, touched: time.Now()}
+		e.backupUploads[result.UploadID] = &backupUpload{buffer: buffer, path: q.Path, touched: time.Now()}
 
 		return result, nil
 	}
@@ -116,38 +116,35 @@ func (m *Manager) uploadBackup(ctx context.Context, e *entry, q model.FileReques
 
 	upload.touched = time.Now()
 	if q.Operation == model.FileOperationBackupUploadCancel {
-		_ = os.Remove(upload.temporary)
+		upload.buffer.Close()
 
 		delete(e.backupUploads, q.UploadID)
 
 		return result, nil
 	}
 
-	file, err := os.OpenFile(upload.temporary, os.O_RDWR, 0600)
-	if err != nil {
-		return result, err
-	}
-
-	defer func() { _ = file.Close() }()
+	file := upload.buffer.File
 
 	switch q.Operation {
 	case model.FileOperationBackupUploadChunk:
-		if q.Offset != upload.offset || int64(len(q.Data)) > upload.size-upload.offset {
+		if q.Offset != upload.buffer.Offset || int64(len(q.Data)) > upload.buffer.Size-upload.buffer.Offset {
 			return result, fileFailure(model.FileInvalid, "Invalid backup upload offset or size.")
 		}
 
-		n, err := file.WriteAt(q.Data, q.Offset)
-		if err != nil || n != len(q.Data) {
+		if err := upload.buffer.Write(q.Offset, q.Data); err != nil {
 			return result, fileFailure(model.FileIO, "Could not store backup upload.")
 		}
 
-		upload.offset += int64(n)
-		result.Size = upload.offset
+		result.Size = upload.buffer.Offset
 
 		return result, nil
 	case model.FileOperationBackupUploadCommit:
-		if upload.offset != upload.size {
+		if err := upload.buffer.Complete(); err != nil {
 			return result, fileFailure(model.FileInvalid, "Backup upload is incomplete.")
+		}
+
+		if _, err := file.Seek(0, 0); err != nil {
+			return result, err
 		}
 
 		// The existing staging file already owns this upload's archive slot.
@@ -164,19 +161,15 @@ func (m *Manager) uploadBackup(ctx context.Context, e *entry, q model.FileReques
 			return result, fileFailure(model.FileInvalid, "Backup filename does not match its type.")
 		}
 
-		if err := file.Sync(); err != nil {
-			return result, err
-		}
-		// Link publishes without replacing a pre-existing immutable archive.
-		if err := os.Link(upload.temporary, filepath.Join(directory, q.Path)); err != nil {
+		if err := upload.buffer.PublishNoReplace(filepath.Join(directory, q.Path)); err != nil {
 			return result, fileFailure(model.FileConflict, "Backup already exists or could not be published.")
 		}
 
-		_ = os.Remove(upload.temporary)
+		upload.buffer.Close()
 
 		delete(e.backupUploads, q.UploadID)
 
-		result.Size = upload.size
+		result.Size = upload.buffer.Size
 
 		return result, syncBackupDirectory(directory)
 	default:

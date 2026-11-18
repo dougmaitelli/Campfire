@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -214,12 +215,37 @@ func TestBackupRoundTripChunksAndDeletion(t *testing.T) {
 		t.Fatal("last download chunk", err)
 	}
 
+	if _, err := m.Files(t.Context(), d, model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperationBackupUploadBegin, Path: "full-incomplete.tar.gz", Size: 10}); err != nil {
+		t.Fatal(err)
+	}
+
 	if status := awaitOperation(t, m, d, "delete", "delete"); status.Error != "" {
 		t.Fatal(status.Error)
 	}
 
-	if _, err := os.Stat(filepath.Join(m.root(d.ServerID), "backups")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("server deletion retained backups")
+	entries, err := os.ReadDir(filepath.Join(m.root(d.ServerID), "backups"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), backupUploadPrefix) {
+			t.Fatal("deletion retained an incomplete upload", entry.Name())
+		}
+	}
+
+	preserved, err := os.ReadFile(filepath.Join(m.root(d.ServerID), "backups", "large.tar.gz"))
+	if err != nil || !bytes.Equal(preserved, large) {
+		t.Fatal("server deletion lost backup bytes", err)
+	}
+
+	if status := awaitOperation(t, m, d, "delete", "delete-again"); status.Error != "" {
+		t.Fatal(status.Error)
+	}
+
+	preserved, err = os.ReadFile(filepath.Join(m.root(d.ServerID), "backups", "large.tar.gz"))
+	if err != nil || !bytes.Equal(preserved, large) {
+		t.Fatal("delete retry lost backup bytes", err)
 	}
 }
 

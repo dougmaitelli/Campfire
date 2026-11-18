@@ -45,6 +45,7 @@ import { ResourceReading } from "../components/metrics/ResourceReading";
 
 import { Table, TableRow } from "../components/table/Table";
 import { listAllBackups } from "../api/backups";
+import { backupDisplayName } from "../utils/backupDisplayName";
 import { listSchedules } from "../api/activity";
 import { listServers } from "../api/servers";
 import { useCollection } from "../hooks/useCollection";
@@ -552,12 +553,18 @@ export function DashboardPage() {
                     <tr key={backup.id}>
                       <td>
                         <ResourceLink
-                          href={links.server(
-                            backup.server_id,
-                            ServerTab.Backups,
-                          )}
+                          href={
+                            backup.server_id
+                              ? links.server(
+                                  backup.server_id,
+                                  ServerTab.Backups,
+                                )
+                              : "#backups"
+                          }
                         >
-                          {backup.server_name}
+                          {backup.server_id
+                            ? backup.server_name
+                            : backupDisplayName(backup)}
                         </ResourceLink>
                       </td>
                       <td>

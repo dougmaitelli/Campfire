@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -14,17 +15,16 @@ import (
 	"time"
 
 	"campfire/internal/shared/model"
+	uploadstore "campfire/internal/shared/upload"
 )
 
 const uploadScanInterval = time.Minute
 
 type fileUpload struct {
+	buffer                    *uploadstore.Session
 	path, temporary, revision string
-	size                      int64
-	limit                     int64
 	mode                      fs.FileMode
 	touched                   time.Time
-	ranges                    [][2]int64
 }
 
 // StatRevision identifies a filesystem object and its observed metadata.
@@ -97,7 +97,11 @@ func (m *Manager) pruneUploads(root *os.Root, e *State) {
 
 	for id, item := range e.uploads {
 		if now.Sub(item.touched) > time.Hour {
-			_ = root.Remove(item.temporary)
+			if item.buffer != nil {
+				item.buffer.Close()
+			} else {
+				_ = root.Remove(item.temporary)
+			}
 
 			delete(e.uploads, id)
 		}
@@ -179,13 +183,12 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		id := rand.Text()
 		temporary := UploadStagingPrefix + id
 
-		file, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		buffer, err := uploadstore.CreateAt(root, temporary, q.Size, limit)
 		if err != nil {
 			return result, Failure(model.FileIO, "Could not prepare upload.")
 		}
 
-		_ = file.Close()
-		e.uploads[id] = &fileUpload{path: q.Path, temporary: temporary, revision: revision, size: q.Size, limit: limit, mode: mode, touched: time.Now()}
+		e.uploads[id] = &fileUpload{buffer: buffer, path: q.Path, temporary: temporary, revision: revision, mode: mode, touched: time.Now()}
 		result.UploadID = id
 
 		return result, nil
@@ -198,13 +201,13 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 
 	upload.touched = time.Now()
 
-	limit := upload.limit
+	limit := upload.buffer.Limit
 	if q.UploadLimit > 0 {
 		limit = min(limit, q.UploadLimit)
 	}
 
 	if q.Operation == model.FileOperationUploadCancel {
-		_ = root.Remove(upload.temporary)
+		upload.buffer.Close()
 
 		delete(e.uploads, q.UploadID)
 
@@ -215,20 +218,16 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		return result, err
 	}
 
-	file, err := root.OpenFile(upload.temporary, os.O_RDWR|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
-	if err != nil {
-		return result, Failure(model.FileIO, "Upload staging file unavailable.")
-	}
-
-	defer func() { _ = file.Close() }()
-
+	file := upload.buffer.File
 	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
+
+	current, currentErr := root.Lstat(upload.temporary)
+	if err != nil || currentErr != nil || !current.Mode().IsRegular() || !os.SameFile(info, current) {
 		return result, Failure(model.FileInvalid, "Invalid upload staging file.")
 	}
 
 	if q.Operation == model.FileOperationUploadChunk {
-		if q.Offset < 0 || q.Offset > limit-int64(len(q.Data)) || upload.size >= 0 && q.Offset+int64(len(q.Data)) > upload.size {
+		if q.Offset < 0 || q.Offset > limit-int64(len(q.Data)) || upload.buffer.Size >= 0 && q.Offset+int64(len(q.Data)) > upload.buffer.Size {
 			return result, Failure(model.FileLimitExceeded, "Upload chunk exceeds the declared size or configured upload limit.")
 		}
 
@@ -240,32 +239,12 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 			return result, Failure(model.FileLimitExceeded, "Upload exceeds the server disk allocation.")
 		}
 
-		if _, err := file.WriteAt(q.Data, q.Offset); err != nil {
-			return result, Failure(model.FileIO, "Could not write upload chunk.")
-		}
-
-		if len(q.Data) > 0 {
-			interval := [2]int64{q.Offset, q.Offset + int64(len(q.Data))}
-
-			merged := make([][2]int64, 0, len(upload.ranges)+1)
-			for _, current := range upload.ranges {
-				if current[1] < interval[0] {
-					merged = append(merged, current)
-				} else if interval[1] < current[0] {
-					merged = append(merged, interval)
-					interval = current
-				} else {
-					interval[0] = min(interval[0], current[0])
-					interval[1] = max(interval[1], current[1])
-				}
-			}
-
-			merged = append(merged, interval)
-			if len(merged) > 100000 {
+		if err := upload.buffer.Write(q.Offset, q.Data); err != nil {
+			if errors.Is(err, uploadstore.ErrTooManyRanges) {
 				return result, Failure(model.FileLimitExceeded, "Upload has too many disjoint ranges.")
 			}
 
-			upload.ranges = merged
+			return result, Failure(model.FileIO, "Could not write upload chunk.")
 		}
 
 		result.Size = newSize
@@ -273,7 +252,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		return result, nil
 	}
 
-	if upload.size >= 0 && (info.Size() != upload.size || upload.size > 0 && (len(upload.ranges) != 1 || upload.ranges[0][0] != 0 || upload.ranges[0][1] != upload.size)) {
+	if err := upload.buffer.Complete(); err != nil {
 		return result, Failure(model.FileConflict, "Upload is incomplete.")
 	}
 
@@ -297,6 +276,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		return result, err
 	}
 
+	upload.buffer.Close()
 	delete(e.uploads, q.UploadID)
 
 	result.Size = info.Size()

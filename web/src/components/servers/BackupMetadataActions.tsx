@@ -2,19 +2,21 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { updateBackup, type Backup } from "../../api/backups";
 import { backupDisplayName } from "../../utils/backupDisplayName";
-import { ActionMenu } from "../forms/ActionMenu";
+import { ActionMenu, type ActionMenuItem } from "../forms/ActionMenu";
 import { InputDialog } from "../layout/InputDialog";
 
 export function BackupMetadataActions({
-  serverID,
   backup,
   disabled = false,
+  canEdit = true,
+  onCreateServer,
   onSaved,
   onError,
 }: {
-  serverID: string;
   backup: Backup;
   disabled?: boolean;
+  canEdit?: boolean;
+  onCreateServer?: () => void;
   onSaved: (backup: Backup) => void;
   onError: (message: string | null) => void;
 }) {
@@ -30,7 +32,7 @@ export function BackupMetadataActions({
     setBusy(true);
     onError(null);
     try {
-      onSaved(await updateBackup(serverID, backup.name, changes));
+      onSaved(await updateBackup(backup.id, changes));
     } finally {
       pending.current = false;
       setBusy(false);
@@ -49,26 +51,40 @@ export function BackupMetadataActions({
     }
   }
 
+  const metadataItems: ActionMenuItem[] = canEdit
+    ? [
+        {
+          label: t("backupMetadata.rename"),
+          icon: "rename",
+          disabled: disabled || busy,
+          onSelect: () => setRenaming(true),
+        },
+        {
+          label: t(
+            backup.pinned ? "backupMetadata.unpin" : "backupMetadata.pin",
+          ),
+          icon: backup.pinned ? "unpin" : "pin",
+          disabled: disabled || busy,
+          onSelect: () => void togglePin(),
+        },
+      ]
+    : [];
+  const creationItems: ActionMenuItem[] = onCreateServer
+    ? [
+        {
+          label: t("backupImports.create"),
+          icon: "plus",
+          disabled: disabled || busy,
+          onSelect: onCreateServer,
+        },
+      ]
+    : [];
+
   return (
     <>
       <ActionMenu
         label={t("backupMetadata.actions", { name: label })}
-        items={[
-          {
-            label: t("backupMetadata.rename"),
-            icon: "rename",
-            disabled: disabled || busy,
-            onSelect: () => setRenaming(true),
-          },
-          {
-            label: t(
-              backup.pinned ? "backupMetadata.unpin" : "backupMetadata.pin",
-            ),
-            icon: backup.pinned ? "unpin" : "pin",
-            disabled: disabled || busy,
-            onSelect: () => void togglePin(),
-          },
-        ]}
+        items={[...metadataItems, ...creationItems]}
       />
       {renaming && (
         <InputDialog

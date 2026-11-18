@@ -9,6 +9,7 @@ import i18n from "../i18n";
 
 export interface BackupImport {
   token: string;
+  backup_id?: string;
   mode: BackupMode;
   configuration: ServerConfiguration;
   ember: Ember;
@@ -48,11 +49,17 @@ export async function uploadPortableBackup(
   serverID: string | undefined,
   signal: AbortSignal,
   progress: (bytes: number | null) => void,
+  libraryOnly = false,
 ): Promise<BackupImport> {
   const begun = await readJSON(
     await apiJSON(
       "/api/v1/backup-imports",
-      { server_id: serverID, size: file.size },
+      {
+        server_id: serverID,
+        size: file.size,
+        name: file.name,
+        store_only: libraryOnly,
+      },
       { signal },
     ),
   );
@@ -92,26 +99,55 @@ export async function uploadPortableBackup(
         },
       ),
     );
-    if (
-      !isRecord(body) ||
-      body.token !== token ||
-      !isEnumValue(BackupMode, body.mode) ||
-      !isEmber(body.ember) ||
-      !isConfiguration(body.configuration) ||
-      typeof body.import_ember !== "boolean"
-    )
-      throw new Error(i18n.t("backupImports.invalidResponse"));
-    return {
-      token,
-      mode: body.mode,
-      ember: body.ember,
-      configuration: { ...body.configuration, ports: [] },
-      import_ember: body.import_ember,
-    };
+    return backupPreview(body, token);
   } catch (cause) {
     await cancelBackupImport(token).catch(() => undefined);
     throw cause;
   }
+}
+
+function backupPreview(body: unknown, expectedToken?: string): BackupImport {
+  if (
+    !isRecord(body) ||
+    typeof body.token !== "string" ||
+    (expectedToken !== undefined && body.token !== expectedToken) ||
+    !isEnumValue(BackupMode, body.mode) ||
+    !isEmber(body.ember) ||
+    !isConfiguration(body.configuration) ||
+    typeof body.import_ember !== "boolean" ||
+    ("backup_id" in body && typeof body.backup_id !== "string")
+  )
+    throw new Error(i18n.t("backupImports.invalidResponse"));
+  return {
+    token: body.token,
+    ...(typeof body.backup_id === "string"
+      ? { backup_id: body.backup_id }
+      : {}),
+    mode: body.mode,
+    ember: body.ember,
+    configuration: { ...body.configuration, ports: [] },
+    import_ember: body.import_ember,
+  };
+}
+
+export async function prepareStoredBackup(
+  id: string,
+  signal: AbortSignal,
+): Promise<BackupImport> {
+  return backupPreview(
+    await readJSON(
+      await apiJSON(
+        `/api/v1/backups/${encodeURIComponent(id)}/prepare`,
+        {},
+        {
+          signal: AbortSignal.any([
+            signal,
+            AbortSignal.timeout(RequestTimeout.Archive),
+          ]),
+        },
+      ),
+    ),
+  );
 }
 
 export async function publishBackupImport(

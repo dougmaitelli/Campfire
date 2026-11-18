@@ -9,7 +9,6 @@ import (
 	"mime"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	"campfire/internal/campfire/service"
@@ -19,8 +18,10 @@ import (
 
 type catalogBackup struct {
 	model.CatalogBackup
-	CanDownload bool `json:"can_download"`
-	CanEdit     bool `json:"can_edit"`
+	CanDownload     bool `json:"can_download"`
+	CanEdit         bool `json:"can_edit"`
+	CanDelete       bool `json:"can_delete"`
+	CanCreateServer bool `json:"can_create_server"`
 }
 
 func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
@@ -37,11 +38,18 @@ func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 
 	principal := currentUser(r)
 	permissions := make(map[string][]model.PermissionID)
+	independentPermissions := a.access.IndependentBackupAuthorizer(r.Context(), principal)
 
 	visible := make([]catalogBackup, 0, len(items))
 	for _, item := range items {
 		actions, checked := permissions[item.ServerID]
-		if !checked {
+		if item.ServerID == "" {
+			actions, err = independentPermissions(item.OwnerUserID)
+			if err != nil {
+				writeError(w, err)
+				return
+			}
+		} else if !checked {
 			actions, err = a.access.ServerPermissions(r.Context(), principal, item.ServerID)
 			if err != nil {
 				writeError(w, err)
@@ -52,7 +60,7 @@ func (a *API) listBackups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if slices.Contains(actions, accessperm.ServerBackupsRead) {
-			visible = append(visible, catalogBackup{CatalogBackup: item, CanDownload: slices.Contains(actions, accessperm.ServerBackupsDownload), CanEdit: slices.Contains(actions, accessperm.ServerBackupsCreate)})
+			visible = append(visible, catalogBackup{CatalogBackup: item, CanDownload: slices.Contains(actions, accessperm.ServerBackupsDownload), CanEdit: slices.Contains(actions, accessperm.ServerBackupsCreate), CanDelete: slices.Contains(actions, accessperm.ServerBackupsDelete), CanCreateServer: item.Portable && slices.Contains(actions, accessperm.ServerBackupsDownload) && principal.Allows(accessperm.ServersCreate)})
 		}
 	}
 
@@ -93,20 +101,7 @@ func (a *API) updateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	changes := make([]string, 0, 2)
-	if input.DisplayName != nil {
-		changes = append(changes, "rename")
-	}
-
-	if input.Pinned != nil {
-		if *input.Pinned {
-			changes = append(changes, "pin")
-		} else {
-			changes = append(changes, "unpin")
-		}
-	}
-
-	auditDetail(r, "server.backup.update", "server:"+r.PathValue("id")+" backup:"+item.Name+" changes:"+strings.Join(changes, ","))
+	auditDetail(r, "server.backup.update", backupEditTarget(r.PathValue("id"), item, input))
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, item)
 }
@@ -146,7 +141,9 @@ func (a *API) serverBackups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
-func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
+func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) { a.streamBackup(w, r, false) }
+
+func (a *API) streamBackup(w http.ResponseWriter, r *http.Request, archive bool) {
 	if a.deployment == nil {
 		writeError(w, service.ErrDeploymentUnavailable)
 		return
@@ -157,7 +154,21 @@ func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	request := model.FileRequest{Operation: model.FileOperationBackupRead, Path: r.PathValue("name")}
+	if archive {
+		row, err := a.deployment.Backups.Store.ByID(ctx, r.PathValue("backupID"))
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+
+		request.Path = row.Name
+	}
+
 	read := func() (model.FileResult, error) {
+		if archive {
+			return a.deployment.Backups.ReadArchive(ctx, r.PathValue("backupID"), request.Offset)
+		}
+
 		if a.deployment.Backups != nil {
 			return a.deployment.Backups.Read(ctx, r.PathValue("id"), request.Path, request.Offset)
 		}
@@ -194,7 +205,13 @@ func (a *API) downloadBackup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		permissions, err := a.access.ServerPermissions(ctx, principal, r.PathValue("id"))
+		var permissions []model.PermissionID
+		if archive {
+			_, permissions, err = a.archivePermissions(ctx, principal, r.PathValue("backupID"))
+		} else {
+			permissions, err = a.access.ServerPermissions(ctx, principal, r.PathValue("id"))
+		}
+
 		if err != nil || !slices.Contains(permissions, accessperm.ServerBackupsDownload) {
 			return
 		}

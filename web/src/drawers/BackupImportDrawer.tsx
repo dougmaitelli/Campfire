@@ -18,10 +18,12 @@ import {
 
 export function BackupImportDrawer({
   serverID,
+  libraryOnly = false,
   onClose,
   onReady,
 }: {
   serverID?: string;
+  libraryOnly?: boolean;
   onClose: () => void;
   onReady: (backup: BackupImport) => void;
 }) {
@@ -60,6 +62,7 @@ export function BackupImportDrawer({
         serverID,
         active.signal,
         setBytes,
+        libraryOnly,
       );
       token.current = next.token;
       setBackup(next);
@@ -75,7 +78,7 @@ export function BackupImportDrawer({
   async function finish() {
     if (!backup || busy) return;
     if (!serverID) {
-      retained.current = true;
+      retained.current = !libraryOnly;
       onReady(backup);
       return;
     }
@@ -96,8 +99,16 @@ export function BackupImportDrawer({
   }
   return (
     <Drawer
-      title={t(serverID ? "backupImports.upload" : "backupImports.create")}
-      description={t("backupImports.description")}
+      title={t(
+        serverID || libraryOnly
+          ? "backupImports.upload"
+          : "backupImports.create",
+      )}
+      description={t(
+        serverID
+          ? "backupImports.serverDescription"
+          : "backupImports.description",
+      )}
       busy={busy}
       onClose={onClose}
       footerLeft={
@@ -119,7 +130,13 @@ export function BackupImportDrawer({
             void finish();
           }}
         >
-          {t(serverID ? "backupImports.upload" : "backupImports.continue")}
+          {t(
+            libraryOnly
+              ? "backupLibrary.done"
+              : serverID
+                ? "backupImports.upload"
+                : "backupImports.continue",
+          )}
         </Button>
       }
     >
@@ -178,14 +195,16 @@ export function BackupImportDrawer({
             </DetailsList>
             <p>
               {t(
-                serverID
-                  ? "backupImports.uploadNotice"
-                  : backup.mode === BackupMode.Savedata
-                    ? "backupImports.savedataNotice"
-                    : "backupImports.fullNotice",
+                libraryOnly
+                  ? "backupLibrary.uploadedNotice"
+                  : serverID
+                    ? "backupImports.uploadNotice"
+                    : backup.mode === BackupMode.Savedata
+                      ? "backupImports.savedataNotice"
+                      : "backupImports.fullNotice",
               )}
             </p>
-            {!serverID && backup.import_ember && (
+            {!serverID && !libraryOnly && backup.import_ember && (
               <InlineMessage tone="warning">
                 {t("backupImports.importEmber")}
               </InlineMessage>

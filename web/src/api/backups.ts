@@ -6,6 +6,7 @@ import { apiFetch, readJSON, API_READ_TIMEOUT_MS, apiJSON } from "./client";
 export { BackupMode };
 
 export interface Backup {
+  id: string;
   display_name: string;
   pinned: boolean;
   portable?: boolean;
@@ -34,9 +35,12 @@ export interface BackupPolicy extends BackupRetention {
 export interface CatalogBackup extends Backup {
   can_download: boolean;
   can_edit: boolean;
-  id: string;
+  can_delete?: boolean;
+  can_create_server?: boolean;
   server_id: string;
   server_name: string;
+  local_spark_id: string;
+  local_spark_name: string;
 }
 
 export async function listAllBackups(
@@ -49,19 +53,32 @@ export async function listAllBackups(
     if (
       !isBackup(value) ||
       !object(value) ||
-      typeof value.server_id !== "string" ||
+      (value.server_id != null && typeof value.server_id !== "string") ||
       typeof value.server_name !== "string" ||
+      ("local_spark_id" in value && typeof value.local_spark_id !== "string") ||
+      ("local_spark_name" in value &&
+        typeof value.local_spark_name !== "string") ||
       typeof value.can_download !== "boolean" ||
-      typeof value.can_edit !== "boolean"
+      typeof value.can_edit !== "boolean" ||
+      ("can_delete" in value && typeof value.can_delete !== "boolean") ||
+      ("can_create_server" in value &&
+        typeof value.can_create_server !== "boolean")
     )
       throw new Error(i18n.t("backups.unexpectedBackupCatalogEntry"));
     return {
       ...value,
-      server_id: value.server_id,
+      server_id: typeof value.server_id === "string" ? value.server_id : "",
       server_name: value.server_name,
+      local_spark_id:
+        typeof value.local_spark_id === "string" ? value.local_spark_id : "",
+      local_spark_name:
+        typeof value.local_spark_name === "string"
+          ? value.local_spark_name
+          : "",
       can_download: value.can_download,
       can_edit: value.can_edit,
-      id: `${value.server_id}/${value.name}`,
+      can_delete: value.can_delete === true,
+      can_create_server: value.can_create_server === true,
     };
   });
 }
@@ -119,6 +136,8 @@ export function isPolicy(value: unknown): value is BackupPolicy {
 function isBackup(value: unknown): value is Backup {
   return (
     object(value) &&
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
     typeof value.display_name === "string" &&
     typeof value.pinned === "boolean" &&
     (!("mode" in value) || isEnumValue(BackupMode, value.mode)) &&
@@ -193,17 +212,28 @@ export async function deleteBackup(
   );
 }
 
+export function archiveURL(id: string): string {
+  return `/api/v1/backups/${encodeURIComponent(id)}`;
+}
+
+export async function deleteArchive(id: string): Promise<void> {
+  await readJSON(
+    await apiFetch(archiveURL(id), {
+      method: "DELETE",
+      signal: AbortSignal.timeout(30000),
+    }),
+  );
+}
+
 export async function updateBackup(
   id: string,
-  name: string,
   changes: { display_name?: string; pinned?: boolean },
 ): Promise<Backup> {
   const body = await readJSON(
-    await apiJSON(
-      `/api/v1/servers/${encodeURIComponent(id)}/backups/${encodeURIComponent(name)}`,
-      changes,
-      { method: "PATCH", signal: AbortSignal.timeout(API_READ_TIMEOUT_MS) },
-    ),
+    await apiJSON(archiveURL(id), changes, {
+      method: "PATCH",
+      signal: AbortSignal.timeout(API_READ_TIMEOUT_MS),
+    }),
   );
   if (!isBackup(body))
     throw new Error(i18n.t("backups.unexpectedBackupResponse"));

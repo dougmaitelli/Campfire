@@ -16,9 +16,10 @@ import (
 
 // Repository errors distinguish missing records and uniqueness conflicts.
 var (
-	ErrNotFound   = errors.New("spark not found")
-	ErrConflict   = errors.New("a Spark with that name already exists")
-	ErrSparkInUse = errors.New("move or delete this Spark's servers and finish its transfers before removing it")
+	ErrNotFound      = errors.New("spark not found")
+	ErrConflict      = errors.New("a Spark with that name already exists")
+	ErrSparkInUse    = errors.New("move or delete this Spark's servers and finish its transfers before removing it")
+	ErrSparkArchives = errors.New("this Spark still stores independent backup archives; export or copy them as needed, then explicitly delete them before removing it")
 )
 
 // SparkRepository persists Spark records using GORM.
@@ -48,6 +49,16 @@ func (r *SparkRepository) Delete(ctx context.Context, id string) error {
 
 		if count != 0 {
 			return ErrSparkInUse
+		}
+
+		if err := tx.Model(&database.Backup{}).Where("server_id IS NULL AND local = ? AND local_store = ?", true, "spark:"+id).Count(&count).Error; err != nil {
+			return err
+		}
+
+		if count != 0 {
+			// Identify the storage filter, not archive IDs/names that this
+			// Spark manager might not have backup permission to inspect.
+			return fmt.Errorf("%w. Search the Backups page for spark:%s to find accessible archives; contact a backup administrator if none are visible", ErrSparkArchives, id)
 		}
 
 		result := tx.Where("id = ?", id).Delete(&database.Spark{})

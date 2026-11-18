@@ -6,15 +6,25 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"campfire/internal/campfire/database"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 )
 
-// Update edits names and retention protection on the panel, including offline
-// archives and ongoing uploads. Conditional writes fence deletion claims.
+// Update retains the server-scoped endpoint while resolving stable identity.
 func (s *BackupService) Update(ctx context.Context, id, name string, input model.BackupChanges) (model.Backup, error) {
-	if !model.BackupName(name) || input.DisplayName == nil && input.Pinned == nil {
-		return model.Backup{}, &model.FileError{Code: model.FileInvalid, Message: "Select a backup and a name or pin change."}
+	row, err := s.Store.Get(ctx, id, name)
+	if err != nil {
+		return model.Backup{}, err
+	}
+
+	return s.UpdateArchive(ctx, row, input)
+}
+
+// UpdateArchive edits metadata without changing archive identity or association.
+func (s *BackupService) UpdateArchive(ctx context.Context, expected database.Backup, input model.BackupChanges) (model.Backup, error) {
+	if input.DisplayName == nil && input.Pinned == nil {
+		return model.Backup{}, &model.FileError{Code: model.FileInvalid, Message: "Select a name or pin change."}
 	}
 
 	changes := make(map[string]any)
@@ -32,7 +42,7 @@ func (s *BackupService) Update(ctx context.Context, id, name string, input model
 		changes["pinned"] = *input.Pinned
 	}
 
-	row, err := s.Store.Get(ctx, id, name)
+	row, err := s.Store.ByID(ctx, expected.ID)
 	if err != nil {
 		return model.Backup{}, err
 	}
@@ -45,14 +55,13 @@ func (s *BackupService) Update(ctx context.Context, id, name string, input model
 		return model.Backup{}, &model.FileError{Code: model.FileNotFound, Message: "Backup has no available copies."}
 	}
 
-	if err := s.Store.UpdateMetadata(ctx, id, name, changes); err != nil {
+	if err := s.Store.UpdateArchiveMetadata(ctx, expected, changes); err != nil {
 		return model.Backup{}, err
 	}
 
-	row, err = s.Store.Get(ctx, id, name)
-
+	row, err = s.Store.ByID(ctx, expected.ID)
 	s.mu.Lock()
-	uploading := s.uploading[id] == name
+	uploading := s.uploading[row.ServerID] == row.Name
 	s.mu.Unlock()
 
 	return backupView(row, uploading), err
