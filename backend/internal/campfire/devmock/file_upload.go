@@ -16,6 +16,7 @@ type mockUpload struct {
 	path     string
 	size     int64
 	offset   int64
+	revision string
 	expires  time.Time
 }
 
@@ -32,10 +33,15 @@ func (r *Runtime) uploadFile(record runtimeRecord, request model.FileRequest, re
 			return result, fileError(model.FileLimitExceeded, "File exceeds the upload limit.")
 		}
 
-		_, exists := record.Files[result.Path]
+		data, exists := record.Files[result.Path]
 		_, directory := record.Files[result.Path+"/"]
 
-		if exists || directory || result.Path == "." || request.Revision != "absent" {
+		expected := "absent"
+		if exists {
+			expected = revision(mockFileContent(data))
+		}
+
+		if directory || result.Path == "." || request.Revision != expected {
 			return result, fileError(model.FileConflict, "Destination already exists.")
 		}
 
@@ -54,7 +60,7 @@ func (r *Runtime) uploadFile(record runtimeRecord, request model.FileRequest, re
 		}
 
 		result.UploadID = rand.Text()
-		r.uploads[result.UploadID] = &mockUpload{serverID: request.ServerID, path: result.Path, size: request.Size, expires: time.Now().Add(15 * time.Minute)}
+		r.uploads[result.UploadID] = &mockUpload{serverID: request.ServerID, path: result.Path, size: request.Size, revision: expected, expires: time.Now().Add(15 * time.Minute)}
 
 		return result, nil
 	}
@@ -73,6 +79,16 @@ func (r *Runtime) uploadFile(record runtimeRecord, request model.FileRequest, re
 		upload.offset += int64(len(request.Data))
 		upload.expires = time.Now().Add(15 * time.Minute)
 	case model.FileOperationUploadCommit:
+		expected := "absent"
+		if data, exists := record.Files[result.Path]; exists {
+			expected = revision(mockFileContent(data))
+		}
+
+		_, directory := record.Files[result.Path+"/"]
+		if directory || expected != upload.revision {
+			return result, fileError(model.FileConflict, "Destination changed during upload.")
+		}
+
 		if upload.offset != upload.size {
 			return result, fileError(model.FileInvalid, "Upload is incomplete.")
 		}

@@ -18,6 +18,7 @@ export function InputDialog({
   submitLabel,
   initialValue = "",
   busyContent,
+  onCancelBusy,
   onClose,
   onSubmit,
 }: {
@@ -27,6 +28,7 @@ export function InputDialog({
   submitLabel: string;
   initialValue?: string;
   busyContent?: ReactNode;
+  onCancelBusy?: (() => void) | undefined;
   onClose: () => void;
   onSubmit: (value: string) => Promise<void>;
 }) {
@@ -116,8 +118,8 @@ export function InputDialog({
           <Button
             type="button"
 
-            disabled={busy}
-            onClick={onClose}
+            disabled={busy && !onCancelBusy}
+            onClick={() => (busy ? onCancelBusy?.() : onClose())}
           >
             {t("common.cancel")}
           </Button>

@@ -116,7 +116,7 @@ func File(operation model.FileOperation) ID {
 	switch operation {
 	case model.FileOperationList, model.FileOperationStat, model.FileOperationRead, model.FileOperationReadChunk:
 		return ServerFilesRead
-	case model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationChmod, model.FileOperationCompress, model.FileOperationExtract, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel:
+	case model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationChmod, model.FileOperationCompress, model.FileOperationExtract, model.FileOperationExtractStart, model.FileOperationExtractStatus, model.FileOperationExtractResolve, model.FileOperationExtractCancel, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel:
 		return ServerFilesWrite
 	case model.FileOperationDelete:
 		return ServerFilesDelete

@@ -63,6 +63,11 @@ func TestServerFeaturePermissionsAndOwnerOnlyAccess(t *testing.T) {
 			expectAccess(t, handler, "GET", endpoint+"/files", "", check.readFiles)
 			expectAccess(t, handler, "POST", endpoint+"/files", `{"operation":"write","path":"config.txt","data":"dGVzdA==","revision":"absent"}`, check.writeFiles)
 			expectAccess(t, handler, "POST", endpoint+"/files", `{"operation":"chmod","path":"config.txt","mode":384}`, check.writeFiles)
+
+			for _, operation := range []string{"extract.start", "extract.status", "extract.resolve", "extract.cancel"} {
+				expectAccess(t, handler, "POST", endpoint+"/files", `{"operation":"`+operation+`","path":"input.zip","destination":"existing","extraction":{"id":"12345678901234567890123456789012"}}`, check.writeFiles)
+			}
+
 			expectAccess(t, handler, "POST", endpoint+"/files", `{"operation":"delete","path":"config.txt"}`, check.deleteFiles)
 			expectAccess(t, handler, "GET", endpoint+"/backups", "", check.backups)
 			expectAccess(t, handler, "POST", endpoint+"/actions", `{"action":"start"}`, check.power)

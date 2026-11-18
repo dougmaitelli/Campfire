@@ -115,9 +115,24 @@ test("file drops show a stable overlay and upload into the open folder", async (
     mimeType: "text/plain",
     buffer: Buffer.from("overwrite"),
   });
-  await expect(page.getByRole("alert")).toContainText(
-    "Destination already exists.",
-  );
+  const conflict = page.getByRole("dialog", {
+    name: "Resolve upload conflict",
+  });
+  await expect(conflict).toBeVisible();
+  await expect(
+    conflict.getByRole("radio", { name: "Skip", exact: true }),
+  ).toBeChecked();
+  await conflict.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(
+    page.getByText(
+      "Upload results: 0 completed, 1 skipped, 0 failed, 0 not uploaded.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await browser
+    .getByRole("button", { name: "picker.txt", exact: true })
+    .click();
+  await expect(browser.getByRole("textbox")).toHaveValue("picker contents");
 });
 
 test("upload progress measures the queue and cancellation keeps completed files", async ({
@@ -181,11 +196,19 @@ test("upload progress measures the queue and cancellation keeps completed files"
       .click();
     release();
     await expect(
+      page.getByText(
+        "Upload results: 1 completed, 0 skipped, 0 failed, 2 not uploaded.",
+        {
+          exact: true,
+        },
+      ),
+    ).toBeVisible();
+    await expect(progress).toHaveCount(0);
+    await expect(
       page.getByText("Upload cancelled. Completed files are kept.", {
         exact: true,
       }),
-    ).toBeVisible();
-    await expect(progress).toHaveCount(0);
+    ).toHaveCount(0);
     await expect(
       browser.getByRole("button", { name: "completed.txt", exact: true }),
     ).toBeVisible();

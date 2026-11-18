@@ -25,7 +25,7 @@ func CommandTimeout(command Command) time.Duration {
 		return SparkUpdateTimeout
 	}
 
-	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation == model.FileOperationCompress || command.Files.Operation == model.FileOperationExtract || command.Files.Operation == model.FileOperationBackupUploadCommit) {
+	if command.Name == ServerFiles && command.Files != nil && (command.Files.Operation.IsArchive() || command.Files.Operation == model.FileOperationBackupUploadCommit) {
 		return 30 * time.Minute
 	}
 
@@ -42,6 +42,7 @@ const (
 	CapabilityFilePermissions  = "server.files.permissions.v1"
 	CapabilityFileTransfer     = "server.files.transfer.v1"
 	CapabilityFileArchive      = "server.files.archive.v1"
+	CapabilityExtractConflicts = "server.files.extract-conflicts.v1"
 	CapabilityBackups          = "server.backups.v4"
 	CapabilityBackupRemote     = "server.backups.remote.v1"
 	CapabilityMetrics          = "server.metrics.v1"
@@ -62,7 +63,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration, CapabilityGameStateLists}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityExtractConflicts, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration, CapabilityGameStateLists}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -145,15 +146,19 @@ var commandCapabilities = map[CommandName][]string{
 }
 
 var fileOperationCapabilities = map[model.FileOperation]string{
-	model.FileOperationChmod:        CapabilityFilePermissions,
-	model.FileOperationStat:         CapabilityFileTransfer,
-	model.FileOperationReadChunk:    CapabilityFileTransfer,
-	model.FileOperationUploadBegin:  CapabilityFileTransfer,
-	model.FileOperationUploadChunk:  CapabilityFileTransfer,
-	model.FileOperationUploadCommit: CapabilityFileTransfer,
-	model.FileOperationUploadCancel: CapabilityFileTransfer,
-	model.FileOperationCompress:     CapabilityFileArchive,
-	model.FileOperationExtract:      CapabilityFileArchive,
+	model.FileOperationChmod:          CapabilityFilePermissions,
+	model.FileOperationStat:           CapabilityFileTransfer,
+	model.FileOperationReadChunk:      CapabilityFileTransfer,
+	model.FileOperationUploadBegin:    CapabilityFileTransfer,
+	model.FileOperationUploadChunk:    CapabilityFileTransfer,
+	model.FileOperationUploadCommit:   CapabilityFileTransfer,
+	model.FileOperationUploadCancel:   CapabilityFileTransfer,
+	model.FileOperationCompress:       CapabilityFileArchive,
+	model.FileOperationExtract:        CapabilityFileArchive,
+	model.FileOperationExtractStart:   CapabilityExtractConflicts,
+	model.FileOperationExtractStatus:  CapabilityExtractConflicts,
+	model.FileOperationExtractResolve: CapabilityExtractConflicts,
+	model.FileOperationExtractCancel:  CapabilityExtractConflicts,
 }
 
 var runtimeActionCapabilities = map[model.ServerAction][]string{

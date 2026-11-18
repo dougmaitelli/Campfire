@@ -1,6 +1,68 @@
 import { test, expect } from "./fixtures";
 import { login, openServerTab } from "./screens";
 
+test("cancelling a dispatched fresh-folder extraction reports completion as unconfirmed", async ({
+  page,
+}) => {
+  await login(page);
+  await openServerTab(page, "files", "Files");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "fresh.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from("archive contents"),
+  });
+  await page
+    .getByRole("button", { name: "Extract fresh.zip", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Extract archive",
+    exact: true,
+  });
+  let dispatched = false;
+  let cancelRequests = 0;
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/v1/servers/survival/files", async (route) => {
+    const input = route.request().postDataJSON() as { operation: string };
+    if (input.operation === "extract") {
+      dispatched = true;
+      await held;
+      await route.fulfill({ json: { server_id: "survival", path: "/fresh/" } });
+      return;
+    }
+    if (input.operation === "extract.cancel") cancelRequests++;
+    await route.continue();
+  });
+  try {
+    await dialog.getByRole("button", { name: "Extract", exact: true }).click();
+    await expect.poll(() => dispatched).toBe(true);
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByText(
+        "Extraction completion could not be confirmed. Check the destination before retrying.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Extraction results: 0 completed, 0 skipped, 0 failed, 0 not extracted, 1 unconfirmed.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Extraction finished. Check the entry results below.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    expect(cancelRequests).toBe(0);
+  } finally {
+    release();
+  }
+});
+
 test("RAR extraction shows progress and allows retry after a failure", async ({
   page,
 }) => {
@@ -19,7 +81,7 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
     exact: true,
   });
   const input = dialog.getByRole("textbox", {
-    name: "New folder name",
+    name: "Destination folder",
     exact: true,
   });
   await expect(input).toHaveValue("test-archive");
@@ -34,6 +96,7 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
       operation: string;
       path: string;
       destination?: string;
+      extraction?: { id: string };
     };
     if (request.operation === "extract") {
       expect(request.path).toBe("/test-archive.RAR");
@@ -50,6 +113,11 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
           json: { server_id: "survival", path: "/test-archive/" },
         });
       }
+    } else if (request.operation === "extract.cancel") {
+      await route.fulfill({
+        status: 404,
+        json: { error: "Extraction operation not found." },
+      });
     } else {
       if (request.operation === "list") refreshed = true;
       await route.continue();
@@ -66,7 +134,7 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
     await expect(input).toBeDisabled();
     await expect(
       dialog.getByRole("button", { name: "Cancel", exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     await expect(
       dialog.getByRole("button", { name: "Close", exact: true }),
     ).toBeDisabled();

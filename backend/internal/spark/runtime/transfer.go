@@ -122,8 +122,8 @@ func (m *Manager) Job(ctx context.Context, d model.Deployment, q model.JobReques
 		return m.transferProgress(t)
 	}
 
-	if e.Status.Busy {
-		return model.JobResult{}, errors.New("another server operation is in progress")
+	if e.Status.Busy || m.fileOperations.Active(q.ServerID) {
+		return model.JobResult{}, errors.New("another server operation or extraction is in progress")
 	}
 
 	if t == nil {

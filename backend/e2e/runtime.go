@@ -65,8 +65,14 @@ func (r *runtime) Files(ctx context.Context, _ string, input model.FileRequest) 
 	name := path.Clean(input.Path)
 	switch input.Operation {
 	case "upload.begin":
-		if _, exists := files[name]; exists {
-			return result, &model.FileError{Code: model.FileConflict, Message: "Destination already exists."}
+		expected := "absent"
+		if contents, exists := files[name]; exists {
+			expected = revision(contents)
+		}
+
+		_, directory := files[name+"/"]
+		if directory || input.Revision != expected {
+			return result, &model.FileError{Code: model.FileConflict, Message: "Destination changed or already exists."}
 		}
 
 		if r.uploads == nil {
@@ -74,7 +80,7 @@ func (r *runtime) Files(ctx context.Context, _ string, input model.FileRequest) 
 		}
 
 		result.UploadID = rand.Text()
-		r.uploads[result.UploadID] = &uploadFixture{serverID: input.ServerID, path: name, size: input.Size}
+		r.uploads[result.UploadID] = &uploadFixture{serverID: input.ServerID, path: name, size: input.Size, revision: expected}
 	case "upload.chunk", "upload.commit", "upload.cancel":
 		upload := r.uploads[input.UploadID]
 		if upload == nil || upload.serverID != input.ServerID || upload.path != name {
@@ -93,8 +99,14 @@ func (r *runtime) Files(ctx context.Context, _ string, input model.FileRequest) 
 				return result, &model.FileError{Code: model.FileInvalid, Message: "Upload is incomplete."}
 			}
 
-			if _, exists := files[name]; exists {
-				return result, &model.FileError{Code: model.FileConflict, Message: "Destination already exists."}
+			expected := "absent"
+			if contents, exists := files[name]; exists {
+				expected = revision(contents)
+			}
+
+			_, directory := files[name+"/"]
+			if directory || expected != upload.revision {
+				return result, &model.FileError{Code: model.FileConflict, Message: "Destination changed during upload."}
 			}
 
 			files[name] = string(upload.data)
@@ -201,6 +213,22 @@ func (r *runtime) Files(ctx context.Context, _ string, input model.FileRequest) 
 		}
 
 		modes[name] = input.Mode
+	case "stat":
+		contents, exists := files[name]
+
+		_, directory := files[name+"/"]
+		directory = directory || name == "."
+		if !exists && !directory {
+			return result, &model.FileError{Code: model.FileNotFound, Message: "File not found."}
+		}
+
+		kind := model.FileKindFile
+		if directory {
+			kind = model.FileKindDirectory
+		}
+
+		result.Revision, result.Size = revision(contents), int64(len(contents))
+		result.Entries = []model.FileEntry{{Name: path.Base(name), Kind: kind, Mode: 0600, Size: result.Size, ModifiedAt: fixed}}
 	case "read":
 		contents, exists := files[name]
 		if !exists {

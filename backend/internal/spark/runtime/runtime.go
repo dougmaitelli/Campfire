@@ -15,11 +15,13 @@ import (
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
+	"campfire/internal/spark/runtime/fileops"
 )
 
 // Manager shares lifecycle behavior between the panel and remote Spark processes.
 type Manager struct {
-	Directory string
+	Directory      string
+	fileOperations *fileops.Manager
 	// GameIntegrationMount creates an isolated directory mounted into game containers.
 	GameIntegrationMount func(string) (string, error)
 	Docker               Executor
@@ -42,16 +44,15 @@ type Manager struct {
 }
 
 type entry struct {
-	mu             sync.Mutex
-	cancel         context.CancelFunc
-	interrupted    bool
-	uploads        map[string]*fileUpload
-	backupUploads  map[string]*backupUpload
-	lastUploadScan time.Time
-	Installed      bool                `json:"installed"`
-	Images         []string            `json:"images,omitempty"`
-	Revision       string              `json:"revision"`
-	Status         model.RuntimeStatus `json:"status"`
+	mu            sync.Mutex
+	cancel        context.CancelFunc
+	interrupted   bool
+	files         *fileops.State
+	backupUploads map[string]*backupUpload
+	Installed     bool                `json:"installed"`
+	Images        []string            `json:"images,omitempty"`
+	Revision      string              `json:"revision"`
+	Status        model.RuntimeStatus `json:"status"`
 }
 
 // New constructs a manager whose background operations follow the process lifetime.
@@ -68,7 +69,10 @@ func New(ctx context.Context, directory string) *Manager {
 		quota = nil
 	}
 
-	return &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: quota, quotaUnavailable: quotaUnavailable, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
+	m := &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: quota, quotaUnavailable: quotaUnavailable, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
+	m.fileOperations = m.newFileOperations()
+
+	return m
 }
 
 // Close prevents new operations and waits for in-flight work after process cancellation.
@@ -77,6 +81,7 @@ func (m *Manager) Close() {
 	m.closed = true
 	m.mu.Unlock()
 	m.cancel()
+	m.fileOperations.Close()
 	m.logMu.Lock()
 	for _, monitor := range m.logMonitors {
 		<-monitor.done
@@ -319,6 +324,10 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		}
 
 		return model.RuntimeStatus{}, errors.New("another server operation is in progress")
+	}
+
+	if q.Action.LocksFileSystem() && m.fileOperations.Active(q.ServerID) {
+		return model.RuntimeStatus{}, errors.New("wait for extraction to finish or cancel it before starting this server operation")
 	}
 
 	if q.Action == model.ServerActionRestore || q.Action == model.ServerActionInstall || q.Action == model.ServerActionUpdate || q.Action == model.ServerActionReinstall {

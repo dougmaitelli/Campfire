@@ -153,12 +153,17 @@ export const FileOperation = {
   Rename: "rename",
   Delete: "delete",
   Chmod: "chmod",
+  Stat: "stat",
   UploadBegin: "upload.begin",
   UploadChunk: "upload.chunk",
   UploadCommit: "upload.commit",
   UploadCancel: "upload.cancel",
   Compress: "compress",
   Extract: "extract",
+  ExtractStart: "extract.start",
+  ExtractStatus: "extract.status",
+  ExtractResolve: "extract.resolve",
+  ExtractCancel: "extract.cancel",
 } as const;
 export type FileOperation = (typeof FileOperation)[keyof typeof FileOperation];
 export const VariableType = {

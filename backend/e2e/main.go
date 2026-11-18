@@ -59,6 +59,7 @@ type uploadFixture struct {
 	path     string
 	size     int64
 	data     []byte
+	revision string
 }
 
 func (*runtime) Connected(id string) bool { return id != "mock-offline" }

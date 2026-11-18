@@ -37,10 +37,15 @@ import { canPerformServer } from "../../permissions";
 import { useNavigationGuard } from "../../hooks/useNavigationGuard";
 import { useConfirmation } from "../../hooks/useConfirmation";
 import { FileDropZone } from "../files/FileDropZone";
-import {
-  FileUploadProgress,
-  type UploadProgress,
-} from "../files/FileUploadProgress";
+import { FileUploadProgress } from "../files/FileUploadProgress";
+import type { UploadProgress } from "../files/uploadTypes";
+
+import { FileResults } from "../files/FileResults";
+import { summarizeFileOutcomes, type FileOutcome } from "../files/fileOutcomes";
+import { useFileConflicts } from "../files/useFileConflicts";
+import { extractArchive } from "../files/extractArchive";
+import { uploadFiles as runUploads } from "../files/uploadFiles";
+import { normalizeFileName } from "../files/fileNames";
 
 interface Editor {
   path: string;
@@ -55,15 +60,8 @@ function join(directory: string, name: string) {
 
 function entryName(value: string | null): string | null {
   if (value === null) return null;
-  const name = value.trim();
-  if (
-    !name ||
-    name === "." ||
-    name === ".." ||
-    name.includes("/") ||
-    name.includes("\\") ||
-    Array.from(name).some((char) => char.charCodeAt(0) < 32)
-  )
+  const name = normalizeFileName(value);
+  if (name === null)
     throw new Error(
       i18n.t("serverFileBrowser.enterAFileOrFolderNameWithoutSlashesOrControl"),
     );
@@ -138,10 +136,13 @@ export function ServerFileBrowser({
   const transfer = useRef<AbortController | null>(null);
   const uploadInput = useRef<HTMLInputElement | null>(null);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
-  const [uploadNotice, setUploadNotice] = useState<{
-    tone: "info" | "success";
-    text: string;
+  const [fileOperationNotice, setFileOperationNotice] = useState<{
+    tone: "info" | "success" | "error";
+    text: string | null;
+    outcomes: FileOutcome[];
+    operation?: "upload" | "extract";
   } | null>(null);
+  const { createSession, dialog: fileConflictDialog } = useFileConflicts();
   const canUpload =
     canWrite &&
     !busy &&
@@ -386,58 +387,42 @@ export function ServerFileBrowser({
   async function uploadFiles(files: File[]) {
     if (!canUpload || pending.current || !files.length) return;
     await perform(async () => {
-      setUploadNotice(null);
-      for (const file of files) {
-        entryName(file.name);
-        if (file.size > maxUploadBytes)
-          throw new Error(
-            t("serverFileBrowser.uploadsAreLimitedPerFile", {
-              size: formatBytes(maxUploadBytes),
-            }),
-          );
-      }
+      setFileOperationNotice(null);
       const controller = new AbortController();
       transfer.current = controller;
       const folder = directory;
-      const totalBytes = files.reduce((total, file) => total + file.size, 0);
-      let uploadedBytes = 0;
       try {
-        for (const [index, file] of files.entries()) {
-          controller.signal.throwIfAborted();
-          if (!alive.current) break;
-          setProgress({
-            name: file.name,
-            index: index + 1,
-            count: files.length,
-            completedFiles: index,
-            uploadedBytes,
-            totalBytes,
-            phase: "uploading",
+        const outcomes = await runUploads({
+          id: server.id,
+          directory: folder,
+          files,
+          maxBytes: maxUploadBytes,
+          resolve: createSession("upload"),
+          signal: controller.signal,
+          onProgress: (value) => {
+            if (alive.current && !controller.signal.aborted) setProgress(value);
+          },
+        });
+        if (alive.current) {
+          const summary = summarizeFileOutcomes(outcomes);
+          const failed = summary.failed > 0 || summary.unconfirmed > 0;
+          let text: string | null = null;
+          if (summary.unconfirmed > 0)
+            text = t("fileUploads.completionUnconfirmed");
+          else if (summary.failed > 0) text = t("fileUploads.someFailed");
+          else if (summary.cancelled === 0)
+            text = t("fileUploads.completed", { count: summary.completed });
+          setFileOperationNotice({
+            tone: failed
+              ? "error"
+              : summary.cancelled > 0 || summary.skipped > 0
+                ? "info"
+                : "success",
+            text,
+            outcomes,
+            operation: "upload",
           });
-          const previousBytes = uploadedBytes;
-          await upload(file, controller, (transferred, phase) => {
-            if (alive.current && !controller.signal.aborted)
-              setProgress({
-                name: file.name,
-                index: index + 1,
-                count: files.length,
-                completedFiles: index,
-                uploadedBytes: previousBytes + transferred,
-                totalBytes,
-                phase,
-              });
-          });
-          uploadedBytes += file.size;
         }
-        if (alive.current)
-          setUploadNotice({
-            tone: "success",
-            text: t("fileUploads.completed", { count: files.length }),
-          });
-      } catch (cause) {
-        if (!controller.signal.aborted) throw cause;
-        if (alive.current)
-          setUploadNotice({ tone: "info", text: t("fileUploads.cancelled") });
       } finally {
         transfer.current = null;
         if (alive.current) {
@@ -454,98 +439,62 @@ export function ServerFileBrowser({
     );
     transfer.current.abort();
   }
-  async function upload(
-    file: File,
-    controller: AbortController,
-    onProgress: (uploaded: number, phase: "uploading" | "saving") => void,
-  ) {
-    if (maxUploadBytes === null)
-      throw new Error(
-        i18n.t(
-          "serverFileBrowser.uploadLimitIsUnavailableReopenFilesToTryAgain",
-        ),
-      );
-    if (file.size > maxUploadBytes)
-      throw new Error(
-        i18n.t("serverFileBrowser.uploadsAreLimitedPerFile", {
-          size: formatBytes(maxUploadBytes),
-        }),
-      );
-    const name = entryName(file.name);
-    if (name === null) return;
-    const target = join(directory, name);
-    let uploadID: string | undefined;
-    let committed = false;
+  async function archive(entry: FileEntry, extract: boolean, value: string) {
+    const destination =
+      extract && (value === "." || value === "./")
+        ? directory
+        : join(directory, entryName(value) ?? "");
+    if (pending.current || !canWrite) return;
+    pending.current = true;
+    setBusy(true);
+    setFileOperationNotice(null);
+    const controller = new AbortController();
+    transfer.current = controller;
     try {
-      const started = await manageFiles(
-        server.id,
-        {
-          operation: FileOperation.UploadBegin,
-          path: target,
-          revision: "absent",
-          size: file.size,
-        },
-        controller.signal,
-      );
-      uploadID = started.upload_id;
-      if (!uploadID)
-        throw new Error(i18n.t("serverFileBrowser.uploadSessionIsMissing"));
-      for (let offset = 0; offset < file.size; offset += fileLimit) {
-        controller.signal.throwIfAborted();
-        const data = encodeBytes(
-          new Uint8Array(
-            await file.slice(offset, offset + fileLimit).arrayBuffer(),
-          ),
-        );
-        controller.signal.throwIfAborted();
+      if (extract) {
+        const { outcomes, state: extractionState } = await extractArchive({
+          id: server.id,
+          source: join(directory, entry.name),
+          destination,
+          directory,
+          resolve: createSession("extract"),
+          signal: controller.signal,
+        });
+        if (alive.current) {
+          const summary = summarizeFileOutcomes(outcomes);
+          let text: string | null = null;
+          if (extractionState === "unconfirmed" || summary.unconfirmed > 0)
+            text = t("fileExtraction.completionUnconfirmed");
+          else if (summary.failed > 0) text = t("fileExtraction.someFailed");
+          else if (extractionState !== "cancelled" && summary.cancelled === 0)
+            text = t("fileExtraction.finished");
+          setFileOperationNotice({
+            operation: "extract",
+            outcomes,
+            tone:
+              summary.failed > 0 || summary.unconfirmed > 0 ? "error" : "info",
+            text,
+          });
+        }
+      } else {
         await manageFiles(
           server.id,
           {
-            operation: FileOperation.UploadChunk,
-            path: target,
-            upload_id: uploadID,
-            offset,
-            data,
+            operation: FileOperation.Compress,
+            path: join(directory, entry.name),
+            destination,
           },
           controller.signal,
         );
-        onProgress(Math.min(file.size, offset + fileLimit), "uploading");
       }
-      controller.signal.throwIfAborted();
-      onProgress(file.size, "saving");
-      await manageFiles(
-        server.id,
-        {
-          operation: FileOperation.UploadCommit,
-          path: target,
-          upload_id: uploadID,
-        },
-        controller.signal,
-      );
-      committed = true;
     } finally {
-      if (uploadID && !committed) {
-        try {
-          await manageFiles(server.id, {
-            operation: FileOperation.UploadCancel,
-            path: target,
-            upload_id: uploadID,
-          });
-        } catch {
-          /* Expired staging files are cleaned on the Spark. */
-        }
+      if (alive.current) {
+        await load(directory, undefined, true);
+        setBusy(false);
       }
+      pending.current = false;
+      transfer.current = null;
     }
-  }
-  async function archive(entry: FileEntry, extract: boolean, value: string) {
-    const destination = entryName(value);
-    if (!destination) return;
-    await manageFiles(server.id, {
-      operation: extract ? FileOperation.Extract : FileOperation.Compress,
-      path: join(directory, entry.name),
-      destination: join(directory, destination),
-    });
-    await load(directory);
   }
   async function bulkSubmit(value: string) {
     if (!canWrite || !selectedEntries.length) return;
@@ -721,6 +670,7 @@ export function ServerFileBrowser({
       }
     >
       {confirmationDialog}
+      {fileConflictDialog}
       <FileDropZone
         className="panel-content"
         enabled={canUpload}
@@ -774,15 +724,20 @@ export function ServerFileBrowser({
                 ? t("serverFileBrowser.newName")
                 : fileAction.kind === "compress"
                   ? t("serverFileBrowser.archiveName")
-                  : t("serverFileBrowser.newFolderName")
+                  : t("fileExtraction.destinationFolder")
             }
-            description={t("serverFileBrowser.in", {
-              fileActionEntryName: fileAction.entry.name,
-              directoryTheRoot:
-                directory === "/"
-                  ? t("serverFileBrowser.theRootFolder")
-                  : directory,
-            })}
+            description={t(
+              fileAction.kind === "extract"
+                ? "fileExtraction.destinationHelp"
+                : "serverFileBrowser.in",
+              {
+                fileActionEntryName: fileAction.entry.name,
+                directoryTheRoot:
+                  directory === "/"
+                    ? t("serverFileBrowser.theRootFolder")
+                    : directory,
+              },
+            )}
             submitLabel={
               fileAction.kind === "rename"
                 ? t("serverFileBrowser.rename2")
@@ -808,6 +763,11 @@ export function ServerFileBrowser({
                   })}
                 />
               )
+            }
+            onCancelBusy={
+              fileAction.kind === "extract"
+                ? () => transfer.current?.abort()
+                : undefined
             }
             onClose={() => setFileAction(null)}
             onSubmit={(name) =>
@@ -889,10 +849,18 @@ export function ServerFileBrowser({
         {progress && (
           <FileUploadProgress progress={progress} onCancel={cancelUpload} />
         )}
-        {uploadNotice && (
-          <InlineMessage tone={uploadNotice.tone}>
-            {uploadNotice.text}
-          </InlineMessage>
+        {fileOperationNotice && (
+          <>
+            {fileOperationNotice.text && (
+              <InlineMessage tone={fileOperationNotice.tone}>
+                {fileOperationNotice.text}
+              </InlineMessage>
+            )}
+            <FileResults
+              outcomes={fileOperationNotice.outcomes}
+              operation={fileOperationNotice.operation ?? "upload"}
+            />
+          </>
         )}
         {error && <InlineMessage role="alert">{error}</InlineMessage>}
         {loadError && (entries.length > 0 || editor !== null) && (

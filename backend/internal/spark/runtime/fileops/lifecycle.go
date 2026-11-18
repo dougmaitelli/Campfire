@@ -1,0 +1,157 @@
+// Package fileops implements server-file management, archive extraction and
+// short-lived conflict waits. The runtime supplies only game-file ownership.
+package fileops
+
+import (
+	"context"
+	"os"
+	"sync"
+	"time"
+
+	"campfire/internal/shared/model"
+)
+
+// Host supplies runtime ownership without coupling file operations to containers.
+type Host struct{ FileOwner func(*os.File, string) error }
+
+// Manager owns file operations and their temporary conflict state.
+type Manager struct {
+	Host
+	ctx        context.Context
+	cancel     context.CancelFunc
+	mu         sync.Mutex
+	operations map[string]*extractionSession
+	closed     bool
+	wg         sync.WaitGroup
+}
+
+// State contains upload state protected by the runtime's server-entry lock.
+type State struct {
+	uploads        map[string]*fileUpload
+	lastUploadScan time.Time
+}
+
+// New starts file-operation lifecycle management.
+func New(host Host) *Manager {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Manager{Host: host, ctx: ctx, cancel: cancel, operations: make(map[string]*extractionSession)}
+}
+
+// ActiveUploads reports uploads awaiting publication; the caller holds the server lock.
+func (s *State) ActiveUploads() bool { return s != nil && len(s.uploads) > 0 }
+
+// Active reports whether a server has unfinished extraction work.
+func (m *Manager) Active(serverID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, s := range m.operations {
+		if s.serverID == serverID {
+			s.mu.Lock()
+			active := s.busy()
+			s.mu.Unlock()
+
+			if active {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// Close cancels work, waits for writers and removes pending temporary content.
+func (m *Manager) Close() {
+	m.mu.Lock()
+	m.closed = true
+	m.cancel()
+
+	operations := make([]*extractionSession, 0, len(m.operations))
+	for _, s := range m.operations {
+		operations = append(operations, s)
+	}
+	m.mu.Unlock()
+
+	for _, s := range operations {
+		s.cancel()
+		s.mu.Lock()
+		s.stopTimer()
+
+		if !s.state.Terminal() {
+			s.stop(model.ExtractionCancelled, "Spark stopped. Completed entries were kept.")
+		}
+		s.mu.Unlock()
+	}
+
+	m.wg.Wait()
+
+	for _, s := range operations {
+		s.mu.Lock()
+		s.cleanup()
+		s.mu.Unlock()
+	}
+}
+
+// The caller holds the session lock. Invalidate callbacks already queued by Stop.
+func (s *extractionSession) stopTimer() {
+	s.timerGeneration++
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+}
+
+// Only idle conflict waits expire. Active decoding/copying is cancelled by the
+// operation, not by a human-response timer. Reading status never renews it.
+func (m *Manager) armExtraction(s *extractionSession) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if m.ctx.Err() != nil {
+		return
+	}
+
+	s.stopTimer()
+	generation := s.timerGeneration
+
+	if s.state == model.ExtractionRunning {
+		return
+	}
+
+	if s.state.Terminal() {
+		s.expires = time.Now().Add(extractionTTL)
+	}
+
+	s.timer = time.AfterFunc(time.Until(s.expires), func() {
+		s.mu.Lock()
+		if generation != s.timerGeneration {
+			s.mu.Unlock()
+			return
+		}
+
+		if time.Now().Before(s.expires) {
+			s.mu.Unlock()
+			m.armExtraction(s)
+
+			return
+		}
+
+		if s.state == model.ExtractionWaiting {
+			s.stop(model.ExtractionExpired, "Extraction expired while waiting for a response. Completed entries were kept.")
+			s.mu.Unlock()
+			m.armExtraction(s)
+
+			return
+		}
+
+		terminal := !s.busy()
+		s.mu.Unlock()
+
+		if terminal {
+			m.mu.Lock()
+			if m.operations[s.id] == s {
+				delete(m.operations, s.id)
+			}
+			m.mu.Unlock()
+		}
+	})
+}

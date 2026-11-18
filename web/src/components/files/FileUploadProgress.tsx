@@ -2,17 +2,8 @@ import { useTranslation } from "react-i18next";
 import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
 import { ProgressBar } from "../status/ProgressBar";
+import type { UploadProgress } from "./uploadTypes";
 import "./file-upload.css";
-
-export interface UploadProgress {
-  name: string;
-  index: number;
-  count: number;
-  completedFiles: number;
-  uploadedBytes: number;
-  totalBytes: number;
-  phase: "uploading" | "saving" | "cancelling";
-}
 
 export function FileUploadProgress({
   progress,

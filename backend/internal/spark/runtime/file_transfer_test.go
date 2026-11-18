@@ -311,8 +311,12 @@ func TestArchivesRoundTripAndContainment(t *testing.T) {
 			t.Fatalf("accepted unsafe path %q", entry)
 		}
 
-		if _, err := os.Stat(filepath.Join(volume, "bad-output")); !os.IsNotExist(err) {
-			t.Fatal("failed archive published")
+		if files, err := os.ReadDir(filepath.Join(volume, "bad-output")); err != nil || len(files) != 0 {
+			t.Fatal("unsafe archive wrote an entry", files, err)
+		}
+
+		if err := os.Remove(filepath.Join(volume, "bad-output")); err != nil {
+			t.Fatal(err)
 		}
 	}
 
@@ -421,8 +425,12 @@ func TestArchiveRejectsLinksDuplicatesAndQuotaExpansion(t *testing.T) {
 				t.Fatal("unsafe archive accepted")
 			}
 
-			if _, err := os.Stat(filepath.Join(volume, "output")); !os.IsNotExist(err) {
-				t.Fatal("failed archive published")
+			if info, err := os.Stat(filepath.Join(volume, "output")); err != nil || !info.IsDir() {
+				t.Fatal("extraction destination unexpectedly removed", err)
+			}
+
+			if _, err := os.Lstat(filepath.Join(volume, "output/link")); err == nil {
+				t.Fatal("unsafe link was extracted")
 			}
 		})
 	}

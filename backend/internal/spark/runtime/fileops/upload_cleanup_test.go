@@ -1,4 +1,4 @@
-package runtime
+package fileops
 
 import (
 	"errors"
@@ -11,8 +11,11 @@ import (
 )
 
 func TestUploadCleanupScansPeriodicallyAndExpiresActiveSessions(t *testing.T) {
-	m, d := fileTestManager(t)
-	directory := filepath.Join(m.root(d.ServerID), "data")
+	m := New(Host{FileOwner: func(*os.File, string) error { return nil }})
+	t.Cleanup(m.Close)
+
+	d := model.Deployment{ServerID: "test-server"}
+	directory := t.TempDir()
 	old := time.Now().Add(-2 * time.Hour)
 	staging := func(name string, folder bool) string {
 		t.Helper()
@@ -36,16 +39,12 @@ func TestUploadCleanupScansPeriodicallyAndExpiresActiveSessions(t *testing.T) {
 	archive := staging(".campfire-archive-abandoned", true)
 	active := staging(".campfire-upload-active", false)
 
-	entry, err := m.load(d.ServerID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	entry := &State{}
 	entry.uploads = map[string]*fileUpload{"active": {temporary: filepath.Base(active), touched: time.Now()}}
 	call := func() {
 		t.Helper()
 
-		if _, err := m.Files(t.Context(), d, model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperationList, Path: "."}); err != nil {
+		if _, err := m.Files(t.Context(), d, directory, entry, model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperationList, Path: "."}); err != nil {
 			t.Fatal(err)
 		}
 	}

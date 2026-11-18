@@ -25,7 +25,7 @@ func (m *Manager) CanUpdate() error {
 
 	for _, entry := range entries {
 		entry.mu.Lock()
-		busy := entry.Status.Busy || len(entry.uploads) > 0
+		busy := entry.Status.Busy || entry.files.ActiveUploads() || m.fileOperations.Active(entry.Status.ServerID)
 		entry.mu.Unlock()
 
 		if busy {

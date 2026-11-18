@@ -50,14 +50,6 @@ func writeAtomic(path string, data []byte, mode fs.FileMode) error {
 
 // importedMode ignores foreign access permissions while retaining executability.
 // Game files are private to the runtime user and must remain writable.
-func importedMode(mode fs.FileMode) fs.FileMode {
-	if mode.IsDir() || mode&0111 != 0 {
-		return 0700
-	}
-
-	return 0600
-}
-
 func ownership(directory, user string) error {
 	parts := strings.Split(user, ":")
 

@@ -3,6 +3,23 @@ import { isEnumValue } from "../utils/validation";
 import { FileKind, FileOperation } from "../contracts/domains";
 import i18n from "../i18n";
 import { apiFetch, readJSON, apiJSON } from "./client";
+import { extractionStates, extractionOutcomeStatuses } from "./fileTypes";
+import type {
+  FileEntry,
+  FileRequest,
+  FileResult,
+  ExtractionStatus,
+} from "./fileTypes";
+export type {
+  FileEntry,
+  FileRequest,
+  FileResult,
+  ExtractionStatus,
+  ExtractionConflict,
+  ExtractionChoice,
+  ExtractionOutcome,
+  PublicationStatus,
+} from "./fileTypes";
 
 export const fileLimit = 1024 * 1024;
 export const fileTransferLimit = 100 * 1024 ** 3;
@@ -27,14 +44,6 @@ export async function uploadLimit(
   )
     throw new Error(i18n.t("files.unexpectedUploadLimitResponse"));
   return body.max_upload_bytes;
-}
-
-export interface FileEntry {
-  mode?: number;
-  name: string;
-  kind: FileKind;
-  size: number;
-  modified_at: string;
 }
 
 export function fileExtension(name: string): string {
@@ -92,27 +101,6 @@ export function canOpenFile(entry: FileEntry): boolean {
     "ttf",
   ]).has(fileExtension(entry.name));
 }
-export interface FileResult {
-  server_id: string;
-  path: string;
-  entries?: FileEntry[];
-  data?: string;
-  revision?: string;
-  upload_id?: string;
-}
-export interface FileRequest {
-  operation: FileOperation;
-  path: string;
-  mode?: number;
-  paths?: string[];
-  destination?: string;
-  data?: string;
-  revision?: string;
-  upload_id?: string;
-  offset?: number;
-  size?: number;
-}
-
 function isEntry(value: unknown): value is FileEntry {
   return (
     typeof value === "object" &&
@@ -130,6 +118,63 @@ function isEntry(value: unknown): value is FileEntry {
   );
 }
 
+function isExtraction(value: unknown): value is ExtractionStatus {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.id !== "string" ||
+    !v.id ||
+    typeof v.version !== "number" ||
+    !Number.isSafeInteger(v.version) ||
+    v.version < 0 ||
+    typeof v.state !== "string" ||
+    !extractionStates.some((state) => state === v.state) ||
+    typeof v.expires_at !== "string" ||
+    !Number.isFinite(Date.parse(v.expires_at)) ||
+    typeof v.pending_conflicts !== "number" ||
+    !Number.isSafeInteger(v.pending_conflicts) ||
+    v.pending_conflicts < 0 ||
+    typeof v.remaining_entries !== "number" ||
+    !Number.isSafeInteger(v.remaining_entries) ||
+    v.remaining_entries < v.pending_conflicts ||
+    !Array.isArray(v.outcomes) ||
+    !v.outcomes.every(isOutcome) ||
+    ("message" in v && typeof v.message !== "string")
+  )
+    return false;
+  if (v.pending_conflicts === 0) return !("conflict" in v);
+  if (typeof v.conflict !== "object" || v.conflict === null) return false;
+  const conflict = v.conflict as Record<string, unknown>;
+  return (
+    typeof conflict.id === "string" &&
+    conflict.id.length > 0 &&
+    typeof conflict.path === "string" &&
+    typeof conflict.destination === "string" &&
+    (conflict.kind === FileKind.File || conflict.kind === FileKind.Directory) &&
+    typeof conflict.size === "number" &&
+    Number.isSafeInteger(conflict.size) &&
+    conflict.size >= 0 &&
+    (!("existing" in conflict) || isEntry(conflict.existing)) &&
+    (!("changed" in conflict) || typeof conflict.changed === "boolean") &&
+    (!("protected" in conflict) || typeof conflict.protected === "boolean")
+  );
+}
+function isOutcome(
+  value: unknown,
+): value is ExtractionStatus["outcomes"][number] {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "path" in value &&
+    typeof value.path === "string" &&
+    "destination" in value &&
+    typeof value.destination === "string" &&
+    "status" in value &&
+    typeof value.status === "string" &&
+    extractionOutcomeStatuses.some((status) => status === value.status) &&
+    (!("message" in value) || typeof value.message === "string")
+  );
+}
 function isResult(value: unknown): value is FileResult {
   return (
     typeof value === "object" &&
@@ -143,7 +188,8 @@ function isResult(value: unknown): value is FileResult {
       (Array.isArray(value.entries) && value.entries.every(isEntry))) &&
     (!("data" in value) || typeof value.data === "string") &&
     (!("revision" in value) || typeof value.revision === "string") &&
-    (!("upload_id" in value) || typeof value.upload_id === "string")
+    (!("upload_id" in value) || typeof value.upload_id === "string") &&
+    (!("extraction" in value) || isExtraction(value.extraction))
   );
 }
 
@@ -153,7 +199,9 @@ export async function manageFiles(
   signal?: AbortSignal,
 ): Promise<FileResult> {
   const timeout =
-    input.operation === FileOperation.Compress || input.operation === "extract"
+    input.operation === FileOperation.Compress ||
+    input.operation === FileOperation.Extract ||
+    input.operation === FileOperation.ExtractStart
       ? RequestTimeout.Archive
       : RequestTimeout.Read;
   const body = await readJSON(
@@ -167,7 +215,9 @@ export async function manageFiles(
   if (
     !isResult(body) ||
     body.server_id !== id ||
-    (input.operation === FileOperation.List && !body.path.endsWith("/"))
+    (input.operation === FileOperation.List && !body.path.endsWith("/")) ||
+    (input.operation.startsWith("extract.") &&
+      (!body.extraction || body.extraction.id !== input.extraction?.id))
   )
     throw new Error(i18n.t("files.unexpectedFileResponse"));
   return body;

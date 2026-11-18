@@ -125,11 +125,25 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 	case model.FileOperationRead, model.FileOperationStat, model.FileOperationReadChunk:
 		data = mockFileContent(data)
 
-		if !exists {
+		if !exists && (!directory || request.Operation != model.FileOperationStat) {
 			return result, fileError(model.FileNotFound, "File not found.")
 		}
 
 		result.Revision, result.Size = revision(data), int64(len(data))
+
+		if request.Operation == model.FileOperationStat {
+			kind, mode := model.FileKindFile, uint32(0600)
+			if directory {
+				kind, mode = model.FileKindDirectory, 0700
+			}
+
+			if saved, ok := record.FileModes[name]; ok {
+				mode = saved
+			}
+
+			result.Entries = []model.FileEntry{{Name: path.Base(name), Kind: kind, Mode: mode, Size: result.Size, ModifiedAt: time.Unix(1700000000, 0).UTC()}}
+		}
+
 		if request.Revision != "" && request.Revision != result.Revision {
 			return result, fileError(model.FileConflict, "File changed. Reload before reading.")
 		}

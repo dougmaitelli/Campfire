@@ -54,17 +54,22 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if input.Operation.IsExtraction() {
+		p := currentUser(r)
+		input.ExtractionOwner = fmt.Sprintf("%d:%d:%d", p.UserID, p.APITokenID, p.CredentialVersion)
+	}
+
 	if r.Method == http.MethodPost {
-		if input.Operation == model.FileOperationCompress || input.Operation == model.FileOperationExtract {
+		if input.Operation.IsArchive() {
 			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(30 * time.Minute))
 		}
 
-		if !slices.Contains([]model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract}, input.Operation) {
+		if !slices.Contains([]model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract}, input.Operation) && !input.Operation.IsExtraction() {
 			writeFileError(w, &model.FileError{Code: model.FileInvalid, Message: "Invalid game file operation."})
 			return
 		}
 
-		for _, operation := range []model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationUploadBegin, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract} {
+		for _, operation := range []model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationUploadBegin, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract, model.FileOperationExtractStart, model.FileOperationExtractResolve, model.FileOperationExtractCancel} {
 			if input.Operation == operation {
 				auditDetail(r, model.ResourceAuditAction("server.files", string(operation)), "server:"+r.PathValue("id"))
 			}
@@ -83,7 +88,7 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		result.Path = input.Path
 	}
 
-	result.Path = publicDataPath(result.Path, input.Operation == model.FileOperationList || input.Operation == model.FileOperationMkdir || input.Operation == model.FileOperationExtract)
+	result.Path = publicDataPath(result.Path, input.Operation == model.FileOperationList || input.Operation == model.FileOperationMkdir || input.Operation == model.FileOperationExtract || input.Operation.IsExtraction())
 	writeJSON(w, http.StatusOK, result)
 }
 

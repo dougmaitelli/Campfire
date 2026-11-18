@@ -2,98 +2,13 @@ package runtime
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
-	"io"
-	"io/fs"
-	"os"
-	"path"
-	"sort"
-	"strconv"
-	"strings"
-	"syscall"
-	"unicode"
 
 	"campfire/internal/shared/model"
-	"campfire/internal/shared/utils"
+	"campfire/internal/spark/runtime/fileops"
 )
 
-func fileFailure(code model.FileErrorCode, message string) error {
-	return &model.FileError{Code: code, Message: message}
-}
-
-func filePath(value string, rootAllowed bool) bool {
-	if reservedFilePath(value) {
-		return false
-	}
-
-	if value == "." {
-		return rootAllowed
-	}
-
-	return len(value) > 0 && len(value) <= 1024 && fs.ValidPath(value) && !strings.ContainsAny(value, "\\\x00") && !strings.ContainsFunc(value, unicode.IsControl)
-}
-
-func containedPath(root *os.Root, value string, allowMissing bool) error {
-	if value == "." {
-		return nil
-	}
-
-	parts := strings.Split(value, "/")
-	for index := range parts {
-		info, err := root.Lstat(strings.Join(parts[:index+1], "/"))
-		if errors.Is(err, os.ErrNotExist) && allowMissing && index == len(parts)-1 {
-			return nil
-		}
-
-		if err != nil {
-			return fileFailure(model.FileNotFound, "File or directory not found.")
-		}
-
-		if info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) {
-			return fileFailure(model.FileInvalid, "Symbolic links and special files are not accessible.")
-		}
-	}
-
-	return nil
-}
-
-func readFile(root *os.Root, name string) ([]byte, os.FileInfo, error) {
-	file, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
-	if err != nil {
-		return nil, nil, fileFailure(model.FileNotFound, "File not found.")
-	}
-	defer func() { _ = file.Close() }()
-
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		return nil, nil, fileFailure(model.FileInvalid, "Select a regular file.")
-	}
-
-	if info.Size() > model.FileLimit {
-		return nil, nil, fileFailure(model.FileLimitExceeded, "Text reads are limited to 1 MiB; use a chunked download for larger files.")
-	}
-
-	data, err := io.ReadAll(io.LimitReader(file, model.FileLimit+1))
-	if err != nil {
-		return nil, nil, fileFailure(model.FileIO, "Could not read file.")
-	}
-
-	if len(data) > model.FileLimit {
-		return nil, nil, fileFailure(model.FileLimitExceeded, "Text reads are limited to 1 MiB; use a chunked download for larger files.")
-	}
-
-	return data, info, nil
-}
-
-func fileRevision(data []byte) string {
-	digest := sha256.Sum256(data)
-	return hex.EncodeToString(digest[:])
-}
-
-// Files executes contained file operations serialized against server lifecycle work.
+// Files applies runtime lifecycle/transfer/quota policy before dispatching to
+// fileops, which owns filesystem implementation and file-operation state.
 func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileRequest) (model.FileResult, error) {
 	if q.Operation.IsBackup() {
 		return m.backupFiles(ctx, d, q)
@@ -103,18 +18,8 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, err
 	}
 
-	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || !filePath(q.Path, q.Operation == model.FileOperationList || q.Operation == model.FileOperationStat || q.Operation == model.FileOperationCompress) {
+	if q.ServerID != d.ServerID {
 		return model.FileResult{}, fileFailure(model.FileInvalid, "Invalid file request.")
-	}
-
-	if len(q.Data) > model.FileLimit {
-		return model.FileResult{}, fileFailure(model.FileLimitExceeded, "File data is limited to 1 MiB per command; use chunked uploads for larger files.")
-	}
-
-	switch q.Operation {
-	case model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract:
-	default:
-		return model.FileResult{}, fileFailure(model.FileInvalid, "Unsupported file operation.")
 	}
 
 	e, err := m.load(q.ServerID)
@@ -125,13 +30,13 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.Status.FileSystemBusy {
+	if e.Status.FileSystemBusy && !q.Operation.IsExtractionStatusOrCancel() {
 		return model.FileResult{}, fileFailure(model.FileBusy, "Wait for the current server operation to finish.")
 	}
 
-	mutate := q.Operation != model.FileOperationList && q.Operation != model.FileOperationRead && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadCancel
+	mutate := q.Operation != model.FileOperationList && q.Operation != model.FileOperationRead && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadCancel && !q.Operation.IsExtractionStatusOrCancel()
 	if mutate {
-		if transfer, err := m.localTransfer(q.ServerID); err != nil || (transfer != nil && !transfer.allowsOperations()) {
+		if transfer, err := m.localTransfer(q.ServerID); err != nil || transfer != nil && !transfer.allowsOperations() {
 			return model.FileResult{}, fileFailure(model.FileBusy, "Server files are locked for a Spark transfer.")
 		}
 	}
@@ -141,274 +46,25 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, fileFailure(model.FileIO, "Game data unavailable.")
 	}
 
-	root, err := os.OpenRoot(volume)
-	if err != nil {
-		return model.FileResult{}, fileFailure(model.FileNotFound, "Install the server to prepare its game data directory.")
-	}
-
-	defer func() { _ = root.Close() }()
-
-	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || q.Operation.IsUpload() || q.Operation == model.FileOperationCompress || q.Operation == model.FileOperationExtract) {
+	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || q.Operation.IsUpload() || q.Operation.IsArchive()) {
 		if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 			return model.FileResult{}, fileFailure(model.FileLimitExceeded, err.Error())
 		}
 	}
 
-	m.pruneUploads(root, e)
-
-	if q.Operation.IsUpload() {
-		return m.uploadFile(ctx, d, root, volume, e, q)
+	if e.files == nil {
+		e.files = &fileops.State{}
 	}
 
-	if q.Operation == model.FileOperationCompress || q.Operation == model.FileOperationExtract {
-		return m.archiveFiles(ctx, d, root, volume, q)
-	}
-
-	if err := containedPath(root, q.Path, q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir); err != nil {
-		return model.FileResult{}, err
-	}
-
-	result := model.FileResult{ServerID: q.ServerID, Path: q.Path}
-	switch q.Operation {
-	case model.FileOperationStat, model.FileOperationReadChunk:
-		return chunkFile(root, q)
-	case model.FileOperationList:
-		directory, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
-		if err != nil {
-			return result, fileFailure(model.FileNotFound, "Directory not found.")
-		}
-		defer func() { _ = directory.Close() }()
-
-		children, err := directory.ReadDir(1001)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return result, fileFailure(model.FileInvalid, "Select a directory.")
-		}
-
-		if len(children) > 1000 {
-			return result, fileFailure(model.FileLimitExceeded, "Directories are limited to 1000 entries per listing.")
-		}
-
-		result.Entries = make([]model.FileEntry, 0, len(children))
-		for _, child := range children {
-			if reservedFilePath(child.Name()) {
-				continue
-			}
-
-			info, err := root.Lstat(path.Join(q.Path, child.Name()))
-			if err != nil {
-				return result, fileFailure(model.FileIO, "Directory changed; refresh and try again.")
-			}
-
-			kind := model.FileKindFile
-			if info.IsDir() {
-				kind = model.FileKindDirectory
-			} else if !info.Mode().IsRegular() {
-				kind = model.FileKindUnsupported
-			}
-
-			result.Entries = append(result.Entries, model.FileEntry{Name: child.Name(), Kind: kind, Mode: uint32(info.Mode().Perm()), Size: info.Size(), ModifiedAt: info.ModTime().UTC()})
-		}
-
-		sort.Slice(result.Entries, func(i, j int) bool {
-			a, b := result.Entries[i], result.Entries[j]
-			if (a.Kind == model.FileKindDirectory) != (b.Kind == model.FileKindDirectory) {
-				return a.Kind == model.FileKindDirectory
-			}
-
-			return a.Name < b.Name
-		})
-	case model.FileOperationRead:
-		data, _, err := readFile(root, q.Path)
-		if err != nil {
-			return result, err
-		}
-
-		result.Data = data
-		result.Revision = fileRevision(data)
-	case model.FileOperationWrite:
-		revision := "absent"
-		mode := fs.FileMode(0600)
-		oldSize := int64(0)
-
-		if _, err := root.Lstat(q.Path); err == nil {
-			data, info, err := readFile(root, q.Path)
-			if err != nil {
-				return result, err
-			}
-
-			revision = fileRevision(data)
-			mode = info.Mode().Perm()
-			oldSize = info.Size()
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return result, fileFailure(model.FileIO, "Could not inspect file.")
-		}
-
-		if q.Revision != revision {
-			return result, fileFailure(model.FileConflict, "File changed or already exists. Reload before saving.")
-		}
-
-		if err := checkWriteCapacity(ctx, volume, d.Configuration.DiskMB, oldSize, int64(len(q.Data))); err != nil {
-			return result, err
-		}
-
-		temporary := path.Join(path.Dir(q.Path), ".campfire-"+rand.Text())
-
-		file, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
-		if err != nil {
-			return result, fileFailure(model.FileIO, "Could not prepare file.")
-		}
-		defer func() { _ = root.Remove(temporary) }()
-
-		_, writeErr := file.Write(q.Data)
-		ownerErr := m.FileOwner(file, d.Ember.User)
-		syncErr := file.Sync()
-
-		closeErr := file.Close()
-		if writeErr != nil || ownerErr != nil || syncErr != nil || closeErr != nil {
-			return result, fileFailure(model.FileIO, "Could not save file or assign game ownership.")
-		}
-
-		if err := ctx.Err(); err != nil {
-			return result, err
-		}
-
-		if err := root.Rename(temporary, q.Path); err != nil {
-			return result, fileFailure(model.FileIO, "Could not replace file.")
-		}
-
-		result.Revision = fileRevision(q.Data)
-	case model.FileOperationMkdir:
-		if err := root.Mkdir(q.Path, 0700); err != nil {
-			return result, fileFailure(model.FileConflict, "Directory already exists or parent is unavailable.")
-		}
-
-		directory, err := root.Open(q.Path)
-		if err != nil {
-			return result, fileFailure(model.FileIO, "Could not open new directory.")
-		}
-
-		ownerErr := m.FileOwner(directory, d.Ember.User)
-		_ = directory.Close()
-
-		if ownerErr != nil {
-			_ = root.Remove(q.Path)
-			return result, fileFailure(model.FileIO, "Could not assign directory ownership.")
-		}
-	case model.FileOperationRename:
-		if !filePath(q.Destination, false) {
-			return result, fileFailure(model.FileInvalid, "Invalid destination.")
-		}
-
-		if err := containedPath(root, q.Destination, true); err != nil {
-			return result, err
-		}
-
-		if _, err := root.Lstat(q.Destination); !errors.Is(err, os.ErrNotExist) {
-			return result, fileFailure(model.FileConflict, "Destination already exists.")
-		}
-
-		if err := root.Rename(q.Path, q.Destination); err != nil {
-			return result, fileFailure(model.FileIO, "Could not rename file or directory.")
-		}
-
-		result.Path = q.Destination
-	case model.FileOperationDelete:
-		if err := root.RemoveAll(q.Path); err != nil {
-			return result, fileFailure(model.FileConflict, "Could not delete entry or all of its contents. Refresh and try again.")
-		}
-	case model.FileOperationChmod:
-		if q.Mode > 0777 {
-			return result, fileFailure(model.FileInvalid, "Permissions must be between 000 and 777 (octal).")
-		}
-
-		file, err := root.OpenFile(q.Path, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
-		if err != nil {
-			return result, fileFailure(model.FileIO, "Could not open entry to change permissions.")
-		}
-		defer func() { _ = file.Close() }()
-
-		info, err := file.Stat()
-		if err != nil || !info.IsDir() && !info.Mode().IsRegular() {
-			return result, fileFailure(model.FileInvalid, "Select a regular file or directory.")
-		}
-
-		if err := file.Chmod(fs.FileMode(q.Mode)); err != nil {
-			return result, fileFailure(model.FileIO, "Could not change permissions.")
-		}
-	}
-
-	return result, nil
+	return m.fileOperations.Files(ctx, d, volume, e.files, q)
 }
 
-func assignFileOwner(file *os.File, user string) error {
-	parts := strings.Split(user, ":")
-
-	uid, err := strconv.Atoi(parts[0])
-	if err != nil || uid < 1 {
-		return errors.New("invalid game user")
-	}
-
-	gid := uid
-	if len(parts) == 2 {
-		gid, err = strconv.Atoi(parts[1])
-		if err != nil {
-			return err
-		}
-	}
-
-	return file.Chown(uid, gid)
-}
-
-func checkWriteCapacity(ctx context.Context, directory string, limitMB, oldSize, newSize int64) error {
-	if limitMB == 0 {
-		return nil
-	}
-
-	used, err := fileUsage(ctx, directory)
-	if err != nil {
-		return err
-	}
-
-	if limitMB < 1 || used-oldSize+newSize > limitMB*1024*1024 {
-		return fileFailure(model.FileLimitExceeded, "File would exceed the server disk allocation.")
-	}
-
-	return nil
-}
-
-func fileUsage(ctx context.Context, directory string) (int64, error) {
-	var used int64
-
-	root, err := os.OpenRoot(directory)
-	if err != nil {
-		return 0, fileFailure(model.FileIO, "Could not verify disk allocation.")
-	}
-
-	defer func() { _ = root.Close() }()
-
-	err = fs.WalkDir(root.FS(), ".", func(_ string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		if entry.Type().IsRegular() {
-			info, err := entry.Info()
-			if err != nil {
-				return err
-			}
-
-			used += info.Size()
-		}
-
-		return nil
-	})
-	if err != nil {
-		return 0, fileFailure(model.FileIO, "Could not verify disk allocation.")
-	}
-
-	return used, nil
-}
+// Other runtime domains (backups, configuration and server transfers) use the
+// same filesystem primitives. These aliases contain no duplicate implementation.
+var (
+	fileFailure     = fileops.Failure
+	filePath        = fileops.ValidPath
+	containedPath   = fileops.ContainedPath
+	assignFileOwner = fileops.AssignFileOwner
+	importedMode    = fileops.ImportedMode
+)
