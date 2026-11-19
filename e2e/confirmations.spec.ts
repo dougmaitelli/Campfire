@@ -1,4 +1,6 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
+import type { Page } from "../web/src/api/pagination";
+import type { Execution } from "../web/src/api/activity";
 import { login, openScreen, openServerTab } from "./screens";
 import { ExecutionState } from "../web/src/contracts/domains";
 
@@ -42,9 +44,7 @@ test("retrying schedule history requires confirmation before submitting", async 
   await login(page);
   await page.route("**/api/v1/schedules/executions?*", async (route) => {
     const response = await route.fetch();
-    const body = (await response.json()) as {
-      items: { state: ExecutionState }[];
-    };
+    const body = (await response.json()) as Page<Execution>;
     await route.fulfill({
       response,
       json: {

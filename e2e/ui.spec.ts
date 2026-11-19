@@ -1,4 +1,6 @@
 import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { Execution } from "../web/src/api/activity";
 import {
   login,
   mockServerStatus,
@@ -797,7 +799,7 @@ test("schedule history excludes direct server operations", async ({ page }) => {
   );
   const response = await page.request.get("/api/v1/schedules/executions");
   expect(response.ok()).toBeTruthy();
-  expect(((await response.json()) as { items: unknown[] }).items).toEqual([
+  expect(((await response.json()) as Paginated<Execution>).items).toEqual([
     expect.objectContaining({
       id: "scheduled-run",
       schedule_id: "nightly-restart",

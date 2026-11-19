@@ -16,12 +16,14 @@ import {
 import { JobStatus, JobStep, JobType } from "../web/src/contracts/domains";
 import { jobFixture, mockJobActivity } from "./jobFixtures";
 
-interface DestinationSpark {
-  id: string;
-  name: string;
-  connected: boolean;
-  disabled: boolean;
-}
+import type { Spark } from "../web/src/api/sparks";
+import type { ServerOptions, Role } from "../web/src/api/access";
+import type { Server } from "../web/src/api/servers";
+import type { CopyTemplate } from "../web/src/api/copies";
+import type { FileResult } from "../web/src/api/files";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { ServerJob } from "../web/src/api/jobs";
+import { readAuthenticatedSession } from "./auth";
 
 async function openCopy(
   page: Page,
@@ -71,11 +73,7 @@ test("Copy prefills the creation wizard and creates an independent settings-only
   const saved = await response;
   expect(saved.ok()).toBeTruthy();
   expect(saved.request().postDataJSON()).toMatchObject({ copy_files: false });
-  const server = (await saved.json()) as {
-    id: string;
-    name: string;
-    owner_user_id: number;
-  };
+  const server = (await saved.json()) as Server;
   expect(server.id).not.toBe("survival");
   await expect(drawer).toHaveCount(0);
   await expect(page).toHaveURL(
@@ -95,7 +93,7 @@ test("copying without file-read access hides Quick copy and the file-copy option
   page,
 }) => {
   await login(page);
-  function withoutFileRead(server: { permissions: string[] }) {
+  function withoutFileRead(server: Server) {
     return {
       ...server,
       permissions: server.permissions.filter(
@@ -107,16 +105,12 @@ test("copying without file-read access hides Quick copy and the file-copy option
     const response = await route.fetch();
     await route.fulfill({
       response,
-      json: withoutFileRead(
-        (await response.json()) as { permissions: string[] },
-      ),
+      json: withoutFileRead((await response.json()) as Server),
     });
   });
   await page.route("**/api/v1/servers/survival/copy", async (route) => {
     const response = await route.fetch();
-    const template = (await response.json()) as {
-      server: { permissions: string[] };
-    };
+    const template = (await response.json()) as CopyTemplate;
     await route.fulfill({
       response,
       json: { ...template, server: withoutFileRead(template.server) },
@@ -166,10 +160,7 @@ test("Quick copy asks only for a Spark and copies a running server's files", asy
   expect(Object.keys(saved.request().postDataJSON() as object)).toEqual([
     "spark_id",
   ]);
-  const server = (await saved.json()) as {
-    id: string;
-    ports: { host_port: number }[];
-  };
+  const server = (await saved.json()) as Server;
   await expect(drawer).toHaveCount(0);
   const history = page.getByRole("region", {
     name: "Activity",
@@ -193,7 +184,7 @@ test("Quick copy asks only for a Spark and copies a running server's files", asy
   );
   expect(files.ok()).toBeTruthy();
   expect(
-    ((await files.json()) as { entries: { name: string }[] }).entries.some(
+    ((await files.json()) as FileResult).entries?.some(
       (entry) => entry.name === "level.dat",
     ),
   ).toBeTruthy();
@@ -211,8 +202,7 @@ for (const action of ["Copy", "Quick copy", "Transfer"] as const) {
     for (const endpoint of ["sparks", "provisioning"])
       await page.route(`**/api/v1/${endpoint}`, async (route) => {
         const response = await route.fetch();
-        const body = (await response.json()) as
-          DestinationSpark[] | { sparks: DestinationSpark[] };
+        const body = (await response.json()) as Spark[] | ServerOptions;
         const sparks = Array.isArray(body) ? body : body.sparks;
         const online = sparks.find((spark) => spark.connected);
         if (!online) throw new Error("Missing connected Spark fixture");
@@ -281,9 +271,9 @@ for (const action of ["Copy", "Quick copy", "Transfer"] as const) {
     await expect(page).toHaveURL(/\/activity\?kind=operations$/);
     const history = await page.request.get("/api/v1/servers/creative/jobs");
     expect(history.ok()).toBeTruthy();
-    const queued = (
-      (await history.json()) as { items: { id: string; status: string }[] }
-    ).items.find((job) => job.status === JobStatus.Pending);
+    const queued = ((await history.json()) as Paginated<ServerJob>).items.find(
+      (job) => job.status === JobStatus.Pending,
+    );
     expect(queued).toBeDefined();
     const jobs = await openServerJob(page, "creative", queued!.id);
     await expect(jobs.getByText("Waiting", { exact: true })).toBeVisible();
@@ -616,7 +606,7 @@ test("configuration access can read copy history without platform transfer or Sp
     data: { username: "admin", password: "campfire-e2e-password" },
   });
   expect(auth.ok()).toBeTruthy();
-  const { csrf_token } = (await auth.json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(auth);
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   const roleResponse = await request.post("/api/v1/roles", {
     headers,
@@ -627,7 +617,7 @@ test("configuration access can read copy history without platform transfer or Sp
     },
   });
   expect(roleResponse.ok()).toBeTruthy();
-  const role = (await roleResponse.json()) as { id: number };
+  const role = (await roleResponse.json()) as Role;
   expect(
     (
       await request.post("/api/v1/servers/survival/members", {

@@ -1,4 +1,6 @@
 import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { Execution } from "../web/src/api/activity";
 import { login, openScreen, openServerTab } from "./screens";
 import { ExecutionState } from "../web/src/contracts/domains";
 
@@ -49,9 +51,7 @@ test("Overview and Servers collapse into rows while simple lists stay tables", a
     .click();
   await page.route("**/api/v1/schedules/executions?*", async (route) => {
     const response = await route.fetch();
-    const body = (await response.json()) as {
-      items: Record<string, unknown>[];
-    };
+    const body = (await response.json()) as Paginated<Execution>;
     await route.fulfill({
       response,
       json: {

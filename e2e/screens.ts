@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { RuntimeStatus } from "../web/src/api/runtime";
 import { expect } from "./fixtures";
 
 export async function mockServerStatus(
@@ -8,7 +9,7 @@ export async function mockServerStatus(
 ) {
   await page.route("**/api/v1/servers/status", async (route) => {
     const response = await route.fetch();
-    const statuses = (await response.json()) as { server_id: string }[];
+    const statuses = (await response.json()) as RuntimeStatus[];
     await route.fulfill({
       response,
       json: statuses.map((status) =>

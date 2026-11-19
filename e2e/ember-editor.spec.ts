@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { test, expect, prepareScreenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Ember } from "../web/src/contracts/ember";
 import { login, openScreen } from "./screens";
 import { completeEmber } from "../web/tests/fixtures/ember";
 import {
@@ -297,14 +299,14 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
   const auth = await page.request.post("/api/v1/auth/login", {
     data: { username: "admin", password: "campfire-e2e-password" },
   });
-  const { csrf_token } = (await auth.json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(auth);
   const original = { ...completeEmber(), artUrl: "" };
   const created = await page.request.post("/api/v1/embers", {
     headers: { "X-CSRF-Token": csrf_token, Origin: baseURL! },
     data: { definition: JSON.stringify(original), acknowledge_warnings: true },
   });
   expect(created.ok()).toBeTruthy();
-  const stored = (await created.json()) as { id: string };
+  const stored = (await created.json()) as Ember;
   await page.reload();
   await openScreen(page, "embers", "Embers");
   await page
@@ -519,7 +521,7 @@ test("pasted invalid JSON stays intact and Pelican YAML can be edited visually w
   await save.click();
   await expect(drawer).toHaveCount(0);
   const response = await page.request.get("/api/v1/embers");
-  const embers = (await response.json()) as ReturnType<typeof completeEmber>[];
+  const embers = (await response.json()) as Ember[];
   const ember = embers.find((ember) => ember.name === "Visual Valheim");
   expect(ember?.startup).toContain("-backups {{BACKUP_COUNT}}");
   expect(

@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import type { FileRequest } from "../web/src/api/files";
 import { login, openServerTab } from "./screens";
 
 async function draggedFiles(
@@ -146,11 +147,7 @@ test("upload progress measures the queue and cancellation keeps completed files"
     release = resolve;
   });
   await page.route("**/api/v1/servers/survival/files", async (route) => {
-    const input = route.request().postDataJSON() as {
-      operation: string;
-      path: string;
-      offset?: number;
-    };
+    const input = route.request().postDataJSON() as FileRequest;
     operations.push(input);
     if (input.operation === "upload.chunk" && input.offset === 1024 ** 2) {
       await held;
@@ -253,9 +250,7 @@ test("folder drops and oversized files are rejected before an upload starts", as
       request.method() === "POST" &&
       request.url().endsWith("/survival/files")
     ) {
-      operations.push(
-        (request.postDataJSON() as { operation: string }).operation,
-      );
+      operations.push((request.postDataJSON() as FileRequest).operation);
     }
   });
   const browser = page.getByRole("region", {

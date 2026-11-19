@@ -1,11 +1,16 @@
 import { test, expect, screenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { RuntimeStatus } from "../web/src/api/runtime";
+import type { Server } from "../web/src/api/servers";
+import type { CatalogBackup } from "../web/src/api/backups";
+import type { FileResult } from "../web/src/api/files";
 import { login, openScreen } from "./screens";
 import type { Page } from "@playwright/test";
 
 async function portableBackup(page: Page, mode: "full" | "savedata") {
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const created = await page.request.post("/api/v1/servers/survival/actions", {
     data: { action: "backup", backup_mode: mode },
     headers: {
@@ -14,7 +19,9 @@ async function portableBackup(page: Page, mode: "full" | "savedata") {
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
-  const status = (await created.json()) as { operation_id: string };
+  const status = (await created.json()) as RuntimeStatus;
+  if (!status.operation_id)
+    throw new Error("Backup did not return an operation ID");
   const name = `${mode}-${status.operation_id}.tar.gz`;
   const response = await page.request.get(
     `/api/v1/servers/survival/backups/${name}`,
@@ -61,12 +68,7 @@ test("portable backups upload into an existing catalog before a separate restore
   ).toHaveCount(1);
   const catalogResponse = await page.request.get("/api/v1/backups");
   expect(catalogResponse.ok()).toBeTruthy();
-  const catalog = (await catalogResponse.json()) as {
-    id: string;
-    server_id?: string;
-    portable: boolean;
-    mode: string;
-  }[];
+  const catalog = (await catalogResponse.json()) as CatalogBackup[];
   expect(catalog.every((item) => Boolean(item.server_id))).toBe(true);
   const imported = catalog.filter(
     (item) =>
@@ -140,12 +142,7 @@ for (const mode of ["full", "savedata"] as const) {
       .click();
     const response = await created;
     expect(response.ok()).toBeTruthy();
-    const server = (await response.json()) as {
-      id: string;
-      spark_id: string;
-      owner_user_id: number;
-      permissions: string[];
-    };
+    const server = (await response.json()) as Server;
     await expect(drawer).toHaveCount(0);
     const status = await page.request.get(
       `/api/v1/servers/${server.id}/status`,
@@ -156,7 +153,7 @@ for (const mode of ["full", "savedata"] as const) {
     );
     expect(files.ok()).toBeTruthy();
     expect(
-      ((await files.json()) as { entries: { name: string }[] }).entries.some(
+      ((await files.json()) as FileResult).entries?.some(
         (entry) => entry.name === "level.dat",
       ),
     ).toBeTruthy();
@@ -172,11 +169,7 @@ test("the backup library keeps completed uploads and creates a server without co
   // stored bytes, permissions, and all mutation requests still use the real API.
   await page.route("**/api/v1/backups", async (route) => {
     const response = await route.fetch();
-    const entries = (await response.json()) as {
-      server_id?: string;
-      display_name: string;
-      name: string;
-    }[];
+    const entries = (await response.json()) as CatalogBackup[];
     await route.fulfill({
       response,
       json: entries.map((entry) =>

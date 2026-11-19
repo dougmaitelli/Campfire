@@ -1,4 +1,8 @@
 import { test, expect, screenshot, pageFixture } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { Notification } from "../web/src/api/notifications";
+import type { ActivityPage } from "../web/src/api/serverActivity";
 import { login } from "./screens";
 import { ExecutionState, ServerAction } from "../web/src/contracts/domains";
 
@@ -7,9 +11,9 @@ test("Activity groups a game event with its destination notifications and links 
   baseURL,
 }) => {
   await login(page);
-  const { csrf_token } = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   expect(
     (
@@ -119,9 +123,7 @@ test("Activity groups a game event with its destination notifications and links 
         return;
       }
       const response = await route.fetch();
-      const notifications = (await response.json()) as {
-        pagination: { total_items: number; total_pages: number };
-      };
+      const notifications = (await response.json()) as Paginated<Notification>;
       notifications.pagination.total_items = 21;
       notifications.pagination.total_pages = 2;
       await route.fulfill({ response, json: notifications });
@@ -156,9 +158,9 @@ test("an authorized user can retry one failed notification from Activity", async
   baseURL,
 }) => {
   await login(page);
-  const { csrf_token } = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   expect(
     (
@@ -207,9 +209,7 @@ test("an authorized user can retry one failed notification from Activity", async
     if (url.searchParams.get("page") !== "2") return route.continue();
     url.searchParams.set("page", "1");
     const response = await route.fetch({ url: url.toString() });
-    const value = (await response.json()) as {
-      pagination: { page: number; total_items: number; total_pages: number };
-    };
+    const value = (await response.json()) as ActivityPage;
     value.pagination = {
       ...value.pagination,
       page: 2,

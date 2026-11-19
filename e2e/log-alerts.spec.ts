@@ -1,4 +1,8 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Server } from "../web/src/api/servers";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { Notification } from "../web/src/api/notifications";
 import { login, openScreen } from "./screens";
 import type { Ember } from "../web/src/contracts/ember";
 import type { DetectedLogAlert } from "../web/src/contracts/logAlerts";
@@ -12,7 +16,7 @@ test("actionable errors can be authored, detected without an open console, acted
   const auth = await page.request.post("/api/v1/auth/login", {
     data: { username: "admin", password: "campfire-e2e-password" },
   });
-  const { csrf_token } = (await auth.json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(auth);
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   const imported = await page.request.post("/api/v1/embers", {
     headers,
@@ -150,7 +154,7 @@ test("actionable errors can be authored, detected without an open console, acted
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
-  const server = (await created.json()) as { id: string };
+  const server = (await created.json()) as Server;
   const endpoint = `/api/v1/servers/${server.id}`;
   expect(
     (
@@ -190,7 +194,7 @@ test("actionable errors can be authored, detected without an open console, acted
   const firstID = issues[0]!.id;
   const { items: inbox } = (await (
     await page.request.get("/api/v1/notifications")
-  ).json()) as { items: { title: string; body: string }[] };
+  ).json()) as Paginated<Notification>;
   expect(
     inbox.filter(
       (item) =>

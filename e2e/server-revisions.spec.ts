@@ -1,27 +1,26 @@
 import { test, expect, screenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
 import { login, openServerTab } from "./screens";
 import type { Ember } from "../web/src/contracts/ember";
 
-type ServerSnapshot = {
-  ember_id: string;
-  ember_update_available: boolean;
-};
+import type { Server } from "../web/src/api/servers";
+import type { RuntimeStatus } from "../web/src/api/runtime";
 
 test("save-path-only Ember updates apply immediately without a restart notice", async ({
   page,
 }) => {
   await login(page);
   await openServerTab(page, "console", "Console");
-  const { csrf_token } = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const headers = {
     "X-CSRF-Token": csrf_token,
     Origin: "http://127.0.0.1:8099",
   };
   const server = (await (
     await page.request.get("/api/v1/servers/survival")
-  ).json()) as ServerSnapshot & Record<string, unknown>;
+  ).json()) as Server;
   const ember = (await (
     await page.request.get(`/api/v1/embers/${server.ember_id}`)
   ).json()) as Ember;
@@ -47,7 +46,7 @@ test("save-path-only Ember updates apply immediately without a restart notice", 
   ).toBeVisible();
   const status = (await (
     await page.request.get("/api/v1/servers/survival/status")
-  ).json()) as { state: string; restart_required: boolean };
+  ).json()) as RuntimeStatus;
   expect(status.state).toBe("running");
   expect(status.restart_required).toBe(false);
   await expect(page.getByText("Restart required", { exact: true })).toHaveCount(
@@ -184,16 +183,16 @@ for (const mobile of [false, true]) {
     await login(page);
     await openServerTab(page, "console", "Console");
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
-    const session = (await (
-      await page.request.get("/api/v1/auth/session")
-    ).json()) as { csrf_token: string };
+    const session = await readAuthenticatedSession(
+      await page.request.get("/api/v1/auth/session"),
+    );
     const headers = {
       "X-CSRF-Token": session.csrf_token,
       Origin: "http://127.0.0.1:8099",
     };
     const server = (await (
       await page.request.get("/api/v1/servers/survival")
-    ).json()) as ServerSnapshot;
+    ).json()) as Server;
     const ember = (await (
       await page.request.get(`/api/v1/embers/${server.ember_id}`)
     ).json()) as Ember;
@@ -342,7 +341,7 @@ for (const mobile of [false, true]) {
     expect(actions).toEqual([]);
     const running = (await (
       await page.request.get("/api/v1/servers/survival/status")
-    ).json()) as { state: string };
+    ).json()) as RuntimeStatus;
     expect(running.state).toBe("running");
     await page.reload();
     await expect(pending).toBeVisible();
@@ -350,10 +349,10 @@ for (const mobile of [false, true]) {
     await expect(pending).toHaveCount(0, { timeout: 20_000 });
     const saved = (await (
       await page.request.get("/api/v1/servers/survival")
-    ).json()) as ServerSnapshot;
+    ).json()) as Server;
     const applied = (await (
       await page.request.get("/api/v1/servers/survival/status")
-    ).json()) as { restart_required: boolean };
+    ).json()) as RuntimeStatus;
     expect(applied.restart_required).toBe(false);
     expect(saved.ember_update_available).toBe(false);
   });

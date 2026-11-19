@@ -1,4 +1,6 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { GameEvent } from "../web/src/api/gameEvents";
 import { login } from "./screens";
 
 test("game activity reads retained events and filters by type and recorded time", async ({
@@ -60,15 +62,12 @@ test("game activity reads retained events and filters by type and recorded time"
     "/api/v1/servers/survival/events?page_size=1",
   );
   expect(response.ok()).toBeTruthy();
-  const first = (await response.json()) as {
-    items: { id: number }[];
-    pagination: { total_pages: number };
-  };
+  const first = (await response.json()) as Paginated<GameEvent>;
   expect(first.items).toHaveLength(1);
   const second = await page.request.get(
     "/api/v1/servers/survival/events?page_size=1&page=2",
   );
-  const older = (await second.json()) as { items: { id: number }[] };
+  const older = (await second.json()) as Paginated<GameEvent>;
   expect(older.items[0]?.id).not.toBe(first.items[0]?.id);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(feed).toBeVisible();
