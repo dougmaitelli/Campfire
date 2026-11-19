@@ -7,9 +7,9 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
-	accessperm "campfire/internal/shared/permissions"
+	accessperm "campfire/internal/campfire/permissions"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 func TestIndependentServerDestinationsScopeRoutingHistoryAndRemoval(t *testing.T) {

@@ -2,7 +2,7 @@
 
 The Playwright UI specs exercise the real built frontend, API, authentication,
 and SQLite repositories. A standalone Go harness simulates only Spark operations.
-The shared `backend/internal/campfire/devfixture` seed also powers dev-mock:
+The shared `backend/internal/devfixture` seed also powers dev-mock:
 accounts, roles, nodes, servers, the Ember and artwork, notifications, console logs,
 game files, and real archive contents come from the same definitions. Tests use
 a fixed clock and isolated state; dev-mock keeps its live, persistent simulation.

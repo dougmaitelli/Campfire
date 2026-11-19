@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 
-	sharedarchive "campfire/internal/shared/archive"
 	"campfire/internal/shared/workprogress"
 
 	"github.com/nwaples/rardecode/v2"
@@ -46,7 +45,7 @@ func readRAR(ctx context.Context, input io.ReaderAt, size int64, _ ReadLimits, v
 
 		progress.Entry()
 
-		entry := sharedarchive.Entry{Name: header.Name, Size: header.UnPackedSize, Mode: header.Mode(), Modified: header.ModificationTime}
+		entry := Entry{Name: header.Name, Size: header.UnPackedSize, Mode: header.Mode(), Modified: header.ModificationTime}
 		if err := visit(entry, progress.OutputReader(archive)); err != nil {
 			return rarFailure(err)
 		}

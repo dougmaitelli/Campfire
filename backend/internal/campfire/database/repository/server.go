@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )

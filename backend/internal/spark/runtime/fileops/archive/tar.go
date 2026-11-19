@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/fs"
 
-	sharedarchive "campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 )
 
@@ -46,7 +45,7 @@ func (c tarCodec) read(ctx context.Context, input io.ReaderAt, size int64, _ Rea
 			return invalidArchive("Archives cannot contain links or special files.")
 		}
 
-		if err := visit(sharedarchive.Entry{Name: header.Name, Size: header.Size, Mode: mode, Modified: header.ModTime}, archive); err != nil {
+		if err := visit(Entry{Name: header.Name, Size: header.Size, Mode: mode, Modified: header.ModTime}, archive); err != nil {
 			return err
 		}
 	}

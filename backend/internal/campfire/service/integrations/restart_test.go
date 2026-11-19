@@ -13,10 +13,10 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service/integrations/discord"
-	accessperm "campfire/internal/shared/permissions"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 func TestIntegrationRestartRecoversReceiptsCredentialsAndPendingCleanup(t *testing.T) {

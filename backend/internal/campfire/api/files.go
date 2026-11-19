@@ -9,9 +9,9 @@ import (
 	"slices"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func (a *API) fileLimits(w http.ResponseWriter, _ *http.Request) {

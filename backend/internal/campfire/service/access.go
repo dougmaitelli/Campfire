@@ -10,9 +10,9 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 // Principal is derived from persisted credentials, never from client-supplied roles.

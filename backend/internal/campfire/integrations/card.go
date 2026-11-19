@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"campfire/internal/shared/gamefields"
+	"campfire/internal/campfire/gamefields"
 	"campfire/internal/shared/model"
 )
 

@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func (a *API) listAPITokens(w http.ResponseWriter, r *http.Request) {

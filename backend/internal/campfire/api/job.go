@@ -7,9 +7,9 @@ import (
 
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/pagination"
+	"campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	permissions "campfire/internal/shared/permissions"
 )
 
 type jobProgress struct {

@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 	"campfire/internal/shared/utils"
 
 	"github.com/pkg/sftp"

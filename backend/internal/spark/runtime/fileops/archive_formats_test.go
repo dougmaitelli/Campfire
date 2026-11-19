@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/workprogress"
+	"campfire/internal/spark/runtime/fileops/archive"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"

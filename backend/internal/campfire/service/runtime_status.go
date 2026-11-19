@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 const runtimeStatusInterval = 3 * time.Second

@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
-	"campfire/internal/campfire/devfixture"
+	accessperm "campfire/internal/campfire/permissions"
+	"campfire/internal/devfixture"
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func TestUploadedArchiveSurvivesWizardCancellationAndCreatesServer(t *testing.T) {

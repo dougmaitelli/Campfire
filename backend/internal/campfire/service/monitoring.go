@@ -5,9 +5,9 @@ import (
 	"math"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 // MonitoredServer combines authorized metadata and the latest persisted usage.

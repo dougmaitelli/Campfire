@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"campfire/internal/shared/archive"
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
@@ -309,7 +308,7 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 	}
 	defer func() { _ = root.Close() }()
 
-	archive := archive.NewTarGzipWriter(ctx, file)
+	archive := filearchive.NewTarGzipWriter(ctx, file)
 
 	if err := writeBackupManifest(archive, root, options); err != nil {
 		_ = archive.Close()

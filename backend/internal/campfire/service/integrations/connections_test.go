@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
-	accessperm "campfire/internal/shared/permissions"
+	accessperm "campfire/internal/campfire/permissions"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 func TestServerConnectionSelectionUsesSavedIdentityAndRequiresAnUnambiguousChoice(t *testing.T) {

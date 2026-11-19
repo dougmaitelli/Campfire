@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	sharedarchive "campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/workprogress"
 )
@@ -23,14 +22,14 @@ func TestCommonCallersRoundTripWithoutCodecKnowledge(t *testing.T) {
 
 			ctx := workprogress.WithReporter(t.Context(), func(s workprogress.Snapshot) { created = s })
 
-			writer, err := sharedarchive.NewWriter(ctx, &data, name)
+			writer, err := NewWriter(ctx, &data, name)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			modified := time.Date(2026, 1, 2, 3, 4, 6, 0, time.UTC)
 
-			entries := []sharedarchive.Entry{
+			entries := []Entry{
 				{Name: "world/", Mode: fs.ModeDir | 0700, Modified: modified},
 				{Name: "world/empty", Mode: 0600, Modified: modified},
 				{Name: "world/save", Size: 12, Mode: 0600 | fs.ModeSetuid, Modified: modified},
@@ -59,7 +58,7 @@ func TestCommonCallersRoundTripWithoutCodecKnowledge(t *testing.T) {
 			index := 0
 			limits := ReadLimits{MaxEntries: 100, MaxBytes: 1 << 20}
 
-			err = Unarchive(ctx, bytes.NewReader(data.Bytes()), int64(data.Len()), name, limits, func(entry sharedarchive.Entry, reader io.Reader) error {
+			err = Unarchive(ctx, bytes.NewReader(data.Bytes()), int64(data.Len()), name, limits, func(entry Entry, reader io.Reader) error {
 				if index >= len(entries) {
 					t.Fatal("extra member", entry)
 				}
@@ -92,13 +91,13 @@ func TestCommonCallersRoundTripWithoutCodecKnowledge(t *testing.T) {
 
 			stop := errors.New("visitor stopped")
 
-			err = Unarchive(t.Context(), bytes.NewReader(data.Bytes()), int64(data.Len()), name, limits, func(sharedarchive.Entry, io.Reader) error { return stop })
+			err = Unarchive(t.Context(), bytes.NewReader(data.Bytes()), int64(data.Len()), name, limits, func(Entry, io.Reader) error { return stop })
 			if !errors.Is(err, stop) {
 				t.Fatal("visitor failure lost", err)
 			}
 
 			limits.MaxEntries = 1
-			err = Unarchive(t.Context(), bytes.NewReader(data.Bytes()), int64(data.Len()), name, limits, func(_ sharedarchive.Entry, reader io.Reader) error { _, err := io.Copy(io.Discard, reader); return err })
+			err = Unarchive(t.Context(), bytes.NewReader(data.Bytes()), int64(data.Len()), name, limits, func(_ Entry, reader io.Reader) error { _, err := io.Copy(io.Discard, reader); return err })
 
 			var failure *model.FileError
 			if !errors.As(err, &failure) {

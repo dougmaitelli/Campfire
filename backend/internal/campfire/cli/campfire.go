@@ -34,25 +34,42 @@ import (
 
 // Run starts the admin API and the dedicated agent TLS listener.
 func Run(ctx context.Context, args []string) error {
-	return run(ctx, args, startupOptions{})
+	return RunWithOptions(ctx, args, StartupOptions{})
 }
 
-type runtimeBackend interface {
+// RuntimeBackend supplies the panel's connectivity and configuration dispatch contracts.
+type RuntimeBackend interface {
 	service.SparkConnectivity
 	service.ConfigurationDispatcher
 }
 
-type runtimeInitializer func(context.Context, *database.Database, *service.AuthService) (runtimeBackend, error)
-
-// startupOptions supplies process-local dependencies without environment overrides.
-// The regular executable always uses the zero value.
-type startupOptions struct {
-	initialize  runtimeInitializer
-	discord     *discord.Client
-	wrapHandler func(http.Handler) http.Handler
+// EmberUpdateFetcher optionally supplies the runtime's definition source.
+type EmberUpdateFetcher interface {
+	FetchEmberUpdate(context.Context, string, service.ImportOptions) (service.EmberPreview, error)
 }
 
-func run(ctx context.Context, args []string, options startupOptions) error {
+// SparkVersionFetcher optionally supplies the runtime's available agent version.
+type SparkVersionFetcher interface {
+	LatestSparkVersion(context.Context) (string, error)
+}
+
+// GameIntegrationStarter connects a runtime's publishers to panel ingestion.
+// The returned function must stop and join its workers before returning.
+type GameIntegrationStarter interface {
+	StartGameIntegrations(context.Context, *service.GameIntegrationService) func()
+}
+
+// StartupOptions supplies process-local dependencies without environment overrides.
+// The regular executable always uses the zero value; alternate applications own
+// their runtime construction rather than being imported by the panel.
+type StartupOptions struct {
+	Initialize  func(context.Context, *database.Database, *service.AuthService) (RuntimeBackend, error)
+	Discord     *discord.Client
+	WrapHandler func(http.Handler) http.Handler
+}
+
+// RunWithOptions starts the panel with explicitly supplied process-local dependencies.
+func RunWithOptions(ctx context.Context, args []string, options StartupOptions) error {
 	if len(args) > 0 && args[0] == "reset-password" {
 		return resetPassword(ctx, args[1:])
 	}
@@ -160,12 +177,12 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	var runtime runtimeBackend
+	var runtime RuntimeBackend
 
-	if options.initialize != nil {
-		runtime, err = options.initialize(ctx, db, auth)
+	if options.Initialize != nil {
+		runtime, err = options.Initialize(ctx, db, auth)
 		if err != nil {
-			return fmt.Errorf("initialize development runtime: %w", err)
+			return fmt.Errorf("initialize runtime: %w", err)
 		}
 	}
 
@@ -229,10 +246,8 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	embers := service.NewEmberService(repository.NewEmberRepository(db.ORM()))
 
 	embers.Updates = service.NewEmberUpdateService(embers, repository.NewEmberUpdateRepository(db.ORM()))
-	if mock, ok := runtime.(interface {
-		FetchEmberUpdate(context.Context, string, service.ImportOptions) (service.EmberPreview, error)
-	}); ok {
-		embers.Updates.WithFetcher(mock.FetchEmberUpdate)
+	if source, ok := runtime.(EmberUpdateFetcher); ok {
+		embers.Updates.WithFetcher(source.FetchEmberUpdate)
 	}
 
 	embers.Updates.Start(ctx)
@@ -267,10 +282,8 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	}
 
 	sparks.Updates = service.NewSparkUpdateService(sparks, sparkUpdater)
-	if mock, ok := runtime.(interface {
-		LatestSparkVersion(context.Context) (string, error)
-	}); ok {
-		sparks.Updates.WithFetcher(mock.LatestSparkVersion)
+	if source, ok := runtime.(SparkVersionFetcher); ok {
+		sparks.Updates.WithFetcher(source.LatestSparkVersion)
 	}
 
 	sparks.Updates.Start(ctx)
@@ -299,10 +312,8 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 
 	deployment.History = resources
 
-	if simulator, ok := runtime.(interface {
-		StartGameSimulation(context.Context, *service.GameIntegrationService) func()
-	}); ok {
-		defer simulator.StartGameSimulation(ctx, games)()
+	if publisher, ok := runtime.(GameIntegrationStarter); ok {
+		defer publisher.StartGameIntegrations(ctx, games)()
 	}
 
 	activity := service.NewActivityService(repository.NewActivityRepository(db.ORM(), publisher), deployment, auth)
@@ -358,7 +369,7 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 
 	imports := service.NewBackupImports(stateDir, service.BackupStagingCopies*deployment.UploadLimit())
 
-	discordClient := options.discord
+	discordClient := options.Discord
 	if discordClient == nil {
 		discordClient = discord.NewClient("", nil)
 	}
@@ -371,8 +382,8 @@ func run(ctx context.Context, args []string, options startupOptions) error {
 	handler := api.New(sparks, embers, servers).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
 
 	handler = webui.Handler(handler)
-	if options.wrapHandler != nil {
-		handler = options.wrapHandler(handler)
+	if options.WrapHandler != nil {
+		handler = options.WrapHandler(handler)
 	}
 
 	admin := newHTTPServer(ctx, handler)

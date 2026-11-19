@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 // Handler builds the versioned application routes.

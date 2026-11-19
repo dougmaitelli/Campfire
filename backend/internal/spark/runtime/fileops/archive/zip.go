@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 
-	sharedarchive "campfire/internal/shared/archive"
 	"campfire/internal/shared/workprogress"
 )
 
@@ -51,7 +50,7 @@ func readZIP(ctx context.Context, input io.ReaderAt, size int64, limits ReadLimi
 
 		progress.Entry()
 
-		err = visit(sharedarchive.Entry{Name: item.Name, Size: int64(item.UncompressedSize64), Mode: item.Mode(), Modified: item.Modified}, progress.OutputReader(reader))
+		err = visit(Entry{Name: item.Name, Size: int64(item.UncompressedSize64), Mode: item.Mode(), Modified: item.Modified}, progress.OutputReader(reader))
 		if err == nil {
 			var tail [1]byte
 

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
-	"campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/workprogress"
+	"campfire/internal/spark/runtime/fileops/archive"
 )
 
 func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os.Root, volume string, q model.FileRequest) (model.FileResult, error) {

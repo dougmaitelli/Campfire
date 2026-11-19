@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 	"campfire/internal/shared/workprogress"
+	"campfire/internal/spark/runtime/fileops/archive"
 )
 
 const extractionLimit = 1000

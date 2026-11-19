@@ -5,22 +5,31 @@ description: Understand Campfire's components, trust boundaries, storage, and ex
 
 ## Repository layout
 
-| Path                         | Contents                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------- |
-| `backend/cmd/`               | Panel, Spark, and development mock entry points                               |
-| `backend/internal/campfire/` | Panel API, services, repositories, agent coordination, and embedded UI assets |
-| `backend/internal/spark/`    | Agent connections and game runtime                                            |
-| `backend/internal/shared/`   | Shared models, protocol, and release metadata                                 |
-| `web/`                       | React and TypeScript frontend                                                 |
-| `config/`, `deploy/`         | Configuration examples and systemd units                                      |
-| `scripts/`                   | Development, build, release, and verification tooling                         |
-| `e2e/`, `backend/e2e/`       | Browser tests and their isolated Go harness                                   |
-| `screenshots/`               | README images and browser-test baselines                                      |
-| `docs/`                      | Documentation source and site configuration                                   |
+| Path                           | Contents                                                                      |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `backend/cmd/`                 | Panel, Spark, and development mock entry points                               |
+| `backend/internal/campfire/`   | Panel API, services, repositories, agent coordination, and embedded UI assets |
+| `backend/internal/spark/`      | Agent connections and game runtime                                            |
+| `backend/internal/shared/`     | Contracts and utilities used by both production executables                   |
+| `backend/internal/devmock/`    | Development-only simulator and mock application composition                   |
+| `backend/internal/devfixture/` | Development and test fixtures, including the fake Discord viewer              |
+| `web/`                         | React and TypeScript frontend                                                 |
+| `config/`, `deploy/`           | Configuration examples and systemd units                                      |
+| `scripts/`                     | Development, build, release, and verification tooling                         |
+| `e2e/`, `backend/e2e/`         | Browser tests and their isolated Go harness                                   |
+| `screenshots/`                 | README images and browser-test baselines                                      |
+| `docs/`                        | Documentation source and site configuration                                   |
 
 HTTP handlers delegate application behavior to services; repositories handle
 database access. Agent coordination sends authorized execution requests to the
 Spark assigned to a server, where runtime code operates on Docker and local files.
+Production implementations stay with their owning component. Development mocks
+and tests may consume panel or Spark code, but their reuse alone does not justify
+moving that code into `shared`. Panel authorization and game-field presentation
+belong to the panel; archive codecs belong to Spark. Production components do not
+import development packages or each other's implementations. Tests check these
+source boundaries and the build-tag-selected dependency graphs.
+
 For setup and testing commands, see [Local development](/Campfire/development/).
 
 ## System overview

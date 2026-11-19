@@ -21,11 +21,11 @@ import (
 	"campfire/internal/campfire/api"
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	"campfire/internal/campfire/devfixture"
-	integrationfixture "campfire/internal/campfire/devfixture/integrations"
 	"campfire/internal/campfire/service"
 	integrationservice "campfire/internal/campfire/service/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	"campfire/internal/devfixture"
+	integrationfixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
 )
 

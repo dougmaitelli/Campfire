@@ -21,6 +21,15 @@ a session preserve panel changes.
 
 Use `make dev` instead to work with real Spark connections.
 
+The `campfire-mock` entry point composes the panel with
+`backend/internal/devmock`. Reusable development and test fixtures live in
+`backend/internal/devfixture`; both packages are excluded by the `production`
+build tag. The simulator can call panel and Spark implementations directly without
+making them shared production packages. Neither regular executable imports the
+simulator, even in an untagged development build. The browser harness uses the
+same fixtures but keeps its deterministic runtime separate from interactive mock
+scenarios.
+
 ## Mock scenarios
 
 | Server                    | Useful for testing                                                                 |

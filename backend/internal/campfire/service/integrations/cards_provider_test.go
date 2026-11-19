@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 type secondCardProvider struct{ entered, created chan struct{} }

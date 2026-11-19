@@ -10,8 +10,8 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
+	fixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
 )
 

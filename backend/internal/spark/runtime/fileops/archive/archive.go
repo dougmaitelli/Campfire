@@ -1,4 +1,4 @@
-// Package archive dispatches Spark's server-file extraction codecs. Filesystem
+// Package archive owns Spark's archive codecs and format-neutral contracts. Filesystem
 // access, path policy, conflicts, staging and publication belong to fileops.
 package archive
 
@@ -6,13 +6,12 @@ import (
 	"context"
 	"io"
 
-	sharedarchive "campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 )
 
 // Visit receives one streamed member. Consume its declared payload, including
 // skipped files, so the codec can validate checksums before advancing.
-type Visit func(sharedarchive.Entry, io.Reader) error
+type Visit func(Entry, io.Reader) error
 
 // ReadLimits bounds input, expanded member sizes and metadata entry counts.
 // Filesystem allocation and conflict handling remain caller policy.
@@ -62,7 +61,7 @@ func Unarchive(ctx context.Context, input io.ReaderAt, size int64, name string, 
 		expanded int64
 	)
 
-	boundedVisit := func(entry sharedarchive.Entry, payload io.Reader) error {
+	boundedVisit := func(entry Entry, payload io.Reader) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}

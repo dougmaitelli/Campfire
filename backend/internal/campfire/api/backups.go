@@ -11,9 +11,9 @@ import (
 	"slices"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 type catalogBackup struct {

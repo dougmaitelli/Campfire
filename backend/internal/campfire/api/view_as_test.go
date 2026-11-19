@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/database"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func previewAs(t *testing.T, admin http.Handler, userID int64) (*http.Cookie, http.Handler) {

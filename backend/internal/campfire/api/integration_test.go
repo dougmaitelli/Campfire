@@ -13,11 +13,11 @@ import (
 	"campfire/internal/campfire/api"
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
 	"campfire/internal/campfire/service"
 	"campfire/internal/campfire/service/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	fixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
 )
 
