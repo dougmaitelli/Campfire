@@ -47,7 +47,7 @@ func (r *Runtime) compression(ctx context.Context, record *runtimeRecord, q mode
 			return result, fileError(model.FileBusy, "Too many recent compression results.")
 		}
 
-		if err := mockCompress(record, q); err != nil {
+		if err := mockCompress(ctx, record, q); err != nil {
 			return result, err
 		}
 

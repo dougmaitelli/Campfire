@@ -3,21 +3,22 @@
 package devmock
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
+	"context"
 	"encoding/base64"
+	"io/fs"
 	"path"
 	"sort"
 	"strings"
 
+	"campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 )
 
-func mockCompress(record *runtimeRecord, request model.FileRequest) error {
+func mockCompress(ctx context.Context, record *runtimeRecord, request model.FileRequest) error {
 	destination, err := cleanPath(request.Destination)
-	if err != nil || !strings.HasSuffix(destination, ".tar.gz") {
-		return fileError(model.FileInvalid, "Choose a .tar.gz archive destination.")
+	if err != nil {
+		return fileError(model.FileInvalid, "Choose a valid archive destination.")
 	}
 
 	if _, exists := record.Files[destination]; exists {
@@ -70,8 +71,10 @@ func mockCompress(record *runtimeRecord, request model.FileRequest) error {
 
 	var buffer bytes.Buffer
 
-	zipped := gzip.NewWriter(&buffer)
-	archive := tar.NewWriter(zipped)
+	encoder, err := archive.NewWriter(ctx, &buffer, destination)
+	if err != nil {
+		return err
+	}
 
 	for _, key := range keys {
 		name := key
@@ -81,27 +84,23 @@ func mockCompress(record *runtimeRecord, request model.FileRequest) error {
 
 		content := mockFileContent(record.Files[key])
 
-		header := &tar.Header{Name: name, Mode: 0600, Size: int64(len(content)), Typeflag: tar.TypeReg}
+		entry := archive.Entry{Name: name, Mode: 0600, Size: int64(len(content))}
 		if strings.HasSuffix(key, "/") {
-			header.Typeflag, header.Mode, header.Size = tar.TypeDir, 0700, 0
+			entry.Mode, entry.Size = fs.ModeDir|0700, 0
 		}
 
-		if err := archive.WriteHeader(header); err != nil {
+		if err := encoder.WriteHeader(entry); err != nil {
 			return err
 		}
 
-		if header.Typeflag == tar.TypeReg {
-			if _, err := archive.Write([]byte(content)); err != nil {
+		if entry.Mode.IsRegular() {
+			if _, err := encoder.Write([]byte(content)); err != nil {
 				return err
 			}
 		}
 	}
 
-	if err := archive.Close(); err != nil {
-		return err
-	}
-
-	if err := zipped.Close(); err != nil {
+	if err := encoder.Close(); err != nil {
 		return err
 	}
 

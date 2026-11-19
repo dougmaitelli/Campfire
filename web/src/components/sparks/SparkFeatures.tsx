@@ -13,6 +13,7 @@ const featureTranslationKeys = {
   [Capability.Files]: "sparkFeatures.fileManagement",
   [Capability.FileTransfer]: "sparkFeatures.fileUploadsAndDownloads",
   [Capability.FileArchive]: "sparkFeatures.archiveCreationAndExtraction",
+  [Capability.ArchiveFormats]: "sparkFeatures.additionalArchiveFormats",
   [Capability.Backups]: "sparkFeatures.localBackups",
   [Capability.RemoteBackups]: "sparkFeatures.remoteBackupRestore",
   [Capability.Metrics]: "sparkFeatures.resourceMonitoring",

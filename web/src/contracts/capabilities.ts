@@ -9,6 +9,7 @@ export enum Capability {
   FilePermissions = "server.files.permissions.v1",
   FileTransfer = "server.files.transfer.v1",
   FileArchive = "server.files.archive.v1",
+  ArchiveFormats = "server.files.archive-formats.v1",
   Backups = "server.backups.v4",
   RemoteBackups = "server.backups.remote.v1",
   Metrics = "server.metrics.v1",

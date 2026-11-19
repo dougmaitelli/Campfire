@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"campfire/internal/shared/archive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 	"campfire/internal/shared/workprogress"
@@ -251,7 +252,9 @@ func (m *Manager) scanExtraction(d model.Deployment, s *extractionSession) {
 						s.version++
 					}
 				})
-				err = ReadArchive(ctx, input, s.source, func(name string, size int64, mode fs.FileMode, reader io.Reader) error {
+				err = ReadArchive(ctx, input, s.source, func(entry archive.Entry, reader io.Reader) error {
+					name, size, mode := entry.Name, entry.Size, entry.Mode
+
 					if err := s.ctx.Err(); err != nil {
 						return err
 					}

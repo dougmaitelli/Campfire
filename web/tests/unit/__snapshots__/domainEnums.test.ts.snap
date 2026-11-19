@@ -44,6 +44,7 @@ exports[`domain members preserve serialized contract values 1`] = `
     "Uploaded": "uploaded",
   },
   "Capability": {
+    "ArchiveFormats": "server.files.archive-formats.v1",
     "Backups": "server.backups.v4",
     "Configure": "server.configure.v2",
     "Console": "server.console.stream.v1",

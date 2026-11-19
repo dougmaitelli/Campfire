@@ -1,4 +1,4 @@
-package archiveio
+package archive
 
 import (
 	"archive/tar"
@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 
+	sharedarchive "campfire/internal/shared/archive"
 	"campfire/internal/shared/workprogress"
 )
 
@@ -20,7 +21,7 @@ func TestTarGzipReportsPayloadAndEncodedBytesSeparately(t *testing.T) {
 
 	ctx := workprogress.WithReporter(t.Context(), func(s workprogress.Snapshot) { creation = s })
 
-	writer := NewTarGzipWriter(ctx, &data)
+	writer := sharedarchive.NewTarGzipWriter(ctx, &data)
 	if err := writer.WriteHeader(&tar.Header{Name: "world", Mode: 0600, Size: int64(len(payload))}); err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,7 @@ func TestBufferedCloseAndCorruptFooterCannotBecomeSuccess(t *testing.T) {
 
 	ctx := workprogress.WithReporter(t.Context(), func(s workprogress.Snapshot) { last = s })
 
-	writer := NewTarGzipWriter(ctx, closedOutput{})
+	writer := sharedarchive.NewTarGzipWriter(ctx, closedOutput{})
 	if err := writer.Close(); err == nil {
 		t.Fatal("expected close failure")
 	}
@@ -96,7 +97,7 @@ func TestBufferedCloseAndCorruptFooterCannotBecomeSuccess(t *testing.T) {
 
 	var data bytes.Buffer
 
-	writer = NewTarGzipWriter(ctx, &data)
+	writer = sharedarchive.NewTarGzipWriter(ctx, &data)
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}

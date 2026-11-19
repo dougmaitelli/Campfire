@@ -1,19 +1,22 @@
-package fileops
+package archive
 
 import (
+	"context"
 	"errors"
 	"io"
-	"io/fs"
 
-	"campfire/internal/shared/model"
+	sharedarchive "campfire/internal/shared/archive"
+	"campfire/internal/shared/workprogress"
 
 	"github.com/nwaples/rardecode/v2"
 )
 
-// ExtractRAR streams supported single-volume RAR members.
-func ExtractRAR(input io.Reader, unpack func(string, int64, fs.FileMode, io.Reader) error) error {
+func readRAR(ctx context.Context, input io.ReaderAt, size int64, _ ReadLimits, visit Visit) error {
+	progress := workprogress.New(ctx, workprogress.Extracting, size)
+	defer progress.Flush()
+
 	// Bound decoder memory independently of the archive's expanded size limit.
-	archive, err := rardecode.NewReader(input, rardecode.MaxDictionarySize(128<<20))
+	archive, err := rardecode.NewReader(progress.Reader(io.NewSectionReader(input, 0, size)), rardecode.MaxDictionarySize(128<<20))
 	if err != nil {
 		return rarFailure(err)
 	}
@@ -33,15 +36,18 @@ func ExtractRAR(input io.Reader, unpack func(string, int64, fs.FileMode, io.Read
 		}
 
 		if header.UnKnownSize || header.LinkType != 0 || header.LinkTarget != "" {
-			return Failure(model.FileInvalid, "RAR entries must have known sizes and cannot contain links.")
+			return invalidArchive("RAR entries must have known sizes and cannot contain links.")
 		}
 		// Mode() only identifies symlinks; reject other Unix special types explicitly.
 		unixType := header.Attributes & 0xf000
 		if header.HostOS == rardecode.HostOSUnix && unixType != 0 && unixType != 0x4000 && unixType != 0x8000 {
-			return Failure(model.FileInvalid, "Archives cannot contain links or special files.")
+			return invalidArchive("Archives cannot contain links or special files.")
 		}
 
-		if err := unpack(header.Name, header.UnPackedSize, header.Mode(), archive); err != nil {
+		progress.Entry()
+
+		entry := sharedarchive.Entry{Name: header.Name, Size: header.UnPackedSize, Mode: header.Mode(), Modified: header.ModificationTime}
+		if err := visit(entry, progress.OutputReader(archive)); err != nil {
 			return rarFailure(err)
 		}
 		// Reading past the declared size verifies the entry checksum, including empty files.
@@ -53,7 +59,7 @@ func ExtractRAR(input io.Reader, unpack func(string, int64, fs.FileMode, io.Read
 				return rarFailure(end)
 			}
 
-			return Failure(model.FileInvalid, "Invalid RAR entry length.")
+			return invalidArchive("Invalid RAR entry length.")
 		}
 	}
 }
@@ -61,11 +67,11 @@ func ExtractRAR(input io.Reader, unpack func(string, int64, fs.FileMode, io.Read
 func rarFailure(err error) error {
 	switch {
 	case errors.Is(err, rardecode.ErrArchiveEncrypted), errors.Is(err, rardecode.ErrArchivedFileEncrypted):
-		return Failure(model.FileInvalid, "Password-protected RAR archives are not supported.")
+		return invalidArchive("Password-protected RAR archives are not supported.")
 	case errors.Is(err, rardecode.ErrMultiVolume), errors.Is(err, rardecode.ErrFileNameRequired):
-		return Failure(model.FileInvalid, "Split RAR archives are not supported. Use a single-volume archive.")
+		return invalidArchive("Split RAR archives are not supported. Use a single-volume archive.")
 	case errors.Is(err, rardecode.ErrDictionaryTooLarge):
-		return Failure(model.FileLimitExceeded, "RAR decoder dictionaries are limited to 128 MiB.")
+		return archiveLimit("RAR decoder dictionaries are limited to 128 MiB.")
 	default:
 		return err
 	}

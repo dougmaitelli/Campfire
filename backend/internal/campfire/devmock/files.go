@@ -290,7 +290,7 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 			delete(record.Files, name)
 		}
 	case model.FileOperationCompress:
-		if err := mockCompress(&record, request); err != nil {
+		if err := mockCompress(ctx, &record, request); err != nil {
 			return result, err
 		}
 	default:

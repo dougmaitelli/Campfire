@@ -16,11 +16,12 @@ import (
 	"syscall"
 	"time"
 
-	"campfire/internal/shared/archiveio"
+	"campfire/internal/shared/archive"
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 	"campfire/internal/shared/workprogress"
+	filearchive "campfire/internal/spark/runtime/fileops/archive"
 )
 
 const backupBytes int64 = 100 << 30
@@ -308,7 +309,7 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 	}
 	defer func() { _ = root.Close() }()
 
-	archive := archiveio.NewTarGzipWriter(ctx, file)
+	archive := archive.NewTarGzipWriter(ctx, file)
 
 	if err := writeBackupManifest(archive, root, options); err != nil {
 		_ = archive.Close()
@@ -433,7 +434,7 @@ func syncBackupDirectory(directory string) error {
 }
 
 func extractBackup(ctx context.Context, input io.Reader, directory string, limit, inputSize int64) error {
-	archive, err := archiveio.NewTarGzipReader(ctx, backupReader{ctx, input}, inputSize)
+	archive, err := filearchive.NewTarGzipReader(ctx, backupReader{ctx, input}, inputSize)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ package devmock
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"io"
 	"strings"
@@ -17,7 +18,7 @@ func TestMockSelectedArchiveProducesDownloadableTarGzip(t *testing.T) {
 		"config/": "", "config/a.txt": "first", "config/b.txt": "second", "config/ignored.txt": "skip",
 	}}
 
-	err := mockCompress(&record, model.FileRequest{Operation: "compress", Path: "config", Paths: []string{"config/a.txt", "config/b.txt"}, Destination: "config/selected.tar.gz"})
+	err := mockCompress(t.Context(), &record, model.FileRequest{Operation: "compress", Path: "config", Paths: []string{"config/a.txt", "config/b.txt"}, Destination: "config/selected.tar.gz"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,6 +45,40 @@ func TestMockSelectedArchiveProducesDownloadableTarGzip(t *testing.T) {
 
 	if _, err := archive.Next(); err != io.EOF {
 		t.Fatal("archive included unselected files", err)
+	}
+}
+
+func TestMockSelectedZIPProducesDownloadableArchive(t *testing.T) {
+	record := runtimeRecord{Files: map[string]string{
+		"config/": "", "config/a.txt": "first", "config/b.txt": "second", "config/ignored.txt": "skip",
+	}}
+	if err := mockCompress(t.Context(), &record, model.FileRequest{Operation: model.FileOperationCompress, Path: "config", Paths: []string{"config/a.txt", "config/b.txt"}, Destination: "config/selected.zip"}); err != nil {
+		t.Fatal(err)
+	}
+
+	data := mockFileContent(record.Files["config/selected.zip"])
+
+	archive, err := zip.NewReader(strings.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(archive.File) != 2 {
+		t.Fatal("included unselected files", archive.File)
+	}
+
+	for _, file := range archive.File {
+		reader, err := file.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		body, err := io.ReadAll(reader)
+		_ = reader.Close()
+
+		if err != nil || string(body) != record.Files["config/"+file.Name] {
+			t.Fatal("invalid ZIP contents", string(body), err)
+		}
 	}
 }
 

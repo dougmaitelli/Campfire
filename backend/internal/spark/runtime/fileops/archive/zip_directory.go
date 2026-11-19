@@ -1,18 +1,14 @@
-package fileops
+package archive
 
 import (
 	"encoding/binary"
 	"io"
-	"os"
-
-	"campfire/internal/shared/model"
 )
 
-// CheckZIPDirectory bounds entry count before archive/zip allocates metadata.
-// Scan the directory too: ZIP's declared count alone is not trustworthy.
-// CheckZIPDirectory bounds ZIP directory metadata before decoding.
-func CheckZIPDirectory(file *os.File, size int64) error {
-	failure := Failure(model.FileInvalid, "ZIP directory is invalid or exceeds 100,000 entries or 128 MiB of metadata.")
+// Bound entry count before archive/zip allocates metadata. Scan the directory
+// too: ZIP's declared count alone is not trustworthy.
+func checkZIPDirectory(file io.ReaderAt, size int64, maxEntries int) error {
+	failure := invalidArchive("ZIP directory is invalid or exceeds the entry limit or 128 MiB of metadata.")
 	if size < 22 {
 		return failure
 	}
@@ -80,7 +76,7 @@ func CheckZIPDirectory(file *os.File, size int64) error {
 		count, length, offset = binary.LittleEndian.Uint64(record[32:]), binary.LittleEndian.Uint64(record[40:]), binary.LittleEndian.Uint64(record[48:])
 	}
 
-	if count > archiveEntryLimit || length > 128<<20 || offset > uint64(size) || length > uint64(size)-offset || offset+length != endPosition {
+	if count > uint64(maxEntries) || length > 128<<20 || offset > uint64(size) || length > uint64(size)-offset || offset+length != endPosition {
 		return failure
 	}
 
@@ -104,7 +100,7 @@ func CheckZIPDirectory(file *os.File, size int64) error {
 		}
 
 		actual++
-		if actual > archiveEntryLimit {
+		if actual > uint64(maxEntries) {
 			return failure
 		}
 
