@@ -266,7 +266,10 @@ test("an authorized user can retry one failed notification from Activity", async
       exact: true,
     });
     await newest.click();
-    await expect(newest).toHaveCount(0);
+    await expect(
+      activity.getByRole("button", { name: "Page 1", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(newest).toBeDisabled();
     await page.goBack();
     await expect(page).toHaveURL(originalPage);
     const filteredPage = new URL(originalPage);

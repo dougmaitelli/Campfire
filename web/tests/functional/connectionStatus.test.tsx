@@ -1,3 +1,6 @@
+import { Permission } from "../../src/contracts/permissions";
+import { RuntimeState } from "../../src/contracts/domains";
+import { LogPhase, LogSeverity } from "../../src/contracts/logAlerts";
 import {
   act,
   cleanup,
@@ -35,11 +38,11 @@ const server: Server = {
   ember_hash: "hash",
   ember_update_available: false,
   owner_user_id: 1,
-  permissions: ["server.view", "server.operate"],
+  permissions: [Permission.ServerView, Permission.ServerOperate],
   spark_name: "Node",
   ember_name: "Game",
   game_address: "",
-  status: "running",
+  status: RuntimeState.Running,
   created_at: "2026-10-25",
 };
 const entry = {
@@ -55,10 +58,10 @@ const alert: DetectedLogAlert = {
   id: "a".repeat(64),
   rule_key: "b".repeat(64),
   execution_id: "c".repeat(64),
-  phase: "runtime",
+  phase: LogPhase.Runtime,
   title: "EULA requires acceptance",
   message: "Review the EULA before changing eula.txt.",
-  severity: "error",
+  severity: LogSeverity.Error,
   detected_at: 1792670400,
 };
 let failed: Set<string>;

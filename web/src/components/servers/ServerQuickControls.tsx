@@ -1,4 +1,4 @@
-import { RuntimeState } from "../../contracts/domains";
+import { RuntimeState, ServerAction } from "../../contracts/domains";
 import { useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { serverAction, type RuntimeStatus } from "../../api/runtime";
@@ -6,6 +6,9 @@ import { Button } from "../forms/Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { ActionGroup } from "../layout/ActionGroup";
 import { lifecycleControlState } from "./lifecycleControlState";
+
+type QuickAction =
+  ServerAction.Start | ServerAction.Stop | ServerAction.Restart;
 
 export function ServerQuickControls({
   id,
@@ -27,19 +30,17 @@ export function ServerQuickControls({
   children?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const [action, setAction] = useState<"start" | "stop" | "restart" | null>(
-    null,
-  );
+  const [action, setAction] = useState<QuickAction | null>(null);
   const pending = useRef(false);
   const startupPending =
-    action === "start" ||
+    action === ServerAction.Start ||
     status?.state === RuntimeState.Starting ||
-    status?.state === "restarting";
+    status?.state === RuntimeState.Restarting;
   const { blocked, running, install, canInterrupt } = lifecycleControlState(
     status,
     disabled || !canOperate || action !== null,
   );
-  async function act(next: "start" | "stop" | "restart") {
+  async function act(next: QuickAction) {
     if (pending.current) return;
     pending.current = true;
     setAction(next);
@@ -71,13 +72,13 @@ export function ServerQuickControls({
             disabled={blocked || install || running}
             aria-label={t("serverQuickControls.start", { name })}
             title={t("common.start")}
-            loading={action === "start"}
+            loading={action === ServerAction.Start}
             aria-busy={startupPending}
-            onClick={() => void act("start")}
+            onClick={() => void act(ServerAction.Start)}
           >
             <NavigationIcon
-              name={action === "start" ? "loading" : "play"}
-              filled={action !== "start"}
+              name={action === ServerAction.Start ? "loading" : "play"}
+              filled={action !== ServerAction.Start}
             />
           </Button>
           <Button
@@ -86,12 +87,12 @@ export function ServerQuickControls({
             disabled={!canInterrupt && (blocked || !running)}
             aria-label={t("serverQuickControls.stop", { name })}
             title={t("common.stop")}
-            loading={action === "stop"}
-            onClick={() => void act("stop")}
+            loading={action === ServerAction.Stop}
+            onClick={() => void act(ServerAction.Stop)}
           >
             <NavigationIcon
-              name={action === "stop" ? "loading" : "stop"}
-              filled={action !== "stop"}
+              name={action === ServerAction.Stop ? "loading" : "stop"}
+              filled={action !== ServerAction.Stop}
             />
           </Button>
           <Button
@@ -100,11 +101,11 @@ export function ServerQuickControls({
             disabled={blocked || !running}
             aria-label={t("serverQuickControls.restart", { name })}
             title={t("common.restart")}
-            loading={action === "restart"}
-            onClick={() => void act("restart")}
+            loading={action === ServerAction.Restart}
+            onClick={() => void act(ServerAction.Restart)}
           >
             <NavigationIcon
-              name={action === "restart" ? "loading" : "restart"}
+              name={action === ServerAction.Restart ? "loading" : "restart"}
             />
           </Button>
         </>

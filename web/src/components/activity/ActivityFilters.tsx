@@ -1,3 +1,4 @@
+import { ActivityFilterKind } from "../../contracts/domains";
 import { useState, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityChoices, ActivityFilter } from "../../api/serverActivity";
@@ -28,8 +29,8 @@ function localTime(value: number | undefined): string {
 }
 const statusOptions = {
   "": [],
-  game: [],
-  operations: [
+  [ActivityFilterKind.Game]: [],
+  [ActivityFilterKind.Operations]: [
     "pending",
     "running",
     "failed",
@@ -42,7 +43,13 @@ const statusOptions = {
     "skipped",
     "dispatch_failed",
   ],
-  alert: ["active", "dismissed", "archived", "raised", "recovered"],
+  [ActivityFilterKind.Alert]: [
+    "active",
+    "dismissed",
+    "archived",
+    "raised",
+    "recovered",
+  ],
 } as const;
 
 export function ActivityFilters({
@@ -101,8 +108,8 @@ export function ActivityFilters({
       search,
       ...(start !== undefined ? { from: start } : {}),
       ...(end !== undefined ? { to: end } : {}),
-      ...(kind === "game" ? { type, fields: data } : {}),
-      ...(kind !== "game" && kind !== "" ? { state } : {}),
+      ...(kind === ActivityFilterKind.Game ? { type, fields: data } : {}),
+      ...(kind !== ActivityFilterKind.Game && kind !== "" ? { state } : {}),
     });
   }
   return (
@@ -121,11 +128,13 @@ export function ActivityFilters({
               })
             }
           >
-            {(["", "game", "operations", "alert"] as const).map((value) => (
-              <option key={value} value={value}>
-                {t(`serverActivity.filters.${value || "all"}`)}
-              </option>
-            ))}
+            {(["", ...Object.values(ActivityFilterKind)] as const).map(
+              (value) => (
+                <option key={value} value={value}>
+                  {t(`serverActivity.filters.${value || "all"}`)}
+                </option>
+              ),
+            )}
           </Select>
         </FormField>
         <FormField label={t("gameEvents.search")}>
@@ -147,7 +156,7 @@ export function ActivityFilters({
             onChange={(event) => setTo(event.target.value)}
           />
         </FormField>
-        {kind && kind !== "game" && (
+        {kind && kind !== ActivityFilterKind.Game && (
           <FormField label={t("common.status")}>
             <Select value={state} onValueChange={setState}>
               <option value="">{t("serverActivity.anyStatus")}</option>
@@ -159,7 +168,7 @@ export function ActivityFilters({
             </Select>
           </FormField>
         )}
-        {kind === "game" && (
+        {kind === ActivityFilterKind.Game && (
           <>
             <FormField label={t("gameEvents.type")}>
               <Select value={type} onValueChange={setType} disabled={!choices}>

@@ -1,6 +1,6 @@
 import {
   RuntimeState,
-  type BackupStorage,
+  BackupStorage,
   ServerAction,
   BackupState as BackupStatus,
 } from "../../contracts/domains";
@@ -160,12 +160,13 @@ export function ServerBackups({ server }: { server: Server }) {
         description: i18n.t(
           "serverBackups.permanentlyDeleteTheCopyOfOtherCopiesAreKeptDeleting",
           {
-            locationLocalLocal: location === "local" ? "local" : "S3",
+            locationLocalLocal:
+              location === BackupStorage.Local ? "local" : "S3",
             entryName: backupDisplayName(entry),
           },
         ),
         confirmLabel: t(
-          location === "local"
+          location === BackupStorage.Local
             ? "serverBackups.deleteLocal"
             : "serverBackups.deleteS3",
         ),
@@ -192,7 +193,7 @@ export function ServerBackups({ server }: { server: Server }) {
     }
   }
   async function submit(
-    action: "backup" | "restore",
+    action: ServerAction.Backup | ServerAction.Restore,
     {
       name,
       backupMode = BackupMode.Full,
@@ -201,16 +202,16 @@ export function ServerBackups({ server }: { server: Server }) {
     if (
       pending.current ||
       !(action === ServerAction.Backup ? canCreateNow : canRestoreNow) ||
-      !(action === "backup" ? canCreate : canRestore)
+      !(action === ServerAction.Backup ? canCreate : canRestore)
     )
       return;
     if (
-      action === "backup" &&
+      action === ServerAction.Backup &&
       backupMode === BackupMode.Savedata &&
       !server.savedata_available
     )
       return;
-    if (action === "restore" && running && !canOperate) return;
+    if (action === ServerAction.Restore && running && !canOperate) return;
     pending.current = true;
     setBusy(true);
     setError(null);
@@ -221,7 +222,7 @@ export function ServerBackups({ server }: { server: Server }) {
     const workflow: { phase: RestorePhase | null } = { phase: null };
     try {
       let next: RuntimeStatus;
-      if (action === "restore" && name) {
+      if (action === ServerAction.Restore && name) {
         const controller = new AbortController();
         restoreAbort.current = controller;
         next = await restoreBackup(
@@ -249,13 +250,13 @@ export function ServerBackups({ server }: { server: Server }) {
           action,
           name,
           undefined,
-          action === "backup" ? backupMode : undefined,
+          action === ServerAction.Backup ? backupMode : undefined,
         );
       }
       if (mounted.current) {
         setCurrentOperationID(next.operation_id ?? null);
         setStatus(next);
-        if (action === "restore") {
+        if (action === ServerAction.Restore) {
           setRestoredOperationID(next.operation_id ?? null);
           setRestore(null);
         }
@@ -270,7 +271,7 @@ export function ServerBackups({ server }: { server: Server }) {
         if (workflow.phase === ServerAction.Start) {
           setRestore(null);
           setError(t("serverBackups.restoreRestartFailed", { message }));
-        } else if (action === "restore") setRestoreError(message);
+        } else if (action === ServerAction.Restore) setRestoreError(message);
         else setError(message);
       }
     } finally {
@@ -312,7 +313,7 @@ export function ServerBackups({ server }: { server: Server }) {
             error={restoreError}
             onClose={() => setRestore(null)}
             onConfirm={() => {
-              void submit("restore", { name: restore.name });
+              void submit(ServerAction.Restore, { name: restore.name });
             }}
           >
             <p className="field-help backup-restore-name">
@@ -385,7 +386,9 @@ export function ServerBackups({ server }: { server: Server }) {
                     label: t("serverBackups.fullBackup"),
                     icon: "backups",
                     onSelect: () => {
-                      void submit("backup", { backupMode: BackupMode.Full });
+                      void submit(ServerAction.Backup, {
+                        backupMode: BackupMode.Full,
+                      });
                     },
                   },
                   ...(server.savedata_available
@@ -394,7 +397,7 @@ export function ServerBackups({ server }: { server: Server }) {
                           label: t("backupModes.savedata"),
                           icon: "folder",
                           onSelect: () => {
-                            void submit("backup", {
+                            void submit(ServerAction.Backup, {
                               backupMode: BackupMode.Savedata,
                             });
                           },
@@ -432,10 +435,10 @@ export function ServerBackups({ server }: { server: Server }) {
           !busy &&
           isCurrentOperationSuccessful(status, currentOperationID) &&
           (status.operation === ServerAction.Backup ||
-            status.operation === "restore" ||
+            status.operation === ServerAction.Restore ||
             restoredOperationID === currentOperationID) && (
             <InlineMessage tone="success">
-              {status.operation === "backup"
+              {status.operation === ServerAction.Backup
                 ? t("serverBackups.backupCreated")
                 : t(
                     status.state === RuntimeState.Running
@@ -553,7 +556,7 @@ export function ServerBackups({ server }: { server: Server }) {
                           entry.state === BackupStatus.Deleting
                         }
                         onClick={() => {
-                          void remove(entry, "local");
+                          void remove(entry, BackupStorage.Local);
                         }}
                       >
                         <NavigationIcon name="delete" />
@@ -569,7 +572,7 @@ export function ServerBackups({ server }: { server: Server }) {
                           entry.state === BackupStatus.Deleting
                         }
                         onClick={() => {
-                          void remove(entry, "s3");
+                          void remove(entry, BackupStorage.S3);
                         }}
                       >
                         {i18n.t("serverBackups.deleteS3")}

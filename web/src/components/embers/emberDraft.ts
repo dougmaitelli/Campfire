@@ -1,3 +1,4 @@
+import { StartupShell } from "../../contracts/domains";
 import type { Ember, EmberConfigFile } from "../../api/embers";
 import i18n from "../../i18n";
 
@@ -32,7 +33,7 @@ export function emptyEmber(): Ember {
     description: "",
     images: {},
     startup: "",
-    startup_shell: "sh",
+    startup_shell: StartupShell.Sh,
     work_dir: "/home/container",
     user: "1000:1000",
     variables: [],

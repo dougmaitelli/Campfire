@@ -32,7 +32,11 @@ export function ServerConsole({
           !status || status.state === RuntimeState.Unknown
             ? "waiting"
             : status.busy ||
-                ["running", "restarting", "starting"].includes(status.state)
+                [
+                  RuntimeState.Running,
+                  RuntimeState.Restarting,
+                  RuntimeState.Starting,
+                ].includes(status.state)
               ? "live"
               : "snapshot"
         }

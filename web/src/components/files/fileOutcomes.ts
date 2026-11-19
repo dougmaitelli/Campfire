@@ -1,3 +1,7 @@
+import {
+  BrowserPublicationStatus,
+  ExtractionOutcomeStatus,
+} from "../../contracts/domains";
 import type { PublicationStatus } from "../../api/fileTypes";
 
 export interface FileOutcome {
@@ -19,11 +23,11 @@ export function summarizeFileOutcomes(outcomes: readonly FileOutcome[]) {
   };
   for (const { status } of outcomes) {
     switch (status) {
-      case "uploaded":
-      case "extracted":
-      case "merged":
-      case "overwritten":
-      case "renamed":
+      case BrowserPublicationStatus.Uploaded:
+      case ExtractionOutcomeStatus.Extracted:
+      case ExtractionOutcomeStatus.Merged:
+      case ExtractionOutcomeStatus.Overwritten:
+      case ExtractionOutcomeStatus.Renamed:
         counts.completed++;
         break;
       default:

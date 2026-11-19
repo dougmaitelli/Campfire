@@ -1,11 +1,11 @@
+import {
+  ExtractionState,
+  ExtractionOutcomeStatus,
+  FileOperation,
+  FileKind,
+} from "../../src/contracts/domains";
 import { expect, test, vi } from "vitest";
 import { manageFiles, type ExtractionStatus } from "../../src/api/files";
-import { FileKind } from "../../src/contracts/domains";
-import {
-  extractionOutcomeStatuses,
-  extractionStates,
-  type ExtractionOutcomeStatus,
-} from "../../src/api/fileTypes";
 
 // Browser-only statuses must not become valid server extraction outcomes.
 // @ts-expect-error Uploads are a distinct publication protocol.
@@ -17,14 +17,14 @@ const base = { server_id: "game", path: "/existing/" };
 const operation: ExtractionStatus = {
   id: "operation",
   version: 1,
-  state: "completed",
+  state: ExtractionState.Completed,
   expires_at: "2026-11-17T12:00:00Z",
   pending_conflicts: 0,
   remaining_entries: 0,
   outcomes: [],
 };
 const request = {
-  operation: "extract.status" as const,
+  operation: FileOperation.ExtractStatus,
   path: "/input.zip",
   destination: "/existing",
   extraction: { id: "operation" },
@@ -37,7 +37,10 @@ test.each([
   { ...operation, id: "other-operation" },
   { ...operation, version: -1 },
   { ...operation, version: 0.5 },
-  { ...operation, state: "unknown" },
+  ...["unknown", ["completed"], 0, null, {}].map((state) => ({
+    ...operation,
+    state,
+  })),
   { ...operation, expires_at: "invalid" },
   { ...operation, pending_conflicts: -1 },
   { ...operation, remaining_entries: -1 },
@@ -47,10 +50,10 @@ test.each([
     ...operation,
     outcomes: [{ path: "a", destination: "existing/a", status }],
   })),
-  {
+  ...["unknown", ["extracted"], 0, null, {}].map((status) => ({
     ...operation,
-    outcomes: [{ path: "a", destination: "existing/a", status: "unknown" }],
-  },
+    outcomes: [{ path: "a", destination: "existing/a", status }],
+  })),
   {
     ...operation,
     outcomes: [{ path: 3, destination: "existing/a", status: "extracted" }],
@@ -113,7 +116,7 @@ test.each([
   },
 );
 
-test.each(extractionOutcomeStatuses)(
+test.each(Object.values(ExtractionOutcomeStatus))(
   "accepts the declared Spark outcome %s",
   async (status) => {
     const body = {
@@ -128,7 +131,7 @@ test.each(extractionOutcomeStatuses)(
   },
 );
 
-test.each(extractionStates)(
+test.each(Object.values(ExtractionState))(
   "accepts the declared extraction state %s",
   async (state) => {
     const body = { ...base, extraction: { ...operation, state } };
@@ -142,10 +145,16 @@ test("accepts empty completion and live conflict snapshots", async () => {
     operation,
     {
       ...operation,
-      state: "waiting",
+      state: ExtractionState.Waiting,
       pending_conflicts: 1,
       remaining_entries: 1,
-      outcomes: [{ path: "a", destination: "existing/a", status: "pending" }],
+      outcomes: [
+        {
+          path: "a",
+          destination: "existing/a",
+          status: ExtractionOutcomeStatus.Pending,
+        },
+      ],
       conflict: {
         id: "conflict",
         path: "a",

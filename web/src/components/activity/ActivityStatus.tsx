@@ -2,17 +2,18 @@ import { useTranslation } from "react-i18next";
 import { StatusPill, type StatusTone } from "../status/StatusPill";
 import type { ActivityEntry } from "../../api/serverActivity";
 import i18n from "../../i18n";
-import { ServerAction } from "../../contracts/domains";
+import { ServerAction, ActivityEntryKind } from "../../contracts/domains";
+import { isEnumValue } from "../../utils/validation";
 import { operationLabel } from "../servers/operationMessage";
 
 export function activityTitle(entry: ActivityEntry): string {
-  if (entry.kind === "job")
+  if (entry.kind === ActivityEntryKind.Job)
     return i18n.t(
       entry.title === "copy" ? "serverCopy.copy" : "serversPage.transfer",
     );
-  if (entry.kind === "operation")
+  if (entry.kind === ActivityEntryKind.Operation)
     return operationLabel(
-      Object.values(ServerAction).find((action) => action === entry.title),
+      isEnumValue(ServerAction, entry.title) ? entry.title : undefined,
     );
   return entry.title;
 }

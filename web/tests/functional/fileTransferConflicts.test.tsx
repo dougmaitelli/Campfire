@@ -1,3 +1,10 @@
+import { Permission } from "../../src/contracts/permissions";
+import {
+  RuntimeState,
+  ExtractionAction,
+  ExtractionOutcomeStatus,
+  ExtractionState,
+} from "../../src/contracts/domains";
 import { beforeAll, afterAll, beforeEach, expect, test, vi } from "vitest";
 import {
   act,
@@ -71,16 +78,16 @@ const server: Server = {
   ember_update_available: false,
   owner_user_id: 1,
   permissions: [
-    "server.view",
-    "server.console.read",
-    "server.operate",
-    "server.files.read",
-    "server.files.write",
+    Permission.ServerView,
+    Permission.ServerConsoleRead,
+    Permission.ServerOperate,
+    Permission.ServerFilesRead,
+    Permission.ServerFilesWrite,
   ],
   spark_name: "Spark",
   ember_name: "Game",
   game_address: "",
-  status: "running",
+  status: RuntimeState.Running,
   created_at: "2026-11-01",
 };
 const entry = (
@@ -155,13 +162,13 @@ beforeEach(() => {
                 ? {
                     ...item,
                     status:
-                      action === "skip"
-                        ? "skipped"
-                        : action === "rename"
-                          ? "renamed"
-                          : action === "overwrite"
-                            ? "overwritten"
-                            : "extracted",
+                      action === ExtractionAction.Skip
+                        ? ExtractionOutcomeStatus.Skipped
+                        : action === ExtractionAction.Rename
+                          ? ExtractionOutcomeStatus.Renamed
+                          : action === ExtractionAction.Overwrite
+                            ? ExtractionOutcomeStatus.Overwritten
+                            : ExtractionOutcomeStatus.Extracted,
                   }
                 : item,
             );
@@ -169,8 +176,8 @@ beforeEach(() => {
             extractionState.pending_conflicts = extractionConflicts.length;
             extractionState.remaining_entries = extractionConflicts.length;
             extractionState.state = extractionConflicts.length
-              ? "waiting"
-              : "completed";
+              ? ExtractionState.Waiting
+              : ExtractionState.Completed;
             delete extractionState.message;
             if (extractionConflicts[0])
               extractionState.conflict = extractionConflicts[0];
@@ -182,12 +189,15 @@ beforeEach(() => {
           extractionState = {
             ...extractionState,
             version: extractionState.version + 1,
-            state: "cancelled",
+            state: ExtractionState.Cancelled,
             pending_conflicts: 0,
             remaining_entries: 0,
             outcomes: extractionState.outcomes.map((item) => ({
               ...item,
-              status: item.status === "pending" ? "cancelled" : item.status,
+              status:
+                item.status === ExtractionOutcomeStatus.Pending
+                  ? ExtractionOutcomeStatus.Cancelled
+                  : item.status,
             })),
           };
           delete extractionState.conflict;
@@ -613,7 +623,7 @@ function configureExtraction(names: string[] = ["one.txt"], completed = true) {
   extractionState = {
     id: "",
     version: 1,
-    state: names.length ? "waiting" : "completed",
+    state: names.length ? ExtractionState.Waiting : ExtractionState.Completed,
     expires_at: new Date(Date.now() + 900000).toISOString(),
     pending_conflicts: names.length,
     remaining_entries: names.length,
@@ -623,14 +633,14 @@ function configureExtraction(names: string[] = ["one.txt"], completed = true) {
             {
               path: "fresh.txt",
               destination: "bundle/fresh.txt",
-              status: "extracted" as const,
+              status: ExtractionOutcomeStatus.Extracted,
             },
           ]
         : []),
       ...names.map((name) => ({
         path: name,
         destination: `bundle/${name}`,
-        status: "pending" as const,
+        status: ExtractionOutcomeStatus.Pending,
       })),
     ],
     ...(extractionConflicts[0] ? { conflict: extractionConflicts[0] } : {}),
@@ -873,7 +883,7 @@ test("a lost decision response is retried with the exact idempotent token", asyn
 });
 test("late archive failure retains partial results and reports the failure", async () => {
   configureExtraction([]);
-  extractionState.state = "failed";
+  extractionState.state = ExtractionState.Failed;
   extractionState.message =
     "Invalid archive checksum. Earlier entries were kept.";
   await startExtraction();
@@ -883,13 +893,16 @@ test("late archive failure retains partial results and reports the failure", asy
 });
 test("expired conflict waits report stopped work rather than successful extraction", async () => {
   configureExtraction();
-  extractionState.state = "expired";
+  extractionState.state = ExtractionState.Expired;
   extractionState.pending_conflicts = 0;
   extractionState.remaining_entries = 0;
   delete extractionState.conflict;
   extractionState.outcomes = extractionState.outcomes.map((item) => ({
     ...item,
-    status: item.status === "pending" ? "cancelled" : item.status,
+    status:
+      item.status === ExtractionOutcomeStatus.Pending
+        ? ExtractionOutcomeStatus.Cancelled
+        : item.status,
   }));
   extractionState.message = "Extraction expired while waiting for a response.";
   await startExtraction();
@@ -901,7 +914,7 @@ test.each([false, true])(
   "confirmed scanner cancellation preserves encountered results (completed=%s) without a finished banner",
   async (completed) => {
     configureExtraction([], completed);
-    extractionState.state = "running";
+    extractionState.state = ExtractionState.Running;
     const { user } = await startExtraction();
     const dialog = screen.getByRole("dialog", { name: "Extract archive" });
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
@@ -935,7 +948,7 @@ test.each([false, true])(
   "lost cancellation of an active scanner marks the operation unconfirmed (completed=%s)",
   async (completed) => {
     configureExtraction([], completed);
-    extractionState.state = "running";
+    extractionState.state = ExtractionState.Running;
     const implementation = vi.mocked(manageFiles).getMockImplementation()!;
     vi.mocked(manageFiles).mockImplementation(async (...args) => {
       if (args[1].operation === FileOperation.ExtractCancel) {
@@ -966,13 +979,16 @@ test("an open conflict dismisses itself on expiry without requiring a decision",
   extractionState.expires_at = new Date(Date.now() + 100).toISOString();
   extractionOnStatus = () => {
     extractionState.version++;
-    extractionState.state = "expired";
+    extractionState.state = ExtractionState.Expired;
     extractionState.pending_conflicts = 0;
     extractionState.remaining_entries = 0;
     delete extractionState.conflict;
     extractionState.outcomes = extractionState.outcomes.map((item) => ({
       ...item,
-      status: item.status === "pending" ? "cancelled" : item.status,
+      status:
+        item.status === ExtractionOutcomeStatus.Pending
+          ? ExtractionOutcomeStatus.Cancelled
+          : item.status,
     }));
     extractionState.message =
       "Extraction expired while waiting for a response.";
@@ -1023,13 +1039,16 @@ test("an early browser deadline keeps the prompt open until the server confirms 
     observations++;
     if (observations < 2) return;
     extractionState.version++;
-    extractionState.state = "expired";
+    extractionState.state = ExtractionState.Expired;
     extractionState.pending_conflicts = 0;
     extractionState.remaining_entries = 0;
     delete extractionState.conflict;
     extractionState.outcomes = extractionState.outcomes.map((item) => ({
       ...item,
-      status: item.status === "pending" ? "cancelled" : item.status,
+      status:
+        item.status === ExtractionOutcomeStatus.Pending
+          ? ExtractionOutcomeStatus.Cancelled
+          : item.status,
     }));
   };
   await startExtraction();

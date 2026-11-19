@@ -1,3 +1,8 @@
+import {
+  ServerAction,
+  OperationState,
+  RuntimeErrorCode,
+} from "../../src/contracts/domains";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { operationMessage } from "../../src/components/servers/operationMessage";
@@ -5,10 +10,10 @@ import { operationMessage } from "../../src/components/servers/operationMessage"
 test("operation failures have context and formatted details", () => {
   assert.deepEqual(
     operationMessage({
-      operation: "install",
-      operation_state: "failed",
+      operation: ServerAction.Install,
+      operation_state: OperationState.Failed,
       busy: false,
-      error_code: "installer_failed",
+      error_code: RuntimeErrorCode.InstallerFailed,
       progress: "Any display text",
       error: "installer script failed",
     }),
@@ -22,8 +27,8 @@ test("operation failures have context and formatted details", () => {
 
 test("display text does not decide whether an operation failed", () => {
   const result = operationMessage({
-    operation: "start",
-    operation_state: "running",
+    operation: ServerAction.Start,
+    operation_state: OperationState.Running,
     busy: true,
     progress: "Failed is only text",
   });
@@ -34,7 +39,7 @@ test("display text does not decide whether an operation failed", () => {
 test("an error remains visible when no operation state or code is supplied", () => {
   assert.deepEqual(
     operationMessage({
-      operation: "install",
+      operation: ServerAction.Install,
       busy: false,
       progress: "Failed",
       error:
@@ -52,7 +57,7 @@ test("an error remains visible when no operation state or code is supplied", () 
 test("an idle operation is not described as in progress", () => {
   assert.equal(
     operationMessage({
-      operation: "install",
+      operation: ServerAction.Install,
       busy: false,
       progress: "Any text",
     })?.title,
@@ -63,10 +68,10 @@ test("an idle operation is not described as in progress", () => {
 test("interrupted operations keep their own state", () => {
   assert.equal(
     operationMessage({
-      operation: "backup",
-      operation_state: "interrupted",
+      operation: ServerAction.Backup,
+      operation_state: OperationState.Interrupted,
       busy: false,
-      error_code: "operation_interrupted",
+      error_code: RuntimeErrorCode.OperationInterrupted,
     })?.title,
     "Backup interrupted.",
   );
@@ -74,9 +79,9 @@ test("interrupted operations keep their own state", () => {
 
 test("success messages only appear for the operation started in this page session", () => {
   const status = {
-    operation: "start" as const,
+    operation: ServerAction.Start,
     operation_id: "start-1",
-    operation_state: "succeeded" as const,
+    operation_state: OperationState.Succeeded,
     busy: false,
   };
   assert.equal(operationMessage(status), null);

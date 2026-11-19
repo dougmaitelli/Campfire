@@ -1,4 +1,4 @@
-import { BackupStorage, VariableType } from "../contracts/domains";
+import { BackupMode, BackupStorage, VariableType } from "../contracts/domains";
 import { ResourceLimits } from "../config/policies";
 import i18n from "../i18n";
 import { BackupRetentionFields } from "../components/servers/BackupRetentionFields";
@@ -1113,14 +1113,14 @@ export function ServerDrawer({
                       </p>
                     )}
                     <BackupRetentionFields
-                      mode="full"
+                      mode={BackupMode.Full}
                       value={backupPolicy}
                       onChange={(limits) =>
                         changeBackupPolicy({ ...backupPolicy, ...limits })
                       }
                     />
                     <BackupRetentionFields
-                      mode="savedata"
+                      mode={BackupMode.Savedata}
                       value={
                         backupPolicy.savedata ?? {
                           local_keep_last: 0,

@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  WorkPhase,
-  type WorkProgress as Measurement,
-} from "../../api/workProgress";
+import { WorkPhase } from "../../contracts/domains";
+import type { WorkProgress as Measurement } from "../../api/workProgress";
 import { formatBytes } from "../../utils/formatBytes";
 import { OperationProgress } from "./OperationProgress";
 import "./work-progress.css";

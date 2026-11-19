@@ -1,14 +1,15 @@
 import { RequestTimeout } from "../config/policies";
 import { isWorkProgress } from "./workProgress";
 import { isEnumValue } from "../utils/validation";
-import { FileKind, FileOperation } from "../contracts/domains";
+import {
+  FileKind,
+  FileOperation,
+  CompressionState,
+  ExtractionState,
+  ExtractionOutcomeStatus,
+} from "../contracts/domains";
 import i18n from "../i18n";
 import { apiFetch, readJSON, apiJSON } from "./client";
-import {
-  compressionStates,
-  extractionStates,
-  extractionOutcomeStatuses,
-} from "./fileTypes";
 import type {
   FileEntry,
   FileRequest,
@@ -61,7 +62,7 @@ export function fileExtension(name: string): string {
 // Unknown formats still go through the editor's UTF-8 and NUL checks.
 export function canOpenFile(entry: FileEntry): boolean {
   if (entry.kind === FileKind.Directory) return true;
-  if (entry.kind !== "file" || entry.size > fileLimit) return false;
+  if (entry.kind !== FileKind.File || entry.size > fileLimit) return false;
   return !new Set([
     "jar",
     "class",
@@ -132,8 +133,7 @@ function isExtraction(value: unknown): value is ExtractionStatus {
     typeof v.version !== "number" ||
     !Number.isSafeInteger(v.version) ||
     v.version < 0 ||
-    typeof v.state !== "string" ||
-    !extractionStates.some((state) => state === v.state) ||
+    !isEnumValue(ExtractionState, v.state) ||
     typeof v.expires_at !== "string" ||
     !Number.isFinite(Date.parse(v.expires_at)) ||
     typeof v.pending_conflicts !== "number" ||
@@ -176,8 +176,7 @@ function isOutcome(
     "destination" in value &&
     typeof value.destination === "string" &&
     "status" in value &&
-    typeof value.status === "string" &&
-    extractionOutcomeStatuses.some((status) => status === value.status) &&
+    isEnumValue(ExtractionOutcomeStatus, value.status) &&
     (!("message" in value) || typeof value.message === "string")
   );
 }
@@ -188,8 +187,7 @@ function isCompression(value: unknown): boolean {
     "id" in value &&
     typeof value.id === "string" &&
     "state" in value &&
-    typeof value.state === "string" &&
-    compressionStates.some((state) => state === value.state) &&
+    isEnumValue(CompressionState, value.state) &&
     (!("message" in value) || typeof value.message === "string") &&
     (!("work_progress" in value) || isWorkProgress(value.work_progress))
   );

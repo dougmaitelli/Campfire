@@ -1,3 +1,4 @@
+import { VariableType } from "../../src/contracts/domains";
 import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,7 +13,7 @@ const variable: EmberVariable = {
   default: "0",
   required: true,
   editable: true,
-  validation: { type: "boolean" },
+  validation: { type: VariableType.Boolean },
 };
 
 test("boolean variables preserve 0/1 strings and allow required false values", async () => {

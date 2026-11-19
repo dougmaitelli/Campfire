@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { manageFiles } from "../../src/api/files";
 import { compressArchive } from "../../src/components/files/compressArchive";
-import { FileOperation } from "../../src/contracts/domains";
+import {
+  FileOperation,
+  CompressionState,
+  WorkPhase,
+} from "../../src/contracts/domains";
 vi.mock("../../src/api/files", () => ({ manageFiles: vi.fn() }));
 beforeEach(() => {
   vi.resetAllMocks();
@@ -25,7 +29,9 @@ test("deadline failure is surfaced instead of resolving as normal cancellation",
     compression: {
       id: input.compression!.id,
       state:
-        input.operation === FileOperation.CompressStart ? "running" : "failed",
+        input.operation === FileOperation.CompressStart
+          ? CompressionState.Running
+          : CompressionState.Failed,
       message,
     },
   }));
@@ -46,9 +52,12 @@ test("waits for publication confirmation even after all measured bytes", async (
     path: input.destination!,
     compression: {
       id: input.compression!.id,
-      state: ++requests === 1 ? "running" : "completed",
+      state:
+        ++requests === 1
+          ? CompressionState.Running
+          : CompressionState.Completed,
       work_progress: {
-        phase: "archiving",
+        phase: WorkPhase.Archiving,
         input_bytes: 7,
         input_total: 7,
         output_bytes: 20,
@@ -77,7 +86,10 @@ test("lost start acknowledgement reconciles the same operation without restartin
     return {
       server_id: id,
       path: input.destination!,
-      compression: { id: input.compression!.id, state: "completed" },
+      compression: {
+        id: input.compression!.id,
+        state: CompressionState.Completed,
+      },
     };
   });
   await compressArchive(args());
@@ -100,7 +112,7 @@ test("lost cancellation acknowledgement reports uncertainty, not success", async
   ]);
 });
 
-test.each(["cancelled", "completed"] as const)(
+test.each([CompressionState.Cancelled, CompressionState.Completed])(
   "cancellation reconciles a %s terminal acknowledgement",
   async (state) => {
     const controller = new AbortController();
@@ -117,7 +129,7 @@ test.each(["cancelled", "completed"] as const)(
     });
     await expect(
       compressArchive({ ...args(), signal: controller.signal }),
-    ).resolves.toBe(state === "completed");
+    ).resolves.toBe(state === CompressionState.Completed);
     expect(vi.mocked(manageFiles).mock.calls[1]![1].operation).toBe(
       FileOperation.CompressCancel,
     );

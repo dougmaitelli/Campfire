@@ -1,3 +1,5 @@
+import { Permission } from "../../src/contracts/permissions";
+import { RuntimeState, ActivityFilterKind } from "../../src/contracts/domains";
 import { pageFixture } from "../pageFixture";
 import {
   afterAll,
@@ -96,11 +98,11 @@ const server: Server = {
   ember_hash: "hash",
   ember_update_available: false,
   owner_user_id: 1,
-  permissions: ["server.view"],
+  permissions: [Permission.ServerView],
   spark_name: "Node",
   ember_name: "Game",
   game_address: "",
-  status: "running",
+  status: RuntimeState.Running,
   created_at: "2026-10-25",
 };
 const choices = {
@@ -317,7 +319,7 @@ test.each([true, false])(
       authenticated: true,
       setup_required: false,
       admin: allowed,
-      permissions: allowed ? ["users.manage"] : [],
+      permissions: allowed ? [Permission.UsersManage] : [],
     };
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
@@ -456,7 +458,7 @@ test("filter choices retry independently while Activity remains available", asyn
     }
     return Response.json(choices);
   });
-  start({ kind: "game" });
+  start({ kind: ActivityFilterKind.Game });
   await screen.findByRole("button", { name: event.title });
   await screen.findByText("Connection to Campfire interrupted.");
   const user = userEvent.setup();
@@ -502,7 +504,7 @@ test("valid Activity date bounds survive URL parsing", () => {
 test("selected event fields and values remain visible after discovery expires", async () => {
   const apply = vi.fn();
   const filter = {
-    kind: "game" as const,
+    kind: ActivityFilterKind.Game,
     type: "player.joined",
     fields: { player: "Retired player" },
   };
@@ -711,7 +713,7 @@ test("older related notifications load inside the source drawer without changing
     });
   });
   start({
-    kind: "game",
+    kind: ActivityFilterKind.Game,
     type: "player.joined",
     fields: { player: "Morgan" },
     search: "Morgan",

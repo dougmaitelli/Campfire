@@ -1,3 +1,4 @@
+import { NetworkProtocol } from "../../src/contracts/domains";
 import { expect, test } from "vitest";
 import {
   serverNeedsEmberReview,
@@ -21,7 +22,7 @@ const saved: ServerConfiguration = {
       bind_ip: "0.0.0.0",
       host_port: 25565,
       container_port: 25565,
-      protocol: "tcp",
+      protocol: NetworkProtocol.TCP,
     },
   ],
 };
@@ -66,7 +67,7 @@ test("unset optional overrides do not create changes, but changing the first por
     bind_ip: "127.0.0.1",
     host_port: 27015,
     container_port: 27015,
-    protocol: "udp",
+    protocol: NetworkProtocol.UDP,
   } as const;
   expect(
     serverConfigurationChanges(

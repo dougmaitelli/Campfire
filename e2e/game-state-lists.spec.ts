@@ -1,3 +1,4 @@
+import { GameStateStatus } from "../web/src/contracts/domains";
 import { test, expect } from "./fixtures";
 import { login, openScreen } from "./screens";
 import type { GameStateView } from "../web/src/api/gameState";
@@ -19,7 +20,7 @@ test("current player lists render on server lists and clear when empty or stale"
     server.game = {
       updated_at: snapshot.collected_at,
       fresh_for_seconds: 60,
-      status: fresh ? "fresh" : "stale",
+      status: fresh ? GameStateStatus.Fresh : GameStateStatus.Stale,
       ...(fresh
         ? {
             state: {

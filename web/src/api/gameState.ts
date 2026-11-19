@@ -53,8 +53,9 @@ export function isGameStateView(value: unknown): value is GameStateView {
     !isEnumValue(GameStateStatus, value.status)
   )
     return false;
-  if (value.state === undefined) return value.status !== "fresh";
-  if (value.status !== "fresh" || !object(value.state)) return false;
+  if (value.state === undefined) return value.status !== GameStateStatus.Fresh;
+  if (value.status !== GameStateStatus.Fresh || !object(value.state))
+    return false;
   const state = value.state;
   return (
     (state.players === undefined || count(state.players)) &&

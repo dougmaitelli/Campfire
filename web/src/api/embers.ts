@@ -1,5 +1,6 @@
 import {
   ConfigParser,
+  StartupShell,
   NetworkProtocol,
   VariableType,
   VariableFormat,
@@ -53,9 +54,7 @@ export function isEmber(value: unknown): value is Ember {
           (command: unknown) => typeof command === "string",
         ))) &&
     (!("startup_shell" in value) ||
-      value.startup_shell === "sh" ||
-      value.startup_shell === "bash" ||
-      value.startup_shell === "ash") &&
+      isEnumValue(StartupShell, value.startup_shell)) &&
     "work_dir" in value &&
     typeof value.work_dir === "string" &&
     "user" in value &&

@@ -1,3 +1,7 @@
+import {
+  BrowserPublicationStatus,
+  ExtractionOutcomeStatus,
+} from "../../src/contracts/domains";
 import { expect, test } from "vitest";
 import type { PublicationStatus } from "../../src/api/fileTypes";
 import { summarizeFileOutcomes } from "../../src/components/files/fileOutcomes";
@@ -14,16 +18,16 @@ test("empty results do not infer operation completion or cancellation", () => {
 
 test("summaries count all publication outcomes without changing the results", () => {
   const statuses: PublicationStatus[] = [
-    "uploaded",
-    "extracted",
-    "merged",
-    "overwritten",
-    "renamed",
-    "skipped",
-    "failed",
-    "cancelled",
-    "unconfirmed",
-    "unconfirmed",
+    BrowserPublicationStatus.Uploaded,
+    ExtractionOutcomeStatus.Extracted,
+    ExtractionOutcomeStatus.Merged,
+    ExtractionOutcomeStatus.Overwritten,
+    ExtractionOutcomeStatus.Renamed,
+    ExtractionOutcomeStatus.Skipped,
+    ExtractionOutcomeStatus.Failed,
+    ExtractionOutcomeStatus.Cancelled,
+    BrowserPublicationStatus.Unconfirmed,
+    BrowserPublicationStatus.Unconfirmed,
   ];
   const outcomes = statuses.map((status, index) =>
     Object.freeze({ name: `file-${index}`, target: `file-${index}`, status }),

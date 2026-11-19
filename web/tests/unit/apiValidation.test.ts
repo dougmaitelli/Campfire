@@ -1,3 +1,4 @@
+import { FileOperation } from "../../src/contracts/domains";
 import { expect, test, vi } from "vitest";
 import { manageFiles } from "../../src/api/files";
 import { serverStatus } from "../../src/api/runtime";
@@ -69,7 +70,7 @@ test.each(["file", "directory", "unsupported"])(
       }),
     );
     await expect(
-      manageFiles("server/one", { operation: "list", path: "/" }),
+      manageFiles("server/one", { operation: FileOperation.List, path: "/" }),
     ).resolves.toMatchObject({ path: "/" });
   },
 );
@@ -92,7 +93,7 @@ test.each([{ kind: ["file"] }, { kind: "unknown" }, { kind: null }])(
       }),
     );
     await expect(
-      manageFiles("server/one", { operation: "list", path: "/" }),
+      manageFiles("server/one", { operation: FileOperation.List, path: "/" }),
     ).rejects.toThrow("Unexpected file response");
   },
 );

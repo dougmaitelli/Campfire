@@ -1,5 +1,9 @@
 import {
   CompressionState,
+  type ExtractionState,
+  type ExtractionOutcomeStatus,
+  type ExtractionAction,
+  type BrowserPublicationStatus,
   type FileKind,
   type FileOperation,
 } from "../contracts/domains";
@@ -12,30 +16,11 @@ export interface FileEntry {
   size: number;
   modified_at: string;
 }
-export type ExtractionAction =
-  "skip" | "rename" | "overwrite" | "merge" | "extract";
-export const extractionStates = [
-  "running",
-  "waiting",
-  "completed",
-  "cancelled",
-  "expired",
-  "failed",
-] as const;
-export type ExtractionState = (typeof extractionStates)[number];
-// Spark outcomes exclude browser-only upload and uncertain-publication results.
-export const extractionOutcomeStatuses = [
-  "pending",
-  "extracted",
-  "merged",
-  "overwritten",
-  "renamed",
-  "skipped",
-  "failed",
-  "cancelled",
-] as const;
-export type ExtractionOutcomeStatus =
-  (typeof extractionOutcomeStatuses)[number];
+export {
+  ExtractionAction,
+  ExtractionState,
+  ExtractionOutcomeStatus,
+} from "../contracts/domains";
 
 export interface ExtractionChoice {
   action: ExtractionAction;
@@ -52,7 +37,8 @@ export interface ExtractionConflict {
   protected?: boolean;
 }
 export type PublicationStatus =
-  Exclude<ExtractionOutcomeStatus, "pending"> | "uploaded" | "unconfirmed";
+  | Exclude<ExtractionOutcomeStatus, ExtractionOutcomeStatus.Pending>
+  | BrowserPublicationStatus;
 export interface ExtractionOutcome {
   path: string;
   destination: string;
@@ -71,8 +57,6 @@ export interface ExtractionStatus {
   outcomes: ExtractionOutcome[];
   message?: string;
 }
-export const compressionStates = Object.values(CompressionState);
-
 const compressionTerminal: Record<CompressionState, boolean> = {
   [CompressionState.Running]: false,
   [CompressionState.Cancelling]: false,

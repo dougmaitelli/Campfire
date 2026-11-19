@@ -1,3 +1,5 @@
+import { Permission } from "../../src/contracts/permissions";
+import { RuntimeState } from "../../src/contracts/domains";
 import { expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ServerOperationsPage } from "../../src/pages/ServerOperationsPage";
@@ -46,11 +48,15 @@ test.each([true, false, undefined])(
       ember_hash: "hash",
       ember_update_available: false,
       owner_user_id: 1,
-      permissions: ["server.view", "server.operate", "server.console.read"],
+      permissions: [
+        Permission.ServerView,
+        Permission.ServerOperate,
+        Permission.ServerConsoleRead,
+      ],
       spark_name: "Node",
       ember_name: "Game",
       game_address: "",
-      status: "running",
+      status: RuntimeState.Running,
       created_at: "2026-10-25",
       ...(enabled === undefined ? {} : { game_integration: enabled }),
     };

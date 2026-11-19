@@ -1,3 +1,10 @@
+import {
+  ExtractionState,
+  WorkPhase,
+  ExtractionOutcomeStatus,
+  FileOperation,
+  ExtractionAction,
+} from "../web/src/contracts/domains";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { login, openServerTab } from "./screens";
@@ -65,7 +72,11 @@ async function begin(
   let status: ExtractionStatus = {
     id: "",
     version: 1,
-    state: options.running ? "running" : queue.length ? "waiting" : "completed",
+    state: options.running
+      ? ExtractionState.Running
+      : queue.length
+        ? ExtractionState.Waiting
+        : ExtractionState.Completed,
     expires_at: options.expireDuringWait
       ? "2026-10-22T12:00:00.100Z"
       : "2026-11-18T12:00:00Z",
@@ -77,21 +88,21 @@ async function begin(
             {
               path: "new.txt",
               destination: "world/new.txt",
-              status: "extracted" as const,
+              status: ExtractionOutcomeStatus.Extracted,
             },
           ]
         : []),
       ...queue.map((item) => ({
         path: item.path,
         destination: item.destination,
-        status: "pending" as const,
+        status: ExtractionOutcomeStatus.Pending,
       })),
     ],
     ...(!options.running && queue[0] ? { conflict: queue[0] } : {}),
   };
   if (options.measured) {
     status.work_progress = {
-      phase: "extracting",
+      phase: WorkPhase.Extracting,
       input_bytes: 1024,
       input_total: 4096,
       output_bytes: 8192,
@@ -102,7 +113,10 @@ async function begin(
   if (options.failure === "duplicate" || options.failure === "expired") {
     status = {
       ...status,
-      state: options.failure === "expired" ? "expired" : "failed",
+      state:
+        options.failure === "expired"
+          ? ExtractionState.Expired
+          : ExtractionState.Failed,
       message:
         options.failure === "expired"
           ? "Extraction expired while waiting for a response."
@@ -111,7 +125,10 @@ async function begin(
       remaining_entries: 0,
       outcomes: status.outcomes.map((item) => ({
         ...item,
-        status: item.status === "pending" ? "cancelled" : item.status,
+        status:
+          item.status === ExtractionOutcomeStatus.Pending
+            ? ExtractionOutcomeStatus.Cancelled
+            : item.status,
       })),
     };
     delete status.conflict;
@@ -124,27 +141,33 @@ async function begin(
     expect(input.destination).toBe(options.destination ? "/" : "/world");
     status.id = input.extraction!.id;
     if (
-      input.operation === "extract.cancel" &&
+      input.operation === FileOperation.ExtractCancel &&
       options.failure === "lost-cancel"
     )
       return route.abort("connectionfailed");
-    if (input.operation === "extract.status" && options.expireDuringWait) {
+    if (
+      input.operation === FileOperation.ExtractStatus &&
+      options.expireDuringWait
+    ) {
       status = {
         ...status,
         version: status.version + 1,
-        state: "expired",
+        state: ExtractionState.Expired,
         pending_conflicts: 0,
         remaining_entries: 0,
         message: "Extraction expired while waiting for a response.",
         outcomes: status.outcomes.map((item) => ({
           ...item,
-          status: item.status === "pending" ? "cancelled" : item.status,
+          status:
+            item.status === ExtractionOutcomeStatus.Pending
+              ? ExtractionOutcomeStatus.Cancelled
+              : item.status,
         })),
       };
       delete status.conflict;
     }
     if (
-      input.operation === "extract.resolve" &&
+      input.operation === FileOperation.ExtractResolve &&
       status.conflict?.id === input.extraction?.conflict_id
     ) {
       if (options.failure === "stale" && first) {
@@ -164,21 +187,29 @@ async function begin(
             ? {
                 ...item,
                 status:
-                  action === "skip"
-                    ? "skipped"
-                    : action === "rename"
-                      ? "renamed"
-                      : "overwritten",
+                  action === ExtractionAction.Skip
+                    ? ExtractionOutcomeStatus.Skipped
+                    : action === ExtractionAction.Rename
+                      ? ExtractionOutcomeStatus.Renamed
+                      : ExtractionOutcomeStatus.Overwritten,
               }
             : chosen.kind === FileKind.Directory &&
                 item.path.startsWith(chosen.path + "/")
-              ? { ...item, status: action === "skip" ? "skipped" : "extracted" }
+              ? {
+                  ...item,
+                  status:
+                    action === ExtractionAction.Skip
+                      ? ExtractionOutcomeStatus.Skipped
+                      : ExtractionOutcomeStatus.Extracted,
+                }
               : item,
         );
         status = {
           ...status,
           version: status.version + 1,
-          state: queue.length ? "waiting" : "completed",
+          state: queue.length
+            ? ExtractionState.Waiting
+            : ExtractionState.Completed,
           pending_conflicts: queue.length,
           remaining_entries: queue.length,
         };
@@ -192,18 +223,21 @@ async function begin(
       }
     }
     if (
-      input.operation === "extract.cancel" &&
-      ["running", "waiting"].includes(status.state)
+      input.operation === FileOperation.ExtractCancel &&
+      [ExtractionState.Running, ExtractionState.Waiting].includes(status.state)
     ) {
       status = {
         ...status,
         version: status.version + 1,
-        state: "cancelled",
+        state: ExtractionState.Cancelled,
         pending_conflicts: 0,
         remaining_entries: 0,
         outcomes: status.outcomes.map((item) => ({
           ...item,
-          status: item.status === "pending" ? "cancelled" : item.status,
+          status:
+            item.status === ExtractionOutcomeStatus.Pending
+              ? ExtractionOutcomeStatus.Cancelled
+              : item.status,
         })),
       };
       delete status.conflict;
@@ -267,7 +301,8 @@ test("extraction asks about an actual file, not the destination, on desktop and 
     page.getByRole("dialog", { name: "Review extraction" }),
   ).toHaveCount(0);
   expect(
-    calls.find((call) => call.operation === "extract.resolve")?.extraction,
+    calls.find((call) => call.operation === FileOperation.ExtractResolve)
+      ?.extraction,
   ).toMatchObject({ conflict_id: "level-conflict", action: "overwrite" });
 });
 test("an open conflict closes on confirmed expiry without another decision", async ({
@@ -281,12 +316,14 @@ test("an open conflict closes on confirmed expiry without another decision", asy
     ),
   ).toBeVisible();
   await expect(conflict(page)).toHaveCount(0);
-  expect(calls.some((call) => call.operation === "extract.status")).toBe(true);
+  expect(
+    calls.some((call) => call.operation === FileOperation.ExtractStatus),
+  ).toBe(true);
   expect(
     calls.some(
       (call) =>
-        call.operation === "extract.resolve" ||
-        call.operation === "extract.cancel",
+        call.operation === FileOperation.ExtractResolve ||
+        call.operation === FileOperation.ExtractCancel,
     ),
   ).toBe(false);
 });
@@ -317,7 +354,7 @@ test("known conflicts support apply-to-all while completed entries stay complete
   ).toBeVisible();
   expect(
     calls
-      .filter((call) => call.operation === "extract.resolve")
+      .filter((call) => call.operation === FileOperation.ExtractResolve)
       .map((call) => call.extraction?.action),
   ).toEqual(["skip", "skip"]);
 });
@@ -360,7 +397,7 @@ test("changed destinations require a fresh answer instead of applying stale over
     ),
   ).toBeVisible();
   expect(
-    calls.filter((call) => call.operation === "extract.resolve"),
+    calls.filter((call) => call.operation === FileOperation.ExtractResolve),
   ).toHaveLength(1);
   await choose(page, "Skip");
   await expect(
@@ -382,9 +419,11 @@ test("a lost decision reply is recovered without restarting extraction", async (
     ),
   ).toBeVisible();
   expect(
-    calls.filter((call) => call.operation === "extract.start"),
+    calls.filter((call) => call.operation === FileOperation.ExtractStart),
   ).toHaveLength(1);
-  const answers = calls.filter((call) => call.operation === "extract.resolve");
+  const answers = calls.filter(
+    (call) => call.operation === FileOperation.ExtractResolve,
+  );
   expect(answers).toHaveLength(2);
   expect(answers[0]?.extraction).toEqual(answers[1]?.extraction);
 });
@@ -420,7 +459,8 @@ for (const destination of [".", "./"] as const) {
     ).toBeVisible();
     await expect(conflict(page)).toHaveCount(0);
     expect(
-      calls.find((call) => call.operation === "extract.start")?.destination,
+      calls.find((call) => call.operation === FileOperation.ExtractStart)
+        ?.destination,
     ).toBe("/");
   });
 }
@@ -437,7 +477,9 @@ test("cancelling a conflict keeps completed entries and cancels unresolved entri
       { exact: true },
     ),
   ).toBeVisible();
-  expect(calls.some((call) => call.operation === "extract.cancel")).toBe(true);
+  expect(
+    calls.some((call) => call.operation === FileOperation.ExtractCancel),
+  ).toBe(true);
 });
 for (const completed of [false, true]) {
   test(`cancelling a scanner does not report finished with ${completed ? "some" : "no"} completed entries`, async ({
@@ -465,9 +507,9 @@ for (const completed of [false, true]) {
         exact: true,
       }),
     ).toHaveCount(0);
-    expect(calls.some((call) => call.operation === "extract.cancel")).toBe(
-      true,
-    );
+    expect(
+      calls.some((call) => call.operation === FileOperation.ExtractCancel),
+    ).toBe(true);
   });
   test(`lost scanner cancellation keeps ${completed ? "some" : "no"} confirmed entries and marks completion unknown`, async ({
     page,
@@ -539,5 +581,7 @@ test("extraction can be cancelled while it is processing rather than waiting on 
       { exact: true },
     ),
   ).toBeVisible();
-  expect(calls.some((call) => call.operation === "extract.cancel")).toBe(true);
+  expect(
+    calls.some((call) => call.operation === FileOperation.ExtractCancel),
+  ).toBe(true);
 });

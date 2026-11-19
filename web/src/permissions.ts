@@ -1,14 +1,14 @@
-import { Permission, type PermissionID } from "./api/permissions";
+import { Permission } from "./contracts/permissions";
 import { ServerAction } from "./contracts/domains";
 
 interface Principal {
   admin?: boolean;
-  permissions?: readonly PermissionID[];
+  permissions?: readonly Permission[];
   view_as?: unknown;
 }
 
 interface ServerSubject {
-  permissions: readonly PermissionID[];
+  permissions: readonly Permission[];
   can_manage_access?: boolean;
 }
 
@@ -124,9 +124,7 @@ export function canPerformServer(
   }
 }
 
-function serverActionPermission(
-  action: ServerAction,
-): PermissionID | undefined {
+function serverActionPermission(action: ServerAction): Permission | undefined {
   switch (action) {
     case ServerAction.Install:
     case ServerAction.Start:

@@ -1,3 +1,4 @@
+import { ActivityEntryKind } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import type { ActivityEntry } from "../../api/serverActivity";
 import { Table, TableRow } from "../table/Table";
@@ -54,7 +55,7 @@ export function ActivityTable({
             key={item.key}
             onOpen={() => onOpen(item.key)}
             aria-label={
-              item.kind === "job"
+              item.kind === ActivityEntryKind.Job
                 ? t("serverJobs.job", {
                     type: activityTitle(item),
                     id: item.key.slice(4),
@@ -76,7 +77,7 @@ export function ActivityTable({
               >
                 {activityTitle(item)}
               </button>
-              {item.kind === "notification" && (
+              {item.kind === ActivityEntryKind.Notification && (
                 <span className="row-description">
                   {item.attachment_name
                     ? t(
@@ -95,7 +96,7 @@ export function ActivityTable({
               <ActivityStatus state={item.state} />
             </td>
             <td>
-              {item.kind === "notification" ? (
+              {item.kind === ActivityEntryKind.Notification ? (
                 <>
                   <span>{item.provider}</span>
                   {item.destination && (

@@ -1,5 +1,6 @@
 import type {
   ConfigParser,
+  StartupShell,
   NetworkProtocol,
   VariableType,
   VariableFormat,
@@ -46,7 +47,7 @@ export interface Ember {
   images: Record<string, string>;
   startup: string;
   startup_commands?: Record<string, string>;
-  startup_shell?: "sh" | "bash" | "ash";
+  startup_shell?: StartupShell;
   work_dir: string;
   user: string;
   installer?: { image: string; entrypoint: string; script: string };

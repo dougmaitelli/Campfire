@@ -1,6 +1,14 @@
 import i18n from "../i18n";
 import { isPage as isNumberedPage, pageQuery, type Page } from "./pagination";
-import { isRecord } from "../utils/validation";
+import { isRecord, isEnumValue } from "../utils/validation";
+import {
+  ActivityFilterKind,
+  ActivityEntryKind,
+  ExecutionState,
+  JobStatus,
+  NotificationKind,
+  NotificationTarget,
+} from "../contracts/domains";
 import { apiFetch, apiJSON, readJSON } from "./client";
 import {
   isGameEvent,
@@ -20,7 +28,7 @@ import {
   type GameFieldLabels,
 } from "./gameFields";
 
-export type ActivityKind = "" | "game" | "operations" | "alert";
+export type ActivityKind = "" | ActivityFilterKind;
 export const MAX_ACTIVITY_TIME = 253402300799;
 export interface ActivityFilter {
   kind?: ActivityKind;
@@ -35,7 +43,7 @@ export interface ActivityFilter {
 }
 export interface ActivityEntry {
   key: string;
-  kind: "game" | "operation" | "job" | "alert" | "notification";
+  kind: ActivityEntryKind;
   source_key?: string;
   source_available: boolean;
   created_at: number;
@@ -49,10 +57,18 @@ export interface ActivityEntry {
   notification_count: number;
 }
 export type ActivityPage = Page<ActivityEntry>;
+// Activity also carries open-ended provider states, so membership is checked
+// without pretending every entry is an execution or a job.
+const activeActivityStates: ReadonlySet<string> = new Set<string>([
+  ExecutionState.Pending,
+  ExecutionState.Running,
+  ExecutionState.Dispatching,
+  JobStatus.Cancelling,
+]);
 export function activityInProgress(entry: ActivityEntry): boolean {
   return (
     entry.delivery_check_pending === true ||
-    ["pending", "running", "dispatching", "cancelling"].includes(entry.state)
+    activeActivityStates.has(entry.state)
   );
 }
 export interface ActivityChoices {
@@ -82,10 +98,10 @@ export interface ActivityDetails extends ActivityEntry {
   alert?: DetectedLogAlert;
   monitoring_alert?: {
     id: string;
-    target_type: "server";
+    target_type: NotificationTarget.Server;
     target_id: string;
     code: string;
-    kind: "alert" | "recovery";
+    kind: NotificationKind.Alert | NotificationKind.Recovery;
     severity: string;
     title: string;
     body: string;
@@ -106,9 +122,7 @@ function isEntry(value: unknown): value is ActivityEntry {
   return (
     isRecord(value) &&
     strings(value, ["key", "kind", "title", "state"]) &&
-    ["game", "operation", "job", "alert", "notification"].includes(
-      String(value.kind),
-    ) &&
+    isEnumValue(ActivityEntryKind, value.kind) &&
     number(value.created_at) &&
     value.created_at <= MAX_ACTIVITY_TIME &&
     number(value.notification_count) &&
@@ -198,9 +212,7 @@ export function activityFilterFromQuery(
 ): ActivityFilter {
   const kind = query.get("kind") ?? "";
   const filter: ActivityFilter = {
-    kind: ["game", "operations", "alert"].includes(kind)
-      ? (kind as ActivityKind)
-      : "",
+    kind: isEnumValue(ActivityFilterKind, kind) ? kind : "",
   };
   for (const key of ["search", "type"] as const) {
     const value = query.get(key);
@@ -222,7 +234,10 @@ export function activityFilterFromQuery(
     page <= 21474836
   )
     filter.page = page;
-  if (filter.kind === "operations" || filter.kind === "alert") {
+  if (
+    filter.kind === ActivityFilterKind.Operations ||
+    filter.kind === ActivityFilterKind.Alert
+  ) {
     const state = query.get("state");
     if (state) filter.state = state;
   }
@@ -289,9 +304,10 @@ function isDetails(value: unknown, serverID: string): value is ActivityDetails {
           "body",
         ]) &&
         typeof value.monitoring_alert.id === "string" &&
-        value.monitoring_alert.target_type === "server" &&
+        value.monitoring_alert.target_type === NotificationTarget.Server &&
         value.monitoring_alert.target_id === serverID &&
-        ["alert", "recovery"].includes(String(value.monitoring_alert.kind)) &&
+        (value.monitoring_alert.kind === NotificationKind.Alert ||
+          value.monitoring_alert.kind === NotificationKind.Recovery) &&
         number(value.monitoring_alert.created_at) &&
         value.key === `monitoring_alert:${value.monitoring_alert.id}`)) &&
     (value.operation === undefined ||

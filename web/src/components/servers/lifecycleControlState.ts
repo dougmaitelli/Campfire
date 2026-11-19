@@ -25,9 +25,10 @@ export function lifecycleControlState(
         RuntimeState.Deleted,
       ].some((value) => value === status.state),
     running:
-      status?.state === RuntimeState.Running || status?.state === "restarting",
+      status?.state === RuntimeState.Running ||
+      status?.state === RuntimeState.Restarting,
     install:
       status?.state === RuntimeState.NotInstalled ||
-      status?.state === "deleted",
+      status?.state === RuntimeState.Deleted,
   };
 }

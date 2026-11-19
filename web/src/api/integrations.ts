@@ -2,7 +2,11 @@ import { apiFetch, apiJSON, readJSON } from "./client";
 import { isRecord } from "../utils/validation";
 import i18n from "../i18n";
 import { isPermissionID, type PermissionID } from "./permissions";
-import { RuntimeState } from "../contracts/domains";
+import {
+  RuntimeState,
+  NotificationCategory,
+  IntegrationCardState,
+} from "../contracts/domains";
 import { isEnumValue } from "../utils/validation";
 import type { PresentedGameField } from "../utils/gameFieldPresentation";
 import { validGameFieldLabels, type GameFieldLabels } from "./gameFields";
@@ -159,8 +163,7 @@ export async function testDiscord(channelID: string): Promise<void> {
   await apiJSON("/api/v1/integrations/discord/test", { channel_id: channelID });
 }
 
-export type NotificationCategory =
-  "game" | "power" | "console_alert" | "backup";
+export { NotificationCategory } from "../contracts/domains";
 
 export interface ServerIntegrationInput {
   integration_id: string;
@@ -200,14 +203,14 @@ export interface ServerIntegrationList {
 }
 
 export interface IntegrationCardStatus {
-  state: "disabled" | "pending" | "published" | "uncertain" | "failed";
+  state: IntegrationCardState;
   error: string;
   next_attempt_at: number;
   can_retry: boolean;
 }
 
 function category(value: unknown): value is NotificationCategory {
-  return ["game", "power", "console_alert", "backup"].includes(value as string);
+  return isEnumValue(NotificationCategory, value);
 }
 
 function serverSettings(value: unknown): value is ServerIntegrationSettings {
@@ -221,9 +224,7 @@ function serverSettings(value: unknown): value is ServerIntegrationSettings {
     typeof value.available === "boolean" &&
     typeof value.guild_name === "string" &&
     isRecord(value.card_status) &&
-    ["disabled", "pending", "published", "uncertain", "failed"].includes(
-      value.card_status.state as string,
-    ) &&
+    isEnumValue(IntegrationCardState, value.card_status.state) &&
     typeof value.card_status.error === "string" &&
     typeof value.card_status.can_retry === "boolean" &&
     Number.isSafeInteger(value.card_status.next_attempt_at) &&

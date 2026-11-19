@@ -1,16 +1,5 @@
-import { isRecord } from "../utils/validation";
-
-export const WorkPhase = {
-  Preparing: "preparing",
-  Archiving: "archiving",
-  Extracting: "extracting",
-  Validating: "validating",
-  Uploading: "uploading",
-  Downloading: "downloading",
-  Restoring: "restoring",
-  Committing: "committing",
-} as const;
-export type WorkPhase = (typeof WorkPhase)[keyof typeof WorkPhase];
+import { isRecord, isEnumValue } from "../utils/validation";
+import { WorkPhase } from "../contracts/domains";
 
 /** Per-phase measurements. No counter or denominator implies operation success. */
 export interface WorkProgress {
@@ -23,11 +12,7 @@ export interface WorkProgress {
 }
 
 export function isWorkProgress(value: unknown): value is WorkProgress {
-  if (
-    !isRecord(value) ||
-    !Object.values(WorkPhase).some((phase) => phase === value.phase)
-  )
-    return false;
+  if (!isRecord(value) || !isEnumValue(WorkPhase, value.phase)) return false;
   const count = (n: unknown) =>
     typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
   return (

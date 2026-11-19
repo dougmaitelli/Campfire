@@ -20,30 +20,30 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function status(
-  action: "stop" | "restore" | "start",
-  busy = false,
-): RuntimeStatus {
+function status(action: ServerAction, busy = false): RuntimeStatus {
   return {
     server_id: "game",
-    state: action === "start" ? RuntimeState.Running : RuntimeState.Stopped,
+    state:
+      action === ServerAction.Start
+        ? RuntimeState.Running
+        : RuntimeState.Stopped,
     operation_id: action,
     operation: action,
     operation_state: busy ? OperationState.Running : OperationState.Succeeded,
     ready: true,
     busy,
-    file_system_busy: busy && action === "restore",
+    file_system_busy: busy && action === ServerAction.Restore,
     disk_quota_enforced: false,
   };
 }
 
 function fixture(running = true) {
   vi.mocked(serverStatus).mockResolvedValueOnce({
-    ...status("start"),
+    ...status(ServerAction.Start),
     state: running ? RuntimeState.Running : RuntimeState.Stopped,
   });
   vi.mocked(serverAction).mockImplementation(async (_id, action) =>
-    status(action as "stop" | "restore" | "start"),
+    status(action),
   );
   return new AbortController();
 }
@@ -52,12 +52,12 @@ test("restore waits for stop and restore to finish before starting", async () =>
   vi.useFakeTimers();
   const controller = fixture();
   vi.mocked(serverAction).mockImplementation(async (_id, action) =>
-    status(action as "stop" | "restore" | "start", true),
+    status(action, true),
   );
   vi.mocked(serverStatus)
-    .mockResolvedValueOnce(status("stop"))
-    .mockResolvedValueOnce(status("restore"))
-    .mockResolvedValueOnce(status("start"));
+    .mockResolvedValueOnce(status(ServerAction.Stop))
+    .mockResolvedValueOnce(status(ServerAction.Restore))
+    .mockResolvedValueOnce(status(ServerAction.Start));
   const result = restoreBackup(
     "game",
     "snapshot.tar.gz",
@@ -86,7 +86,7 @@ test("restore waits for stop and restore to finish before starting", async () =>
     undefined,
   );
   await vi.advanceTimersByTimeAsync(1000);
-  expect(await result).toMatchObject(status("start"));
+  expect(await result).toMatchObject(status(ServerAction.Start));
 });
 
 test.each([false, true])(
@@ -125,12 +125,12 @@ test("restart can be declined for a running server", async () => {
   ]);
 });
 
-test.each(["stop", "restore", "start"] as const)(
+test.each([ServerAction.Stop, ServerAction.Restore, ServerAction.Start])(
   "a failed %s stops the sequence",
   async (failed) => {
     const controller = fixture();
     vi.mocked(serverAction).mockImplementation(async (_id, action) => ({
-      ...status(action as "stop" | "restore" | "start"),
+      ...status(action),
       ...(action === failed
         ? { error: `${failed} failed`, operation_state: OperationState.Failed }
         : {}),
@@ -173,7 +173,7 @@ test("an aborted sequence never issues the next command", async () => {
   const controller = fixture();
   vi.mocked(serverAction).mockImplementationOnce(async () => {
     controller.abort();
-    return status("stop");
+    return status(ServerAction.Stop);
   });
   await expect(
     restoreBackup(
@@ -191,9 +191,11 @@ test("an aborted sequence never issues the next command", async () => {
 test("a different operation during polling stops the restore sequence", async () => {
   vi.useFakeTimers();
   const controller = fixture();
-  vi.mocked(serverAction).mockResolvedValueOnce(status("stop", true));
+  vi.mocked(serverAction).mockResolvedValueOnce(
+    status(ServerAction.Stop, true),
+  );
   vi.mocked(serverStatus).mockResolvedValueOnce({
-    ...status("start"),
+    ...status(ServerAction.Start),
     operation_id: "another-operation",
   });
   const result = expect(

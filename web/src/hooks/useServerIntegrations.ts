@@ -1,3 +1,4 @@
+import { NotificationCategory } from "../contracts/domains";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -36,7 +37,9 @@ function editable(value: ServerIntegrationInput): ServerIntegrationInput {
 }
 
 function initialRules(value: ServerIntegrationInput): GameEventRuleDraft[] {
-  const game = value.subscriptions.find((item) => item.category === "game");
+  const game = value.subscriptions.find(
+    (item) => item.category === NotificationCategory.Game,
+  );
   return game?.rules?.length
     ? game.rules.map((rule) => ({
         type: rule.type,
@@ -165,7 +168,7 @@ export function useServerIntegrations(server: Server | null, active: boolean) {
         (item) =>
           changed(item) ||
           (item.value.subscriptions.some(
-            (source) => source.category === "game",
+            (source) => source.category === NotificationCategory.Game,
           ) &&
             JSON.stringify(item.rules) !==
               JSON.stringify(initialRules(item.value))),
@@ -177,7 +180,7 @@ export function useServerIntegrations(server: Server | null, active: boolean) {
     if (error) return error;
     for (const item of items) {
       const game = item.value.subscriptions.some(
-        (source) => source.category === "game",
+        (source) => source.category === NotificationCategory.Game,
       );
       if (
         game &&
@@ -301,9 +304,11 @@ export function useServerIntegrations(server: Server | null, active: boolean) {
           if (item.key !== key) return item;
           const addedGame =
             !item.value.subscriptions.some(
-              (source) => source.category === "game",
+              (source) => source.category === NotificationCategory.Game,
             ) &&
-            value.subscriptions.some((source) => source.category === "game");
+            value.subscriptions.some(
+              (source) => source.category === NotificationCategory.Game,
+            );
           return {
             ...item,
             value,

@@ -1,3 +1,4 @@
+import { RuntimeState } from "../src/contracts/domains";
 import type { RuntimeStatus } from "../src/api/runtime";
 
 export function runtimeStatus(
@@ -5,7 +6,7 @@ export function runtimeStatus(
 ): RuntimeStatus {
   return {
     server_id: "server/one",
-    state: "stopped",
+    state: RuntimeState.Stopped,
     ready: true,
     busy: false,
     file_system_busy: false,

@@ -23,7 +23,8 @@ export function ServerLifecycleControls({
 }) {
   const { t } = useTranslation();
   const startupPending =
-    status?.state === RuntimeState.Starting || status?.state === "restarting";
+    status?.state === RuntimeState.Starting ||
+    status?.state === RuntimeState.Restarting;
   const { canInterrupt, blocked, running, install } = lifecycleControlState(
     status,
     disabled,

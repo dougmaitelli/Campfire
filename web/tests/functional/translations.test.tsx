@@ -1,3 +1,4 @@
+import { RuntimeState } from "../../src/contracts/domains";
 import { Fragment } from "react";
 import { expect, test, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
@@ -11,7 +12,7 @@ test("language changes update UI labels without changing protocol actions", asyn
   const action = vi.fn();
   render(
     <ServerLifecycleControls
-      status={runtimeStatus({ state: "stopped" })}
+      status={runtimeStatus({ state: RuntimeState.Stopped })}
       disabled={false}
       canReinstall
       onAction={action}

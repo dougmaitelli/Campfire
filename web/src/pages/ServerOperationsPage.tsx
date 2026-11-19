@@ -1,5 +1,6 @@
 import {
   ReinstallMode,
+  RuntimeErrorCode,
   OperationState,
   ServerAction,
   RuntimeState,
@@ -50,7 +51,7 @@ import "../components/navigation/tabs.css";
 import { canPerformServer } from "../permissions";
 
 const confirmations = {
-  kill: {
+  [ServerAction.Kill]: {
     get label() {
       return i18n.t("serverOperationsPage.killServer");
     },
@@ -60,7 +61,7 @@ const confirmations = {
       );
     },
   },
-  reinstall: {
+  [ServerAction.Reinstall]: {
     get label() {
       return i18n.t("serverOperationsPage.reinstallServer");
     },
@@ -128,7 +129,7 @@ export function ServerOperationsPage({
     error && server
       ? {
           error,
-          error_code: "operation_failed",
+          error_code: RuntimeErrorCode.OperationFailed,
           busy: false,
           operation_state: OperationState.Failed,
           ...(requestedAction ? { operation: requestedAction } : {}),
@@ -538,17 +539,21 @@ export function ServerOperationsPage({
           })}
           description={confirmations[confirmation].description}
           confirmLabel={
-            confirmation === "reinstall" && reinstallMode === "clean"
+            confirmation === ServerAction.Reinstall &&
+            reinstallMode === ReinstallMode.Clean
               ? t("serverOperationsPage.deleteGameFilesAndReinstall")
               : confirmations[confirmation].label
           }
-          danger={confirmation === "kill" || reinstallMode === "clean"}
-          warning={confirmation === "reinstall"}
+          danger={
+            confirmation === ServerAction.Kill ||
+            reinstallMode === ReinstallMode.Clean
+          }
+          warning={confirmation === ServerAction.Reinstall}
           busy={acting}
           disabled={
             !status ||
             status.busy ||
-            (confirmation === "kill"
+            (confirmation === ServerAction.Kill
               ? status.state !== RuntimeState.Running
               : ![
                   RuntimeState.Stopped,
@@ -568,7 +573,7 @@ export function ServerOperationsPage({
             void act(confirmation);
           }}
         >
-          {confirmation === "reinstall" && (
+          {confirmation === ServerAction.Reinstall && (
             <Fieldset className="reinstall-options" disabled={acting}>
               <legend className="visually-hidden">
                 {t("serverOperationsPage.installationMode")}
@@ -576,7 +581,7 @@ export function ServerOperationsPage({
               <RadioField
                 name="reinstall-mode"
                 value="keep"
-                checked={reinstallMode === "keep"}
+                checked={reinstallMode === ReinstallMode.Keep}
                 onChange={() => setReinstallMode(ReinstallMode.Keep)}
                 description={t(
                   "serverOperationsPage.keepsExistingGameFilesWorldsAndConfigurationTheInstallerMay",
@@ -587,7 +592,7 @@ export function ServerOperationsPage({
               <RadioField
                 name="reinstall-mode"
                 value="clean"
-                checked={reinstallMode === "clean"}
+                checked={reinstallMode === ReinstallMode.Clean}
                 onChange={() => setReinstallMode(ReinstallMode.Clean)}
                 tone="danger"
                 description={t(

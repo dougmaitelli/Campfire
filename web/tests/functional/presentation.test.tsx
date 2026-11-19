@@ -1,3 +1,4 @@
+import { RuntimeState } from "../../src/contracts/domains";
 import { expect, test } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PortGroups } from "../../src/components/network/PortGroups";
@@ -57,7 +58,7 @@ test("resource columns display percentages and allocation ratios accessibly", ()
           <ResourceReadings
             usage={{
               server_id: "one",
-              state: "running",
+              state: RuntimeState.Running,
               cpu_percent: 150,
               memory_bytes: 1048576,
               disk_bytes: 2097152,
@@ -97,7 +98,7 @@ test("resource columns display percentages and allocation ratios accessibly", ()
 test("resource tiles show current measurements and allocation", () => {
   const usage: ResourceUsage = {
     server_id: "one",
-    state: "running",
+    state: RuntimeState.Running,
     cpu_percent: 150,
     memory_bytes: 1048576,
     disk_bytes: 2097152,

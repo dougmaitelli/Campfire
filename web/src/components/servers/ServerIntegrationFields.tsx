@@ -1,3 +1,4 @@
+import { NotificationCategory } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { IntegrationLimits } from "../../config/policies";
 import type {
@@ -57,7 +58,7 @@ export function ServerIntegrationFields({
   const channelError = channelErrors[input.integration_id];
   const selected = channelChoices.find((item) => item.id === input.channel_id);
   const gameSubscription = input.subscriptions.find(
-    (subscription) => subscription.category === "game",
+    (subscription) => subscription.category === NotificationCategory.Game,
   );
   const fields = [
     ...new Set([
@@ -179,7 +180,9 @@ export function ServerIntegrationFields({
                     {
                       ...input,
                       subscriptions: input.subscriptions.map((subscription) =>
-                        subscription.category === "game" ? value : subscription,
+                        subscription.category === NotificationCategory.Game
+                          ? value
+                          : subscription,
                       ),
                     },
                     rules,

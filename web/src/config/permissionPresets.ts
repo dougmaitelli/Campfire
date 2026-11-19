@@ -1,4 +1,5 @@
-import { Permission, type PermissionDefinition } from "../api/permissions";
+import { Permission } from "../contracts/permissions";
+import type { PermissionDefinition } from "../api/permissions";
 
 export function serverPermissionPresets(
   catalog: readonly PermissionDefinition[],

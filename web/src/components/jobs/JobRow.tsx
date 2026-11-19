@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { JobStatus, JobType } from "../../contracts/domains";
+import { JobStatus, JobType, JobAction } from "../../contracts/domains";
 import type { ServerJob } from "../../api/jobs";
 import { useResourceLinks } from "../../routing/useResourceLinks";
 import { ResourceLink } from "../navigation/ResourceLink";
@@ -20,7 +20,7 @@ export function JobRow({
   job: ServerJob;
   serverID: string | undefined;
   busy: boolean;
-  onChange: (job: ServerJob, action: "retry" | "cancel") => Promise<void>;
+  onChange: (job: ServerJob, action: JobAction) => Promise<void>;
 }) {
   const { t, i18n } = useTranslation();
   const links = useResourceLinks();
@@ -147,7 +147,7 @@ export function JobRow({
                 aria-label={t("common.tryAgain")}
                 title={t("common.tryAgain")}
                 disabled={busy}
-                onClick={() => void onChange(job, "retry")}
+                onClick={() => void onChange(job, JobAction.Retry)}
               >
                 <NavigationIcon name="restart" />
               </Button>
@@ -159,7 +159,7 @@ export function JobRow({
                 aria-label={t("common.cancel")}
                 title={t("common.cancel")}
                 disabled={busy}
-                onClick={() => void onChange(job, "cancel")}
+                onClick={() => void onChange(job, JobAction.Cancel)}
               >
                 <NavigationIcon name="x-circle" />
               </Button>

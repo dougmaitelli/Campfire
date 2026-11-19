@@ -1,3 +1,4 @@
+import { IntegrationCardState } from "../../contracts/domains";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -58,7 +59,10 @@ export function IntegrationCardStatus({
     };
   }, [serverID, bindingID, revision, refresh, t]);
   const message = error ?? status?.error;
-  if (!message && (!showStatus || !status || status.state === "disabled"))
+  if (
+    !message &&
+    (!showStatus || !status || status.state === IntegrationCardState.Disabled)
+  )
     return null;
   return (
     <section aria-label={t("serverIntegrations.publishing")}>
@@ -66,13 +70,13 @@ export function IntegrationCardStatus({
       {status && (
         <StatusPill
           tone={
-            status.state === "published"
+            status.state === IntegrationCardState.Published
               ? "positive"
-              : status.state === "failed"
+              : status.state === IntegrationCardState.Failed
                 ? "negative"
-                : status.state === "uncertain"
+                : status.state === IntegrationCardState.Uncertain
                   ? "warning"
-                  : status.state === "pending"
+                  : status.state === IntegrationCardState.Pending
                     ? "pending"
                     : "neutral"
           }
@@ -104,7 +108,7 @@ export function IntegrationCardStatus({
           }}
         >
           {t(
-            status.state === "uncertain"
+            status.state === IntegrationCardState.Uncertain
               ? "serverIntegrations.checkCard"
               : "serverIntegrations.retryCard",
           )}

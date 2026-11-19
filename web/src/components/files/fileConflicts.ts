@@ -1,5 +1,5 @@
-import type { ExtractionAction, FileEntry } from "../../api/fileTypes";
-import { FileKind } from "../../contracts/domains";
+import type { FileEntry } from "../../api/fileTypes";
+import { ExtractionAction, FileKind } from "../../contracts/domains";
 
 export type FileConflictAction = ExtractionAction;
 export interface FileConflictChoice {
@@ -31,19 +31,22 @@ export type ResolveFileConflict = (
 ) => Promise<FileConflictChoice | null>;
 
 export function conflictActions(conflict: FileConflict): FileConflictAction[] {
-  const actions: FileConflictAction[] = ["skip", "rename"];
+  const actions: FileConflictAction[] = [
+    ExtractionAction.Skip,
+    ExtractionAction.Rename,
+  ];
   if (conflict.protected) return actions;
   if (!conflict.existing && !conflict.duplicate && conflict.changed)
-    actions.splice(1, 0, "extract");
+    actions.splice(1, 0, ExtractionAction.Extract);
   if (
     (conflict.kind ?? FileKind.File) === FileKind.File &&
     conflict.existing?.kind === FileKind.File
   )
-    actions.splice(1, 0, "overwrite");
+    actions.splice(1, 0, ExtractionAction.Overwrite);
   if (
     conflict.kind === FileKind.Directory &&
     conflict.existing?.kind === FileKind.Directory
   )
-    actions.splice(1, 0, "merge");
+    actions.splice(1, 0, ExtractionAction.Merge);
   return actions;
 }

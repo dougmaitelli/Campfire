@@ -1,3 +1,9 @@
+import {
+  RuntimeState,
+  GameStateStatus,
+  NotificationCategory,
+  IntegrationCardState,
+} from "../../src/contracts/domains";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { Permission } from "../../src/api/permissions";
@@ -33,13 +39,15 @@ const original: ServerIntegrationSettings = {
   configured: true,
   available: true,
   guild_name: "Community",
-  sources: [{ id: "game", permission: Permission.ServerView }],
+  sources: [
+    { id: NotificationCategory.Game, permission: Permission.ServerView },
+  ],
   enabled: true,
   channel_id: "400",
-  subscriptions: [{ category: "game" }],
+  subscriptions: [{ category: NotificationCategory.Game }],
   card: { enabled: false, fields: [] },
   card_status: {
-    state: "disabled",
+    state: IntegrationCardState.Disabled,
     error: "",
     next_attempt_at: 0,
     can_retry: false,
@@ -238,7 +246,7 @@ test("shared wizard discovers reported card fields and retains them through snap
         received_at: 1,
         usage: {
           server_id: server.id,
-          state: "running",
+          state: RuntimeState.Running,
           cpu_percent: 0,
           memory_bytes: 0,
           disk_bytes: 0,
@@ -254,7 +262,7 @@ test("shared wizard discovers reported card fields and retains them through snap
         game: {
           updated_at: 1,
           fresh_for_seconds: 60,
-          status: "fresh",
+          status: GameStateStatus.Fresh,
           state: {
             players: 0,
             capacity: 20,

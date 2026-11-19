@@ -1,5 +1,10 @@
 import { apiJSON, readJSON, API_READ_TIMEOUT_MS } from "./client";
-import { JobType, JobStatus, JobStep } from "../contracts/domains";
+import {
+  JobType,
+  JobStatus,
+  JobStep,
+  type JobAction,
+} from "../contracts/domains";
 import { isRecord, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
 import { readPage, pageQuery, type Page } from "./pagination";
@@ -68,7 +73,7 @@ export async function listJobs(
 
 export async function changeJob(
   id: string,
-  action: "retry" | "cancel",
+  action: JobAction,
 ): Promise<ServerJob> {
   const value = await readJSON(
     await apiJSON(

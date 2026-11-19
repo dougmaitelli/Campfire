@@ -1,3 +1,10 @@
+import {
+  StartupShell,
+  VariableType,
+  VariableFormat,
+  ConfigParser,
+  NetworkProtocol,
+} from "../../src/contracts/domains";
 import type { Ember } from "../../src/contracts/ember";
 
 export function completeEmber(): Ember {
@@ -15,7 +22,7 @@ export function completeEmber(): Ember {
       Default: "echo Ready; sleep {{SECONDS}}",
       Debug: "echo Debug; sleep {{SECONDS}}",
     },
-    startup_shell: "bash",
+    startup_shell: StartupShell.Bash,
     work_dir: "/home/container",
     user: "1000:1000",
     installer: {
@@ -37,7 +44,7 @@ export function completeEmber(): Ember {
         required: true,
         editable: true,
         validation: {
-          type: "integer",
+          type: VariableType.Integer,
           min: 1,
           max: 300,
           choices: ["30", "60"],
@@ -51,8 +58,8 @@ export function completeEmber(): Ember {
         hidden: true,
         pattern: "^https://",
         validation: {
-          type: "string",
-          format: "url",
+          type: VariableType.String,
+          format: VariableFormat.URL,
           nullable: true,
           min_length: 1,
           max_length: 8192,
@@ -64,7 +71,7 @@ export function completeEmber(): Ember {
     configs: [
       {
         path: "settings.json",
-        parser: "json",
+        parser: ConfigParser.JSON,
         values: {
           "server.port": "{{SERVER_PORT}}",
           "server.name": "{{LABEL}}",
@@ -73,8 +80,8 @@ export function completeEmber(): Ember {
       },
     ],
     required_ports: [
-      { container: 25565, protocol: "tcp", description: "Game" },
-      { container: 25566, protocol: "udp", description: "Query" },
+      { container: 25565, protocol: NetworkProtocol.TCP, description: "Game" },
+      { container: 25566, protocol: NetworkProtocol.UDP, description: "Query" },
     ],
     savedata_paths: [
       { path: "world", required: true },

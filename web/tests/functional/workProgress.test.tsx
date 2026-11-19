@@ -2,10 +2,8 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { WorkProgress } from "../../src/components/status/WorkProgress";
 import { InlineMessage } from "../../src/components/status/InlineMessage";
-import {
-  WorkPhase,
-  type WorkProgress as Measurement,
-} from "../../src/api/workProgress";
+import { WorkPhase } from "../../src/contracts/domains";
+import type { WorkProgress as Measurement } from "../../src/api/workProgress";
 
 afterEach(() => vi.useRealTimers());
 const snapshot = (changes: Partial<Measurement> = {}): Measurement => ({

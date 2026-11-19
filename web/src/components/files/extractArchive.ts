@@ -3,7 +3,14 @@ import {
   type ExtractionStatus,
   type FileRequest,
 } from "../../api/files";
-import { FileKind, FileOperation } from "../../contracts/domains";
+import {
+  FileKind,
+  FileOperation,
+  ExtractionState,
+  ExtractionAction,
+  ExtractionOutcomeStatus,
+  BrowserPublicationStatus,
+} from "../../contracts/domains";
 import i18n from "../../i18n";
 import type { FileOutcome } from "./fileOutcomes";
 import { reservedFileNames, statDestination } from "./fileDestinations";
@@ -18,11 +25,15 @@ const baseOf = (name: string) => name.split("/").filter(Boolean).at(-1) ?? "";
 const publicPath = (name: string) =>
   name === "." ? "/" : `/${name.replace(/^\/+/, "")}`;
 const terminal = (status: ExtractionStatus) =>
-  !["running", "waiting"].includes(status.state);
+  ![ExtractionState.Running, ExtractionState.Waiting].includes(status.state);
 
 export interface ExtractionResult {
   state:
-    Exclude<ExtractionStatus["state"], "running" | "waiting"> | "unconfirmed";
+    | Exclude<
+        ExtractionState,
+        ExtractionState.Running | ExtractionState.Waiting
+      >
+    | BrowserPublicationStatus.Unconfirmed;
   outcomes: FileOutcome[];
 }
 
@@ -59,14 +70,16 @@ export async function extractArchive({
       },
       { reserved, signal },
     );
-    if (!choice || choice.action === "skip")
+    if (!choice || choice.action === ExtractionAction.Skip)
       return {
-        state: choice ? "completed" : "cancelled",
+        state: choice ? ExtractionState.Completed : ExtractionState.Cancelled,
         outcomes: [
           {
             name: source,
             target: destination,
-            status: choice ? "skipped" : "cancelled",
+            status: choice
+              ? ExtractionOutcomeStatus.Skipped
+              : ExtractionOutcomeStatus.Cancelled,
           },
         ],
       };
@@ -97,7 +110,9 @@ export async function extractArchive({
     if (!latest || result.extraction.version >= latest.version) {
       latest = result.extraction;
       onProgress?.(
-        latest.state === "running" ? latest.work_progress : undefined,
+        latest.state === ExtractionState.Running
+          ? latest.work_progress
+          : undefined,
       );
     }
     return latest;
@@ -142,7 +157,7 @@ export async function extractArchive({
     }
     while (!terminal(status) || status.remaining_entries > 0) {
       signal.throwIfAborted();
-      if (status.state === "waiting" && status.conflict) {
+      if (status.state === ExtractionState.Waiting && status.conflict) {
         const conflict = status.conflict;
         const target = publicPath(conflict.destination);
         const reserved = await reservedFileNames(
@@ -186,7 +201,9 @@ export async function extractArchive({
           id: operationID,
           conflict_id: conflict.id,
           action: choice.action,
-          ...(choice.action === "rename" ? { name: choice.name } : {}),
+          ...(choice.action === ExtractionAction.Rename
+            ? { name: choice.name }
+            : {}),
         };
         try {
           status = await request(FileOperation.ExtractResolve, decision);
@@ -226,7 +243,7 @@ export async function extractArchive({
         result.outcomes.push({
           name: source,
           target: destination,
-          status: "failed",
+          status: ExtractionOutcomeStatus.Failed,
           message:
             cause instanceof Error
               ? cause.message
@@ -322,12 +339,12 @@ function unconfirmedResult(
   destination: string,
 ): ExtractionResult {
   return {
-    state: "unconfirmed",
+    state: BrowserPublicationStatus.Unconfirmed,
     outcomes: [
       {
         name: source,
         target: destination,
-        status: "unconfirmed",
+        status: BrowserPublicationStatus.Unconfirmed,
         message: i18n.t("fileExtraction.completionUnconfirmed"),
       },
     ],
@@ -342,30 +359,33 @@ function extractionResult(
   const values: FileOutcome[] = status.outcomes.map((item) => ({
     name: item.path,
     target: publicPath(item.destination),
-    status: item.status === "pending" ? "unconfirmed" : item.status,
+    status:
+      item.status === ExtractionOutcomeStatus.Pending
+        ? BrowserPublicationStatus.Unconfirmed
+        : item.status,
     ...(item.message ? { message: item.message } : {}),
   }));
   if (
-    ["failed", "expired"].includes(status.state) &&
-    !values.some((item) => item.status === "failed")
+    [ExtractionState.Failed, ExtractionState.Expired].includes(status.state) &&
+    !values.some((item) => item.status === ExtractionOutcomeStatus.Failed)
   )
     values.push({
       name: source,
       target: "",
-      status: "failed",
+      status: ExtractionOutcomeStatus.Failed,
       message: status.message ?? i18n.t("fileExtraction.someFailed"),
     });
   const state =
-    status.state === "running" ||
-    status.state === "waiting" ||
+    status.state === ExtractionState.Running ||
+    status.state === ExtractionState.Waiting ||
     status.remaining_entries > 0
-      ? "unconfirmed"
+      ? BrowserPublicationStatus.Unconfirmed
       : status.state;
   // Encountered members cannot account for the rest of a running scanner.
   // Keep confirmed member results, but explicitly mark the unknown operation.
   if (
-    state === "unconfirmed" &&
-    !values.some((item) => item.status === "unconfirmed")
+    state === BrowserPublicationStatus.Unconfirmed &&
+    !values.some((item) => item.status === BrowserPublicationStatus.Unconfirmed)
   )
     values.push(...unconfirmedResult(source, destination).outcomes);
   return { state, outcomes: values };

@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { formatVersion } from "../../src/utils/formatVersion";
 import { createResourceLinks } from "../../src/routing/resourceLinks";
-import type { ResourceKind } from "../../src/contracts/domains";
+import { ResourceKind, ServerTab } from "../../src/contracts/domains";
 import {
   getRoute,
   getResourceRoute,
@@ -19,9 +19,13 @@ test("development versions shorten SHAs without changing release versions", () =
 test("registry resolves page access and resource inspection destinations", () => {
   expect(getRoute("dashboard")?.adminOnly).toBe(false);
   expect(getRoute("users")?.adminOnly).toBe(true);
-  expect(getResourceRoute("user")?.[0]).toBe("users");
-  expect(getResourceRoute("user")?.[1].resource?.operation).toBe("manageUsers");
-  expect(getResourceRoute("server")?.[1].resource?.Drawer).toBeDefined();
+  expect(getResourceRoute(ResourceKind.User)?.[0]).toBe("users");
+  expect(getResourceRoute(ResourceKind.User)?.[1].resource?.operation).toBe(
+    "manageUsers",
+  );
+  expect(
+    getResourceRoute(ResourceKind.Server)?.[1].resource?.Drawer,
+  ).toBeDefined();
   for (const unknown of ["missing", "constructor", "toString", "__proto__"]) {
     expect(getRoute(unknown)).toBeUndefined();
     expect(getResourceRoute(unknown as ResourceKind)).toBeUndefined();
@@ -49,7 +53,7 @@ test("routes decode IDs and tolerate malformed URLs", () => {
 test("links encode IDs and honor destination permissions", () => {
   const links = createResourceLinks(() => true);
   expect(links.server("server /#1")).toBe("#servers/server%20%2F%231/console");
-  expect(links.server("one", "backups")).toBe("#servers/one/backups");
+  expect(links.server("one", ServerTab.Backups)).toBe("#servers/one/backups");
   expect(links.spark("node")).toBe("#sparks/node");
   expect(links.ember("game")).toBe("#embers/game");
   expect(links.user(12)).toBe("#users/12");

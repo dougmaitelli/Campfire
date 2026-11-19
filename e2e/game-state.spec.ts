@@ -1,3 +1,4 @@
+import { GameStateStatus } from "../web/src/contracts/domains";
 import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
 import type { GameStateView } from "../web/src/api/gameState";
@@ -24,7 +25,7 @@ test("game state shows optional fields and hides stale values", async ({
     server.game = {
       updated_at: snapshot.collected_at - (mode === "expired" ? 60 : 0),
       fresh_for_seconds: 60,
-      status: mode === "stale" ? "stale" : "fresh",
+      status: mode === "stale" ? GameStateStatus.Stale : GameStateStatus.Fresh,
       ...(mode === "stale"
         ? {}
         : {
@@ -153,7 +154,7 @@ test("field labels and raw keys retain their supplied casing", async ({
     server.game = {
       updated_at: snapshot.collected_at,
       fresh_for_seconds: 60,
-      status: "fresh",
+      status: GameStateStatus.Fresh,
       state: {
         fields: {
           ...Object.fromEntries(labels.map((_, i) => [`label${i}`, "value"])),

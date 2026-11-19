@@ -1,3 +1,4 @@
+import { ExtractionOutcomeStatus } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import type { PublicationStatus } from "../../api/fileTypes";
 import { summarizeFileOutcomes, type FileOutcome } from "./fileOutcomes";
@@ -12,11 +13,11 @@ export function FileResults({
   const { t } = useTranslation();
   function outcomeLabel(status: PublicationStatus) {
     switch (status) {
-      case "extracted":
-      case "merged":
+      case ExtractionOutcomeStatus.Extracted:
+      case ExtractionOutcomeStatus.Merged:
         return t(`fileExtraction.outcome.${status}`);
-      case "renamed":
-      case "cancelled":
+      case ExtractionOutcomeStatus.Renamed:
+      case ExtractionOutcomeStatus.Cancelled:
         return t(
           `${operation === "extract" ? "fileExtraction" : "fileUploads"}.outcome.${status}`,
         );

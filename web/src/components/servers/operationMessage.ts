@@ -1,6 +1,6 @@
 import {
   OperationState,
-  type ServerAction,
+  ServerAction,
   RuntimeErrorCode,
 } from "../../contracts/domains";
 import i18n from "../../i18n";
@@ -8,40 +8,40 @@ import type { RuntimeStatus } from "../../api/runtime";
 import { formatErrorMessage } from "../../utils/errors";
 
 const operationNames: Partial<Record<ServerAction, string>> = {
-  get command() {
+  get [ServerAction.Command]() {
     return i18n.t("operationMessage.consoleCommand");
   },
-  get install() {
+  get [ServerAction.Install]() {
     return i18n.t("operationMessage.installation");
   },
-  get update() {
+  get [ServerAction.Update]() {
     return i18n.t("operationMessage.gameFileUpdate");
   },
-  get reinstall() {
+  get [ServerAction.Reinstall]() {
     return i18n.t("operationMessage.reinstallation");
   },
-  get start() {
+  get [ServerAction.Start]() {
     return i18n.t("operationMessage.serverStart");
   },
-  get stop() {
+  get [ServerAction.Stop]() {
     return i18n.t("operationMessage.serverStop");
   },
-  get restart() {
+  get [ServerAction.Restart]() {
     return i18n.t("operationMessage.serverRestart");
   },
-  get kill() {
+  get [ServerAction.Kill]() {
     return i18n.t("operationMessage.forcedStop");
   },
-  get backup() {
+  get [ServerAction.Backup]() {
     return i18n.t("operationMessage.backup");
   },
-  get restore() {
+  get [ServerAction.Restore]() {
     return i18n.t("operationMessage.backupRestoration");
   },
-  get delete() {
+  get [ServerAction.Delete]() {
     return i18n.t("operationMessage.serverDeletion");
   },
-  get transfer() {
+  get [ServerAction.Transfer]() {
     return i18n.t("operationMessage.serverTransfer");
   },
 };
@@ -111,7 +111,7 @@ export function operationMessage(
   if (
     status.error_code ||
     status.error ||
-    status.operation_state === "failed"
+    status.operation_state === OperationState.Failed
   ) {
     return {
       title: i18n.t("operationMessage.failed", { name: name }),
@@ -126,14 +126,15 @@ export function operationMessage(
           tone: "success",
         }
       : null;
-  if (status.operation_state === "queued")
+  if (status.operation_state === OperationState.Queued)
     return {
       title: i18n.t("operationMessage.queued", { name: name }),
       tone: "info",
     };
   return {
     title:
-      status.operation && (status.busy || status.operation_state === "running")
+      status.operation &&
+      (status.busy || status.operation_state === OperationState.Running)
         ? i18n.t("operationMessage.inProgress", { name: name })
         : i18n.t("operationMessage.serverStatus"),
     ...(status.progress ? { detail: formatErrorMessage(status.progress) } : {}),

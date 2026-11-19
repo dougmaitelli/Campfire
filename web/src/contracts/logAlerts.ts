@@ -1,17 +1,17 @@
 import { isEnumValue, isRecord } from "../utils/validation";
 
-export const LogSeverity = { Warning: "warning", Error: "error" } as const;
-export type LogSeverity = (typeof LogSeverity)[keyof typeof LogSeverity];
-export const LogPhase = {
-  Runtime: "runtime",
-  Installation: "installation",
-} as const;
-export type LogPhase = (typeof LogPhase)[keyof typeof LogPhase];
-export const LogAction = {
-  OpenFile: "open_file",
-  ServerSettings: "server_settings",
-} as const;
-export type LogAction = (typeof LogAction)[keyof typeof LogAction];
+export enum LogSeverity {
+  Warning = "warning",
+  Error = "error",
+}
+export enum LogPhase {
+  Runtime = "runtime",
+  Installation = "installation",
+}
+export enum LogAction {
+  OpenFile = "open_file",
+  ServerSettings = "server_settings",
+}
 
 export interface LogAlertAction {
   type: LogAction;

@@ -1,3 +1,4 @@
+import { isEnumValue } from "../utils/validation";
 import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "react-i18next";
 import { JobStatus, JobType } from "../contracts/domains";
@@ -14,12 +15,11 @@ export function JobsPage() {
   const navigation = usePagination();
   const rawStatus = navigation.query.get("status") ?? "";
   const rawType = navigation.query.get("type") ?? "";
-  const status =
-    Object.values(JobStatus).find((value) => value === rawStatus) ?? "";
-  const type = Object.values(JobType).find((value) => value === rawType) ?? "";
-  const setStatus = (value: string) =>
+  const status = isEnumValue(JobStatus, rawStatus) ? rawStatus : "";
+  const type = isEnumValue(JobType, rawType) ? rawType : "";
+  const setStatus = (value: JobStatus | "") =>
     navigation.update({ status: value, page: null });
-  const setType = (value: string) =>
+  const setType = (value: JobType | "") =>
     navigation.update({ type: value, page: null });
   return (
     <>

@@ -1,3 +1,10 @@
+import {
+  LogPhase,
+  LogSeverity,
+  LogAction,
+} from "../../src/contracts/logAlerts";
+import { RuntimeState } from "../../src/contracts/domains";
+import { Permission } from "../../src/contracts/permissions";
 import { beforeEach, expect, test, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -21,13 +28,13 @@ const alert: DetectedLogAlert = {
   id: "a".repeat(64),
   rule_key: "b".repeat(64),
   execution_id: "c".repeat(64),
-  phase: "runtime",
+  phase: LogPhase.Runtime,
   title: "EULA requires acceptance",
   message: "Review the EULA before changing eula.txt.",
-  severity: "error",
+  severity: LogSeverity.Error,
   detected_at: 1792670400,
   line: "You need to agree to the EULA",
-  action: { type: "open_file", path: "eula.txt" },
+  action: { type: LogAction.OpenFile, path: "eula.txt" },
 };
 
 function server(permissions: Server["permissions"]): Server {
@@ -50,7 +57,7 @@ function server(permissions: Server["permissions"]): Server {
     spark_name: "Node",
     ember_name: "Game",
     game_address: "",
-    status: "running",
+    status: RuntimeState.Running,
     created_at: "2026-10-22",
   };
 }
@@ -63,7 +70,7 @@ beforeEach(() => {
 test("an issue exposes guidance, evidence and only authorized actions", async () => {
   render(
     <ServerLogAlerts
-      server={server(["server.view"])}
+      server={server([Permission.ServerView])}
       busy={false}
       onServerSaved={vi.fn()}
     />,
@@ -81,10 +88,10 @@ test("authorized users can inspect evidence, navigate to the file and dismiss a 
   render(
     <ServerLogAlerts
       server={server([
-        "server.view",
-        "server.operate",
-        "server.console.read",
-        "server.files.read",
+        Permission.ServerView,
+        Permission.ServerOperate,
+        Permission.ServerConsoleRead,
+        Permission.ServerFilesRead,
       ])}
       busy={false}
       onServerSaved={vi.fn()}
@@ -106,7 +113,7 @@ test("an empty issue list adds no empty panel", async () => {
   vi.mocked(listLogAlerts).mockResolvedValue([]);
   render(
     <ServerLogAlerts
-      server={server(["server.view"])}
+      server={server([Permission.ServerView])}
       busy={false}
       onServerSaved={vi.fn()}
     />,
@@ -117,12 +124,12 @@ test("an empty issue list adds no empty panel", async () => {
 
 test("polling away the final alert preserves unsaved server settings", async () => {
   vi.mocked(listLogAlerts).mockResolvedValue([
-    { ...alert, action: { type: "server_settings" } },
+    { ...alert, action: { type: LogAction.ServerSettings } },
   ]);
   const user = userEvent.setup();
   render(
     <ServerLogAlerts
-      server={server(["server.view", "server.configure"])}
+      server={server([Permission.ServerView, Permission.ServerConfigure])}
       busy={false}
       onServerSaved={vi.fn()}
     />,

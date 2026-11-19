@@ -1,3 +1,4 @@
+import { LogSeverity, LogAction } from "../../src/contracts/logAlerts";
 import { expect, test } from "vitest";
 import { completeEmber } from "../fixtures/ember";
 import {
@@ -12,9 +13,9 @@ test("visual and JSON round trips retain all advanced definition fields", () => 
     {
       title: "EULA",
       message: "Read eula.txt",
-      severity: "error",
+      severity: LogSeverity.Error,
       any: [{ value: "EULA", regex: false, ignore_case: true }],
-      action: { type: "open_file", path: "eula.txt" },
+      action: { type: LogAction.OpenFile, path: "eula.txt" },
     },
   ];
   expect(serializeEmberDraft(createEmberDraft(definition))).toEqual(definition);

@@ -9,7 +9,7 @@ import {
 import { normalizeFileName } from "./fileNames";
 import { Fieldset } from "../forms/Fieldset";
 import "./file-conflicts.css";
-import { FileKind } from "../../contracts/domains";
+import { ExtractionAction, FileKind } from "../../contracts/domains";
 import { formatBytes } from "../../utils/formatBytes";
 import { CheckboxField } from "../forms/CheckboxField";
 import { FormField } from "../forms/FormField";
@@ -32,7 +32,9 @@ export function FileConflictDialog({
   onResolve: (choice: FileConflictChoice | null) => void;
 }) {
   const { t } = useTranslation();
-  const [action, setAction] = useState<FileConflictAction>("skip");
+  const [action, setAction] = useState<FileConflictAction>(
+    ExtractionAction.Skip,
+  );
   const [name, setName] = useState(conflict.suggestedName);
   const [applyToAll, setApplyToAll] = useState(false);
   const trimmed = name.trim();
@@ -42,11 +44,21 @@ export function FileConflictDialog({
     trimmed === originalName ||
     reserved.has(trimmed);
   const actions = conflictActions(conflict);
-  const presented: FileConflictAction[] = actions.includes("merge")
-    ? ["skip", "merge", "rename"]
-    : actions.includes("extract")
-      ? ["skip", "extract", "rename"]
-      : ["skip", "overwrite", "rename"];
+  const presented: FileConflictAction[] = actions.includes(
+    ExtractionAction.Merge,
+  )
+    ? [ExtractionAction.Skip, ExtractionAction.Merge, ExtractionAction.Rename]
+    : actions.includes(ExtractionAction.Extract)
+      ? [
+          ExtractionAction.Skip,
+          ExtractionAction.Extract,
+          ExtractionAction.Rename,
+        ]
+      : [
+          ExtractionAction.Skip,
+          ExtractionAction.Overwrite,
+          ExtractionAction.Rename,
+        ];
   return (
     <ConfirmDialog
       title={t(
@@ -59,11 +71,11 @@ export function FileConflictDialog({
       })}
       confirmLabel={t("fileUploads.continue")}
       busy={false}
-      disabled={action === "rename" && invalidName}
+      disabled={action === ExtractionAction.Rename && invalidName}
       error={null}
       onClose={() => onResolve(null)}
       onConfirm={() => {
-        if (action === "rename" && invalidName) return;
+        if (action === ExtractionAction.Rename && invalidName) return;
         onResolve({
           action,
           name: trimmed,
@@ -112,21 +124,23 @@ export function FileConflictDialog({
             disabled={!actions.includes(value)}
             onChange={() => setAction(value)}
           >
-            {value === "merge"
+            {value === ExtractionAction.Merge
               ? t("fileExtraction.merge")
-              : value === "extract"
+              : value === ExtractionAction.Extract
                 ? t("fileExtraction.saveIncoming")
                 : t(`fileUploads.${value}`)}
           </RadioField>
         ))}
       </Fieldset>
-      {action === "merge" && <p>{t("fileExtraction.mergeDescription")}</p>}
-      {action === "overwrite" && (
+      {action === ExtractionAction.Merge && (
+        <p>{t("fileExtraction.mergeDescription")}</p>
+      )}
+      {action === ExtractionAction.Overwrite && (
         <InlineMessage tone="warning">
           {t("fileUploads.overwriteWarning")}
         </InlineMessage>
       )}
-      {action === "rename" && (
+      {action === ExtractionAction.Rename && (
         <FormField
           label={t(
             conflict.kind === FileKind.Directory
@@ -156,9 +170,11 @@ export function FileConflictDialog({
           {t("fileUploads.applyToAll")}
         </CheckboxField>
       )}
-      {hasRemainingConflicts && applyToAll && action === "rename" && (
-        <p>{t("fileUploads.automaticNames")}</p>
-      )}
+      {hasRemainingConflicts &&
+        applyToAll &&
+        action === ExtractionAction.Rename && (
+          <p>{t("fileUploads.automaticNames")}</p>
+        )}
     </ConfirmDialog>
   );
 }

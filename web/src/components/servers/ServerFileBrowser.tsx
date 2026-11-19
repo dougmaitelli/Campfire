@@ -1,4 +1,10 @@
-import { FileKind, FileOperation } from "../../contracts/domains";
+import {
+  FileKind,
+  FileOperation,
+  FileUploadPhase,
+  BrowserPublicationStatus,
+  ExtractionState,
+} from "../../contracts/domains";
 import { API_READ_TIMEOUT_MS } from "../../api/client";
 import i18n from "../../i18n";
 import { useTranslation, Trans } from "react-i18next";
@@ -439,7 +445,7 @@ export function ServerFileBrowser({
   function cancelUpload() {
     if (!transfer.current || transfer.current.signal.aborted) return;
     setProgress((current) =>
-      current ? { ...current, phase: "cancelling" } : null,
+      current ? { ...current, phase: FileUploadPhase.Cancelling } : null,
     );
     transfer.current.abort();
   }
@@ -469,10 +475,16 @@ export function ServerFileBrowser({
       if (alive.current) {
         const summary = summarizeFileOutcomes(outcomes);
         let text: string | null = null;
-        if (extractionState === "unconfirmed" || summary.unconfirmed > 0)
+        if (
+          extractionState === BrowserPublicationStatus.Unconfirmed ||
+          summary.unconfirmed > 0
+        )
           text = t("fileExtraction.completionUnconfirmed");
         else if (summary.failed > 0) text = t("fileExtraction.someFailed");
-        else if (extractionState !== "cancelled" && summary.cancelled === 0)
+        else if (
+          extractionState !== ExtractionState.Cancelled &&
+          summary.cancelled === 0
+        )
           text = t("fileExtraction.finished");
         setFileOperationNotice({
           operation: "extract",
@@ -1053,7 +1065,7 @@ export function ServerFileBrowser({
                           name={
                             entry.kind === FileKind.Directory
                               ? "folder"
-                              : entry.kind === "file"
+                              : entry.kind === FileKind.File
                                 ? "file"
                                 : "link"
                           }
@@ -1079,7 +1091,7 @@ export function ServerFileBrowser({
                     <td className="table-fit file-entry-meta table-mobile-hidden">
                       {entry.kind === FileKind.Directory
                         ? t("serverFileBrowser.folderType")
-                        : entry.kind === "unsupported"
+                        : entry.kind === FileKind.Unsupported
                           ? t("serverFileBrowser.specialType")
                           : fileExtension(entry.name).toUpperCase() ||
                             t("serverFileBrowser.fileTypeFallback")}

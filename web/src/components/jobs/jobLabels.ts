@@ -1,19 +1,19 @@
-import type { JobStatus, JobStep } from "../../contracts/domains";
+import { JobStatus, JobStep } from "../../contracts/domains";
 
 export const jobStepLabels = {
-  preparing: "serverCopy.preparing",
-  exporting: "serverJobs.exporting",
-  copying: "serverCopy.uploading",
-  importing: "serverJobs.importing",
-  committing: "serverTransferDrawer.changingPlacement",
-  cleanup: "serverCopy.cleanup",
+  [JobStep.Preparing]: "serverCopy.preparing",
+  [JobStep.Exporting]: "serverJobs.exporting",
+  [JobStep.Copying]: "serverCopy.uploading",
+  [JobStep.Importing]: "serverJobs.importing",
+  [JobStep.Committing]: "serverTransferDrawer.changingPlacement",
+  [JobStep.Cleanup]: "serverCopy.cleanup",
 } as const satisfies Record<JobStep, string>;
 
 export const jobStatusLabels = {
-  pending: "common.pending",
-  running: "common.running",
-  failed: "common.failed",
-  cancelling: "serverCopy.cancelling",
-  completed: "serverCopy.complete",
-  cancelled: "serverCopy.cancelled",
+  [JobStatus.Pending]: "common.pending",
+  [JobStatus.Running]: "common.running",
+  [JobStatus.Failed]: "common.failed",
+  [JobStatus.Cancelling]: "serverCopy.cancelling",
+  [JobStatus.Completed]: "serverCopy.complete",
+  [JobStatus.Cancelled]: "serverCopy.cancelled",
 } as const satisfies Record<JobStatus, string>;

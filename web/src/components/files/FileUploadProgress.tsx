@@ -1,3 +1,4 @@
+import { FileUploadPhase } from "../../contracts/domains";
 import { useTranslation } from "react-i18next";
 import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
@@ -42,7 +43,7 @@ export function FileUploadProgress({
         </div>
         <Button
           size="small"
-          disabled={progress.phase === "cancelling"}
+          disabled={progress.phase === FileUploadPhase.Cancelling}
           onClick={onCancel}
         >
           {t("fileUploads.cancelUpload")}

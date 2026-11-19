@@ -1,3 +1,4 @@
+import { RuntimeState, ServerAction } from "../../src/contracts/domains";
 import { useState } from "react";
 import { expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -68,15 +69,23 @@ test("disabled radio fields cannot change selection", async () => {
 });
 
 test.each([
-  ["running", false, undefined, true, true, false, false],
-  ["stopped", false, undefined, true, false, true, true],
-  ["restarting", false, undefined, true, true, false, false],
-  ["running", true, "restart", true, true, true, true],
-  ["installing", true, "install", true, true, false, true],
-  ["stopped", false, undefined, false, true, true, true],
-  ["running", false, undefined, false, true, true, true],
-  ["not_installed", false, undefined, true, true, true, true],
-  ["unknown", false, undefined, true, true, true, true],
+  [RuntimeState.Running, false, undefined, true, true, false, false],
+  [RuntimeState.Stopped, false, undefined, true, false, true, true],
+  [RuntimeState.Restarting, false, undefined, true, true, false, false],
+  [RuntimeState.Running, true, ServerAction.Restart, true, true, true, true],
+  [
+    RuntimeState.Installing,
+    true,
+    ServerAction.Install,
+    true,
+    true,
+    false,
+    true,
+  ],
+  [RuntimeState.Stopped, false, undefined, false, true, true, true],
+  [RuntimeState.Running, false, undefined, false, true, true, true],
+  [RuntimeState.NotInstalled, false, undefined, true, true, true, true],
+  [RuntimeState.Unknown, false, undefined, true, true, true, true],
 ] as const)(
   "quick controls respect %s state and permissions",
   (
@@ -127,14 +136,18 @@ test.each([
   },
 );
 
-test.each(["install", "reinstall", "update"] as const)(
+test.each([ServerAction.Install, ServerAction.Reinstall, ServerAction.Update])(
   "%s allows stop and kill while blocking other mutations",
   async (operation) => {
     const action = vi.fn();
     const user = userEvent.setup();
     render(
       <ServerLifecycleControls
-        status={runtimeStatus({ state: "installing", operation, busy: true })}
+        status={runtimeStatus({
+          state: RuntimeState.Installing,
+          operation,
+          busy: true,
+        })}
         disabled={false}
         canReinstall
         onAction={action}
@@ -169,7 +182,7 @@ test.each(["install", "reinstall", "update"] as const)(
 test("servers awaiting installation keep Start and Reinstall disabled", () => {
   render(
     <ServerLifecycleControls
-      status={runtimeStatus({ state: "not_installed" })}
+      status={runtimeStatus({ state: RuntimeState.NotInstalled })}
       disabled={false}
       canReinstall
       onAction={vi.fn()}

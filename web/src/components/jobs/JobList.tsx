@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { JobStatus } from "../../contracts/domains";
+import { JobStatus, type JobAction } from "../../contracts/domains";
 import {
   listJobs,
   changeJob,
@@ -71,7 +71,7 @@ export function JobList({
   const error = actionError ?? history.error;
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
-  async function change(job: ServerJob, action: "retry" | "cancel") {
+  async function change(job: ServerJob, action: JobAction) {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);

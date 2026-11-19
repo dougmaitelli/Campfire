@@ -1,5 +1,11 @@
 import { encodeBytes, fileLimit, manageFiles } from "../../api/files";
-import { FileOperation } from "../../contracts/domains";
+import {
+  FileOperation,
+  ExtractionAction,
+  ExtractionOutcomeStatus,
+  BrowserPublicationStatus,
+  FileUploadPhase,
+} from "../../contracts/domains";
 import i18n from "../../i18n";
 import { formatBytes } from "../../utils/formatBytes";
 import { summarizeFileOutcomes, type FileOutcome } from "./fileOutcomes";
@@ -61,7 +67,7 @@ export async function uploadFiles({
       let name = uploadName(file.name);
       const duplicate = seen.has(name);
       seen.add(name);
-      let outcome: FileOutcome["status"] = "uploaded";
+      let outcome: FileOutcome["status"] = BrowserPublicationStatus.Uploaded;
       try {
         signal.throwIfAborted();
         const info = await statDestination(id, `${directory}${name}`, signal);
@@ -83,17 +89,21 @@ export async function uploadFiles({
             { reserved, hasRemainingConflicts, signal },
           );
           if (!choice) break;
-          if (choice.action === "skip") {
-            outcomes.push({ name: file.name, target: name, status: "skipped" });
+          if (choice.action === ExtractionAction.Skip) {
+            outcomes.push({
+              name: file.name,
+              target: name,
+              status: ExtractionOutcomeStatus.Skipped,
+            });
             totalBytes -= file.size;
             continue;
           }
-          if (choice.action === "rename") {
+          if (choice.action === ExtractionAction.Rename) {
             name = uploadName(choice.name);
             revision = "absent";
-            outcome = "renamed";
+            outcome = ExtractionOutcomeStatus.Renamed;
           } else {
-            outcome = "overwritten";
+            outcome = ExtractionOutcomeStatus.Overwritten;
           }
         }
         signal.throwIfAborted();
@@ -108,7 +118,7 @@ export async function uploadFiles({
           uploadedBytes,
           totalBytes,
         };
-        onProgress({ ...progress, phase: "uploading" });
+        onProgress({ ...progress, phase: FileUploadPhase.Uploading });
         await uploadFile(
           id,
           `${directory}${name}`,
@@ -132,7 +142,7 @@ export async function uploadFiles({
           outcomes.push({
             name: file.name,
             target: name,
-            status: "unconfirmed",
+            status: BrowserPublicationStatus.Unconfirmed,
             message: cause.message,
           });
           break;
@@ -141,7 +151,7 @@ export async function uploadFiles({
         outcomes.push({
           name: file.name,
           target: name,
-          status: "failed",
+          status: ExtractionOutcomeStatus.Failed,
           message:
             cause instanceof Error
               ? cause.message
@@ -155,7 +165,7 @@ export async function uploadFiles({
       outcomes.push({
         name: files[0]!.name,
         target: files[0]!.name,
-        status: "failed",
+        status: ExtractionOutcomeStatus.Failed,
         message:
           cause instanceof Error
             ? cause.message
@@ -164,7 +174,11 @@ export async function uploadFiles({
     }
   }
   for (const file of files.slice(outcomes.length))
-    outcomes.push({ name: file.name, target: file.name, status: "cancelled" });
+    outcomes.push({
+      name: file.name,
+      target: file.name,
+      status: ExtractionOutcomeStatus.Cancelled,
+    });
   return outcomes;
 }
 
@@ -174,7 +188,10 @@ async function uploadFile(
   file: File,
   revision: string,
   signal: AbortSignal,
-  onProgress: (uploaded: number, phase: "uploading" | "saving") => void,
+  onProgress: (
+    uploaded: number,
+    phase: FileUploadPhase.Uploading | FileUploadPhase.Saving,
+  ) => void,
 ) {
   let uploadID: string | undefined;
   let committed = false;
@@ -212,10 +229,13 @@ async function uploadFile(
         },
         signal,
       );
-      onProgress(Math.min(file.size, offset + fileLimit), "uploading");
+      onProgress(
+        Math.min(file.size, offset + fileLimit),
+        FileUploadPhase.Uploading,
+      );
     }
     signal.throwIfAborted();
-    onProgress(file.size, "saving");
+    onProgress(file.size, FileUploadPhase.Saving);
     commitStarted = true;
     await manageFiles(
       id,

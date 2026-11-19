@@ -1,3 +1,8 @@
+import {
+  NotificationTarget,
+  NotificationKind,
+  NotificationSeverity,
+} from "../../src/contracts/domains";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -29,10 +34,10 @@ beforeEach(() => {
   items = [
     {
       id: 2,
-      target_type: "server",
+      target_type: NotificationTarget.Server,
       target_id: "survival",
-      kind: "recovery",
-      severity: "success",
+      kind: NotificationKind.Recovery,
+      severity: NotificationSeverity.Success,
       title: "Survival restarted",
       body: "The server is available again.",
       created_at: 1792800000,
@@ -40,10 +45,10 @@ beforeEach(() => {
     },
     {
       id: 1,
-      target_type: "server",
+      target_type: NotificationTarget.Server,
       target_id: "survival",
-      kind: "backup",
-      severity: "info",
+      kind: NotificationKind.Backup,
+      severity: NotificationSeverity.Info,
       title: "Backup completed",
       body: "Your scheduled backup finished successfully.",
       created_at: 1792799900,

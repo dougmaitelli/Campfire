@@ -1,3 +1,4 @@
+import { ActivityFilterKind } from "../contracts/domains";
 import {
   lazy,
   Suspense,
@@ -314,7 +315,7 @@ export function useServerManagement(
             onSubmitted={() => {
               setCopy(null);
               window.location.hash = serverActivityURL(server.id, {
-                kind: "operations",
+                kind: ActivityFilterKind.Operations,
               });
             }}
           />
@@ -326,7 +327,7 @@ export function useServerManagement(
             onSubmitted={() => {
               setTransfer(false);
               window.location.hash = serverActivityURL(server.id, {
-                kind: "operations",
+                kind: ActivityFilterKind.Operations,
               });
             }}
           />

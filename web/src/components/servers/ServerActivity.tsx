@@ -1,3 +1,4 @@
+import { ActivityFilterKind } from "../../contracts/domains";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Server } from "../../api/servers";
@@ -63,7 +64,7 @@ export function ServerActivity({ server }: { server: Server }) {
   async function refreshAfterChange() {
     await currentRefresh.current?.();
   }
-  const gameFilters = filter.kind === "game";
+  const gameFilters = filter.kind === ActivityFilterKind.Game;
   const loadChoices = useCallback(
     async (signal: AbortSignal) =>
       gameFilters
