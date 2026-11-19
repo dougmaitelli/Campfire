@@ -8,6 +8,7 @@ import {
 import { formatBytes, BYTES_PER_MEBIBYTE } from "../../utils/formatBytes";
 import { cpuUsageDivisor, formatCPUUsage } from "../../utils/cpuUsage";
 import type { ResourceReading } from "./ResourceReading";
+import { DiskAccounting } from "../../contracts/domains";
 
 export interface ResourceReadingOptions {
   usage: ResourceUsage | undefined;
@@ -31,7 +32,20 @@ export function useResourceReadingProps({
   const containerError = usage?.container_error.length
     ? usage.container_error
     : undefined;
-  const diskError = usage?.disk_error.length ? usage.disk_error : undefined;
+  const diskDescription = usage?.disk_sampled_at
+    ? t(
+        usage.disk_accounting === DiskAccounting.Project
+          ? "resourceReadings.projectDiskSample"
+          : usage.disk_accounting === DiskAccounting.Mixed
+            ? "resourceReadings.mixedDiskSample"
+            : "resourceReadings.logicalDiskSample",
+        {
+          newDateToLocaleString: new Date(
+            usage.disk_sampled_at * 1000,
+          ).toLocaleString(),
+        },
+      )
+    : t("resourceReadings.waitingForAGameDataSizeSample");
   return [
     {
       key: "cpu",
@@ -76,16 +90,14 @@ export function useResourceReadingProps({
       value: usage?.disk_bytes ?? null,
       allocation: diskMB * BYTES_PER_MEBIBYTE,
       fresh: diskFresh(usage, elapsed),
-      detail:
-        detail ??
-        diskError ??
-        (usage?.disk_sampled_at
-          ? t("resourceReadings.sampledBackupsAndImagesExcluded", {
-              newDateToLocaleString: new Date(
-                usage.disk_sampled_at * 1000,
-              ).toLocaleString(),
-            })
-          : t("resourceReadings.waitingForAGameDataSizeSample")),
+      detail: [
+        usage?.disk_error,
+        usage?.disk_quota_error,
+        detail,
+        diskDescription,
+      ]
+        .filter(Boolean)
+        .join(" "),
     },
   ] satisfies (ComponentProps<typeof ResourceReading> & { key: string })[];
 }

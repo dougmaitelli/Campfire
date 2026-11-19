@@ -1,3 +1,9 @@
+export enum DiskAccounting {
+  Logical = "logical",
+  Project = "project",
+  Mixed = "mixed",
+}
+
 export enum RuntimeState {
   NotInstalled = "not_installed",
   Installing = "installing",

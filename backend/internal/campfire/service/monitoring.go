@@ -44,7 +44,7 @@ func unknownUsage(id string) model.ResourceUsage {
 }
 
 func validUsage(usage model.ResourceUsage) bool {
-	if usage.StartedAt < 0 || usage.StoppedAt < 0 {
+	if usage.StartedAt < 0 || usage.StoppedAt < 0 || !usage.DiskAccounting.Valid() {
 		return false
 	}
 

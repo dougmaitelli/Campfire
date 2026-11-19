@@ -890,7 +890,9 @@
     "cpuShareOfAllocatedCores": "CPU use as a percentage of allocated cores.",
     "cpuCoresUsed": "CPU cores in use; no core limit is configured.",
     "noLimit": "No limit",
-    "sampledBackupsAndImagesExcluded": "Sampled {{newDateToLocaleString}}. Backups and images excluded.",
+    "projectDiskSample": "Filesystem project-quota usage, including allocated metadata and deleted files still open. Sampled {{newDateToLocaleString}}. Backups, images and container writable layers excluded.",
+    "logicalDiskSample": "Logical game-data file sizes from a bounded scan; may differ from filesystem quota usage. Sampled {{newDateToLocaleString}}. Backups, images and container writable layers excluded.",
+    "mixedDiskSample": "Combined game-data usage from project-quota counters and logical file-size scans. Sampled {{newDateToLocaleString}}. Not total host usage; backups, images and container writable layers excluded.",
     "stale": " · stale",
     "waitingForACPUSample": "Waiting for a CPU sample.",
     "waitingForAGameDataSizeSample": "Waiting for a game-data size sample."

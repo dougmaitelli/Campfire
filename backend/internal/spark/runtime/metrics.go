@@ -245,7 +245,7 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 	if now.Sub(entry.diskAt) >= 30*time.Second {
 		entry.diskAt = now
 		diskCtx, stop := context.WithTimeout(ctx, 2*time.Second)
-		bytes, diskErr := measureData(diskCtx, m.root(d.ServerID))
+		bytes, accounting, diskErr := m.measureDisk(diskCtx, d.ServerID)
 
 		stop()
 
@@ -254,6 +254,7 @@ func (m *Manager) Measure(ctx context.Context, d model.Deployment) (model.Resour
 			entry.usage.DiskError = "Game-data size unavailable; last successful reading may be stale."
 		} else {
 			entry.usage.DiskBytes = &bytes
+			entry.usage.DiskAccounting = accounting
 			entry.diskSampled = time.Now()
 			entry.usage.DiskSampledAt = entry.diskSampled.Unix()
 		}

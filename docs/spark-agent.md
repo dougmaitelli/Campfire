@@ -52,8 +52,29 @@ Prepare the filesystem before starting Spark, and restart Spark after changing
 quota support. Without supported quotas, usage is monitored but hard disk limits
 are unavailable.
 
+Newer Sparks use native filesystem project-quota counters for current game-data
+usage whenever the directory belongs to a managed quota project, including
+projects with an unlimited allocation. This is the default behavior, not a new
+negotiated capability. The counter reports the filesystem's byte charge, including
+allocated metadata and deleted files still held open; sparse files can therefore
+use less quota than their logical file sizes suggest. A configured allocation
+that has not yet been applied is still reported separately as unenforced.
+
+When native quota support is unavailable or the game-data directory has no
+assigned project, Spark uses a bounded logical-file-size scan that does not follow
+symbolic links and counts hard-linked files once. Older Sparks also report logical
+sizes. The usage details identify the accounting method. An assigned project's
+missing or mismatched registry ownership, invalid inheritance flag, or failed
+native query produces an error rather than silently switching to a scan. The last
+successful reading, if any, stays visible with an error/stale indicator. Disk
+readings are cached for up to 30 seconds on Spark and refreshed by the panel's
+collector, not by every browser request.
+
 Game-data allocations do not include backup archives, Docker images, or container
-writable layers. Host storage therefore needs separate capacity management.
+writable layers. Host storage therefore needs separate capacity management. Spark
+usage totals combine its game servers, not the entire host; totals using different
+accounting methods are labeled as mixed. Disk usage is current-only: retained
+resource history and graphs intentionally cover CPU and memory, not disk.
 
 ## Maintenance
 

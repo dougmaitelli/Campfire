@@ -83,6 +83,11 @@ exports[`domain members preserve serialized contract values 1`] = `
   "ConnectionState": {
     "Connected": "connected",
   },
+  "DiskAccounting": {
+    "Logical": "logical",
+    "Mixed": "mixed",
+    "Project": "project",
+  },
   "ExecutionState": {
     "Accepted": "accepted",
     "Cancelled": "cancelled",
