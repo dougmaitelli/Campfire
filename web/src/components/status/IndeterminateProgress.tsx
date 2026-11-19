@@ -1,16 +1,10 @@
-import "./indeterminate-progress.css";
+import { OperationProgress } from "./OperationProgress";
 
 export function IndeterminateProgress({ label }: { label: string }) {
   return (
-    <div className="indeterminate-progress">
-      <span role="status">{label}</span>
-      <div
-        className="indeterminate-progress-track"
-        role="progressbar"
-        aria-label={label}
-      >
-        <span />
-      </div>
-    </div>
+    <OperationProgress
+      label={label}
+      detail={<span role="status">{label}</span>}
+    />
   );
 }

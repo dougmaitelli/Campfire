@@ -11,6 +11,7 @@ import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { ActionMenu } from "../components/forms/ActionMenu";
 import { InlineMessage } from "../components/status/InlineMessage";
+import { WorkProgress } from "../components/status/WorkProgress";
 import { ListToolbar } from "../components/layout/ListToolbar";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Select } from "../components/forms/Select";
@@ -264,6 +265,7 @@ export function ServersPage() {
                 (item) => item.id === server.id,
               );
               const usage = monitored?.usage;
+              const work = runtime.statuses[server.id]?.work_progress;
               const gameReadings = (
                 <GameStateReadings
                   game={monitored?.game}
@@ -347,11 +349,19 @@ export function ServersPage() {
                       }
                     />
                     {runtime.statuses[server.id]?.busy &&
-                      runtime.statuses[server.id]?.progress && (
+                      runtime.statuses[server.id]?.progress &&
+                      (work ? (
+                        <WorkProgress
+                          progress={work}
+                          operationID={
+                            runtime.statuses[server.id]?.operation_id
+                          }
+                        />
+                      ) : (
                         <span className="row-description">
                           {runtime.statuses[server.id]?.progress}
                         </span>
-                      )}
+                      ))}
                   </td>
                   <td className="server-placement">
                     <ResourceLink href={links.spark(server.spark_id)}>

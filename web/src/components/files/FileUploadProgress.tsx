@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { formatBytes } from "../../utils/formatBytes";
 import { Button } from "../forms/Button";
-import { ProgressBar } from "../status/ProgressBar";
+import { OperationProgress } from "../status/OperationProgress";
 import type { UploadProgress } from "./uploadTypes";
 import "./file-upload.css";
 
@@ -13,19 +13,16 @@ export function FileUploadProgress({
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
-  const percent = Math.min(
-    100,
-    Math.floor(
-      100 *
-        (progress.totalBytes > 0
-          ? progress.uploadedBytes / progress.totalBytes
-          : progress.completedFiles / progress.count),
-    ),
-  );
-  const transferred = t("fileUploads.transferred", {
-    uploaded: formatBytes(progress.uploadedBytes),
-    total: formatBytes(progress.totalBytes),
-  });
+  const transferred =
+    progress.totalBytes > 0
+      ? t("fileUploads.transferred", {
+          uploaded: formatBytes(progress.uploadedBytes),
+          total: formatBytes(progress.totalBytes),
+        })
+      : t("fileUploads.filesCompleted", {
+          completed: progress.completedFiles,
+          total: progress.count,
+        });
   return (
     <section
       className="file-upload"
@@ -51,16 +48,16 @@ export function FileUploadProgress({
           {t("fileUploads.cancelUpload")}
         </Button>
       </div>
-      <ProgressBar
-        max={100}
-        value={percent}
-        aria-label={t("fileUploads.uploadProgress")}
-        aria-valuetext={transferred}
+      <OperationProgress
+        label={t("fileUploads.uploadProgress")}
+        value={
+          progress.totalBytes > 0
+            ? progress.uploadedBytes
+            : progress.completedFiles
+        }
+        total={progress.totalBytes > 0 ? progress.totalBytes : progress.count}
+        detail={transferred}
       />
-      <div className="file-upload-metrics">
-        <span>{transferred}</span>
-        <strong>{percent}%</strong>
-      </div>
     </section>
   );
 }

@@ -119,7 +119,7 @@ func TestSavedataRestoreRejectsInconsistentMetadata(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := extractBackup(t.Context(), &data, t.TempDir(), backupBytes); err == nil {
+			if err := extractBackup(t.Context(), &data, t.TempDir(), backupBytes, int64(data.Len())); err == nil {
 				t.Fatal("accepted an inconsistent save-data snapshot")
 			}
 		})

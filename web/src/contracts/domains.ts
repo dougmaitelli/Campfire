@@ -159,6 +159,9 @@ export const FileOperation = {
   UploadCommit: "upload.commit",
   UploadCancel: "upload.cancel",
   Compress: "compress",
+  CompressStart: "compress.start",
+  CompressStatus: "compress.status",
+  CompressCancel: "compress.cancel",
   Extract: "extract",
   ExtractStart: "extract.start",
   ExtractStatus: "extract.status",
@@ -166,6 +169,15 @@ export const FileOperation = {
   ExtractCancel: "extract.cancel",
 } as const;
 export type FileOperation = (typeof FileOperation)[keyof typeof FileOperation];
+export const CompressionState = {
+  Running: "running",
+  Cancelling: "cancelling",
+  Completed: "completed",
+  Cancelled: "cancelled",
+  Failed: "failed",
+} as const;
+export type CompressionState =
+  (typeof CompressionState)[keyof typeof CompressionState];
 export const VariableType = {
   String: "string",
   Integer: "integer",

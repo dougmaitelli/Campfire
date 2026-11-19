@@ -3,7 +3,6 @@ package fileops
 import (
 	"archive/tar"
 	"archive/zip"
-	"compress/gzip"
 	"context"
 	"errors"
 	"io"
@@ -11,7 +10,9 @@ import (
 	"os"
 	"strings"
 
+	"campfire/internal/shared/archiveio"
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/workprogress"
 )
 
 const archiveEntryLimit = 100000
@@ -58,7 +59,10 @@ func ReadArchive(ctx context.Context, input *os.File, source string, unpack Arch
 			return err
 		}
 
-		archive, err := zip.NewReader(input, info.Size())
+		progress := workprogress.New(ctx, workprogress.Extracting, 0)
+		defer progress.Flush()
+
+		archive, err := zip.NewReader(progress.ReaderAt(input), info.Size())
 		if err != nil {
 			return err
 		}
@@ -77,7 +81,9 @@ func ReadArchive(ctx context.Context, input *os.File, source string, unpack Arch
 				return err
 			}
 
-			err = unpack(item.Name, int64(item.UncompressedSize64), item.Mode(), reader)
+			progress.Entry()
+
+			err = unpack(item.Name, int64(item.UncompressedSize64), item.Mode(), progress.OutputReader(reader))
 			if err == nil {
 				var tail [1]byte
 
@@ -96,18 +102,23 @@ func ReadArchive(ctx context.Context, input *os.File, source string, unpack Arch
 
 		return nil
 	case strings.HasSuffix(source, ".rar"):
-		return ExtractRAR(contextReader{ctx, input}, unpack)
+		progress := workprogress.New(ctx, workprogress.Extracting, info.Size())
+		defer progress.Flush()
+
+		return ExtractRAR(progress.Reader(contextReader{ctx, input}), func(name string, size int64, mode fs.FileMode, reader io.Reader) error {
+			progress.Entry()
+			return unpack(name, size, mode, progress.OutputReader(reader))
+		})
 	case strings.HasSuffix(source, ".tar.gz"), strings.HasSuffix(source, ".tgz"):
-		compressed, err := gzip.NewReader(input)
+		archive, err := archiveio.NewTarGzipReader(ctx, contextReader{ctx, input}, info.Size())
 		if err != nil {
 			return err
 		}
-		defer func() { _ = compressed.Close() }()
+		defer func() { _ = archive.Close() }()
 
-		archive := tar.NewReader(compressed)
 		for {
 			header, err := archive.Next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 
@@ -131,7 +142,7 @@ func ReadArchive(ctx context.Context, input *os.File, source string, unpack Arch
 			}
 		}
 
-		n, err := io.Copy(io.Discard, io.LimitReader(contextReader{ctx, compressed}, model.FileLimit+1))
+		n, err := io.Copy(io.Discard, io.LimitReader(contextReader{ctx, archive.Trailing()}, model.FileLimit+1))
 		if err != nil {
 			return err
 		}

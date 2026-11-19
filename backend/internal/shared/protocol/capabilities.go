@@ -42,6 +42,7 @@ const (
 	CapabilityFilePermissions  = "server.files.permissions.v1"
 	CapabilityFileTransfer     = "server.files.transfer.v1"
 	CapabilityFileArchive      = "server.files.archive.v1"
+	CapabilityArchiveProgress  = "server.files.archive-progress.v1"
 	CapabilityExtractConflicts = "server.files.extract-conflicts.v1"
 	CapabilityBackups          = "server.backups.v4"
 	CapabilityBackupRemote     = "server.backups.remote.v1"
@@ -63,7 +64,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityExtractConflicts, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration, CapabilityGameStateLists}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityArchiveProgress, CapabilityExtractConflicts, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration, CapabilityGameStateLists}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.
@@ -146,6 +147,9 @@ var commandCapabilities = map[CommandName][]string{
 }
 
 var fileOperationCapabilities = map[model.FileOperation]string{
+	model.FileOperationCompressStart:  CapabilityArchiveProgress,
+	model.FileOperationCompressStatus: CapabilityArchiveProgress,
+	model.FileOperationCompressCancel: CapabilityArchiveProgress,
 	model.FileOperationChmod:          CapabilityFilePermissions,
 	model.FileOperationStat:           CapabilityFileTransfer,
 	model.FileOperationReadChunk:      CapabilityFileTransfer,
@@ -181,6 +185,10 @@ func RequiredCapabilities(command Command) []string {
 	}
 
 	if command.Name == ServerFiles && command.Files != nil {
+		if command.Files.Operation.IsExtraction() && command.Files.Extraction != nil && command.Files.Extraction.Fresh {
+			required = append(required, CapabilityArchiveProgress)
+		}
+
 		if command.Files.Operation.IsBackup() {
 			return []string{CapabilityBackups}
 		}

@@ -15,6 +15,7 @@ import (
 
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/workprogress"
 )
 
 const backupMetadataLimit = backuparchive.MetadataLimit
@@ -25,7 +26,10 @@ func readBackupManifest(input io.Reader) (backupManifest, error) {
 	return backuparchive.Read(input)
 }
 
-func writeBackupManifest(archive *tar.Writer, root *os.Root, options model.BackupOptions) error {
+func writeBackupManifest(archive interface {
+	io.Writer
+	WriteHeader(*tar.Header) error
+}, root *os.Root, options model.BackupOptions) error {
 	options.StopServer = false
 
 	options.Mode = options.Mode.Normalized()
@@ -122,6 +126,9 @@ func preserveInstallation(ctx context.Context, volume, stage string, options mod
 		return err
 	}
 
+	progress := workprogress.New(ctx, workprogress.Restoring, 0)
+	defer progress.Flush()
+
 	return fs.WalkDir(source.FS(), ".", func(name string, item fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -144,6 +151,9 @@ func preserveInstallation(ctx context.Context, volume, stage string, options mod
 		}
 
 		count++
+
+		progress.Entry()
+
 		if count > backupEntries {
 			return errors.New("installation exceeds restore entry limit")
 		}
@@ -187,7 +197,7 @@ func preserveInstallation(ctx context.Context, volume, stage string, options mod
 		}
 		defer func() { _ = output.Close() }()
 
-		if _, err := io.CopyN(output, backupReader{ctx, input}, info.Size()); err != nil {
+		if _, err := io.CopyN(progress.Writer(output), progress.Reader(backupReader{ctx, input}), info.Size()); err != nil {
 			return err
 		}
 

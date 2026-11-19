@@ -198,6 +198,29 @@
     "restoreNotice": "The backup will be restored after creation. The server will remain stopped.",
     "importEmber": "This backup includes an Ember that is not in this panel. Creating the server will import that definition, including its installer. Continue only if you trust its source."
   },
+  "workProgress": {
+    "phase": {
+      "preparing": "Preparing",
+      "archiving": "Creating archive",
+      "extracting": "Extracting and validating archive",
+      "validating": "Validating archive",
+      "uploading": "Streaming to storage",
+      "downloading": "Downloading archive",
+      "restoring": "Preparing restored game data",
+      "committing": "Confirming publication"
+    },
+    "input": {
+      "source": "Source payload processed",
+      "archive": "Archive bytes read",
+      "storage": "Bytes supplied to storage"
+    },
+    "compressed": "Compressed output",
+    "decoded": "Decoded payload",
+    "entries_one": "{{count}} archive entry",
+    "entries_other": "{{count}} archive entries",
+    "stale": "No recent measurements. Waiting for an update; completion is not confirmed.",
+    "unconfirmed": "Measured total reached; the operation is still in progress."
+  },
   "backupLibrary": {
     "done": "Done",
     "uploadedNotice": "This archive is stored in Backups. You can download it or create a server from it later. Closing this drawer does not delete the archive.",
@@ -1178,6 +1201,11 @@
       "cancelled": "Not extracted"
     }
   },
+  "fileCompression": {
+    "preparing": "Preparing archive…",
+    "failed": "Compression failed.",
+    "unconfirmed": "Archive publication is unconfirmed. Check the destination before trying again."
+  },
   "fileUploads": {
     "fileBrowser": "File browser",
     "releaseToUpload": "Release to upload",
@@ -1187,7 +1215,8 @@
     "uploading": "Uploading file {{index}} of {{count}}",
     "saving": "Saving file {{index}} of {{count}}…",
     "cancelling": "Cancelling upload…",
-    "transferred": "{{uploaded}} of {{total}}",
+    "transferred": "Uploaded bytes: {{uploaded}} of {{total}}",
+    "filesCompleted": "Files completed: {{completed}} of {{total}}",
     "cancelUpload": "Cancel upload",
     "completed_one": "{{count}} file uploaded.",
     "completed_other": "{{count}} files uploaded.",
@@ -1230,7 +1259,6 @@
     "apiKeys": "API keys",
     "archiveName": "Archive name",
     "backToFiles": "Back to files",
-    "compress2": "Compress",
     "connectWithAnSFTPClientUsingTheAddressAndPort": "Connect with an SFTP client using the address and port provided by your administrator. SFTP must be enabled first.",
     "createATokenFromInYourAccountMenuWithAnd": "Create a token from <strong/> in your account menu, with <code/> and <code2/> permissions. Add file writing or deletion grants for those actions.",
     "createFile": "Create file",

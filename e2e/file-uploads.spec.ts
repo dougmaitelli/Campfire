@@ -177,11 +177,16 @@ test("upload progress measures the queue and cancellation keeps completed files"
       name: "Upload progress",
       exact: true,
     });
-    await expect(progress).toHaveAttribute("value", "33");
+    await expect(progress).toHaveAttribute("value", String(1024 ** 2 + 6));
+    await expect(progress).toHaveAttribute("max", String(3 * 1024 ** 2 + 12));
+    await expect(page.getByText("33%", { exact: true })).toBeVisible();
     await expect(
       page.getByText("Uploading file 2 of 3", { exact: true }),
     ).toBeVisible();
-    await expect(progress).toHaveAttribute("aria-valuetext", "1 MiB of 3 MiB");
+    await expect(progress).toHaveAttribute(
+      "aria-valuetext",
+      "Uploaded bytes: 1 MiB of 3 MiB",
+    );
     const panel = page.locator(".server-file-browser");
     await prepareScreenshot(page);
     await expect(panel).toHaveScreenshot(["crops", "file-browser-upload.png"]);

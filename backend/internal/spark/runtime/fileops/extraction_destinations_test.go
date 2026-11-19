@@ -222,7 +222,7 @@ func TestFreshMemberChangedDuringAllocationKeepsIncomingContents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := &extractionSession{id: f.request.Extraction.ID, owner: f.request.ExtractionOwner, serverID: f.request.ServerID, source: "source.zip", destination: "dest", volume: f.volume, state: "waiting", expires: time.Now().Add(extractionTTL), scanDone: true, ctx: ctx, cancel: cancel, sourceInfo: info, answers: make(map[string]model.ExtractionRequest),
+	s := &extractionSession{id: f.request.Extraction.ID, owner: f.request.ExtractionOwner, serverID: f.request.ServerID, source: "source.zip", destination: "dest", volume: f.volume, state: "waiting", expires: time.Now().Add(extractionConflictWait), scanDone: true, ctx: ctx, cancel: cancel, sourceInfo: info, answers: make(map[string]model.ExtractionRequest),
 		items: []*extractionItem{{entry: model.ExtractionEntry{Path: "a.txt", Kind: model.FileKindFile, Size: 19}, target: "dest/a.txt", status: "pending", parent: -1, mode: 0600}}}
 	f.manager.operations[s.id] = s
 	s.allocation = &archiveAllocation{limit: 1 << 30, usage: func(ctx context.Context, volume string) (int64, error) {

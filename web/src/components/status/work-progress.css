@@ -1,0 +1,45 @@
+.operation-progress {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+
+  & progress:indeterminate,
+  & progress:indeterminate::-webkit-progress-bar {
+    background: repeating-linear-gradient(
+      135deg,
+      var(--border) 0 8px,
+      color-mix(in srgb, var(--accent) 35%, var(--border)) 8px 16px
+    );
+  }
+}
+
+.operation-progress-metrics {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+
+  & > strong {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+.work-progress {
+  display: grid;
+  gap: 4px;
+  margin-block: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+
+  & strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  & progress {
+    width: 100%;
+    max-width: 20rem;
+    height: 6px;
+  }
+}

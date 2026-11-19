@@ -105,12 +105,20 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, volume string, 
 		return model.FileResult{}, err
 	}
 
-	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || !ValidPath(q.Path, q.Operation == model.FileOperationList || q.Operation == model.FileOperationStat || q.Operation == model.FileOperationCompress) {
+	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID || !ValidPath(q.Path, q.Operation == model.FileOperationList || q.Operation == model.FileOperationStat || q.Operation == model.FileOperationCompress || q.Operation.IsCompression()) {
 		return model.FileResult{}, Failure(model.FileInvalid, "Invalid file request.")
 	}
 
 	if len(q.Data) > model.FileLimit {
 		return model.FileResult{}, Failure(model.FileLimitExceeded, "File data is limited to 1 MiB per command; use chunked uploads for larger files.")
+	}
+
+	if q.Operation.IsCompression() {
+		return m.compression(ctx, d, volume, q)
+	}
+
+	if m.compressionActive(q.ServerID) && !q.Operation.IsFileControl() {
+		return model.FileResult{}, Failure(model.FileBusy, "Wait for compression to finish.")
 	}
 
 	switch q.Operation {

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 )
 
@@ -125,16 +126,20 @@ func TestRequestDetectedExpiryRetainsResultsWithoutRenewingOnPoll(t *testing.T) 
 	s.mu.Unlock()
 	q := model.FileRequest{ServerID: s.serverID, Operation: model.FileOperationExtractStatus, Path: s.source, Destination: s.destination, ExtractionOwner: s.owner, Extraction: &model.ExtractionRequest{ID: s.id}}
 
+	before := time.Now()
+
 	result, err := m.Run(t.Context(), model.Deployment{}, "", q)
 	if err != nil || result.Extraction.State != "expired" {
 		t.Fatal("request did not detect expiry", result, err)
 	}
 
+	after := time.Now()
+
 	s.mu.Lock()
 	retention := s.expires
 	s.mu.Unlock()
 
-	if retention.Before(time.Now().Add(extractionTTL - time.Second)) {
+	if retention.Before(before.Add(limits.ArchiveResultRetention)) || retention.After(after.Add(limits.ArchiveResultRetention)) {
 		t.Fatal("expired result was not retained for recovery")
 	}
 

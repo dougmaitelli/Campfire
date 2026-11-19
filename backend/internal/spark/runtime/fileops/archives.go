@@ -2,7 +2,6 @@ package fileops
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -14,11 +13,16 @@ import (
 	"strings"
 	"syscall"
 
+	"campfire/internal/shared/archiveio"
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/workprogress"
 )
 
 func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os.Root, volume string, q model.FileRequest) (model.FileResult, error) {
 	result := model.FileResult{ServerID: q.ServerID, Path: q.Destination}
+	if err := ctx.Err(); err != nil {
+		return result, err
+	}
 
 	sources := []string{q.Path}
 	if len(q.Paths) > 0 {
@@ -91,6 +95,8 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 		return result, ArchiveFailure(err)
 	}
 
+	workprogress.New(ctx, workprogress.Committing, 0).Flush()
+
 	if err := CheckWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, 0); err != nil {
 		return result, err
 	}
@@ -128,8 +134,7 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 	defer func() { _ = file.Close() }()
 
 	output := &limitedArchiveWriter{Writer: file}
-	zipped := gzip.NewWriter(output)
-	archive := tar.NewWriter(zipped)
+	archive := archiveio.NewTarGzipWriter(ctx, output)
 
 	var total int64
 
@@ -215,7 +220,7 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 		}
 	}
 
-	closeArchive, closeZip := archive.Close(), zipped.Close()
+	closeArchive := archive.Close()
 
 	if err != nil {
 		return err
@@ -223,10 +228,6 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 
 	if closeArchive != nil {
 		return closeArchive
-	}
-
-	if closeZip != nil {
-		return closeZip
 	}
 
 	if err := m.FileOwner(file, d.Ember.User); err != nil {

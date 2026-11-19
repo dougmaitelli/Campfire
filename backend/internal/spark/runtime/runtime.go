@@ -411,6 +411,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 func (m *Manager) progress(_ string, e *entry, text string) {
 	e.mu.Lock()
 	e.Status.Progress = text
+	e.Status.WorkProgress = nil
 	e.Status.OperationState = model.OperationRunning
 	e.mu.Unlock()
 }

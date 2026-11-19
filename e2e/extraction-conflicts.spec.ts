@@ -44,6 +44,7 @@ async function begin(
     failure?: "stale" | "lost" | "duplicate" | "expired" | "lost-cancel";
     destination?: "." | "./";
     running?: boolean;
+    measured?: boolean;
     expireDuringWait?: boolean;
     completed?: boolean;
   } = {},
@@ -88,6 +89,16 @@ async function begin(
     ],
     ...(!options.running && queue[0] ? { conflict: queue[0] } : {}),
   };
+  if (options.measured) {
+    status.work_progress = {
+      phase: "extracting",
+      input_bytes: 1024,
+      input_total: 4096,
+      output_bytes: 8192,
+      entries: 2,
+      updated_at: new Date(await page.evaluate(() => Date.now())).toISOString(),
+    };
+  }
   if (options.failure === "duplicate" || options.failure === "expired") {
     status = {
       ...status,
@@ -492,6 +503,30 @@ for (const completed of [false, true]) {
     ).toHaveCount(0);
   });
 }
+
+test("measured extraction progress appears inside the active input dialog", async ({
+  page,
+}) => {
+  await begin(page, { running: true, measured: true });
+  const dialog = page.getByRole("dialog", {
+    name: "Extract archive",
+    exact: true,
+  });
+  await expect(
+    dialog.getByRole("group", {
+      name: "Extracting and validating archive",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(dialog.getByRole("progressbar")).toHaveAttribute(
+    "value",
+    "1024",
+  );
+  await expect(page.locator(".work-progress")).toHaveCount(1);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".work-progress")).toHaveCount(0);
+});
 
 test("extraction can be cancelled while it is processing rather than waiting on a conflict", async ({
   page,

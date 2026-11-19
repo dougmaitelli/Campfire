@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"campfire/internal/shared/utils"
+	"campfire/internal/shared/workprogress"
 )
 
 // BackupPolicy selects storage and opt-in retention for one server.
@@ -44,18 +45,19 @@ type BackupSource struct {
 
 // Backup describes a cataloged archive and its available copies.
 type Backup struct {
-	ID          string      `json:"id"`
-	DisplayName string      `json:"display_name"`
-	Pinned      bool        `json:"pinned"`
-	Portable    bool        `json:"portable"`
-	Mode        BackupMode  `json:"mode"`
-	Name        string      `json:"name"`
-	Size        int64       `json:"size"`
-	ModifiedAt  time.Time   `json:"modified_at"`
-	Local       bool        `json:"local"`
-	Remote      bool        `json:"remote"`
-	State       BackupState `json:"state"`
-	Error       string      `json:"error,omitempty"`
+	WorkProgress *workprogress.Snapshot `json:"work_progress,omitempty"`
+	ID           string                 `json:"id"`
+	DisplayName  string                 `json:"display_name"`
+	Pinned       bool                   `json:"pinned"`
+	Portable     bool                   `json:"portable"`
+	Mode         BackupMode             `json:"mode"`
+	Name         string                 `json:"name"`
+	Size         int64                  `json:"size"`
+	ModifiedAt   time.Time              `json:"modified_at"`
+	Local        bool                   `json:"local"`
+	Remote       bool                   `json:"remote"`
+	State        BackupState            `json:"state"`
+	Error        string                 `json:"error,omitempty"`
 }
 
 // BackupChanges edits catalog metadata without changing archive identities.

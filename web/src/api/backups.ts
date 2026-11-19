@@ -3,9 +3,12 @@ import { isRecord as object, isEnumValue } from "../utils/validation";
 import i18n from "../i18n";
 import { apiFetch, readJSON, API_READ_TIMEOUT_MS, apiJSON } from "./client";
 
+import { isWorkProgress, type WorkProgress } from "./workProgress";
+
 export { BackupMode };
 
 export interface Backup {
+  work_progress?: WorkProgress;
   id: string;
   display_name: string;
   pinned: boolean;
@@ -151,6 +154,7 @@ function isBackup(value: unknown): value is Backup {
     typeof value.local === "boolean" &&
     typeof value.remote === "boolean" &&
     isEnumValue(BackupState, value.state) &&
+    (!("work_progress" in value) || isWorkProgress(value.work_progress)) &&
     (!("error" in value) || typeof value.error === "string")
   );
 }

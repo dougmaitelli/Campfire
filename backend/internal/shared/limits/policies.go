@@ -62,6 +62,10 @@ const (
 	DeliveryRetryBase         = 30 * time.Second
 )
 
+// ArchiveResultRetention keeps completed archive outcomes available for response
+// recovery. It is independent of the time allowed for a human conflict decision.
+const ArchiveResultRetention = 15 * time.Minute
+
 // SampleFreshSeconds returns the shared lifetime of a collected container sample.
 func SampleFreshSeconds(interval int64) int64 {
 	return max(MinimumFreshSeconds, FreshIntervals*interval)

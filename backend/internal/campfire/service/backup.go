@@ -15,6 +15,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/workprogress"
 )
 
 // BackupStorage holds off-host bytes; credentials are never sent to a Spark.
@@ -36,6 +37,7 @@ type BackupService struct {
 	mu               sync.Mutex
 	active           map[string]bool
 	uploading        map[string]string
+	progress         map[string]workprogress.Snapshot
 	cancel           context.CancelFunc
 	wg               sync.WaitGroup
 	cursor           int
@@ -237,12 +239,13 @@ func (s *BackupService) List(ctx context.Context, id string) ([]model.Backup, er
 	}
 
 	s.mu.Lock()
+
 	uploading := s.uploading[id]
-	s.mu.Unlock()
+	defer s.mu.Unlock()
 
 	items := make([]model.Backup, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, backupView(row, uploading == row.Name))
+		items = append(items, s.progressView(row, uploading == row.Name))
 	}
 
 	return items, nil
@@ -269,6 +272,19 @@ func backupView(row database.Backup, uploading bool) model.Backup {
 	return model.Backup{ID: row.ID, DisplayName: row.DisplayName, Pinned: row.Pinned, Portable: row.Portable, Mode: row.Mode.Normalized(), Name: row.Name, Size: row.Size, ModifiedAt: time.Unix(0, row.CreatedAt).UTC(), Local: row.Local, Remote: row.Remote, State: state, Error: row.Error}
 }
 
+// progressView requires s.mu. Only active synchronization exposes transient
+// counters; terminal availability still comes exclusively from durable copy state.
+func (s *BackupService) progressView(row database.Backup, uploading bool) model.Backup {
+	view := backupView(row, uploading)
+	if view.State == model.BackupSyncing {
+		if progress, ok := s.progress[row.ID]; ok {
+			view.WorkProgress = &progress
+		}
+	}
+
+	return view
+}
+
 // Catalog lists known backups across servers, including disconnected placements.
 func (s *BackupService) Catalog(ctx context.Context) ([]model.CatalogBackup, error) {
 	rows, err := s.Store.ListAll(ctx)
@@ -281,7 +297,7 @@ func (s *BackupService) Catalog(ctx context.Context) ([]model.CatalogBackup, err
 
 	items := make([]model.CatalogBackup, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, model.CatalogBackup{Backup: backupView(row.Backup, s.uploading[row.ServerID] == row.Name), OwnerUserID: row.OwnerUserID, ServerID: row.ServerID, ServerName: row.ServerName, LocalSparkID: row.LocalSparkID, LocalSparkName: row.LocalSparkName})
+		items = append(items, model.CatalogBackup{Backup: s.progressView(row.Backup, s.uploading[row.ServerID] == row.Name), OwnerUserID: row.OwnerUserID, ServerID: row.ServerID, ServerName: row.ServerName, LocalSparkID: row.LocalSparkID, LocalSparkName: row.LocalSparkName})
 	}
 
 	return items, nil
@@ -392,8 +408,20 @@ func (s *BackupService) upload(ctx context.Context, row database.Backup) error {
 	defer func() {
 		s.mu.Lock()
 		delete(s.uploading, row.ServerID)
+		delete(s.progress, row.ID)
 		s.mu.Unlock()
 	}()
+
+	ctx = workprogress.WithReporter(ctx, func(progress workprogress.Snapshot) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		if s.progress == nil {
+			s.progress = make(map[string]workprogress.Snapshot)
+		}
+
+		s.progress[row.ID] = progress
+	})
 
 	newReader := func() io.Reader {
 		return &backupChunkReader{ctx: ctx, size: row.Size, read: func(ctx context.Context, offset int64) (model.FileResult, error) {
@@ -402,8 +430,12 @@ func (s *BackupService) upload(ctx context.Context, row database.Backup) error {
 	}
 
 	hash := sha256.New()
-	if _, err := io.Copy(hash, newReader()); err != nil {
-		return err
+	validation := workprogress.New(ctx, workprogress.Validating, row.Size)
+	_, hashErr := io.Copy(hash, validation.Reader(newReader()))
+	validation.Flush()
+
+	if hashErr != nil {
+		return hashErr
 	}
 
 	digest := hex.EncodeToString(hash.Sum(nil))
@@ -415,10 +447,15 @@ func (s *BackupService) upload(ctx context.Context, row database.Backup) error {
 		return err
 	}
 
-	version, err := s.Remote.Put(ctx, row.Key, row.Size, digest, newReader())
+	upload := workprogress.New(ctx, workprogress.Uploading, row.Size)
+	version, err := s.Remote.Put(ctx, row.Key, row.Size, digest, upload.Reader(newReader()))
+	upload.Flush()
+
 	if err != nil {
 		return err
 	}
+
+	workprogress.New(ctx, workprogress.Committing, 0)
 
 	return s.Store.Update(ctx, row.ServerID, row.Name, map[string]any{"remote": true, "version": version, "error": ""})
 }

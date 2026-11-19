@@ -65,7 +65,7 @@ import {
   type BackupImport,
 } from "../api/backupImports";
 import { serverAction, ServerAction } from "../api/runtime";
-import { ProgressBar } from "../components/status/ProgressBar";
+import { IndeterminateProgress } from "../components/status/IndeterminateProgress";
 import { ServerIntegrationsStep } from "../components/servers/ServerIntegrationsStep";
 import { useServerIntegrations } from "../hooks/useServerIntegrations";
 import {
@@ -1427,8 +1427,7 @@ export function ServerDrawer({
         >
           {backup && busy && (
             <div className="panel-content">
-              <p role="status">{t("backupImports.creating")}</p>
-              <ProgressBar aria-label={t("backupImports.progress")} />
+              <IndeterminateProgress label={t("backupImports.creating")} />
             </div>
           )}
           {copy && createdServer ? (

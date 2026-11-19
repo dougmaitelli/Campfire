@@ -1,4 +1,9 @@
-import type { FileKind, FileOperation } from "../contracts/domains";
+import {
+  CompressionState,
+  type FileKind,
+  type FileOperation,
+} from "../contracts/domains";
+import type { WorkProgress } from "./workProgress";
 
 export interface FileEntry {
   mode?: number;
@@ -55,6 +60,7 @@ export interface ExtractionOutcome {
   message?: string;
 }
 export interface ExtractionStatus {
+  work_progress?: WorkProgress;
   id: string;
   version: number;
   state: ExtractionState;
@@ -65,6 +71,24 @@ export interface ExtractionStatus {
   outcomes: ExtractionOutcome[];
   message?: string;
 }
+export const compressionStates = Object.values(CompressionState);
+
+const compressionTerminal: Record<CompressionState, boolean> = {
+  [CompressionState.Running]: false,
+  [CompressionState.Cancelling]: false,
+  [CompressionState.Completed]: true,
+  [CompressionState.Cancelled]: true,
+  [CompressionState.Failed]: true,
+};
+export const isCompressionTerminal = (state: CompressionState): boolean =>
+  compressionTerminal[state];
+
+export interface CompressionStatus {
+  id: string;
+  state: CompressionState;
+  message?: string;
+  work_progress?: WorkProgress;
+}
 export interface FileResult {
   server_id: string;
   path: string;
@@ -72,6 +96,7 @@ export interface FileResult {
   data?: string;
   revision?: string;
   upload_id?: string;
+  compression?: CompressionStatus;
   extraction?: ExtractionStatus;
 }
 export interface FileRequest {
@@ -85,8 +110,10 @@ export interface FileRequest {
   upload_id?: string;
   offset?: number;
   size?: number;
+  compression?: { id: string };
   extraction?: {
     id: string;
+    fresh?: boolean;
     conflict_id?: string;
     action?: ExtractionChoice["action"];
     name?: string;

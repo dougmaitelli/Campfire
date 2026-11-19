@@ -36,6 +36,7 @@ test("admins can manage global jobs and open server Activity from resource detai
   });
   const completed = jobFixture({
     id: "completed-copy",
+    transferred_bytes: 1024 ** 3,
     status: JobStatus.Completed,
     step: JobStep.Cleanup,
     target_server_id: "modded",

@@ -671,7 +671,11 @@ test("aborting a dispatched fresh-folder extraction reports unconfirmed completi
   const implementation = vi.mocked(manageFiles).getMockImplementation()!;
   let dispatched = false;
   vi.mocked(manageFiles).mockImplementation(async (...args) => {
-    if (args[1].operation === FileOperation.Extract) {
+    if (args[1].operation === FileOperation.ExtractCancel) {
+      calls.push(args[1]);
+      throw new TypeError("Cancellation acknowledgement lost");
+    }
+    if (args[1].operation === FileOperation.ExtractStart) {
       dispatched = true;
       return new Promise((_, reject) => {
         args[2]!.addEventListener(
@@ -700,21 +704,24 @@ test("aborting a dispatched fresh-folder extraction reports unconfirmed completi
   ).toBeDefined();
   expect(
     calls.some((call) => call.operation === FileOperation.ExtractCancel),
-  ).toBe(false);
+  ).toBe(true);
 });
 
-test("a fresh folder uses direct one-shot extraction without creating a conflict operation", async () => {
-  configureExtraction();
+test("a fresh folder uses the observable extraction session with aggregate results", async () => {
+  configureExtraction([]);
   await startExtraction("fresh folder");
   await screen.findByText(
     "Extraction results: 1 completed, 0 skipped, 0 failed, 0 not extracted.",
   );
   expect(
-    calls.find((call) => call.operation === FileOperation.Extract)?.destination,
-  ).toBe("/fresh folder");
-  expect(
-    calls.some((call) => call.operation === FileOperation.ExtractStart),
-  ).toBe(false);
+    calls.find((call) => call.operation === FileOperation.ExtractStart),
+  ).toMatchObject({
+    destination: "/fresh folder",
+    extraction: { fresh: true },
+  });
+  expect(calls.some((call) => call.operation === FileOperation.Extract)).toBe(
+    false,
+  );
 });
 
 test("extraction without collisions completes without a destination question or final review", async () => {

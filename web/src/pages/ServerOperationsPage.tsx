@@ -13,6 +13,7 @@ import { Fieldset } from "../components/forms/Fieldset";
 import { RadioField } from "../components/forms/RadioField";
 import { ContentState } from "../components/layout/ContentState";
 import { InlineMessage } from "../components/status/InlineMessage";
+import { WorkProgress } from "../components/status/WorkProgress";
 import { PageHeader } from "../components/layout/PageHeader";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -378,6 +379,14 @@ export function ServerOperationsPage({
               {t("emberUpdate.sync")}
             </Button>
           )}
+        </InlineMessage>
+      )}
+      {activeTab !== "backups" && status?.busy && status.work_progress && (
+        <InlineMessage tone="info">
+          <WorkProgress
+            progress={status.work_progress}
+            operationID={status.operation_id}
+          />
         </InlineMessage>
       )}
       {management.error && (

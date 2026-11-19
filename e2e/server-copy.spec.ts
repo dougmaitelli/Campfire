@@ -349,7 +349,8 @@ test("Operations links copy and transfer progress with retry and cancellation", 
       name: "Archive bytes copied",
       exact: true,
     }),
-  ).toHaveAttribute("aria-valuetext", "384 MiB / 1 GiB");
+  ).toHaveAttribute("aria-valuetext", "Archive bytes copied: 384 MiB / 1 GiB");
+  await expect(history.getByText("37%", { exact: true })).toBeVisible();
   await page.goBack();
   await expect(drawer).toHaveCount(0);
   await page.goForward();

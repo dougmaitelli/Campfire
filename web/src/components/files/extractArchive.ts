@@ -8,7 +8,9 @@ import i18n from "../../i18n";
 import type { FileOutcome } from "./fileOutcomes";
 import { reservedFileNames, statDestination } from "./fileDestinations";
 import { publicationUnconfirmed } from "./publication";
+import { operationDelay as delay } from "./operationDelay";
 import type { ResolveFileConflict } from "./fileConflicts";
+import type { WorkProgress } from "../../api/workProgress";
 
 const parentOf = (name: string) =>
   name.slice(0, Math.max(0, name.lastIndexOf("/"))) || "/";
@@ -33,6 +35,7 @@ export async function extractArchive({
   directory,
   resolve,
   signal,
+  onProgress,
 }: {
   id: string;
   source: string;
@@ -40,10 +43,11 @@ export async function extractArchive({
   directory: string;
   resolve: ResolveFileConflict;
   signal: AbortSignal;
+  onProgress?: (progress: WorkProgress | undefined) => void;
 }): Promise<ExtractionResult> {
   const existing = await statDestination(id, destination, signal);
-  if (!existing) return extractNewFolder(id, source, destination, signal);
-  if (existing.entry.kind !== FileKind.Directory) {
+  let fresh = !existing;
+  if (existing && existing.entry.kind !== FileKind.Directory) {
     const reserved = await reservedFileNames(id, directory, [], signal);
     const choice = await resolve(
       {
@@ -67,10 +71,14 @@ export async function extractArchive({
         ],
       };
     destination = `${directory.replace(/\/$/, "")}/${choice.name}`;
-    return extractNewFolder(id, source, destination, signal);
+    fresh = true;
   }
   const operationID = crypto.randomUUID();
-  const input = { path: source, destination, extraction: { id: operationID } };
+  const input = {
+    path: source,
+    destination,
+    extraction: { id: operationID, fresh },
+  };
   let latest: ExtractionStatus | undefined;
   let finished = false;
   let sent = false;
@@ -86,8 +94,12 @@ export async function extractArchive({
     );
     if (!result.extraction)
       throw new Error(i18n.t("files.unexpectedFileResponse"));
-    if (!latest || result.extraction.version >= latest.version)
+    if (!latest || result.extraction.version >= latest.version) {
       latest = result.extraction;
+      onProgress?.(
+        latest.state === "running" ? latest.work_progress : undefined,
+      );
+    }
     return latest;
   }
   async function stop(): Promise<ExtractionStatus | undefined> {
@@ -305,33 +317,6 @@ async function resolveExtractionConflict({
   }
 }
 
-// A fresh directory cannot contain pre-existing member conflicts. Preserve the
-// larger one-shot path: it now writes directly too, without an operation/session.
-async function extractNewFolder(
-  id: string,
-  source: string,
-  destination: string,
-  signal: AbortSignal,
-): Promise<ExtractionResult> {
-  // Before dispatch an aborted signal means no work was requested. After
-  // dispatch, aborting HTTP only stops waiting; it does not cancel Spark work.
-  signal.throwIfAborted();
-  try {
-    await manageFiles(
-      id,
-      { operation: FileOperation.Extract, path: source, destination },
-      signal,
-    );
-    return {
-      state: "completed",
-      outcomes: [{ name: source, target: destination, status: "extracted" }],
-    };
-  } catch (cause) {
-    if (!signal.aborted && !publicationUnconfirmed(cause)) throw cause;
-    return unconfirmedResult(source, destination);
-  }
-}
-
 function unconfirmedResult(
   source: string,
   destination: string,
@@ -384,22 +369,4 @@ function extractionResult(
   )
     values.push(...unconfirmedResult(source, destination).outcomes);
   return { state, outcomes: values };
-}
-
-function delay(milliseconds: number, signal?: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new DOMException("Extraction cancelled.", "AbortError"));
-      return;
-    }
-    const abort = () => {
-      clearTimeout(timer);
-      reject(new DOMException("Extraction cancelled.", "AbortError"));
-    };
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", abort);
-      resolve();
-    }, milliseconds);
-    signal?.addEventListener("abort", abort, { once: true });
-  });
 }

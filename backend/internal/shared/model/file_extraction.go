@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"campfire/internal/shared/workprogress"
+	"time"
+)
 
 // ExtractionAction identifies an explicit answer to a destination conflict.
 type ExtractionAction string
@@ -69,6 +72,9 @@ type ExtractionConflict struct {
 
 // ExtractionRequest advances or resolves an owner-bound extraction operation.
 type ExtractionRequest struct {
+	// Fresh preserves the larger fresh-directory limits and aggregate outcomes.
+	// The destination must remain absent; it is never merged or overwritten.
+	Fresh      bool             `json:"fresh,omitempty"`
 	ID         string           `json:"id"`
 	ConflictID string           `json:"conflict_id,omitempty"`
 	Action     ExtractionAction `json:"action,omitempty"`
@@ -77,15 +83,16 @@ type ExtractionRequest struct {
 
 // ExtractionStatus is a bounded snapshot. Polling never renews its deadline.
 type ExtractionStatus struct {
-	ID               string              `json:"id"`
-	Version          int64               `json:"version"`
-	State            ExtractionState     `json:"state"`
-	ExpiresAt        time.Time           `json:"expires_at"`
-	Conflict         *ExtractionConflict `json:"conflict,omitempty"`
-	PendingConflicts int                 `json:"pending_conflicts"`
-	RemainingEntries int                 `json:"remaining_entries"`
-	Outcomes         []FileOutcome       `json:"outcomes"`
-	Message          string              `json:"message,omitempty"`
+	WorkProgress     *workprogress.Snapshot `json:"work_progress,omitempty"`
+	ID               string                 `json:"id"`
+	Version          int64                  `json:"version"`
+	State            ExtractionState        `json:"state"`
+	ExpiresAt        time.Time              `json:"expires_at"`
+	Conflict         *ExtractionConflict    `json:"conflict,omitempty"`
+	PendingConflicts int                    `json:"pending_conflicts"`
+	RemainingEntries int                    `json:"remaining_entries"`
+	Outcomes         []FileOutcome          `json:"outcomes"`
+	Message          string                 `json:"message,omitempty"`
 }
 
 // FileOutcome reports each written, skipped, failed or still-pending entry.

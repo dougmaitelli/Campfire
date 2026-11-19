@@ -26,13 +26,17 @@ test("cancelling a dispatched fresh-folder extraction reports completion as unco
   });
   await page.route("**/api/v1/servers/survival/files", async (route) => {
     const input = route.request().postDataJSON() as { operation: string };
-    if (input.operation === "extract") {
+    if (input.operation === "extract.start") {
       dispatched = true;
       await held;
       await route.fulfill({ json: { server_id: "survival", path: "/fresh/" } });
       return;
     }
-    if (input.operation === "extract.cancel") cancelRequests++;
+    if (input.operation === "extract.cancel") {
+      cancelRequests++;
+      await route.abort();
+      return;
+    }
     await route.continue();
   });
   try {
@@ -57,7 +61,7 @@ test("cancelling a dispatched fresh-folder extraction reports completion as unco
         exact: true,
       }),
     ).toHaveCount(0);
-    expect(cancelRequests).toBe(0);
+    expect(cancelRequests).toBeGreaterThan(0);
   } finally {
     release();
   }
@@ -96,9 +100,10 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
       operation: string;
       path: string;
       destination?: string;
-      extraction?: { id: string };
+      extraction?: { id: string; fresh?: boolean };
     };
-    if (request.operation === "extract") {
+    if (request.operation === "extract.start") {
+      expect(request.extraction?.fresh).toBe(true);
       expect(request.path).toBe("/test-archive.RAR");
       expect(request.destination).toBe("/test-archive");
       attempts++;
@@ -110,7 +115,25 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
         });
       } else {
         await route.fulfill({
-          json: { server_id: "survival", path: "/test-archive/" },
+          json: {
+            server_id: "survival",
+            path: "/test-archive/",
+            extraction: {
+              id: request.extraction!.id,
+              version: 1,
+              state: "completed",
+              expires_at: new Date(Date.now() + 900000).toISOString(),
+              pending_conflicts: 0,
+              remaining_entries: 0,
+              outcomes: [
+                {
+                  path: "test-archive.RAR",
+                  destination: "test-archive",
+                  status: "extracted",
+                },
+              ],
+            },
+          },
         });
       }
     } else if (request.operation === "extract.cancel") {

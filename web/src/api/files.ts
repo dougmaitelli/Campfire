@@ -1,9 +1,14 @@
 import { RequestTimeout } from "../config/policies";
+import { isWorkProgress } from "./workProgress";
 import { isEnumValue } from "../utils/validation";
 import { FileKind, FileOperation } from "../contracts/domains";
 import i18n from "../i18n";
 import { apiFetch, readJSON, apiJSON } from "./client";
-import { extractionStates, extractionOutcomeStatuses } from "./fileTypes";
+import {
+  compressionStates,
+  extractionStates,
+  extractionOutcomeStatuses,
+} from "./fileTypes";
 import type {
   FileEntry,
   FileRequest,
@@ -139,6 +144,7 @@ function isExtraction(value: unknown): value is ExtractionStatus {
     v.remaining_entries < v.pending_conflicts ||
     !Array.isArray(v.outcomes) ||
     !v.outcomes.every(isOutcome) ||
+    ("work_progress" in v && !isWorkProgress(v.work_progress)) ||
     ("message" in v && typeof v.message !== "string")
   )
     return false;
@@ -175,6 +181,19 @@ function isOutcome(
     (!("message" in value) || typeof value.message === "string")
   );
 }
+function isCompression(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "state" in value &&
+    typeof value.state === "string" &&
+    compressionStates.some((state) => state === value.state) &&
+    (!("message" in value) || typeof value.message === "string") &&
+    (!("work_progress" in value) || isWorkProgress(value.work_progress))
+  );
+}
 function isResult(value: unknown): value is FileResult {
   return (
     typeof value === "object" &&
@@ -189,6 +208,7 @@ function isResult(value: unknown): value is FileResult {
     (!("data" in value) || typeof value.data === "string") &&
     (!("revision" in value) || typeof value.revision === "string") &&
     (!("upload_id" in value) || typeof value.upload_id === "string") &&
+    (!("compression" in value) || isCompression(value.compression)) &&
     (!("extraction" in value) || isExtraction(value.extraction))
   );
 }
@@ -216,6 +236,8 @@ export async function manageFiles(
     !isResult(body) ||
     body.server_id !== id ||
     (input.operation === FileOperation.List && !body.path.endsWith("/")) ||
+    (input.operation.startsWith("compress.") &&
+      (!body.compression || body.compression.id !== input.compression?.id)) ||
     (input.operation.startsWith("extract.") &&
       (!body.extraction || body.extraction.id !== input.extraction?.id))
   )

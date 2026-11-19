@@ -56,10 +56,23 @@ overwrite.
 
 ## Archives
 
-Use **Compress** to create a `.tar.gz` archive. **Extract** accepts `.zip`,
+Use **Archive** to create a `.tar.gz` archive. **Extract** accepts `.zip`,
 `.tar.gz`, `.tgz`, and `.rar`. RAR support includes single-volume, unencrypted
 RAR 4 and RAR 5 archives, with decoder dictionaries up to 128 MiB. Split and
 password-protected RAR archives are unsupported.
+
+Compression and extraction show progress **inside their dialogs**, including
+extraction into a new folder. Progress includes labelled byte counts and a
+percentage when the total is known. Otherwise the bar is indeterminate.
+**100% is not a success message**: wait for confirmation that the operation has
+finished. Measurements that remain unchanged for 30 seconds while you view them
+are marked stale.
+
+Select one or more items and choose **Archive** to compress them. Existing files
+are never replaced by the new archive. You can cancel from the dialog; wait for
+Campfire to confirm that it stopped. If the result is **unconfirmed**, check the
+destination before trying again. Compression has a 30-minute limit and does not
+resume after a Spark restart.
 
 Extract into a new or existing folder. Enter `.` or `./` to use the current
 folder. Existing directories merge normally, preserving unrelated contents and
@@ -118,19 +131,21 @@ before the first entry does not report a finished extraction. If stopping a
 running scanner cannot be confirmed, completion is unconfirmed even when all
 entries observed so far were written successfully.
 
-Conflict-driven extraction into existing directories supports at most
-**1,000 expanded entries**, including implicit directories, with bounded result
-sizes and a 100 GiB expansion ceiling. A fresh destination uses direct one-shot
-extraction without a conflict session, retaining its **100,000-entry** limit.
-Cancelling the browser request on this one-shot path stops waiting for the
-response, not the already-dispatched Spark command. It therefore reports
-**unconfirmed** completion; extraction may continue on Spark. Check the destination
-before retrying.
-Reaching a limit stops explicitly and preserves partial work rather than
-truncating a plan or silently skipping entries. It requires Spark capability
-`server.files.extract-conflicts.v1`; older Sparks reject it without falling back
-to unchecked overwrites. Allow space on both the game-data filesystem and the OS
-temporary filesystem when many entries need conflict decisions.
+Extraction into an existing folder supports at most **1,000 expanded entries**,
+including parent directories created for nested files. Extraction into a new
+folder supports **100,000 entries** and shows an overall result rather than a
+per-file breakdown. Both have a **100 GiB** expansion limit and use the same
+Extract dialog with progress and cancellation.
+
+If a folder appears at a new destination before extraction starts, Campfire stops
+instead of merging or overwriting its contents. Cancellation or reaching a limit
+can leave partial files in either case. If Campfire cannot confirm whether the
+operation stopped, the result is **unconfirmed**; check the destination before
+retrying.
+
+Update older Sparks if they report that these archive operations are unsupported.
+Allow space on both the game-data filesystem and the OS temporary filesystem
+when many entries need conflict decisions.
 
 Extraction assigns files and folders to the server's runtime user and replaces
 archive permissions for newly created entries with private, writable defaults: `0600` for files and `0700`

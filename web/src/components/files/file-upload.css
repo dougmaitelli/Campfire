@@ -91,7 +91,7 @@
   text-overflow: ellipsis;
 }
 
-.file-upload-metrics {
+.file-upload .operation-progress-metrics {
   display: flex;
   align-items: center;
   justify-content: space-between;

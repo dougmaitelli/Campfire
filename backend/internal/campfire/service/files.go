@@ -48,7 +48,7 @@ func (s *DeploymentService) Files(ctx context.Context, id string, request model.
 }
 
 func (s *DeploymentService) filesUnlocked(ctx context.Context, id string, request model.FileRequest) (model.FileResult, error) {
-	if request.Operation != model.FileOperationList && request.Operation != model.FileOperationRead && request.Operation != model.FileOperationStat && request.Operation != model.FileOperationReadChunk && request.Operation != model.FileOperationUploadCancel && request.Operation != model.FileOperationBackupList && request.Operation != model.FileOperationBackupRead && !request.Operation.IsExtractionStatusOrCancel() {
+	if request.Operation != model.FileOperationList && request.Operation != model.FileOperationRead && request.Operation != model.FileOperationStat && request.Operation != model.FileOperationReadChunk && request.Operation != model.FileOperationUploadCancel && request.Operation != model.FileOperationBackupList && request.Operation != model.FileOperationBackupRead && !request.Operation.IsFileControl() {
 		if err := s.guardServer(ctx, id); err != nil {
 			return model.FileResult{}, err
 		}

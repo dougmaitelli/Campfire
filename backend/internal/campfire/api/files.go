@@ -54,6 +54,11 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if input.Operation.IsCompression() {
+		p := currentUser(r)
+		input.CompressionOwner = fmt.Sprintf("%d:%d:%d", p.UserID, p.APITokenID, p.CredentialVersion)
+	}
+
 	if input.Operation.IsExtraction() {
 		p := currentUser(r)
 		input.ExtractionOwner = fmt.Sprintf("%d:%d:%d", p.UserID, p.APITokenID, p.CredentialVersion)
@@ -64,12 +69,12 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(30 * time.Minute))
 		}
 
-		if !slices.Contains([]model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract}, input.Operation) && !input.Operation.IsExtraction() {
+		if !slices.Contains([]model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract}, input.Operation) && !input.Operation.IsExtraction() && !input.Operation.IsCompression() {
 			writeFileError(w, &model.FileError{Code: model.FileInvalid, Message: "Invalid game file operation."})
 			return
 		}
 
-		for _, operation := range []model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationUploadBegin, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract, model.FileOperationExtractStart, model.FileOperationExtractResolve, model.FileOperationExtractCancel} {
+		for _, operation := range []model.FileOperation{model.FileOperationCompressStart, model.FileOperationCompressCancel, model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationUploadBegin, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract, model.FileOperationExtractStart, model.FileOperationExtractResolve, model.FileOperationExtractCancel} {
 			if input.Operation == operation {
 				auditDetail(r, model.ResourceAuditAction("server.files", string(operation)), "server:"+r.PathValue("id"))
 			}

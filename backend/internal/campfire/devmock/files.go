@@ -66,6 +66,10 @@ func (r *Runtime) Files(ctx context.Context, spark string, request model.FileReq
 		return model.FileResult{}, err
 	}
 
+	if request.Operation.IsCompression() {
+		return r.compression(ctx, &record, request)
+	}
+
 	if request.Operation.IsBackup() {
 		return r.backupFiles(ctx, record, request)
 	}

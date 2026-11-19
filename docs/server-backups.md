@@ -36,6 +36,26 @@ files. Save the game first when possible, or stop it for a consistent backup.
 Missing required save paths fail backup creation; missing optional paths are
 recorded in the archive.
 
+### Live progress
+
+Follow backup and restore progress in **Servers** or on the server's operations
+pages. During a restore, progress also appears inside the restore dialog. The
+**Backups** library and the server's **Backups** tab show S3 synchronization
+progress for stored archives.
+
+Progress shows the current phase and labelled byte counts. A percentage appears
+when the total is known; otherwise the bar is indeterminate. **100% is not a
+success message**: validation or saving may still be underway. Wait for the
+operation's confirmed result before treating it as complete.
+
+Measurements that remain unchanged for 30 seconds while you view them are marked
+stale. This does not mean the operation succeeded or failed. Older Sparks may
+show only the current phase.
+
+Returning to a page shows the available progress again, but does not resume
+interrupted work. Keep the restore page open when using the stop / restore /
+restart sequence described below.
+
 ### Scheduled backups
 
 Backup schedules offer **Stop server during backup**. When selected, Spark stops

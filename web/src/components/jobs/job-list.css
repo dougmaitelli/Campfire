@@ -38,7 +38,7 @@
 
 .server-job-route,
 .server-job-phase,
-.server-job-size {
+.server-job-progress .operation-progress-metrics {
   color: var(--muted);
   font-size: 13px;
 }
@@ -65,7 +65,7 @@
   }
 }
 
-.server-job-size {
+.server-job-progress .operation-progress-metrics {
   font-variant-numeric: tabular-nums;
 }
 

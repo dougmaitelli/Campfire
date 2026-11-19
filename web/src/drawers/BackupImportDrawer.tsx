@@ -5,7 +5,7 @@ import { FormField } from "../components/forms/FormField";
 import { TextInput } from "../components/forms/TextInput";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
-import { ProgressBar } from "../components/status/ProgressBar";
+import { OperationProgress } from "../components/status/OperationProgress";
 import { DetailsList, DetailItem } from "../components/layout/DetailsList";
 import { formatBytes } from "../utils/formatBytes";
 import { BackupMode } from "../api/backups";
@@ -164,16 +164,19 @@ export function BackupImportDrawer({
                     : "backupImports.uploading",
               )}
             </p>
-            <ProgressBar
-              max={file?.size ?? 1}
-              value={publishing || bytes === null ? undefined : bytes}
-              aria-label={t("backupImports.progress")}
+            <OperationProgress
+              label={t("backupImports.progress")}
+              value={bytes ?? 0}
+              total={!publishing && bytes !== null ? file?.size : undefined}
+              detail={
+                file && bytes !== null && !publishing
+                  ? t("fileUploads.transferred", {
+                      uploaded: formatBytes(bytes),
+                      total: formatBytes(file.size),
+                    })
+                  : undefined
+              }
             />
-            {file && bytes !== null && !publishing && (
-              <p>
-                {formatBytes(bytes)} / {formatBytes(file.size)}
-              </p>
-            )}
           </section>
         )}
         {backup && !busy && (

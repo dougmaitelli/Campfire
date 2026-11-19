@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/workprogress"
 )
 
 func (m *Manager) downloadBackup(ctx context.Context, d model.Deployment, name string, source *model.BackupSource, e *entry) error {
@@ -34,6 +35,8 @@ func (m *Manager) downloadBackup(ctx context.Context, d model.Deployment, name s
 	}
 
 	m.progress(d.ServerID, e, "Downloading and verifying off-host backup")
+	ctx = runtimeProgress(ctx, e)
+	workprogress.New(ctx, workprogress.Preparing, 0)
 
 	directory := filepath.Join(m.root(d.ServerID), "backups")
 	if err := os.MkdirAll(directory, 0700); err != nil {
@@ -67,10 +70,15 @@ func (m *Manager) downloadBackup(ctx context.Context, d model.Deployment, name s
 
 	hash := sha256.New()
 
-	written, err := io.Copy(io.MultiWriter(file, hash), io.LimitReader(response.Body, source.Size+1))
+	progress := workprogress.New(ctx, workprogress.Downloading, source.Size)
+	written, err := io.Copy(io.MultiWriter(file, hash), progress.Reader(io.LimitReader(response.Body, source.Size+1)))
+	progress.Flush()
+
 	if err != nil || written != source.Size || hex.EncodeToString(hash.Sum(nil)) != source.Digest {
 		return errors.New("off-host backup failed size or checksum validation; original game data was preserved")
 	}
+
+	workprogress.New(ctx, workprogress.Committing, 0)
 
 	if err := file.Sync(); err != nil {
 		return errors.New("could not synchronize downloaded backup")

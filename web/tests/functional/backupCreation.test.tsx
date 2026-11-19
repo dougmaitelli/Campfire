@@ -1,6 +1,6 @@
 import { StrictMode, type ReactNode } from "react";
 import { expect, test, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ServerDrawer } from "../../src/drawers/ServerDrawer";
 import {
@@ -197,8 +197,12 @@ test("retrying backup recovery saves edited settings on the already-created serv
     created_at: "2026-11-01T00:00:00Z",
   };
   vi.mocked(saveServer).mockResolvedValue(created);
+  let failPublication: (error: Error) => void = () => {};
+  const publication = new Promise<string>((_, reject) => {
+    failPublication = reject;
+  });
   vi.mocked(publishBackupImport)
-    .mockRejectedValueOnce(new Error("Connection interrupted"))
+    .mockReturnValueOnce(publication)
     .mockResolvedValue("full-recovered.tar.gz");
   render(
     <ServerDrawer
@@ -235,6 +239,14 @@ test("retrying backup recovery saves edited settings on the already-created serv
     await user.click(screen.getByRole("button", { name }));
   }
   await user.click(screen.getByRole("button", { name: "Create server" }));
+  const progress = screen.getByRole("progressbar", {
+    name: "Creating the server and preparing its backup for restoration…",
+  });
+  expect(progress.hasAttribute("value")).toBe(false);
+  expect(progress.closest(".operation-progress")).not.toBeNull();
+  await act(async () => {
+    failPublication(new Error("Connection interrupted"));
+  });
   await screen.findByText("Connection interrupted");
   await user.click(screen.getByRole("button", { name: /General/ }));
   const name = screen.getByLabelText("Server name", { exact: true });

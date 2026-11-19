@@ -73,7 +73,7 @@ func TestExtractBackupMakesMigratedWorldWritable(t *testing.T) {
 	}
 
 	volume := t.TempDir()
-	if err := extractBackup(t.Context(), &data, volume, backupBytes); err != nil {
+	if err := extractBackup(t.Context(), &data, volume, backupBytes, int64(data.Len())); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,7 +166,7 @@ func TestBackupRoundTripChunksAndDeletion(t *testing.T) {
 		t.Fatalf("backup read: %v", err)
 	}
 
-	if err := extractBackup(context.Background(), bytes.NewReader(chunk.Data), t.TempDir(), backupBytes); err != nil {
+	if err := extractBackup(context.Background(), bytes.NewReader(chunk.Data), t.TempDir(), backupBytes, int64(len(chunk.Data))); err != nil {
 		t.Fatal("download is not a valid archive", err)
 	}
 
@@ -327,14 +327,14 @@ func TestBackupRejectsUnsafeArchivesAndPreservesWorld(t *testing.T) {
 		})
 	}
 
-	if err := extractBackup(context.Background(), bytes.NewReader(valid), t.TempDir(), 3); err == nil {
+	if err := extractBackup(context.Background(), bytes.NewReader(valid), t.TempDir(), 3, int64(len(valid))); err == nil {
 		t.Fatal("expanded archive size limit ignored")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if err := extractBackup(ctx, bytes.NewReader(valid), t.TempDir(), backupBytes); err == nil {
+	if err := extractBackup(ctx, bytes.NewReader(valid), t.TempDir(), backupBytes, int64(len(valid))); err == nil {
 		t.Fatal("cancelled extraction succeeded")
 	}
 }

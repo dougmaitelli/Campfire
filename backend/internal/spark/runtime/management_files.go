@@ -30,11 +30,11 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.Status.FileSystemBusy && !q.Operation.IsExtractionStatusOrCancel() {
+	if e.Status.FileSystemBusy && !q.Operation.IsFileControl() {
 		return model.FileResult{}, fileFailure(model.FileBusy, "Wait for the current server operation to finish.")
 	}
 
-	mutate := q.Operation != model.FileOperationList && q.Operation != model.FileOperationRead && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadCancel && !q.Operation.IsExtractionStatusOrCancel()
+	mutate := q.Operation != model.FileOperationList && q.Operation != model.FileOperationRead && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadCancel && !q.Operation.IsFileControl()
 	if mutate {
 		if transfer, err := m.localTransfer(q.ServerID); err != nil || transfer != nil && !transfer.allowsOperations() {
 			return model.FileResult{}, fileFailure(model.FileBusy, "Server files are locked for a Spark transfer.")
@@ -46,7 +46,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, fileFailure(model.FileIO, "Game data unavailable.")
 	}
 
-	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || q.Operation.IsUpload() || q.Operation.IsArchive()) {
+	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || q.Operation.IsUpload() || q.Operation.IsArchive() || q.Operation == model.FileOperationCompressStart) {
 		if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
 			return model.FileResult{}, fileFailure(model.FileLimitExceeded, err.Error())
 		}

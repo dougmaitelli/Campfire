@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 )
 
@@ -17,12 +18,13 @@ type Host struct{ FileOwner func(*os.File, string) error }
 // Manager owns file operations and their temporary conflict state.
 type Manager struct {
 	Host
-	ctx        context.Context
-	cancel     context.CancelFunc
-	mu         sync.Mutex
-	operations map[string]*extractionSession
-	closed     bool
-	wg         sync.WaitGroup
+	ctx          context.Context
+	cancel       context.CancelFunc
+	mu           sync.Mutex
+	compressions map[string]*compressionSession
+	operations   map[string]*extractionSession
+	closed       bool
+	wg           sync.WaitGroup
 }
 
 // State contains upload state protected by the runtime's server-entry lock.
@@ -34,7 +36,7 @@ type State struct {
 // New starts file-operation lifecycle management.
 func New(host Host) *Manager {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Manager{Host: host, ctx: ctx, cancel: cancel, operations: make(map[string]*extractionSession)}
+	return &Manager{Host: host, ctx: ctx, cancel: cancel, operations: make(map[string]*extractionSession), compressions: make(map[string]*compressionSession)}
 }
 
 // Close releases incomplete upload buffers under the runtime server-entry lock.
@@ -52,10 +54,14 @@ func (s *State) Close() {
 // ActiveUploads reports uploads awaiting publication; the caller holds the server lock.
 func (s *State) ActiveUploads() bool { return s != nil && len(s.uploads) > 0 }
 
-// Active reports whether a server has unfinished extraction work.
+// Active reports whether a server has unfinished archive work.
 func (m *Manager) Active(serverID string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if m.compressionActiveLocked(serverID) {
+		return true
+	}
 
 	for _, s := range m.operations {
 		if s.serverID == serverID {
@@ -130,7 +136,7 @@ func (m *Manager) armExtraction(s *extractionSession) {
 	}
 
 	if s.state.Terminal() {
-		s.expires = time.Now().Add(extractionTTL)
+		s.expires = time.Now().Add(limits.ArchiveResultRetention)
 	}
 
 	s.timer = time.AfterFunc(time.Until(s.expires), func() {

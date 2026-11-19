@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"archive/tar"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,9 +16,11 @@ import (
 	"syscall"
 	"time"
 
+	"campfire/internal/shared/archiveio"
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
+	"campfire/internal/shared/workprogress"
 )
 
 const backupBytes int64 = 100 << 30
@@ -273,10 +274,13 @@ func (m *Manager) backupPhase(e *entry, state model.RuntimeState, progress strin
 
 	e.Status.State, e.Status.Ready = state, false
 	e.Status.Progress, e.Status.OperationState = progress, model.OperationRunning
+	e.Status.WorkProgress = nil
 }
 
 func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id string, e *entry, options model.BackupOptions) error {
 	m.progress(d.ServerID, e, "Creating backup")
+	ctx = runtimeProgress(ctx, e)
+	workprogress.New(ctx, workprogress.Preparing, 0)
 
 	directory := filepath.Join(m.root(d.ServerID), "backups")
 	if err := os.MkdirAll(directory, 0700); err != nil {
@@ -304,12 +308,10 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 	}
 	defer func() { _ = root.Close() }()
 
-	compressed := gzip.NewWriter(file)
-	archive := tar.NewWriter(compressed)
+	archive := archiveio.NewTarGzipWriter(ctx, file)
 
 	if err := writeBackupManifest(archive, root, options); err != nil {
 		_ = archive.Close()
-		_ = compressed.Close()
 
 		return err
 	}
@@ -392,12 +394,16 @@ func (m *Manager) createBackup(ctx context.Context, d model.Deployment, id strin
 
 		return err
 	})
+
 	archiveErr := archive.Close()
-	gzipErr := compressed.Close()
+	if err == nil && archiveErr == nil && ctx.Err() == nil {
+		workprogress.New(ctx, workprogress.Committing, 0)
+	}
+
 	syncErr := file.Sync()
 
 	closeErr := file.Close()
-	if err != nil || archiveErr != nil || gzipErr != nil || syncErr != nil || closeErr != nil {
+	if err != nil || archiveErr != nil || syncErr != nil || closeErr != nil {
 		return errors.New("backup failed; check disk space, data paths, links and the 100 GiB/100000-entry limits")
 	}
 
@@ -426,12 +432,12 @@ func syncBackupDirectory(directory string) error {
 	return file.Sync()
 }
 
-func extractBackup(ctx context.Context, input io.Reader, directory string, limit int64) error {
-	compressed, err := gzip.NewReader(backupReader{ctx, input})
+func extractBackup(ctx context.Context, input io.Reader, directory string, limit, inputSize int64) error {
+	archive, err := archiveio.NewTarGzipReader(ctx, backupReader{ctx, input}, inputSize)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = compressed.Close() }()
+	defer func() { _ = archive.Close() }()
 
 	root, err := os.OpenRoot(directory)
 	if err != nil {
@@ -439,7 +445,6 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 	}
 	defer func() { _ = root.Close() }()
 
-	archive := tar.NewReader(compressed)
 	seen := make(map[string]bool)
 
 	type directoryMode struct {
@@ -549,7 +554,7 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 	}
 
 	// Consume the gzip footer to verify its checksum; reject excessive trailing data.
-	n, err := io.Copy(io.Discard, io.LimitReader(compressed, 1<<20))
+	n, err := io.Copy(io.Discard, io.LimitReader(archive.Trailing(), 1<<20))
 	if err != nil || n == 1<<20 {
 		return errors.New("backup checksum or trailing data is invalid")
 	}
@@ -568,6 +573,8 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 
 func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name string, e *entry) error {
 	m.progress(d.ServerID, e, "Validating and preparing backup")
+	ctx = runtimeProgress(ctx, e)
+	workprogress.New(ctx, workprogress.Preparing, 0)
 
 	if !backupName(name) {
 		return errors.New("invalid backup name")
@@ -610,13 +617,15 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 		limit = min(limit, d.Configuration.DiskMB<<20)
 	}
 
-	if err := extractBackup(ctx, file, stage, limit); err != nil {
+	if err := extractBackup(ctx, file, stage, limit, info.Size()); err != nil {
 		return errors.New("backup validation failed; original game data was preserved")
 	}
 
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
+
+	workprogress.New(ctx, workprogress.Validating, 0)
 
 	manifest, err := readBackupManifest(file)
 	if err != nil {
@@ -646,6 +655,8 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 			return err
 		}
 	}
+
+	workprogress.New(ctx, workprogress.Restoring, 0)
 
 	if manifest.Mode == model.BackupModeSavedata {
 		volume, err := m.volume(d.ServerID)
@@ -709,6 +720,7 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 	}
 
 	m.progress(d.ServerID, e, "Replacing game data")
+	workprogress.New(ctx, workprogress.Committing, 0)
 
 	volume, err := m.volume(d.ServerID)
 	if err != nil {

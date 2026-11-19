@@ -26,6 +26,7 @@ import type { Server } from "../../api/servers";
 import { Panel } from "../layout/Panel";
 import { Table } from "../table/Table";
 import { BackupState } from "./BackupState";
+import { WorkProgress } from "../status/WorkProgress";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { formatBytes } from "../../utils/formatBytes";
 import "./backups.css";
@@ -342,9 +343,18 @@ export function ServerBackups({ server }: { server: Server }) {
                   {t("serverBackups.restoreNeedsOperate")}
                 </InlineMessage>
               ))}
-            {restorePhase && (
+            {(restorePhase !== null || status?.busy) && (
               <InlineMessage tone="info">
-                {t(restoreProgressKeys[restorePhase])}
+                {status?.busy && status.work_progress ? (
+                  <WorkProgress
+                    progress={status.work_progress}
+                    operationID={status.operation_id}
+                  />
+                ) : restorePhase ? (
+                  t(restoreProgressKeys[restorePhase])
+                ) : (
+                  status?.progress
+                )}
               </InlineMessage>
             )}
           </ConfirmDialog>
@@ -406,8 +416,17 @@ export function ServerBackups({ server }: { server: Server }) {
         {status?.error && (
           <InlineMessage role="alert">{status.error}</InlineMessage>
         )}
-        {status?.busy && (
-          <InlineMessage tone="info">{status.progress}</InlineMessage>
+        {status?.busy && !restore && (
+          <InlineMessage tone="info">
+            {status.work_progress ? (
+              <WorkProgress
+                progress={status.work_progress}
+                operationID={status.operation_id}
+              />
+            ) : (
+              status.progress
+            )}
+          </InlineMessage>
         )}
         {status &&
           !busy &&
@@ -476,6 +495,10 @@ export function ServerBackups({ server }: { server: Server }) {
                 </td>
                 <td className="backup-state">
                   <BackupState state={entry.state} />
+                  {entry.state === BackupStatus.Syncing &&
+                    entry.work_progress && (
+                      <WorkProgress progress={entry.work_progress} />
+                    )}
                 </td>
                 <td className="table-actions">
                   <ActionGroup>

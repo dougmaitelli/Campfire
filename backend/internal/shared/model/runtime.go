@@ -1,5 +1,7 @@
 package model
 
+import "campfire/internal/shared/workprogress"
+
 // RuntimeState describes the server state exposed by Spark and the panel.
 type RuntimeState string
 
@@ -96,23 +98,24 @@ type RuntimeRequest struct {
 
 // RuntimeStatus reports observed state and the latest asynchronous operation.
 type RuntimeStatus struct {
-	ServerID           string           `json:"server_id"`
-	State              RuntimeState     `json:"state"`
-	Ready              bool             `json:"ready"`
-	OperationID        string           `json:"operation_id,omitempty"`
-	Operation          ServerAction     `json:"operation,omitempty"`
-	OperationState     OperationState   `json:"operation_state,omitempty"`
-	Progress           string           `json:"progress,omitempty"`
-	Error              string           `json:"error,omitempty"`
-	ErrorCode          RuntimeErrorCode `json:"error_code,omitempty"`
-	Busy               bool             `json:"busy"`
-	FileSystemBusy     bool             `json:"file_system_busy"`
-	RestartRequired    bool             `json:"restart_required"`
-	DiskQuotaEnforced  bool             `json:"disk_quota_enforced"`
-	DiskQuotaError     string           `json:"disk_quota_error,omitempty"`
-	DiskQuotaErrorCode RuntimeErrorCode `json:"disk_quota_error_code,omitempty"`
-	Logs               string           `json:"logs,omitempty"`
-	Metrics            *ResourceUsage   `json:"metrics,omitempty"`
-	LogObservation     *LogObservation  `json:"log_observation,omitempty"`
-	LogMonitorError    string           `json:"log_monitor_error,omitempty"`
+	ServerID           string                 `json:"server_id"`
+	State              RuntimeState           `json:"state"`
+	Ready              bool                   `json:"ready"`
+	OperationID        string                 `json:"operation_id,omitempty"`
+	Operation          ServerAction           `json:"operation,omitempty"`
+	OperationState     OperationState         `json:"operation_state,omitempty"`
+	Progress           string                 `json:"progress,omitempty"`
+	WorkProgress       *workprogress.Snapshot `json:"work_progress,omitempty"`
+	Error              string                 `json:"error,omitempty"`
+	ErrorCode          RuntimeErrorCode       `json:"error_code,omitempty"`
+	Busy               bool                   `json:"busy"`
+	FileSystemBusy     bool                   `json:"file_system_busy"`
+	RestartRequired    bool                   `json:"restart_required"`
+	DiskQuotaEnforced  bool                   `json:"disk_quota_enforced"`
+	DiskQuotaError     string                 `json:"disk_quota_error,omitempty"`
+	DiskQuotaErrorCode RuntimeErrorCode       `json:"disk_quota_error_code,omitempty"`
+	Logs               string                 `json:"logs,omitempty"`
+	Metrics            *ResourceUsage         `json:"metrics,omitempty"`
+	LogObservation     *LogObservation        `json:"log_observation,omitempty"`
+	LogMonitorError    string                 `json:"log_monitor_error,omitempty"`
 }

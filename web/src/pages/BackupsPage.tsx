@@ -20,6 +20,7 @@ import { formatBytes } from "../utils/formatBytes";
 import { useCollection } from "../hooks/useCollection";
 import { Table, TableRow } from "../components/table/Table";
 import { BackupState } from "../components/servers/BackupState";
+import { WorkProgress } from "../components/status/WorkProgress";
 import { NavigationIcon } from "../components/navigation/NavigationIcon";
 import { BackupName } from "../components/servers/BackupName";
 import { BackupMetadataActions } from "../components/servers/BackupMetadataActions";
@@ -34,7 +35,7 @@ export function BackupsPage() {
   const canUpload = canPerformPlatform(auth.session, "createServers");
   const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState<string | null>(null);
-  const backups = useCollection(listAllBackups);
+  const backups = useCollection(listAllBackups, 3000);
   const [search, setSearch] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const query = search.trim().toLowerCase();
@@ -143,6 +144,10 @@ export function BackupsPage() {
                         backupDisplayName(item)
                       )}
                     </BackupName>
+                    {item.state === BackupStatus.Syncing &&
+                      item.work_progress && (
+                        <WorkProgress progress={item.work_progress} />
+                      )}
                     {item.error && (
                       <span className="row-description">{item.error}</span>
                     )}

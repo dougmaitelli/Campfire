@@ -6,7 +6,7 @@ import { ResourceLink } from "../navigation/ResourceLink";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { Button } from "../forms/Button";
 import { ActionGroup } from "../layout/ActionGroup";
-import { ProgressBar } from "../status/ProgressBar";
+import { OperationProgress } from "../status/OperationProgress";
 import { StatusPill } from "../status/StatusPill";
 import { formatBytes } from "../../utils/formatBytes";
 import { jobStatusLabels, jobStepLabels } from "./jobLabels";
@@ -115,20 +115,15 @@ export function JobRow({
               {t(jobStepLabels[job.step])}
             </span>
           )}
-          {job.total_bytes > 0 && (
+          {(running || job.total_bytes > 0) && (
             <div className="server-job-progress">
-              {running && (
-                <ProgressBar
-                  aria-label={t("serverJobs.progress")}
-                  aria-valuetext={`${formatBytes(job.transferred_bytes)} / ${formatBytes(job.total_bytes)}`}
-                  value={job.transferred_bytes}
-                  max={job.total_bytes}
-                />
-              )}
-              <span className="server-job-size">
-                {formatBytes(job.transferred_bytes)} /{" "}
-                {formatBytes(job.total_bytes)}
-              </span>
+              <OperationProgress
+                label={t("serverJobs.progress")}
+                active={running}
+                value={job.transferred_bytes}
+                total={job.total_bytes}
+                detail={`${t("serverJobs.progress")}: ${formatBytes(job.transferred_bytes)}${job.total_bytes > 0 ? ` / ${formatBytes(job.total_bytes)}` : ""}`}
+              />
             </div>
           )}
           {job.error && (

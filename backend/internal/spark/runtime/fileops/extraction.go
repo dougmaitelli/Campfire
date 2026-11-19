@@ -14,10 +14,13 @@ import (
 
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
+	"campfire/internal/shared/workprogress"
 )
 
 const extractionLimit = 1000
-const extractionTTL = 15 * time.Minute
+
+// extractionConflictWait bounds human decisions, not completed-result retention.
+const extractionConflictWait = 15 * time.Minute
 
 type extractionItem struct {
 	entry                       model.ExtractionEntry
@@ -47,6 +50,8 @@ type extractionItem struct {
 // The runtime server-entry lock serializes request admission. The manager's
 // shutdown waits for registered workers independently of browser/RPC lifetimes.
 type extractionSession struct {
+	fresh                                             bool
+	progress                                          *workprogress.Snapshot
 	mu                                                sync.Mutex
 	fsMu                                              sync.Mutex
 	id, owner, source, destination, volume, temporary string
@@ -100,7 +105,7 @@ func (m *Manager) Run(ctx context.Context, d model.Deployment, volume string, q 
 	}
 
 	s := m.operations[q.Extraction.ID]
-	if s != nil && (s.owner != q.ExtractionOwner || s.serverID != q.ServerID || s.source != q.Path || s.destination != q.Destination) {
+	if s != nil && (s.owner != q.ExtractionOwner || s.serverID != q.ServerID || s.source != q.Path || s.destination != q.Destination || s.fresh != q.Extraction.Fresh) {
 		m.mu.Unlock()
 		return result, Failure(model.FileNotFound, "Extraction operation not found.")
 	}
@@ -134,12 +139,34 @@ func (m *Manager) Run(ctx context.Context, d model.Deployment, volume string, q 
 			return result, Failure(model.FileInvalid, "Choose safe archive and destination paths.")
 		}
 
-		operationContext, cancel := context.WithCancel(m.ctx)
-		s = &extractionSession{id: q.Extraction.ID, owner: q.ExtractionOwner, serverID: q.ServerID, source: q.Path, destination: q.Destination, volume: volume, state: model.ExtractionRunning, ctx: operationContext, cancel: cancel, indices: make(map[string]int), answers: make(map[string]model.ExtractionRequest), expires: time.Now().Add(extractionTTL), active: 1}
+		var (
+			operationContext context.Context
+			cancel           context.CancelFunc
+		)
+
+		if q.Extraction.Fresh {
+			operationContext, cancel = context.WithTimeout(m.ctx, 30*time.Minute)
+		} else {
+			operationContext, cancel = context.WithCancel(m.ctx)
+		}
+
+		s = &extractionSession{fresh: q.Extraction.Fresh, id: q.Extraction.ID, owner: q.ExtractionOwner, serverID: q.ServerID, source: q.Path, destination: q.Destination, volume: volume, state: model.ExtractionRunning, ctx: operationContext, cancel: cancel, indices: make(map[string]int), answers: make(map[string]model.ExtractionRequest), expires: time.Now().Add(extractionConflictWait), active: 1}
+		if s.fresh {
+			s.items = []*extractionItem{{entry: model.ExtractionEntry{Path: s.source}, target: s.destination, status: extractionWriting}}
+		}
+
 		m.operations[s.id] = s
 
 		m.wg.Add(1)
-		go func() { defer m.wg.Done(); m.scanExtraction(d, s) }()
+		go func() {
+			defer m.wg.Done()
+
+			if s.fresh {
+				m.scanFreshExtraction(d, s)
+			} else {
+				m.scanExtraction(d, s)
+			}
+		}()
 	}
 	m.mu.Unlock()
 
@@ -215,7 +242,16 @@ func (m *Manager) scanExtraction(d model.Deployment, s *extractionSession) {
 				}
 
 				members := newArchiveMembers(archiveEntryLimit, bytes)
-				err = ReadArchive(s.ctx, input, s.source, func(name string, size int64, mode fs.FileMode, reader io.Reader) error {
+				ctx := workprogress.WithReporter(s.ctx, func(progress workprogress.Snapshot) {
+					s.mu.Lock()
+					defer s.mu.Unlock()
+
+					if !s.state.Terminal() {
+						s.progress = &progress
+						s.version++
+					}
+				})
+				err = ReadArchive(ctx, input, s.source, func(name string, size int64, mode fs.FileMode, reader io.Reader) error {
 					if err := s.ctx.Err(); err != nil {
 						return err
 					}
@@ -566,7 +602,7 @@ func (m *Manager) writeExtractionItem(root *os.Root, d model.Deployment, s *extr
 
 	s.version++
 	if !s.state.Terminal() {
-		s.expires = time.Now().Add(extractionTTL)
+		s.expires = time.Now().Add(extractionConflictWait)
 	}
 	s.mu.Unlock()
 
@@ -696,7 +732,7 @@ func (m *Manager) resolveExtraction(d model.Deployment, s *extractionSession, q 
 
 	s.message = ""
 	s.version++
-	s.expires = time.Now().Add(extractionTTL)
+	s.expires = time.Now().Add(extractionConflictWait)
 	s.active++
 
 	s.state = model.ExtractionRunning
@@ -834,7 +870,7 @@ func (s *extractionSession) updateState() {
 
 	if s.state != state {
 		if state == model.ExtractionWaiting {
-			s.expires = time.Now().Add(extractionTTL)
+			s.expires = time.Now().Add(extractionConflictWait)
 		}
 
 		s.state = state
@@ -868,7 +904,7 @@ func (s *extractionSession) cleanup() {
 	}
 }
 func (s *extractionSession) snapshot() *model.ExtractionStatus {
-	out := &model.ExtractionStatus{ID: s.id, Version: s.version, State: s.state, ExpiresAt: s.expires, Outcomes: []model.FileOutcome{}, Message: s.message}
+	out := &model.ExtractionStatus{ID: s.id, Version: s.version, State: s.state, ExpiresAt: s.expires, Outcomes: []model.FileOutcome{}, Message: s.message, WorkProgress: s.progress}
 	for _, item := range s.items {
 		status := item.status
 		if status == extractionWriting || status == extractionResolving {

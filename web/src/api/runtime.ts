@@ -10,6 +10,7 @@ import {
 import i18n from "../i18n";
 import { apiFetch, readJSON, API_REQUEST_TIMEOUT_MS, apiJSON } from "./client";
 import type { BackupMode } from "./backups";
+import { isWorkProgress, type WorkProgress } from "./workProgress";
 
 export { ServerAction };
 
@@ -21,6 +22,7 @@ export interface RuntimeStatus {
   file_system_busy: boolean;
   restart_required?: boolean;
   progress?: string;
+  work_progress?: WorkProgress;
   error?: string;
   operation_id?: string;
   operation?: ServerAction;
@@ -61,6 +63,7 @@ function isRuntimeStatus(value: unknown): value is RuntimeStatus {
     ].every(
       (key) => !(key in value) || typeof Reflect.get(value, key) === "string",
     ) &&
+    (!("work_progress" in value) || isWorkProgress(value.work_progress)) &&
     (!("operation" in value) || isEnumValue(ServerAction, value.operation)) &&
     (!("error_code" in value) ||
       isEnumValue(RuntimeErrorCode, value.error_code)) &&

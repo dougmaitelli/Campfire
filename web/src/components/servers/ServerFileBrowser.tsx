@@ -9,6 +9,7 @@ import { FormField } from "../forms/FormField";
 import { Button } from "../forms/Button";
 import { CheckboxField } from "../forms/CheckboxField";
 import { InlineMessage } from "../status/InlineMessage";
+import { compressArchive } from "../files/compressArchive";
 import { IndeterminateProgress } from "../status/IndeterminateProgress";
 import { Textarea } from "../forms/Textarea";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -41,6 +42,8 @@ import { FileUploadProgress } from "../files/FileUploadProgress";
 import type { UploadProgress } from "../files/uploadTypes";
 
 import { FileResults } from "../files/FileResults";
+import { WorkProgress } from "../status/WorkProgress";
+import type { WorkProgress as Measurement } from "../../api/workProgress";
 import { summarizeFileOutcomes, type FileOutcome } from "../files/fileOutcomes";
 import { useFileConflicts } from "../files/useFileConflicts";
 import { extractArchive } from "../files/extractArchive";
@@ -113,7 +116,7 @@ export function ServerFileBrowser({
   } | null>(null);
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
   const [fileAction, setFileAction] = useState<{
-    kind: "rename" | "compress" | "extract";
+    kind: "rename" | "extract";
     entry: FileEntry;
   } | null>(null);
   const [deleting, setDeleting] = useState<FileEntry[] | null>(null);
@@ -136,6 +139,7 @@ export function ServerFileBrowser({
   const transfer = useRef<AbortController | null>(null);
   const uploadInput = useRef<HTMLInputElement | null>(null);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [archiveProgress, setArchiveProgress] = useState<Measurement>();
   const [fileOperationNotice, setFileOperationNotice] = useState<{
     tone: "info" | "success" | "error";
     text: string | null;
@@ -439,9 +443,9 @@ export function ServerFileBrowser({
     );
     transfer.current.abort();
   }
-  async function archive(entry: FileEntry, extract: boolean, value: string) {
+  async function extract(entry: FileEntry, value: string) {
     const destination =
-      extract && (value === "." || value === "./")
+      value === "." || value === "./"
         ? directory
         : join(directory, entryName(value) ?? "");
     if (pending.current || !canWrite) return;
@@ -451,44 +455,36 @@ export function ServerFileBrowser({
     const controller = new AbortController();
     transfer.current = controller;
     try {
-      if (extract) {
-        const { outcomes, state: extractionState } = await extractArchive({
-          id: server.id,
-          source: join(directory, entry.name),
-          destination,
-          directory,
-          resolve: createSession("extract"),
-          signal: controller.signal,
+      const { outcomes, state: extractionState } = await extractArchive({
+        id: server.id,
+        source: join(directory, entry.name),
+        destination,
+        directory,
+        resolve: createSession("extract"),
+        signal: controller.signal,
+        onProgress: (progress) => {
+          if (alive.current) setArchiveProgress(progress);
+        },
+      });
+      if (alive.current) {
+        const summary = summarizeFileOutcomes(outcomes);
+        let text: string | null = null;
+        if (extractionState === "unconfirmed" || summary.unconfirmed > 0)
+          text = t("fileExtraction.completionUnconfirmed");
+        else if (summary.failed > 0) text = t("fileExtraction.someFailed");
+        else if (extractionState !== "cancelled" && summary.cancelled === 0)
+          text = t("fileExtraction.finished");
+        setFileOperationNotice({
+          operation: "extract",
+          outcomes,
+          tone:
+            summary.failed > 0 || summary.unconfirmed > 0 ? "error" : "info",
+          text,
         });
-        if (alive.current) {
-          const summary = summarizeFileOutcomes(outcomes);
-          let text: string | null = null;
-          if (extractionState === "unconfirmed" || summary.unconfirmed > 0)
-            text = t("fileExtraction.completionUnconfirmed");
-          else if (summary.failed > 0) text = t("fileExtraction.someFailed");
-          else if (extractionState !== "cancelled" && summary.cancelled === 0)
-            text = t("fileExtraction.finished");
-          setFileOperationNotice({
-            operation: "extract",
-            outcomes,
-            tone:
-              summary.failed > 0 || summary.unconfirmed > 0 ? "error" : "info",
-            text,
-          });
-        }
-      } else {
-        await manageFiles(
-          server.id,
-          {
-            operation: FileOperation.Compress,
-            path: join(directory, entry.name),
-            destination,
-          },
-          controller.signal,
-        );
       }
     } finally {
       if (alive.current) {
+        setArchiveProgress(undefined);
         await load(directory, undefined, true);
         setBusy(false);
       }
@@ -502,16 +498,23 @@ export function ServerFileBrowser({
     pending.current = true;
     setBusy(true);
     let completed = false;
+    const controller = new AbortController();
+    transfer.current = controller;
     try {
       if (bulkAction === "compress") {
         const name = entryName(value);
         if (!name) return;
-        await manageFiles(server.id, {
-          operation: FileOperation.Compress,
+        const published = await compressArchive({
+          id: server.id,
           path: directory,
           paths: selectedEntries.map((entry) => join(directory, entry.name)),
           destination: join(directory, name),
+          signal: controller.signal,
+          onProgress: (value) => {
+            if (alive.current) setArchiveProgress(value);
+          },
         });
+        if (!published) return;
       } else {
         const target = await manageFiles(server.id, {
           operation: FileOperation.List,
@@ -539,7 +542,11 @@ export function ServerFileBrowser({
     } finally {
       await load(directory, undefined, !completed);
       pending.current = false;
-      if (alive.current) setBusy(false);
+      transfer.current = null;
+      if (alive.current) {
+        setBusy(false);
+        setArchiveProgress(undefined);
+      }
     }
   }
   async function closeEditor() {
@@ -708,6 +715,19 @@ export function ServerFileBrowser({
             }
             onClose={() => setBulkAction(null)}
             onSubmit={bulkSubmit}
+            busyContent={
+              bulkAction === "compress" &&
+              (archiveProgress ? (
+                <WorkProgress progress={archiveProgress} />
+              ) : (
+                <IndeterminateProgress label={t("fileCompression.preparing")} />
+              ))
+            }
+            onCancelBusy={
+              bulkAction === "compress"
+                ? () => transfer.current?.abort()
+                : undefined
+            }
           />
         )}
         {fileAction && (
@@ -715,16 +735,12 @@ export function ServerFileBrowser({
             title={
               fileAction.kind === "rename"
                 ? t("serverFileBrowser.rename2")
-                : fileAction.kind === "compress"
-                  ? t("serverFileBrowser.compress2")
-                  : t("serverFileBrowser.extractArchive")
+                : t("serverFileBrowser.extractArchive")
             }
             label={
               fileAction.kind === "rename"
                 ? t("serverFileBrowser.newName")
-                : fileAction.kind === "compress"
-                  ? t("serverFileBrowser.archiveName")
-                  : t("fileExtraction.destinationFolder")
+                : t("fileExtraction.destinationFolder")
             }
             description={t(
               fileAction.kind === "extract"
@@ -741,31 +757,27 @@ export function ServerFileBrowser({
             submitLabel={
               fileAction.kind === "rename"
                 ? t("serverFileBrowser.rename2")
-                : fileAction.kind === "compress"
-                  ? t("serverFileBrowser.compress2")
-                  : t("serverFileBrowser.extract")
+                : t("serverFileBrowser.extract")
             }
             initialValue={
               fileAction.kind === "rename"
                 ? fileAction.entry.name
-                : fileAction.kind === "compress"
-                  ? `${fileAction.entry.name}.tar.gz`
-                  : fileAction.entry.name.replace(
-                      /\.(tar\.gz|tgz|zip|rar)$/i,
-                      "",
-                    )
+                : fileAction.entry.name.replace(/\.(tar\.gz|tgz|zip|rar)$/i, "")
             }
             busyContent={
-              fileAction.kind === "extract" && (
+              fileAction.kind !== "rename" &&
+              (archiveProgress ? (
+                <WorkProgress progress={archiveProgress} />
+              ) : (
                 <IndeterminateProgress
                   label={t("serverFileBrowser.extracting", {
                     name: fileAction.entry.name,
                   })}
                 />
-              )
+              ))
             }
             onCancelBusy={
-              fileAction.kind === "extract"
+              fileAction.kind !== "rename"
                 ? () => transfer.current?.abort()
                 : undefined
             }
@@ -773,7 +785,7 @@ export function ServerFileBrowser({
             onSubmit={(name) =>
               fileAction.kind === "rename"
                 ? rename(fileAction.entry, name)
-                : archive(fileAction.entry, fileAction.kind === "extract", name)
+                : extract(fileAction.entry, name)
             }
           />
         )}
