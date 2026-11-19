@@ -1,0 +1,41 @@
+.data-table tr[aria-selected="true"] {
+  background: var(--accent-subtle);
+}
+
+.data-table tr[data-selection-id]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.table-selection-help {
+  color: var(--muted);
+  font-size: 13px;
+  margin-block: 0 8px;
+}
+
+.table-selection-help summary {
+  cursor: pointer;
+}
+
+.table-selection-surface {
+  position: relative;
+  padding-block: 6px;
+}
+
+.table-selection-marquee {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+[data-drop-target="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-subtle);
+}
+
+[draggable="true"] {
+  cursor: grab;
+}

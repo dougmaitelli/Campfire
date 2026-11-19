@@ -1,18 +1,10 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type DragEvent,
-  type ReactNode,
-} from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { NavigationIcon } from "../navigation/NavigationIcon";
+import { useExternalFileDrop } from "../dragDrop/useExternalFileDrop";
 import "./file-upload.css";
 
-function hasFiles(transfer: DataTransfer | null) {
-  return transfer?.types.includes("Files") === true;
-}
-
+/** File-browser presentation and directory-upload policy over a reusable drop surface. */
 export function FileDropZone({
   className,
   enabled,
@@ -29,89 +21,22 @@ export function FileDropZone({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
-  const [dragging, setDragging] = useState(false);
-  const depth = useRef(0);
-  function reset() {
-    depth.current = 0;
-    setDragging(false);
-  }
-  useEffect(() => {
-    function preventNavigation(event: globalThis.DragEvent) {
-      if (hasFiles(event.dataTransfer) && !event.defaultPrevented) {
-        event.preventDefault();
-        if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      }
-      if (event.type === "drop") reset();
-    }
-    function leaveWindow(event: globalThis.DragEvent) {
-      if (
-        event.relatedTarget === null &&
-        (event.target === document.documentElement ||
-          event.target === document.body)
-      )
-        reset();
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") reset();
-    }
-    window.addEventListener("dragover", preventNavigation);
-    window.addEventListener("drop", preventNavigation);
-    window.addEventListener("dragleave", leaveWindow);
-    window.addEventListener("dragend", reset);
-    window.addEventListener("blur", reset);
-    window.addEventListener("keydown", escape);
-    return () => {
-      window.removeEventListener("dragover", preventNavigation);
-      window.removeEventListener("drop", preventNavigation);
-      window.removeEventListener("dragleave", leaveWindow);
-      window.removeEventListener("dragend", reset);
-      window.removeEventListener("blur", reset);
-      window.removeEventListener("keydown", escape);
-    };
-  }, []);
-  function over(event: DragEvent<HTMLDivElement>) {
-    if (!hasFiles(event.dataTransfer)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = enabled ? "copy" : "none";
-    if (enabled) setDragging(true);
-  }
+  const { dragging, dropProps } = useExternalFileDrop({
+    enabled,
+    onDrop: ({ files, hasDirectories }) => {
+      if (hasDirectories) onError(t("fileUploads.foldersUnsupported"));
+      else if (files.length) onFiles(files);
+    },
+  });
   return (
     <div
+      {...dropProps}
       className={["file-drop-zone", className].filter(Boolean).join(" ")}
       role="region"
       aria-label={t("fileUploads.fileBrowser")}
-      onDragEnter={(event) => {
-        if (!hasFiles(event.dataTransfer)) return;
-        event.preventDefault();
-        depth.current += 1;
-        if (enabled) setDragging(true);
-      }}
-      onDragOver={over}
-      onDragLeave={(event) => {
-        if (!hasFiles(event.dataTransfer)) return;
-        depth.current = Math.max(0, depth.current - 1);
-        if (depth.current === 0) setDragging(false);
-      }}
-      onDrop={(event) => {
-        if (!hasFiles(event.dataTransfer)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        reset();
-        if (!enabled) return;
-        if (
-          Array.from(event.dataTransfer.items).some(
-            (item) => item.webkitGetAsEntry()?.isDirectory,
-          )
-        ) {
-          onError(t("fileUploads.foldersUnsupported"));
-          return;
-        }
-        const files = Array.from(event.dataTransfer.files);
-        if (files.length) onFiles(files);
-      }}
     >
       {children}
-      {dragging && enabled && (
+      {dragging && (
         <div className="file-drop-overlay" role="status">
           <div className="file-drop-message">
             <NavigationIcon name="upload" />

@@ -74,9 +74,21 @@
     }
   }
 }
-.file-list tr.file-selected {
-  background: var(--accent-subtle);
+/* Drag feedback must never move the rows under the pointer. */
+.file-drag-status {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  max-width: min(24rem, 100%);
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+  pointer-events: none;
 }
+
 .file-breadcrumbs {
   margin-bottom: 16px;
   color: var(--muted);
@@ -104,6 +116,11 @@
     width: 20px;
     height: 20px;
     flex-shrink: 0;
+  }
+
+  &[data-drop-target="true"] {
+    outline-offset: 4px;
+    border-radius: 4px;
   }
 
   &[aria-current="location"] {

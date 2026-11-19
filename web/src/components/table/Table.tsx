@@ -2,6 +2,7 @@ import i18n from "../../i18n";
 import { useTranslation } from "react-i18next";
 import type { ComponentProps } from "react";
 import { ContentState } from "../layout/ContentState";
+import { isInteractionTarget } from "./interactionTargets";
 import "./table.css";
 
 export function Table({
@@ -61,6 +62,7 @@ export function TableRow({
   showCaret = true,
   className,
   children,
+  onClick,
   ...props
 }: ComponentProps<"tr"> & {
   onOpen?: (() => void) | undefined;
@@ -78,13 +80,9 @@ export function TableRow({
         .filter(Boolean)
         .join(" ")}
       onClick={(event) => {
-        if (
-          event.target instanceof Element &&
-          event.target.closest(
-            "a, button, input, label, select, textarea, summary, details, [role=button]",
-          )
-        )
-          return;
+        onClick?.(event);
+        if (event.defaultPrevented) return;
+        if (isInteractionTarget(event.target, event.currentTarget)) return;
         if (window.getSelection()?.toString()) return;
         onOpen?.();
       }}

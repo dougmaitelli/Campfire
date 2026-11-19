@@ -30,6 +30,48 @@ Paths always start at this data root. For example, `/config/fabric/` is a folder
 and `/config/fabric/settings.json` is a file. A move destination has the same
 meaning regardless of which folder you are viewing.
 
+## Selecting and moving items
+
+Use the checkboxes to select files and folders. The header checkbox selects or
+clears all selectable items in the open folder; **Clear selection** clears the
+current selection. Special entries cannot be selected.
+
+- Click row space to select one item. **Shift-click** selects a range in the
+  displayed order; **Ctrl-click** (or **Cmd-click** on macOS) adds or removes an
+  item. Checkboxes are additive, and Shift-clicking a checkbox can select or clear
+  a range. Ordinary clicks on filenames still open them.
+- With a row focused, use **Up/Down**, **Home/End**, or type a name prefix to select
+  an item. **Shift** extends a range; **Ctrl/Cmd** with navigation keys moves focus
+  without changing the selection. **Space** toggles the focused item,
+  **Ctrl/Cmd+A** selects all, **Escape** clears, and **Enter** opens the item.
+  These shortcuts do not take over text fields or other controls.
+- With a mouse, drag across unselected row space to draw a selection rectangle.
+  Hold **Ctrl/Cmd** or **Shift** to add to the current selection. Drag near the
+  scroll area's top or bottom edge to continue through a long listing. **Escape**
+  cancels the rectangle and restores the starting selection. Touch scrolling
+  remains unchanged; use checkboxes on touch devices.
+
+Choose **Move**, or drag a filename or selected row onto a folder or breadcrumb.
+Dragging a selected item carries the selected group; dragging an unselected item
+carries just that item. Dropping opens **Move selected items** with the destination
+filled in: review it, then choose **Move** to proceed, or **Cancel** to leave files
+where they are. Moving to the current folder, into a selected folder, or into one
+of its descendants is not allowed. A conflicting destination name stops the move;
+existing items are never overwritten or silently merged.
+
+Moves run one item at a time. If a move fails, further items are not attempted,
+confirmed moves remain at their destination, and the error reports how many were
+confirmed. There is no rollback. If a result cannot be confirmed, check both
+folders before retrying. After refresh, remaining selected items stay selected;
+changing folders clears the selection. Once confirmed, a running move cannot be
+cancelled from the dialog.
+
+Dragging items already in the listing moves them; dragging files from your
+computer uploads them into the open folder. Dropping an OS file onto a folder row
+still uploads to the **open folder**, not that row. The **Move** and **Upload Files**
+buttons remain available without drag gestures. Expand **Selection shortcuts**
+above the listing for a reminder of the controls.
+
 ## Uploads
 
 The browser displays the configured upload limit. Its default is 1024 MiB per

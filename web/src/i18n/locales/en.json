@@ -1285,8 +1285,6 @@
     "newFolderName": "New folder name",
     "newName": "New name",
     "modified": "Modified",
-    "selectAll": "Select all items",
-    "selectEntry": "Select {{name}}",
     "selectedCount_one": "{{count}} selected",
     "selectedCount_other": "{{count}} selected",
     "archiveSelected": "Archive",
@@ -1298,6 +1296,11 @@
     "invalidMoveDestination": "Choose a valid destination outside the selected folders.",
     "chooseDifferentFolder": "Choose a different destination folder.",
     "destinationConflict": "An item with the same name already exists in the destination.",
+    "moveHelp": "Drag a filename or selected row to a folder or breadcrumb, then confirm Move. You can also use the Move button. Existing items will not be overwritten.",
+    "draggingItems_one": "Moving {{count}} item. Drop on a folder or breadcrumb to review the destination.",
+    "draggingItems_other": "Moving {{count}} items. Drop on a folder or breadcrumb to review the destination.",
+    "moveStopped": "{{confirmed}} of {{total}} moves confirmed. Stopped at {{name}}: {{message}} Items already moved have not been rolled back.",
+    "moveUnconfirmed": "{{confirmed}} of {{total}} moves confirmed. The move of {{name}} could not be confirmed: {{message}} No further moves were attempted. Check both folders before retrying; items already moved have not been rolled back.",
     "deleteSelected": "Delete selected items",
     "permissions": "Permissions",
     "octalPermissions": "Permissions (octal)",
@@ -1646,7 +1649,13 @@
     "success": "Success"
   },
   "table": {
-    "records": "records"
+    "records": "records",
+    "selectAll": "Select all items",
+    "selectEntry": "Select {{name}}",
+    "clearSelection": "Clear selection",
+    "selectionShortcuts": "Selection shortcuts",
+    "selectionHelp": "Select with checkboxes or row space. Shift selects a range; Ctrl/Cmd adds items. Focus a row to use arrow keys, type a name, select all with Ctrl/Cmd+A, or clear with Escape.",
+    "marqueeHelp": "Drag across unselected row space to select a group. Hold Ctrl/Cmd or Shift to add to the selection. Escape cancels the rectangle and restores the starting selection."
   },
   "tokens": {
     "unexpectedAPITokenResponse": "Unexpected API token response."

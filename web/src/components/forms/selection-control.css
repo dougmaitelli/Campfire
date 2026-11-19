@@ -33,6 +33,17 @@
     opacity: 1;
   }
 
+  &[type="checkbox"]:indeterminate {
+    border-color: var(--selection-color);
+    background: var(--selection-color);
+
+    &::before {
+      height: 2px;
+      clip-path: none;
+      opacity: 1;
+    }
+  }
+
   &:hover:not(:disabled) {
     border-color: var(--selection-color);
   }

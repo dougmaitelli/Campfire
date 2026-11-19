@@ -291,7 +291,15 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, volume string, 
 			return result, Failure(model.FileConflict, "Destination already exists.")
 		}
 
-		if err := root.Rename(q.Path, q.Destination); err != nil {
+		if q.Destination == q.Path || strings.HasPrefix(q.Destination, q.Path+"/") {
+			return result, Failure(model.FileInvalid, "Choose a destination outside the source folder.")
+		}
+
+		if err := RenameNoReplace(root, q.Path, q.Destination); err != nil {
+			if errors.Is(err, os.ErrExist) {
+				return result, Failure(model.FileConflict, "Destination already exists.")
+			}
+
 			return result, Failure(model.FileIO, "Could not rename file or directory.")
 		}
 

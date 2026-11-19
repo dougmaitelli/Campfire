@@ -13,7 +13,6 @@ import { ActionGroup } from "../layout/ActionGroup";
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import { FormField } from "../forms/FormField";
 import { Button } from "../forms/Button";
-import { CheckboxField } from "../forms/CheckboxField";
 import { InlineMessage } from "../status/InlineMessage";
 import { compressArchive } from "../files/compressArchive";
 import { IndeterminateProgress } from "../status/IndeterminateProgress";
@@ -36,6 +35,12 @@ import { InputDialog } from "../layout/InputDialog";
 import { ConfirmDialog } from "../layout/ConfirmDialog";
 import { NavigationIcon } from "../navigation/NavigationIcon";
 import { Table, TableRow } from "../table/Table";
+import { useTableSelection } from "../table/useTableSelection";
+import { TableSelectionCheckbox } from "../table/TableSelectionCheckbox";
+import { TableSelectionHelp } from "../table/TableSelectionHelp";
+import { MarqueeSelection } from "../table/MarqueeSelection";
+import { useTableDragDrop } from "../table/useTableDragDrop";
+import { canMoveItems, moveFiles } from "../files/moveFiles";
 import { formatBytes } from "../../utils/formatBytes";
 import { EMPTY_VALUE } from "../../utils/formatDisplayValue";
 import "./files.css";
@@ -130,14 +135,16 @@ export function ServerFileBrowser({
     FileEntry[] | null
   >(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [moveDestination, setMoveDestination] = useState<string | null>(null);
   const [bulkAction, setBulkAction] = useState<"compress" | "move" | null>(
     null,
   );
   const selectable = entries.filter(
     (entry) => entry.kind !== FileKind.Unsupported,
   );
+  const selectedNames = new Set(selected);
   const selectedEntries = selectable.filter((entry) =>
-    selected.includes(entry.name),
+    selectedNames.has(entry.name),
   );
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const pending = useRef(true);
@@ -164,6 +171,41 @@ export function ServerFileBrowser({
     !deleting &&
     !permissionsEntries &&
     !bulkAction;
+  const selection = useTableSelection({
+    ids: selectable.map((entry) => entry.name),
+    selectedIDs: selected,
+    onSelectionChange: setSelected,
+    scope: `${server.id}:${directory}`,
+    disabled:
+      !hasWritePermission ||
+      busy ||
+      loading ||
+      editor !== null ||
+      creating !== null ||
+      fileAction !== null ||
+      deleting !== null ||
+      permissionsEntries !== null ||
+      bulkAction !== null,
+    onActivate: (name) => {
+      const entry = entries.find((item) => item.name === name);
+      if (entry && canOpenFile(entry)) void perform(() => open(entry));
+    },
+  });
+  const drag = useTableDragDrop({
+    scope: `${server.id}:${directory}`,
+    disabled: selection.disabled || !canWrite,
+    getItems: (name) =>
+      selection.isSelected(name) ? selection.selectedIDs : [name],
+    onDragItems: setSelected,
+    canDrop: (names, destination) =>
+      names.every((name) => selectable.some((entry) => entry.name === name)) &&
+      canMoveItems(directory, names, destination),
+    onDrop: (names, destination) => {
+      setSelected([...names]);
+      setMoveDestination(destination);
+      setBulkAction("move");
+    },
+  });
   useNavigationGuard(
     true,
     busy,
@@ -528,27 +570,16 @@ export function ServerFileBrowser({
         });
         if (!published) return;
       } else {
-        const target = await manageFiles(server.id, {
-          operation: FileOperation.List,
-          path: value,
+        await moveFiles({
+          serverID: server.id,
+          directory,
+          names: selectedEntries.map((entry) => entry.name),
+          destination: value,
+          onMoved: (name) => {
+            if (alive.current)
+              setSelected((current) => current.filter((item) => item !== name));
+          },
         });
-        const destination = target.path;
-        if (destination === directory)
-          throw new Error(t("serverFileBrowser.chooseDifferentFolder"));
-        if (target.entries?.some((entry) => selected.includes(entry.name)))
-          throw new Error(t("serverFileBrowser.destinationConflict"));
-        for (const entry of selectedEntries) {
-          const source = join(directory, entry.name);
-          if (destination.startsWith(`${source}/`))
-            throw new Error(t("serverFileBrowser.invalidMoveDestination"));
-        }
-        for (const entry of selectedEntries) {
-          await manageFiles(server.id, {
-            operation: FileOperation.Rename,
-            path: join(directory, entry.name),
-            destination: join(destination, entry.name),
-          });
-        }
       }
       completed = true;
     } finally {
@@ -723,9 +754,14 @@ export function ServerFileBrowser({
                 : "serverFileBrowser.move",
             )}
             initialValue={
-              bulkAction === "compress" ? "archive.tar.gz" : directory
+              bulkAction === "compress"
+                ? "archive.tar.gz"
+                : (moveDestination ?? directory)
             }
-            onClose={() => setBulkAction(null)}
+            onClose={() => {
+              setBulkAction(null);
+              setMoveDestination(null);
+            }}
             onSubmit={bulkSubmit}
             busyContent={
               bulkAction === "compress" &&
@@ -932,6 +968,7 @@ export function ServerFileBrowser({
               aria-label={t("serverFileBrowser.fileDirectory")}
             >
               <button
+                {...drag.targetProps("/")}
                 className="file-breadcrumb"
                 aria-label={t("serverFileBrowser.root")}
                 title={t("serverFileBrowser.root")}
@@ -955,6 +992,9 @@ export function ServerFileBrowser({
                     >
                       <span aria-hidden="true">/</span>
                       <button
+                        {...drag.targetProps(
+                          `/${parts.slice(0, index + 1).join("/")}/`,
+                        )}
                         className="file-breadcrumb"
                         disabled={busy}
                         aria-current={
@@ -971,183 +1011,188 @@ export function ServerFileBrowser({
                     </span>
                   ))}
             </nav>
-            <Table
-              className="file-list table-compact"
-              empty={loading || entries.length === 0}
-              loading={loading}
-              error={loadError?.message}
-              onRetry={retryListing}
-              resource={t("serverFileBrowser.files2")}
-              emptyMessage={t("serverFileBrowser.thisFolderIsEmpty")}
-            >
-              <thead>
-                <tr>
-                  {hasWritePermission && (
-                    <th className="table-fit">
-                      <CheckboxField
-                        checked={
-                          selectable.length > 0 &&
-                          selectedEntries.length === selectable.length
-                        }
-                        disabled={busy || loading || !selectable.length}
-                        onChange={(event) =>
-                          setSelected(
-                            event.target.checked
-                              ? selectable.map((entry) => entry.name)
-                              : [],
-                          )
-                        }
-                      >
-                        <span className="visually-hidden">
-                          {t("serverFileBrowser.selectAll")}
-                        </span>
-                      </CheckboxField>
-                    </th>
-                  )}
-                  <th className="file-icon-cell" />
-                  <th className="file-name-column">{t("common.name")}</th>
-                  <th className="table-fit table-mobile-hidden">
-                    {t("serverFileBrowser.fileType")}
-                  </th>
-                  <th className="table-fit">{t("common.size")}</th>
-                  <th className="table-fit table-date">
-                    {t("serverFileBrowser.modified")}
-                  </th>
-                  <th
-                    className="table-actions"
-                    aria-label={t("common.actions")}
-                  />
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <TableRow
-                    key={entry.name}
-                    className={
-                      selected.includes(entry.name)
-                        ? "file-selected"
-                        : undefined
-                    }
-                    onOpen={
-                      busy || !canOpenFile(entry)
-                        ? undefined
-                        : () => {
-                            void perform(() => open(entry));
-                          }
-                    }
-                  >
+            {hasWritePermission && (
+              <TableSelectionHelp marquee>
+                <p>{t("serverFileBrowser.moveHelp")}</p>
+              </TableSelectionHelp>
+            )}
+            {drag.draggedIDs.length > 0 && (
+              <p role="status" className="file-drag-status">
+                {t("serverFileBrowser.draggingItems", {
+                  count: drag.draggedIDs.length,
+                })}
+              </p>
+            )}
+            <MarqueeSelection selection={selection}>
+              <Table
+                className="file-list table-compact"
+                aria-label={t("serverFileBrowser.files")}
+                empty={loading || entries.length === 0}
+                loading={loading}
+                error={loadError?.message}
+                onRetry={retryListing}
+                resource={t("serverFileBrowser.files2")}
+                emptyMessage={t("serverFileBrowser.thisFolderIsEmpty")}
+              >
+                <thead>
+                  <tr>
                     {hasWritePermission && (
-                      <td className="table-fit">
-                        <CheckboxField
-                          checked={selected.includes(entry.name)}
-                          disabled={busy || entry.kind === FileKind.Unsupported}
-                          onChange={(event) =>
-                            setSelected((current) =>
-                              event.target.checked
-                                ? [...current, entry.name]
-                                : current.filter((name) => name !== entry.name),
-                            )
-                          }
-                        >
-                          <span className="visually-hidden">
-                            {t("serverFileBrowser.selectEntry", {
-                              name: entry.name,
-                            })}
-                          </span>
-                        </CheckboxField>
-                      </td>
+                      <th className="table-fit">
+                        <TableSelectionCheckbox selection={selection} />
+                      </th>
                     )}
-                    <td className="file-icon-cell">
-                      <span
-                        className={`file-entry-icon${entry.kind === FileKind.Directory ? " file-entry-folder" : ""}`}
-                      >
-                        <NavigationIcon
-                          name={
-                            entry.kind === FileKind.Directory
-                              ? "folder"
-                              : entry.kind === FileKind.File
-                                ? "file"
-                                : "link"
-                          }
-                        />
-                      </span>
-                    </td>
-                    <td className="file-name-column">
-                      <button
-                        className="file-name"
-                        disabled={busy || !canOpenFile(entry)}
-                        onClick={() => {
-                          void perform(() => open(entry));
-                        }}
-                      >
-                        <span className="file-entry-name">{entry.name}</span>
-                        {entry.kind === FileKind.Unsupported && (
-                          <span className="file-entry-meta">
-                            {t("serverFileBrowser.symbolicLinkOrSpecialFile")}
-                          </span>
-                        )}
-                      </button>
-                    </td>
-                    <td className="table-fit file-entry-meta table-mobile-hidden">
-                      {entry.kind === FileKind.Directory
-                        ? t("serverFileBrowser.folderType")
-                        : entry.kind === FileKind.Unsupported
-                          ? t("serverFileBrowser.specialType")
-                          : fileExtension(entry.name).toUpperCase() ||
-                            t("serverFileBrowser.fileTypeFallback")}
-                    </td>
-                    <td className="table-fit file-entry-meta">
-                      {entry.kind === FileKind.File
-                        ? formatBytes(entry.size)
-                        : EMPTY_VALUE}
-                    </td>
-                    <td className="table-fit file-entry-meta table-date">
-                      <time dateTime={entry.modified_at}>
-                        {new Date(entry.modified_at).toLocaleString()}
-                      </time>
-                    </td>
-                    <td className="table-actions">
-                      <ActionGroup>
-                        {hasWritePermission &&
-                          entry.kind === FileKind.File &&
-                          /\.(zip|tar\.gz|tgz|rar)$/i.test(entry.name) && (
+                    <th className="file-icon-cell" />
+                    <th className="file-name-column">{t("common.name")}</th>
+                    <th className="table-fit table-mobile-hidden">
+                      {t("serverFileBrowser.fileType")}
+                    </th>
+                    <th className="table-fit">{t("common.size")}</th>
+                    <th className="table-fit table-date">
+                      {t("serverFileBrowser.modified")}
+                    </th>
+                    <th
+                      className="table-actions"
+                      aria-label={t("common.actions")}
+                    />
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry) => (
+                    <TableRow
+                      key={entry.name}
+                      {...(hasWritePermission
+                        ? selection.rowProps(entry.name)
+                        : {})}
+                      {...drag.sourceProps(
+                        entry.name,
+                        selection.isSelected(entry.name) &&
+                          entry.kind !== FileKind.Unsupported,
+                      )}
+                      {...(entry.kind === FileKind.Directory
+                        ? drag.targetProps(`${directory}${entry.name}/`)
+                        : {})}
+                      onOpen={
+                        busy || !canOpenFile(entry)
+                          ? undefined
+                          : () => {
+                              void perform(() => open(entry));
+                            }
+                      }
+                    >
+                      {hasWritePermission && (
+                        <td className="table-fit">
+                          <TableSelectionCheckbox
+                            selection={selection}
+                            id={entry.name}
+                          />
+                        </td>
+                      )}
+                      <td className="file-icon-cell">
+                        <span
+                          className={`file-entry-icon${entry.kind === FileKind.Directory ? " file-entry-folder" : ""}`}
+                        >
+                          <NavigationIcon
+                            name={
+                              entry.kind === FileKind.Directory
+                                ? "folder"
+                                : entry.kind === FileKind.File
+                                  ? "file"
+                                  : "link"
+                            }
+                          />
+                        </span>
+                      </td>
+                      <td className="file-name-column">
+                        <button
+                          {...drag.sourceProps(
+                            entry.name,
+                            entry.kind !== FileKind.Unsupported,
+                          )}
+                          className="file-name"
+                          disabled={busy || !canOpenFile(entry)}
+                          {...(hasWritePermission
+                            ? selection.activationProps(entry.name)
+                            : {
+                                onClick: () => {
+                                  void perform(() => open(entry));
+                                },
+                              })}
+                        >
+                          <span className="file-entry-name">{entry.name}</span>
+                          {entry.kind === FileKind.Unsupported && (
+                            <span className="file-entry-meta">
+                              {t("serverFileBrowser.symbolicLinkOrSpecialFile")}
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                      <td className="table-fit file-entry-meta table-mobile-hidden">
+                        {entry.kind === FileKind.Directory
+                          ? t("serverFileBrowser.folderType")
+                          : entry.kind === FileKind.Unsupported
+                            ? t("serverFileBrowser.specialType")
+                            : fileExtension(entry.name).toUpperCase() ||
+                              t("serverFileBrowser.fileTypeFallback")}
+                      </td>
+                      <td className="table-fit file-entry-meta">
+                        {entry.kind === FileKind.File
+                          ? formatBytes(entry.size)
+                          : EMPTY_VALUE}
+                      </td>
+                      <td className="table-fit file-entry-meta table-date">
+                        <time dateTime={entry.modified_at}>
+                          {new Date(entry.modified_at).toLocaleString()}
+                        </time>
+                      </td>
+                      <td className="table-actions">
+                        <ActionGroup>
+                          {hasWritePermission &&
+                            entry.kind === FileKind.File &&
+                            /\.(zip|tar\.gz|tgz|rar)$/i.test(entry.name) && (
+                              <Button
+                                iconOnly
+                                size="small"
+                                title={i18n.t("serverFileBrowser.extract")}
+                                aria-label={i18n.t(
+                                  "serverFileBrowser.extract2",
+                                  {
+                                    entryName: entry.name,
+                                  },
+                                )}
+                                disabled={busy || !canWrite}
+                                onClick={() => {
+                                  setFileAction({ kind: "extract", entry });
+                                }}
+                              >
+                                <NavigationIcon name="extract" />
+                              </Button>
+                            )}
+                          {entry.kind === FileKind.File && (
                             <Button
                               iconOnly
                               size="small"
-                              title={i18n.t("serverFileBrowser.extract")}
-                              aria-label={i18n.t("serverFileBrowser.extract2", {
-                                entryName: entry.name,
-                              })}
-                              disabled={busy || !canWrite}
+                              title={i18n.t("serverFileBrowser.download")}
+                              disabled={busy || entry.size > fileTransferLimit}
                               onClick={() => {
-                                setFileAction({ kind: "extract", entry });
+                                void perform(() => download(entry));
                               }}
+                              aria-label={i18n.t(
+                                "serverFileBrowser.download2",
+                                {
+                                  entryName: entry.name,
+                                },
+                              )}
                             >
-                              <NavigationIcon name="extract" />
+                              <NavigationIcon name="download" />
                             </Button>
                           )}
-                        {entry.kind === FileKind.File && (
-                          <Button
-                            iconOnly
-                            size="small"
-                            title={i18n.t("serverFileBrowser.download")}
-                            disabled={busy || entry.size > fileTransferLimit}
-                            onClick={() => {
-                              void perform(() => download(entry));
-                            }}
-                            aria-label={i18n.t("serverFileBrowser.download2", {
-                              entryName: entry.name,
-                            })}
-                          >
-                            <NavigationIcon name="download" />
-                          </Button>
-                        )}
-                      </ActionGroup>
-                    </td>
-                  </TableRow>
-                ))}
-              </tbody>
-            </Table>
+                        </ActionGroup>
+                      </td>
+                    </TableRow>
+                  ))}
+                </tbody>
+              </Table>
+            </MarqueeSelection>
             {hasWritePermission && (
               <div
                 className="file-selection-bar"
@@ -1170,6 +1215,17 @@ export function ServerFileBrowser({
                   </span>
                 </span>
                 <ActionGroup className="file-bulk-actions">
+                  <Button
+                    aria-label={t("table.clearSelection")}
+                    title={t("table.clearSelection")}
+                    disabled={selection.disabled || !selectedEntries.length}
+                    onClick={selection.clear}
+                  >
+                    <NavigationIcon name="close" />
+                    <span className="file-action-label">
+                      {t("table.clearSelection")}
+                    </span>
+                  </Button>
                   <Button
                     aria-label={fileActionLabels.rename}
                     title={fileActionLabels.rename}
@@ -1199,7 +1255,10 @@ export function ServerFileBrowser({
                     aria-label={fileActionLabels.move}
                     title={fileActionLabels.move}
                     disabled={busy || !canWrite || !selectedEntries.length}
-                    onClick={() => setBulkAction("move")}
+                    onClick={() => {
+                      setMoveDestination(directory);
+                      setBulkAction("move");
+                    }}
                   >
                     <NavigationIcon name="move" />
                     <span className="file-action-label">
