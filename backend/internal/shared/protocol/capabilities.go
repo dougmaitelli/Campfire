@@ -51,6 +51,7 @@ const (
 	CapabilityMetrics          = "server.metrics.v1"
 	CapabilityConsole          = "server.console.stream.v1"
 	CapabilityLogAlerts        = "server.log-alerts.v1"
+	CapabilityCrashRecords     = "server.crash-records.v1"
 	CapabilityDiskQuota        = "server.disk-quota.v1"
 	CapabilityJobs             = "server.jobs.v1"
 	CapabilityReinstall        = "server.reinstall.v1"
@@ -66,7 +67,7 @@ const (
 
 // SupportedCapabilities returns a fresh catalog of features implemented here.
 func SupportedCapabilities() []string {
-	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityArchiveProgress, CapabilityArchiveFormats, CapabilityExtractConflicts, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration, CapabilityGameStateLists}
+	return []string{CapabilityConfigure, CapabilityLifecycle, CapabilityFiles, CapabilityFileTransfer, CapabilityFileArchive, CapabilityArchiveProgress, CapabilityArchiveFormats, CapabilityExtractConflicts, CapabilityFilePermissions, CapabilityBackups, CapabilityBackupRemote, CapabilityMetrics, CapabilityConsole, CapabilityLogAlerts, CapabilityCrashRecords, CapabilityDiskQuota, CapabilityJobs, CapabilityReinstall, CapabilitySelfUpdate, CapabilitySelfReinstall, CapabilityPrune, CapabilityGameIntegration, CapabilityGameEvents, CapabilityGameMedia, CapabilityGameRegistration, CapabilityGameStateLists}
 }
 
 // ValidCapabilities bounds handshake input while allowing unknown future names.

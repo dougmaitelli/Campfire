@@ -48,6 +48,7 @@ exports[`domain members preserve serialized contract values 1`] = `
     "Backups": "server.backups.v4",
     "Configure": "server.configure.v2",
     "Console": "server.console.stream.v1",
+    "CrashRecords": "server.crash-records.v1",
     "DiskQuota": "server.disk-quota.v1",
     "FileArchive": "server.files.archive.v1",
     "FilePermissions": "server.files.permissions.v1",
@@ -82,6 +83,10 @@ exports[`domain members preserve serialized contract values 1`] = `
   },
   "ConnectionState": {
     "Connected": "connected",
+  },
+  "CrashReason": {
+    "OutOfMemory": "out_of_memory",
+    "Unknown": "unknown",
   },
   "DiskAccounting": {
     "Logical": "logical",

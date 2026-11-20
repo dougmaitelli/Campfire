@@ -346,6 +346,14 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 		}
 	}
 
+	if s.Crashes != nil {
+		if err := s.Crashes.Observe(ctx, node.ID, id, status.Crashes); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
+	status.Crashes = nil
+
 	if s.LogAlerts != nil {
 		if err := s.LogAlerts.Observe(ctx, node.ID, id, status.LogObservation); err != nil {
 			return model.RuntimeStatus{}, err

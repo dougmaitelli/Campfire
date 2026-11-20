@@ -351,6 +351,8 @@ func RunWithOptions(ctx context.Context, args []string, options StartupOptions) 
 	notifications.Config, notifications.Apprise = alerts, apprise
 
 	deployment.LogAlerts = &service.LogAlertService{Store: repository.NewLogAlertRepository(db.ORM()), Notifications: notifications}
+	deployment.Crashes = repository.NewCrashRepository(db.ORM())
+
 	if err := notifications.Start(ctx); err != nil {
 		return fmt.Errorf("start notifications: %w", err)
 	}

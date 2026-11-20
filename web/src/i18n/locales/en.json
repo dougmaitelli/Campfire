@@ -1,4 +1,16 @@
 {
+  "crashes": {
+    "exitedAt": "Exited",
+    "exitCode": "Exit code",
+    "container": "Container ID",
+    "reason": "Reason",
+    "outOfMemory": "Out of memory",
+    "retention": "Up to 100 crash records per server are retained for 30 days. Docker continues to control automatic restarts.",
+    "consoleTail": "Recent console output",
+    "consoleUnavailable": "Console evidence could not be captured. The container or its logs may no longer be available.",
+    "consoleEmpty": "No console output was captured.",
+    "consoleLimited": "Only the most recent 200 lines, up to 16 KiB, are retained."
+  },
   "pagination": {
     "label": "Pagination",
     "unexpectedResponse": "Unexpected paginated response.",
@@ -1562,6 +1574,7 @@
     "fileUploadsAndDownloads": "File uploads and downloads",
     "liveConsole": "Live console",
     "logAlerts": "Actionable console errors",
+    "crashRecords": "Crash records",
     "localBackups": "Local backups",
     "remoteBackupRestore": "Remote backup restore",
     "partialSupport": "Partial support",

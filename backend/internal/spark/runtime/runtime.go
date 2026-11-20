@@ -41,6 +41,8 @@ type Manager struct {
 	transferTasks        map[string]context.CancelFunc
 	logMu                sync.Mutex
 	logMonitors          map[string]*logMonitor
+	crashMu              sync.Mutex
+	crashes              *crashMonitor
 }
 
 type entry struct {
@@ -81,6 +83,11 @@ func (m *Manager) Close() {
 	m.closed = true
 	m.mu.Unlock()
 	m.cancel()
+
+	if observer := m.crashObserver(); observer != nil {
+		<-observer.done
+	}
+
 	m.fileOperations.Close()
 	m.logMu.Lock()
 	for _, monitor := range m.logMonitors {
@@ -163,7 +170,7 @@ func (m *Manager) persist(id string, e *entry) error {
 }
 
 // Execute starts a bounded asynchronous operation, or returns current Docker state.
-func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.RuntimeRequest) (model.RuntimeStatus, error) {
+func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.RuntimeRequest) (result model.RuntimeStatus, resultErr error) {
 	if !m.maintenance.TryRLock() {
 		return model.RuntimeStatus{}, errors.New("node cleanup is in progress; retry after it finishes")
 	}
@@ -182,6 +189,12 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	if !utils.IsValidResourceID(q.ServerID) || q.ServerID != d.ServerID {
 		return model.RuntimeStatus{}, errors.New("invalid server identity")
 	}
+
+	defer func() {
+		if resultErr == nil && q.Action == model.ServerActionStatus {
+			result.Crashes, result.CrashMonitorError = m.crashSnapshot(q.ServerID)
+		}
+	}()
 
 	if q.Action == model.ServerActionReinstall && q.Content != "" && q.Content != "keep" && q.Content != "clean" {
 		return model.RuntimeStatus{}, errors.New("invalid reinstall mode")
@@ -635,6 +648,9 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 			return err
 		}
 
+		finish := m.expectCrashStop(ctx, d.ServerID)
+		defer finish()
+
 		_, err = m.Docker.Run(ctx, nil, "stop", "--signal", "SIGKILL", "--time", "0", container(d.ServerID))
 
 		return err
@@ -669,7 +685,7 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 		e.Revision = ""
 		e.mu.Unlock()
 
-		return nil
+		return m.forgetCrashes(d.ServerID)
 	}
 
 	return errors.New("unsupported runtime operation")
@@ -961,6 +977,9 @@ func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
 	if _, err := m.Docker.Run(ctx, nil, "update", "--restart", "no", container(d.ServerID)); err != nil {
 		return err
 	}
+
+	finish := m.expectCrashStop(ctx, d.ServerID)
+	defer finish()
 
 	args := []string{"stop", "--time", "30"}
 

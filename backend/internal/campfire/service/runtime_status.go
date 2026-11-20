@@ -15,10 +15,11 @@ const runtimeStatusLifetime = 15 * time.Second
 
 // RuntimeStatusService collects once per fleet, independently of browser count.
 type RuntimeStatusService struct {
-	deployment *DeploymentService
-	collectMu  sync.Mutex
-	cancel     context.CancelFunc
-	wg         sync.WaitGroup
+	deployment     *DeploymentService
+	collectMu      sync.Mutex
+	lastCrashPrune time.Time
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
 }
 
 // NewRuntimeStatusService constructs the shared lifecycle status collector.
@@ -66,6 +67,13 @@ func (s *RuntimeStatusService) Collect(ctx context.Context) error {
 	defer s.collectMu.Unlock()
 
 	d := s.deployment
+	if d.Crashes != nil && time.Since(s.lastCrashPrune) >= time.Hour {
+		if err := d.Crashes.Prune(ctx); err != nil {
+			return err
+		}
+
+		s.lastCrashPrune = time.Now()
+	}
 
 	targets, err := d.History.Store.Targets(ctx, 0, true)
 	if err != nil {
@@ -147,7 +155,7 @@ func (s *RuntimeStatusService) Collect(ctx context.Context) error {
 
 func (s *DeploymentService) cacheStatus(sparkID string, status model.RuntimeStatus) {
 	// Server viewing does not grant console access, and metrics have their own API.
-	status.Logs, status.Metrics, status.LogObservation = "", nil, nil
+	status.Logs, status.Metrics, status.LogObservation, status.Crashes = "", nil, nil, nil
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

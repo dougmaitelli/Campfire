@@ -41,6 +41,7 @@ type ServerActivityDetails struct {
 	ServerActivityEntry
 	GameEvent       *database.GameEvent       `json:"game_event,omitempty"`
 	Alert           *model.DetectedLogAlert   `json:"alert,omitempty"`
+	Crash           *model.CrashRecord        `json:"crash,omitempty"`
 	MonitoringAlert *database.MonitoringAlert `json:"monitoring_alert,omitempty"`
 	Operation       *database.ScheduleRun     `json:"operation,omitempty"`
 	Job             *JobHistory               `json:"-"`
@@ -108,6 +109,17 @@ func (r *ServerActivityRepository) Details(ctx context.Context, serverID, key st
 	kind, id, _ := strings.Cut(key, ":")
 
 	switch kind {
+	case "crash":
+		var crash database.ServerCrash
+		if err := db.Where("server_id = ? AND id = ?", serverID, id).Take(&crash).Error; err != nil {
+			return details, err
+		}
+
+		if !access.Console {
+			crash.Record.Console = ""
+		}
+
+		details.Crash = &crash.Record
 	case "monitoring_alert":
 		var alert database.MonitoringAlert
 		if err := db.Where("target_type = ? AND target_id = ? AND id = ?", model.NotificationServer, serverID, id).Take(&alert).Error; err != nil {
@@ -226,6 +238,7 @@ func (r *ServerActivityRepository) rootsByKeys(ctx context.Context, serverID str
 		{queries.operations, ids["operation"]},
 		{queries.jobs, ids["job"]},
 		{queries.monitoringAlerts, ids["monitoring_alert"]},
+		{queries.crashes, ids["crash"]},
 	} {
 		if len(source.ids) > 0 {
 			result = append(result, source.query.Where("id IN ?", source.ids))

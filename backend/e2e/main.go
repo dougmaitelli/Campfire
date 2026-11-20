@@ -233,7 +233,7 @@ func main() {
 		servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 		sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), remote)
 		sparks.Updates = service.NewSparkUpdateService(sparks, nil)
-		deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: remote}
+		deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: remote, Crashes: repository.NewCrashRepository(db.ORM())}
 		publisher := repository.NewEventPublisher(db.ORM(), false)
 		deployment.Games = &service.GameIntegrationService{Servers: servers, Events: service.NewGameEventService(repository.NewGameEventRepository(db.ORM(), publisher))}
 		deployment.Games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM(), publisher))
@@ -283,6 +283,10 @@ func main() {
 		defer mu.RUnlock()
 		if req.URL.Path == "/mock/discord" || strings.HasPrefix(req.URL.Path, "/mock/discord/") {
 			discordViewer.ServeHTTP(w, req)
+			return
+		}
+		if req.URL.Path == "/__test/crash" {
+			crashFixture(db, w, req)
 			return
 		}
 		if strings.HasPrefix(req.URL.Path, "/__test/integrations/") {

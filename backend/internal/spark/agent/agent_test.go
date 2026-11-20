@@ -237,8 +237,8 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	info := hub.Info(node.ID)
-	// The wire adapter does not implement the Docker log monitor.
-	if info.Protocol != protocol.ProtocolVersion || len(info.Capabilities) != len(protocol.SupportedCapabilities())-1 {
+	// The wire adapter does not implement Docker log or crash monitoring.
+	if info.Protocol != protocol.ProtocolVersion || len(info.Capabilities) != len(protocol.SupportedCapabilities())-2 {
 		t.Fatal("wire handshake did not negotiate capabilities", info)
 	}
 

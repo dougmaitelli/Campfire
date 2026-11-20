@@ -1,4 +1,5 @@
 import i18n from "../i18n";
+import { isCrashRecord, type CrashRecord } from "./crashes";
 import { isPage as isNumberedPage, pageQuery, type Page } from "./pagination";
 import { isRecord, isEnumValue } from "../utils/validation";
 import {
@@ -94,6 +95,7 @@ export interface ActivityNotification {
   external_url?: string;
 }
 export interface ActivityDetails extends ActivityEntry {
+  crash?: CrashRecord;
   game_event?: GameEvent;
   alert?: DetectedLogAlert;
   monitoring_alert?: {
@@ -294,6 +296,10 @@ function isDetails(value: unknown, serverID: string): value is ActivityDetails {
     (value.game_event === undefined ||
       isGameEvent(value.game_event, serverID)) &&
     (value.alert === undefined || isDetectedLogAlert(value.alert)) &&
+    (value.crash === undefined ||
+      (isCrashRecord(value.crash) &&
+        value.kind === ActivityEntryKind.Alert &&
+        value.key === `crash:${value.crash.id}`)) &&
     (value.monitoring_alert === undefined ||
       (isRecord(value.monitoring_alert) &&
         strings(value.monitoring_alert, [

@@ -162,6 +162,10 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
+	if err := seedCrashFixtures(ctx, db); err != nil {
+		return nil, err
+	}
+
 	if err := seedConfigurationScenarios(ctx, db); err != nil {
 		return nil, err
 	}

@@ -144,6 +144,20 @@ Add coverage to the suite that matches the behavior being changed. See the
 [browser testing guide](https://github.com/dougmaitelli/Campfire/blob/master/e2e/README.md)
 for running targeted browser tests and maintaining screenshot baselines.
 
+### Live Docker crash diagnostics
+
+The opt-in runtime test verifies nonzero exits, Docker automatic restarts, console
+capture, a real OOM kill, and a survived child OOM followed by a clean stop. It requires a local Docker daemon and an already
+available Node image; it does not pull images. It creates temporary containers
+with no host mounts or network, a 64–128 MiB memory limit, and a process limit, and
+removes them afterward.
+
+```sh
+cd backend
+CAMPFIRE_TEST_CRASH_IMAGE=node:26-bookworm-slim go test -race ./internal/spark/runtime \
+  -run TestLiveDockerCrashEvidenceAcrossAutomaticRestarts -count=1
+```
+
 ## Build
 
 Run `make build` to produce `bin/campfire` and `bin/spark`, including the embedded

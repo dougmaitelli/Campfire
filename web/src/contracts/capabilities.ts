@@ -15,6 +15,7 @@ export enum Capability {
   Metrics = "server.metrics.v1",
   Console = "server.console.stream.v1",
   LogAlerts = "server.log-alerts.v1",
+  CrashRecords = "server.crash-records.v1",
   DiskQuota = "server.disk-quota.v1",
   Jobs = "server.jobs.v1",
   Reinstall = "server.reinstall.v1",

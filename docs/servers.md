@@ -55,6 +55,35 @@ same rule again; issues from earlier executions are archived.
 See [Ember alert rules](/Campfire/ember-schema/#actionable-console-errors) to customize
 detection.
 
+## Inspect crash records
+
+Open **Activity → Alerts** and select a crash to inspect its container ID, exit
+time, exit code, and reason. The reason is **Out of memory** only when supported
+by a recent OOM event followed by a fatal exit; otherwise it is **Unknown**.
+An OOM incident affecting a child process does not by itself mean the server
+crashed. Successful exits and intentional stops are excluded even after an OOM
+incident. Exit code **137 alone does not confirm an out-of-memory kill**. Activity ordering and retention use the
+exit time; separate start and recording timestamps are not retained.
+
+Crash records cover abnormal game-container exits, including exits followed by
+Docker's automatic restart. Successful exits, installer containers, and observed
+intentional stops are excluded. Managed stop intent has a short expiry so a failed
+stop cannot suppress later crashes indefinitely. These are diagnostic records,
+not a new automatic-recovery policy: Docker's existing restart behavior is unchanged.
+
+Viewing a server allows reading crash metadata. The captured console tail requires
+`server.console.read`; console text is neither included in Activity summaries nor
+searched. Evidence is limited to the last 200 lines and 16 KiB and may contain
+sensitive game output. Logs may already be unavailable when a crash is observed.
+
+The panel retains at most **100 records per server for 30 days**. Spark keeps at
+most **8 records per server** for reconnect replay, outside game data and backups.
+Expired evidence is removed by background cleanup, and deleted-server runtime
+evidence is removed during deletion. Docker's own event history is bounded, so
+outages or rapid repeated crashes can leave gaps; this is not a complete crash
+archive. Crash records currently appear in Activity, without additional inbox or
+external notifications.
+
 ## Edit a server
 
 Open **More server actions** on the server page and choose **Edit server**.

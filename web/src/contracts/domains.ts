@@ -316,6 +316,11 @@ export enum JobStatus {
   Completed = "completed",
   Cancelled = "cancelled",
 }
+export enum CrashReason {
+  Unknown = "unknown",
+  OutOfMemory = "out_of_memory",
+}
+
 export enum JobStep {
   Preparing = "preparing",
   Exporting = "exporting",

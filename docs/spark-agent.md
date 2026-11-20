@@ -76,6 +76,23 @@ usage totals combine its game servers, not the entire host; totals using differe
 accounting methods are labeled as mixed. Disk usage is current-only: retained
 resource history and graphs intentionally cover CPU and memory, not disk.
 
+## Crash diagnostics
+
+Sparks advertising `server.crash-records.v1` observe Docker events independently
+of panel connections and open browser sessions. Crash evidence is stored beside
+private runtime state, not in game data or portable backups. The bounded replay
+survives Spark restarts and is ingested into the panel's retained Activity history.
+Older Sparks do not produce these records; existing retained records remain readable.
+
+Docker's event history is bounded, so reconnect replay cannot guarantee recovery
+of every exit during an outage. Monitoring or storage failures are reported on
+the server page. Console capture failures preserve exit metadata and explicitly
+mark the evidence unavailable. Spark does not introduce a restart loop or change
+Docker's restart policy for this feature.
+
+See [crash records](/Campfire/servers/#inspect-crash-records) for permissions,
+retention limits, and OOM interpretation.
+
 ## Maintenance
 
 | Action           | When to use it                                                      |
