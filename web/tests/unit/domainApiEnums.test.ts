@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { isEmber } from "../../src/api/embers";
+import { listAudit } from "../../src/api/activity";
 import {
   activityFilterFromQuery,
   readActivity,
@@ -8,6 +9,30 @@ import { completeEmber } from "../fixtures/ember";
 import { pageFixture } from "../pageFixture";
 
 afterEach(() => vi.restoreAllMocks());
+
+test.each(["succeeded", "failed", "interrupted", "success", "failure"])(
+  "SFTP audit records use canonical outcomes: %s",
+  async (outcome) => {
+    const body = pageFixture([
+      {
+        id: "sftp-audit",
+        user_id: null,
+        username: "operator",
+        api_token_id: 1,
+        action: "server.files.sftp.download",
+        target: "server:game",
+        outcome,
+        status: 200,
+        created_at: 1,
+      },
+    ]);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(body));
+    const response = listAudit(new AbortController().signal);
+    if (["success", "failure"].includes(outcome))
+      await expect(response).rejects.toThrow();
+    else await expect(response).resolves.toEqual(body);
+  },
+);
 
 // Boundary fixtures deliberately use raw JSON strings, not enum members.
 test.each(["game", "operation", "job", "alert", "notification"])(

@@ -83,6 +83,11 @@ type accessFixture struct {
 
 func newAccessFixture(t *testing.T) *accessFixture {
 	t.Helper()
+	return newAccessFixtureWithAudit(t, false)
+}
+
+func newAccessFixtureWithAudit(t *testing.T, audit bool) *accessFixture {
+	t.Helper()
 
 	db, err := database.Open(context.Background(), filepath.Join(t.TempDir(), "panel.db"))
 	if err != nil {
@@ -104,7 +109,12 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	history := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 	deployment.History = history
 	deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
+
 	panel := api.New(sparks, embers, servers).WithBackupImports(service.NewBackupImports(t.TempDir(), service.BackupStagingCopies*model.DefaultUploadLimit)).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithDeployment(deployment)
+	if audit {
+		panel.WithActivity(service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, service.NewAuthService(repository.NewAuthRepository(db.ORM()))))
+	}
+
 	admin := authenticatedTestAPI(t, db, panel)
 
 	return &accessFixture{t, db, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games, service.NewRuntimeStatusService(deployment)}
@@ -464,7 +474,7 @@ func TestPlatformRoleBoundariesAndLiveServerRoleChanges(t *testing.T) {
 }
 
 func TestBackupDownloadStopsAfterServerAccessRevocation(t *testing.T) {
-	f := newAccessFixture(t)
+	f := newAccessFixtureWithAudit(t, true)
 	user, handler := f.user("downloader", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
 	response := request(f.admin, "POST", "/api/v1/servers", configJSON(t, input))
@@ -490,4 +500,6 @@ func TestBackupDownloadStopsAfterServerAccessRevocation(t *testing.T) {
 	if response.Header().Get("Content-Length") != "2" || response.Body.Len() != 1 {
 		t.Fatal("download continued after access was revoked", response.Body.Len())
 	}
+
+	assertAuditOutcome(t, f, "server.backup.download", model.AuditInterrupted, "server:"+server.ID)
 }

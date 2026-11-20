@@ -289,7 +289,8 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal("invalid login unexpectedly succeeded", response.Code)
 	}
 
-	response = request(admin, "GET", "/api/v1/audit", "")
+	// Inspect the complete fixture, not a random subset of same-second rows.
+	response = request(admin, "GET", "/api/v1/audit?page_size=100", "")
 	if response.Code != http.StatusOK {
 		t.Fatal(response.Code, response.Body)
 	}
@@ -331,7 +332,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 
 	expectAccess(t, ownerHandler, "PUT", "/api/v1/servers/"+server.ID, configJSON(t, input), http.StatusOK)
 
-	response = request(admin, "GET", "/api/v1/audit?target=server:"+server.ID, "")
+	response = request(admin, "GET", "/api/v1/audit?page_size=100&target=server:"+server.ID, "")
 	if response.Code != http.StatusOK {
 		t.Fatal(response.Code, response.Body)
 	}

@@ -16,7 +16,7 @@ import (
 )
 
 func TestUploadedArchiveSurvivesWizardCancellationAndCreatesServer(t *testing.T) {
-	f := newAccessFixture(t)
+	f := newAccessFixtureWithAudit(t, true)
 	_, owner := f.user("archive-owner", database.CreatorRole)
 	outsiderUser, outsider := f.user("archive-outsider", database.UserRole)
 	_, ember, configuration := serverFixture(t, f.admin)
@@ -52,7 +52,15 @@ func TestUploadedArchiveSurvivesWizardCancellationAndCreatesServer(t *testing.T)
 		t.Fatal("wizard cancellation removed archive", downloaded.Code, downloaded.Body)
 	}
 
+	assertAuditOutcome(t, f, "server.backup.download", model.AuditSucceeded, "backup:"+inspected.BackupID)
+
+	var chunks int64
+	if err := f.db.ORM().Model(&database.AuditEvent{}).Where("action = ?", "backup.import.chunk").Count(&chunks).Error; err != nil || chunks != 0 {
+		t.Fatal("successful backup chunks were audited", chunks, err)
+	}
+
 	expectAccess(t, outsider, "GET", endpoint, "", http.StatusForbidden)
+	assertAuditOutcome(t, f, "server.backup.download", model.AuditFailed, "backup:"+inspected.BackupID)
 	expectAccess(t, outsider, "PATCH", endpoint, `{"pinned":true}`, http.StatusForbidden)
 	_, view := previewAs(t, f.admin, outsiderUser.ID)
 	expectAccess(t, view, "GET", endpoint, "", http.StatusForbidden)

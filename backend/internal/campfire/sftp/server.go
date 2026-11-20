@@ -27,10 +27,13 @@ import (
 
 // Server accepts only the SFTP subsystem, with one game root per connection.
 type Server struct {
-	Auth       *service.AuthService
-	Deployment *service.DeploymentService
-	Audit      *repository.ActivityRepository
-	HostKey    ssh.Signer
+	Auth             *service.AuthService
+	Deployment       *service.DeploymentService
+	Audit            *repository.ActivityRepository
+	HostKey          ssh.Signer
+	securityMu       sync.Mutex
+	securityLogged   time.Time
+	securityFailures uint64
 }
 
 // HostKey loads or exclusively creates a persistent Ed25519 SSH host identity.
@@ -140,7 +143,13 @@ func (s *Server) Serve(ctx context.Context, listener net.Listener) error {
 func (s *Server) connection(ctx context.Context, conn net.Conn) {
 	var token, serverID string
 
-	config := &ssh.ServerConfig{MaxAuthTries: 3, ServerVersion: "SSH-2.0-Campfire", PasswordCallback: func(metadata ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+	config := &ssh.ServerConfig{MaxAuthTries: 3, ServerVersion: "SSH-2.0-Campfire", PasswordCallback: func(metadata ssh.ConnMetadata, password []byte) (_ *ssh.Permissions, authErr error) {
+		defer func() {
+			if authErr != nil {
+				s.authenticationFailure()
+			}
+		}()
+
 		authCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 

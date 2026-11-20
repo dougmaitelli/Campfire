@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"io"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -44,7 +45,8 @@ func auditActor(r *http.Request, principal service.Principal) {
 
 type auditWriter struct {
 	http.ResponseWriter
-	status int
+	status     int
+	writeError error
 }
 
 func (w *auditWriter) WriteHeader(status int) {
@@ -58,13 +60,26 @@ func (w *auditWriter) Write(data []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 
-	return w.ResponseWriter.Write(data)
+	n, err := w.ResponseWriter.Write(data)
+	if err == nil && n != len(data) {
+		err = io.ErrShortWrite
+	}
+
+	if err != nil {
+		w.writeError = err
+	}
+
+	return n, err
 }
 func (w *auditWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
-func (a *API) auditRequests(next http.Handler) http.Handler {
+func (a *API) auditRequests(mux *http.ServeMux, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.activity == nil || (r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions) && r.URL.Path != "/api/v1/auth/oidc/callback" {
+		_, pattern := mux.Handler(r)
+		policy := auditPolicy(pattern)
+
+		policy.download = policy.download && r.Method == http.MethodGet
+		if a.activity == nil || (r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions) && !policy.download && pattern != "GET /api/v1/auth/oidc/callback" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -73,14 +88,14 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 		target := "api"
 
 		if len(parts) >= 3 {
-			for _, kind := range []string{"servers", "sparks", "embers", "users", "roles", "schedules", "auth", "executions", "tokens"} {
+			for _, kind := range []string{"servers", "sparks", "embers", "users", "roles", "schedules", "auth", "executions", "tokens", "backups"} {
 				if parts[2] == kind {
 					target = strings.TrimSuffix(kind, "s")
 				}
 			}
 		}
 
-		if len(parts) >= 4 && target != "auth" && len(parts[3]) <= 128 && strings.IndexFunc(parts[3], func(r rune) bool {
+		if len(parts) >= 4 && target != "auth" && target != "api" && len(parts[3]) <= 128 && strings.IndexFunc(parts[3], func(r rune) bool {
 			return !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-", r)
 		}) == -1 {
 			target += ":" + parts[3]
@@ -95,15 +110,19 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 			}
 		}
 
+		if policy.action != "" {
+			action = string(policy.action)
+		}
+
+		target = auditRouteTarget(r, pattern, target)
 		event := database.AuditEvent{ID: rand.Text(), Action: model.AuditAction(action), Target: target, Outcome: model.AuditPending, CreatedAt: a.now().Unix()}
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 3*time.Second)
-		err := a.activity.Store.BeginAudit(ctx, &event)
 
-		cancel()
-
-		if err != nil {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "audit storage unavailable; action was not performed"})
-			return
+		state := &auditRequest{event: &event, activity: a.activity, quiet: policy.quiet || policy.files}
+		if !state.quiet {
+			if err := state.begin(r); err != nil {
+				writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "audit storage unavailable; action was not performed"})
+				return
+			}
 		}
 
 		recorder := &auditWriter{ResponseWriter: w}
@@ -119,12 +138,25 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 				event.Outcome = model.AuditInterrupted
 				event.Status = http.StatusInternalServerError
 			} else if event.Outcome == model.AuditPending {
-				if event.Status >= 400 {
+				if recorder.writeError != nil || policy.download && event.Status < 400 && (!state.downloadComplete || r.Context().Err() != nil) {
+					event.Outcome = model.AuditInterrupted
+				} else if event.Status >= 400 {
 					event.Outcome = model.AuditFailed
 				} else if event.Status == http.StatusAccepted {
 					event.Outcome = model.AuditAccepted
 				} else {
 					event.Outcome = model.AuditSucceeded
+				}
+			}
+
+			if state.quiet && event.Outcome == model.AuditSucceeded {
+				return
+			}
+
+			if !state.started {
+				if err := state.begin(r); err != nil {
+					slog.Error("record failed audit request", "id", event.ID, "error", err)
+					return
 				}
 			}
 
@@ -136,7 +168,9 @@ func (a *API) auditRequests(next http.Handler) http.Handler {
 			}
 		}()
 
-		next.ServeHTTP(recorder, r.WithContext(context.WithValue(r.Context(), auditKey{}, &event)))
+		ctx := context.WithValue(r.Context(), auditKey{}, &event)
+		ctx = context.WithValue(ctx, auditRequestKey{}, state)
+		next.ServeHTTP(recorder, r.WithContext(ctx))
 
 		complete = true
 	})

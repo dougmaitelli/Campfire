@@ -187,7 +187,7 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, readSecret, err := auth.CreateAPIToken(ctx, owner, "file reader", 1, []model.PermissionID{accessperm.ServerView, accessperm.ServerFilesRead})
+	readToken, readSecret, err := auth.CreateAPIToken(ctx, owner, "file reader", 1, []model.PermissionID{accessperm.ServerView, accessperm.ServerFilesRead})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +225,10 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 
 	if err := reader.Chmod("/world", 0o600); err == nil {
 		t.Fatal("read-only SFTP changed permissions")
+	}
+
+	if err := reader.Mkdir("/blocked-directory"); err == nil {
+		t.Fatal("read-only SFTP created a directory")
 	}
 
 	if err := reader.Remove("/world"); err == nil {
@@ -266,8 +270,54 @@ func TestSFTPGatewayTransfersAndLiveTokenRevocation(t *testing.T) {
 
 	_ = file.Close()
 
+	partial, err := reader.Open("/world")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := partial.Close(); err != nil {
+		t.Fatal(err)
+	}
+
 	var audits int64
-	if err := db.ORM().Model(&database.AuditEvent{}).Where("api_token_id = ? AND action = 'server.files.sftp.upload.commit'", token.ID).Count(&audits).Error; err != nil || audits != 1 {
-		t.Fatal("missing token-attributed SFTP audit", audits, err)
+	if err := db.ORM().Model(&database.AuditEvent{}).Where("api_token_id = ? AND action = 'server.files.sftp.upload.commit' AND outcome = ?", token.ID, model.AuditSucceeded).Count(&audits).Error; err != nil || audits != 1 {
+		t.Fatal("missing canonical token-attributed SFTP audit", audits, err)
+	}
+
+	for _, check := range []struct {
+		action  string
+		outcome model.AuditOutcome
+		tokenID int64
+		count   int64
+	}{
+		{"server.files.sftp.download", model.AuditSucceeded, readToken.ID, 1},
+		{"server.files.sftp.download", model.AuditInterrupted, readToken.ID, 1},
+		{"server.files.sftp.download", model.AuditSucceeded, token.ID, 1},
+		{"server.files.sftp.download", model.AuditInterrupted, token.ID, 1},
+		// pkg/sftp Remove tries both REMOVE and RMDIR after a rejection.
+		{"server.files.sftp.delete", model.AuditFailed, readToken.ID, 2},
+		{"server.files.sftp.mkdir", model.AuditFailed, readToken.ID, 1},
+		{"server.files.sftp.upload.chunk", model.AuditSucceeded, token.ID, 0},
+		{"server.files.sftp.read.chunk", model.AuditSucceeded, readToken.ID, 0},
+	} {
+		var count int64
+		if err := db.ORM().Model(&database.AuditEvent{}).Where("action = ? AND outcome = ? AND api_token_id = ?", check.action, check.outcome, check.tokenID).Count(&count).Error; err != nil || count != check.count {
+			t.Fatalf("audit %+v: count %d, error %v", check, count, err)
+		}
+	}
+
+	var invalid int64
+	if err := db.ORM().Model(&database.AuditEvent{}).Where("outcome NOT IN ?", []model.AuditOutcome{model.AuditPending, model.AuditSucceeded, model.AuditFailed, model.AuditInterrupted}).Count(&invalid).Error; err != nil || invalid != 0 {
+		t.Fatal("noncanonical SFTP outcome", invalid, err)
+	}
+
+	if err := db.ORM().Migrator().DropTable(&database.AuditEvent{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if opened, err := reader.Open("/world"); err == nil {
+		_ = opened.Close()
+
+		t.Fatal("download opened without durable audit intent")
 	}
 }

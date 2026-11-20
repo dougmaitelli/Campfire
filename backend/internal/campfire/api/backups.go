@@ -226,12 +226,13 @@ func (a *API) streamBackup(w http.ResponseWriter, r *http.Request, archive bool)
 			return
 		}
 
-		if _, err := w.Write(result.Data); err != nil {
+		if n, err := w.Write(result.Data); err != nil || n != len(result.Data) {
 			return
 		}
 
 		request.Offset += int64(len(result.Data))
 		if request.Offset == size {
+			auditDownloadComplete(r)
 			return
 		}
 

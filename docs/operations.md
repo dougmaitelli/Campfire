@@ -54,6 +54,29 @@ Sparks under the existing lifecycle capability, not a separately negotiated
 feature. Older binaries may still delete backup directories; the capability
 handshake does not distinguish that older behavior.
 
+## Audit coverage
+
+The Audit page records administrative actions, permission changes, console-command
+submission (not command text), and browser backup/file downloads. SFTP records
+file mutations, denied file actions, and one transfer record per opened download.
+Downloads remain pending until they finish; partial, disconnected, or uncertain
+transfers are marked interrupted. A successful transfer means the server finished
+sending the data, not that the client saved it to disk.
+
+Successful upload chunks, archive-progress polls, file metadata probes,
+notification read acknowledgements, and local configuration previews are omitted.
+Failures and permission denials on those routes are still recorded. Standalone
+API file reads (including raw chunk reads outside a tracked download) remain
+audited so selecting a different read endpoint cannot bypass the audit trail. Remote Ember
+URL previews remain audited because they initiate an outbound request. Repeated
+SFTP authentication failures are aggregated into rate-limited security logs, without
+supplied credentials or usernames.
+
+Audited mutations and download starts fail closed if their audit intent cannot be
+stored. Routine successful polling and inbox acknowledgements do not depend on
+audit storage. Accepted requests and later operation/job results remain separate
+records where the operation has a tracked lifecycle.
+
 ## History retention when upgrading
 
 Audit and completed operation history are retained for **90 days** by default.

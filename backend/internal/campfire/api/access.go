@@ -264,6 +264,8 @@ func (a *API) shareServer(w http.ResponseWriter, r *http.Request) {
 		input.RoleID = database.OperatorRole
 	}
 
+	auditGrantTarget(r, "server", service.AccessGrantInput{Username: input.Username, AccessRoleID: input.RoleID})
+
 	if err := a.access.Share(r.Context(), currentUser(r), r.PathValue("id"), input.Username, input.RoleID); err != nil {
 		writeError(w, err)
 		return
@@ -298,6 +300,8 @@ func (a *API) transferServer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, repository.ErrAccessInput)
 		return
 	}
+
+	auditDetail(r, "", "server:"+r.PathValue("id")+" user:"+strconv.FormatInt(input.UserID, 10))
 
 	if err := a.access.TransferOwner(r.Context(), r.PathValue("id"), input.UserID); err != nil {
 		writeError(w, err)

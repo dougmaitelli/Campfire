@@ -162,5 +162,5 @@ func (a *API) Handler() http.Handler {
 	server("PATCH /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsCreate, a.updateBackup)
 	server("GET /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsDownload, a.downloadBackup)
 
-	return a.auditRequests(a.authenticate(mux))
+	return a.auditRequests(mux, a.authenticate(mux))
 }
