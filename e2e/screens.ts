@@ -52,6 +52,7 @@ export const screens = [
   ["roles", "Roles"],
   ["backups", "Backups"],
   ["audit", "Audit"],
+  ["statusPages", "Status pages"],
   ["notifications", "Notifications"],
 ] as const;
 

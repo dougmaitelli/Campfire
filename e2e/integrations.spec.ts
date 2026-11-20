@@ -1,4 +1,4 @@
-import { GameStateStatus, RuntimeState } from "../web/src/contracts/domains";
+import { RuntimeState } from "../web/src/contracts/domains";
 import { test, expect, screenshot } from "./fixtures";
 import { login } from "./screens";
 import {
@@ -61,8 +61,6 @@ test("alert settings discovers game-card fields and limits selection before savi
     if (!server) throw new Error("Missing server fixture");
     server.game = {
       updated_at: snapshot.collected_at,
-      fresh_for_seconds: 60,
-      status: GameStateStatus.Fresh,
       state: {
         players: 0,
         capacity: 20,
@@ -279,8 +277,6 @@ test("per-server Discord settings persist, enforce channel access, and keep card
     if (hasGameState) {
       server.game = {
         updated_at: snapshot.collected_at,
-        fresh_for_seconds: 60,
-        status: GameStateStatus.Fresh,
         state: {
           players: 3,
           capacity: 20,

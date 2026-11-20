@@ -164,11 +164,6 @@ exports[`domain members preserve serialized contract values 1`] = `
     "Saving": "saving",
     "Uploading": "uploading",
   },
-  "GameStateStatus": {
-    "Fresh": "fresh",
-    "Stale": "stale",
-    "Unavailable": "unavailable",
-  },
   "IntegrationCardState": {
     "Disabled": "disabled",
     "Failed": "failed",
@@ -278,6 +273,11 @@ exports[`domain members preserve serialized contract values 1`] = `
     "ServersManageAll": "servers.manage_all",
     "SparksManage": "sparks.manage",
     "UsersManage": "users.manage",
+  },
+  "PublicServerState": {
+    "Offline": "offline",
+    "Online": "online",
+    "Unknown": "unknown",
   },
   "ReinstallMode": {
     "Clean": "clean",

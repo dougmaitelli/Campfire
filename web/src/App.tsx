@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { ResourceInspectionProvider } from "./routing/ResourceInspection";
 import { routeRegistry } from "./routing/routeRegistry";
@@ -15,8 +15,29 @@ import {
 import { canPerformPlatform } from "./permissions";
 import { ConnectionStatusProvider } from "./components/status/ConnectionStatus";
 
+const PublicStatusPage = lazy(() =>
+  import("./pages/PublicStatusPage").then((m) => ({
+    default: m.PublicStatusPage,
+  })),
+);
+
 export function App() {
-  useTranslation();
+  const { t } = useTranslation();
+  const path = window.location.pathname;
+  if (path === "/status" || path.startsWith("/status/")) {
+    const match = /^\/status\/([a-z0-9][a-z0-9-]{1,62}[a-z0-9])\/?$/.exec(path);
+    return (
+      <Suspense
+        fallback={
+          <main className="public-status">
+            <p>{t("common.loading")}</p>
+          </main>
+        }
+      >
+        <PublicStatusPage key={path} slug={match?.[1] ?? null} />
+      </Suspense>
+    );
+  }
   return (
     <AuthenticationProvider>
       <AuthenticatedApp />

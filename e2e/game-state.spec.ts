@@ -1,4 +1,4 @@
-import { GameStateStatus, RuntimeState } from "../web/src/contracts/domains";
+import { RuntimeState } from "../web/src/contracts/domains";
 import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
 import type { MonitoringSnapshot } from "../web/src/api/monitoring";
@@ -19,8 +19,6 @@ test("game state shows optional fields and hides stale values", async ({
     if (mode === "stopped") server.usage.state = RuntimeState.Stopped;
     server.game = {
       updated_at: snapshot.collected_at - (mode === "expired" ? 60 : 0),
-      fresh_for_seconds: 60,
-      status: mode === "stale" ? GameStateStatus.Stale : GameStateStatus.Fresh,
       ...(mode === "stale"
         ? {}
         : {
@@ -148,8 +146,6 @@ test("field labels and raw keys retain their supplied casing", async ({
     const server = snapshot.servers.find((item) => item.id === "survival")!;
     server.game = {
       updated_at: snapshot.collected_at,
-      fresh_for_seconds: 60,
-      status: GameStateStatus.Fresh,
       state: {
         fields: {
           ...Object.fromEntries(labels.map((_, i) => [`label${i}`, "value"])),

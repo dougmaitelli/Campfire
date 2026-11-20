@@ -22,6 +22,7 @@ type accessRuntime struct {
 	calls     atomic.Int64
 	files     func(model.FileRequest) (model.FileResult, error)
 	metrics   func(model.RuntimeRequest) (model.RuntimeStatus, error)
+	status    func(model.RuntimeRequest) (model.RuntimeStatus, error)
 	console   func(context.Context, string, func(model.ConsoleEvent) error) error
 }
 
@@ -48,6 +49,10 @@ func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Dep
 }
 func (d *accessRuntime) Action(_ context.Context, _ string, action model.RuntimeRequest) (model.RuntimeStatus, error) {
 	d.calls.Add(1)
+
+	if action.Action == model.ServerActionStatus && d.status != nil {
+		return d.status(action)
+	}
 
 	if action.Action == "metrics" && d.metrics != nil {
 		return d.metrics(action)
@@ -110,7 +115,7 @@ func newAccessFixtureWithAudit(t *testing.T, audit bool) *accessFixture {
 	deployment.History = history
 	deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
 
-	panel := api.New(sparks, embers, servers).WithBackupImports(service.NewBackupImports(t.TempDir(), service.BackupStagingCopies*model.DefaultUploadLimit)).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithDeployment(deployment)
+	panel := api.New(sparks, embers, servers).WithStatusPages(&service.StatusPageService{Store: repository.NewStatusPageRepository(db.ORM()), Deployment: deployment}).WithBackupImports(service.NewBackupImports(t.TempDir(), service.BackupStagingCopies*model.DefaultUploadLimit)).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithDeployment(deployment)
 	if audit {
 		panel.WithActivity(service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, service.NewAuthService(repository.NewAuthRepository(db.ORM()))))
 	}

@@ -381,7 +381,7 @@ func RunWithOptions(ctx context.Context, args []string, options StartupOptions) 
 	integration.Start(ctx)
 	defer integration.Close()
 
-	handler := api.New(sparks, embers, servers).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
+	handler := api.New(sparks, embers, servers).WithStatusPages(&service.StatusPageService{Store: repository.NewStatusPageRepository(db.ORM()), Deployment: deployment}).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithBackupImports(imports).WithAgentHub(hub).WithDeployment(deployment).WithAuthentication(auth, origin).WithOIDC(provider).WithActivity(activity).WithNotifications(notifications).Handler()
 
 	handler = webui.Handler(handler)
 	if options.WrapHandler != nil {

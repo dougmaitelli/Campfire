@@ -190,17 +190,51 @@ func (s *DeploymentService) RuntimeStatuses(ctx context.Context, principal Princ
 		return nil, err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, target := range targets {
-		status, ok := s.statuses[target.ID]
-		if !ok || s.statusSparks[target.ID] != target.SparkID || time.Since(s.observed[target.ID]) >= runtimeStatusLifetime {
-			status = model.RuntimeStatus{ServerID: target.ID, State: model.RuntimeStateUnknown}
-		}
-
-		result = append(result, status)
+	for _, observation := range s.cachedRuntimeStatuses(targets) {
+		result = append(result, observation.Status)
 	}
 
 	return result, nil
+}
+
+type runtimeStatusObservation struct {
+	Status   model.RuntimeStatus
+	Observed time.Time
+	ValidFor time.Duration
+}
+
+// cachedRuntimeStatuses owns synchronization and freshness for cache-only reads.
+// Results follow target order; callers never manage the cache mutex.
+func (s *DeploymentService) cachedRuntimeStatuses(targets []model.ResourceTarget) []runtimeStatusObservation {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+
+	result := make([]runtimeStatusObservation, 0, len(targets))
+	for _, target := range targets {
+		status, observed := s.cachedStatusLocked(target.ID, target.SparkID, now)
+
+		observation := runtimeStatusObservation{Status: status, Observed: observed}
+		if !observed.IsZero() {
+			observation.ValidFor = runtimeStatusLifetime - now.Sub(observed)
+		}
+
+		result = append(result, observation)
+	}
+
+	return result
+}
+
+// cachedStatusLocked requires mu. Both private and published reads use the same
+// placement fence and observation lifetime, without performing runtime IO.
+func (s *DeploymentService) cachedStatusLocked(id, sparkID string, now time.Time) (model.RuntimeStatus, time.Time) {
+	status, ok := s.statuses[id]
+
+	observed := s.observed[id]
+	if !ok || s.statusSparks[id] != sparkID || observed.IsZero() || now.Sub(observed) >= runtimeStatusLifetime || observed.After(now) {
+		return model.RuntimeStatus{ServerID: id, State: model.RuntimeStateUnknown}, time.Time{}
+	}
+
+	return status, observed
 }

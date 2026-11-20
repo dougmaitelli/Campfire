@@ -27,7 +27,7 @@ type Database struct {
 // Marker 2 is reserved for an equivalent schema accepted by the adoption path.
 // Future schema changes must use a marker above 2 to avoid treating a different
 // schema as a metadata-only adoption.
-const schemaVersion = 5
+const schemaVersion = 6
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It initializes the same transactional baseline schema on either backend.
@@ -138,6 +138,7 @@ func baselineModels() []any {
 		&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
 		&GameEvent{}, &GameEventFieldLabel{}, &GameIntegrationRegistration{}, &GameMedia{},
 		&LogAlertIssue{}, &Integration{}, &ServerIntegration{}, &IntegrationMessage{}, &ServerCrash{},
+		&StatusPage{}, &StatusPageEntry{},
 	}
 }
 
@@ -173,13 +174,23 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3 && versions[0] != 4) {
+		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3 && versions[0] != 4 && versions[0] != 5) {
 			return fmt.Errorf("unsupported database schema history %v; expected baseline version %d", versions, schemaVersion)
 		}
 
 		if versions[0] < 5 && !tx.Migrator().HasTable(&ServerCrash{}) {
 			if err := tx.Migrator().CreateTable(&ServerCrash{}); err != nil {
 				return err
+			}
+		}
+
+		if versions[0] < 6 {
+			for _, row := range []any{&StatusPage{}, &StatusPageEntry{}} {
+				if !tx.Migrator().HasTable(row) {
+					if err := tx.Migrator().CreateTable(row); err != nil {
+						return err
+					}
+				}
 			}
 		}
 

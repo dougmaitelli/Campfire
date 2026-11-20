@@ -44,7 +44,7 @@ func TestGameSimulationIngestionLifecycleAndReplay(t *testing.T) {
 		t.Helper()
 
 		view := games.Snapshot(server.ID, server.SparkID, true, time.Now().Unix())
-		if view == nil || view.Status != "fresh" || view.State == nil || *view.State.Players != players || len(view.State.Fields) != fields {
+		if view == nil || view.State == nil || *view.State.Players != players || len(view.State.Fields) != fields {
 			t.Fatalf("unexpected snapshot: %+v", view)
 		}
 
@@ -92,12 +92,14 @@ func TestGameSimulationIngestionLifecycleAndReplay(t *testing.T) {
 		t.Fatal("replay duplicated durable event")
 	}
 
+	lastPublished := games.Snapshot(server.ID, server.SparkID, true, time.Now().Unix()).UpdatedAt
+
 	command("command", "mock-game pause")
 	tick(90)
 
 	view := games.Snapshot(server.ID, server.SparkID, true, time.Now().Add(61*time.Second).Unix())
-	if view == nil || view.Status != "stale" || view.State != nil || events("") != joined {
-		t.Fatal("paused producer did not expire cleanly", view)
+	if view == nil || view.UpdatedAt != lastPublished || view.State == nil || events("") != joined {
+		t.Fatal("paused producer changed its last received snapshot", view)
 	}
 
 	command("command", "mock-game resume")

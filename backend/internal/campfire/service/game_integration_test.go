@@ -34,7 +34,7 @@ func TestGameStateReplacementFreshnessAndLifecycle(t *testing.T) {
 	frame.Publication.State.FieldLabels["map"] = "Changed publisher label"
 
 	view := s.Snapshot("game", "owner", true, now.Unix())
-	if view.Status != "fresh" || *view.State.Players != 3 || view.State.Fields["map"] != "world" || view.State.FieldLabels["map"] != "World name" {
+	if *view.State.Players != 3 || view.State.Fields["map"] != "world" || view.State.FieldLabels["map"] != "World name" {
 		t.Fatal("snapshot not isolated", view)
 	}
 
@@ -49,11 +49,11 @@ func TestGameStateReplacementFreshnessAndLifecycle(t *testing.T) {
 		t.Fatal("state crossed Spark placement")
 	}
 
-	if view := s.Snapshot("game", "owner", true, now.Add(60*time.Second).Unix()); view.Status != "stale" || view.State != nil {
-		t.Fatal("expired values exposed", view)
+	if view := s.Snapshot("game", "owner", true, now.Add(60*time.Second).Unix()); view.State == nil || view.UpdatedAt != now.Unix() {
+		t.Fatal("snapshot lost its original receive time or values", view)
 	}
 
-	if view := s.Snapshot("game", "owner", false, now.Unix()); view.Status != "unavailable" || view.State != nil {
+	if view := s.Snapshot("game", "owner", false, now.Unix()); view.State != nil {
 		t.Fatal("unknown runtime presented current state")
 	}
 
@@ -165,7 +165,7 @@ func TestGameEventsDoNotReplaceOrRefreshState(t *testing.T) {
 	}
 
 	view := s.Snapshot("game", "owner", true, now.Unix())
-	if view.Status != "stale" || view.UpdatedAt != 1000 {
+	if view.State == nil || view.UpdatedAt != 1000 {
 		t.Fatal("event refreshed state", view)
 	}
 }

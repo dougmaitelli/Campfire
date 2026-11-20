@@ -27,6 +27,10 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/oidc/callback", a.oidcCallback)
 	mux.HandleFunc("POST /api/v1/auth/oidc/link", a.oidcLink)
 	mux.HandleFunc("GET /api/v1/permissions", a.permissionCatalog)
+	mux.HandleFunc("GET /api/v1/status-pages", a.statusPageAdmin(a.listStatusPages))
+	mux.HandleFunc("POST /api/v1/status-pages", a.statusPageAdmin(a.saveStatusPage))
+	mux.HandleFunc("PUT /api/v1/status-pages/{pageID}", a.statusPageAdmin(a.saveStatusPage))
+	mux.HandleFunc("DELETE /api/v1/status-pages/{pageID}", a.statusPageAdmin(a.deleteStatusPage))
 	mux.HandleFunc("GET /api/v1/tokens", a.listAPITokens)
 	mux.HandleFunc("GET /api/v1/integrations/discord", a.integrationAdmin(a.discordIntegration))
 	mux.HandleFunc("POST /api/v1/integrations/discord/preview", a.integrationAdmin(a.previewDiscordIntegration))
@@ -162,5 +166,9 @@ func (a *API) Handler() http.Handler {
 	server("PATCH /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsCreate, a.updateBackup)
 	server("GET /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsDownload, a.downloadBackup)
 
-	return a.auditRequests(mux, a.authenticate(mux))
+	root := http.NewServeMux()
+	root.HandleFunc("GET /api/v1/public/status-pages/{slug}", a.publicStatusHandler())
+	root.Handle("/", a.auditRequests(mux, a.authenticate(mux)))
+
+	return root
 }

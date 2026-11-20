@@ -813,14 +813,19 @@ test("schedule history excludes direct server operations", async ({ page }) => {
 
 test("non-admin users cannot open administrator pages", async ({ page }) => {
   await login(page, "viewer");
-  await expect(
-    page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Users", exact: true }),
-  ).toHaveCount(0);
-  await page.goto("/#users");
-  await expect(
-    page.getByText("You do not have access to this page", { exact: true }),
-  ).toBeVisible();
-  expect((await page.request.get("/api/v1/users")).status()).toBe(403);
+  for (const [route, label, endpoint] of [
+    ["users", "Users", "users"],
+    ["statusPages", "Status pages", "status-pages"],
+  ] as const) {
+    await expect(
+      page
+        .getByRole("navigation", { name: "Main navigation" })
+        .getByRole("link", { name: label, exact: true }),
+    ).toHaveCount(0);
+    await page.goto(`/#${route}`);
+    await expect(
+      page.getByText("You do not have access to this page", { exact: true }),
+    ).toBeVisible();
+    expect((await page.request.get(`/api/v1/${endpoint}`)).status()).toBe(403);
+  }
 });

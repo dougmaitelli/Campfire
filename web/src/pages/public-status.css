@@ -1,0 +1,257 @@
+.public-status {
+  width: min(100%, 960px);
+  min-height: 100svh;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+
+.public-status-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.public-status-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-heading);
+  font-size: 20px;
+
+  & .campfire-mark {
+    display: block;
+    width: 30px;
+    height: 32px;
+  }
+}
+
+.public-status-refresh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.public-status-heading {
+  padding: clamp(24px, 4vw, 36px) 0;
+}
+
+.public-status-eyebrow {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-status h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 500;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.public-status-surface {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at top left, var(--ember-glow), transparent 65%),
+    var(--surface-grain), var(--surface);
+  box-shadow:
+    inset 0 1px var(--surface-highlight),
+    0 12px 40px #00000018;
+
+  & > .panel-heading {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  & .panel-title {
+    font-size: 17px;
+    align-items: center;
+  }
+}
+
+.public-status-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.public-status-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  padding: 20px;
+  margin: 0;
+}
+
+.public-status-entry {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--control-bg);
+  box-shadow: inset 0 1px var(--surface-highlight);
+}
+
+.public-status-server-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--muted);
+
+  & .game-art {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+  }
+  &:has(.game-art) > svg {
+    visibility: hidden;
+  }
+}
+
+.public-status-server-details {
+  min-width: 0;
+
+  & h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  & p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.public-status-server-details .public-status-address {
+  margin-top: 6px;
+}
+
+.public-status-address {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.public-status-copy {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 0;
+  padding: 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.public-status-copy:hover {
+  color: var(--accent);
+}
+.public-status-footer {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+  min-width: 0;
+}
+.public-status-game-state {
+  flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+}
+.public-status-checked {
+  margin: 0 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.public-status-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 24px;
+  color: var(--muted);
+  text-align: center;
+
+  & p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}
+
+.public-status-notice {
+  padding: 12px 24px 0;
+}
+
+@media (max-width: 540px) {
+  .public-status {
+    padding-inline: 20px;
+  }
+
+  .public-status-list {
+    padding: 12px;
+  }
+
+  .public-status-entry {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px;
+
+    & .status-pill {
+      grid-column: 2;
+      justify-self: start;
+    }
+  }
+
+  .public-status-footer {
+    grid-column: 1 / -1;
+  }
+
+  .public-status-server-icon {
+    width: 36px;
+    height: 36px;
+
+    & svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}

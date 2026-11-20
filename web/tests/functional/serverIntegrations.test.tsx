@@ -1,6 +1,5 @@
 import {
   RuntimeState,
-  GameStateStatus,
   NotificationCategory,
   IntegrationCardState,
 } from "../../src/contracts/domains";
@@ -261,8 +260,6 @@ test("shared wizard discovers reported card fields and retains them through snap
         },
         game: {
           updated_at: 1,
-          fresh_for_seconds: 60,
-          status: GameStateStatus.Fresh,
           state: {
             players: 0,
             capacity: 20,

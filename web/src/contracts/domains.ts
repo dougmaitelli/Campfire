@@ -4,6 +4,12 @@ export enum DiskAccounting {
   Mixed = "mixed",
 }
 
+export enum PublicServerState {
+  Online = "online",
+  Offline = "offline",
+  Unknown = "unknown",
+}
+
 export enum RuntimeState {
   NotInstalled = "not_installed",
   Installing = "installing",
@@ -294,11 +300,6 @@ export enum ServerTab {
   Files = "files",
   Backups = "backups",
   Activity = "activity",
-}
-export enum GameStateStatus {
-  Fresh = "fresh",
-  Stale = "stale",
-  Unavailable = "unavailable",
 }
 export enum JobType {
   Copy = "copy",

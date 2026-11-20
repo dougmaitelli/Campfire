@@ -23,6 +23,12 @@ type requestAuditPolicy struct {
 
 func auditPolicy(pattern string) requestAuditPolicy {
 	switch pattern {
+	case "POST /api/v1/status-pages":
+		return requestAuditPolicy{action: "status-page.create"}
+	case "PUT /api/v1/status-pages/{pageID}":
+		return requestAuditPolicy{action: "status-page.update"}
+	case "DELETE /api/v1/status-pages/{pageID}":
+		return requestAuditPolicy{action: "status-page.delete"}
 	case "GET /api/v1/backups/{backupID}", "GET /api/v1/servers/{id}/backups/{name}":
 		return requestAuditPolicy{action: "server.backup.download", download: true}
 	case "GET /api/v1/servers/{id}/files/download":

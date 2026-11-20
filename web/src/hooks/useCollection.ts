@@ -86,6 +86,12 @@ export function useCollection<T extends { id: string | number }>(
     setLoading(false);
     setError(null);
   }, []);
+  const remove = useCallback((id: T["id"]) => {
+    active.current?.abort();
+    setItems((current) => current.filter((item) => item.id !== id));
+    setLoading(false);
+    setError(null);
+  }, []);
   const replace = useCallback((next: T[]) => {
     active.current?.abort();
     setItems(next);
@@ -100,6 +106,7 @@ export function useCollection<T extends { id: string | number }>(
     connectionError,
     refresh,
     upsert,
+    remove,
     replace,
   };
 }

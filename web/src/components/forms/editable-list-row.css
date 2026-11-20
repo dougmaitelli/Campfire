@@ -26,6 +26,16 @@
   }
 }
 
+.fieldset.editable-list-row-reorderable {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.editable-list-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .editable-list-row-body {
   display: grid;
   grid-column: 1 / -1;

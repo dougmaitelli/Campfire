@@ -5,9 +5,12 @@ import (
 	"time"
 
 	core "campfire/internal/campfire/integrations"
-	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 )
+
+// External cards must expire publications without relying on a browser clock.
+// Browser game-state freshness is independently owned by the frontend.
+const integrationCardGameFreshFor = 60 * time.Second
 
 // IntegrationCard reads saved public metadata and already-collected runtime
 // data. Building or previewing a card never contacts Spark or Discord.
@@ -34,20 +37,17 @@ func (s *DeploymentService) IntegrationCard(ctx context.Context, id string, sett
 	var game *model.GameState
 
 	if s.History != nil && server.GameIntegration && state == model.RuntimeStateRunning {
-		rows, err := s.History.Store.Latest(ctx, []string{id})
+		observations, err := s.cachedGameStates(ctx, []model.ResourceTarget{{ID: id, SparkID: server.SparkID}})
 		if err != nil {
 			return core.ServerCard{}, err
 		}
 
-		if row, ok := rows[id]; ok && row.SparkID == server.SparkID {
-			now := time.Now().Unix()
-
-			usage := ageResourceUsage(row.Usage, row.ReceivedAt, now)
-			if view := s.monitoredGame(id, server.SparkID, usage, int64(s.History.Interval.Seconds()), now); view != nil {
-				game = view.State
-				if game != nil {
-					expires = min(expires, view.UpdatedAt+view.FreshForSeconds, now+limits.SampleFreshSeconds(int64(s.History.Interval.Seconds()))-usage.SampleAgeSeconds)
-				}
+		observation := observations[0]
+		if observation.View != nil && observation.View.State != nil {
+			gameExpires := min(observation.UsageValidUntil, observation.View.UpdatedAt+int64(integrationCardGameFreshFor.Seconds()))
+			if gameExpires > time.Now().Unix() {
+				game = observation.View.State
+				expires = min(expires, gameExpires)
 			}
 		}
 	}

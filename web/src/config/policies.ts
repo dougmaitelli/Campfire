@@ -21,6 +21,7 @@ export const AccountLimits = {
 export const RoleLimits = { NameLength: 64 } as const;
 export const BackupRetentionLimits = { Copies: 1000, AgeDays: 36500 } as const;
 export const GameLimits = {
+  StateFreshSeconds: 60,
   MediaBytes: 25 * 1024 * 1024,
   MediaNameLength: 128,
   MediaIDLength: 64,
@@ -32,6 +33,8 @@ export const GameLimits = {
   FieldListItems: 64,
 } as const;
 export const IntegrationLimits = { CardFields: 32 } as const;
+export const StatusPagePolling = { RetrySeconds: 10, MaxSeconds: 60 } as const;
+export const PublicStatusPolicy = { FreshSeconds: 15 } as const;
 export const RequestTimeout = {
   Default: 35000,
   Read: 15000,

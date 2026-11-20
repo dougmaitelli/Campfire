@@ -38,8 +38,9 @@ operations to finish before restarting an agent.
 
 ## Recovery and rollback
 
-Database schema checks run at startup. Schema 4 accepts release markers 1/2 and
-the independent-backup schema 3, upgrading transactionally on SQLite and PostgreSQL.
+Database schema checks run at startup. Schema 6 accepts release markers 1–5,
+upgrading transactionally on SQLite and PostgreSQL. Schema 5 added retained crash
+records; schema 6 adds public status pages and their explicit server memberships.
 The archive migration assigns IDs, preserves storage keys and pins, and makes
 `server_id` nullable. Schema 3 archive IDs remain unchanged. Schema 4 also adds
 `servers.deletion_pending` (not null, default false) to fence retention and other

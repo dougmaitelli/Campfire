@@ -1,0 +1,25 @@
+.status-page-url {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-page-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--text);
+    background: var(--surface-hover);
+  }
+}

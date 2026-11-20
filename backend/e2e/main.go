@@ -22,6 +22,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
+	"campfire/internal/campfire/webui"
 	integrationservice "campfire/internal/campfire/service/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
 	"campfire/internal/devfixture"
@@ -253,11 +254,11 @@ func main() {
 		integration = integrationservice.NewDiscordIntegrationService(db.ORM(), integrationservice.Secrets{Directory: filepath.Join(root, fmt.Sprintf("secrets-%d", generation))}, discord.NewClient(discordAPI.URL, discordAPI.Client())).WithCards(deployment)
 		integration.Start(ctx)
 		deliveryFixture = integrationfixture.DeliveryHandler(db.ORM(), fixed)
-		handler = api.New(sparks, embers, servers).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
+		handler = api.New(sparks, embers, servers).WithStatusPages(&service.StatusPageService{Store: repository.NewStatusPageRepository(db.ORM()), Deployment: deployment}).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
 	}
 	reset()
 	defer func() { integration.Close(); copies.Close(); statuses.Close(); must(db.Close()) }()
-	files := http.FileServer(http.Dir("web/dist"))
+	files := webui.HandlerFromFS(http.NotFoundHandler(), os.DirFS("web/dist"))
 	mux := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/__test/reset" {
 			if req.Method != http.MethodPost || req.Header.Get("X-Campfire-E2E") != "reset" {

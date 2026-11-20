@@ -88,7 +88,7 @@ func (a *API) auditRequests(mux *http.ServeMux, next http.Handler) http.Handler 
 		target := "api"
 
 		if len(parts) >= 3 {
-			for _, kind := range []string{"servers", "sparks", "embers", "users", "roles", "schedules", "auth", "executions", "tokens", "backups"} {
+			for _, kind := range []string{"servers", "sparks", "embers", "users", "roles", "schedules", "auth", "executions", "tokens", "backups", "status-pages"} {
 				if parts[2] == kind {
 					target = strings.TrimSuffix(kind, "s")
 				}

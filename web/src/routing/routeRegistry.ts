@@ -132,6 +132,14 @@ export const routeRegistry = {
     ),
     adminOnly: false,
   },
+  statusPages: {
+    Page: lazy(() =>
+      import("../pages/StatusPagesPage").then((m) => ({
+        default: m.StatusPagesPage,
+      })),
+    ),
+    adminOnly: true,
+  },
   audit: {
     Page: lazy(() =>
       import("../pages/AuditPage").then((m) => ({ default: m.AuditPage })),

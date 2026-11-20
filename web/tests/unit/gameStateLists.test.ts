@@ -7,7 +7,7 @@ import {
   presentGameFields,
 } from "../../src/utils/gameFieldPresentation";
 
-const base = { updated_at: 1, fresh_for_seconds: 60, status: "fresh" };
+const base = { updated_at: 1 };
 
 test.each([
   ["names", ["Alex", "Sam"], true],

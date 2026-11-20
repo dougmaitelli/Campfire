@@ -43,6 +43,7 @@ export default defineConfig({
             { label: "Settings reference", slug: "configuration" },
             { label: "Accounts and access", slug: "authentication" },
             { label: "Notifications", slug: "notifications" },
+            { label: "Public status pages", slug: "status-pages" },
             { label: "Discord integration", slug: "discord" },
           ],
         },

@@ -10,27 +10,45 @@ export function EditableListRow({
   onRemove,
   children,
   body,
+  reorderControls,
 }: {
   label: string;
   removeLabel: string;
   onRemove: () => void;
   children: ReactNode;
   body?: ReactNode;
+  reorderControls?: ReactNode;
 }) {
+  const remove = (
+    <Button
+      type="button"
+      variant="danger"
+      iconOnly
+      aria-label={removeLabel}
+      title={removeLabel}
+      onClick={onRemove}
+    >
+      <NavigationIcon name="close" />
+    </Button>
+  );
   return (
-    <Fieldset className="editable-list-row">
+    <Fieldset
+      className={
+        reorderControls
+          ? "editable-list-row editable-list-row-reorderable"
+          : "editable-list-row"
+      }
+    >
       <legend className="visually-hidden">{label}</legend>
       <div className="editable-list-row-fields">{children}</div>
-      <Button
-        type="button"
-        variant="danger"
-        iconOnly
-        aria-label={removeLabel}
-        title={removeLabel}
-        onClick={onRemove}
-      >
-        <NavigationIcon name="close" />
-      </Button>
+      {reorderControls ? (
+        <div className="editable-list-row-actions">
+          {reorderControls}
+          {remove}
+        </div>
+      ) : (
+        remove
+      )}
       {body && <div className="editable-list-row-body">{body}</div>}
     </Fieldset>
   );
