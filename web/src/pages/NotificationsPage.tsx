@@ -7,6 +7,7 @@ import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { ContentState } from "../components/layout/ContentState";
 import { PageHeader } from "../components/layout/PageHeader";
+import { isInteractionTarget } from "../components/table/interactionTargets";
 import { Pagination } from "../components/table/Pagination";
 import { usePagination } from "../hooks/usePagination";
 import { usePagedCollection } from "../hooks/usePagedCollection";
@@ -116,9 +117,20 @@ export function NotificationsPage() {
         )}
         {items.map((item) => (
           <article
-            className="notification-message"
+            className={`notification-message${!item.read_at ? " notification-unread" : ""}`}
             key={item.id}
             aria-label={item.title}
+            onClick={(event) => {
+              if (
+                item.read_at ||
+                busy ||
+                event.defaultPrevented ||
+                isInteractionTarget(event.target, event.currentTarget) ||
+                window.getSelection()?.isCollapsed === false
+              )
+                return;
+              void perform(() => markNotificationRead(item.id, true));
+            }}
           >
             <div className="notification-content">
               <h2>
@@ -141,28 +153,22 @@ export function NotificationsPage() {
                 · {severityLabels[item.severity] ?? item.severity} · {item.kind}
               </p>
             </div>
-            <Button
-              size="small"
-              iconOnly
-              variant={item.read_at ? "default" : "primary"}
-              title={t(
-                item.read_at
-                  ? "notificationsPage.markUnread"
-                  : "notificationsPage.markRead",
-              )}
-              aria-label={t(
-                item.read_at
-                  ? "notificationsPage.markUnreadTitle"
-                  : "notificationsPage.markReadTitle",
-                { title: item.title },
-              )}
-              disabled={busy}
-              onClick={() =>
-                void perform(() => markNotificationRead(item.id, !item.read_at))
-              }
-            >
-              <NavigationIcon name={item.read_at ? "mail-open" : "mail"} />
-            </Button>
+            {!item.read_at && (
+              <button
+                type="button"
+                className="notification-read-action"
+                title={t("notificationsPage.markRead")}
+                aria-label={t("notificationsPage.markReadTitle", {
+                  title: item.title,
+                })}
+                disabled={busy}
+                onClick={() =>
+                  void perform(() => markNotificationRead(item.id, true))
+                }
+              >
+                <NavigationIcon name="check" />
+              </button>
+            )}
           </article>
         ))}
         <Pagination

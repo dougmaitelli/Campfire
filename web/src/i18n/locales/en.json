@@ -855,8 +855,6 @@
     "markAllRead": "Mark all read",
     "markRead": "Mark read",
     "markReadTitle": "Mark read: {{title}}",
-    "markUnread": "Mark unread",
-    "markUnreadTitle": "Mark unread: {{title}}",
     "noNotifications": "No notifications.",
     "notifications": "notifications",
     "severityCritical": "Critical",
