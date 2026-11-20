@@ -37,7 +37,7 @@ func (s *DeploymentService) beforeEdit(ctx context.Context, id string, input mod
 		release()
 		return nil, err
 	}
-	// Names and descriptions never alter the runtime or its reservations.
+	// Display metadata never alters the runtime or its reservations.
 	if !revision && model.SameRuntimeConfiguration(server.ServerConfiguration, input) {
 		return release, nil
 	}

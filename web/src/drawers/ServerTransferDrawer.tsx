@@ -233,15 +233,7 @@ export function ServerTransferDrawer({
         {target && (
           <>
             <p className="field-help">
-              <Trans
-                i18nKey="serverTransferDrawer.gameAddressAfterTransferExistingGameClientsMayNeedThe"
-                t={t}
-                components={{
-                  targetGameAddress: (
-                    <>{target.game_address || t("common.notConfigured")}</>
-                  ),
-                }}
-              />
+              {t("serverTransferDrawer.publicAddressUnchanged")}
             </p>
             {ports.map((port, index) => (
               <Fieldset

@@ -30,7 +30,7 @@ export function isEmber(value: unknown): value is Ember {
     typeof value.id === "string" &&
     (!("revision" in value) || typeof value.revision === "string") &&
     "schema" in value &&
-    value.schema === 1 &&
+    (value.schema === 1 || value.schema === 2) &&
     "name" in value &&
     typeof value.name === "string" &&
     "description" in value &&
@@ -166,7 +166,8 @@ function isRequiredPort(value: unknown): boolean {
     Number.isInteger(value.container) &&
     "protocol" in value &&
     isEnumValue(NetworkProtocol, value.protocol) &&
-    (!("description" in value) || typeof value.description === "string")
+    (!("description" in value) || typeof value.description === "string") &&
+    (!("primary" in value) || typeof value.primary === "boolean")
   );
 }
 

@@ -1,11 +1,11 @@
 import { test, expect, screenshot } from "./fixtures";
-import { login } from "./screens";
+import { inspectServer, login } from "./screens";
 import { readAuthenticatedSession } from "./auth";
 import type { Server } from "../web/src/api/servers";
 import type { Ember } from "../web/src/api/embers";
 import type { StatusPage, PublicStatusPage } from "../web/src/api/statusPages";
 
-test("admins publish selected servers on a standalone anonymous status page", async ({
+test("server connection overrides and inherited Spark hosts agree with public pages", async ({
   page,
   browser,
   baseURL,
@@ -15,14 +15,118 @@ test("admins publish selected servers on a standalone anonymous status page", as
   const session = await readAuthenticatedSession(
     await page.request.get("/api/v1/auth/session"),
   );
-  expect(
-    (
-      await page.request.patch("/api/v1/sparks/mock-europe", {
-        headers: { "X-CSRF-Token": session.csrf_token },
-        data: { game_address: "play.example.test" },
+  const headers = { "X-CSRF-Token": session.csrf_token };
+  async function setHost(host: string) {
+    const response = await page.request.patch("/api/v1/sparks/mock-europe", {
+      headers,
+      data: { game_address: host },
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+  }
+  await setHost("games.example.test");
+  const created = await page.request.post("/api/v1/status-pages", {
+    headers,
+    data: {
+      title: "Connections",
+      slug: "inherited-address",
+      entries: [{ server_id: "survival", name: "Survival" }],
+    },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+  const anonymous = await browser.newContext({ baseURL });
+  const publicPage = await anonymous.newPage();
+  const override = "https://Play.Example.test:32100/Join?World=Case";
+  async function editAddress(value: string, expected: string) {
+    await page.goto("/#servers/survival/console");
+    await page
+      .getByRole("button", { name: "More server actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Edit server", exact: true })
+      .click();
+    const editor = page.getByRole("dialog", {
+      name: "Edit server",
+      exact: true,
+    });
+    await editor.getByLabel("Public game address", { exact: true }).fill(value);
+    await expect(editor.getByText(expected, { exact: true })).toBeVisible();
+    await editor.getByRole("button", { name: "Review", exact: true }).click();
+    await editor
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect(editor).not.toBeVisible();
+  }
+  try {
+    await publicPage.goto("/status/inherited-address");
+    await expect(
+      publicPage.getByText("games.example.test:25565", { exact: true }),
+    ).toBeVisible();
+    await editAddress(override, override);
+    await setHost("2001:db8::1");
+    await publicPage.reload();
+    await expect(publicPage.getByText(override, { exact: true })).toBeVisible();
+    await editAddress("", "[2001:db8::1]:25565");
+    await publicPage.reload();
+    await expect(
+      publicPage.getByText("[2001:db8::1]:25565", { exact: true }),
+    ).toBeVisible();
+    await anonymous.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await publicPage
+      .getByRole("button", {
+        name: "Copy game address for Survival",
+        exact: true,
       })
-    ).ok(),
-  ).toBe(true);
+      .click();
+    expect(
+      await publicPage.evaluate(() => navigator.clipboard.readText()),
+    ).toBe("[2001:db8::1]:25565");
+    await page.goto("/#servers");
+    await expect(
+      page.getByRole("button", { name: "Open Survival", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("2001:db8::1")).toHaveCount(0);
+  } finally {
+    await anonymous.close();
+  }
+});
+
+test("admins publish selected servers on a standalone anonymous status page", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("Browser tests require a base URL");
+  await login(page);
+  await page.goto("/#servers/survival/console");
+  await page
+    .getByRole("button", { name: "More server actions", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Edit server", exact: true })
+    .click();
+  const serverEditor = page.getByRole("dialog", {
+    name: "Edit server",
+    exact: true,
+  });
+  await serverEditor
+    .getByLabel("Public game address", { exact: true })
+    .fill("play.example.test");
+  await serverEditor
+    .getByRole("button", { name: "Review", exact: true })
+    .click();
+  await serverEditor
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await expect(serverEditor).not.toBeVisible();
+  await page.goto("/#servers");
+  await expect(
+    page.getByRole("button", { name: "Open Survival", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("play.example.test")).toHaveCount(0);
+  await inspectServer(page);
+  await expect(
+    page.getByRole("dialog").getByText("play.example.test", { exact: true }),
+  ).toBeVisible();
   await page.goto("/#statusPages");
   await page
     .getByRole("button", { name: "Create status page", exact: true })

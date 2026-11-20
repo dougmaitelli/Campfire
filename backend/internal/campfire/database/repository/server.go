@@ -71,7 +71,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 					return nameConflict
 				}
 
-				return tx.Model(&database.Server{}).Where("id = ?", server.ID).Updates(map[string]any{"name": server.Name, "description": server.Description}).Error
+				return tx.Model(&database.Server{}).Where("id = ?", server.ID).Updates(map[string]any{"name": server.Name, "description": server.Description, "game_address": server.GameAddress}).Error
 			}
 
 			if err := activeTransfer(tx, server.ID); err != nil {
@@ -97,7 +97,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 			return fmt.Errorf("read reservations: %w", err)
 		}
 
-		record := database.Server{ID: server.ID, Name: server.Name, Description: server.Description, SparkID: server.SparkID, EmberID: server.EmberID, EmberHash: server.EmberHash, Image: server.Image, StartupCommand: server.StartupCommand, StartupOverride: server.StartupOverride, GameIntegration: server.GameIntegration, Variables: server.Variables, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Ports: server.Ports, CreatedAt: server.CreatedAt.Format(time.RFC3339Nano)}
+		record := database.Server{ID: server.ID, Name: server.Name, Description: server.Description, GameAddress: server.GameAddress, SparkID: server.SparkID, EmberID: server.EmberID, EmberHash: server.EmberHash, Image: server.Image, StartupCommand: server.StartupCommand, StartupOverride: server.StartupOverride, GameIntegration: server.GameIntegration, Variables: server.Variables, CPULimit: server.CPULimit, MemoryMB: server.MemoryMB, DiskMB: server.DiskMB, Ports: server.Ports, CreatedAt: server.CreatedAt.Format(time.RFC3339Nano)}
 		if create && server.OwnerUserID > 0 {
 			record.OwnerUserID = &server.OwnerUserID
 		}
@@ -114,7 +114,7 @@ func (r *ServerRepository) Save(ctx context.Context, server model.Server, create
 		if create {
 			err = tx.Omit("Spark", "Ember", "Owner").Create(&record).Error
 		} else {
-			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "EmberID", "EmberHash", "Image", "StartupCommand", "StartupOverride", "GameIntegration", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
+			result := tx.Model(&database.Server{}).Where("id = ?", server.ID).Select("Name", "Description", "GameAddress", "EmberID", "EmberHash", "Image", "StartupCommand", "StartupOverride", "GameIntegration", "Variables", "CPULimit", "MemoryMB", "DiskMB", "Ports").Updates(&record)
 
 			err = result.Error
 			if err == nil && result.RowsAffected == 0 {
@@ -353,7 +353,7 @@ func toServer(record database.Server) (model.Server, error) {
 		return model.Server{}, fmt.Errorf("read server timestamp: %w", err)
 	}
 
-	server := model.Server{ID: record.ID, EmberHash: record.EmberHash, ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, StartupCommand: record.StartupCommand, StartupOverride: record.StartupOverride, GameIntegration: record.GameIntegration, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, EmberArtURL: record.Ember.Definition.ArtURL, GameAddress: record.Spark.GameAddress, PortDescriptions: record.Ember.Definition.PortDescriptions(), Status: model.RuntimeStateNotInstalled, CreatedAt: created}
+	server := model.Server{GameAddressDefault: record.Spark.GameAddress, GameAddressPort: model.PrimaryHostPort(record.Ports, record.Ember.Definition.RequiredPorts), ID: record.ID, EmberHash: record.EmberHash, ServerConfiguration: model.ServerConfiguration{Name: record.Name, Description: record.Description, GameAddress: record.GameAddress, SparkID: record.SparkID, EmberID: record.EmberID, Image: record.Image, StartupCommand: record.StartupCommand, StartupOverride: record.StartupOverride, GameIntegration: record.GameIntegration, Variables: record.Variables, CPULimit: record.CPULimit, MemoryMB: record.MemoryMB, DiskMB: record.DiskMB, Ports: record.Ports}, SparkName: record.Spark.Name, EmberName: record.Ember.Name, EmberArtURL: record.Ember.Definition.ArtURL, PortDescriptions: record.Ember.Definition.PortDescriptions(), Status: model.RuntimeStateNotInstalled, CreatedAt: created}
 	server.SetEmberStatus(record.Ember.Definition)
 
 	return server, nil

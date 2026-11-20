@@ -1,6 +1,7 @@
 export const ResourceLimits = {
   NameLength: 100,
   DescriptionLength: 1000,
+  GameAddressLength: 2048,
   ServerMinCPU: 0.1,
   MaxCPU: 1024,
   MinMemoryMiB: 64,

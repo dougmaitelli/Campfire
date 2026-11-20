@@ -26,7 +26,11 @@ export function serverConfigurationChanges(
   ] as const) {
     if (before[key] !== after[key]) fields[key] = "changed";
   }
-  for (const key of ["startup_command", "startup_override"] as const) {
+  for (const key of [
+    "startup_command",
+    "startup_override",
+    "game_address",
+  ] as const) {
     if ((before[key] ?? "") !== (after[key] ?? "")) fields[key] = "changed";
   }
   if ((before.game_integration ?? false) !== (after.game_integration ?? false))

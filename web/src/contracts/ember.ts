@@ -64,6 +64,7 @@ export interface Ember {
         container: number;
         protocol: NetworkProtocol;
         description?: string;
+        primary?: boolean;
       }[]
     | null;
   origin?: {

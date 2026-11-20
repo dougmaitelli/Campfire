@@ -2,12 +2,9 @@ package integrations
 
 import (
 	"errors"
-	"net"
-	"net/netip"
-	"slices"
-	"strconv"
 	"strings"
 
+	"campfire/internal/campfire/gameaddress"
 	"campfire/internal/campfire/gamefields"
 	"campfire/internal/shared/model"
 )
@@ -59,31 +56,10 @@ func BuildServerCard(server model.Server, state model.RuntimeState, game *model.
 }
 
 func cardAddresses(server model.Server) []string {
-	addresses := []string{}
-
-	for _, port := range server.Ports {
-		host := strings.TrimSpace(server.GameAddress)
-		if host == "" {
-			host = port.BindIP
-		}
-
-		if host == "" || port.HostPort < 1 || port.HostPort > 65535 {
-			continue
-		}
-
-		if ip, err := netip.ParseAddr(host); err == nil && (ip.IsUnspecified() || ip.IsMulticast()) {
-			continue
-		}
-
-		address := net.JoinHostPort(host, strconv.Itoa(port.HostPort)) + " / " + strings.ToUpper(string(port.Protocol))
-		if !slices.Contains(addresses, address) {
-			addresses = append(addresses, address)
-		}
+	address := gameaddress.Resolve(server.GameAddress, server.GameAddressDefault, server.GameAddressPort)
+	if address == "" {
+		return []string{}
 	}
 
-	if len(server.Ports) == 0 && strings.TrimSpace(server.GameAddress) != "" {
-		addresses = append(addresses, strings.TrimSpace(server.GameAddress))
-	}
-
-	return addresses
+	return []string{address}
 }

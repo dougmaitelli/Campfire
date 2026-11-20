@@ -8,7 +8,7 @@ base64, and sudo access. Linux amd64 and arm64 packages are supported.
 
 ## Install and enroll
 
-1. Create a Spark from **Sparks** in the panel. Use a game address players can reach.
+1. Create a Spark from **Sparks** in the panel.
 2. Open its enrollment helper and check the agent connection URL.
 3. Run the generated command on the game host. It installs Spark and its systemd
    service and saves the enrolled identity in `/var/lib/spark`.
@@ -36,10 +36,14 @@ container ports. Configure both protocols when the game requires them. Allocatio
 does not open a firewall or configure router forwarding: make the selected host
 ports reachable separately.
 
-The Spark's game address is what players use to reach its servers; it is distinct
-from the panel's agent connection URL and the interface Docker binds. Check it
-when moving servers between hosts. Review existing reservations before reducing
-capacity or removing port allocations.
+Optionally set **Default public host** to the IP or hostname players use to reach
+this Spark. Do not include a scheme, path, or port. Unspecified addresses such as
+`0.0.0.0` and `::`, and multicast addresses, cannot be used as this default. Servers without a **Public
+game address** override inherit this host and their primary mapped host port.
+Changing the default updates inherited addresses, but not explicit overrides.
+This setting does not change networking or the agent connection URL.
+
+Review existing reservations before reducing capacity or removing port allocations.
 
 ### Disk quotas and host storage
 

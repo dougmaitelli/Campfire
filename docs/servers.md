@@ -98,12 +98,44 @@ as needed. To customize the imported startup command for this server, edit
 reset it. Ember variable placeholders are supported; changes to the startup
 command apply on the next server restart.
 
+### Public game address
+
+Set **Public game address** in the server editor to override the connection text
+players should use: an IP, hostname, URL, or custom connection string, with or
+without a port. An override is used exactly as entered; include any needed port.
+For a domain with an SRV record, you can enter the domain alone.
+
+Leave the override empty to inherit the Spark's **Default public host**, combined
+with the Ember's explicitly designated primary game's mapped host port. Its
+container port supplies `SERVER_PORT`; its matching container port and protocol
+select the published host port. Neither mapping order nor required-port order
+chooses the primary. Without a designation or matching mapping, no address is
+derived. Multiple matching mappings must agree on the host port. Campfire never
+guesses a public host from a bind interface. If no address can be derived, enter
+a complete override.
+
+Connection previews reflect the saved configuration, not proof that the running
+game has adopted it.
+
+The editor shows the resulting connection address and whether it is inherited.
+Public status pages and shared cards use that same result. It is also visible in
+the server details drawer, but not in internal server lists.
+
+For games on different public IPs, or networks with external port translation,
+set each server's complete override. Two games can use the same port on different
+interfaces without sharing a public address.
+
+This is display information, not a network setting. Configure port mappings,
+firewalls, forwarding, and DNS separately. You can change or clear it with normal
+server-edit access, without restarting the server.
+
 ## Restart requirements
 
 Configuration edits can be saved while the server runs. Spark receives the saved
 settings without recreating the running container. **Restart required** appears
 when the saved container settings differ from those currently running. Names,
-descriptions, save-data paths, and log-monitoring rules do not require a restart.
+descriptions, public game addresses, save-data paths, and log-monitoring rules do
+not require a restart.
 
 ## Apply an Ember update
 

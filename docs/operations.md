@@ -38,9 +38,11 @@ operations to finish before restarting an agent.
 
 ## Recovery and rollback
 
-Database schema checks run at startup. Schema 6 accepts release markers 1–5,
+Database schema checks run at startup. Schema 7 accepts release markers 1–6,
 upgrading transactionally on SQLite and PostgreSQL. Schema 5 added retained crash
-records; schema 6 adds public status pages and their explicit server memberships.
+records; schema 6 added public status pages and their explicit server memberships.
+Schema 7 adds optional per-server public game address overrides. Existing Spark
+defaults remain inherited rather than being copied into fixed server overrides.
 The archive migration assigns IDs, preserves storage keys and pins, and makes
 `server_id` nullable. Schema 3 archive IDs remain unchanged. Schema 4 also adds
 `servers.deletion_pending` (not null, default false) to fence retention and other

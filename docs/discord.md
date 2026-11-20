@@ -65,8 +65,15 @@ saved choices remain available after their source events expire.
 
 Enable the server card to publish a live status message, even if all notification
 categories are unchecked. The card includes the server name, observed runtime
-status, and game address with host ports when available. Wildcard bind addresses
-are not shown as connection addresses.
+status, and the server's public connection address when available. A **Public
+game address** override is used exactly as entered in the server editor. Otherwise,
+the card uses the Spark's default public host and the primary mapped host port,
+just like public status pages. Bind interfaces are never used as fallback hosts.
+
+The address has reserved space and is never shortened to make room for game
+fields. If it exceeds Discord's field limit after formatting, the card and preview
+show a notice asking players to obtain the complete address from the server
+operator. Public status pages still show the full address.
 
 Select player count, capacity, and custom game fields to include. Choices come
 from reported game state, with saved selections retained while offline. Registered

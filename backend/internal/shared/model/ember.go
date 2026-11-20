@@ -54,6 +54,7 @@ type Readiness struct {
 
 // RequiredPort identifies a container port required by a game.
 type RequiredPort struct {
+	Primary     bool            `json:"primary,omitempty"`
 	Container   int             `json:"container"`
 	Protocol    NetworkProtocol `json:"protocol"`
 	Description string          `json:"description,omitempty"`
@@ -122,8 +123,8 @@ func (e Ember) Validate() error {
 		return err
 	}
 
-	if e.Schema != 1 || strings.TrimSpace(e.Name) == "" || len(e.Name) > 120 {
-		return errors.New("Ember requires schema 1 and a name of 1–120 characters")
+	if (e.Schema != 1 && e.Schema != 2) || strings.TrimSpace(e.Name) == "" || len(e.Name) > 120 {
+		return errors.New("Ember requires schema 1 or 2 and a name of 1–120 characters")
 	}
 
 	if err := ValidateArtURL(e.ArtURL); err != nil {
@@ -167,7 +168,17 @@ func (e Ember) Validate() error {
 		}
 	}
 
+	primaryCount := 0
+
 	for _, p := range e.RequiredPorts {
+		if p.Primary {
+			primaryCount++
+		}
+
+		if primaryCount > 1 || (e.Schema == 1 && p.Primary) {
+			return errors.New("a primary port requires Ember schema 2 and at most one designation")
+		}
+
 		if p.Container < limits.MinPort || p.Container > limits.MaxPort || (p.Protocol != NetworkTCP && p.Protocol != NetworkUDP) {
 			return errors.New("invalid Ember required port")
 		}

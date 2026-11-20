@@ -47,8 +47,12 @@ func MessageNonce(bindingID, eventID string) string {
 	return hex.EncodeToString(digest[:12])
 }
 
+func escapeDiscordText(value string) string {
+	return strings.NewReplacer("\\", "\\\\", "`", "\\`", "*", "\\*", "_", "\\_", "~", "\\~", "[", "\\[", "]", "\\]", "<", "\\<", ">", "\\>", "|", "\\|").Replace(value)
+}
+
 func discordText(value string, limit int) string {
-	value = strings.NewReplacer("\\", "\\\\", "`", "\\`", "*", "\\*", "_", "\\_", "~", "\\~", "[", "\\[", "]", "\\]", "<", "\\<", ">", "\\>", "|", "\\|").Replace(value)
+	value = escapeDiscordText(value)
 	units := 0
 
 	var text strings.Builder

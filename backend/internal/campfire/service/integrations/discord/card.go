@@ -52,8 +52,11 @@ func RenderServerCard(card core.ServerCard) CardMessage {
 	state = strings.ToUpper(state[:1]) + state[1:]
 
 	fields := []embedField{{Name: "Status", Value: state, Inline: true}}
+
+	addressIndex := -1
 	if len(card.Addresses) > 0 {
-		fields = append(fields, embedField{Name: "Address", Value: strings.Join(card.Addresses, "\n")})
+		addressIndex = len(fields)
+		fields = append(fields, embedField{Name: "Address", Value: cardAddressText(card.Addresses)})
 	}
 
 	for _, field := range card.Fields {
@@ -79,7 +82,14 @@ func RenderServerCard(card core.ServerCard) CardMessage {
 	result := CardMessage{Embeds: []messageEmbed{}}
 	result.AllowedMentions.Parse = []string{}
 
-	budget := 5600 / len(fields)
+	remaining, readings := 5600, len(fields)
+	if addressIndex >= 0 {
+		remaining -= len(utf16.Encode([]rune(fields[addressIndex].Name + fields[addressIndex].Value)))
+		readings--
+	}
+
+	budget := remaining / readings
+
 	for index, field := range fields {
 		if index%25 == 0 {
 			title := "Additional server details"
@@ -92,10 +102,24 @@ func RenderServerCard(card core.ServerCard) CardMessage {
 			result.Embeds = append(result.Embeds, embed)
 		}
 
-		field.Name = discordText(field.Name, 64)
-		field.Value = discordText(field.Value, min(1024, budget-len(utf16.Encode([]rune(field.Name)))))
+		// The address is already escaped and budgeted in full. It is a connection
+		// string, not a reading that remains useful when shortened.
+		if index != addressIndex {
+			field.Name = discordText(field.Name, 64)
+			field.Value = discordText(field.Value, min(1024, budget-len(utf16.Encode([]rune(field.Name)))))
+		}
+
 		result.Embeds[len(result.Embeds)-1].Fields = append(result.Embeds[len(result.Embeds)-1].Fields, field)
 	}
 
 	return result
+}
+
+func cardAddressText(addresses []string) string {
+	value := escapeDiscordText(strings.Join(addresses, "\n"))
+	if len(utf16.Encode([]rune(value))) > 1024 {
+		return "Connection address is too long for Discord. Ask the server operator for the complete address."
+	}
+
+	return value
 }

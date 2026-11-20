@@ -2,6 +2,7 @@ import { NetworkProtocol } from "../../src/contracts/domains";
 import { expect, test } from "vitest";
 import {
   serverNeedsEmberReview,
+  isServerConfiguration,
   type Server,
   type ServerConfiguration,
 } from "../../src/api/servers";
@@ -26,6 +27,23 @@ const saved: ServerConfiguration = {
     },
   ],
 };
+
+test("public addresses are configuration strings and participate in review changes", () => {
+  const address = "https://Play.Example.test:32100/Join?World=Case";
+  expect(isServerConfiguration({ ...saved, game_address: address })).toBe(true);
+  expect(isServerConfiguration({ ...saved, game_address: 32100 })).toBe(false);
+  expect(
+    serverConfigurationChanges(saved, { ...saved, game_address: "" }).fields,
+  ).toEqual({});
+  expect(
+    serverConfigurationChanges(saved, { ...saved, game_address: address })
+      .fields,
+  ).toEqual({ game_address: "changed" });
+  expect(
+    serverConfigurationChanges({ ...saved, game_address: address }, saved)
+      .fields,
+  ).toEqual({ game_address: "changed" });
+});
 
 test("deployment sync does not open an unchanged Ember review", () => {
   const server = {

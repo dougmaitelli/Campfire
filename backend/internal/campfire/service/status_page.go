@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"campfire/internal/campfire/database/repository"
@@ -96,7 +95,7 @@ func (s *StatusPageService) Public(ctx context.Context, slug string) (statuspage
 	}
 
 	for index, target := range targets {
-		entry := statuspage.PublicEntry{ID: target.ID, Name: target.Name, State: statuspage.Unknown, ArtURL: statuspage.PublicArtURL(target.ArtURL), GameAddress: strings.TrimSpace(target.GameAddress)}
+		entry := statuspage.PublicEntry{ID: target.ID, Name: target.Name, State: statuspage.Unknown, ArtURL: statuspage.PublicArtURL(target.ArtURL), GameAddress: target.GameAddress}
 
 		observation := observations[index]
 		if !target.Disabled && !observation.Observed.IsZero() {

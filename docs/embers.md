@@ -15,11 +15,16 @@ to edit it. The steps cover basics, installation, runtime, variables, ports,
 configuration files, save-data paths, and review. **JSON / YAML** accepts pasted
 definitions; switching tabs preserves fields and the current step.
 
+In **Ports**, optionally designate one **Primary game port**. It supplies the
+container-side `SERVER_PORT`; its published host mapping also supplies the port
+for inherited player connection addresses. **No primary port** leaves
+`SERVER_PORT` empty. Games can have no ports or several ports without a primary.
+
 ## Import a definition
 
 | Source       | Supported versions              |
 | ------------ | ------------------------------- |
-| Native Ember | Schema `1`                      |
+| Native Ember | Schema `1`, `2`                 |
 | Pterodactyl  | `PTDL_v1`, `PTDL_v2`            |
 | Pelican      | `PLCN_v1`, `PLCN_v2`, `PLCN_v3` |
 

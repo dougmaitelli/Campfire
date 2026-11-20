@@ -22,6 +22,8 @@ type Deployment struct {
 
 // RuntimeConfiguration contains placement, selected values, and enforced limits.
 type RuntimeConfiguration struct {
+	// Nil retains legacy snapshots. Zero explicitly selects no primary port.
+	ServerPort      *int              `json:"server_port,omitempty"`
 	SparkID         string            `json:"spark_id"`
 	EmberID         string            `json:"ember_id"`
 	Image           string            `json:"image"`
@@ -95,14 +97,22 @@ func resolveDeployment(serverID string, c ServerConfiguration, e Ember) (Deploym
 	}
 
 	// Required ports are authoring metadata; only their fallback value is needed.
-	if len(c.Ports) == 0 && len(e.RequiredPorts) > 0 {
+	if e.Schema == 1 && len(c.Ports) == 0 && len(e.RequiredPorts) > 0 {
 		variables["SERVER_PORT"] = strconv.Itoa(e.RequiredPorts[0].Container)
+	}
+
+	var serverPort *int
+
+	if e.Schema >= 2 {
+		port, _ := e.PrimaryPort()
+		serverPort = new(port.Container)
 	}
 
 	deployment := Deployment{
 		ServerID: serverID,
 		Configuration: RuntimeConfiguration{
-			SparkID: c.SparkID, EmberID: c.EmberID, Image: c.Image,
+			ServerPort: serverPort,
+			SparkID:    c.SparkID, EmberID: c.EmberID, Image: c.Image,
 			Variables: variables, CPULimit: c.CPULimit, MemoryMB: c.MemoryMB,
 			DiskMB: c.DiskMB, Ports: slices.Clone(c.Ports), GameIntegration: c.GameIntegration,
 		},
@@ -126,6 +136,10 @@ func (d Deployment) Validate() error {
 }
 
 func (c RuntimeConfiguration) validate() (map[string]string, error) {
+	if c.ServerPort != nil && (*c.ServerPort < 0 || *c.ServerPort > limits.MaxPort) {
+		return nil, errors.New("invalid primary server port")
+	}
+
 	if c.EmberID == "" || Image(c.Image) != nil || math.IsNaN(c.CPULimit) || math.IsInf(c.CPULimit, 0) || c.CPULimit < limits.ServerMinCPU || c.CPULimit > limits.MaxCPU || c.MemoryMB < limits.MinMemoryMiB || c.MemoryMB > limits.MaxMemoryMiB || c.DiskMB < 0 || c.DiskMB > limits.MaxDiskMiB || len(c.Ports) > limits.MaxServerPorts {
 		return nil, errors.New("invalid server image or resources")
 	}

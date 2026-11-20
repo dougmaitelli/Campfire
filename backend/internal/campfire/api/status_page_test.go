@@ -20,6 +20,7 @@ func TestPublicStatusPagesAreExplicitAnonymousAndAdminManaged(t *testing.T) {
 	_, _, configuration := serverFixture(t, f.admin)
 	configuration.Name = "private-server-name"
 	configuration.GameIntegration = true
+	configuration.GameAddress = "play.example.test:32100"
 	created := request(f.admin, "POST", "/api/v1/servers", configJSON(t, configuration))
 
 	var server model.Server
@@ -40,10 +41,6 @@ func TestPublicStatusPagesAreExplicitAnonymousAndAdminManaged(t *testing.T) {
 	}
 
 	if err := f.db.ORM().Model(&ember).Update("definition", string(definition)).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := f.db.ORM().Model(&database.Spark{}).Where("id = ?", server.SparkID).Update("game_address", "play.example.test:32100").Error; err != nil {
 		t.Fatal(err)
 	}
 

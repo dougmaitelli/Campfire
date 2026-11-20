@@ -55,7 +55,8 @@ outage if the panel itself is unavailable.
 
 Visitors can see the page title, the public names of the selected servers, their
 availability, and when they were last checked. Each server also shows its game
-artwork, configured game address, and all available integration state fields,
+artwork, each server's configured or inherited public connection address, and all
+available integration state fields,
 such as player counts, player lists, and the current map. Missing or unavailable
 artwork uses a generic server icon. The copy icon beside a game address copies it
 exactly as configured. Port allocations are not appended to it.

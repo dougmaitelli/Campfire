@@ -85,6 +85,7 @@ func (OIDCIdentity) TableName() string { return "oidc_identities" }
 
 // Server persists server configuration with pinned Spark and Ember identities.
 type Server struct {
+	GameAddress string `gorm:"type:text;not null;default:''"`
 	// Durable lifecycle intent, retained only until server deletion completes.
 	DeletionPending bool               `gorm:"not null;default:false"`
 	ID              string             `gorm:"type:text;primaryKey"`

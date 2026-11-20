@@ -1,10 +1,10 @@
 ---
 title: Ember schema
-description: Native Ember schema 1 fields, examples, defaults, and validation rules.
+description: Native Ember schema 2 fields, examples, defaults, and validation rules.
 ---
 
-This reference describes native **schema 1** for authoring game definitions. For
-creating, importing, and updating definitions in the panel, see [Embers](/Campfire/embers/).
+This reference describes native **schema 2** for authoring game definitions.
+For creating, importing, and updating definitions in the panel, see [Embers](/Campfire/embers/).
 
 ## Native schema
 
@@ -15,7 +15,7 @@ This small definition runs a diagnostic process rather than a real game:
 
 ```json
 {
-  "schema": 1,
+  "schema": 2,
   "name": "Example server",
   "description": "A minimal Ember for checking startup and console output.",
   "images": { "Alpine": "alpine:3.22" },
@@ -34,7 +34,7 @@ relevant fields into one Ember; do not combine mutually exclusive alternatives.
 
 | Property           | Type    | Purpose                                                           |
 | ------------------ | ------- | ----------------------------------------------------------------- |
-| `schema`           | integer | Required; `1`                                                     |
+| `schema`           | integer | Required; `2`                                                     |
 | `name`             | string  | Required display name                                             |
 | `description`      | string  | Description; empty if omitted                                     |
 | `artUrl`           | string  | Optional artwork URL or panel asset path                          |
@@ -66,7 +66,7 @@ not an additional Ember schema field.
 
 ```json
 {
-  "schema": 1,
+  "schema": 2,
   "name": "My game",
   "description": "Dedicated server definition",
   "artUrl": "https://example.com/game.png",
@@ -153,15 +153,15 @@ startup expansion rather than becoming shell syntax.
 Campfire supplies these reserved environment values as strings. Do not redeclare
 their names or `STARTUP` as Ember variables.
 
-| Built-in         | Meaning and units                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SERVER_PORT`    | First mapped container port, not the public host port. With no mappings, falls back to the Ember's first required port; empty if neither exists. |
-| `SERVER_IP`      | Container listen address, `0.0.0.0`; not the Spark's public game address.                                                                        |
-| `SERVER_MEMORY`  | Configured memory limit in MiB, without a suffix; for example, `2048`.                                                                           |
-| `SERVER_CPU`     | Configured CPU allocation as a percentage of one core: `100` is one core and `250` is 2.5 cores.                                                 |
-| `SERVER_THREADS` | Empty; Campfire does not assign a CPU-thread list.                                                                                               |
-| `SERVER_DISK`    | Configured game-data disk limit in MiB, without a suffix; `0` means no configured limit. This is not free disk space.                            |
-| `SERVER_SWAP`    | `0`; additional container swap is disabled.                                                                                                      |
+| Built-in         | Meaning and units                                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `SERVER_PORT`    | Designated primary container port, not the public host port; empty without a primary.                                 |
+| `SERVER_IP`      | Container listen address, `0.0.0.0`; not the Spark's public game address.                                             |
+| `SERVER_MEMORY`  | Configured memory limit in MiB, without a suffix; for example, `2048`.                                                |
+| `SERVER_CPU`     | Configured CPU allocation as a percentage of one core: `100` is one core and `250` is 2.5 cores.                      |
+| `SERVER_THREADS` | Empty; Campfire does not assign a CPU-thread list.                                                                    |
+| `SERVER_DISK`    | Configured game-data disk limit in MiB, without a suffix; `0` means no configured limit. This is not free disk space. |
+| `SERVER_SWAP`    | `0`; additional container swap is disabled.                                                                           |
 
 For example, `-Xmx{{SERVER_MEMORY}}M` appends the unit expected by Java. Resource
 values describe configuration, not live CPU or memory usage.
@@ -258,7 +258,8 @@ Bounds must be consistent, and `required` takes precedence over `nullable`.
     {
       "container": 25565,
       "protocol": "tcp",
-      "description": "Game connections"
+      "description": "Game connections",
+      "primary": true
     },
     { "container": 25565, "protocol": "udp", "description": "Query traffic" }
   ]
@@ -268,6 +269,14 @@ Bounds must be consistent, and `required` takes precedence over `nullable`.
 Each entry specifies a `container` integer from 1–65535, a `protocol` of `tcp` or
 `udp`, and an optional `description` of at most 80 bytes without control
 characters. Declare each protocol separately when both are needed.
+
+At most one entry may have `primary: true`. Zero primary ports is
+valid, including definitions with zero or multiple required ports. Only that
+explicit designation supplies `SERVER_PORT` for startup, configuration files,
+and the container environment. No primary leaves this built-in empty. A primary
+may exist without published mappings; in that case it still supplies the
+container-side value but cannot derive a public address. The matching published
+host port is used with a Spark default public host for connection addresses.
 
 These are container requirements. Each server reserves host ports from its Spark's
 allocations; the definition neither opens firewalls nor configures forwarding.
@@ -430,3 +439,11 @@ the installer can recreate.
 This declaration enables **Save data only** backups. Without it, only full backups
 are available. Changes apply to new requests immediately, independently of restart
 or server-value review. See [Game backups](/Campfire/server-backups/) for restoration.
+
+## Schema changelog
+
+### Schema 2
+
+- Adds an optional primary-port designation (`primary: true`) to `required_ports`,
+  used for `SERVER_PORT` and inherited player connection addresses instead of
+  inferring the primary from port order.

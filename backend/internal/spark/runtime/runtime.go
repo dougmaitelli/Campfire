@@ -697,7 +697,13 @@ func environment(d model.Deployment) map[string]string {
 		env[key] = value
 	}
 
-	if len(d.Configuration.Ports) > 0 {
+	if d.Configuration.ServerPort != nil {
+		env["SERVER_PORT"] = ""
+		if *d.Configuration.ServerPort != 0 {
+			env["SERVER_PORT"] = strconv.Itoa(*d.Configuration.ServerPort)
+		}
+	} else if len(d.Configuration.Ports) > 0 {
+		// Compatibility for deployed snapshots and explicitly unreviewed schema-1 Embers.
 		env["SERVER_PORT"] = strconv.Itoa(d.Configuration.Ports[0].ContainerPort)
 	}
 

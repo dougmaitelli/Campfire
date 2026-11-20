@@ -28,7 +28,7 @@ function entries(values: Record<string, string>): NamedValue[] {
 export function emptyEmber(): Ember {
   return {
     id: "",
-    schema: 1,
+    schema: 2,
     name: "",
     description: "",
     images: {},
