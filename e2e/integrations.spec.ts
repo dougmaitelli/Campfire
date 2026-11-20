@@ -263,6 +263,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   ).toBeTruthy();
   let hasGameState = true;
   let hasFilterChoices = true;
+  let previewRequests = 0;
   await page.route(
     "**/api/v1/servers/survival/events/filters",
     async (route) => {
@@ -293,6 +294,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   await page.route(
     "**/api/v1/servers/survival/integrations/discord/card?*",
     async (route) => {
+      previewRequests++;
       const response = await route.fetch();
       const card = (await response.json()) as IntegrationCard;
       if (hasGameState) {
@@ -449,13 +451,23 @@ test("per-server Discord settings persist, enforce channel access, and keep card
     publishing.getByText("Published", { exact: true }),
   ).toBeVisible();
   await screenshot(page, "integrations-server.png", drawer);
+  const previewsBeforeRefresh = previewRequests;
   hasGameState = false;
   await expect(page.locator(".game-state-readings")).toHaveCount(0);
-  await expect(
-    drawer.getByRole("checkbox", { name: "World name", exact: true }),
-  ).toBeVisible();
+  const worldField = drawer.getByRole("checkbox", {
+    name: "World name",
+    exact: true,
+  });
+  await expect(worldField).toBeVisible();
+  // Monitoring changes do not refetch the unchanged preview.
+  expect(previewRequests).toBe(previewsBeforeRefresh);
+  await expect(cardPreview).toContainText("test-invite");
+  const worldSelected = await worldField.isChecked();
+  await worldField.setChecked(!worldSelected);
   await expect(cardPreview).toContainText("Unavailable");
   hasGameState = true;
+  await worldField.setChecked(worldSelected);
+  await expect(cardPreview).toContainText("test-invite");
   await page.clock.setFixedTime(new Date("2026-10-22T12:01:01Z"));
   await expect(cardPreview).not.toContainText("test-invite");
   await page.clock.setFixedTime(new Date("2026-10-22T12:00:00Z"));

@@ -34,7 +34,6 @@ export function IntegrationCardPreview({
   } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
     async function load() {
       try {
         const card = await previewIntegrationCard(
@@ -51,13 +50,10 @@ export function IntegrationCardPreview({
               cause instanceof Error ? cause.message : t("integrations.failed"),
           });
       }
-      if (!controller.signal.aborted)
-        timer = setTimeout(() => void load(), 5000);
     }
     void load();
     return () => {
       controller.abort();
-      clearTimeout(timer);
     };
   }, [serverID, selection, key, t]);
   const current = result?.key === key ? result : null;
