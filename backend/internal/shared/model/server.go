@@ -23,6 +23,7 @@ type Server struct {
 	SparkName              string                  `json:"spark_name"`
 	GameAddressDefault     string                  `json:"game_address_default"`
 	GameAddressPort        int                     `json:"game_address_port"`
+	ConsoleCommands        bool                    `json:"console_commands"`
 	EmberName              string                  `json:"ember_name"`
 	EmberArtURL            string                  `json:"ember_art_url,omitempty"`
 	EmberHash              string                  `json:"ember_hash"`

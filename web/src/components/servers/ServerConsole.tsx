@@ -41,7 +41,10 @@ export function ServerConsole({
               : "snapshot"
         }
         onBusyChange={setBusy}
-        canWrite={canPerformServer(server, "writeConsole")}
+        canWrite={
+          server.console_commands !== false &&
+          canPerformServer(server, "writeConsole")
+        }
       />
     </Suspense>
   );

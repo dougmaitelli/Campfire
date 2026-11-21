@@ -24,7 +24,7 @@ const mockImportedUpdateID = devfixture.MinecraftEmberID
 const mockUpdateServerName = "Ember update ready · Mock"
 
 func mockUpdateCandidate(current bool) model.Ember {
-	ember := model.Ember{Schema: 1, Name: "Minecraft · Mock", Description: "Updated development fixture. No image is pulled and no game process runs.", UpdateURL: mockPendingUpdateURL, ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: model.NetworkTCP, Description: "Main"}}, Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo 'Mock updated installer; no game downloads.'"}}
+	ember := model.Ember{Schema: model.CurrentEmberSchema, Name: "Minecraft · Mock", Description: "Updated development fixture. No image is pulled and no game process runs.", UpdateURL: mockPendingUpdateURL, ArtURL: "/game-art/mock-block.svg", Images: map[string]string{"Java 21": "ghcr.io/ptero-eggs/yolks:java_21"}, Startup: "java -Xmx{{SERVER_MEMORY}}M -jar server.jar", WorkDir: "/home/container", User: "1000:1000", Ready: "Done", Stop: "stop", Variables: []model.Variable{}, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: model.NetworkTCP, Description: "Main"}}, Installer: &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo 'Mock updated installer; no game downloads.'"}}
 	if current {
 		ember.Name = "Minecraft · Current"
 		ember.UpdateURL = mockCurrentUpdateURL

@@ -47,10 +47,17 @@ function definition() {
   return JSON.parse(screen.getByTestId("definition").textContent!);
 }
 
-test("explicit selection adopts legacy definitions, permits no primary, and does not infer after removal", async () => {
+test("older definitions default the first port on load, permit no primary, and do not infer after removal", async () => {
   render(<Form legacy />);
   const user = userEvent.setup();
-  expect(definition().schema).toBe(1);
+  expect(definition().schema).toBe(2);
+  expect(
+    (
+      screen.getByRole("combobox", {
+        name: "Primary game port",
+      }) as HTMLSelectElement
+    ).value,
+  ).toBe("0");
   const choose = async (name: string) => {
     await user.selectOptions(
       screen.getByRole("combobox", { name: "Primary game port" }),
@@ -82,7 +89,7 @@ test("explicit selection adopts legacy definitions, permits no primary, and does
   expect(definition().required_ports[0].primary).toBe(false);
 });
 
-test("a portless legacy definition can explicitly adopt no primary", async () => {
+test("a portless older definition uses the current schema and no primary", async () => {
   render(<Form legacy portless />);
   const user = userEvent.setup();
   await user.selectOptions(

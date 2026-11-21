@@ -7,6 +7,21 @@ import {
   serializeEmberDraft,
 } from "../../src/components/embers/emberDraft";
 
+test("older definitions use the current schema in the editor and on serialization without mutating the source", () => {
+  const original = { ...completeEmber(), schema: 1 };
+  const draft = createEmberDraft(original);
+  expect(original.schema).toBe(1);
+  expect(draft.definition.schema).toBe(2);
+  expect(draft.definition.required_ports?.[0]?.primary).toBe(true);
+  expect(original.required_ports?.[0]?.primary).toBeUndefined();
+  draft.definition.schema = 1;
+  expect(serializeEmberDraft(draft).schema).toBe(2);
+  expect(draft.definition.schema).toBe(1);
+  expect(serializeEmberDraft(draft).required_ports).toEqual(
+    draft.definition.required_ports,
+  );
+});
+
 test("visual and JSON round trips retain all advanced definition fields", () => {
   const definition = completeEmber();
   definition.log_alerts = [

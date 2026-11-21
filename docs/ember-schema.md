@@ -1,14 +1,18 @@
 ---
 title: Ember schema
-description: Native Ember schema 2 fields, examples, defaults, and validation rules.
+description: Native Ember fields, examples, defaults, and validation rules.
 ---
 
-This reference describes native **schema 2** for authoring game definitions.
+This reference describes the current native Ember schema for authoring game definitions.
 For creating, importing, and updating definitions in the panel, see [Embers](/Campfire/embers/).
 
 ## Native schema
 
-Definitions can be JSON or YAML, up to 1 MiB. JSON property names are case-sensitive:
+Definitions can be JSON or YAML, up to 1 MiB. Readers normalize supported inputs
+to the current model before presenting them in the panel or editor. Reading does
+not rewrite stored data; saving persists the normalized current definition.
+
+JSON property names are case-sensitive:
 `artUrl` and `updateUrl` use camel case; other compound names use underscores.
 
 This small definition runs a diagnostic process rather than a real game:
@@ -32,30 +36,31 @@ This small definition runs a diagnostic process rather than a real game:
 The examples below are **top-level fragments**, not complete definitions. Merge
 relevant fields into one Ember; do not combine mutually exclusive alternatives.
 
-| Property           | Type    | Purpose                                                           |
-| ------------------ | ------- | ----------------------------------------------------------------- |
-| `schema`           | integer | Required; `2`                                                     |
-| `name`             | string  | Required display name                                             |
-| `description`      | string  | Description; empty if omitted                                     |
-| `artUrl`           | string  | Optional artwork URL or panel asset path                          |
-| `updateUrl`        | string  | Optional definition update source                                 |
-| `id`, `revision`   | string  | Panel-managed identity and content revision                       |
-| `origin`           | object  | Optional import attribution and compatibility notes               |
-| `images`           | object  | Required nonempty map of image labels to container references     |
-| `startup`          | string  | One startup command; alternative to `startup_commands`            |
-| `startup_commands` | object  | Named startup alternatives; cannot accompany a nonempty `startup` |
-| `startup_shell`    | string  | `sh` (default), `bash`, or `ash`                                  |
-| `work_dir`         | string  | Required absolute container working directory                     |
-| `user`             | string  | Required numeric non-root `UID` or `UID:GID`                      |
-| `variables`        | array   | Variable definitions; empty if omitted                            |
-| `installer`        | object  | Optional installation image, entrypoint, and script               |
-| `stop`             | string  | Console command or signal notation; image default if omitted      |
-| `ready`            | string  | Simple readiness marker; alternative to `readiness`               |
-| `readiness`        | object  | Structured readiness matchers                                     |
-| `log_alerts`       | array   | Actionable error rules                                            |
-| `configs`          | array   | Configuration-file replacements                                   |
-| `required_ports`   | array   | Container port requirements                                       |
-| `savedata_paths`   | array   | Paths included in save-data backups                               |
+| Property           | Type    | Purpose                                                                   |
+| ------------------ | ------- | ------------------------------------------------------------------------- |
+| `schema`           | integer | Required; `2`                                                             |
+| `name`             | string  | Required display name                                                     |
+| `description`      | string  | Description; empty if omitted                                             |
+| `artUrl`           | string  | Optional artwork URL or panel asset path                                  |
+| `updateUrl`        | string  | Optional definition update source                                         |
+| `id`, `revision`   | string  | Panel-managed identity and content revision                               |
+| `origin`           | object  | Optional import attribution and compatibility notes                       |
+| `images`           | object  | Required nonempty map of image labels to container references             |
+| `startup`          | string  | One startup command; alternative to `startup_commands`                    |
+| `startup_commands` | object  | Named startup alternatives; cannot accompany a nonempty `startup`         |
+| `startup_shell`    | string  | `sh` (default), `bash`, or `ash`                                          |
+| `work_dir`         | string  | Required absolute container working directory                             |
+| `user`             | string  | Required numeric non-root `UID` or `UID:GID`                              |
+| `variables`        | array   | Variable definitions; empty if omitted                                    |
+| `installer`        | object  | Optional installation image, entrypoint, and script                       |
+| `console_commands` | boolean | Whether the game accepts interactive console commands; defaults to `true` |
+| `stop`             | string  | Console command or signal notation; image default if omitted              |
+| `ready`            | string  | Simple readiness marker; alternative to `readiness`                       |
+| `readiness`        | object  | Structured readiness matchers                                             |
+| `log_alerts`       | array   | Actionable error rules                                                    |
+| `configs`          | array   | Configuration-file replacements                                           |
+| `required_ports`   | array   | Container port requirements                                               |
+| `savedata_paths`   | array   | Paths included in save-data backups                                       |
 
 Ownership, memberships, Spark placement, resource budgets, host port assignments,
 schedules, and backup storage/retention are server settings, not Ember properties.
@@ -368,6 +373,18 @@ with `^`: `^C` means SIGINT, and `^SIGTERM` or `^TERM` select SIGTERM. Supported
 Linux signal names are validated; arbitrary caret-prefixed commands are rejected.
 Omitting `stop` uses the image's default stop behavior.
 
+### Interactive console commands
+
+Set `console_commands: false` for games that do not accept interactive
+console input. The console output remains available, but the terminal command input
+is hidden and command requests (including scheduled commands) are rejected. Users
+also need console write permission to see the input when commands are supported.
+
+Omitting `console_commands` defaults to `true`. Converted Pterodactyl/Pelican Eggs
+also default to enabled because they do not declare this capability. This setting
+does not change the configured `stop` behavior; use an appropriate signal or
+Docker stop for games without command input.
+
 ## Actionable console errors
 
 ```json
@@ -444,6 +461,13 @@ or server-value review. See [Game backups](/Campfire/server-backups/) for restor
 
 ### Schema 2
 
+- Readers normalize schema 1 definitions to the current model, marking the first
+  declared port as primary when ports exist and none is designated. The source is
+  not rewritten until saved. Current definitions retain an explicit no-primary
+  choice; opening or saving them does not select a port.
+
+- Adds optional `console_commands` (default `true`) to control interactive console
+  input independently of console output and user permissions.
 - Adds an optional primary-port designation (`primary: true`) to `required_ports`,
   used for `SERVER_PORT` and inherited player connection addresses instead of
   inferring the primary from port order.

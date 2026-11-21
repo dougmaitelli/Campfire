@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
-import { InlineMessage } from "../status/InlineMessage";
 import { Wizard } from "../wizard/Wizard";
 import { EmberBasicsFields } from "./EmberBasicsFields";
 import { EmberRuntimeFields } from "./EmberRuntimeFields";
@@ -38,12 +37,6 @@ export function EmberEditor({
   const { t } = useTranslation();
   const fields = { draft, onChange };
   const primary = draft.definition.required_ports?.find((port) => port.primary);
-  const legacyPortNotice =
-    draft.definition.schema === 1 ? (
-      <InlineMessage tone="warning">
-        {t("emberEditor.legacyPortNotice")}
-      </InlineMessage>
-    ) : null;
   return (
     <Wizard
       allowAllSteps={editing}
@@ -81,12 +74,7 @@ export function EmberEditor({
         {
           id: "ports",
           title: t("emberEditor.portsStep"),
-          content: (
-            <>
-              {legacyPortNotice}
-              <EmberPortFields {...fields} />
-            </>
-          ),
+          content: <EmberPortFields {...fields} />,
         },
         {
           id: "files",
@@ -104,7 +92,6 @@ export function EmberEditor({
           title: t("emberEditor.review"),
           content: (
             <>
-              {legacyPortNotice}
               <dl className="ember-editor-summary">
                 <div>
                   <dt>{t("common.name")}</dt>
@@ -129,11 +116,9 @@ export function EmberEditor({
                 <div>
                   <dt>{t("emberEditor.primaryPort")}</dt>
                   <dd>
-                    {draft.definition.schema === 1
-                      ? t("emberEditor.legacyPortChoice")
-                      : primary
-                        ? `${primary.container}/${primary.protocol}`
-                        : t("emberEditor.noPrimaryPort")}
+                    {primary
+                      ? `${primary.container}/${primary.protocol}`
+                      : t("emberEditor.noPrimaryPort")}
                   </dd>
                 </div>
                 <div>

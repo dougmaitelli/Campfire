@@ -28,15 +28,9 @@ export function EmberPortFields({
         description={t("emberEditor.primaryPortHelp")}
       >
         <Select
-          value={
-            value.schema === 1
-              ? "legacy"
-              : String(ports.findIndex((port) => port.primary))
-          }
+          value={String(ports.findIndex((port) => port.primary))}
           onValueChange={(selected) => {
-            if (selected === "legacy") return;
             patch({
-              schema: 2,
               required_ports: ports.map((port, index) => ({
                 ...port,
                 primary: index === Number(selected),
@@ -44,9 +38,6 @@ export function EmberPortFields({
             });
           }}
         >
-          {value.schema === 1 && (
-            <option value="legacy">{t("emberEditor.legacyPortChoice")}</option>
-          )}
           <option value="-1">{t("emberEditor.noPrimaryPort")}</option>
           {ports.map((port, index) => (
             <option key={index} value={String(index)}>

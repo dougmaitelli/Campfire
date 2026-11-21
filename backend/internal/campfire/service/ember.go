@@ -85,6 +85,10 @@ func validateEmber(ember *model.Ember) error {
 		return fmt.Errorf("%w: definition exceeds limits or has no startup command", ErrInvalidEmber)
 	}
 
+	// Validate the source schema before projecting supported older inputs into
+	// the same current model used by readers and the editor.
+	*ember = ember.Normalized()
+
 	return nil
 }
 
@@ -92,6 +96,7 @@ func validateEmber(ember *model.Ember) error {
 func (s *EmberService) List(ctx context.Context) ([]model.Ember, error) {
 	items, err := s.store.List(ctx)
 	for i := range items {
+		items[i] = items[i].Normalized()
 		items[i].Revision = model.EmberHash(items[i])
 	}
 
@@ -105,6 +110,7 @@ func (s *EmberService) Get(ctx context.Context, id string) (model.Ember, error) 
 		return model.Ember{}, ErrEmberNotFound
 	}
 
+	ember = ember.Normalized()
 	ember.Revision = model.EmberHash(ember)
 
 	return ember, err

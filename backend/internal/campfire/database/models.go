@@ -121,6 +121,13 @@ type Ember struct {
 	UpdateError     string      `gorm:"type:text;not null;default:''"`
 }
 
+// AfterFind normalizes definitions at the persistence read boundary, including
+// preloaded server associations. This changes only the in-memory projection.
+func (e *Ember) AfterFind(_ *gorm.DB) error {
+	e.Definition = e.Definition.Normalized()
+	return nil
+}
+
 // SparkIdentity records the currently authorized client certificate.
 type SparkIdentity struct {
 	SparkID                 string `gorm:"type:text;primaryKey"`

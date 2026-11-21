@@ -84,6 +84,18 @@ function editor() {
   return saved;
 }
 
+test("console commands default to enabled and can be disabled in the runtime editor", async () => {
+  const user = userEvent.setup();
+  editor();
+  await user.click(screen.getByRole("button", { name: "Runtime" }));
+  const checkbox = screen.getByRole("checkbox", {
+    name: "Supports console commands",
+  });
+  expect((checkbox as HTMLInputElement).checked).toBe(true);
+  await user.click(checkbox);
+  expect((checkbox as HTMLInputElement).checked).toBe(false);
+});
+
 test("actionable error rules can be authored without IDs and survive JSON switching", async () => {
   const user = userEvent.setup();
   editor();

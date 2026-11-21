@@ -170,15 +170,17 @@ func (r *StatusPageRepository) Published(ctx context.Context, slug string) (stri
 	// one whose servers are all being deleted) still has a title. One statement
 	// keeps the title and selection consistent without acquiring a write lock.
 	ports := "COALESCE(json_extract(embers.definition, '$.required_ports'), '[]')"
+	schema := "COALESCE(json_extract(embers.definition, '$.schema'), 2)"
 
 	art := "COALESCE(json_extract(embers.definition, '$.artUrl'), '')"
 	if r.db.Name() == "postgres" {
 		art = "COALESCE(embers.definition::jsonb ->> 'artUrl', '')"
 		ports = "COALESCE(embers.definition::jsonb ->> 'required_ports', '[]')"
+		schema = "COALESCE((embers.definition::jsonb ->> 'schema')::integer, 2)"
 	}
 
 	members := r.db.WithContext(ctx).Table("status_page_entries AS membership").
-		Select("membership.id, membership.page_id, membership.name, membership.position, membership.server_id, servers.spark_id, servers.game_integration, sparks.disabled, servers.game_address, sparks.game_address AS default_host, servers.ports, "+ports+" AS required_ports, "+art+" AS art_url").
+		Select("membership.id, membership.page_id, membership.name, membership.position, membership.server_id, servers.spark_id, servers.game_integration, sparks.disabled, servers.game_address, sparks.game_address AS default_host, servers.ports, "+ports+" AS required_ports, "+schema+" AS ember_schema, "+art+" AS art_url").
 		Joins("JOIN servers ON servers.id = membership.server_id").
 		Joins("JOIN sparks ON sparks.id = servers.spark_id").
 		Joins("JOIN embers ON embers.id = servers.ember_id").
@@ -189,12 +191,13 @@ func (r *StatusPageRepository) Published(ctx context.Context, slug string) (stri
 		Present         bool
 		PublishedTarget `gorm:"embedded"`
 		DefaultHost     string
+		EmberSchema     int
 		Ports           []model.ServerPort   `gorm:"serializer:json"`
 		RequiredPorts   []model.RequiredPort `gorm:"serializer:json"`
 	}
 
 	err := r.db.WithContext(ctx).Table("status_pages AS pages").
-		Select("pages.title, entries.id IS NOT NULL AS present, entries.id, entries.name, entries.server_id, entries.spark_id, entries.disabled, entries.game_integration, entries.game_address, entries.default_host, entries.ports, entries.required_ports, entries.art_url").
+		Select("pages.title, entries.id IS NOT NULL AS present, entries.id, entries.name, entries.server_id, entries.spark_id, entries.disabled, entries.game_integration, entries.game_address, entries.default_host, entries.ports, entries.required_ports, entries.ember_schema, entries.art_url").
 		Joins("LEFT JOIN (?) AS entries ON entries.page_id = pages.id", members).
 		Where("pages.slug = ?", slug).
 		Order("entries.position, entries.id").Limit(statuspage.MaxEntries).Scan(&rows).Error
@@ -209,7 +212,8 @@ func (r *StatusPageRepository) Published(ctx context.Context, slug string) (stri
 	entries := make([]PublishedTarget, 0, len(rows))
 	for _, row := range rows {
 		if row.Present {
-			row.GameAddress = gameaddress.Resolve(row.GameAddress, row.DefaultHost, model.PrimaryHostPort(row.Ports, row.RequiredPorts))
+			definition := (model.Ember{Schema: row.EmberSchema, RequiredPorts: row.RequiredPorts}).Normalized()
+			row.GameAddress = gameaddress.Resolve(row.GameAddress, row.DefaultHost, model.PrimaryHostPort(row.Ports, definition.RequiredPorts))
 			entries = append(entries, row.PublishedTarget)
 		}
 	}

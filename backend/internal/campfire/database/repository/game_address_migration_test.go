@@ -95,7 +95,19 @@ func TestSchemaSixAddsOverridesWithoutFreezingSparkDefaults(t *testing.T) {
 			}
 		}
 	}
-	assertAddresses("", "") // Migration must not guess a primary port for legacy definitions.
+	assertAddresses("", "") // A definition without ports cannot supply an address.
+
+	older := model.Ember{ID: "game", Name: "Game", Schema: 1, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: model.NetworkTCP}}}
+	if err := db.ORM().Model(&database.Ember{}).Where("id = ?", "game").Updates(&database.Ember{Definition: older}).Error; err != nil {
+		t.Fatal(err)
+	}
+	assertAddresses("games.example.test:25565", "games.example.test:25566")
+
+	older.Schema = model.CurrentEmberSchema
+	if err := db.ORM().Model(&database.Ember{}).Where("id = ?", "game").Updates(&database.Ember{Definition: older}).Error; err != nil {
+		t.Fatal(err)
+	}
+	assertAddresses("", "") // Current definitions preserve an intentional no-primary choice.
 
 	definition := model.Ember{ID: "game", Name: "Game", Schema: 2, RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: model.NetworkTCP, Primary: true}}}
 	if err := db.ORM().Model(&database.Ember{}).Where("id = ?", "game").Updates(&database.Ember{Definition: definition}).Error; err != nil {

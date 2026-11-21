@@ -13,7 +13,12 @@ rules, see the [Ember schema reference](/Campfire/ember-schema/).
 Choose **Create Ember** to use the visual editor, or select an existing definition
 to edit it. The steps cover basics, installation, runtime, variables, ports,
 configuration files, save-data paths, and review. **JSON / YAML** accepts pasted
-definitions; switching tabs preserves fields and the current step.
+definitions; switching tabs preserves fields and the current step. Supported
+inputs are normalized to the current model when loaded, so the editor shows the
+same model that will be saved. Loading does not rewrite stored definitions.
+Older definitions with declared ports adopt the first as primary during
+normalization; current definitions retain an intentional **No primary port**
+choice. Review the selection before saving and synchronizing servers.
 
 In **Ports**, optionally designate one **Primary game port**. It supplies the
 container-side `SERVER_PORT`; its published host mapping also supplies the port
