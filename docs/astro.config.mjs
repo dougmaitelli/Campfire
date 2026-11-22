@@ -75,6 +75,7 @@ export default defineConfig({
             { label: "Game integrations", slug: "game-integrations" },
           ],
         },
+        { label: "Roadmap", slug: "roadmap" },
       ],
     }),
   ],
