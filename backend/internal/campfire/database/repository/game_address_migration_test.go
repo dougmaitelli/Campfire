@@ -56,7 +56,7 @@ func TestSchemaSixAddsOverridesWithoutFreezingSparkDefaults(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	var version int
-	if err := db.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 7 {
+	if err := db.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 8 {
 		t.Fatal(version, err)
 	}
 

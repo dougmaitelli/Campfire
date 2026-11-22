@@ -136,16 +136,32 @@ export function PublicStatusPage({ slug }: { slug: string | null }) {
                   <p>{t("statusPages.noPublicServers")}</p>
                 </div>
               ) : (
-                <ul className="public-status-list">
-                  {current.page.entries.map((entry) => (
-                    <PublicServerStatus
-                      key={entry.id}
-                      entry={entry}
-                      now={serverNow}
-                      failed={failure}
-                    />
-                  ))}
-                </ul>
+                <>
+                  <ul className="public-status-list">
+                    {current.page.entries.map((entry) => (
+                      <PublicServerStatus
+                        key={entry.id}
+                        entry={entry}
+                        now={serverNow}
+                        failed={failure}
+                      />
+                    ))}
+                  </ul>
+                  {current.page.entries.some((entry) => entry.history) && (
+                    <p className="public-status-history-key">
+                      {t("statusPages.historyKey")}
+                      <span className="history-online">
+                        {t("statusPages.states.online")}
+                      </span>
+                      <span className="history-offline">
+                        {t("statusPages.states.offline")}
+                      </span>
+                      <span className="history-unknown">
+                        {t("statusPages.states.unknown")}
+                      </span>
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}

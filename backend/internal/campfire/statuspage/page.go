@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"campfire/internal/campfire/gamestate"
+	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
 )
 
@@ -87,13 +88,14 @@ const (
 
 // PublicEntry exposes selected game information, never private deployment details.
 type PublicEntry struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	State       State           `json:"state"`
-	ArtURL      string          `json:"art_url,omitempty"`
-	GameAddress string          `json:"game_address,omitempty"`
-	GameState   *gamestate.View `json:"game_state,omitempty"`
-	ObservedAt  int64           `json:"observed_at"`
+	History     model.AvailabilityHistory `json:"history"`
+	ID          string                    `json:"id"`
+	Name        string                    `json:"name"`
+	State       State                     `json:"state"`
+	ArtURL      string                    `json:"art_url,omitempty"`
+	GameAddress string                    `json:"game_address,omitempty"`
+	GameState   *gamestate.View           `json:"game_state,omitempty"`
+	ObservedAt  int64                     `json:"observed_at"`
 }
 
 // PublicPage is the complete anonymous response, independent of private models.

@@ -94,8 +94,24 @@ func (s *StatusPageService) Public(ctx context.Context, slug string) (statuspage
 		}
 	}
 
+	histories := make(map[string]model.AvailabilityHistory, len(targets))
+	if s.Deployment != nil && s.Deployment.History != nil {
+		ids := make([]string, 0, len(targets))
+		for _, target := range targets {
+			ids = append(ids, target.ServerID)
+		}
+		histories, err = s.Deployment.History.Store.Availability(ctx, ids, observed.Unix())
+		if err != nil {
+			return result, err
+		}
+	}
+
 	for index, target := range targets {
-		entry := statuspage.PublicEntry{ID: target.ID, Name: target.Name, State: statuspage.Unknown, ArtURL: statuspage.PublicArtURL(target.ArtURL), GameAddress: target.GameAddress}
+		history, ok := histories[target.ServerID]
+		if !ok {
+			history = model.EmptyAvailabilityHistory(observed.Unix())
+		}
+		entry := statuspage.PublicEntry{History: history, ID: target.ID, Name: target.Name, State: statuspage.Unknown, ArtURL: statuspage.PublicArtURL(target.ArtURL), GameAddress: target.GameAddress}
 
 		observation := observations[index]
 		if !target.Disabled && !observation.Observed.IsZero() {

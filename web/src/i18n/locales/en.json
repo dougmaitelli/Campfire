@@ -447,6 +447,8 @@
     "moveDown": "Move {{name}} down"
   },
   "statusPages": {
+    "historyKey": "24-hour history · left to right · 15-minute bars",
+    "historySummary": "24-hour availability history ending {{time}}: {{online}} online, {{offline}} offline, {{unknown}} unknown. Based on panel observations, not an external connectivity test.",
     "description": "Choose which server names and availability to expose publicly. Only administrators can manage these pages.",
     "create": "Create status page",
     "createPublic": "Create public page",

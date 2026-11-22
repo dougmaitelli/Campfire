@@ -74,6 +74,62 @@ test.each([
     ).rejects.toThrow();
   },
 );
+const history = {
+  from: 1800000000 - 86400,
+  to: 1800000000,
+  interval: 300,
+  points: Array.from({ length: 288 }, () => ({
+    online_seconds: 290,
+    offline_seconds: 5,
+  })),
+};
+test("public history accepts bounded observed coverage", async () => {
+  const value = { ...valid, entries: [{ ...valid.entries[0], history }] };
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(value));
+  await expect(
+    readPublicStatusPage("community", new AbortController().signal),
+  ).resolves.toEqual(value);
+});
+test.each([
+  null,
+  { ...history, points: history.points.slice(1) },
+  { ...history, points: [...history.points, history.points[0]] },
+  { ...history, from: history.from + 1 },
+  { ...history, to: history.to + 300 },
+  { ...history, interval: 0 },
+  {
+    ...history,
+    points: history.points.map(() => ({
+      online_seconds: -1,
+      offline_seconds: 0,
+    })),
+  },
+  {
+    ...history,
+    points: history.points.map(() => ({
+      online_seconds: 300,
+      offline_seconds: 1,
+    })),
+  },
+  {
+    ...history,
+    points: history.points.map(() => ({
+      online_seconds: 0.5,
+      offline_seconds: 0,
+    })),
+  },
+])(
+  "public history rejects malformed or unbounded coverage %#",
+  async (history) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ ...valid, entries: [{ ...valid.entries[0], history }] }),
+    );
+    await expect(
+      readPublicStatusPage("community", new AbortController().signal),
+    ).rejects.toThrow();
+  },
+);
+
 test("public URLs remain rooted at the standalone route", () => {
   expect(statusPageURL("community")).toBe("/status/community");
 });

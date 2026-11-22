@@ -9,6 +9,7 @@ import { presentGameFields } from "../../utils/gameFieldPresentation";
 import { GameArt } from "../media/GameArt";
 import { StatusPill } from "../status/StatusPill";
 import { GameFieldReading } from "./GameField";
+import { AvailabilityHistory } from "./AvailabilityHistory";
 import "./game-state-readings.css";
 
 // Presentation consumes only the public projection, never private server APIs.
@@ -55,6 +56,7 @@ export function PublicServerStatus({
   }
   return (
     <li className="public-status-entry">
+      {entry.history && <AvailabilityHistory history={entry.history} />}
       <span className="public-status-server-icon" aria-hidden="true">
         <Server size={24} />
         <GameArt src={entry.art_url} />

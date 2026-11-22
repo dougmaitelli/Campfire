@@ -18,7 +18,7 @@ func TestSchemaFiveAddsStatusPagesOnUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := db.ORM().Table("schema_migrations").Where("version = ?", 7).Update("version", 5).Error; err != nil {
+	if err := db.ORM().Table("schema_migrations").Where("version = ?", 8).Update("version", 5).Error; err != nil {
 		t.Fatal(err)
 	}
 
@@ -39,7 +39,7 @@ func TestSchemaFiveAddsStatusPagesOnUpgrade(t *testing.T) {
 	}
 
 	var version int
-	if err := db.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 7 {
+	if err := db.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 8 {
 		t.Fatal(version, err)
 	}
 }

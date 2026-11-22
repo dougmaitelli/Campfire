@@ -170,6 +170,10 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 		return nil, err
 	}
 
+	if err := seedAvailabilityFixtures(ctx, db); err != nil {
+		return nil, err
+	}
+
 	var examples int64
 	if err := db.WithContext(ctx).Model(&seedMarker{}).Where("id = ?", jobExamplesSeedMarkerID).Count(&examples).Error; err != nil {
 		return nil, err

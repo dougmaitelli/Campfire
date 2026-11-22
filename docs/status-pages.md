@@ -51,10 +51,34 @@ refreshing the page does not make an old reading current again.
 pages also depend on the Campfire panel being reachable; they cannot report an
 outage if the panel itself is unavailable.
 
+## Availability history
+
+Faint uptime bars behind the bottom of each server row show the last 24 hours,
+from oldest on the left to newest on the right. Green means observed online and ready, red
+means observed offline or not ready, and yellow means unknown. Mixed intervals
+show the proportion of each state. The accessible graph description includes
+coverage percentages and the history's end time.
+
+History is retained in completed five-minute intervals and displayed as wider
+15-minute bars. Its newest point can be up to five minutes behind the current
+status. Campfire records elapsed availability with its three-second lifecycle
+collector, independently of resource sampling and public-page visits. Coverage
+is split across five-minute boundaries without dropping seconds, and stored in
+the resource-history buckets under the same retention setting (30 days by
+default). Resource compaction preserves availability coverage. Only public
+status pages currently display it.
+
+Data predating availability collection, missed observations, disconnected
+Sparks, and panel downtime remain unknown; older CPU readings are not treated
+as proof of uptime. These are panel-observed availability estimates, not an
+external connectivity check or an SLA calculation. History stays anchored to
+its recorded time if a page refresh fails.
+
 ## What visitors can see
 
 Visitors can see the page title, the public names of the selected servers, their
-availability, and when they were last checked. Each server also shows its game
+current availability, 24-hour availability history, and when they were last
+checked. Each server also shows its game
 artwork, each server's configured or inherited public connection address, and all
 available integration state fields,
 such as player counts, player lists, and the current map. Missing or unavailable

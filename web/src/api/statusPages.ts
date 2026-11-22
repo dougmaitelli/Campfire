@@ -17,7 +17,14 @@ export interface StatusPageInput {
 export interface StatusPage extends StatusPageInput {
   id: string;
 }
+export interface AvailabilityHistory {
+  from: number;
+  to: number;
+  interval: number;
+  points: { online_seconds: number; offline_seconds: number }[];
+}
 export interface PublicStatusEntry {
+  history?: AvailabilityHistory;
   id: string;
   name: string;
   state: PublicServerState;
@@ -83,6 +90,32 @@ export async function deleteStatusPage(id: string): Promise<void> {
   );
   if (!response.ok) await readJSON(response);
 }
+function isAvailabilityHistory(v: unknown): v is AvailabilityHistory {
+  return (
+    isRecord(v) &&
+    typeof v.from === "number" &&
+    Number.isSafeInteger(v.from) &&
+    v.from >= 0 &&
+    typeof v.to === "number" &&
+    Number.isSafeInteger(v.to) &&
+    v.interval === 300 &&
+    v.from % v.interval === 0 &&
+    v.to - v.from === 86400 &&
+    Array.isArray(v.points) &&
+    v.points.length === 288 &&
+    v.points.every(
+      (point: unknown) =>
+        isRecord(point) &&
+        typeof point.online_seconds === "number" &&
+        Number.isSafeInteger(point.online_seconds) &&
+        point.online_seconds >= 0 &&
+        typeof point.offline_seconds === "number" &&
+        Number.isSafeInteger(point.offline_seconds) &&
+        point.offline_seconds >= 0 &&
+        point.online_seconds + point.offline_seconds <= 300,
+    )
+  );
+}
 function isPublicEntry(v: unknown): v is PublicStatusEntry {
   return (
     isRecord(v) &&
@@ -95,7 +128,8 @@ function isPublicEntry(v: unknown): v is PublicStatusEntry {
     (v.art_url === undefined ||
       (typeof v.art_url === "string" && v.art_url.length <= 2048)) &&
     (v.game_address === undefined || typeof v.game_address === "string") &&
-    (v.game_state === undefined || isGameStateView(v.game_state))
+    (v.game_state === undefined || isGameStateView(v.game_state)) &&
+    (v.history === undefined || isAvailabilityHistory(v.history))
   );
 }
 export async function readPublicStatusPage(

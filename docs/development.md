@@ -53,6 +53,22 @@ For configuration-delivery recovery, send `mock-config resume` in the
 deployment**. Use `mock-config pause` to block delivery again. This affects both
 servers on the **Configuration recovery** Spark without blocking other operations.
 
+### Public availability history
+
+Open **http://127.0.0.1:8081/status/mock-status** without signing in to inspect
+seeded 24-hour availability graphs:
+
+- **Survival:** mostly online, with a short outage and an unknown period.
+- **Creative:** recurring offline periods and mixed transition intervals.
+- **Modded:** online earlier, then offline for the latter half of the day.
+- **Unavailable:** online earlier, then unknown for the last six hours.
+
+The page and history are seeded once, including when upgrading an existing mock
+database. Backend rebuilds do not move the timestamps forward, overwrite known
+coverage, or recreate deleted examples. Live collection continues from startup;
+a new mock session creates fresh examples. These historical scenarios do not
+change the servers' current simulated states.
+
 ### History pagination
 
 Interactive dev-mock adds older history to exercise numbered pages without

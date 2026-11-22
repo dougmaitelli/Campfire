@@ -18,6 +18,7 @@ type RuntimeStatusService struct {
 	deployment     *DeploymentService
 	collectMu      sync.Mutex
 	lastCrashPrune time.Time
+	availability   map[string]availabilityObservation
 	cancel         context.CancelFunc
 	wg             sync.WaitGroup
 }
@@ -150,7 +151,8 @@ func (s *RuntimeStatusService) Collect(ctx context.Context) error {
 	close(jobs)
 	workers.Wait()
 
-	return nil
+	observations := d.cachedRuntimeStatuses(targets)
+	return s.recordAvailability(ctx, targets, observations, time.Now())
 }
 
 func (s *DeploymentService) cacheStatus(sparkID string, status model.RuntimeStatus) {
