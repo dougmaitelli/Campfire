@@ -1119,7 +1119,7 @@ export function ServerDrawer({
                 content: policyError ? (
                   <InlineMessage role="alert">{policyError}</InlineMessage>
                 ) : backupPolicy ? (
-                  <>
+                  <div className="form-stack">
                     <FormField label={t("serverDrawer.backgroundS3Sync")}>
                       <ToggleSwitch
                         id="backup-storage"
@@ -1175,7 +1175,7 @@ export function ServerDrawer({
                         "serverDrawer.zeroDisablesALimitLocalAndS3CopiesExpireIndependently",
                       )}
                     </p>
-                  </>
+                  </div>
                 ) : (
                   <p role="status">{t("serverDrawer.loadingBackupPolicy")}</p>
                 ),

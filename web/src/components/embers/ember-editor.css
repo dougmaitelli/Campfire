@@ -44,7 +44,6 @@
 }
 .ember-variable-list > .editable-list-row {
   padding: 14px;
-  margin-block: 12px;
 }
 .ember-variable-list > .editable-list-row .form-field {
   margin-bottom: 10px;
@@ -123,5 +122,4 @@
 .editable-list.ember-value-list > .editable-list-row {
   padding: 0;
   border: 0;
-  margin-block: 8px;
 }

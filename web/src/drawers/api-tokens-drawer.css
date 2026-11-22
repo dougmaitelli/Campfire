@@ -1,7 +1,6 @@
-.api-token-heading {
-  margin: 20px 0 12px;
-}
-.text-input.api-token-secret {
-  width: 100%;
-  margin-bottom: 20px;
+.api-token-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }

@@ -214,11 +214,11 @@ test("admins publish selected servers on a standalone anonymous status page", as
   );
   expect(
     await publicationRow
-      .locator(".status-page-copy svg")
+      .locator(".copyable-text-button svg")
       .evaluate((icon) => icon.getBoundingClientRect().height),
   ).toBe(
     await publicationRow
-      .locator(".status-page-url a")
+      .locator(".copyable-text a")
       .evaluate((link) => parseFloat(getComputedStyle(link).fontSize)),
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -308,7 +308,9 @@ test("admins publish selected servers on a standalone anonymous status page", as
     await expect(publicPage.getByText("Modded", { exact: true })).toHaveCount(
       0,
     );
-    await expect(publicPage.getByText("Online", { exact: true })).toBeVisible();
+    await expect(
+      publicPage.getByRole("listitem").getByText("Online", { exact: true }),
+    ).toBeVisible();
     await expect(
       publicPage.locator(".public-status-entry .status-pill"),
     ).toHaveCSS("border-top-width", "0px");
@@ -421,6 +423,7 @@ test("admins publish selected servers on a standalone anonymous status page", as
     expect(Object.keys(snapshot.entries[0]!).sort()).toEqual([
       "art_url",
       "game_address",
+      "history",
       "id",
       "name",
       "observed_at",

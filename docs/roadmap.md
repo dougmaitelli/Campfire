@@ -13,10 +13,26 @@ scope and order may change.
 - [ ] **Two-factor authentication (2FA)** — Add a second verification step when
       signing in to Campfire.
 
+## API documentation
+
+- [ ] **API reference and guides** — Document authentication with API tokens,
+      permission scopes, available endpoints, and examples for building integrations
+      and automations.
+
+## Internationalization
+
+- [ ] **Backend internationalization (i18n)** — Support localized user-facing
+      messages from the backend, including errors and notifications.
+
 ## Notifications
 
 - [ ] **PWA push notifications** — Receive server alerts through browser push
       notifications, including in the installed app, without keeping the panel open.
+
+## Status pages
+
+- [ ] **Discord card integration** — Publish a status page's server availability
+      as a Discord card and keep it updated as server states change.
 
 ## Game console
 
@@ -26,6 +42,18 @@ scope and order may change.
       integrations, such as player counts and the current map, in the game console.
 - [ ] **Secondary and optional game-state fields** — Distinguish primary readings
       from secondary details and allow optional fields to be shown or hidden.
+
+## Server lifecycle
+
+- [ ] **Configurable restart policies** — Let administrators choose when servers
+      restart automatically, including after crashes or unexpected exits.
+
+## Spark infrastructure
+
+- [ ] **Rootless Docker** — Support running Spark-managed game servers with a
+      rootless Docker daemon.
+- [ ] **Broader disk quota support** — Support enforcing server disk quotas on
+      additional filesystems.
 
 ## Appearance
 

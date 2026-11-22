@@ -42,7 +42,16 @@ export function EditableList<T>({
 } & Reordering<T>) {
   const { t } = useTranslation();
   return (
-    <div className={["editable-list", className].filter(Boolean).join(" ")}>
+    <div
+      className={[
+        "editable-list",
+        "form-stack",
+        "form-stack-compact",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       {items.map((item, index) => (
         <EditableListRow
           key={itemKey ? itemKey(item) : index}

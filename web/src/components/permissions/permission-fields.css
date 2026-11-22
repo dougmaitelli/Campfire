@@ -1,11 +1,5 @@
-.role-permissions legend {
-  margin-bottom: 0.75rem;
+.permission-fields legend {
   font-weight: 600;
-}
-
-.role-permissions .field-help {
-  display: block;
-  margin-top: 0.3rem;
 }
 
 .permission-tree {
@@ -25,6 +19,10 @@
   position: relative;
   min-width: 0;
   padding-block-start: 16px;
+}
+
+.permission-tree-root > li:first-child {
+  padding-block-start: 0;
 }
 
 .permission-tree-node {

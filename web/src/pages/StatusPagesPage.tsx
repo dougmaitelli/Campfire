@@ -9,8 +9,7 @@ import {
 import { useCollection } from "../hooks/useCollection";
 import { useConfirmation } from "../hooks/useConfirmation";
 import { PageHeader } from "../components/layout/PageHeader";
-import { Copy, Check } from "lucide-react";
-import "./status-pages.css";
+import { CopyableText } from "../components/forms/CopyableText";
 import { ContentPanel } from "../components/layout/ContentPanel";
 import { Table, TableRow } from "../components/table/Table";
 import { InlineMessage } from "../components/status/InlineMessage";
@@ -26,7 +25,6 @@ export function StatusPagesPage() {
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
   async function remove(page: StatusPage) {
     if (pending.current) return;
     pending.current = true;
@@ -47,7 +45,6 @@ export function StatusPagesPage() {
       await deleteStatusPage(page.id);
       pages.remove(page.id);
       setEditing(null);
-      setCopied((current) => (current === page.id ? null : current));
       await pages.refresh();
     } catch (cause) {
       setError(
@@ -58,23 +55,11 @@ export function StatusPagesPage() {
       setBusy(false);
     }
   }
-  async function copy(page: StatusPage) {
-    try {
-      await navigator.clipboard.writeText(
-        new URL(statusPageURL(page.slug), window.location.origin).href,
-      );
-      setCopied(page.id);
-      setError(null);
-    } catch {
-      setError(t("statusPages.copyFailed"));
-    }
-  }
   function edit(page: StatusPage) {
     setError(null);
     setEditing({ page });
   }
   const selectedPage = editing?.page;
-  const copiedPage = pages.items.find((page) => page.id === copied);
   return (
     <section aria-labelledby="page-title">
       <PageHeader
@@ -93,9 +78,6 @@ export function StatusPagesPage() {
       {(error ?? pages.error) && (
         <InlineMessage role="alert">{error ?? pages.error}</InlineMessage>
       )}
-      <span className="visually-hidden" role="status">
-        {copiedPage ? t("statusPages.copied", { title: copiedPage.title }) : ""}
-      </span>
       <ContentPanel>
         <Table
           empty={pages.items.length === 0}
@@ -135,7 +117,16 @@ export function StatusPagesPage() {
                   </button>
                 </td>
                 <td>
-                  <span className="status-page-url">
+                  <CopyableText
+                    value={
+                      new URL(statusPageURL(page.slug), window.location.origin)
+                        .href
+                    }
+                    disabled={busy}
+                    copyLabel={t("statusPages.copyURL", { title: page.title })}
+                    copiedLabel={t("statusPages.copied", { title: page.title })}
+                    failedLabel={t("statusPages.copyFailed")}
+                  >
                     <a
                       href={statusPageURL(page.slug)}
                       target="_blank"
@@ -143,31 +134,7 @@ export function StatusPagesPage() {
                     >
                       {statusPageURL(page.slug)}
                     </a>
-                    <button
-                      type="button"
-                      className="status-page-copy"
-                      disabled={busy}
-                      aria-label={t(
-                        copied === page.id
-                          ? "statusPages.copied"
-                          : "statusPages.copyURL",
-                        { title: page.title },
-                      )}
-                      title={t(
-                        copied === page.id
-                          ? "statusPages.copied"
-                          : "statusPages.copyURL",
-                        { title: page.title },
-                      )}
-                      onClick={() => void copy(page)}
-                    >
-                      {copied === page.id ? (
-                        <Check size="1em" aria-hidden="true" />
-                      ) : (
-                        <Copy size="1em" aria-hidden="true" />
-                      )}
-                    </button>
-                  </span>
+                  </CopyableText>
                 </td>
                 <td>{page.entries.length}</td>
               </TableRow>
@@ -185,7 +152,6 @@ export function StatusPagesPage() {
           onSaved={(page) => {
             pages.upsert(page);
             setEditing(null);
-            setCopied(null);
           }}
         />
       )}

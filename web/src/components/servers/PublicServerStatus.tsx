@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, Server } from "lucide-react";
+import { Server } from "lucide-react";
+import { CopyableText } from "../forms/CopyableText";
 import type { PublicStatusEntry } from "../../api/statusPages";
 import { PublicServerState } from "../../contracts/domains";
 import { gameStateFresh } from "../../api/gameState";
@@ -23,8 +23,6 @@ export function PublicServerStatus({
   failed: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const [copied, setCopied] = useState<string>();
-  const [copyFailed, setCopyFailed] = useState(false);
   const age = now - entry.observed_at;
   const state =
     failed ||
@@ -39,21 +37,6 @@ export function PublicServerStatus({
     gameStateFresh(entry.game_state, now)
       ? entry.game_state.state
       : undefined;
-  const copiedAddress = !!entry.game_address && copied === entry.game_address;
-  const copyLabel = t(
-    copiedAddress ? "statusPages.addressCopied" : "statusPages.copyAddress",
-    { name: entry.name },
-  );
-  async function copyAddress() {
-    if (!entry.game_address) return;
-    try {
-      await navigator.clipboard.writeText(entry.game_address);
-      setCopied(entry.game_address);
-      setCopyFailed(false);
-    } catch {
-      setCopyFailed(true);
-    }
-  }
   return (
     <li className="public-status-entry">
       {entry.history && <AvailabilityHistory history={entry.history} />}
@@ -65,27 +48,13 @@ export function PublicServerStatus({
         <h3>{entry.name}</h3>
         {entry.game_address && (
           <p className="public-status-address">
-            <span>{entry.game_address}</span>
-            <button
-              type="button"
-              className="public-status-copy"
-              aria-label={copyLabel}
-              title={copyLabel}
-              onClick={() => void copyAddress()}
-            >
-              {copiedAddress ? (
-                <Check size="1em" aria-hidden="true" />
-              ) : (
-                <Copy size="1em" aria-hidden="true" />
-              )}
-            </button>
+            <CopyableText
+              value={entry.game_address}
+              copyLabel={t("statusPages.copyAddress", { name: entry.name })}
+              copiedLabel={t("statusPages.addressCopied", { name: entry.name })}
+              failedLabel={t("statusPages.addressCopyFailed")}
+            />
           </p>
-        )}
-        <span className="visually-hidden" role="status">
-          {copiedAddress ? copyLabel : ""}
-        </span>
-        {copyFailed && (
-          <p role="status">{t("statusPages.addressCopyFailed")}</p>
         )}
       </div>
       <StatusPill

@@ -69,7 +69,7 @@ export function ServerIntegrationFields({
   ];
   const locked = busy || !overview.configured;
   return (
-    <>
+    <div className="form-stack">
       {!overview.configured && (
         <InlineMessage tone="warning">
           {t("serverIntegrations.notConfigured")}
@@ -139,7 +139,10 @@ export function ServerIntegrationFields({
               }
             />
           </FormField>
-          <Fieldset className="server-integration-options" disabled={locked}>
+          <Fieldset
+            className="server-integration-options form-stack form-stack-compact"
+            disabled={locked}
+          >
             <legend>{t("serverIntegrations.notifications")}</legend>
             {overview.sources.map((source) => {
               const checked = input.subscriptions.some(
@@ -191,7 +194,10 @@ export function ServerIntegrationFields({
               />
             )}
           </Fieldset>
-          <Fieldset className="server-integration-options" disabled={locked}>
+          <Fieldset
+            className="server-integration-options form-stack form-stack-compact"
+            disabled={locked}
+          >
             <legend>{t("serverIntegrations.card")}</legend>
             <CheckboxField
               checked={input.card.enabled}
@@ -264,6 +270,6 @@ export function ServerIntegrationFields({
           </Fieldset>
         </>
       )}
-    </>
+    </div>
   );
 }

@@ -216,19 +216,6 @@
   gap: 6px;
   overflow-wrap: anywhere;
 }
-.public-status-copy {
-  display: inline-flex;
-  flex-shrink: 0;
-  border: 0;
-  padding: 2px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.public-status-copy:hover {
-  color: var(--accent);
-}
 .public-status-footer {
   grid-column: 2 / -1;
   display: flex;
