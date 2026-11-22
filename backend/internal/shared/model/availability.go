@@ -1,11 +1,11 @@
 package model
 
-// Availability history uses five-minute intervals over the last completed day.
-// Durations are observed coverage, not an external connectivity or SLA test.
-const (
-	AvailabilityIntervalSeconds int64 = 300
-	AvailabilityHistoryPoints         = 288
-)
+// AvailabilityIntervalSeconds is the five-minute resolution of observed coverage,
+// not an external connectivity or SLA test.
+const AvailabilityIntervalSeconds int64 = 300
+
+// AvailabilityHistoryPoints covers the last 24 hours of completed intervals.
+const AvailabilityHistoryPoints = 288
 
 // AvailabilityPoint retains known coverage; the rest of the interval is unknown.
 type AvailabilityPoint struct {

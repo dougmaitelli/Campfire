@@ -500,6 +500,7 @@ func (s *ActivityService) checkExecution(ctx context.Context, run database.Sched
 // callers can preserve the distinction between preflight and uncertain dispatch.
 func (s *ActivityService) rejectAttempt(ctx context.Context, run database.ScheduleRun, err error) (bool, error) {
 	state := model.ExecutionFailed
+
 	var message string
 
 	switch {
@@ -549,6 +550,7 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 			if handled, rejectionErr := s.rejectAttempt(ctx, run, err); handled {
 				return rejectionErr
 			}
+
 			return err
 		}
 

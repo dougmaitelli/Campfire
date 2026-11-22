@@ -100,6 +100,7 @@ func (s *StatusPageService) Public(ctx context.Context, slug string) (statuspage
 		for _, target := range targets {
 			ids = append(ids, target.ServerID)
 		}
+
 		histories, err = s.Deployment.History.Store.Availability(ctx, ids, observed.Unix())
 		if err != nil {
 			return result, err
@@ -111,6 +112,7 @@ func (s *StatusPageService) Public(ctx context.Context, slug string) (statuspage
 		if !ok {
 			history = model.EmptyAvailabilityHistory(observed.Unix())
 		}
+
 		entry := statuspage.PublicEntry{History: history, ID: target.ID, Name: target.Name, State: statuspage.Unknown, ArtURL: statuspage.PublicArtURL(target.ArtURL), GameAddress: target.GameAddress}
 
 		observation := observations[index]

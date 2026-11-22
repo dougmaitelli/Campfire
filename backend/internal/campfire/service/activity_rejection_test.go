@@ -31,22 +31,27 @@ func TestExecutionRejectionsAreClassifiedInOnePlace(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			s, _, _, owner := activityFixture(t)
 			item := savedSchedule(t, s, owner, model.ServerActionCommand)
+
 			run, err := s.Store.ClaimSchedule(t.Context(), item.ID, time.Now(), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			cause := test.err
 			if cause != nil {
 				cause = fmt.Errorf("wrapped: %w", cause)
 			}
+
 			handled, err := s.rejectAttempt(t.Context(), run, cause)
 			if err != nil || handled != (test.state != "") {
 				t.Fatal("incorrect rejection handling", handled, err)
 			}
+
 			final, err := s.Store.Run(t.Context(), run.ID)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if !handled {
 				if final.State != model.ExecutionDispatching || final.Message != "" {
 					t.Fatal("unknown error modified execution", final)
@@ -62,6 +67,7 @@ func TestUnknownCommandDispatchFailureRemainsInterrupted(t *testing.T) {
 	s, _, runtime, owner := activityFixture(t)
 	item := savedSchedule(t, s, owner, model.ServerActionCommand)
 	runtime.fail = true
+
 	run, err := s.RunNow(t.Context(), owner, item.ID)
 	if err != nil || run.State != model.ExecutionInterrupted || run.Message != "Dispatch failed; verify server state before retrying." {
 		t.Fatal("unknown dispatch failure was treated as a definite rejection", run, err)

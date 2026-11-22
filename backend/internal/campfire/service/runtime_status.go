@@ -152,6 +152,7 @@ func (s *RuntimeStatusService) Collect(ctx context.Context) error {
 	workers.Wait()
 
 	observations := d.cachedRuntimeStatuses(targets)
+
 	return s.recordAvailability(ctx, targets, observations, time.Now())
 }
 
