@@ -10,6 +10,12 @@ import { NavigationIcon } from "./NavigationIcon";
 import { Button } from "../forms/Button";
 import "./account-menu.css";
 
+const SessionsDrawer = lazy(() =>
+  import("../../drawers/SessionsDrawer").then((module) => ({
+    default: module.SessionsDrawer,
+  })),
+);
+
 const ViewAsDrawer = lazy(() =>
   import("../../drawers/ViewAsDrawer").then((module) => ({
     default: module.ViewAsDrawer,
@@ -27,6 +33,7 @@ export function AccountMenu() {
   const auth = useAuthentication();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [viewAsOpen, setViewAsOpen] = useState(false);
@@ -149,6 +156,16 @@ export function AccountMenu() {
                 type="button"
                 onClick={() => {
                   setOpen(false);
+                  setSessionsOpen(true);
+                }}
+              >
+                <NavigationIcon name="key" />
+                {t("sessions.title")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
                   setTokensOpen(true);
                 }}
               >
@@ -234,6 +251,13 @@ export function AccountMenu() {
           )}
         </p>
       )}
+      {sessionsOpen &&
+        createPortal(
+          <Suspense fallback={null}>
+            <SessionsDrawer onClose={() => setSessionsOpen(false)} />
+          </Suspense>,
+          document.body,
+        )}
       {tokensOpen &&
         createPortal(
           <APITokensDrawer onClose={() => setTokensOpen(false)} />,

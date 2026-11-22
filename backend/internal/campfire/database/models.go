@@ -62,6 +62,8 @@ type User struct {
 
 // UserSession binds a hashed session to an account and credential generation.
 type UserSession struct {
+	CreatedAt         int64  `gorm:"not null;default:0"`
+	UserAgent         string `gorm:"type:text;not null;default:''"`
 	Hash              string `gorm:"type:text;primaryKey"`
 	Provider          string `gorm:"type:text;not null;default:''"`
 	UserID            int64  `gorm:"not null;index"`

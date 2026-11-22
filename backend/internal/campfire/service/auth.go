@@ -185,7 +185,7 @@ func verifyPassword(encoded, password string) bool {
 
 func newUserSession(userID, version int64, now time.Time) (database.UserSession, string) {
 	token := authToken()
-	return database.UserSession{Hash: tokenHash(token), UserID: userID, CSRF: authToken(), CredentialVersion: version, ExpiresAt: now.Add(SessionLifetime).Unix(), LastSeenAt: now.Unix()}, token
+	return database.UserSession{Hash: tokenHash(token), UserID: userID, CSRF: authToken(), CredentialVersion: version, CreatedAt: now.Unix(), ExpiresAt: now.Add(SessionLifetime).Unix(), LastSeenAt: now.Unix()}, token
 }
 
 // Setup consumes proof of local host access and atomically creates the administrator.
@@ -217,6 +217,7 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 	}
 
 	session, raw := newUserSession(1, 1, s.now())
+	session.UserAgent = sessionUserAgent(ctx)
 	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, PasswordHash: encoded, CredentialVersion: 1}, session); err != nil {
 		return database.UserSession{}, "", err
 	}
@@ -266,6 +267,7 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 	}
 
 	session, raw := newUserSession(admin.ID, admin.CredentialVersion, s.now())
+	session.UserAgent = sessionUserAgent(ctx)
 	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now()); err != nil {
 		return database.UserSession{}, "", err
 	}

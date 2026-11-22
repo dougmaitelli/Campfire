@@ -303,6 +303,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 	}
 
 	session, rawSession := newUserSession(user.ID, user.CredentialVersion, s.auth.now())
+	session.UserAgent = sessionUserAgent(ctx)
 	session.Provider = s.issuer
 
 	if err := s.auth.store.CreateSession(ctx, session, "", s.auth.now()); err != nil {

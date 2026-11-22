@@ -87,7 +87,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
+	ctx := service.WithSessionUserAgent(r.Context(), r.UserAgent())
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

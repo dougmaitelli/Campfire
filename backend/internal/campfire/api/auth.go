@@ -298,10 +298,11 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 	var session database.UserSession
 
 	var token string
+	ctx := service.WithSessionUserAgent(r.Context(), r.UserAgent())
 	if setup {
-		session, token, err = a.auth.Setup(r.Context(), input.SetupToken, input.Username, input.Password)
+		session, token, err = a.auth.Setup(ctx, input.SetupToken, input.Username, input.Password)
 	} else {
-		session, token, err = a.auth.Login(r.Context(), input.Username, input.Password, browserToken(r))
+		session, token, err = a.auth.Login(ctx, input.Username, input.Password, browserToken(r))
 	}
 
 	if err != nil {

@@ -137,7 +137,7 @@ func (a *API) stopViewAs(w http.ResponseWriter, r *http.Request) {
 // previewRequest permits reads, including file reads transported as POSTs.
 // Normal permission checks still run after this check.
 func previewRequest(r *http.Request) bool {
-	if r.URL.Path == "/api/v1/tokens" || strings.HasPrefix(r.URL.Path, "/api/v1/tokens/") {
+	if r.URL.Path == "/api/v1/auth/sessions" || strings.HasPrefix(r.URL.Path, "/api/v1/auth/sessions/") || r.URL.Path == "/api/v1/tokens" || strings.HasPrefix(r.URL.Path, "/api/v1/tokens/") {
 		return false
 	}
 

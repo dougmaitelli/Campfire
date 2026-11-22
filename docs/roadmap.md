@@ -8,7 +8,7 @@ scope and order may change.
 
 ## Account security
 
-- [ ] **Session management** — View active login sessions and revoke access for
+- [x] **Session management** — View active login sessions and revoke access for
       individual sessions or other devices.
 - [ ] **Two-factor authentication (2FA)** — Add a second verification step when
       signing in to Campfire.

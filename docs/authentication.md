@@ -275,3 +275,15 @@ scope checks.
 
 For a forgotten administrator password or an unavailable identity provider,
 see [password recovery](/Campfire/operations/#administrator-password-recovery).
+
+## Active sessions
+
+Open **Active sessions** from the account menu to see your signed-in browsers,
+sign-in times, and recent activity. **This session** identifies the current browser.
+Sign out any individual session, or choose **Sign out all other devices** to keep
+only the current browser signed in. Signing out the current session returns you to
+the login screen. Session management is unavailable during **View as**.
+
+Browser and device labels come from the browser’s user agent. Sessions created
+before this feature may show unavailable device details or sign-in times. Last
+activity is updated periodically, rather than on every request.

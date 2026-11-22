@@ -484,7 +484,11 @@
     "observed": "Last checked: {{time}}",
     "noObservation": "No recent update.",
     "updatesAutomatically": "Updates automatically.",
-    "states": { "online": "Online", "offline": "Offline", "unknown": "Unknown" }
+    "states": {
+      "online": "Online",
+      "offline": "Offline",
+      "unknown": "Unknown"
+    }
   },
   "common": {
     "statusPages": "Status pages",
@@ -1916,5 +1920,25 @@
     "server_schedules_read": "View schedules and execution history",
     "server_schedules_manage": "Create, edit, enable, and remove schedules",
     "server_schedules_run": "Run schedules and retry their executions"
+  },
+  "sessions": {
+    "title": "Active sessions",
+    "description": "Manage browsers signed in to your account. Signing out a session removes its access immediately.",
+    "device": "Browser / device",
+    "signedIn": "Signed in",
+    "lastActive": "Last active",
+    "current": "This session",
+    "revoke": "Sign out session",
+    "revokeOthers": "Sign out all other devices",
+    "confirmCurrent": "You will be signed out of this browser.",
+    "confirmOne": "Sign out {{device}}? It will need to sign in again.",
+    "confirmOthers": "All other browsers signed in to your account will need to sign in again. This session will stay signed in.",
+    "signOutDevice": "Sign out {{device}}",
+    "unknownDevice": "Unknown browser / device",
+    "unknownTime": "Unavailable",
+    "empty": "No active sessions.",
+    "unexpectedResponse": "Unexpected session response.",
+    "loadFailed": "Unable to load sessions.",
+    "updateFailed": "Unable to update sessions."
   }
 }

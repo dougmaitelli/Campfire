@@ -27,7 +27,7 @@ type Database struct {
 // Marker 2 is reserved for an equivalent schema accepted by the adoption path.
 // Future schema changes must use a marker above 2 to avoid treating a different
 // schema as a metadata-only adoption.
-const schemaVersion = 8
+const schemaVersion = 9
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It initializes the same transactional baseline schema on either backend.
@@ -174,7 +174,7 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3 && versions[0] != 4 && versions[0] != 5 && versions[0] != 6 && versions[0] != 7) {
+		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3 && versions[0] != 4 && versions[0] != 5 && versions[0] != 6 && versions[0] != 7 && versions[0] != 8) {
 			return fmt.Errorf("unsupported database schema history %v; expected baseline version %d", versions, schemaVersion)
 		}
 
@@ -207,6 +207,16 @@ func migrate(db *gorm.DB) error {
 						if err := tx.Migrator().AddColumn(row, field); err != nil {
 							return err
 						}
+					}
+				}
+			}
+		}
+
+		if versions[0] < 9 {
+			for _, field := range []string{"CreatedAt", "UserAgent"} {
+				if !tx.Migrator().HasColumn(&UserSession{}, field) {
+					if err := tx.Migrator().AddColumn(&UserSession{}, field); err != nil {
+						return err
 					}
 				}
 			}

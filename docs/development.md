@@ -202,3 +202,9 @@ from the root `screenshots/` directory.
 Pull requests validate the site. Pushes to `master` deploy it through GitHub
 Actions; the repository's Pages source must be **GitHub Actions**. Version tags
 validate the docs without replacing the live site.
+
+Mock mode seeds three example login sessions for `admin` (Chrome on Windows,
+Firefox on macOS, and Safari on iPhone). Open **Active sessions** in the account
+menu to try individual and bulk sign-out. These examples are seeded once, including
+when upgrading an existing mock database; revocations persist across restarts.
+They expire normally and are recreated when starting with a fresh mock database.
