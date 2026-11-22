@@ -40,12 +40,12 @@ export function App() {
   }
   return (
     <AuthenticationProvider>
-      <AuthenticatedApp />
+      <AuthenticationGate />
     </AuthenticationProvider>
   );
 }
 
-function AuthenticatedApp() {
+function AuthenticationGate() {
   useTranslation();
   const auth = useAuthentication();
   return auth.session?.authenticated ? (

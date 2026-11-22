@@ -13,11 +13,14 @@ import (
 
 func TestFrontendRoutingAndCacheBoundaries(t *testing.T) {
 	files := fstest.MapFS{
-		"index.html":             {Data: []byte("<!doctype html><div id=\"root\"></div>")},
-		"assets/app-12345678.js": {Data: []byte("console.log('Campfire')")},
-		"favicon.png":            {Data: []byte("\x89PNG\r\n\x1a\n")},
-		"brand/campfire.svg":     {Data: []byte("<svg></svg>")},
-		"install-spark.sh":       {Data: []byte("#!/usr/bin/env bash\nset -euo pipefail\n")},
+		"index.html":                 {Data: []byte("<!doctype html><div id=\"root\"></div>")},
+		"assets/app-12345678.js":     {Data: []byte("console.log('Campfire')")},
+		"favicon.png":                {Data: []byte("\x89PNG\r\n\x1a\n")},
+		"manifest.webmanifest":       {Data: []byte(`{"name":"Campfire","start_url":"/","display":"standalone"}`)},
+		"icons/app-192.png":          {Data: []byte("\x89PNG\r\n\x1a\n")},
+		"icons/apple-touch-icon.png": {Data: []byte("\x89PNG\r\n\x1a\n")},
+		"brand/campfire.svg":         {Data: []byte("<svg></svg>")},
+		"install-spark.sh":           {Data: []byte("#!/usr/bin/env bash\nset -euo pipefail\n")},
 	}
 	handler := HandlerFromFS(api.New(nil, nil, nil).Handler(), files)
 
@@ -34,6 +37,12 @@ func TestFrontendRoutingAndCacheBoundaries(t *testing.T) {
 		{"HEAD", "/status/community", 200, "", "no-store"},
 		{"GET", "/assets/app-12345678.js", 200, "console.log", "public, max-age=31536000, immutable"},
 		{"GET", "/favicon.png", 200, "PNG", "no-cache"},
+		{"GET", "/manifest.webmanifest", 200, `"display":"standalone"`, "no-cache"},
+		{"HEAD", "/manifest.webmanifest", 200, "", "no-cache"},
+		{"GET", "/icons/app-192.png", 200, "PNG", "no-cache"},
+		{"GET", "/icons/apple-touch-icon.png", 200, "PNG", "no-cache"},
+		{"GET", "/icons/missing.png", 404, "", ""},
+		{"GET", "/service-worker.js", 404, "", ""},
 		{"GET", "/brand/campfire.svg", 200, "<svg>", "no-cache"},
 		{"GET", "/install-spark.sh", 200, "#!/usr/bin/env bash", "no-cache"},
 		{"GET", "/assets/missing.js", 404, "", ""},
@@ -57,6 +66,10 @@ func TestFrontendRoutingAndCacheBoundaries(t *testing.T) {
 
 			if strings.HasPrefix(test.url, "/status/") && (response.Header().Get("X-Robots-Tag") != "noindex, nofollow" || response.Header().Get("Referrer-Policy") != "no-referrer") {
 				t.Fatal("public document headers missing", response.Header())
+			}
+
+			if test.url == "/manifest.webmanifest" && response.Header().Get("Content-Type") != "application/manifest+json" {
+				t.Fatal("incorrect manifest content type", response.Header())
 			}
 
 			if test.method == "HEAD" && response.Body.Len() != 0 {

@@ -6,6 +6,20 @@ Complete [first-run setup](/Campfire/getting-started/) to create
 the initial administrator. Administrators create additional password accounts
 from **Users**; there is no public password registration.
 
+## Install Campfire as an app
+
+Open your panel over HTTPS and use your browser's install prompt or menu to
+add Campfire to your home screen, dock, or app launcher. Installation options
+vary by browser:
+
+- **Chrome / Edge:** use the browser's install prompt, address-bar icon, or app menu.
+- **iPhone / iPad:** in Safari, choose **Share → Add to Home Screen**. If shown,
+  leave **Open as Web App** enabled.
+- **Safari on supported macOS versions:** choose **File → Add to Dock**.
+
+Campfire still requires a connection to the panel. Existing session limits
+apply, and some platforms may require signing in again inside the installed app.
+
 ## Roles and server membership
 
 Built-in platform roles are **Admin**, **Server creator**, and **User**.

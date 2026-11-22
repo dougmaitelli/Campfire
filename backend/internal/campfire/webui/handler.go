@@ -80,6 +80,10 @@ func HandlerFromFS(api http.Handler, files fs.FS) http.Handler {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
 
+		if name == "manifest.webmanifest" {
+			w.Header().Set("Content-Type", "application/manifest+json")
+		}
+
 		// ServeFileFS canonicalizes index.html to its directory; serve the SPA entry directly.
 		if name == "index.html" {
 			file, err := files.Open(name)
