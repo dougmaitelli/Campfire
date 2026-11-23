@@ -2,6 +2,16 @@ import type { Page } from "@playwright/test";
 import type { RuntimeStatus } from "../web/src/api/runtime";
 import { expect } from "./fixtures";
 
+export async function openProfileAction(
+  page: Page,
+  name: "API tokens" | "Active sessions",
+) {
+  await page.getByRole("button", { name: "My profile", exact: true }).click();
+  const profile = page.getByRole("dialog", { name: "My profile", exact: true });
+  await profile.getByRole("button", { name: "Actions", exact: true }).click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}
+
 export async function mockServerStatus(
   page: Page,
   serverID: string,
@@ -24,7 +34,7 @@ export async function login(page: Page, username = "admin") {
   await page.getByLabel("Username", { exact: true }).fill(username);
   await page
     .getByLabel("Password", { exact: true })
-    .fill("campfire-e2e-password");
+    .fill("Campfire-E2E-Password1!");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("navigation", { name: "Main navigation" }),

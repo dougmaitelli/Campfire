@@ -8,10 +8,10 @@ scope and order may change.
 
 ## Account security
 
-- [x] **Session management** — View active login sessions and revoke access for
-      individual sessions or other devices.
-- [ ] **Two-factor authentication (2FA)** — Add a second verification step when
-      signing in to Campfire.
+- [ ] **Email verification and password recovery** — Configure outgoing email,
+      verify ownership of new or changed email addresses before trusting them for
+      account linking or recovery, and let users reset forgotten passwords through
+      expiring, single-use links sent to their verified address.
 
 ## API documentation
 

@@ -16,6 +16,10 @@ export const AccountLimits = {
   UsernameMax: 64,
   PasswordMin: 15,
   PasswordMax: 1024,
+  PasswordRequireUppercase: true as boolean,
+  PasswordRequireLowercase: true as boolean,
+  PasswordRequireNumber: true as boolean,
+  PasswordRequireSymbol: true as boolean,
   DisplayNameMax: 100,
   EmailMax: 254,
 } as const;

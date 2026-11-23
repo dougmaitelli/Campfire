@@ -11,7 +11,7 @@ import (
 	"campfire/internal/campfire/service"
 )
 
-const testAdminPassword = "a long test administrator password"
+const testAdminPassword = "a long test administrator password A1!"
 
 // Existing feature tests use real authentication while focusing on their domain behavior.
 func authenticatedTestAPI(t *testing.T, db *database.Database, panel *api.API) http.Handler {

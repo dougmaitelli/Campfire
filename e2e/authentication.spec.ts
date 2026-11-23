@@ -1,6 +1,54 @@
 import { test, expect, screenshot } from "./fixtures";
 import { login } from "./screens";
 
+test("recovery sign-in is offered only after the password step and preserves the credentials", async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route("**/api/v1/auth/login", async (route) => {
+    attempts++;
+    expect(route.request().postDataJSON()).toEqual({
+      username: "admin",
+      password: "Campfire-E2E-Password1!",
+      ...(attempts === 1 ? {} : { code: "saved-recovery-code" }),
+    });
+    await route.fulfill({
+      status: 401,
+      json:
+        attempts === 1
+          ? { two_factor_required: true }
+          : { error: "Invalid recovery code" },
+    });
+  });
+  await page.goto("/");
+  const lost = page.getByRole("button", { name: "Lost your authenticator?" });
+  await expect(lost).toHaveCount(0);
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("Campfire-E2E-Password1!");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByLabel("Authenticator code", { exact: true }),
+  ).toBeVisible();
+  await lost.click();
+  await expect(
+    page.getByLabel("Authenticator code", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByLabel("Recovery code", { exact: true })
+    .fill("saved-recovery-code");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Invalid recovery code");
+  await page.getByRole("button", { name: "Use an authenticator code" }).click();
+  await expect(page.getByLabel("Recovery code", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByLabel("Authenticator code", { exact: true }),
+  ).toHaveValue("");
+  expect(attempts).toBe(2);
+});
+
 test("sidebar version is stable for screenshot tests after login and reload", async ({
   page,
 }) => {
@@ -22,12 +70,12 @@ test("mobile login supports password visibility and keyboard submission", async 
   ).toBeVisible();
   await screenshot(page, "login-mobile.png");
   const password = page.getByLabel("Password", { exact: true });
-  await password.fill("campfire-e2e-password");
+  await password.fill("Campfire-E2E-Password1!");
   await page
     .getByRole("button", { name: "Show password", exact: true })
     .click();
   await expect(password).toHaveAttribute("type", "text");
-  await expect(password).toHaveValue("campfire-e2e-password");
+  await expect(password).toHaveValue("Campfire-E2E-Password1!");
   await page
     .getByRole("button", { name: "Hide password", exact: true })
     .click();
@@ -67,9 +115,10 @@ for (const localLogin of [false, true]) {
     await expect(page.getByLabel("Password", { exact: true })).toHaveCount(
       localLogin ? 1 : 0,
     );
-    await expect(page.getByText(/Forgot your password/)).toHaveCount(
-      localLogin ? 1 : 0,
-    );
+    await expect(page.getByText(/Forgot your password/)).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Lost your authenticator?" }),
+    ).toHaveCount(0);
     await expect(
       page.getByText("or use your username", { exact: true }),
     ).toHaveCount(localLogin ? 1 : 0);
@@ -121,7 +170,7 @@ test("administrator setup keeps all fields accessible on desktop and mobile", as
   await page.getByLabel("Setup token").fill("setup-token");
   await page
     .getByLabel("Password", { exact: true })
-    .fill("a long test passphrase");
+    .fill("A long test passphrase1!");
   await page
     .getByLabel("Confirm password", { exact: true })
     .fill("a different passphrase");
@@ -131,11 +180,11 @@ test("administrator setup keeps all fields accessible on desktop and mobile", as
   );
   await page
     .getByLabel("Confirm password", { exact: true })
-    .fill("a long test passphrase");
+    .fill("A long test passphrase1!");
   await page.route("**/api/v1/auth/setup", async (route) => {
     expect(route.request().postDataJSON()).toEqual({
       username: "admin",
-      password: "a long test passphrase",
+      password: "A long test passphrase1!",
       setup_token: "setup-token",
     });
     await route.fulfill({

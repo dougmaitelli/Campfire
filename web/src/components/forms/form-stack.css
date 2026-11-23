@@ -9,7 +9,7 @@
 .form-stack-compact {
   gap: 12px;
 }
-.form-stack > :not(.visually-hidden) {
+.form-stack > :not(.visually-hidden, dialog) {
   margin-block: 0;
 }
 .form-stack > .button {

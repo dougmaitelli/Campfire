@@ -65,6 +65,10 @@ func run(ctx context.Context, args []string, directory string, start func(contex
 		}
 
 		if err == nil {
+			err = runtime.EnableMFAExamples(ctx, auth, directory)
+		}
+
+		if err == nil {
 			slog.Info("MOCK MODE: simulated Sparks; no Docker, TLS or infrastructure connections", "database", filepath.Join(directory, "panel.db"))
 			slog.Info("Mock username: " + Username)
 			slog.Info("Mock password: " + Password)

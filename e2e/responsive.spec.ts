@@ -126,30 +126,41 @@ test("mobile navigation supports dismissal, account controls and desktop resizin
   await page.keyboard.press("Escape");
   await expect(navigation).toBeVisible();
   await expect(
-    navigation.getByRole("button", { name: "API tokens", exact: true }),
+    navigation.getByRole("button", { name: "My profile", exact: true }),
   ).toBeHidden();
   await navigation
     .getByRole("button", { name: "Account options for Developer", exact: true })
     .click();
   await navigation
-    .getByRole("button", { name: "API tokens", exact: true })
+    .getByRole("button", { name: "My profile", exact: true })
     .click();
+  const profile = page.getByRole("dialog", { name: "My profile", exact: true });
+  await profile.getByRole("button", { name: "Actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "API tokens", exact: true }).click();
   const tokens = page.getByRole("dialog", { name: "API tokens", exact: true });
   await expect(tokens).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(tokens).toBeHidden();
+  await expect(profile).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(profile).toBeHidden();
   await expect(navigation).toBeVisible();
   await navigation
     .getByRole("button", { name: "Account options for Developer", exact: true })
     .click();
   await navigation
-    .getByRole("button", { name: "API tokens", exact: true })
+    .getByRole("button", { name: "My profile", exact: true })
     .click();
+  await profile.getByRole("button", { name: "Actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "API tokens", exact: true }).click();
   await page.setViewportSize({ width: 1400, height: 900 });
   await expect(navigation).toBeHidden();
   await expect(tokens).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(tokens).toBeHidden();
+  await expect(profile).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(profile).toBeHidden();
   await expect(
     page.getByRole("navigation", { name: "Main navigation", exact: true }),
   ).toBeVisible();

@@ -212,7 +212,7 @@ func TestAuthenticationLoginRotationResetAndRateLimit(t *testing.T) {
 		t.Fatal("session was not rotated", response.Code)
 	}
 
-	if err := auth.ResetPassword(context.Background(), "a different long administrator password"); err != nil {
+	if err := auth.ResetPassword(context.Background(), "a different long administrator password A1!"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -224,7 +224,7 @@ func TestAuthenticationLoginRotationResetAndRateLimit(t *testing.T) {
 		t.Fatal("old password remained valid", response.Code)
 	}
 
-	readAuthResponse(t, request(handler, "POST", "/api/v1/auth/login", `{"username":"admin","password":"a different long administrator password"}`))
+	readAuthResponse(t, request(handler, "POST", "/api/v1/auth/login", `{"username":"admin","password":"a different long administrator password A1!"}`))
 
 	var throttled bool
 

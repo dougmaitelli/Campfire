@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"campfire/internal/campfire/database"
@@ -26,7 +27,7 @@ import (
 var (
 	ErrAuthentication = repository.ErrAuthentication
 	ErrAdminExists    = repository.ErrAdminExists
-	ErrAuthInput      = errors.New("use a username of 3–64 letters, numbers, dots, dashes or underscores and a password of at least 15 characters (maximum 1024 bytes)")
+	ErrAuthInput      = fmt.Errorf("use a username of %d–%d letters, numbers, dots, dashes or underscores; password requirements: %s", limits.UsernameMin, limits.UsernameMax, PasswordRequirements())
 	ErrAuthRate       = errors.New("too many sign-in attempts; try again in one minute")
 )
 
@@ -41,6 +42,7 @@ type authAttempts struct {
 // AuthService owns initial administrator setup, account authentication and sessions.
 type AuthService struct {
 	store         *repository.AuthRepository
+	mfaSecrets    MFASecrets
 	mu            sync.Mutex
 	setupHash     [32]byte
 	setupReady    bool
@@ -151,8 +153,39 @@ func (s *AuthService) AllowAttempt(key string) bool {
 	return true
 }
 
+// PasswordRequirements describes the configured rules for setting a password.
+func PasswordRequirements() string {
+	rules := []string{fmt.Sprintf("at least %d characters", limits.PasswordMin)}
+	if limits.PasswordRequireUppercase {
+		rules = append(rules, "an uppercase letter")
+	}
+	if limits.PasswordRequireLowercase {
+		rules = append(rules, "a lowercase letter")
+	}
+	if limits.PasswordRequireNumber {
+		rules = append(rules, "a number")
+	}
+	if limits.PasswordRequireSymbol {
+		rules = append(rules, "a symbol")
+	}
+	return strings.Join(rules, ", ")
+}
+
 func validAccountInput(username, password string) bool {
-	return utils.IsValidUsername(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= limits.PasswordMin && len(password) <= limits.PasswordMax
+	if !utils.IsValidUsername(username) || !utf8.ValidString(password) || utf8.RuneCountInString(password) < limits.PasswordMin || len(password) > limits.PasswordMax {
+		return false
+	}
+	var upper, lower, number, symbol bool
+	for _, char := range password {
+		upper = upper || unicode.IsUpper(char)
+		lower = lower || unicode.IsLower(char)
+		number = number || unicode.IsDigit(char)
+		symbol = symbol || unicode.IsPunct(char) || unicode.IsSymbol(char)
+	}
+	return (!limits.PasswordRequireUppercase || upper) &&
+		(!limits.PasswordRequireLowercase || lower) &&
+		(!limits.PasswordRequireNumber || number) &&
+		(!limits.PasswordRequireSymbol || symbol)
 }
 
 func passwordHash(password string) (string, error) {
@@ -231,7 +264,11 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 }
 
 // Login verifies credentials and rotates any current browser session.
-func (s *AuthService) Login(ctx context.Context, username, password, previous string) (database.UserSession, string, error) {
+func (s *AuthService) Login(ctx context.Context, username, password, previous string, codes ...string) (database.UserSession, string, error) {
+	code := ""
+	if len(codes) > 0 {
+		code = codes[0]
+	}
 	enabled, err := s.LocalLoginEnabled(ctx)
 	if err != nil {
 		return database.UserSession{}, "", err
@@ -266,9 +303,21 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 		return database.UserSession{}, "", ErrAuthentication
 	}
 
+	factor, err := s.store.MFA(ctx, admin.ID)
+	if err != nil {
+		return database.UserSession{}, "", err
+	}
+	if factor.SecretRef != "" && !s.AllowAttempt(fmt.Sprintf("mfa:%d", admin.ID)) {
+		return database.UserSession{}, "", ErrAuthRate
+	}
+	proof, err := s.factorProof(factor, code)
+	if err != nil {
+		return database.UserSession{}, "", err
+	}
+
 	session, raw := newUserSession(admin.ID, admin.CredentialVersion, s.now())
 	session.UserAgent = sessionUserAgent(ctx)
-	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now()); err != nil {
+	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now(), proof); err != nil {
 		return database.UserSession{}, "", err
 	}
 

@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import { login } from "./screens";
+import { login, openProfileAction } from "./screens";
 import { readAuthenticatedSession } from "./auth";
 
 for (const width of [1400, 390]) {
@@ -28,7 +28,7 @@ for (const width of [1400, 390]) {
         exact: true,
       })
       .click();
-    await page.getByRole("button", { name: "API tokens", exact: true }).click();
+    await openProfileAction(page, "API tokens");
     await page.setViewportSize({ width, height: 844 });
     const drawer = page.getByRole("dialog", {
       name: "API tokens",
@@ -73,7 +73,7 @@ test("API tokens open as a list, create through a separate form, and return with
   await page
     .getByRole("button", { name: "Account options for Developer", exact: true })
     .click();
-  await page.getByRole("button", { name: "API tokens", exact: true }).click();
+  await openProfileAction(page, "API tokens");
   const drawer = page.getByRole("dialog", { name: "API tokens", exact: true });
   const create = drawer.getByRole("button", {
     name: "Create token",

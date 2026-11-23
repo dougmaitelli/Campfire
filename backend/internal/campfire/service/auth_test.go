@@ -47,7 +47,7 @@ func TestAdministratorSecretsBootstrapAndThrottling(t *testing.T) {
 		t.Fatal("restart did not replace setup token")
 	}
 
-	password := "a private long passphrase with spaces"
+	password := "a private long passphrase with spaces A1!"
 
 	if _, _, err := restarted.Setup(ctx, previous, "admin", password); !errors.Is(err, ErrAuthentication) {
 		t.Fatal("old process token accepted", err)
@@ -119,7 +119,7 @@ func TestSetupRequiresAnExplicitlyPreparedSecret(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
-	if _, _, err := auth.Setup(ctx, authToken(), "admin", "a private long passphrase"); !errors.Is(err, ErrAuthentication) {
+	if _, _, err := auth.Setup(ctx, authToken(), "admin", "a private long passphrase A1!"); !errors.Is(err, ErrAuthentication) {
 		t.Fatal("setup accepted before preparation", err)
 	}
 

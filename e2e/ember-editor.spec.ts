@@ -304,7 +304,7 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
 }) => {
   await login(page);
   const auth = await page.request.post("/api/v1/auth/login", {
-    data: { username: "admin", password: "campfire-e2e-password" },
+    data: { username: "admin", password: "Campfire-E2E-Password1!" },
   });
   const { csrf_token } = await readAuthenticatedSession(auth);
   const original = { ...completeEmber(), artUrl: "" };

@@ -14,7 +14,7 @@ test("actionable errors can be authored, detected without an open console, acted
   test.setTimeout(60_000);
   await login(page);
   const auth = await page.request.post("/api/v1/auth/login", {
-    data: { username: "admin", password: "campfire-e2e-password" },
+    data: { username: "admin", password: "Campfire-E2E-Password1!" },
   });
   const { csrf_token } = await readAuthenticatedSession(auth);
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };

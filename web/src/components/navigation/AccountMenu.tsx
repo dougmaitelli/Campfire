@@ -5,14 +5,13 @@ import { createPortal } from "react-dom";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { canPerformPlatform } from "../../permissions";
 import { linkOIDC, stopViewAs } from "../../api/auth";
-import { APITokensDrawer } from "../../drawers/APITokensDrawer";
 import { NavigationIcon } from "./NavigationIcon";
 import { Button } from "../forms/Button";
 import "./account-menu.css";
 
-const SessionsDrawer = lazy(() =>
-  import("../../drawers/SessionsDrawer").then((module) => ({
-    default: module.SessionsDrawer,
+const MyProfileDrawer = lazy(() =>
+  import("../../drawers/MyProfileDrawer").then((module) => ({
+    default: module.MyProfileDrawer,
   })),
 );
 
@@ -33,8 +32,7 @@ export function AccountMenu() {
   const auth = useAuthentication();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [sessionsOpen, setSessionsOpen] = useState(false);
-  const [tokensOpen, setTokensOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [viewAsOpen, setViewAsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,24 +154,11 @@ export function AccountMenu() {
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  setSessionsOpen(true);
+                  setProfileOpen(true);
                 }}
               >
-                <NavigationIcon name="key" />
-                {t("sessions.title")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setTokensOpen(true);
-                }}
-              >
-                <Trans
-                  i18nKey="accountMenu.apiTokens"
-                  t={t}
-                  components={{ navigationIcon: <NavigationIcon name="key" /> }}
-                />
+                <NavigationIcon name="profile" />
+                {t("profile.title")}
               </button>
               {auth.session?.oidc_enabled && !auth.session.oidc_linked && (
                 <button
@@ -251,16 +236,11 @@ export function AccountMenu() {
           )}
         </p>
       )}
-      {sessionsOpen &&
+      {profileOpen &&
         createPortal(
           <Suspense fallback={null}>
-            <SessionsDrawer onClose={() => setSessionsOpen(false)} />
+            <MyProfileDrawer onClose={() => setProfileOpen(false)} />
           </Suspense>,
-          document.body,
-        )}
-      {tokensOpen &&
-        createPortal(
-          <APITokensDrawer onClose={() => setTokensOpen(false)} />,
           document.body,
         )}
       {integrationsOpen &&

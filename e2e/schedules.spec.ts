@@ -199,7 +199,7 @@ for (const permissions of [
   }) => {
     await login(page, "viewer");
     const admin = await request.post("/api/v1/auth/login", {
-      data: { username: "admin", password: "campfire-e2e-password" },
+      data: { username: "admin", password: "Campfire-E2E-Password1!" },
     });
     expect(admin.ok()).toBeTruthy();
     const { csrf_token } = await readAuthenticatedSession(admin);

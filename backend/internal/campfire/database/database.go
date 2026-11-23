@@ -27,7 +27,7 @@ type Database struct {
 // Marker 2 is reserved for an equivalent schema accepted by the adoption path.
 // Future schema changes must use a marker above 2 to avoid treating a different
 // schema as a metadata-only adoption.
-const schemaVersion = 9
+const schemaVersion = 11
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It initializes the same transactional baseline schema on either backend.
@@ -130,7 +130,7 @@ func (d *Database) Close() error {
 // baselineModels is the complete schema, not a sequence of development upgrades.
 func baselineModels() []any {
 	return []any{
-		&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
+		&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{}, &UserMFA{},
 		&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
 		&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{}, &MonitoringAlert{},
 		&ServerJob{}, &BackupPolicy{}, &Backup{}, &APIToken{},
@@ -174,7 +174,7 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3 && versions[0] != 4 && versions[0] != 5 && versions[0] != 6 && versions[0] != 7 && versions[0] != 8) {
+		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3 && versions[0] != 4 && versions[0] != 5 && versions[0] != 6 && versions[0] != 7 && versions[0] != 8 && versions[0] != 9 && versions[0] != 10) {
 			return fmt.Errorf("unsupported database schema history %v; expected baseline version %d", versions, schemaVersion)
 		}
 
@@ -216,6 +216,34 @@ func migrate(db *gorm.DB) error {
 			for _, field := range []string{"CreatedAt", "UserAgent"} {
 				if !tx.Migrator().HasColumn(&UserSession{}, field) {
 					if err := tx.Migrator().AddColumn(&UserSession{}, field); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		if versions[0] < 10 && !tx.Migrator().HasTable(&UserMFA{}) {
+			if err := tx.Migrator().CreateTable(&UserMFA{}); err != nil {
+				return err
+			}
+		}
+
+		if versions[0] < 11 {
+			for _, field := range []string{"Devices", "PendingName"} {
+				if !tx.Migrator().HasColumn(&UserMFA{}, field) {
+					if err := tx.Migrator().AddColumn(&UserMFA{}, field); err != nil {
+						return err
+					}
+				}
+			}
+			var factors []UserMFA
+			if err := tx.Find(&factors).Error; err != nil {
+				return err
+			}
+			for _, factor := range factors {
+				if factor.SecretRef != "" && len(factor.Devices) == 0 {
+					factor.Devices = []MFADevice{{ID: "legacy", Name: "Authenticator", SecretRef: factor.SecretRef, LastCounter: factor.LastCounter}}
+					if err := tx.Omit("User").Save(&factor).Error; err != nil {
 						return err
 					}
 				}

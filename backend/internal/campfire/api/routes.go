@@ -18,6 +18,13 @@ func (a *API) Handler() http.Handler {
 	}
 
 	mux.HandleFunc("GET /api/v1/auth/session", a.authSession)
+	mux.HandleFunc("GET /api/v1/auth/profile", a.readProfile)
+	mux.HandleFunc("PUT /api/v1/auth/profile", a.updateProfile)
+	mux.HandleFunc("GET /api/v1/auth/mfa", a.mfaStatus)
+	mux.HandleFunc("POST /api/v1/auth/mfa/enroll", a.beginMFA)
+	mux.HandleFunc("POST /api/v1/auth/mfa/confirm", a.confirmMFA)
+	mux.HandleFunc("DELETE /api/v1/auth/mfa", a.disableMFA)
+	mux.HandleFunc("DELETE /api/v1/auth/mfa/devices/{deviceID}", a.removeMFADevice)
 	mux.HandleFunc("POST /api/v1/auth/setup", a.authSetup)
 	mux.HandleFunc("POST /api/v1/auth/login", a.authLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.authLogout)
@@ -101,6 +108,7 @@ func (a *API) Handler() http.Handler {
 	platform("POST /api/v1/users", accessperm.UsersManage, a.createUser)
 	platform("PUT /api/v1/users/{userID}", accessperm.UsersManage, a.updateUser)
 	platform("DELETE /api/v1/users/{userID}", accessperm.UsersManage, a.deleteUser)
+	platform("POST /api/v1/users/{userID}/reset-2fa", accessperm.UsersManage, a.adminResetMFA)
 	platform("GET /api/v1/roles", accessperm.RolesManage, a.listRoles)
 	platform("POST /api/v1/roles", accessperm.RolesManage, a.createRole)
 	platform("PUT /api/v1/roles/{roleID}", accessperm.RolesManage, a.updateRole)

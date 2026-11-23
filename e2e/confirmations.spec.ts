@@ -1,7 +1,7 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
 import type { Page } from "../web/src/api/pagination";
 import type { Execution } from "../web/src/api/activity";
-import { login, openScreen, openServerTab } from "./screens";
+import { login, openScreen, openServerTab, openProfileAction } from "./screens";
 import { ExecutionState } from "../web/src/contracts/domains";
 
 test("revoking an API token requires confirmation without closing its drawer", async ({
@@ -11,7 +11,7 @@ test("revoking an API token requires confirmation without closing its drawer", a
   await page
     .getByRole("button", { name: "Account options for Developer", exact: true })
     .click();
-  await page.getByRole("button", { name: "API tokens", exact: true }).click();
+  await openProfileAction(page, "API tokens");
   const drawer = page.getByRole("dialog", { name: "API tokens", exact: true });
   await drawer
     .getByRole("button", { name: "Create token", exact: true })

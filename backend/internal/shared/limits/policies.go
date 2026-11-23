@@ -20,6 +20,11 @@ const (
 	UsernameMax               = 64
 	PasswordMin               = 15
 	PasswordMax               = 1024
+	MFADevicesMax             = 10
+	PasswordRequireUppercase  = true
+	PasswordRequireLowercase  = true
+	PasswordRequireNumber     = true
+	PasswordRequireSymbol     = true
 	DisplayNameMax            = 100
 	EmailMax                  = 254
 	PasswordIterations        = 600000

@@ -92,7 +92,23 @@ the history you want to preserve. See the
 
 ## Administrator password recovery
 
-Save a new password of at least 15 characters in a private, mode-`0600` regular file. On a binary installation, run:
+Run the reset command in a terminal. It prompts for a new password and confirmation
+without displaying either entry, and prints the configured password requirements.
+On a binary installation:
+
+```sh
+sudo campfire reset-password --database /var/lib/campfire/panel.db
+```
+
+For Docker:
+
+```sh
+docker compose exec campfire campfire reset-password
+```
+
+For automation, save a new password meeting the configured policy (by default,
+at least 15 characters, including uppercase, lowercase, a number, and a symbol)
+in a private, mode-`0600` regular file and pass `--password-file`:
 
 ```sh
 sudo campfire reset-password \
@@ -108,3 +124,31 @@ docker compose exec campfire campfire reset-password \
 ```
 
 Use your configured database path or PostgreSQL URL for binary installations. Add `--username NAME` to select an administrator; otherwise the first administrator is recovered. Recovery revokes that account's sessions. Remove temporary password files afterward. If local login is disabled, re-enable it in your deployment configuration before signing in with the recovered password.
+
+## Two-factor authentication recovery
+
+An administrator can remove another user’s local 2FA from **Users → Reset user’s
+2FA**, using their authenticated administrator session. If the administrator is also locked out,
+someone with access to the Campfire server can run:
+
+```sh
+sudo campfire reset-2fa --database /var/lib/campfire/panel.db --username NAME
+```
+
+For the Docker deployment, which inherits the configured database environment:
+
+```sh
+docker compose exec campfire campfire reset-2fa --username NAME
+```
+
+The command requires an explicit username. It removes that user’s authenticator
+and recovery codes and signs out their browser sessions. It preserves the password
+and API tokens. The user can sign in with their password; enrolling again is
+optional. If necessary, reset the password separately. OIDC MFA is managed at the
+identity provider and is unaffected by this command.
+
+Back up the panel’s `auth-secrets` directory, including its encryption key,
+alongside the database. It lives under the configured panel state directory
+(`--data-dir`). The database stores secret references and hashed recovery codes,
+not plaintext authenticator keys. Restore matching database and private-state
+backups together.

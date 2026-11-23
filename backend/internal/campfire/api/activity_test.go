@@ -269,7 +269,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		}
 	}
 
-	const password = "private-password-for-new-account"
+	const password = "private-password-for-new-account A1!"
 	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","password":"`+password+`","role_id":3}`, http.StatusCreated)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-console-input"}`, http.StatusOK)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/files", `{"operation":"write","path":"secret.txt","data":"cHJpdmF0ZS1maWxl","revision":"absent"}`, http.StatusOK)

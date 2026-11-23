@@ -138,7 +138,7 @@ make dependencies
 make dev-mock
 ```
 
-Open `http://localhost:8081` and sign in with `admin` / `campfire-dev-password`.
+Open `http://localhost:8081` and sign in with `admin` / `Campfire-Dev-Password1!`.
 Mock mode uses the real authentication, API, and database with sample games and
 simulated Sparks. See the
 [development guide](https://dougmaitelli.github.io/Campfire/development/) for tests

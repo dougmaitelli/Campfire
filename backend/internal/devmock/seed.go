@@ -19,7 +19,7 @@ import (
 // Username and Password are initial credentials for the isolated development panel.
 const (
 	Username = "admin"
-	Password = "campfire-dev-password"
+	Password = "Campfire-Dev-Password1!"
 )
 
 type seedMarker struct {

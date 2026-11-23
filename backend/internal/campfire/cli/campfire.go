@@ -70,6 +70,9 @@ type StartupOptions struct {
 
 // RunWithOptions starts the panel with explicitly supplied process-local dependencies.
 func RunWithOptions(ctx context.Context, args []string, options StartupOptions) error {
+	if len(args) > 0 && args[0] == "reset-2fa" {
+		return resetTwoFactor(ctx, args[1:])
+	}
 	if len(args) > 0 && args[0] == "reset-password" {
 		return resetPassword(ctx, args[1:])
 	}
@@ -175,7 +178,7 @@ func RunWithOptions(ctx context.Context, args []string, options StartupOptions) 
 
 	stateDir := stateDirectory(*dbSource, *dataDir)
 
-	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
+	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM())).WithMFASecrets(integrationservice.Secrets{Directory: filepath.Join(stateDir, "auth-secrets")})
 
 	var runtime RuntimeBackend
 

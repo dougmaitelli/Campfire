@@ -21,7 +21,7 @@ test("overview and backup catalog show only backups from assigned servers", asyn
   await page.getByLabel("Username", { exact: true }).fill("jordan");
   await page
     .getByLabel("Password", { exact: true })
-    .fill("campfire-e2e-password");
+    .fill("Campfire-E2E-Password1!");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   const recent = page.getByRole("table", {
     name: "Recent backups",

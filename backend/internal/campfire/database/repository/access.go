@@ -260,7 +260,7 @@ func (r *AccessRepository) DeleteUser(ctx context.Context, id int64) error {
 			return err
 		}
 
-		for _, record := range []any{&database.UserSession{}, &database.APIToken{}, &database.ServerAccessGrant{}, &database.SparkAccessGrant{}, &database.NotificationRecipient{}} {
+		for _, record := range []any{&database.UserSession{}, &database.UserMFA{}, &database.APIToken{}, &database.ServerAccessGrant{}, &database.SparkAccessGrant{}, &database.NotificationRecipient{}} {
 			if err := tx.Where("user_id = ?", id).Delete(record).Error; err != nil {
 				return err
 			}

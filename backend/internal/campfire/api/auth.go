@@ -186,6 +186,10 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 
 func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, repository.ErrMFARequired):
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error(), "two_factor_required": true})
+	case errors.Is(err, service.ErrMFACode):
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
 	case errors.Is(err, service.ErrAuthentication):
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in with valid account credentials"})
 	case errors.Is(err, service.ErrAdminExists):
@@ -290,6 +294,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 		Username   string `json:"username"`
 		Password   string `json:"password"`
 		SetupToken string `json:"setup_token,omitempty"`
+		Code       string `json:"code,omitempty"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return
@@ -302,7 +307,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 	if setup {
 		session, token, err = a.auth.Setup(ctx, input.SetupToken, input.Username, input.Password)
 	} else {
-		session, token, err = a.auth.Login(ctx, input.Username, input.Password, browserToken(r))
+		session, token, err = a.auth.Login(ctx, input.Username, input.Password, browserToken(r), input.Code)
 	}
 
 	if err != nil {

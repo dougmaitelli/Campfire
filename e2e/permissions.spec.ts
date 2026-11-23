@@ -228,7 +228,7 @@ test("file access hides unauthorized writing and deletion while preserving readi
 }) => {
   await login(page, "viewer");
   const auth = await request.post("/api/v1/auth/login", {
-    data: { username: "admin", password: "campfire-e2e-password" },
+    data: { username: "admin", password: "Campfire-E2E-Password1!" },
   });
   expect(auth.ok()).toBeTruthy();
   const { csrf_token } = await readAuthenticatedSession(auth);

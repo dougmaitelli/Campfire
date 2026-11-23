@@ -13,7 +13,7 @@ make dependencies
 make dev-mock
 ```
 
-Open `http://127.0.0.1:8081` and sign in with `admin` / `campfire-dev-password`.
+Open `http://127.0.0.1:8081` and sign in with `admin` / `Campfire-Dev-Password1!`.
 Mock mode runs the real panel against simulated Sparks, with sample servers,
 users, files, backups, and notifications. No Docker or production credentials
 are needed. Each new session resets its isolated data; backend rebuilds within
@@ -208,3 +208,18 @@ Firefox on macOS, and Safari on iPhone). Open **Active sessions** in the account
 menu to try individual and bulk sign-out. These examples are seeded once, including
 when upgrading an existing mock database; revocations persist across restarts.
 They expire normally and are recreated when starting with a fresh mock database.
+
+### Testing two-factor authentication
+
+Mock mode also seeds `mfa-demo` with the standard mock password
+`Campfire-Dev-Password1!`. Add the deliberately public development-only setup key
+`GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ` to an authenticator using six digits and a
+30-second period. A second device, **Backup tablet**, uses
+`JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP` with the same settings. You can also use its single recovery code
+`11111111-22222222-33333333-44444444` once. Never use these fixture credentials
+outside mock mode.
+
+Use `admin` to test **Users → mfa-demo → Reset user’s 2FA**. The reset persists
+across mock restarts, and `mfa-demo` can then sign in with its password alone.
+Open **My profile → Two-factor authentication** to test fresh enrollment. A fresh
+mock database restores the original fixture.

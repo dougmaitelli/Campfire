@@ -704,7 +704,7 @@ for (const access of ["viewer", "editor"] as const) {
     await page.getByLabel("Username", { exact: true }).fill("viewer");
     await page
       .getByLabel("Password", { exact: true })
-      .fill("campfire-e2e-password");
+      .fill("Campfire-E2E-Password1!");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.goto("/#servers/survival/console");
     await expect(

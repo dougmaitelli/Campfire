@@ -37,6 +37,7 @@ export interface Credentials {
   username: string;
   password: string;
   setup_token?: string;
+  code?: string;
 }
 
 function isAuthState(value: unknown): value is AuthState {
@@ -103,19 +104,30 @@ export async function readSession(signal: AbortSignal): Promise<AuthState> {
   return body;
 }
 
+export class MFAChallengeError extends Error {}
+
 export async function authenticate(
   credentials: Credentials,
   setup: boolean,
 ): Promise<AuthState> {
-  const body = await readJSON(
-    await fetch(`/api/v1/auth/${setup ? "setup" : "login"}`, {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      ...jsonRequest(credentials),
-      signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
-    }),
-  );
+  const response = await fetch(`/api/v1/auth/${setup ? "setup" : "login"}`, {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    ...jsonRequest(credentials),
+    signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
+  });
+  if (response.status === 401) {
+    const challenge: unknown = await response.clone().json();
+    if (
+      typeof challenge === "object" &&
+      challenge !== null &&
+      "two_factor_required" in challenge &&
+      challenge.two_factor_required === true
+    )
+      throw new MFAChallengeError(i18n.t("mfa.codePrompt"));
+  }
+  const body = await readJSON(response);
   if (!isAuthState(body) || !body.authenticated)
     throw new Error(i18n.t("auth.unexpectedAuthenticationResponse"));
   return body;

@@ -293,7 +293,7 @@ test.describe("touch file controls", () => {
     expect(
       (
         await page.request.post("/api/v1/auth/login", {
-          data: { username: "admin", password: "campfire-e2e-password" },
+          data: { username: "admin", password: "Campfire-E2E-Password1!" },
         })
       ).ok(),
     ).toBeTruthy();
