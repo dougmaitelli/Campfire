@@ -142,7 +142,7 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 func seed(ctx context.Context, db *database.Database, auth *service.AuthService) *runtime {
 	token, err := auth.PrepareSetup(ctx)
 	must(err)
-	_, _, err = auth.Setup(ctx, token, "admin", "Campfire-E2E-Password1!")
+	_, _, err = auth.Setup(ctx, token, "admin", "Campfire-E2E-Password1!", "admin@example.test")
 	must(err)
 	fixtures, err := devfixture.Seed(ctx, db.ORM(), fixed)
 	must(err)

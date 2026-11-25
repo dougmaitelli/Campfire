@@ -55,7 +55,7 @@ func New(ctx context.Context, db *gorm.DB, auth *service.AuthService) (*Runtime,
 	}
 
 	if token != "" {
-		if _, _, err := auth.Setup(ctx, token, Username, Password); err != nil {
+		if _, _, err := auth.Setup(ctx, token, Username, Password, "admin@example.test"); err != nil {
 			return nil, err
 		}
 	}

@@ -563,13 +563,12 @@ test("user editing hides passwords when local login is disabled and still saves 
     .fill("Updated profile");
   const submitted = page.waitForRequest(
     (request) =>
-      request.method() === "PUT" &&
+      request.method() === "PATCH" &&
       /\/api\/v1\/users\/\d+$/.test(new URL(request.url()).pathname),
   );
   await drawer.getByRole("button", { name: "Save user", exact: true }).click();
-  expect((await submitted).postDataJSON()).toMatchObject({
+  expect((await submitted).postDataJSON()).toEqual({
     name: "Updated profile",
-    password: "",
   });
   await expect(drawer).toHaveCount(0);
   await page.reload();

@@ -27,7 +27,7 @@ type Database struct {
 // Marker 2 is reserved for an equivalent schema accepted by the adoption path.
 // Future schema changes must use a marker above 2 to avoid treating a different
 // schema as a metadata-only adoption.
-const schemaVersion = 11
+const schemaVersion = 12
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It initializes the same transactional baseline schema on either backend.
@@ -174,7 +174,7 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3 && versions[0] != 4 && versions[0] != 5 && versions[0] != 6 && versions[0] != 7 && versions[0] != 8 && versions[0] != 9 && versions[0] != 10) {
+		if len(versions) != 1 || versions[0] < 1 || versions[0] > schemaVersion {
 			return fmt.Errorf("unsupported database schema history %v; expected baseline version %d", versions, schemaVersion)
 		}
 
@@ -250,6 +250,27 @@ func migrate(db *gorm.DB) error {
 			}
 		}
 
+		// Schema 11 did not record who set a profile email. Only a fresh admin
+		// assignment can authorize automatic linking, including on development databases.
+		if !tx.Migrator().HasColumn(&User{}, "OIDCLinkEmail") {
+			if versions[0] == 12 {
+				// These two tables only existed in the unreleased email-recovery build.
+				if err := tx.Migrator().DropTable("email_tokens", "verified_emails"); err != nil {
+					return err
+				}
+			}
+
+			if err := tx.Migrator().AddColumn(&User{}, "OIDCLinkEmail"); err != nil {
+				return err
+			}
+		}
+
+		if !tx.Migrator().HasIndex(&User{}, "users_oidc_link_email") {
+			if err := tx.Migrator().CreateIndex(&User{}, "users_oidc_link_email"); err != nil {
+				return err
+			}
+		}
+
 		legacy := versions[0] <= 2 && !tx.Migrator().HasColumn(&Backup{}, "id")
 		if err := validateBaseline(tx, legacy, versions[0] < 4); err != nil {
 			return err
@@ -269,6 +290,32 @@ func migrate(db *gorm.DB) error {
 
 		if err := validateBackupIdentity(tx); err != nil {
 			return err
+		}
+
+		// Older linked profiles tracked which claims appeared on the last login.
+		// Reconcile existing links, including installations already on schema 12.
+		if versions[0] <= 12 {
+			linkedUsers := tx.Model(&OIDCIdentity{}).Select("user_id")
+			if err := tx.Model(&User{}).Where("id IN (?) AND (oidc_name_managed = ? OR oidc_email_managed = ?)", linkedUsers, false, false).
+				Updates(map[string]any{"oidc_name_managed": true, "oidc_email_managed": true}).Error; err != nil {
+				return err
+			}
+		}
+
+		if !tx.Migrator().HasIndex(&OIDCIdentity{}, "oidc_user_issuer") {
+			var duplicates []OIDCIdentity
+			if err := tx.Model(&OIDCIdentity{}).Select("issuer, user_id").Group("issuer, user_id").
+				Having("COUNT(*) > 1").Limit(1).Scan(&duplicates).Error; err != nil {
+				return err
+			}
+
+			if len(duplicates) != 0 {
+				return fmt.Errorf("user %d has multiple OIDC subjects for issuer %q; resolve the duplicate links as described in docs/operations.md before restarting", duplicates[0].UserID, duplicates[0].Issuer)
+			}
+
+			if err := tx.Migrator().CreateIndex(&OIDCIdentity{}, "oidc_user_issuer"); err != nil {
+				return err
+			}
 		}
 
 		if versions[0] != schemaVersion {

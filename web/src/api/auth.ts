@@ -9,6 +9,7 @@ import {
 } from "./client";
 
 export interface AuthState {
+  oidc_auto_link_email?: boolean;
   version?: string;
   authenticated: boolean;
   setup_required: boolean;
@@ -36,6 +37,7 @@ export interface AuthState {
 export interface Credentials {
   username: string;
   password: string;
+  email?: string;
   setup_token?: string;
   code?: string;
 }
@@ -52,6 +54,8 @@ function isAuthState(value: unknown): value is AuthState {
     typeof value.local_login === "boolean" &&
     "oidc_enabled" in value &&
     typeof value.oidc_enabled === "boolean" &&
+    (!("oidc_auto_link_email" in value) ||
+      typeof value.oidc_auto_link_email === "boolean") &&
     (!("version" in value) || typeof value.version === "string") &&
     (!("oidc_linked" in value) || typeof value.oidc_linked === "boolean") &&
     (!("name" in value) || typeof value.name === "string") &&

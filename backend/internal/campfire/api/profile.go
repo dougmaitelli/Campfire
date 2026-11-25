@@ -20,11 +20,11 @@ func (a *API) readProfile(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateProfile(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name            string `json:"name"`
-		Email           string `json:"email"`
-		Password        string `json:"password"`
-		CurrentPassword string `json:"current_password"`
-		Code            string `json:"code"`
+		Name            *string `json:"name"`
+		Email           *string `json:"email"`
+		Password        string  `json:"password"`
+		CurrentPassword string  `json:"current_password"`
+		Code            string  `json:"code"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return

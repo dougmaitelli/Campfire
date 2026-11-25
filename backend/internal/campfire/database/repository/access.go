@@ -13,6 +13,7 @@ import (
 // Account and access errors distinguish invalid requests from permission failures.
 var (
 	ErrAccessDenied   = errors.New("you do not have permission for this action")
+	ErrEmailRequired  = errors.New("a valid email address is required")
 	ErrAccessInput    = errors.New("invalid account, role or server assignment")
 	ErrAccessConflict = errors.New("account or role is already in use")
 	ErrLastAdmin      = errors.New("at least one enabled administrator is required")
@@ -21,16 +22,18 @@ var (
 
 // AccessRepository persists account roles, ownership, memberships and provisioning grants.
 type AccessRepository struct {
-	db     *gorm.DB
-	issuer string
+	db            *gorm.DB
+	issuer        string
+	requireOIDC   bool
+	autoLinkEmail bool
 }
 
 // NewAccessRepository constructs access storage on the panel database.
 func NewAccessRepository(db *gorm.DB) *AccessRepository { return &AccessRepository{db: db} }
 
-// WithRequiredOIDC preserves an administrator who can use the active login provider.
-func (r *AccessRepository) WithRequiredOIDC(issuer string) *AccessRepository {
-	r.issuer = issuer
+// WithLoginPolicy applies the active provider's account provisioning and access rules.
+func (r *AccessRepository) WithLoginPolicy(issuer string, requireOIDC, autoLinkEmail bool) *AccessRepository {
+	r.issuer, r.requireOIDC, r.autoLinkEmail = issuer, requireOIDC, autoLinkEmail
 	return r
 }
 
@@ -152,6 +155,11 @@ func (r *AccessRepository) CreateUser(ctx context.Context, user *database.User) 
 			return ErrAccessInput
 		}
 
+		if user.OIDCLinkEmail != nil {
+			if err := r.checkOIDCLinkEmail(tx, *user.OIDCLinkEmail); err != nil {
+				return err
+			}
+		}
 		return tx.Omit("Role").Create(user).Error
 	}))
 }
@@ -164,14 +172,17 @@ func (r *AccessRepository) keepAdmin(tx *gorm.DB, user database.User, roleID int
 	var count int64
 
 	query := tx.Model(&database.User{}).Where("role_id = ? AND disabled = false AND id != ?", database.AdminRole, user.ID)
-	if r.issuer != "" {
+	linked := tx.Model(&database.OIDCIdentity{}).Select("user_id").Where("issuer = ?", r.issuer)
+	query = query.Where("(password_hash <> ? OR id IN (?))", "", linked)
+
+	if r.requireOIDC && r.issuer != "" {
 		ready, err := NewAuthRepository(tx).HasOIDCAdmin(tx.Statement.Context, r.issuer)
 		if err != nil {
 			return err
 		}
 
 		if ready {
-			query = query.Where("id IN (?)", tx.Model(&database.OIDCIdentity{}).Select("user_id").Where("issuer = ?", r.issuer))
+			query = query.Where("id IN (?)", linked)
 		}
 	}
 
@@ -187,33 +198,43 @@ func (r *AccessRepository) keepAdmin(tx *gorm.DB, user database.User, roleID int
 }
 
 // UpdateUser revokes that account's sessions when its credentials or role change.
-func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int64, disabled bool, password string, name, email *string) error {
+func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID *int64, disabled *bool, password string, name, email *string) error {
 	return accessError(database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var user database.User
 		if err := tx.Take(&user, id).Error; err != nil {
 			return err
 		}
 
-		var role database.Role
-		if err := tx.Where("id = ? AND scope = 'platform'", roleID).Take(&role).Error; err != nil {
-			return ErrAccessInput
+		nextRole, nextDisabled := user.RoleID, user.Disabled
+
+		if roleID != nil {
+			var role database.Role
+			if err := tx.Where("id = ? AND scope = 'platform'", *roleID).Take(&role).Error; err != nil {
+				return ErrAccessInput
+			}
+
+			nextRole = *roleID
 		}
 
-		if err := r.keepAdmin(tx, user, roleID, disabled); err != nil {
+		if disabled != nil {
+			nextDisabled = *disabled
+		}
+
+		if err := r.keepAdmin(tx, user, nextRole, nextDisabled); err != nil {
 			return err
 		}
 
-		updates := map[string]any{}
-
-		if name != nil {
-			updates["name"] = *name
+		updates, err := profileUpdates(user, name, email, true)
+		if err != nil {
+			return err
+		}
+		if address, assigned := updates["oidc_link_email"].(string); assigned {
+			if err := r.checkOIDCLinkEmail(tx, address); err != nil {
+				return err
+			}
 		}
 
-		if email != nil {
-			updates["email"] = *email
-		}
-
-		if user.RoleID == roleID && user.Disabled == disabled && password == "" {
+		if user.RoleID == nextRole && user.Disabled == nextDisabled && password == "" {
 			if len(updates) == 0 {
 				return nil
 			}
@@ -221,7 +242,15 @@ func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID int6
 			return tx.Model(&user).Updates(updates).Error
 		}
 
-		updates["role_id"], updates["disabled"], updates["credential_version"] = roleID, disabled, gorm.Expr("credential_version + 1")
+		if roleID != nil {
+			updates["role_id"] = nextRole
+		}
+
+		if disabled != nil {
+			updates["disabled"] = nextDisabled
+		}
+
+		updates["credential_version"] = gorm.Expr("credential_version + 1")
 
 		if password != "" {
 			updates["password_hash"] = password
@@ -256,7 +285,7 @@ func (r *AccessRepository) DeleteUser(ctx context.Context, id int64) error {
 			return ErrAccessConflict
 		}
 
-		if err := tx.Model(&user).Updates(map[string]any{"disabled": true, "password_hash": "", "credential_version": gorm.Expr("credential_version + 1")}).Error; err != nil {
+		if err := tx.Model(&user).Updates(map[string]any{"disabled": true, "oidc_link_email": nil, "password_hash": "", "credential_version": gorm.Expr("credential_version + 1")}).Error; err != nil {
 			return err
 		}
 

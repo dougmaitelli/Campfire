@@ -157,24 +157,20 @@ func (s *AuthService) factorProof(factor database.UserMFA, code string) (reposit
 	return proof, ErrMFACode
 }
 
-func (s *AuthService) mfaAccount(ctx context.Context, token, password string) (database.UserSession, database.UserMFA, error) {
-	session, _, err := s.Session(ctx, token)
-	if err != nil {
-		return session, database.UserMFA{}, err
-	}
+func (s *AuthService) mfaAfterPassword(ctx context.Context, session database.UserSession, password string) (database.UserMFA, error) {
 	if session.Provider != "" || !s.AllowAttempt(fmt.Sprintf("mfa:%d", session.UserID)) {
-		return session, database.UserMFA{}, ErrAuthRate
+		return database.UserMFA{}, ErrAuthRate
 	}
 	release, err := s.passwordWork(ctx)
 	if err != nil {
-		return session, database.UserMFA{}, err
+		return database.UserMFA{}, err
 	}
 	defer release()
 	if len(password) > 1024 || !verifyPassword(session.User.PasswordHash, password) {
-		return session, database.UserMFA{}, ErrAuthentication
+		return database.UserMFA{}, ErrAuthentication
 	}
-	factor, err := s.store.MFA(ctx, session.UserID)
-	return session, factor, err
+
+	return s.store.MFA(ctx, session.UserID)
 }
 
 // MFAEnrollment contains the new secret for an authenticated browser enrollment.
@@ -335,7 +331,12 @@ func (s *AuthService) RemoveMFADevice(ctx context.Context, token, id, code strin
 
 // DisableMFA requires password and a fresh factor proof, and signs out other browsers.
 func (s *AuthService) DisableMFA(ctx context.Context, token, password, code string) error {
-	session, factor, err := s.mfaAccount(ctx, token, password)
+	session, _, err := s.Session(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	factor, err := s.mfaAfterPassword(ctx, session, password)
 	if err != nil {
 		return err
 	}

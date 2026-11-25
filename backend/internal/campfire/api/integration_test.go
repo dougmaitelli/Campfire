@@ -40,7 +40,7 @@ func TestDiscordIntegrationAPIUsesAdminBoundaryAndRedactsCredentials(t *testing.
 	_, raw := createTestAPIToken(t, admin, `["notifications.manage"]`)
 	limited := bearerAPI(panel.Handler(), raw)
 
-	memberBody, err := json.Marshal(map[string]any{"username": "discord-member", "password": testAdminPassword, "role_id": database.UserRole})
+	memberBody, err := json.Marshal(map[string]any{"username": "discord-member", "email": "member@example.test", "password": testAdminPassword, "role_id": database.UserRole})
 	if err != nil {
 		t.Fatal(err)
 	}

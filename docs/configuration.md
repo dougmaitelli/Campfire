@@ -41,7 +41,7 @@ These settings configure the panel's listener for Spark agents, not browser acce
 | `CAMPFIRE_OIDC_ISSUER`          | `--oidc-issuer`          | Optional OpenID Connect provider issuer URL                                                   |
 | `CAMPFIRE_OIDC_CLIENT_ID`       | `--oidc-client-id`       | OpenID Connect client ID                                                                      |
 | `CAMPFIRE_OIDC_CLIENT_SECRET`   | `--oidc-client-secret`   | OpenID Connect client secret                                                                  |
-| `CAMPFIRE_OIDC_AUTO_LINK_EMAIL` | `--oidc-auto-link-email` | Link first-time OIDC logins to local password accounts by verified email; defaults to `false` |
+| `CAMPFIRE_OIDC_AUTO_LINK_EMAIL` | `--oidc-auto-link-email` | Link first-time OIDC logins by verified provider email to an admin-assigned address. Enables provisioning users without a password. Defaults to `false` |
 | `CAMPFIRE_DISABLE_LOCAL_LOGIN`  | `--disable-local-login`  | Require OIDC after an administrator has been linked; defaults to `false`                      |
 
 See [accounts and access](/Campfire/authentication/) for provider setup and login safeguards.

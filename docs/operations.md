@@ -2,6 +2,19 @@
 title: Upgrades and recovery
 ---
 
+## Duplicate OIDC subjects during upgrade
+
+Schema 12 allows one subject per issuer for each Campfire user. If an older
+database has duplicate links, startup reports the user ID and issuer and rolls
+back the migration. Stop Campfire and back up the database. Inspect that user's
+rows in `oidc_identities` and use the provider's records to identify the subject
+to keep. In one database transaction, delete each obsolete row by its exact
+`user_id`, `issuer`, and `subject`, and increment `users.credential_version`
+by one for that user ID. Commit the transaction, then restart Campfire.
+This invalidates all existing browser sessions and personal API tokens for
+the affected account. The user can sign in again with the retained identity
+and issue replacement tokens.
+
 ## What to preserve
 
 Game snapshots and installation recovery protect different data. Preserve:

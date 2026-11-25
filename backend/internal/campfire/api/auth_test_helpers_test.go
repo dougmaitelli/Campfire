@@ -35,7 +35,7 @@ func authenticatedTestAPI(t *testing.T, db *database.Database, panel *api.API) h
 	var token string
 
 	if setup {
-		session, token, err = auth.Setup(ctx, setupToken, "admin", testAdminPassword)
+		session, token, err = auth.Setup(ctx, setupToken, "admin", testAdminPassword, "admin@example.test")
 		if err != nil {
 			t.Fatal(err)
 		}

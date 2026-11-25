@@ -13,6 +13,7 @@ import (
 	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
+	"campfire/internal/shared/utils"
 )
 
 // Principal is derived from persisted credentials, never from client-supplied roles.
@@ -91,10 +92,7 @@ type AccessService struct {
 
 // Access returns authorization and account management for this authentication store.
 func (s *AuthService) Access() *AccessService {
-	store := s.store.Access()
-	if s.disableLocal {
-		store.WithRequiredOIDC(s.loginProvider)
-	}
+	store := s.store.Access().WithLoginPolicy(s.loginProvider, s.disableLocal, s.autoLinkEmail)
 
 	return &AccessService{store: store, auth: s}
 }
@@ -320,28 +318,41 @@ func (s *AccessService) Users(ctx context.Context) ([]database.User, error) {
 func (s *AccessService) CreateUser(ctx context.Context, input CreateUserInput) (database.User, error) {
 	input.Name = strings.TrimSpace(input.Name)
 
-	input.Email = strings.TrimSpace(input.Email)
-	if !validDisplayName(input.Name) || !validEmail(input.Email) {
+	input.Email = utils.NormalizeEmail(input.Email)
+	if !validEmail(input.Email) {
+		return database.User{}, repository.ErrEmailRequired
+	}
+
+	if !validDisplayName(input.Name) {
 		return database.User{}, repository.ErrAccessInput
 	}
 
 	input.Username = strings.ToLower(strings.TrimSpace(input.Username))
-	if !validAccountInput(input.Username, input.Password) {
-		return database.User{}, ErrAuthInput
+
+	var encoded string
+
+	if input.Password == "" && s.auth.autoLinkEmail {
+		if !utils.IsValidUsername(input.Username) {
+			return database.User{}, ErrAuthInput
+		}
+	} else {
+		if !validAccountInput(input.Username, input.Password) {
+			return database.User{}, ErrAuthInput
+		}
+
+		release, err := s.auth.passwordWork(ctx)
+		if err != nil {
+			return database.User{}, err
+		}
+		defer release()
+
+		encoded, err = passwordHash(input.Password)
+		if err != nil {
+			return database.User{}, err
+		}
 	}
 
-	release, err := s.auth.passwordWork(ctx)
-	if err != nil {
-		return database.User{}, err
-	}
-	defer release()
-
-	encoded, err := passwordHash(input.Password)
-	if err != nil {
-		return database.User{}, err
-	}
-
-	user := database.User{Username: input.Username, Name: input.Name, Email: input.Email, PasswordHash: encoded, CredentialVersion: 1, RoleID: input.RoleID, Disabled: input.Disabled}
+	user := database.User{Username: input.Username, Name: input.Name, Email: input.Email, OIDCLinkEmail: &input.Email, PasswordHash: encoded, CredentialVersion: 1, RoleID: input.RoleID, Disabled: input.Disabled}
 	if err := s.store.CreateUser(ctx, &user); err != nil {
 		return database.User{}, err
 	}
@@ -358,7 +369,7 @@ type CreateUserInput struct {
 }
 
 // UpdateUser changes account privileges and revokes that user's sessions.
-func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabled bool, password string, name, email *string) (database.User, error) {
+func (s *AccessService) UpdateUser(ctx context.Context, id int64, roleID *int64, disabled *bool, password string, name, email *string) (database.User, error) {
 	if name != nil {
 		trimmed := strings.TrimSpace(*name)
 		if !validDisplayName(trimmed) {
@@ -369,9 +380,9 @@ func (s *AccessService) UpdateUser(ctx context.Context, id, roleID int64, disabl
 	}
 
 	if email != nil {
-		trimmed := strings.TrimSpace(*email)
+		trimmed := utils.NormalizeEmail(*email)
 		if !validEmail(trimmed) {
-			return database.User{}, repository.ErrAccessInput
+			return database.User{}, repository.ErrEmailRequired
 		}
 
 		email = &trimmed
@@ -408,10 +419,6 @@ func validDisplayName(name string) bool {
 }
 
 func validEmail(email string) bool {
-	if email == "" {
-		return true
-	}
-
 	if len(email) > limits.EmailMax || !utf8.ValidString(email) || strings.ContainsFunc(email, unicode.IsControl) {
 		return false
 	}

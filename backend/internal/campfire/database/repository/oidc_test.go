@@ -5,12 +5,54 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/utils"
 )
+
+func TestOIDCProvisioningAfterFirstSignIn(t *testing.T) {
+	db, store, _ := authStore(t)
+	ctx := t.Context()
+	admin := database.User{Username: "admin", RoleID: database.AdminRole}
+	if err := db.ORM().Omit("Role").Create(&admin).Error; err != nil {
+		t.Fatal(err)
+	}
+	access := store.Access().WithLoginPolicy("issuer", false, true)
+	input := repository.OIDCAccountInput{Issuer: "issuer", Subject: "player-subject", Username: "returning-player", Email: "Élodie@bücher.test", Options: repository.OIDCAccountOptions{AutoLinkEmail: true, EmailVerified: true}}
+	player, err := store.OIDCAccount(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Profiles from before schema 12 can retain the provider's domain spelling.
+	if err := db.ORM().Model(&player).Update("email", "Élodie@BÜCHER.test").Error; err != nil {
+		t.Fatal(err)
+	}
+	address := utils.NormalizeEmail(input.Email)
+	pending := database.User{Username: "future-player", RoleID: database.CreatorRole, Email: address, OIDCLinkEmail: &address}
+	if err := access.CreateUser(ctx, &pending); !errors.Is(err, repository.ErrAccessConflict) || !strings.Contains(err.Error(), player.Username) {
+		t.Fatal("expected a conflict identifying the existing account", err)
+	}
+
+	other := utils.NormalizeEmail("élodie@bücher.test")
+	pending.Email, pending.OIDCLinkEmail = other, &other
+	if err := access.CreateUser(ctx, &pending); err != nil {
+		t.Fatal("distinct mailbox should be available", err)
+	}
+	if err := access.UpdateUser(ctx, pending.ID, nil, nil, "", nil, &address); !errors.Is(err, repository.ErrAccessConflict) {
+		t.Fatal("could reassign the existing player's email to a pending account", err)
+	}
+	saved, err := access.User(ctx, pending.ID)
+	if err != nil || saved.Email != other || saved.OIDCLinkEmail == nil || *saved.OIDCLinkEmail != other {
+		t.Fatal("failed assignment changed the reservation", err)
+	}
+	returning, err := store.OIDCAccount(ctx, input)
+	if err != nil || returning.ID != player.ID || returning.RoleID != database.UserRole {
+		t.Fatal("provisioning changed the returning player's access", err)
+	}
+}
 
 func TestOIDCUsernameAvailability(t *testing.T) {
 	for _, scenario := range []string{"available", "collision", "case insensitive", "deleted account", "maximum length"} {
@@ -44,7 +86,7 @@ func TestOIDCUsernameAvailability(t *testing.T) {
 				}
 			}
 
-			input := repository.OIDCAccountInput{Issuer: "issuer", Subject: "player-subject", Username: preferred}
+			input := repository.OIDCAccountInput{Issuer: "issuer", Subject: "player-subject", Username: preferred, Email: "player@example.test"}
 
 			user, err := store.OIDCAccount(t.Context(), input)
 			if err != nil {
@@ -103,7 +145,7 @@ func TestOIDCUsernameRaceAcrossConnections(t *testing.T) {
 		wait.Go(func() {
 			<-start
 
-			user, err := store.OIDCAccount(t.Context(), repository.OIDCAccountInput{Issuer: "issuer", Subject: []string{"first", "second"}[i], Username: "player"})
+			user, err := store.OIDCAccount(t.Context(), repository.OIDCAccountInput{Issuer: "issuer", Subject: []string{"first", "second"}[i], Username: "player", Email: "player@example.test"})
 			results <- result{user: user, err: err}
 		})
 	}
@@ -132,7 +174,7 @@ func TestOIDCUsernameRaceAcrossConnections(t *testing.T) {
 }
 
 func TestOIDCAutoLinkRejectsUnsafeAccounts(t *testing.T) {
-	for _, scenario := range []string{"ambiguous", "disabled", "passwordless", "already linked"} {
+	for _, scenario := range []string{"disabled", "already linked"} {
 		t.Run(scenario, func(t *testing.T) {
 			db, store, _ := authStore(t)
 
@@ -141,19 +183,10 @@ func TestOIDCAutoLinkRejectsUnsafeAccounts(t *testing.T) {
 				user.Disabled = true
 			}
 
-			if scenario == "passwordless" {
-				user.PasswordHash = ""
-			}
+			user.OIDCLinkEmail = &user.Email
 
 			if err := db.ORM().Omit("Role").Create(&user).Error; err != nil {
 				t.Fatal(err)
-			}
-
-			if scenario == "ambiguous" {
-				other := database.User{Username: "duplicate", Email: " PERSON@EXAMPLE.COM ", PasswordHash: "encoded", CredentialVersion: 1, RoleID: database.UserRole}
-				if err := db.ORM().Omit("Role").Create(&other).Error; err != nil {
-					t.Fatal(err)
-				}
 			}
 
 			if scenario == "already linked" {
@@ -176,11 +209,31 @@ func TestOIDCAutoLinkRejectsUnsafeAccounts(t *testing.T) {
 }
 
 func TestOIDCAutoLinkRaceAcrossConnections(t *testing.T) {
+	testOIDCLinkRaceAcrossConnections(t, false)
+}
+
+func TestOIDCExplicitLinkRaceAcrossConnections(t *testing.T) {
+	testOIDCLinkRaceAcrossConnections(t, true)
+}
+
+func testOIDCLinkRaceAcrossConnections(t *testing.T, explicit bool) {
+	t.Helper()
 	db, first, source := authStore(t)
 
-	user := database.User{Username: "local", Email: "person@example.com", PasswordHash: "encoded", CredentialVersion: 3, RoleID: database.CreatorRole}
+	user := database.User{Username: "local", Email: "Élodie@example.com", PasswordHash: "encoded", CredentialVersion: 3, RoleID: database.CreatorRole}
+
+	user.OIDCLinkEmail = &user.Email
 	if err := db.ORM().Omit("Role").Create(&user).Error; err != nil {
 		t.Fatal(err)
+	}
+
+	now := time.Now()
+
+	session := database.UserSession{Hash: "link-session", UserID: user.ID, CredentialVersion: user.CredentialVersion, ExpiresAt: now.Add(time.Hour).Unix(), LastSeenAt: now.Unix()}
+	if explicit {
+		if err := db.ORM().Omit("User").Create(&session).Error; err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	secondDB, err := database.Open(t.Context(), source)
@@ -201,7 +254,13 @@ func TestOIDCAutoLinkRaceAcrossConnections(t *testing.T) {
 
 			<-start
 
-			linked, err := store.OIDCAccount(t.Context(), repository.OIDCAccountInput{Issuer: "issuer", Subject: []string{"first", "second"}[i], Username: "unused", LinkUserID: 0, CredentialVersion: 0, LinkSessionHash: "", Name: "", Email: "PERSON@example.com", Picture: "", Options: repository.OIDCAccountOptions{AutoLinkEmail: true, EmailVerified: true}})
+			input := repository.OIDCAccountInput{Issuer: "issuer", Subject: []string{"first", "second"}[i], Username: "unused", Email: "Élodie@EXAMPLE.com", Options: repository.OIDCAccountOptions{AutoLinkEmail: !explicit, EmailVerified: true}}
+			if explicit {
+				input.LinkUserID, input.CredentialVersion, input.LinkSessionHash = user.ID, user.CredentialVersion, session.Hash
+				input.Email = input.Subject + "@example.com"
+			}
+
+			linked, err := store.OIDCAccount(t.Context(), input)
 			if err == nil && (linked.ID != user.ID || linked.RoleID != user.RoleID || linked.CredentialVersion != user.CredentialVersion || linked.PasswordHash != user.PasswordHash) {
 				t.Error("automatic link changed account identity or credentials", linked)
 			}
@@ -228,5 +287,23 @@ func TestOIDCAutoLinkRaceAcrossConnections(t *testing.T) {
 
 	if successes != 1 || conflicts != 1 {
 		t.Fatal("concurrent identities both claimed the account", successes, conflicts)
+	}
+
+	if explicit {
+		var identities []database.OIDCIdentity
+		if err := db.ORM().Where("user_id = ?", user.ID).Find(&identities).Error; err != nil || len(identities) != 1 {
+			t.Fatal("expected one active identity", identities, err)
+		}
+
+		winner := identities[0].Subject
+
+		var stored database.User
+		if err := db.ORM().Take(&stored, user.ID).Error; err != nil || stored.Email != winner+"@example.com" {
+			t.Fatal("competing subject changed profile", stored.Email, err)
+		}
+
+		if _, err := first.OIDCAccount(t.Context(), repository.OIDCAccountInput{Issuer: "issuer", Subject: winner, LinkUserID: user.ID, LinkSessionHash: session.Hash, CredentialVersion: user.CredentialVersion}); err != nil {
+			t.Fatal("relinking the same identity failed", err)
+		}
 	}
 }

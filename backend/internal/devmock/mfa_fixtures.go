@@ -44,7 +44,7 @@ func (r *Runtime) EnableMFAExamples(ctx context.Context, auth *service.AuthServi
 		return err
 	}
 	if user.ID == 0 {
-		user, err = auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "mfa-demo", Password: Password, RoleID: database.UserRole})
+		user, err = auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "mfa-demo", Email: "mfa-demo@example.test", Password: Password, RoleID: database.UserRole})
 		if err != nil {
 			return err
 		}

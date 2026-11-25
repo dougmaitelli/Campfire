@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/shared/limits"
+	"campfire/internal/shared/utils"
 
 	"gorm.io/gorm"
 )
@@ -19,6 +21,8 @@ const oidcUsernameSuffixLength = 12
 // Email matching requires an explicit opt-in and a verified provider claim.
 func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput) (database.User, error) {
 	var user database.User
+
+	input.Email = utils.NormalizeEmail(input.Email)
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		if input.LinkUserID != 0 {
@@ -50,6 +54,15 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 				if err := tx.Take(&user, input.LinkUserID).Error; err != nil {
 					return err
 				}
+
+				var linked int64
+				if err := tx.Model(&database.OIDCIdentity{}).Where("issuer = ? AND user_id = ?", input.Issuer, user.ID).Count(&linked).Error; err != nil {
+					return err
+				}
+
+				if linked != 0 {
+					return ErrAccessConflict
+				}
 			} else if input.Options.AutoLinkEmail && input.Email != "" {
 				user, err = oidcEmailAccount(tx, input.Email, input.Options.EmailVerified)
 				if err != nil {
@@ -58,6 +71,9 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 			}
 
 			if user.ID == 0 {
+				if input.Email == "" {
+					return ErrEmailRequired
+				}
 				var count int64
 				if err := tx.Model(&database.User{}).Count(&count).Error; err != nil {
 					return err
@@ -72,7 +88,7 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 					return err
 				}
 
-				user = database.User{Username: username, CredentialVersion: 1, RoleID: database.UserRole}
+				user = database.User{Username: username, Email: input.Email, CredentialVersion: 1, RoleID: database.UserRole}
 				if err := tx.Omit("Role").Create(&user).Error; err != nil {
 					return err
 				}
@@ -91,7 +107,7 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 			return ErrAuthentication
 		}
 
-		user.OIDCNameManaged, user.OIDCEmailManaged = input.Name != "", input.Email != ""
+		user.OIDCNameManaged, user.OIDCEmailManaged = true, true
 		updates := map[string]any{"oidc_name_managed": user.OIDCNameManaged, "oidc_email_managed": user.OIDCEmailManaged}
 
 		if input.Name != "" {
@@ -100,6 +116,10 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 		}
 
 		if input.Email != "" {
+			if user.OIDCLinkEmail != nil && *user.OIDCLinkEmail != input.Email {
+				user.OIDCLinkEmail = nil
+				updates["oidc_link_email"] = nil
+			}
 			user.Email = input.Email
 			updates["email"] = input.Email
 		}
@@ -151,21 +171,18 @@ func oidcAvailableUsername(tx *gorm.DB, preferred string) (string, error) {
 }
 
 func oidcEmailAccount(tx *gorm.DB, email string, verified bool) (database.User, error) {
-	var matches []database.User
-	if err := tx.Where("lower(trim(email)) = lower(?)", email).Limit(2).Find(&matches).Error; err != nil {
-		return database.User{}, err
-	}
+	var user database.User
 
-	if len(matches) == 0 {
+	err := tx.Where("oidc_link_email = ?", email).Take(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return database.User{}, nil
 	}
 
-	if len(matches) != 1 {
-		return database.User{}, ErrAccessConflict
+	if err != nil {
+		return database.User{}, err
 	}
 
-	user := matches[0]
-	if !verified || user.Disabled || user.PasswordHash == "" {
+	if !verified || user.Disabled {
 		return database.User{}, ErrAuthentication
 	}
 
@@ -179,6 +196,39 @@ func oidcEmailAccount(tx *gorm.DB, email string, verified bool) (database.User, 
 	}
 
 	return user, nil
+}
+
+// An existing subject always signs in to its original account, even if an admin
+// reserves the same email elsewhere. Check in the same transaction as the reservation.
+func (r *AccessRepository) checkOIDCLinkEmail(tx *gorm.DB, email string) error {
+	if !r.autoLinkEmail {
+		return nil
+	}
+
+	// Older profiles can contain a Unicode or mixed-case domain. Narrow by the
+	// case-sensitive local-part before comparing domains using the sign-in rules.
+	mailboxPrefix := email[:strings.LastIndexByte(email, '@')+1]
+	linked := tx.Model(&database.OIDCIdentity{}).Select("user_id").Where("issuer = ?", r.issuer)
+	var candidates []struct{ Username, Email string }
+	if err := tx.Model(&database.User{}).Select("username, email").
+		Where("id IN (?) AND substr(trim(email), 1, length(?)) = ?", linked, mailboxPrefix, mailboxPrefix).
+		Find(&candidates).Error; err != nil {
+		return err
+	}
+
+	var username string
+	for _, candidate := range candidates {
+		if utils.NormalizeEmail(candidate.Email) == email {
+			if username != "" {
+				return fmt.Errorf("%w: multiple OIDC accounts list this email. Confirm the intended username with your provider before assigning access in Users", ErrAccessConflict)
+			}
+			username = candidate.Username
+		}
+	}
+	if username != "" {
+		return fmt.Errorf("%w: OIDC account %q already lists this email. Confirm the account with your provider before assigning access in Users", ErrAccessConflict, username)
+	}
+	return nil
 }
 
 // HasOIDCIdentity reports whether an account is linked to the configured issuer.

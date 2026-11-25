@@ -16,8 +16,8 @@ export async function readProfile(signal: AbortSignal) {
   return { user: body.user, localPassword: body.local_password };
 }
 export async function saveProfile(
-  name: string,
-  email: string,
+  name: string | undefined,
+  email: string | undefined,
   password: string,
   currentPassword: string,
   code: string,

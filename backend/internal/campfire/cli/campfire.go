@@ -84,7 +84,7 @@ func RunWithOptions(ctx context.Context, args []string, options StartupOptions) 
 		return err
 	}
 
-	autoLinkEmail, err := settings.CampfireOIDCAutoLinkEmail.Bool(flags, false, "link first-time OIDC logins to local accounts by verified email")
+	autoLinkEmail, err := settings.CampfireOIDCAutoLinkEmail.Bool(flags, false, "link first-time OIDC logins to an admin-assigned email verified by the provider")
 	if err != nil {
 		return err
 	}

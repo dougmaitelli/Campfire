@@ -10,6 +10,7 @@ import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
+import { EmailInput } from "../components/forms/EmailInput";
 import {
   PasswordInput,
   passwordPolicy,
@@ -58,12 +59,16 @@ export function UserDrawer({
   const confirmation = useConfirmation();
   const auth = useAuthentication();
   const { session } = auth;
+  const canPreProvision = !user && !!session?.oidc_auto_link_email;
   const showPassword = profile
     ? profile.passwordAllowed
-    : user === null || session?.local_login !== false;
+    : (!user && !canPreProvision) || session?.local_login !== false;
   const [username, setUsername] = useState(user?.username ?? "");
+  const [originalUser] = useState(user);
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
+  const providerName = !!user?.oidc_name_managed;
+  const providerEmail = !!user?.oidc_email_managed;
   const emailInput = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
@@ -117,14 +122,18 @@ export function UserDrawer({
   }
   async function submit(factorCode?: string) {
     if (pending.current || (profile && !profile.mfa.status)) return;
-    if (emailInput.current && !emailInput.current.reportValidity()) return;
+    if (
+      (!user || email !== originalUser?.email) &&
+      !emailInput.current?.reportValidity()
+    )
+      return;
     const passwordToSave = showPassword ? password : "";
     if (profile && passwordToSave && passwordToSave !== repeatPassword) {
       setError(t("profile.passwordMismatch"));
       return;
     }
     if (
-      (!user && !passwordToSave) ||
+      (!user && !canPreProvision && !passwordToSave) ||
       (passwordToSave &&
         !Object.values(passwordPolicy(passwordToSave)).every(Boolean))
     ) {
@@ -143,27 +152,26 @@ export function UserDrawer({
         setFactorPromptOpen(true);
         return;
       }
-      onSaved(
-        profile
-          ? await saveProfile(
+      const saved = profile
+        ? await saveProfile(
+            providerName || name === originalUser?.name ? undefined : name,
+            providerEmail || email === originalUser?.email ? undefined : email,
+            passwordToSave,
+            currentPassword,
+            factorCode ?? "",
+          )
+        : await saveUser(
+            {
+              username,
               name,
               email,
-              passwordToSave,
-              currentPassword,
-              factorCode ?? "",
-            )
-          : await saveUser(
-              {
-                username,
-                name,
-                email,
-                password: passwordToSave,
-                role_id: roleID,
-                disabled,
-              },
-              user?.id,
-            ),
-      );
+              password: passwordToSave,
+              role_id: roleID,
+              disabled,
+            },
+            originalUser,
+          );
+      if (saved) onSaved(saved);
       onClose();
     } catch (cause) {
       if (factorCode !== undefined) throw cause;
@@ -287,6 +295,7 @@ export function UserDrawer({
         >
           <TextInput
             id="user-display-name"
+            readOnly={providerName}
             value={name}
             maxLength={100}
             autoComplete="name"
@@ -294,20 +303,20 @@ export function UserDrawer({
           />
         </FormField>
         <FormField
-          label={t("userDrawer.emailOptional")}
+          label={t("email.address")}
           description={
             user?.oidc_email_managed
               ? t("userDrawer.managedByYourIdentityProvider")
               : undefined
           }
         >
-          <TextInput
+          <EmailInput
             ref={emailInput}
             id="user-email"
-            type="email"
+            readOnly={providerEmail}
+            required
             value={email}
             maxLength={254}
-            autoComplete="email"
             onChange={(event) => setEmail(event.target.value)}
           />
         </FormField>
@@ -317,7 +326,11 @@ export function UserDrawer({
               <>
                 {user
                   ? t("userDrawer.newPasswordOptional")
-                  : t("userDrawer.password")}
+                  : t(
+                      canPreProvision
+                        ? "userDrawer.optionalPassword"
+                        : "userDrawer.password",
+                    )}
               </>
             }
             description={
@@ -327,7 +340,9 @@ export function UserDrawer({
                       ? "profile.passwordEffects"
                       : "userDrawer.atLeast15CharactersPasswordRoleAndAccessChangesRevoke",
                   )
-                : undefined
+                : canPreProvision
+                  ? t("userDrawer.oidcPasswordHint")
+                  : undefined
             }
           >
             <PasswordInput

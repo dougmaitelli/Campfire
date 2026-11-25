@@ -142,12 +142,12 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	owner, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "owner", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: ""})
+	owner, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "owner", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: "owner@example.test"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	operator, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "operator", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: ""})
+	operator, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "operator", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: "operator@example.test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 	}
 
 	const password = "private-password-for-new-account A1!"
-	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","password":"`+password+`","role_id":3}`, http.StatusCreated)
+	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","email":"created@example.test","password":"`+password+`","role_id":3}`, http.StatusCreated)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-console-input"}`, http.StatusOK)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/files", `{"operation":"write","path":"secret.txt","data":"cHJpdmF0ZS1maWxl","revision":"absent"}`, http.StatusOK)
 	token, tokenSecret := createTestAPIToken(t, ownerHandler, `["server.view","server.console.write"]`)

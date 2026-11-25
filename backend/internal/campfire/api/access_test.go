@@ -128,7 +128,7 @@ func newAccessFixtureWithAudit(t *testing.T, audit bool) *accessFixture {
 func (f *accessFixture) user(name string, role int64) (database.User, http.Handler) {
 	f.t.Helper()
 
-	response := request(f.admin, "POST", "/api/v1/users", fmt.Sprintf(`{"username":%q,"password":%q,"role_id":%d}`, name, testAdminPassword, role))
+	response := request(f.admin, "POST", "/api/v1/users", fmt.Sprintf(`{"username":%q,"email":%q,"password":%q,"role_id":%d}`, name, name+"@example.test", testAdminPassword, role))
 	if response.Code != http.StatusCreated {
 		f.t.Fatal(response.Code, response.Body)
 	}
@@ -168,7 +168,7 @@ func TestUserEmailProfile(t *testing.T) {
 	user, regular := f.user("email-user", database.UserRole)
 	path := fmt.Sprintf("/api/v1/users/%d", user.ID)
 
-	for _, email := range []string{"  Jane@example.com  ", ""} {
+	for _, email := range []string{"  Jane@example.com  ", "other@example.com"} {
 		body := fmt.Sprintf(`{"email":%q,"role_id":%d}`, email, database.UserRole)
 
 		response := request(f.admin, "PUT", path, body)
@@ -190,12 +190,13 @@ func TestUserEmailProfile(t *testing.T) {
 		}
 	}
 
-	for _, email := range []string{"invalid", "Jane <jane@example.com>", "jane\n@example.com", strings.Repeat("a", 250) + "@example.com"} {
+	for _, email := range []string{"", "invalid", "Jane <jane@example.com>", "jane\n@example.com", strings.Repeat("a", 250) + "@example.com"} {
 		body := fmt.Sprintf(`{"email":%q,"role_id":%d}`, email, database.UserRole)
 		expectAccess(t, f.admin, "PUT", path, body, http.StatusBadRequest)
 	}
 
 	body := fmt.Sprintf(`{"username":"email-created","email":"new@example.com","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
+	expectAccess(t, f.admin, "POST", "/api/v1/users", fmt.Sprintf(`{"username":"missing-email","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole), http.StatusBadRequest)
 
 	response := request(f.admin, "POST", "/api/v1/users", body)
 	if response.Code != http.StatusCreated {
@@ -259,7 +260,7 @@ func TestUserDisplayNames(t *testing.T) {
 		expectAccess(t, f.admin, "PUT", path, body, http.StatusBadRequest)
 	}
 
-	body := fmt.Sprintf(`{"username":"with-name","name":"John Smith","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
+	body := fmt.Sprintf(`{"username":"with-name","name":"John Smith","email":"john@example.test","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
 
 	response := request(f.admin, "POST", "/api/v1/users", body)
 	if response.Code != http.StatusCreated {
@@ -270,6 +271,33 @@ func TestUserDisplayNames(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil || created.Name != "John Smith" {
 		t.Fatal("name not persisted on creation", created, err)
 	}
+}
+
+func TestAdminUserPatchPreservesOmittedFields(t *testing.T) {
+	f := newAccessFixture(t)
+	user, regular := f.user("patched", database.UserRole)
+	path := fmt.Sprintf("/api/v1/users/%d", user.ID)
+	expectAccess(t, regular, "PATCH", path, `{"name":"unauthorized"}`, http.StatusForbidden)
+	expectAccess(t, f.admin, "PATCH", path, `{"disabled":true,"email":"new@example.test"}`, http.StatusOK)
+	response := request(f.admin, "PATCH", path, `{"name":"Renamed"}`)
+
+	var updated database.User
+	if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil || response.Code != http.StatusOK || updated.Name != "Renamed" || !updated.Disabled || updated.RoleID != user.RoleID || updated.Email != "new@example.test" {
+		t.Fatal(response.Code, updated, err)
+	}
+
+	if err := f.db.ORM().Take(&updated, user.ID).Error; err != nil || updated.OIDCLinkEmail == nil || *updated.OIDCLinkEmail != updated.Email {
+		t.Fatal("unrelated edit changed OIDC link eligibility", err)
+	}
+
+	expectAccess(t, f.admin, "PATCH", path, `{"email":""}`, http.StatusBadRequest)
+	expectAccess(t, f.admin, "PATCH", path, `{"disabled":false,"name":""}`, http.StatusOK)
+
+	if err := f.db.ORM().Take(&updated, user.ID).Error; err != nil || updated.Disabled || updated.Name != "" || updated.Email != "new@example.test" {
+		t.Fatal("explicit false or empty value lost", updated, err)
+	}
+
+	expectAccess(t, f.admin, "PATCH", "/api/v1/users/1", `{"disabled":true}`, http.StatusConflict)
 }
 
 func TestSparkTransferRequiresPlatformPermissions(t *testing.T) {

@@ -107,6 +107,7 @@ func (a *API) Handler() http.Handler {
 	platform("GET /api/v1/users", accessperm.UsersManage, a.listUsers)
 	platform("POST /api/v1/users", accessperm.UsersManage, a.createUser)
 	platform("PUT /api/v1/users/{userID}", accessperm.UsersManage, a.updateUser)
+	platform("PATCH /api/v1/users/{userID}", accessperm.UsersManage, a.updateUser)
 	platform("DELETE /api/v1/users/{userID}", accessperm.UsersManage, a.deleteUser)
 	platform("POST /api/v1/users/{userID}/reset-2fa", accessperm.UsersManage, a.adminResetMFA)
 	platform("GET /api/v1/roles", accessperm.RolesManage, a.listRoles)

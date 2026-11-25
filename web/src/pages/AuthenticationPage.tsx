@@ -6,6 +6,7 @@ import { FormField } from "../components/forms/FormField";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Button, ButtonLink } from "../components/forms/Button";
 import { TextInput } from "../components/forms/TextInput";
+import { EmailInput } from "../components/forms/EmailInput";
 import {
   PasswordInput,
   passwordPolicy,
@@ -45,6 +46,7 @@ export function AuthenticationPage() {
   const { t } = useTranslation();
   const auth = useAuthentication();
   const [username, setUsername] = useState("admin");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secondFactor, setSecondFactor] = useState(false);
   const [recoverMFA, setRecoverMFA] = useState(false);
@@ -57,7 +59,7 @@ export function AuthenticationPage() {
   const setup = auth.session?.setup_required === true;
   const PasswordControl = setup ? PasswordInput : AuthenticationPasswordInput;
   const localLogin = auth.session?.local_login !== false;
-  const oidcError = new URLSearchParams(window.location.search).has(
+  const oidcError = new URLSearchParams(window.location.search).get(
     "oidc_error",
   );
   async function submit() {
@@ -79,7 +81,7 @@ export function AuthenticationPage() {
           username,
           password,
           ...(secondFactor || recoverMFA ? { code } : {}),
-          ...(setup ? { setup_token: token.trim() } : {}),
+          ...(setup ? { setup_token: token.trim(), email: email.trim() } : {}),
         },
         setup,
       );
@@ -167,7 +169,9 @@ export function AuthenticationPage() {
                 <InlineMessage role="alert">
                   {error ??
                     t(
-                      "authenticationPage.openidConnectSignInFailedPleaseTryAgainOrContact",
+                      oidcError === "email_required"
+                        ? "email.providerAddressRequired"
+                        : "authenticationPage.openidConnectSignInFailedPleaseTryAgainOrContact",
                     )}
                 </InlineMessage>
               )}
@@ -233,6 +237,17 @@ export function AuthenticationPage() {
                       onChange={(event) => setUsername(event.target.value)}
                     />
                   </FormField>
+                  {setup && (
+                    <FormField label={t("email.address")}>
+                      <EmailInput
+                        name="email"
+                        value={email}
+                        required
+                        disabled={busy}
+                        onChange={(event) => setEmail(event.target.value)}
+                      />
+                    </FormField>
+                  )}
                   <FormField label={t("authenticationPage.password")}>
                     <PasswordControl
                       autoComplete={setup ? "new-password" : "current-password"}

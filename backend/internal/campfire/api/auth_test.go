@@ -74,7 +74,7 @@ func authFixture(t *testing.T, origin string) (*service.AuthService, http.Handle
 func setupBody(t *testing.T, token string) string {
 	t.Helper()
 
-	body, err := json.Marshal(map[string]string{"username": "Admin", "password": testAdminPassword, "setup_token": token})
+	body, err := json.Marshal(map[string]string{"username": "Admin", "email": "admin@example.test", "password": testAdminPassword, "setup_token": token})
 	if err != nil {
 		t.Fatal(err)
 	}

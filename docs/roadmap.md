@@ -6,13 +6,6 @@ description: Planned improvements to Campfire.
 Features we want to add to Campfire. This list is not a release schedule;
 scope and order may change.
 
-## Account security
-
-- [ ] **Email verification and password recovery** — Configure outgoing email,
-      verify ownership of new or changed email addresses before trusting them for
-      account linking or recovery, and let users reset forgotten passwords through
-      expiring, single-use links sent to their verified address.
-
 ## API documentation
 
 - [ ] **API reference and guides** — Document authentication with API tokens,

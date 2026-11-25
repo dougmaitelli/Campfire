@@ -1,4 +1,8 @@
 {
+  "email": {
+    "providerAddressRequired": "Your identity provider must supply an email address to create a Campfire account. Contact your administrator.",
+    "address": "Email address"
+  },
   "crashes": {
     "exitedAt": "Exited",
     "exitCode": "Exit code",
@@ -295,7 +299,6 @@
     "unexpectedServerAccessResponse": "Unexpected server access response.",
     "unexpectedServerOptionsResponse": "Unexpected server options response.",
     "unexpectedSparkAccessResponse": "Unexpected Spark access response.",
-    "unexpectedSparkRoleResponse": "Unexpected Spark role response.",
     "unexpectedUserListResponse": "Unexpected user list response.",
     "unexpectedUserResponse": "Unexpected user response."
   },
@@ -313,7 +316,6 @@
     "account": "Account",
     "accountOptions": "Account options",
     "accountOptionsFor": "Account options for {{name}}",
-    "apiTokens": "<navigationIcon/>API tokens",
     "linkOpenIDConnect": "<navigationIcon/>Link OIDC",
     "openidConnectFailedTheIdentityMayAlreadyBelongToAnother": "OIDC failed. The identity may already belong to another account. Try again or contact your administrator.",
     "signOut": "Sign out",
@@ -408,7 +410,6 @@
     "signInWithOpenIDConnect": "Sign in with OIDC",
     "thePasswordsDoNotMatch": "The passwords do not match.",
     "unableToSignIn": "Unable to sign in.",
-    "useAtLeast15CharactersSpacesAndPassphrasesAreWelcome": "Use at least 15 characters. Spaces and passphrases are welcome.",
     "username": "Username",
     "welcomeToCampfire": "Welcome to Campfire"
   },
@@ -1751,11 +1752,12 @@
     "unableToRefreshUsage": "Unable to refresh usage."
   },
   "userDrawer": {
+    "optionalPassword": "Password (optional)",
+    "oidcPasswordHint": "Leave blank to use OpenID Connect sign-in only.",
     "atLeast15CharactersPasswordRoleAndAccessChangesRevoke": "Password, role, and access changes revoke this user's existing sessions.",
     "createUser": "Create user",
     "deleteTransferTheirOwnedServersFirstTheirAccessAndCredentials": "Delete \"{{userUsername}}\"? Transfer their owned servers first. Their access and credentials will be revoked. Their profile will be retained for audit history.",
     "editUser": "Edit user",
-    "emailOptional": "Email (optional)",
     "managedByYourIdentityProvider": "Refreshed from the identity provider on OIDC sign-in.",
     "manageThisAccountSRoleAndSignInAccess": "Manage this account's role and sign-in access.",
     "nameOptional": "Name (optional)",
@@ -1766,7 +1768,6 @@
     "shownInTheAccountMenuDefaultsToTheUsername": "Shown in the account menu. Defaults to the username.",
     "unableToDeleteUser": "Unable to delete user.",
     "unableToSaveUser": "Unable to save user.",
-    "useAPasswordOfAtLeast15Characters": "Use a password of at least 15 characters.",
     "userID": "User ID: <code/>",
     "username": "Username"
   },
@@ -1952,7 +1953,6 @@
     "devices": "Authenticator devices",
     "deviceName": "Device name",
     "deviceNameHelp": "Choose a name you will recognize, such as Personal phone.",
-    "noDevices": "No authenticator devices enrolled",
     "added": "Added",
     "showQR": "Show QR code",
     "removeDevice": "Remove {{name}}",
@@ -1962,8 +1962,6 @@
     "title": "Two-factor authentication",
     "unexpectedResponse": "Unexpected two-factor authentication response.",
     "failed": "Unable to update two-factor authentication.",
-    "disable": "Disable 2FA",
-    "disableWarning": "Disable two-factor authentication? Your password will be enough to sign in. Other browser sessions will be signed out. API tokens will stay valid.",
     "saveCodes": "Save these recovery codes somewhere private. Each code works once with your password if you lose your authenticator. These codes are shown only once.",
     "copyCodes": "Copy recovery codes",
     "copySecret": "Copy setup key",
@@ -1978,18 +1976,10 @@
     "authenticatorCode": "Authenticator code",
     "code": "Authenticator or recovery code",
     "codePrompt": "Enter a current six-digit authenticator code or an unused recovery code. Already-used codes cannot be accepted again.",
-    "enabled": "Two-factor authentication is enabled. {{count}} recovery codes remain. Replace your authenticator to generate a new set.",
-    "explanation": "Protect password sign-ins with a six-digit code from your authenticator app. Recovery codes provide access if you lose the app.",
-    "revokesCredentials": "Enabling, replacing, or disabling 2FA signs out your other browsers. This browser and your API tokens stay valid.",
     "confirm": "Confirm authenticator",
-    "replace": "Replace authenticator",
-    "enable": "Set up authenticator",
     "adminReset": "Reset user’s 2FA",
     "adminResetWarning": "Remove 2FA for {{username}} only after verifying their identity. Their authenticator and recovery codes will be removed, and browser sessions signed out. They can sign in with their password and choose whether to set up 2FA again. API tokens stay valid. This does not reset MFA at an identity provider.",
-    "adminResetDone": "2FA removed for {{username}}. They can sign in with their password. API tokens are unchanged.",
-    "yourPassword": "Your administrator password",
-    "yourCode": "Your authenticator or recovery code",
-    "recentOIDC": "This action requires an OpenID Connect sign-in within the last five minutes. Sign out and sign in again if needed."
+    "adminResetDone": "2FA removed for {{username}}. They can sign in with their password. API tokens are unchanged."
   },
   "passwordInput": {
     "rules": "Password requirements",
@@ -2011,8 +2001,6 @@
     "enterFreshCode": "Enter a fresh authenticator code or an unused recovery code to save your new password.",
     "passwordEffects": "Changing your password signs out other browsers and invalidates existing API tokens.",
     "repeatPassword": "Repeat password",
-    "passwordMismatch": "The new passwords do not match.",
-    "factorIfEnabled": "Required if two-factor authentication is enabled. Use a fresh authenticator code or an unused recovery code.",
-    "manageMFA": "Manage two-factor authentication"
+    "passwordMismatch": "The new passwords do not match."
   }
 }

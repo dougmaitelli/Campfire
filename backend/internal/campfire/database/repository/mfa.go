@@ -73,7 +73,7 @@ func consumeMFA(tx *gorm.DB, factor *database.UserMFA, proof MFAProof) error {
 func (r *AuthRepository) ChangeMFA(ctx context.Context, session database.UserSession, now time.Time, change func(*database.UserMFA) error, proof *MFAProof, revokeOthers bool) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var current database.UserSession
-		if err := tx.Where("hash = ? AND expires_at > ? AND last_seen_at > ?", session.Hash, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Take(&current).Error; err != nil {
+		if err := tx.Where("hash = ? AND user_id = ? AND expires_at > ? AND last_seen_at > ?", session.Hash, session.UserID, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Take(&current).Error; err != nil {
 			return ErrAuthentication
 		}
 		var user database.User

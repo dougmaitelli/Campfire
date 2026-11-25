@@ -42,7 +42,7 @@ func TestSessionMetadataUpgradePreservesExistingLogin(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = reopened.Close() })
 		var version int
-		if err := reopened.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 11 {
+		if err := reopened.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 12 {
 			t.Fatal(version, err)
 		}
 		stored, username, err := repository.NewAuthRepository(reopened.ORM()).Session(t.Context(), session.Hash, now)

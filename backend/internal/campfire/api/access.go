@@ -65,14 +65,25 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Name     *string `json:"name"`
 		Email    *string `json:"email"`
-		RoleID   int64   `json:"role_id"`
-		Disabled bool    `json:"disabled"`
+		RoleID   *int64  `json:"role_id"`
+		Disabled *bool   `json:"disabled"`
 		Password string  `json:"password"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return
 	}
 
+	if r.Method == http.MethodPut {
+		// Existing PUT clients supply a role and default the enabled state.
+		if input.RoleID == nil {
+			writeError(w, repository.ErrAccessInput)
+			return
+		}
+
+		if input.Disabled == nil {
+			input.Disabled = new(false)
+		}
+	}
 	user, err := a.access.UpdateUser(r.Context(), id, input.RoleID, input.Disabled, input.Password, input.Name, input.Email)
 	if err != nil {
 		writeAuthError(w, err)

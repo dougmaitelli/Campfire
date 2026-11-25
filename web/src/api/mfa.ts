@@ -80,17 +80,6 @@ export async function confirmMFA(code: string): Promise<string[]> {
     return unexpected();
   return body.recovery_codes;
 }
-export async function disableMFA(
-  password: string,
-  code: string,
-): Promise<void> {
-  const response = await apiJSON(
-    "/api/v1/auth/mfa",
-    { password, code },
-    { method: "DELETE" },
-  );
-  if (response.status !== 204) await readJSON(response);
-}
 export async function resetUserMFA(id: number): Promise<void> {
   const response = await apiJSON(`/api/v1/users/${id}/reset-2fa`, {});
   if (response.status !== 204) await readJSON(response);

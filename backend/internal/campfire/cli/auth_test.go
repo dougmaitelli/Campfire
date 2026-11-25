@@ -125,7 +125,7 @@ func TestStartupLogsSetupTokenOnlyBeforeFirstAccount(t *testing.T) {
 	}
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
-	_, createErr := auth.Access().CreateUser(context.Background(), service.CreateUserInput{Username: "admin", Password: "a long administrator test password A1!", RoleID: database.AdminRole, Disabled: false, Name: "", Email: ""})
+	_, createErr := auth.Access().CreateUser(context.Background(), service.CreateUserInput{Username: "admin", Password: "a long administrator test password A1!", RoleID: database.AdminRole, Disabled: false, Name: "", Email: "admin@example.test"})
 
 	closeErr := db.Close()
 	if createErr != nil || closeErr != nil {
@@ -225,7 +225,8 @@ func TestResetTwoFactorCommandPreservesPassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, token, err := auth.Setup(t.Context(), setup, "admin", "test administrator password for recovery A1!")
+
+	session, token, err := auth.Setup(t.Context(), setup, "admin", "test administrator password for recovery A1!", "admin@example.test")
 	if err != nil {
 		t.Fatal(err)
 	}

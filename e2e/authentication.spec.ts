@@ -168,6 +168,7 @@ test("administrator setup keeps all fields accessible on desktop and mobile", as
   await page.setViewportSize({ width: 375, height: 812 });
   await screenshot(page, "login-setup-mobile.png");
   await page.getByLabel("Setup token").fill("setup-token");
+  await page.getByLabel("Email address").fill("admin@example.test");
   await page
     .getByLabel("Password", { exact: true })
     .fill("A long test passphrase1!");
@@ -186,6 +187,7 @@ test("administrator setup keeps all fields accessible on desktop and mobile", as
       username: "admin",
       password: "A long test passphrase1!",
       setup_token: "setup-token",
+      email: "admin@example.test",
     });
     await route.fulfill({
       status: 400,

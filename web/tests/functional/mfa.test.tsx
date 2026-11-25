@@ -611,7 +611,6 @@ test.each([
     );
     expect(JSON.parse(String(saved?.[1]?.body))).toEqual({
       name: "Updated",
-      email: "",
       password: changePassword ? "a new long password A1!" : "",
       current_password: changePassword ? "old long password" : "",
       code: changePassword && mfaEnabled ? "123456" : "",

@@ -6,12 +6,41 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/shared/limits"
+	"campfire/internal/shared/utils"
+
 	"gorm.io/gorm"
 )
 
+func profileUpdates(user database.User, name, email *string, admin bool) (map[string]any, error) {
+	updates := map[string]any{}
+
+	if name != nil && *name != user.Name {
+		if user.OIDCNameManaged {
+			return nil, ErrAccessDenied
+		}
+
+		updates["name"] = *name
+	}
+
+	if email != nil && *email != utils.NormalizeEmail(user.Email) {
+		if user.OIDCEmailManaged {
+			return nil, ErrAccessDenied
+		}
+
+		updates["oidc_link_email"] = nil
+		if admin {
+			updates["oidc_link_email"] = *email
+		}
+
+		updates["email"] = *email
+	}
+
+	return updates, nil
+}
+
 // UpdateProfile can update only self-service fields. It cannot change role,
 // enabled state, username, or another account, even with a stale caller snapshot.
-func (r *AuthRepository) UpdateProfile(ctx context.Context, session database.UserSession, name, email, passwordHash string, proof MFAProof, now time.Time) (database.User, error) {
+func (r *AuthRepository) UpdateProfile(ctx context.Context, session database.UserSession, name, email *string, passwordHash string, proof MFAProof, now time.Time) (database.User, error) {
 	var user database.User
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var current database.UserSession
@@ -24,7 +53,11 @@ func (r *AuthRepository) UpdateProfile(ctx context.Context, session database.Use
 		if user.Disabled || user.CredentialVersion != session.CredentialVersion || current.CredentialVersion != user.CredentialVersion {
 			return ErrAuthentication
 		}
-		updates := map[string]any{"name": name, "email": email}
+
+		updates, err := profileUpdates(user, name, email, false)
+		if err != nil {
+			return err
+		}
 		if passwordHash != "" {
 			if current.Provider != "" || user.PasswordHash == "" {
 				return ErrAccessDenied

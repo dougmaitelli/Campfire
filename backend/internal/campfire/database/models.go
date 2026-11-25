@@ -48,6 +48,7 @@ type User struct {
 	Username          string         `gorm:"type:text;not null;uniqueIndex:users_username,expression:lower(username)" json:"username"`
 	Name              string         `gorm:"type:text;not null;default:''" json:"name"`
 	Email             string         `gorm:"type:text;not null;default:''" json:"email"`
+	OIDCLinkEmail     *string        `gorm:"column:oidc_link_email;uniqueIndex:users_oidc_link_email" json:"-"`
 	Picture           string         `gorm:"type:text;not null;default:''" json:"picture"`
 	OIDCNameManaged   bool           `gorm:"column:oidc_name_managed;not null;default:false" json:"oidc_name_managed"`
 	OIDCEmailManaged  bool           `gorm:"column:oidc_email_managed;not null;default:false" json:"oidc_email_managed"`
@@ -76,9 +77,9 @@ type UserSession struct {
 
 // OIDCIdentity binds a provider subject to an account without matching mutable claims.
 type OIDCIdentity struct {
-	Issuer  string `gorm:"type:text;primaryKey"`
+	Issuer  string `gorm:"type:text;primaryKey;uniqueIndex:oidc_user_issuer"`
 	Subject string `gorm:"type:text;primaryKey"`
-	UserID  int64  `gorm:"not null;index"`
+	UserID  int64  `gorm:"not null;index;uniqueIndex:oidc_user_issuer"`
 	User    User   `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
 

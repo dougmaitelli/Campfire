@@ -28,7 +28,7 @@ var (
 	ErrAuthentication = repository.ErrAuthentication
 	ErrAdminExists    = repository.ErrAdminExists
 	ErrAuthInput      = fmt.Errorf("use a username of %d–%d letters, numbers, dots, dashes or underscores; password requirements: %s", limits.UsernameMin, limits.UsernameMax, PasswordRequirements())
-	ErrAuthRate       = errors.New("too many sign-in attempts; try again in one minute")
+	ErrAuthRate       = errors.New("too many attempts. Try again in one minute")
 )
 
 // SessionLifetime bounds a login even while its browser continues polling.
@@ -43,6 +43,7 @@ type authAttempts struct {
 type AuthService struct {
 	store         *repository.AuthRepository
 	mfaSecrets    MFASecrets
+	autoLinkEmail bool
 	mu            sync.Mutex
 	setupHash     [32]byte
 	setupReady    bool
@@ -56,7 +57,10 @@ type AuthService struct {
 
 // NewAuthService constructs authentication without enabling unprotected setup.
 func NewAuthService(store *repository.AuthRepository) *AuthService {
-	return &AuthService{store: store, attempts: make(map[string]authAttempts), now: time.Now, hashSlots: make(chan struct{}, 4)}
+	return &AuthService{
+		store: store, attempts: make(map[string]authAttempts), now: time.Now,
+		hashSlots: make(chan struct{}, 4),
+	}
 }
 
 func (s *AuthService) passwordWork(ctx context.Context) (func(), error) {
@@ -222,8 +226,13 @@ func newUserSession(userID, version int64, now time.Time) (database.UserSession,
 }
 
 // Setup consumes proof of local host access and atomically creates the administrator.
-func (s *AuthService) Setup(ctx context.Context, token, username, password string) (database.UserSession, string, error) {
+func (s *AuthService) Setup(ctx context.Context, token, username, password, email string) (database.UserSession, string, error) {
 	username = strings.ToLower(strings.TrimSpace(username))
+
+	email = utils.NormalizeEmail(email)
+	if !validEmail(email) {
+		return database.UserSession{}, "", repository.ErrEmailRequired
+	}
 	if !validAccountInput(username, password) {
 		return database.UserSession{}, "", ErrAuthInput
 	}
@@ -251,7 +260,7 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 
 	session, raw := newUserSession(1, 1, s.now())
 	session.UserAgent = sessionUserAgent(ctx)
-	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, PasswordHash: encoded, CredentialVersion: 1}, session); err != nil {
+	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, Email: email, OIDCLinkEmail: &email, PasswordHash: encoded, CredentialVersion: 1}, session); err != nil {
 		return database.UserSession{}, "", err
 	}
 

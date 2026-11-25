@@ -99,7 +99,8 @@ func TestAdminMFAResetRestoresPasswordLoginAndPreservesTokens(t *testing.T) {
 	auth, handler, setup := authFixture(t, "")
 	auth.WithMFASecrets(integrations.Secrets{Directory: t.TempDir()})
 	adminState, adminCookie := readAuthResponse(t, authRequest(handler, "POST", "/api/v1/auth/setup", setupBody(t, setup), nil, "", ""))
-	user, err := auth.Access().CreateUser(t.Context(), service.CreateUserInput{Username: "protected", Password: testAdminPassword, RoleID: database.UserRole})
+
+	user, err := auth.Access().CreateUser(t.Context(), service.CreateUserInput{Username: "protected", Email: "protected@example.test", Password: testAdminPassword, RoleID: database.UserRole})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -29,7 +29,8 @@ func mfaFixture(t *testing.T) (*AuthService, *database.Database, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, token, err := auth.Setup(t.Context(), setup, "admin", "long test password for two factors A1!")
+
+	_, token, err := auth.Setup(t.Context(), setup, "admin", "long test password for two factors A1!", "admin@example.test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +262,8 @@ func TestMFAEnrollmentExpiryAndDisableProof(t *testing.T) {
 func TestAdminMFAResetUsesAuthenticatedSession(t *testing.T) {
 	auth, _, token := mfaFixture(t)
 	enrollMFA(t, auth, token)
-	user, err := auth.Access().CreateUser(t.Context(), CreateUserInput{Username: "recover-me", Password: "long test password for two factors A1!", RoleID: database.UserRole})
+
+	user, err := auth.Access().CreateUser(t.Context(), CreateUserInput{Username: "recover-me", Email: "recover-me@example.test", Password: "long test password for two factors A1!", RoleID: database.UserRole})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,17 +309,19 @@ func TestProfilePasswordChangeRequiresFactorsAndKeepsEnrollment(t *testing.T) {
 	_, codes := enrollMFA(t, auth, token)
 	password := "long test password for two factors A1!"
 	replacement := "new long password for profile update A1!"
-	if _, err := auth.UpdateProfile(t.Context(), token, "Name", "", replacement, "wrong", codes[0]); !errors.Is(err, ErrAuthentication) {
+	if _, err := auth.UpdateProfile(t.Context(), token, new("Name"), nil, replacement, "wrong", codes[0]); !errors.Is(err, ErrAuthentication) {
 		t.Fatal("changed password without proof", err)
 	}
-	if _, err := auth.UpdateProfile(t.Context(), token, "Name", "", replacement, password, ""); !errors.Is(err, repository.ErrMFARequired) {
+
+	if _, err := auth.UpdateProfile(t.Context(), token, new("Name"), nil, replacement, password, ""); !errors.Is(err, repository.ErrMFARequired) {
 		t.Fatal("password change bypassed MFA", err)
 	}
 	_, otherToken, err := auth.Login(t.Context(), "admin", password, "", codes[1])
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := auth.UpdateProfile(t.Context(), token, "Name", "", replacement, password, codes[0]); err != nil {
+
+	if _, err := auth.UpdateProfile(t.Context(), token, new("Name"), nil, replacement, password, codes[0]); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := auth.Session(t.Context(), otherToken); !errors.Is(err, ErrAuthentication) {
