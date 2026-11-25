@@ -46,10 +46,20 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 		return model.FileResult{}, fileFailure(model.FileIO, "Game data unavailable.")
 	}
 
-	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || q.Operation.IsUpload() || q.Operation.IsArchive() || q.Operation == model.FileOperationCompressStart) {
-		if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
+	// Upload begin reconciles the kernel limit. Recheck on a later chunk only
+	// when the allocation changed; SFTP can send thousands of small packets.
+	upload := q.Operation.IsUpload()
+	if q.Operation == model.FileOperationUploadChunk || q.Operation == model.FileOperationUploadCommit {
+		upload = e.uploadQuotaMB == nil || *e.uploadQuotaMB != d.Configuration.DiskMB
+	}
+
+	if mutate && (q.Operation == model.FileOperationWrite || q.Operation == model.FileOperationMkdir || upload || q.Operation.IsArchive() || q.Operation == model.FileOperationCompressStart) {
+		if err := m.resizeMountedQuota(ctx, volume, d.Configuration.DiskMB); err != nil {
+			e.uploadQuotaMB = nil
 			return model.FileResult{}, fileFailure(model.FileLimitExceeded, err.Error())
 		}
+
+		e.uploadQuotaMB = new(d.Configuration.DiskMB)
 	}
 
 	if e.files == nil {
@@ -62,9 +72,8 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, q model.FileReq
 // Other runtime domains (backups, configuration and server transfers) use the
 // same filesystem primitives. These aliases contain no duplicate implementation.
 var (
-	fileFailure     = fileops.Failure
-	filePath        = fileops.ValidPath
-	containedPath   = fileops.ContainedPath
-	assignFileOwner = fileops.AssignFileOwner
-	importedMode    = fileops.ImportedMode
+	fileFailure   = fileops.Failure
+	filePath      = fileops.ValidPath
+	containedPath = fileops.ContainedPath
+	importedMode  = fileops.ImportedMode
 )

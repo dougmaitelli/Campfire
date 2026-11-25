@@ -181,7 +181,8 @@ starting extraction or answering conflicts remains fenced until the transfer is
 resolved.
 Allocation checks account for extracted/replaced files and periodically reconcile
 with game-data usage instead of rescanning the entire tree for every member. Where
-available, the runtime's project quota remains the hard filesystem limit.
+available, the Spark filesystem enforces the game-data allocation. See
+[disk quotas and host storage](/Campfire/spark-agent/#disk-quotas-and-host-storage).
 
 Extraction is not transactional. Errors, cancellation, bad checksums, duplicate
 normalized paths, unsafe later entries, or exhausted limits can leave completed

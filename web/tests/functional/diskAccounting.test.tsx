@@ -62,7 +62,8 @@ test("current disk readings distinguish native counters, scans, and mixed totals
 test.each([
   [undefined, /Logical game-data file sizes from a bounded scan/],
   [DiskAccounting.Project, /Filesystem project-quota usage/],
-  [DiskAccounting.Mixed, /project-quota counters and logical file-size scans/],
+  [DiskAccounting.Qgroup, /Btrfs referenced bytes/],
+  [DiskAccounting.Mixed, /different disk accounting methods/],
 ] as const)(
   "Spark table preserves context, accounting (%s), and errors",
   (method, description) => {

@@ -28,13 +28,6 @@ scope and order may change.
 - [ ] **Configurable restart policies** — Let administrators choose when servers
       restart automatically, including after crashes or unexpected exits.
 
-## Spark infrastructure
-
-- [ ] **Rootless Docker** — Support running Spark-managed game servers with a
-      rootless Docker daemon.
-- [ ] **Broader disk quota support** — Support enforcing server disk quotas on
-      additional filesystems.
-
 ## Appearance
 
 - [ ] **Theme system** — Support switching between visual themes across the panel.

@@ -92,7 +92,7 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 
 	workprogress.New(ctx, workprogress.Committing, 0).Flush()
 
-	if err := CheckWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, 0); err != nil {
+	if err := CheckWriteCapacity(ctx, volume, m.LogicalDiskLimitMB(d.Configuration.DiskMB), 0, 0); err != nil {
 		return result, err
 	}
 
@@ -116,6 +116,10 @@ func ArchiveFailure(err error) error {
 	var failure *model.FileError
 	if errors.As(err, &failure) {
 		return err
+	}
+
+	if errors.Is(err, syscall.EDQUOT) {
+		return Failure(model.FileLimitExceeded, "Archive contents exceed the server disk allocation.")
 	}
 
 	return Failure(model.FileIO, "Archive operation failed. Check the archive, disk allocation and Spark logs.")
@@ -248,7 +252,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		return Failure(model.FileLimitExceeded, "Archive exceeds 100 GiB.")
 	}
 
-	allocation, err := newArchiveAllocation(ctx, root.Name(), d.Configuration.DiskMB)
+	allocation, err := newArchiveAllocation(ctx, root.Name(), m.LogicalDiskLimitMB(d.Configuration.DiskMB))
 	if err != nil {
 		return err
 	}

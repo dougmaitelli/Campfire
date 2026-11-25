@@ -281,15 +281,12 @@ func (m *Manager) prepareTransfer(ctx context.Context, d model.Deployment, q mod
 		return err
 	}
 
-	probe, err := os.MkdirTemp(m.root(d.ServerID), ".quota-probe-")
-	if err != nil {
+	if err := probeDiskQuota(ctx, m.root(d.ServerID), m.Quota, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
-	defer func() { _ = os.RemoveAll(probe) }()
-
-	if err := m.prepareQuota(probe, d.Configuration.DiskMB); err != nil {
-		return err
+	if d.Configuration.DiskMB > 0 {
+		m.pendingQuotaProbe.Store(false)
 	}
 
 	t.Role, t.State, t.Size, t.Digest = model.JobTarget, model.JobStateReceiving, q.Size, q.Digest
@@ -514,10 +511,12 @@ func (m *Manager) finishTransfer(ctx context.Context, d model.Deployment, e *ent
 			}
 		}
 
-		for _, name := range []string{"data", "backups"} {
-			if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), name)); err != nil {
-				return model.JobResult{}, err
-			}
+		if err := m.removeGameData(ctx, filepath.Join(m.root(d.ServerID), "data")); err != nil {
+			return model.JobResult{}, err
+		}
+
+		if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), "backups")); err != nil {
+			return model.JobResult{}, err
 		}
 
 		e.Installed, e.Revision = false, ""

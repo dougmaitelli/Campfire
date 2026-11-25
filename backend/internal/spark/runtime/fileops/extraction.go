@@ -231,15 +231,17 @@ func (m *Manager) scanExtraction(d model.Deployment, s *extractionSession) {
 				s.sourceInfo = info
 				s.mu.Unlock()
 
-				s.allocation, err = newArchiveAllocation(s.ctx, s.volume, d.Configuration.DiskMB)
+				logicalMB := m.LogicalDiskLimitMB(d.Configuration.DiskMB)
+
+				s.allocation, err = newArchiveAllocation(s.ctx, s.volume, logicalMB)
 				if err != nil {
 					m.finishExtractionScan(s, err)
 					return
 				}
 
 				bytes := model.FileTransferLimit
-				if d.Configuration.DiskMB > 0 {
-					bytes = min(bytes, d.Configuration.DiskMB*1048576)
+				if logicalMB > 0 {
+					bytes = min(bytes, logicalMB<<20)
 				}
 
 				members := newArchiveMembers(archiveEntryLimit, bytes)

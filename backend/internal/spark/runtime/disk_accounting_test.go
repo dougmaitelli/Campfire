@@ -17,7 +17,7 @@ import (
 func TestProjectDiskUsageUsesByteChargeWithoutChangingLimits(t *testing.T) {
 	for _, allocation := range []int64{0, 8} {
 		q, kernel, directory := quotaFixture(t)
-		if err := q.Prepare(directory, allocation); err != nil {
+		if err := q.Prepare(t.Context(), directory, allocation); err != nil {
 			t.Fatal(err)
 		}
 
@@ -30,7 +30,7 @@ func TestProjectDiskUsageUsesByteChargeWithoutChangingLimits(t *testing.T) {
 		limit.Space = 8193 // Already bytes, not the 1 KiB hard-limit units.
 		kernel.limits[id] = limit
 
-		if got, err := q.DiskUsage(directory); err != nil || got != 8193 {
+		if got, err := q.DiskUsage(t.Context(), directory); err != nil || got != 8193 {
 			t.Fatal(got, err)
 		}
 
@@ -41,13 +41,13 @@ func TestProjectDiskUsageUsesByteChargeWithoutChangingLimits(t *testing.T) {
 		limit.Space = math.MaxUint64
 		kernel.limits[id] = limit
 
-		if _, err := q.DiskUsage(directory); err == nil {
+		if _, err := q.DiskUsage(t.Context(), directory); err == nil {
 			t.Fatal("overflow accepted")
 		}
 
 		delete(kernel.limits, id)
 
-		if _, err := q.DiskUsage(directory); !errors.Is(err, os.ErrNotExist) || errors.Is(err, errProjectAccountingUnavailable) {
+		if _, err := q.DiskUsage(t.Context(), directory); !errors.Is(err, os.ErrNotExist) || errors.Is(err, errProjectAccountingUnavailable) {
 			t.Fatal("lost project query failure", err)
 		}
 	}
@@ -55,11 +55,11 @@ func TestProjectDiskUsageUsesByteChargeWithoutChangingLimits(t *testing.T) {
 
 func TestProjectDiskUsageRejectsUnownedAndUnpreparedDirectories(t *testing.T) {
 	q, kernel, directory := quotaFixture(t)
-	if _, err := q.DiskUsage(directory); !errors.Is(err, errProjectAccountingUnavailable) {
+	if _, err := q.DiskUsage(t.Context(), directory); !errors.Is(err, errProjectAccountingUnavailable) {
 		t.Fatal(err)
 	}
 
-	if err := q.Prepare(directory, 8); err != nil {
+	if err := q.Prepare(t.Context(), directory, 8); err != nil {
 		t.Fatal(err)
 	}
 
@@ -69,7 +69,7 @@ func TestProjectDiskUsageRejectsUnownedAndUnpreparedDirectories(t *testing.T) {
 		}
 	}
 
-	if _, err := q.DiskUsage(directory); err == nil || errors.Is(err, errProjectAccountingUnavailable) {
+	if _, err := q.DiskUsage(t.Context(), directory); err == nil || errors.Is(err, errProjectAccountingUnavailable) {
 		t.Fatal("unowned project allowed fallback", err)
 	}
 
@@ -78,7 +78,7 @@ func TestProjectDiskUsageRejectsUnownedAndUnpreparedDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := q.DiskUsage(link); err == nil {
+	if _, err := q.DiskUsage(t.Context(), link); err == nil {
 		t.Fatal("followed data symlink")
 	}
 }
@@ -90,7 +90,8 @@ type accountingQuota struct {
 	reads int
 }
 
-func (q *accountingQuota) DiskUsage(string) (int64, error) {
+func (*accountingQuota) Accounting() model.DiskAccounting { return model.DiskAccountingProject }
+func (q *accountingQuota) DiskUsage(context.Context, string) (int64, error) {
 	q.reads++
 	return q.bytes, q.err
 }
@@ -141,7 +142,7 @@ func TestManagedProjectMetricsDoNotWalkGameData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := q.Prepare(volume, 8); err != nil {
+	if err := q.Prepare(t.Context(), volume, 8); err != nil {
 		t.Fatal(err)
 	}
 

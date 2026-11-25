@@ -17,6 +17,7 @@ import (
 	"campfire/internal/shared/protocol"
 	"campfire/internal/shared/settings"
 	"campfire/internal/spark/agent"
+	"campfire/internal/spark/runtime"
 )
 
 // Run parses agent configuration and manages graceful signal cancellation.
@@ -28,6 +29,7 @@ func Run(ctx context.Context, args []string) error {
 	version := flags.Bool(settings.Version.FlagName, false, "print release version and exit")
 	updateInfo := flags.Bool(settings.SparkUpdateInfo.FlagName, false, "print version and wire compatibility for verified updates")
 	enrollOnly := flags.Bool(settings.SparkEnrollOnly.FlagName, false, "enroll and save the agent identity, then exit")
+	checkDocker := flags.Bool(settings.SparkCheckDocker.FlagName, false, "validate the local daemon and print its mode and socket before enrollment")
 	// Accept existing service arguments while control moves to server configuration.
 	flags.Bool(settings.SparkGameIntegrations.FlagName, true, "deprecated: game integrations are managed through the dashboard")
 
@@ -50,6 +52,23 @@ func Run(ctx context.Context, args []string) error {
 
 	if *updateInfo {
 		return json.NewEncoder(os.Stdout).Encode(protocol.SparkUpdateInfo{Version: buildinfo.SparkVersion(), MinimumProtocol: protocol.MinimumProtocolVersion, Protocol: protocol.ProtocolVersion})
+	}
+
+	if *checkDocker {
+		endpoint, err := runtime.CheckDocker(ctx, *data)
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintln(os.Stdout, endpoint)
+
+		return err
+	}
+
+	if !*enrollOnly {
+		if err := dropQuotaOverride(); err != nil {
+			return fmt.Errorf("start Spark with filesystem quota enforcement: %w", err)
+		}
 	}
 
 	token := strings.TrimSpace(settings.SparkEnrollmentToken.Value(""))

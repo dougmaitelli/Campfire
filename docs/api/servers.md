@@ -19,6 +19,12 @@ Paths are relative to `/api/v1`. Use the `id` from the server inventory wherever
 
 History defaults to the last 24 hours and up to 240 points. Request up to 1,000 points across at most 365 days. The result has `from`, `to`, `interval_seconds`, and `samples`. Each sample includes `collected_at`, counts of measurements, and `usage.cpu_percent` and `usage.memory_bytes`, which can be null.
 
+Current disk readings include `disk_bytes` and `disk_quota_enforced`.
+`disk_accounting` identifies logical file sizes (`logical` or omitted), filesystem
+project charges (`project`), Btrfs referenced bytes (`qgroup`), or a Spark total
+that combines methods (`mixed`). A disk reading can be available with an
+unenforced allocation.
+
 ## Configuration and lifecycle
 
 | Method and path                    | Scope                                       | Request and result                                                                                                                   |

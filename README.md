@@ -82,7 +82,7 @@ for an example.
 ## Quick start with Docker Compose
 
 You need Docker Engine with Compose for the panel, and a Linux game host with
-rootful Docker Engine and the Docker CLI for Spark. The guided Spark installer
+local Docker Engine (rootful or rootless) and the Docker CLI for Spark. The guided Spark installer
 also uses systemd, curl, base64, and sudo. See
 [game host requirements](https://dougmaitelli.github.io/Campfire/spark-agent/)
 for details.

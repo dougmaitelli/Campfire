@@ -29,6 +29,26 @@ Discord delivery identities are stored in the database, while the token files
 and encryption key live in `integration-secrets` under the panel state directory.
 Restore them together; see [Discord backup and recovery](../discord/#back-up-and-restore).
 
+### Btrfs host snapshots
+
+Suppose `/var/lib/spark/runtime/survival/data/world` holds a Minecraft world.
+Spark creates `survival/data` as a Btrfs subvolume to give that server its own
+disk quota. In a snapshot of the parent subvolume, `survival/data` appears as
+an empty directory. The world stays on the live host and is missing from that
+snapshot. [Btrfs nested subvolumes and snapshots](https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html#nested-subvolumes)
+
+- **Using host snapshots.** Stop the games and let installs, transfers and restores
+  finish. Use `sudo btrfs subvolume list -a /var/lib/spark/runtime` to list
+  the filesystem's subvolumes and identify each `runtime/<server-id>/data`
+  path (adjust for a custom state directory). Snapshot the
+  parent and each server's data subvolume, and include them all in off-host
+  replication. During recovery, restore the parent and each writable data subvolume
+  at its original path before starting Spark. Verify a known world or save file.
+- **Using Campfire backups.** Create a **Full server** portable backup for each
+  game and keep a copy off-host. Campfire archives the files inside the game
+  directory. Restore each archive through the panel and keep the panel database
+  and Spark identity backups described above. [Portable backups and recovery](/Campfire/server-backups/#portable-backups-and-recovery)
+
 ## Docker Compose upgrades
 
 Select the desired image tag in your deployment configuration, then run:

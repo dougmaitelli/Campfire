@@ -1,6 +1,7 @@
 export enum DiskAccounting {
   Logical = "logical",
   Project = "project",
+  Qgroup = "qgroup",
   Mixed = "mixed",
 }
 

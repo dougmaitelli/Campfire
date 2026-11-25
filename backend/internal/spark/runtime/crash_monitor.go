@@ -147,7 +147,7 @@ func (c *crashMonitor) observe(event crashEvent) error {
 		return nil
 	}
 
-	runtimeState, err := c.manager.load(id)
+	runtimeState, err := c.manager.loadState(id)
 	if err != nil {
 		return nil
 	}

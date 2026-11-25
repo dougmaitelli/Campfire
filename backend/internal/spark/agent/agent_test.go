@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -38,8 +39,8 @@ type pipeListener struct {
 
 type wireQuota struct{}
 
-func (wireQuota) Prepare(string, int64) error { return nil }
-func (wireQuota) Verify(string, int64) error  { return nil }
+func (wireQuota) Prepare(context.Context, string, int64) error { return nil }
+func (wireQuota) Verify(context.Context, string, int64) error  { return nil }
 
 func (l *pipeListener) Accept() (net.Conn, error) {
 	select {
@@ -237,8 +238,12 @@ func TestAgentEnrollmentConnectionAndRestart(t *testing.T) {
 	}
 
 	info := hub.Info(node.ID)
-	// The wire adapter does not implement Docker log or crash monitoring.
-	if info.Protocol != protocol.ProtocolVersion || len(info.Capabilities) != len(protocol.SupportedCapabilities())-2 {
+	expected := slices.DeleteFunc(protocol.SupportedCapabilities(), func(capability string) bool {
+		return capability == protocol.CapabilityLogAlerts || capability == protocol.CapabilityCrashRecords
+	})
+	slices.Sort(expected)
+
+	if info.Protocol != protocol.ProtocolVersion || !slices.Equal(info.Capabilities, expected) {
 		t.Fatal("wire handshake did not negotiate capabilities", info)
 	}
 

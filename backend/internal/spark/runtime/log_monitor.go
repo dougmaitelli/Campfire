@@ -128,7 +128,7 @@ func (m *Manager) WatchLogs(d model.Deployment) error {
 		return errors.New("invalid monitoring server identity")
 	}
 
-	entry, err := m.load(d.ServerID)
+	entry, err := m.loadState(d.ServerID)
 	if err != nil {
 		return err
 	}

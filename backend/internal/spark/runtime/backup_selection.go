@@ -129,6 +129,7 @@ func preserveInstallation(ctx context.Context, volume, stage string, options mod
 	progress := workprogress.New(ctx, workprogress.Restoring, 0)
 	defer progress.Flush()
 
+	var copier sparseFileCopier
 	return fs.WalkDir(source.FS(), ".", func(name string, item fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -197,7 +198,7 @@ func preserveInstallation(ctx context.Context, volume, stage string, options mod
 		}
 		defer func() { _ = output.Close() }()
 
-		if _, err := io.CopyN(progress.Writer(output), progress.Reader(backupReader{ctx, input}), info.Size()); err != nil {
+		if err := copier.copy(output, progress.OutputReader(progress.Reader(backupReader{ctx, input})), info.Size()); err != nil {
 			return err
 		}
 
