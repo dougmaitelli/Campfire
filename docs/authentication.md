@@ -251,6 +251,9 @@ header’s **…** actions menu. Create a named token, choose its
 expiry and scopes, and copy the secret when shown; it cannot be retrieved later.
 Send it as `Authorization: Bearer TOKEN` when calling the API.
 
+For request examples, response formats, and the endpoint reference, see the
+[panel API](/Campfire/api/).
+
 A token can only use its account's current permissions. Scopes narrow that
 access; they do not grant additional rights. Revoke tokens from the same dialog
 when they are no longer needed. Both local and OIDC users can create tokens.

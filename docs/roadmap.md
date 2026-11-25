@@ -6,12 +6,6 @@ description: Planned improvements to Campfire.
 Features we want to add to Campfire. This list is not a release schedule;
 scope and order may change.
 
-## API documentation
-
-- [ ] **API reference and guides** — Document authentication with API tokens,
-      permission scopes, available endpoints, and examples for building integrations
-      and automations.
-
 ## Internationalization
 
 - [ ] **Backend internationalization (i18n)** — Support localized user-facing

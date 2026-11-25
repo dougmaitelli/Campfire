@@ -27,6 +27,7 @@ for an example.
 - [Documentation website](https://dougmaitelli.github.io/Campfire/)
 - [Getting started and core concepts](https://dougmaitelli.github.io/Campfire/concepts/)
 - [Configuration reference](https://dougmaitelli.github.io/Campfire/configuration/)
+- [Panel API reference and integration guide](https://dougmaitelli.github.io/Campfire/api/)
 - [Embers](https://dougmaitelli.github.io/Campfire/embers/)
 - [Development](https://dougmaitelli.github.io/Campfire/development/)
 
