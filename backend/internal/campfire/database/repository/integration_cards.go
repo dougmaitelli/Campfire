@@ -50,7 +50,7 @@ func cardDue(row database.IntegrationMessage, active bool, now time.Time) bool {
 func decodeCardWork(payload json.RawMessage) (core.CardWork, error) {
 	var work core.CardWork
 	if json.Unmarshal(payload, &work) != nil || work.Version != 1 || (work.Creating && (work.CreationID == "" || work.CreatedAt <= 0)) {
-		return work, errors.New("saved server-card state is invalid; automatic publishing is paused")
+		return work, errors.New("saved card state is invalid; automatic publishing is paused")
 	}
 
 	return work, nil
@@ -121,6 +121,16 @@ func (r *IntegrationRepository) ClaimCard(ctx context.Context, now time.Time) (*
 		}
 
 		if !cardEnabled(binding, connection) && binding.StatusMessage.ID == "" && !work.Creating {
+			// A worker can stop after claiming a page but before recording a send.
+			// Recheck the lease and receipt under the same lock as BeginCardCreate.
+			if binding.StatusPageID != "" && !binding.Enabled {
+				if err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
+					return prunePageBinding(tx, binding.StatusPageID, now)
+				}); err != nil {
+					return nil, err
+				}
+			}
+
 			continue
 		}
 
@@ -331,7 +341,15 @@ func (r *IntegrationRepository) FinishCard(ctx context.Context, claim CardClaim,
 			return err
 		}
 
-		return cardFence(tx.Model(&database.ServerIntegration{}).Where("id = ? AND message_destination_id = ? AND external_message_id = ?", claim.BindingID, claim.Binding.StatusMessage.DestinationID, claim.Binding.StatusMessage.ID).Updates(map[string]any{"message_destination_id": ref.DestinationID, "external_message_id": ref.ID}))
+		if err := cardFence(tx.Model(&database.ServerIntegration{}).Where("id = ? AND message_destination_id = ? AND external_message_id = ?", claim.BindingID, claim.Binding.StatusMessage.DestinationID, claim.Binding.StatusMessage.ID).Updates(map[string]any{"message_destination_id": ref.DestinationID, "external_message_id": ref.ID})); err != nil {
+			return err
+		}
+
+		if claim.Binding.StatusPageID != "" && ref.ID == "" && !work.Creating {
+			return prunePageBinding(tx, claim.Binding.StatusPageID, time.Now())
+		}
+
+		return nil
 	})
 }
 
@@ -350,32 +368,35 @@ func (r *IntegrationRepository) WakeCards(ctx context.Context, connectionID, bin
 
 // CardStatus exposes lifecycle health without provider or creation identities.
 func (r *IntegrationRepository) CardStatus(ctx context.Context, binding core.Binding, connection core.Connection) (core.CardStatus, error) {
+	var row database.IntegrationMessage
+	if binding.ID != "" {
+		err := r.db.WithContext(ctx).Where("binding_id = ? AND category = ?", binding.ID, core.CardCategory).Take(&row).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return core.CardStatus{}, err
+		}
+	}
+
+	return cardWorkStatus(binding, cardEnabled(binding, connection), row), nil
+}
+
+func cardWorkStatus(binding core.Binding, active bool, row database.IntegrationMessage) core.CardStatus {
 	status := core.CardStatus{State: "disabled"}
-	if cardEnabled(binding, connection) {
+	if active || (binding.StatusPageID != "" && !binding.Enabled) {
 		status.State = "pending"
 	}
 
-	if binding.ID == "" {
-		return status, nil
-	}
-
-	var row database.IntegrationMessage
-	if err := r.db.WithContext(ctx).Where("binding_id = ? AND category = ?", binding.ID, core.CardCategory).Take(&row).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return status, nil
-		}
-
-		return status, err
+	if row.ID == 0 {
+		return status
 	}
 
 	work, err := decodeCardWork(row.Payload)
 	if err != nil {
 		status.State, status.Error = "failed", "Saved card state is invalid. Automatic publishing is paused."
-		return status, nil //nolint:nilerr // Invalid saved work is exposed as card health so settings remain readable.
+		return status
 	}
 
-	if !cardEnabled(binding, connection) && binding.StatusMessage.ID == "" && !work.Creating {
-		return status, nil
+	if !active && binding.StatusMessage.ID == "" && !work.Creating {
+		return status
 	}
 
 	status.Error, status.NextAttemptAt = row.Error, row.NextAttemptAt
@@ -385,7 +406,7 @@ func (r *IntegrationRepository) CardStatus(ctx context.Context, binding core.Bin
 		status.State = "uncertain"
 	} else if core.FailedMessage(row.State) {
 		status.State = "failed"
-	} else if binding.StatusMessage.ID != "" && cardEnabled(binding, connection) && binding.StatusMessage.DestinationID == binding.DestinationID {
+	} else if binding.StatusMessage.ID != "" && active && binding.StatusMessage.DestinationID == binding.DestinationID {
 		status.State = "published"
 	} else if binding.StatusMessage.ID != "" {
 		status.State = "pending"
@@ -395,7 +416,7 @@ func (r *IntegrationRepository) CardStatus(ctx context.Context, binding core.Bin
 		status.NextAttemptAt = 0
 	}
 
-	return status, nil
+	return status
 }
 
 // RetryCard retains creation identity and releases operational pauses explicitly.

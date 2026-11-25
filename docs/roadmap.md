@@ -16,17 +16,10 @@ scope and order may change.
 - [ ] **PWA push notifications** — Receive server alerts through browser push
       notifications, including in the installed app, without keeping the panel open.
 
-## Status pages
-
-- [ ] **Discord card integration** — Publish a status page's server availability
-      as a Discord card and keep it updated as server states change.
-
 ## Game console
 
 - [ ] **Uptime graph** — Show the server's availability history alongside its
       current status in the game console.
-- [ ] **Integration game-state fields** — Show live fields published by game
-      integrations, such as player counts and the current map, in the game console.
 - [ ] **Secondary and optional game-state fields** — Distinguish primary readings
       from secondary details and allow optional fields to be shown or hidden.
 

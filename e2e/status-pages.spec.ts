@@ -5,6 +5,173 @@ import type { Server } from "../web/src/api/servers";
 import type { Ember } from "../web/src/api/embers";
 import type { StatusPage, PublicStatusPage } from "../web/src/api/statusPages";
 
+test("publish and remove a Discord card from the status-page drawer", async ({
+  page,
+  baseURL,
+}) => {
+  await login(page);
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
+  const connected = await page.request.put("/api/v1/integrations/discord", {
+    headers: { "X-CSRF-Token": session.csrf_token, Origin: baseURL! },
+    data: {
+      enabled: true,
+      guild_id: "200",
+      token: "campfire-test-discord-token",
+    },
+  });
+  expect(connected.ok(), await connected.text()).toBe(true);
+  await page.goto("/#statusPages");
+  await page
+    .getByRole("button", { name: "Create status page", exact: true })
+    .click();
+  const drawer = page.getByRole("dialog");
+  await drawer
+    .getByLabel("Page title", { exact: true })
+    .fill("Community games");
+  await drawer.getByLabel("URL slug", { exact: true }).fill("community-games");
+  await drawer.getByRole("button", { name: "Add server", exact: true }).click();
+  await drawer.getByRole("combobox", { name: "Server 1", exact: true }).click();
+  await page.getByRole("option", { name: "Survival", exact: true }).click();
+  await drawer
+    .getByLabel("Public name for Survival", { exact: true })
+    .fill("Public realm");
+  const toggle = drawer.getByRole("switch", {
+    name: "Publish a live Discord card",
+    exact: true,
+  });
+  await toggle.check();
+  const save = drawer.getByRole("button", {
+    name: "Create public page",
+    exact: true,
+  });
+  await expect(save).toBeDisabled();
+  await drawer
+    .getByRole("combobox", { name: "Discord channel", exact: true })
+    .click();
+  await page
+    .getByRole("option", { name: "#server-updates", exact: true })
+    .click();
+  const preview = drawer.getByRole("region", {
+    name: "Status page card preview",
+    exact: true,
+  });
+  await expect(
+    preview.getByText("Public realm", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    preview.getByText("Community games", { exact: true }),
+  ).toBeVisible();
+  await save.click();
+  await expect(drawer).not.toBeVisible();
+  const edit = page.getByRole("button", {
+    name: "Edit Community games",
+    exact: true,
+  });
+  await edit.click();
+  await expect(drawer.getByText("Published", { exact: true })).toBeVisible({
+    timeout: 20000,
+  });
+  const discord = await page.context().newPage();
+  await discord.goto("/mock/discord");
+  const message = discord
+    .getByRole("article")
+    .filter({ hasText: "Community games" });
+  await expect(message).toHaveCount(1);
+  await expect(
+    message.getByText("Public realm", { exact: true }),
+  ).toBeVisible();
+  await toggle.uncheck();
+  await drawer
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await expect(drawer).not.toBeVisible();
+  await edit.click();
+  await expect(toggle).not.toBeChecked();
+  await expect(message).toHaveCount(0);
+  await discord.close();
+});
+
+test("retry a deleted page's Discord message removal from Integrations", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(45000);
+  await login(page);
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
+  const headers = { "X-CSRF-Token": session.csrf_token, Origin: baseURL! };
+  const connected = await page.request.put("/api/v1/integrations/discord", {
+    headers,
+    data: {
+      enabled: true,
+      guild_id: "200",
+      token: "campfire-test-discord-token",
+    },
+  });
+  expect(connected.ok(), await connected.text()).toBe(true);
+  const created = await page.request.post("/api/v1/status-pages", {
+    headers,
+    data: {
+      title: "Retired games",
+      slug: "retired-games",
+      discord_channel_id: "400",
+      entries: [],
+    },
+  });
+  expect(created.status()).toBe(201);
+  const { id } = (await created.json()) as StatusPage;
+  const url = `/api/v1/status-pages/${id}`;
+  await expect
+    .poll(
+      async () =>
+        (
+          (await (await page.request.get(url + "/discord/card")).json()) as {
+            state: string;
+          }
+        ).state,
+    )
+    .toBe("published");
+  async function setFailure(failure: string) {
+    expect(
+      (
+        await page.request.put("/mock/discord/channels/400", {
+          headers: { "X-Campfire-Mock": "discord" },
+          data: { failure },
+        })
+      ).status(),
+    ).toBe(204);
+  }
+  await setFailure("forbidden");
+  expect((await page.request.delete(url, { headers })).status()).toBe(204);
+  expect(
+    (
+      await page.request.get("/api/v1/public/status-pages/retired-games")
+    ).status(),
+  ).toBe(404);
+  await page
+    .getByRole("button", { name: "Account options for Developer", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Integrations", exact: true }).click();
+  const row = page
+    .getByRole("dialog", { name: "Integrations" })
+    .getByRole("row")
+    .filter({ hasText: "Retired games" });
+  await expect(row.getByText("#server-updates")).toBeVisible();
+  const retry = row.getByRole("button", { name: "Retry card", exact: true });
+  await expect(retry).toBeVisible();
+  await setFailure("");
+  await retry.click();
+  await expect(row).toHaveCount(0);
+  expect((await page.request.get(url + "/discord/card")).status()).toBe(404);
+  const mock = (await (
+    await page.request.get("/mock/discord/state")
+  ).json()) as { messages: unknown[] };
+  expect(mock.messages).toHaveLength(0);
+});
+
 test("server connection overrides and inherited Spark hosts agree with public pages", async ({
   page,
   browser,
@@ -145,6 +312,9 @@ test("admins publish selected servers on a standalone anonymous status page", as
   await drawer
     .getByLabel("Public name for Survival", { exact: true })
     .fill("Community Minecraft");
+  await drawer
+    .getByRole("heading", { name: "Create status page", exact: true })
+    .click();
   expect(
     await drawer
       .locator("form.panel-content")

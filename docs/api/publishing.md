@@ -7,13 +7,19 @@ Paths are relative to `/api/v1`. Use public status pages for information your de
 
 ## Public status pages
 
-| Method and path                   | Access                 | Request and result                                                                                                                    |
-| --------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /public/status-pages/{slug}` | Public                 | Returns `title`, `collected_at`, `poll_seconds`, and ordered `entries`. Unknown slugs return `404`.                                   |
-| `GET /status-pages`               | Administrator with `*` | List configured pages, including their management IDs and selected servers.                                                           |
-| `POST /status-pages`              | Administrator with `*` | Send `title`, `slug`, and ordered `entries` of `{"server_id":"…","name":"…"}`. Publishes immediately and returns `201` with the page. |
-| `PUT /status-pages/{pageID}`      | Administrator with `*` | Replace the title, slug, and ordered entries. Returns the updated page.                                                               |
-| `DELETE /status-pages/{pageID}`   | Administrator with `*` | Remove the publication. Returns `204`.                                                                                                |
+| Method and path                                  | Access                 | Request and result                                                                                                                    |
+| ------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /public/status-pages/{slug}`                | Public                 | Returns `title`, `collected_at`, `poll_seconds`, and ordered `entries`. Unknown slugs return `404`.                                   |
+| `GET /status-pages`                              | Administrator with `*` | List configured pages, including their management IDs and selected servers.                                                           |
+| `POST /status-pages`                             | Administrator with `*` | Send `title`, `slug`, and ordered `entries` of `{"server_id":"…","name":"…"}`. Publishes immediately and returns `201` with the page. |
+| `PUT /status-pages/{pageID}`                     | Administrator with `*` | Replace the title, slug, and ordered entries. Returns the updated page.                                                               |
+| `DELETE /status-pages/{pageID}`                  | Administrator with `*` | Remove the publication. Returns `204`.                                                                                                |
+| `POST /status-pages/discord/preview`             | Administrator with `*` | Send a draft `title` and ordered `entries`. Returns the card preview without publishing it.                                           |
+| `GET /status-pages/discord/cleanups`             | Administrator with `*` | List deleted pages with outstanding card removals. Each entry includes the page `id`, `title`, `channel_id`, and publishing `status`. |
+| `GET /status-pages/{pageID}/discord/card`        | Administrator with `*` | Returns card publishing `state`, `error`, `next_attempt_at`, and `can_retry`.                                                         |
+| `POST /status-pages/{pageID}/discord/card/retry` | Administrator with `*` | Send `{}` to retry an eligible card. Returns `204`.                                                                                   |
+
+On create or update, supply `discord_channel_id` to publish one live card to a channel from `GET /integrations/discord/channels`. On update, omit the field to preserve the current setting or send an empty string to disable publishing. Moving channels or deleting the page schedules cleanup of the previous message. After page deletion, the card status and retry endpoints remain available while cleanup is outstanding. A successful removal clears the cleanup entry.
 
 For a page with the slug `community`, request `GET /api/v1/public/status-pages/community` without an `Authorization` header.
 

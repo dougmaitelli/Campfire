@@ -4,10 +4,9 @@ import {
   previewIntegrationCard,
   type IntegrationCard,
 } from "../../api/integrations";
-import { InlineMessage } from "../status/InlineMessage";
-import { GameFieldReading } from "./GameField";
 import { RuntimeState } from "../../contracts/domains";
-import "./integration-card-preview.css";
+import { IntegrationCardEmbeds } from "../integrations/IntegrationCardEmbeds";
+import { InlineMessage } from "../status/InlineMessage";
 
 export function IntegrationCardPreview({
   serverID,
@@ -75,25 +74,7 @@ export function IntegrationCardPreview({
       ) : !card ? (
         <p className="field-help">{t("common.loading")}</p>
       ) : (
-        preview?.embeds.map((embed, index) => (
-          <div
-            className="integration-server-card"
-            data-state={state}
-            key={index}
-          >
-            <strong>{embed.title}</strong>
-            <dl>
-              {embed.fields.map((field, fieldIndex) => (
-                <GameFieldReading
-                  key={fieldIndex}
-                  field={field}
-                  unavailable=""
-                />
-              ))}
-            </dl>
-            <span className="field-help">{embed.footer.text}</span>
-          </div>
-        ))
+        preview && <IntegrationCardEmbeds preview={preview} state={state} />
       )}
     </section>
   );

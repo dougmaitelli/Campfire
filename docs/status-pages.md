@@ -21,6 +21,24 @@ signing in.
 
 You can create up to 100 pages, each listing up to 50 servers.
 
+## Publish a live Discord card
+
+In the status-page drawer, turn on **Publish a live Discord card** and choose a
+channel from the panel's [Discord connection](/Campfire/discord/). The preview
+uses the draft title and public server names in their selected order. Saving
+publishes one Discord message showing each server as online, offline, or unknown.
+Campfire edits that message as availability or page settings change.
+
+Reopen the drawer to check publishing status or retry a failed delivery. Changing
+channels moves the card. Turning publishing off or deleting the page requests
+removal of the Discord message. The public web page remains available when only
+Discord publishing is turned off.
+
+Deleting the page revokes its public URL immediately. If Discord cannot remove
+the message, open **Integrations** and find the page under **Discord cards awaiting
+removal**. Restore bot access to the channel and use the retry action. The entry
+disappears once Campfire confirms removal.
+
 ## Edit or remove a page
 
 Click a page's row to change its title, URL slug, server selection, public names,

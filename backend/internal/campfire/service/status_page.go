@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database/repository"
+	core "campfire/internal/campfire/integrations"
 	accessperm "campfire/internal/campfire/permissions"
+	integrationservice "campfire/internal/campfire/service/integrations"
 	"campfire/internal/campfire/statuspage"
 	"campfire/internal/shared/model"
 )
@@ -14,6 +16,7 @@ import (
 type StatusPageService struct {
 	Store      *repository.StatusPageRepository
 	Deployment *DeploymentService
+	Discord    *integrationservice.DiscordIntegrationService
 }
 
 // List requires current administrator authority and unrestricted token scope.
@@ -35,7 +38,20 @@ func (s *StatusPageService) Save(ctx context.Context, p Principal, id string, in
 		return statuspage.Page{}, err
 	}
 
-	return s.Store.Save(ctx, id, input)
+	if input.DiscordChannelID == nil || *input.DiscordChannelID == "" {
+		return s.Store.Save(ctx, id, input)
+	}
+
+	if s.Discord == nil {
+		return statuspage.Page{}, repository.ErrIntegrationDisabled
+	}
+
+	connection, err := s.Discord.PageCardConnection(ctx, p, *input.DiscordChannelID)
+	if err != nil {
+		return statuspage.Page{}, err
+	}
+
+	return s.Store.SaveWithDiscord(ctx, id, input, connection)
 }
 
 // Delete revokes a page's public URL.
@@ -63,15 +79,7 @@ func (s *StatusPageService) Public(ctx context.Context, slug string) (statuspage
 
 	observed := time.Now()
 
-	observations := make([]runtimeStatusObservation, len(targets))
-	if s.Deployment != nil {
-		requests := make([]model.ResourceTarget, 0, len(targets))
-		for _, target := range targets {
-			requests = append(requests, model.ResourceTarget{ID: target.ServerID, SparkID: target.SparkID})
-		}
-
-		observations = s.Deployment.cachedRuntimeStatuses(requests)
-	}
+	observations := s.pageObservations(targets)
 
 	gameRequests := []model.ResourceTarget{}
 
@@ -115,17 +123,7 @@ func (s *StatusPageService) Public(ctx context.Context, slug string) (statuspage
 
 		entry := statuspage.PublicEntry{History: history, ID: target.ID, Name: target.Name, State: statuspage.Unknown, ArtURL: statuspage.PublicArtURL(target.ArtURL), GameAddress: target.GameAddress}
 
-		observation := observations[index]
-		if !target.Disabled && !observation.Observed.IsZero() {
-			entry.ObservedAt = observation.Observed.Unix()
-
-			entry.State = publicAvailability(observation.Status)
-			if entry.State != statuspage.Unknown {
-				if observation.ValidFor <= time.Since(observed) {
-					entry.State = statuspage.Unknown
-				}
-			}
-		}
+		entry.State, entry.ObservedAt = pageAvailability(target, observations[index], observed)
 
 		if entry.State == statuspage.Online {
 			entry.GameState = games[target.ServerID].View
@@ -137,6 +135,69 @@ func (s *StatusPageService) Public(ctx context.Context, slug string) (statuspage
 	result.CollectedAt = time.Now().Unix()
 
 	return result, nil
+}
+
+func (s *StatusPageService) pageObservations(targets []repository.PublishedTarget) []runtimeStatusObservation {
+	if s.Deployment == nil {
+		return make([]runtimeStatusObservation, len(targets))
+	}
+
+	requests := make([]model.ResourceTarget, 0, len(targets))
+	for _, target := range targets {
+		requests = append(requests, model.ResourceTarget{ID: target.ServerID, SparkID: target.SparkID})
+	}
+
+	return s.Deployment.cachedRuntimeStatuses(requests)
+}
+
+func pageAvailability(target repository.PublishedTarget, observation runtimeStatusObservation, readAt time.Time) (statuspage.State, int64) {
+	if target.Disabled || observation.Observed.IsZero() {
+		return statuspage.Unknown, 0
+	}
+
+	if observation.ValidFor <= time.Since(readAt) {
+		return statuspage.Unknown, observation.Observed.Unix()
+	}
+
+	return publicAvailability(observation.Status), observation.Observed.Unix()
+}
+
+// StatusPageCard contains only the public title, ordered display names and availability.
+func (s *StatusPageService) StatusPageCard(ctx context.Context, id string) (core.LiveCard, error) {
+	title, targets, err := s.Store.PublishedByID(ctx, id)
+	if err != nil {
+		return core.LiveCard{}, err
+	}
+
+	return s.pageCard(title, targets), nil
+}
+
+// PreviewCard renders a proposed selection using the same observations as the saved page.
+func (s *StatusPageService) PreviewCard(ctx context.Context, title string, entries []statuspage.Selection) (core.LiveCard, error) {
+	input := statuspage.Input{Title: title, Slug: "preview", Entries: entries}
+	if err := input.Normalize(); err != nil {
+		return core.LiveCard{}, err
+	}
+
+	targets, err := s.Store.DraftTargets(ctx, input.Entries)
+	if err != nil {
+		return core.LiveCard{}, err
+	}
+
+	return s.pageCard(input.Title, targets), nil
+}
+
+func (s *StatusPageService) pageCard(title string, targets []repository.PublishedTarget) core.LiveCard {
+	now := time.Now()
+	observations := s.pageObservations(targets)
+	card := core.LiveCard{Name: title, StatusPage: true}
+
+	for i, target := range targets {
+		state, _ := pageAvailability(target, observations[i], now)
+		card.Fields = append(card.Fields, core.CardField{Name: target.Name, Value: string(state), Available: true})
+	}
+
+	return card
 }
 
 func publicAvailability(status model.RuntimeStatus) statuspage.State {

@@ -68,8 +68,8 @@ func testOIDCLinkUpgrade(t *testing.T, version int) {
 		}
 
 		var version int
-		if err := db.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 12 {
-			t.Fatal("expected schema 12", version, err)
+		if err := db.ORM().Table("schema_migrations").Select("version").Scan(&version).Error; err != nil || version != 13 {
+			t.Fatal("expected schema 13", version, err)
 		}
 
 		if db.ORM().Migrator().HasTable("email_tokens") || db.ORM().Migrator().HasTable("verified_emails") {

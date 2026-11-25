@@ -92,8 +92,8 @@ func TestBaselineReopenPreservesData(t *testing.T) {
 			}
 
 			var initial []int
-			if err := db.ORM().Table("schema_migrations").Pluck("version", &initial).Error; err != nil || len(initial) != 1 || initial[0] != 12 {
-				t.Fatal("expected schema 12", initial, err)
+			if err := db.ORM().Table("schema_migrations").Pluck("version", &initial).Error; err != nil || len(initial) != 1 || initial[0] != 13 {
+				t.Fatal("expected schema 13", initial, err)
 			}
 
 			if marker < 5 {
@@ -121,7 +121,7 @@ func TestBaselineReopenPreservesData(t *testing.T) {
 				}
 
 				var versions []int
-				if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 12 {
+				if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 13 {
 					t.Fatal("incorrect baseline marker", versions, err)
 				}
 

@@ -252,9 +252,11 @@ func main() {
 		must(statuses.Collect(ctx))
 		statuses.Start(ctx)
 		integration = integrationservice.NewDiscordIntegrationService(db.ORM(), integrationservice.Secrets{Directory: filepath.Join(root, fmt.Sprintf("secrets-%d", generation))}, discord.NewClient(discordAPI.URL, discordAPI.Client())).WithCards(deployment)
+		pages := &service.StatusPageService{Store: repository.NewStatusPageRepository(db.ORM()), Deployment: deployment, Discord: integration}
+		integration.WithStatusPageCards(pages.StatusPageCard)
 		integration.Start(ctx)
 		deliveryFixture = integrationfixture.DeliveryHandler(db.ORM(), fixed)
-		handler = api.New(sparks, embers, servers).WithStatusPages(&service.StatusPageService{Store: repository.NewStatusPageRepository(db.ORM()), Deployment: deployment}).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
+		handler = api.New(sparks, embers, servers).WithStatusPages(pages).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
 	}
 	reset()
 	defer func() { integration.Close(); copies.Close(); statuses.Close(); must(db.Close()) }()

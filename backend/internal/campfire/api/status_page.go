@@ -9,6 +9,7 @@ import (
 	"campfire/internal/campfire/database/repository"
 	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
+	"campfire/internal/campfire/service/integrations/discord"
 	"campfire/internal/campfire/statuspage"
 	"campfire/internal/shared/model"
 )
@@ -75,6 +76,61 @@ func (a *API) deleteStatusPage(w http.ResponseWriter, r *http.Request) {
 	auditDetail(r, "status-page.delete", "status-page:"+safeAuditIdentifier(r.PathValue("pageID")))
 
 	if err := a.statusPages.Delete(r.Context(), currentUser(r), r.PathValue("pageID")); err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) previewStatusPageCard(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Title   string                 `json:"title"`
+		Entries []statuspage.Selection `json:"entries"`
+	}
+	if !decodeRequest(w, r, &input, 32<<10) {
+		return
+	}
+
+	card, err := a.statusPages.PreviewCard(r.Context(), input.Title, input.Entries)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, discord.PreviewCard(card))
+}
+
+func (a *API) statusPageCardStatus(w http.ResponseWriter, r *http.Request) {
+	status, err := a.statusPages.Store.DiscordCardStatus(r.Context(), r.PathValue("pageID"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (a *API) statusPageCardCleanups(w http.ResponseWriter, r *http.Request) {
+	cleanups, err := a.statusPages.Store.DiscordCardCleanups(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, cleanups)
+}
+
+func (a *API) retryStatusPageCard(w http.ResponseWriter, r *http.Request) {
+	var input struct{}
+	if !decodeRequest(w, r, &input, 1024) {
+		return
+	}
+
+	id := r.PathValue("pageID")
+	auditDetail(r, "status-page.discord.retry", "status-page:"+safeAuditIdentifier(id))
+
+	if err := a.statusPages.Store.RetryDiscordCard(r.Context(), id); err != nil {
 		writeError(w, err)
 		return
 	}

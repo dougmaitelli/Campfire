@@ -7,10 +7,12 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/gameaddress"
+	core "campfire/internal/campfire/integrations"
 	"campfire/internal/campfire/statuspage"
 	"campfire/internal/shared/model"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // StatusPageRepository persists explicit public memberships.
@@ -33,10 +35,33 @@ func (r *StatusPageRepository) List(ctx context.Context) ([]statuspage.Page, err
 	var rows []database.StatusPage
 
 	err := r.db.WithContext(ctx).Order("title, id").Limit(statuspage.MaxPages).Preload("Entries", func(tx *gorm.DB) *gorm.DB { return tx.Order("position, id") }).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var bindings []database.ServerIntegration
+	if err := r.db.WithContext(ctx).Select("status_page_id, destination_id, enabled").Where("status_page_id IN (SELECT id FROM status_pages)").Find(&bindings).Error; err != nil {
+		return nil, err
+	}
+
+	channels := make(map[string]string, len(bindings))
+	for _, binding := range bindings {
+		channel := ""
+		if binding.Enabled {
+			channel = binding.DestinationID
+		}
+
+		channels[binding.StatusPageID] = channel
+	}
 
 	pages := make([]statuspage.Page, 0, len(rows))
 	for _, row := range rows {
-		pages = append(pages, statusPageView(row))
+		page := statusPageView(row)
+		if channel, ok := channels[row.ID]; ok {
+			page.DiscordChannelID = &channel
+		}
+
+		pages = append(pages, page)
 	}
 
 	return pages, err
@@ -45,6 +70,11 @@ func (r *StatusPageRepository) List(ctx context.Context) ([]statuspage.Page, err
 // Save checks publication membership and replaces it atomically. Entry IDs remain
 // stable while membership remains unchanged and never reveal server identifiers.
 func (r *StatusPageRepository) Save(ctx context.Context, id string, input statuspage.Input) (statuspage.Page, error) {
+	return r.SaveWithDiscord(ctx, id, input, core.Connection{})
+}
+
+// SaveWithDiscord commits the page and its optional publishing change together.
+func (r *StatusPageRepository) SaveWithDiscord(ctx context.Context, id string, input statuspage.Input, checked core.Connection) (statuspage.Page, error) {
 	var result statuspage.Page
 
 	err := database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
@@ -132,8 +162,10 @@ func (r *StatusPageRepository) Save(ctx context.Context, id string, input status
 		}
 
 		result = statusPageView(row)
+		channel, err := savePageDestination(ctx, tx, row.ID, input.DiscordChannelID, checked)
+		result.DiscordChannelID = channel
 
-		return nil
+		return err
 	})
 
 	return result, err
@@ -142,7 +174,14 @@ func (r *StatusPageRepository) Save(ctx context.Context, id string, input status
 // Delete removes a publication and its memberships without deleting servers.
 func (r *StatusPageRepository) Delete(ctx context.Context, id string) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
-		result := tx.Where("id = ?", id).Delete(&database.StatusPage{})
+		off := ""
+		if _, err := savePageDestination(ctx, tx, id, &off, core.Connection{}); err != nil {
+			return err
+		}
+
+		var page database.StatusPage
+
+		result := tx.Clauses(clause.Returning{Columns: []clause.Column{{Name: "title"}}}).Where("id = ?", id).Delete(&page)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -151,7 +190,7 @@ func (r *StatusPageRepository) Delete(ctx context.Context, id string) error {
 			return statuspage.ErrNotFound
 		}
 
-		return nil
+		return tx.Model(&database.ServerIntegration{}).Where("status_page_id = ?", id).Update("deleted_page_title", page.Title).Error
 	})
 }
 
@@ -166,25 +205,38 @@ type PublishedTarget struct {
 
 // Published resolves current membership and placement on every anonymous read.
 func (r *StatusPageRepository) Published(ctx context.Context, slug string) (string, []PublishedTarget, error) {
+	return r.published(ctx, "pages.slug = ?", slug, true)
+}
+
+// PublishedByID follows a card's stable publication even after a slug change.
+func (r *StatusPageRepository) PublishedByID(ctx context.Context, id string) (string, []PublishedTarget, error) {
+	return r.published(ctx, "pages.id = ?", id, false)
+}
+
+func (r *StatusPageRepository) published(ctx context.Context, predicate, value string, gameDetails bool) (string, []PublishedTarget, error) {
 	// Filter live memberships before the outer join so an empty page (including
 	// one whose servers are all being deleted) still has a title. One statement
 	// keeps the title and selection consistent without acquiring a write lock.
-	ports := "COALESCE(json_extract(embers.definition, '$.required_ports'), '[]')"
-	schema := "COALESCE(json_extract(embers.definition, '$.schema'), 2)"
-
-	art := "COALESCE(json_extract(embers.definition, '$.artUrl'), '')"
-	if r.db.Name() == "postgres" {
-		art = "COALESCE(embers.definition::jsonb ->> 'artUrl', '')"
-		ports = "COALESCE(embers.definition::jsonb ->> 'required_ports', '[]')"
-		schema = "COALESCE((embers.definition::jsonb ->> 'schema')::integer, 2)"
-	}
-
 	members := r.db.WithContext(ctx).Table("status_page_entries AS membership").
-		Select("membership.id, membership.page_id, membership.name, membership.position, membership.server_id, servers.spark_id, servers.game_integration, sparks.disabled, servers.game_address, sparks.game_address AS default_host, servers.ports, "+ports+" AS required_ports, "+schema+" AS ember_schema, "+art+" AS art_url").
 		Joins("JOIN servers ON servers.id = membership.server_id").
 		Joins("JOIN sparks ON sparks.id = servers.spark_id").
-		Joins("JOIN embers ON embers.id = servers.ember_id").
 		Where("servers.deletion_pending = ?", false)
+	columns := "membership.id, membership.page_id, membership.name, membership.position, membership.server_id, servers.spark_id, sparks.disabled"
+
+	if gameDetails {
+		ports := "COALESCE(json_extract(embers.definition, '$.required_ports'), '[]')"
+		schema := "COALESCE(json_extract(embers.definition, '$.schema'), 2)"
+
+		art := "COALESCE(json_extract(embers.definition, '$.artUrl'), '')"
+		if r.db.Name() == "postgres" {
+			art = "COALESCE(embers.definition::jsonb ->> 'artUrl', '')"
+			ports = "COALESCE(embers.definition::jsonb ->> 'required_ports', '[]')"
+			schema = "COALESCE((embers.definition::jsonb ->> 'schema')::integer, 2)"
+		}
+
+		members = members.Joins("JOIN embers ON embers.id = servers.ember_id")
+		columns += ", servers.game_integration, servers.game_address, sparks.game_address AS default_host, servers.ports, " + ports + " AS required_ports, " + schema + " AS ember_schema, " + art + " AS art_url"
+	}
 
 	var rows []struct {
 		Title           string
@@ -197,9 +249,9 @@ func (r *StatusPageRepository) Published(ctx context.Context, slug string) (stri
 	}
 
 	err := r.db.WithContext(ctx).Table("status_pages AS pages").
-		Select("pages.title, entries.id IS NOT NULL AS present, entries.id, entries.name, entries.server_id, entries.spark_id, entries.disabled, entries.game_integration, entries.game_address, entries.default_host, entries.ports, entries.required_ports, entries.ember_schema, entries.art_url").
-		Joins("LEFT JOIN (?) AS entries ON entries.page_id = pages.id", members).
-		Where("pages.slug = ?", slug).
+		Select("pages.title, entries.id IS NOT NULL AS present, entries.*").
+		Joins("LEFT JOIN (?) AS entries ON entries.page_id = pages.id", members.Select(columns)).
+		Where(predicate, value).
 		Order("entries.position, entries.id").Limit(statuspage.MaxEntries).Scan(&rows).Error
 	if err != nil {
 		return "", nil, err
@@ -211,11 +263,16 @@ func (r *StatusPageRepository) Published(ctx context.Context, slug string) (stri
 
 	entries := make([]PublishedTarget, 0, len(rows))
 	for _, row := range rows {
-		if row.Present {
+		if !row.Present {
+			continue
+		}
+
+		if gameDetails {
 			definition := (model.Ember{Schema: row.EmberSchema, RequiredPorts: row.RequiredPorts}).Normalized()
 			row.GameAddress = gameaddress.Resolve(row.GameAddress, row.DefaultHost, model.PrimaryHostPort(row.Ports, definition.RequiredPorts))
-			entries = append(entries, row.PublishedTarget)
 		}
+
+		entries = append(entries, row.PublishedTarget)
 	}
 
 	return rows[0].Title, entries, nil

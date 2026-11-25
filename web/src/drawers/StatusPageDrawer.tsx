@@ -16,6 +16,7 @@ import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
 import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
+import { StatusPageDiscordCard } from "../components/integrations/StatusPageDiscordCard";
 
 type Entry = StatusPageSelection & { key: number };
 
@@ -39,6 +40,9 @@ export function StatusPageDrawer({
   const servers = useCollection(listServers);
   const [title, setTitle] = useState(page?.title ?? "");
   const [slug, setSlug] = useState(page?.slug ?? "");
+  const savedChannel =
+    page?.discord_channel_id === "" ? null : (page?.discord_channel_id ?? null);
+  const [channel, setChannel] = useState<string | null>(savedChannel);
   const [entries, setEntries] = useState<Entry[]>(
     () => page?.entries.map((entry, key) => ({ ...entry, key })) ?? [],
   );
@@ -83,6 +87,9 @@ export function StatusPageDrawer({
         await saveStatusPage(page?.id, {
           title,
           slug,
+          ...(savedChannel !== channel
+            ? { discord_channel_id: channel ?? "" }
+            : {}),
           entries: entries.map(({ server_id, name }) => ({ server_id, name })),
         }),
       );
@@ -117,7 +124,10 @@ export function StatusPageDrawer({
             form={formID}
             variant="primary"
             disabled={
-              busy || deleting || entries.some((entry) => !entry.server_id)
+              busy ||
+              deleting ||
+              channel === "" ||
+              entries.some((entry) => !entry.server_id)
             }
           >
             {t(page ? "common.saveChanges" : "statusPages.createPublic")}
@@ -251,6 +261,14 @@ export function StatusPageDrawer({
               </>
             )}
           </EditableList>
+          <StatusPageDiscordCard
+            page={page}
+            title={title}
+            entries={entries}
+            channel={channel}
+            onChannel={setChannel}
+            disabled={busy || deleting}
+          />
           <InlineMessage tone="warning">
             {t("statusPages.publicWarning")}
           </InlineMessage>

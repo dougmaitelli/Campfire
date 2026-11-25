@@ -15,6 +15,7 @@ import {
   type ConnectionFormState,
 } from "../components/integrations/DiscordConnectionForm";
 import { Drawer } from "../components/layout/Drawer";
+import { PageCardCleanups } from "../components/integrations/PageCardCleanups";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Table, TableRow } from "../components/table/Table";
 import { useConfirmation } from "../hooks/useConfirmation";
@@ -244,6 +245,11 @@ export function IntegrationsDrawer({ onClose }: { onClose: () => void }) {
               ) : (
                 <p className="field-help">{t("integrations.empty")}</p>
               )}
+              <PageCardCleanups
+                channels={current?.channels ?? []}
+                busy={busy}
+                perform={perform}
+              />
             </>
           ) : (
             <>

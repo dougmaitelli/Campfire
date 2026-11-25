@@ -92,6 +92,11 @@ channels, and network errors do not create replacement cards. Moving channels
 requires removal of the old card first. Disabling a card, destination, or global
 connection requests removal; restore bot access if cleanup remains pending.
 
+To publish several servers in one card, choose a channel in the
+[status-page drawer](/Campfire/status-pages/#publish-a-live-discord-card).
+After deleting a status page, open **Integrations** to retry any Discord card
+that still appears under **Discord cards awaiting removal**.
+
 ## Game screenshots and clips
 
 Game-event subscriptions forward image and video uploads as Discord attachments,

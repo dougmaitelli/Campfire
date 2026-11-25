@@ -159,6 +159,7 @@
     }
   },
   "integrations": {
+    "pageCardCleanups": "Discord cards awaiting removal",
     "discord": "Discord",
     "title": "Integrations",
     "description": "Connect external services for your game servers.",
@@ -454,6 +455,8 @@
     "moveDown": "Move {{name}} down"
   },
   "statusPages": {
+    "discordCard": "Publish a live Discord card",
+    "discordPreview": "Status page card preview",
     "historyKey": "24-hour history · left to right · 15-minute bars",
     "historySummary": "24-hour availability history ending {{time}}: {{online}} online, {{offline}} offline, {{unknown}} unknown. Based on panel observations, not an external connectivity test.",
     "description": "Choose which server names and availability to expose publicly. Only administrators can manage these pages.",

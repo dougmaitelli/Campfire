@@ -3,6 +3,11 @@ import { isRecord, isEnumValue } from "../utils/validation";
 import { PublicServerState } from "../contracts/domains";
 import { StatusPagePolling } from "../config/policies";
 import i18n from "../i18n";
+import {
+  isIntegrationCardStatus,
+  renderedIntegrationCard,
+  type IntegrationCardStatus,
+} from "./integrations";
 import { isGameStateView, type GameStateView } from "./gameState";
 
 export interface StatusPageSelection {
@@ -10,6 +15,7 @@ export interface StatusPageSelection {
   name: string;
 }
 export interface StatusPageInput {
+  discord_channel_id?: string;
   title: string;
   slug: string;
   entries: StatusPageSelection[];
@@ -51,6 +57,8 @@ function isStatusPage(v: unknown): v is StatusPage {
     typeof v.id === "string" &&
     typeof v.title === "string" &&
     typeof v.slug === "string" &&
+    (v.discord_channel_id === undefined ||
+      typeof v.discord_channel_id === "string") &&
     Array.isArray(v.entries) &&
     v.entries.every(isSelection)
   );
@@ -89,6 +97,68 @@ export async function deleteStatusPage(id: string): Promise<void> {
     { method: "DELETE" },
   );
   if (!response.ok) await readJSON(response);
+}
+
+export async function previewStatusPageCard(
+  title: string,
+  entries: StatusPageSelection[],
+  signal: AbortSignal,
+) {
+  const body = await readJSON(
+    await apiJSON(
+      "/api/v1/status-pages/discord/preview",
+      { title, entries },
+      { signal },
+    ),
+  );
+  if (!renderedIntegrationCard(body)) return invalid();
+  return body;
+}
+
+export async function statusPageCardStatus(id: string, signal: AbortSignal) {
+  const body = await readJSON(
+    await apiFetch(
+      `/api/v1/status-pages/${encodeURIComponent(id)}/discord/card`,
+      { signal },
+    ),
+  );
+  if (!isIntegrationCardStatus(body)) return invalid();
+  return body;
+}
+
+export async function retryStatusPageCard(id: string) {
+  await apiJSON(
+    `/api/v1/status-pages/${encodeURIComponent(id)}/discord/card/retry`,
+    {},
+  );
+}
+
+interface PageCardCleanup {
+  id: string;
+  title: string;
+  channel_id: string;
+  status: IntegrationCardStatus;
+}
+
+export async function listPageCardCleanups(
+  signal: AbortSignal,
+): Promise<PageCardCleanup[]> {
+  const body = await readJSON(
+    await apiFetch("/api/v1/status-pages/discord/cleanups", { signal }),
+  );
+  if (
+    !Array.isArray(body) ||
+    !body.every(
+      (row: unknown): row is PageCardCleanup =>
+        isRecord(row) &&
+        typeof row.id === "string" &&
+        typeof row.title === "string" &&
+        typeof row.channel_id === "string" &&
+        isIntegrationCardStatus(row.status),
+    )
+  )
+    return invalid();
+  return body;
 }
 function isAvailabilityHistory(v: unknown): v is AvailabilityHistory {
   return (
