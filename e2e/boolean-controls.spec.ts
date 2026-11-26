@@ -21,7 +21,7 @@ test("user Enabled switches preserve disabled values and readonly table state", 
     const saved = page.waitForResponse(
       (response) =>
         /\/api\/v1\/users\/\d+$/.test(response.url()) &&
-        response.request().method() === "PUT",
+        response.request().method() === "PATCH",
     );
     await drawer
       .getByRole("button", { name: "Save user", exact: true })
