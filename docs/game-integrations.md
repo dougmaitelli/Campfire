@@ -8,6 +8,9 @@ the game container. Spark supplies the server identity and forwards publications
 to Campfire. Publishers do not need panel API tokens, Spark certificates, or a
 public network endpoint.
 
+For dashboards, bots, and scripts that read this data or manage servers over
+HTTP, use the [panel API](/Campfire/api/).
+
 Current state appears in server readings; events and media appear in
 **Activity → Game events**. [Discord destinations](/Campfire/discord/) can forward
 matching events and media and display selected state fields on live cards.

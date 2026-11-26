@@ -13,10 +13,10 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service/integrations/discord"
-	accessperm "campfire/internal/shared/permissions"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 func TestIntegrationRestartRecoversReceiptsCredentialsAndPendingCleanup(t *testing.T) {
@@ -80,7 +80,7 @@ func TestIntegrationRestartRecoversReceiptsCredentialsAndPendingCleanup(t *testi
 	defer remote.Close()
 
 	root := t.TempDir()
-	source := &staticCardSource{card: core.ServerCard{Name: "First", State: "running", Fields: []core.CardField{{ID: "players", Name: "Players", Value: "3", Available: true}}}}
+	source := &staticCardSource{card: core.LiveCard{Name: "First", State: "running", Fields: []core.CardField{{ID: "players", Name: "Players", Value: "3", Available: true}}}}
 	open := func() (*database.Database, *DiscordIntegrationService, *repository.IntegrationRepository) {
 		db, err := database.Open(t.Context(), filepath.Join(root, "panel.db"))
 		if err != nil {

@@ -19,6 +19,7 @@ import {
   FolderInput,
   FolderPlus,
   HardDrive,
+  Globe,
   KeyRound,
   LayoutDashboard,
   Link,
@@ -29,6 +30,7 @@ import {
   MailOpen,
   MemoryStick,
   Menu,
+  MonitorSmartphone,
   MoreHorizontal,
   Play,
   Plus,
@@ -48,6 +50,7 @@ import {
   TriangleAlert,
   Upload,
   Users,
+  UserRound,
   X,
   Zap,
   type LucideIcon,
@@ -66,6 +69,8 @@ type NavigationIconName =
   | "close"
   | "check"
   | "key"
+  | "devices"
+  | "profile"
   | "link"
   | "loading"
   | "download"
@@ -144,9 +149,12 @@ const icons: Record<NavigationIconName, LucideIcon> = {
   plus: Plus,
   chevron: ChevronUp,
   key: KeyRound,
+  devices: MonitorSmartphone,
+  profile: UserRound,
   link: Link,
   notifications: Bell,
   audit: ClipboardList,
+  statusPages: Globe,
   jobs: ListTodo,
   users: Users,
   roles: ShieldCheck,

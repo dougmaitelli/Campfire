@@ -2,8 +2,21 @@ import { useTranslation } from "react-i18next";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { BaseDialog, type BaseDialogProps } from "./BaseDialog";
 import "./confirm-dialog.css";
+
+interface ConfirmDialogProps extends Pick<BaseDialogProps, "busy" | "onClose"> {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  danger?: boolean;
+  warning?: boolean;
+  children?: ReactNode;
+  disabled?: boolean;
+  error: string | null;
+  onConfirm: () => void;
+}
 
 export function ConfirmDialog({
   title,
@@ -17,40 +30,17 @@ export function ConfirmDialog({
   error,
   onClose,
   onConfirm,
-}: {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  danger?: boolean;
-  warning?: boolean;
-  children?: ReactNode;
-  busy: boolean;
-  disabled?: boolean;
-  error: string | null;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
+}: ConfirmDialogProps) {
   const { t } = useTranslation();
-  const dialog = useRef<HTMLDialogElement>(null);
-  const cancel = useRef<HTMLButtonElement>(null);
   const id = useId();
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    cancel.current?.focus();
-    return () => element?.close();
-  }, []);
   return (
-    <dialog
-      ref={dialog}
+    <BaseDialog
+      busy={busy}
+      onClose={onClose}
+      initialFocus="[data-dialog-initial-focus]"
       className="confirm-dialog"
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}
-      onCancel={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!busy) onClose();
-      }}
     >
       <div className="confirm-dialog-header">
         <h2 id={`${id}-title`}>{title}</h2>
@@ -79,7 +69,7 @@ export function ConfirmDialog({
       {error && <InlineMessage role="alert">{error}</InlineMessage>}
       <div className="confirm-dialog-actions">
         <Button
-          ref={cancel}
+          data-dialog-initial-focus
           type="button"
 
           disabled={busy}
@@ -98,6 +88,6 @@ export function ConfirmDialog({
           {confirmLabel}
         </Button>
       </div>
-    </dialog>
+    </BaseDialog>
   );
 }

@@ -14,6 +14,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	"campfire/internal/campfire/gameaddress"
 	"campfire/internal/shared/model"
 	"campfire/internal/spark/agent"
 	"campfire/internal/spark/runtime"
@@ -21,8 +22,8 @@ import (
 
 type transferQuota struct{}
 
-func (transferQuota) Prepare(string, int64) error { return nil }
-func (transferQuota) Verify(string, int64) error  { return nil }
+func (transferQuota) Prepare(context.Context, string, int64) error { return nil }
+func (transferQuota) Verify(context.Context, string, int64) error  { return nil }
 
 type transferDocker struct {
 	mu    sync.Mutex
@@ -279,7 +280,7 @@ func newTransferFixture(t *testing.T) *transferFixture {
 
 	embers := NewEmberService(repository.NewEmberRepository(db.ORM()))
 
-	ember, err := embers.Import(ctx, model.Ember{Schema: 1, Name: "Transfer game", Images: map[string]string{"default": "alpine:3.22"}, Startup: "sleep 3600", WorkDir: "/home/container", User: "1000:1000"})
+	ember, err := embers.Import(ctx, model.Ember{Schema: 2, Name: "Transfer game", Images: map[string]string{"default": "alpine:3.22"}, Startup: "sleep 3600", WorkDir: "/home/container", User: "1000:1000", RequiredPorts: []model.RequiredPort{{Container: 25565, Protocol: model.NetworkTCP, Primary: true}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,8 +415,8 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 
 	edited := f.server.ServerConfiguration
 
-	edited.Description = "Edited during transfer"
-	if saved, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, edited); err != nil || saved.Description != edited.Description {
+	edited.Description, edited.GameAddress = "Edited during transfer", "https://Play.Example.test:32100/Join"
+	if saved, err := f.service.Deployment.Servers.Update(ctx, f.server.ID, edited); err != nil || saved.Description != edited.Description || saved.GameAddress != edited.GameAddress {
 		t.Fatal("transfer blocked metadata edit", err)
 	}
 
@@ -446,6 +447,22 @@ func TestTransferPreservesDataOwnershipAndReservations(t *testing.T) {
 	server, err := f.service.Deployment.Servers.Get(ctx, f.server.ID)
 	if err != nil || server.SparkID != "target" || server.Ports[0].HostPort != 25566 || server.OwnerUserID != 1 {
 		t.Fatalf("placement or ownership changed incorrectly: %+v %v", server, err)
+	}
+
+	if server.GameAddress != edited.GameAddress || server.Description != edited.Description {
+		t.Fatal("transfer overwrote display metadata", server)
+	}
+
+	if err := f.db.ORM().Model(&database.Spark{}).Where("id = ?", "target").Update("game_address", "target.example.test").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	inherited := server.ServerConfiguration
+	inherited.GameAddress = ""
+
+	saved, err := f.service.Deployment.Servers.Update(ctx, server.ID, inherited)
+	if err != nil || gameaddress.Resolve(saved.GameAddress, saved.GameAddressDefault, saved.GameAddressPort) != "target.example.test:25566" {
+		t.Fatal("clearing the override did not follow destination placement", saved, err)
 	}
 
 	var member database.ServerAccessGrant

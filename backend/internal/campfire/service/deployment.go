@@ -34,6 +34,7 @@ type DeploymentService struct {
 	History        *ResourceHistoryService
 	Games          *GameIntegrationService
 	LogAlerts      *LogAlertService
+	Crashes        *repository.CrashRepository
 	mu             sync.Mutex
 	locks          map[string]*deliveryLock
 	statuses       map[string]model.RuntimeStatus

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	fixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
 )
 

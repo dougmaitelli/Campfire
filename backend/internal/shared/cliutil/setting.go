@@ -21,9 +21,12 @@ func (s Setting) Value(fallback string) string {
 	return Environment(s.EnvironmentName, fallback)
 }
 
-// String registers a string flag using the environment value as its default.
+// String applies the environment value without publishing it in flag usage.
 func (s Setting) String(flags *flag.FlagSet, fallback, usage string) *string {
-	return flags.String(s.FlagName, s.Value(fallback), s.usage(usage))
+	value := flags.String(s.FlagName, fallback, s.usage(usage))
+	*value = s.Value(fallback)
+
+	return value
 }
 
 // Bool registers a boolean flag after validating its environment default.

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"campfire/internal/campfire/gamestate"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
@@ -34,21 +35,14 @@ type gameRuntimeStart struct {
 	at      int64
 }
 
-const gameStateFreshFor = 60 * time.Second
-
 type gameStateRecord struct {
 	sparkID  string
 	received time.Time
 	state    *model.GameState
 }
 
-// GameStateView deliberately omits expired or invalidated values.
-type GameStateView struct {
-	State           *model.GameState      `json:"state,omitempty"`
-	UpdatedAt       int64                 `json:"updated_at"`
-	FreshForSeconds int64                 `json:"fresh_for_seconds"`
-	Status          model.GameStateStatus `json:"status"`
-}
+// GameStateView is shared by authenticated monitoring and public status pages.
+type GameStateView = gamestate.View
 
 func (s *GameIntegrationService) clock() time.Time {
 	if s.now != nil {
@@ -215,19 +209,14 @@ func (s *GameIntegrationService) Snapshot(id, sparkID string, runtimeFresh bool,
 		return nil
 	}
 
-	view := &GameStateView{UpdatedAt: record.received.Unix(), FreshForSeconds: int64(gameStateFreshFor.Seconds()), Status: model.GameStateUnavailable}
+	view := &GameStateView{UpdatedAt: record.received.Unix()}
 
 	_, blocked := s.blocked[id]
-	if record.state == nil || blocked || !runtimeFresh {
+	if record.state == nil || blocked || !runtimeFresh || view.UpdatedAt > now {
 		return view
 	}
 
-	if now-record.received.Unix() >= view.FreshForSeconds {
-		view.Status = model.GameStateStale
-		return view
-	}
-
-	view.State, view.Status = cloneGameState(record.state), model.GameStateFresh
+	view.State = cloneGameState(record.state)
 
 	return view
 }

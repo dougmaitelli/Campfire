@@ -78,7 +78,7 @@ func (r *AuthRepository) Setup(ctx context.Context, admin database.User, session
 }
 
 // CreateSession checks the credential version again to reject logins racing a reset.
-func (r *AuthRepository) CreateSession(ctx context.Context, session database.UserSession, previous string, now time.Time) error {
+func (r *AuthRepository) CreateSession(ctx context.Context, session database.UserSession, previous string, now time.Time, proof ...MFAProof) error {
 	return database.Transaction(r.db.WithContext(ctx), func(tx *gorm.DB) error {
 		var admin database.User
 		if err := tx.Take(&admin, session.UserID).Error; err != nil {
@@ -91,6 +91,22 @@ func (r *AuthRepository) CreateSession(ctx context.Context, session database.Use
 
 		if admin.Disabled || admin.CredentialVersion != session.CredentialVersion {
 			return ErrAuthentication
+		}
+
+		if session.Provider == "" {
+			factor, err := readMFA(tx, session.UserID)
+			if err != nil {
+				return err
+			}
+
+			var supplied MFAProof
+			if len(proof) > 0 {
+				supplied = proof[0]
+			}
+
+			if err := consumeMFA(tx, &factor, supplied); err != nil {
+				return err
+			}
 		}
 
 		if err := tx.Where("hash = ? OR expires_at <= ? OR last_seen_at <= ?", previous, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Delete(&database.UserSession{}).Error; err != nil {

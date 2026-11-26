@@ -41,7 +41,11 @@ func (m *Manager) removeTransferStaging(serverID, jobID string) error {
 	}
 
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".transfer-build-"+jobID+"-") || strings.HasPrefix(entry.Name(), ".transfer-stage-"+jobID+"-") {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), ".transfer-stage-"+jobID+"-") {
+			if err := m.removeTransferStage(m.ctx, filepath.Join(root, entry.Name())); err != nil {
+				return err
+			}
+		} else if strings.HasPrefix(entry.Name(), ".transfer-build-"+jobID+"-") {
 			if err := os.RemoveAll(filepath.Join(root, entry.Name())); err != nil {
 				return err
 			}
@@ -236,7 +240,15 @@ func transferTree(ctx context.Context, root *os.Root, prefix string, archive *ta
 	})
 }
 
-func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *localTransfer) error {
+func (m *Manager) removeTransferStage(ctx context.Context, stage string) error {
+	if err := m.removeGameData(ctx, filepath.Join(stage, "data")); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(stage)
+}
+
+func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *localTransfer) (result error) {
 	if err := m.backupStopped(ctx, d.ServerID); err != nil {
 		return err
 	}
@@ -275,7 +287,7 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
-	defer func() { _ = os.RemoveAll(stage) }()
+	defer func() { result = errors.Join(result, m.removeTransferStage(context.WithoutCancel(ctx), stage)) }()
 
 	for _, name := range []string{"data", "backups"} {
 		if err := os.Mkdir(filepath.Join(stage, name), 0700); err != nil {
@@ -284,11 +296,11 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 	}
 
 	data := filepath.Join(stage, "data")
-	if err := m.prepareQuota(data, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, data, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
-	installed, err := extractTransfer(ctx, file, stage, d, t.ID)
+	installed, err := extractTransfer(ctx, file, stage, d, t.ID, m.logicalDiskLimitMB(d.Configuration.DiskMB))
 	if err != nil {
 		return err
 	}
@@ -303,7 +315,7 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 		return err
 	}
 
-	if err := m.prepareQuota(data, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, data, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -345,11 +357,18 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 	}
 
 	for _, name := range []string{"data", "backups"} {
-		if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), name)); err != nil {
+		target := filepath.Join(m.root(d.ServerID), name)
+		if name == "data" {
+			err = m.removeGameData(ctx, target)
+		} else {
+			err = os.RemoveAll(target)
+		}
+
+		if err != nil {
 			return err
 		}
 
-		if err := os.Rename(filepath.Join(stage, name), filepath.Join(m.root(d.ServerID), name)); err != nil {
+		if err := os.Rename(filepath.Join(stage, name), target); err != nil {
 			return err
 		}
 	}
@@ -363,7 +382,7 @@ func (m *Manager) importTransfer(ctx context.Context, d model.Deployment, t *loc
 	return nil
 }
 
-func extractTransfer(ctx context.Context, input io.Reader, directory string, d model.Deployment, transferID string) (bool, error) {
+func extractTransfer(ctx context.Context, input io.Reader, directory string, d model.Deployment, transferID string, logicalLimitMB int64) (bool, error) {
 	compressed, err := gzip.NewReader(backupReader{ctx, input})
 	if err != nil {
 		return false, err
@@ -396,7 +415,10 @@ func extractTransfer(ctx context.Context, input io.Reader, directory string, d m
 	seen := make(map[string]bool)
 	directories := make(map[string]fs.FileMode)
 
-	var total, dataBytes int64
+	var (
+		total, dataBytes int64
+		copier           sparseFileCopier
+	)
 
 	for count := 0; ; count++ {
 		header, err := archive.Next()
@@ -428,7 +450,7 @@ func extractTransfer(ctx context.Context, input io.Reader, directory string, d m
 			dataBytes += header.Size
 		}
 
-		if d.Configuration.DiskMB > 0 && dataBytes > d.Configuration.DiskMB<<20 {
+		if logicalLimitMB > 0 && dataBytes > logicalLimitMB<<20 {
 			return false, errors.New("incoming game data exceeds allocation")
 		}
 
@@ -450,7 +472,7 @@ func extractTransfer(ctx context.Context, input io.Reader, directory string, d m
 			return false, err
 		}
 
-		if err := writeTransferEntry(root, name, archive, header); err != nil {
+		if err := writeTransferEntry(root, name, archive, header, &copier); err != nil {
 			return false, err
 		}
 	}
@@ -471,14 +493,14 @@ func extractTransfer(ctx context.Context, input io.Reader, directory string, d m
 	return manifest.Installed, nil
 }
 
-func writeTransferEntry(root *os.Root, name string, archive io.Reader, header *tar.Header) error {
+func writeTransferEntry(root *os.Root, name string, archive io.Reader, header *tar.Header, copier *sparseFileCopier) error {
 	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = file.Close() }()
 
-	if _, err := io.CopyN(file, archive, header.Size); err != nil {
+	if err := copier.copy(file, archive, header.Size); err != nil {
 		return err
 	}
 

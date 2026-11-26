@@ -13,10 +13,10 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
+	accessperm "campfire/internal/campfire/permissions"
+	fixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 type fakeMessageProvider struct {

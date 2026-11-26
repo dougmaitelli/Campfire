@@ -1,4 +1,7 @@
 import { test, expect, screenshot } from "./fixtures";
+import type { RuntimeStatus } from "../web/src/api/runtime";
+import type { CatalogBackup } from "../web/src/api/backups";
+import { BackupState, WorkPhase } from "../web/src/contracts/domains";
 import { login, mockServerStatus, openScreen } from "./screens";
 
 test("measured archive progress survives navigation and never treats bytes as a commit", async ({
@@ -9,7 +12,7 @@ test("measured archive progress survives navigation and never treats bytes as a 
   await page.clock.install({ time: new Date(now) });
   const base = (await (
     await page.request.get("/api/v1/servers/survival/status")
-  ).json()) as Record<string, unknown>;
+  ).json()) as RuntimeStatus;
   let state = "running";
   let progress = {
     phase: "archiving",
@@ -84,13 +87,15 @@ test("catalog polling replaces synchronization measurements across navigation", 
   let input = 1024;
   await page.route("**/api/v1/backups", async (route) => {
     const response = await route.fetch();
-    const rows = (await response.json()) as Record<string, unknown>[];
+    const rows = (await response.json()) as CatalogBackup[];
+    const first = rows[0];
+    if (!first) throw new Error("Missing backup fixture");
     rows[0] = {
-      ...rows[0],
-      state: "syncing",
+      ...first,
+      state: BackupState.Syncing,
       remote: false,
       work_progress: {
-        phase: "uploading",
+        phase: WorkPhase.Uploading,
         input_bytes: input,
         input_total: 4096,
         output_bytes: 0,
@@ -134,7 +139,7 @@ test("a user-started restore shows measurements inside its locked dialog", async
   const now = await page.evaluate(() => Date.now());
   await page.route("**/api/v1/servers/creative/actions", async (route) => {
     const response = await route.fetch();
-    const status = (await response.json()) as Record<string, unknown>;
+    const status = (await response.json()) as RuntimeStatus;
     observed = {
       ...status,
       operation: "restore",

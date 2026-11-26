@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { test, expect, prepareScreenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Ember } from "../web/src/contracts/ember";
 import { login, openScreen } from "./screens";
 import { completeEmber } from "../web/tests/fixtures/ember";
 import {
@@ -177,6 +179,12 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
   await drawer.getByRole("button", { name: "Add port", exact: true }).click();
   await drawer.getByLabel("Container port", { exact: true }).fill("25565");
   await drawer.getByLabel("Description", { exact: true }).fill("Game");
+  await drawer
+    .getByRole("combobox", { name: "Primary game port", exact: true })
+    .click();
+  await page
+    .getByRole("option", { name: "25565/tcp · Game", exact: true })
+    .click();
   const port = drawer.getByRole("group", { name: "port 1", exact: true });
   await drawer.getByRole("button", { name: "Add port", exact: true }).click();
   await drawer
@@ -251,6 +259,7 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
   expect(saved.ok()).toBeTruthy();
   expect(await saved.json()).toMatchObject({
     name: "Visual game",
+    schema: 2,
     startup: "echo Ready; sleep {{SECONDS}}",
     ready: "Ready",
     stop: "^SIGTERM",
@@ -276,7 +285,7 @@ test("a new Ember can be built and saved through visual fields on desktop and mo
       },
     ],
     required_ports: [
-      { container: 25565, protocol: "tcp", description: "Game" },
+      { container: 25565, protocol: "tcp", description: "Game", primary: true },
     ],
     savedata_paths: [{ path: "world", required: true }],
   });
@@ -295,16 +304,16 @@ test("editing advanced fields and pasting JSON preserves the entire definition",
 }) => {
   await login(page);
   const auth = await page.request.post("/api/v1/auth/login", {
-    data: { username: "admin", password: "campfire-e2e-password" },
+    data: { username: "admin", password: "Campfire-E2E-Password1!" },
   });
-  const { csrf_token } = (await auth.json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(auth);
   const original = { ...completeEmber(), artUrl: "" };
   const created = await page.request.post("/api/v1/embers", {
     headers: { "X-CSRF-Token": csrf_token, Origin: baseURL! },
     data: { definition: JSON.stringify(original), acknowledge_warnings: true },
   });
   expect(created.ok()).toBeTruthy();
-  const stored = (await created.json()) as { id: string };
+  const stored = (await created.json()) as Ember;
   await page.reload();
   await openScreen(page, "embers", "Embers");
   await page
@@ -519,7 +528,7 @@ test("pasted invalid JSON stays intact and Pelican YAML can be edited visually w
   await save.click();
   await expect(drawer).toHaveCount(0);
   const response = await page.request.get("/api/v1/embers");
-  const embers = (await response.json()) as ReturnType<typeof completeEmber>[];
+  const embers = (await response.json()) as Ember[];
   const ember = embers.find((ember) => ember.name === "Visual Valheim");
   expect(ember?.startup).toContain("-backups {{BACKUP_COUNT}}");
   expect(

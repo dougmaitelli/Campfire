@@ -1,6 +1,5 @@
 import { GameLimits } from "../config/policies";
-import { GameStateStatus } from "../contracts/domains";
-import { isRecord as object, isEnumValue } from "../utils/validation";
+import { isRecord as object } from "../utils/validation";
 import { validGameFieldLabels, type GameFieldLabels } from "./gameFields";
 export type GameStateScalar = string | number | boolean;
 export type GameStateFieldValue = GameStateScalar | GameStateScalar[];
@@ -15,8 +14,6 @@ export interface GameState {
 export interface GameStateView {
   state?: GameState;
   updated_at: number;
-  fresh_for_seconds: number;
-  status: GameStateStatus;
 }
 
 function count(value: unknown): value is number {
@@ -47,17 +44,15 @@ export function isGameStateView(value: unknown): value is GameStateView {
   if (
     !object(value) ||
     !Number.isSafeInteger(value.updated_at) ||
-    (value.updated_at as number) < 0 ||
-    !Number.isSafeInteger(value.fresh_for_seconds) ||
-    (value.fresh_for_seconds as number) <= 0 ||
-    !isEnumValue(GameStateStatus, value.status)
+    (value.updated_at as number) < 0
   )
     return false;
-  if (value.state === undefined) return value.status !== GameStateStatus.Fresh;
-  if (value.status !== GameStateStatus.Fresh || !object(value.state))
-    return false;
-  const state = value.state;
+  return value.state === undefined || isGameState(value.state);
+}
+
+export function isGameState(state: unknown): state is GameState {
   return (
+    object(state) &&
     (state.players === undefined || count(state.players)) &&
     (state.capacity === undefined || count(state.capacity)) &&
     validGameFieldLabels(
@@ -76,9 +71,8 @@ export function isGameStateView(value: unknown): value is GameStateView {
 
 export function gameStateFresh(view: GameStateView, now: number): boolean {
   return (
-    view.status === GameStateStatus.Fresh &&
     view.state !== undefined &&
     now >= view.updated_at &&
-    now - view.updated_at < view.fresh_for_seconds
+    now - view.updated_at < GameLimits.StateFreshSeconds
   );
 }

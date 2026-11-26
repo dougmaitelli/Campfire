@@ -1,4 +1,7 @@
 import { test, expect, screenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Role } from "../web/src/api/access";
+import type { PermissionDefinition } from "../web/src/api/permissions";
 import { login, openScreen } from "./screens";
 
 test("server permission presets replace the selection with their complete grants", async ({
@@ -73,7 +76,7 @@ test("server permission presets replace the selection with their complete grants
   await expect(suggestedName).toHaveValue("Server administrator");
   const catalogResponse = await page.request.get("/api/v1/permissions");
   expect(catalogResponse.ok()).toBeTruthy();
-  const catalog = (await catalogResponse.json()) as { id: string }[];
+  const catalog = (await catalogResponse.json()) as PermissionDefinition[];
   const administratorPermissions = catalog
     .filter((item) => item.id !== "server.delete")
     .map((item) => item.id)
@@ -85,11 +88,7 @@ test("server permission presets replace the selection with their complete grants
   await drawer.getByRole("button", { name: "Save role", exact: true }).click();
   await expect(drawer).toHaveCount(0);
   const response = await page.request.get("/api/v1/roles");
-  const roles = (await response.json()) as {
-    name: string;
-    scope: string;
-    permissions: string[];
-  }[];
+  const roles = (await response.json()) as Role[];
   const saved = roles.find((role) => role.name === "Server administrators");
   expect(saved?.scope).toBe("server");
   expect(saved?.permissions.slice().sort()).toEqual(administratorPermissions);
@@ -207,10 +206,7 @@ test("permission tree adds prerequisites and clears dependent grants without con
   await dialog.getByRole("button", { name: "Save role", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   const response = await page.request.get("/api/v1/roles");
-  const roles = (await response.json()) as {
-    name: string;
-    permissions: string[];
-  }[];
+  const roles = (await response.json()) as Role[];
   const saved = roles.find((item) => item.name === "Backup restoration crew");
   expect(saved?.permissions).toContain("server.operate");
   expect(saved?.permissions).not.toContain("server.backups.restore");
@@ -232,10 +228,10 @@ test("file access hides unauthorized writing and deletion while preserving readi
 }) => {
   await login(page, "viewer");
   const auth = await request.post("/api/v1/auth/login", {
-    data: { username: "admin", password: "campfire-e2e-password" },
+    data: { username: "admin", password: "Campfire-E2E-Password1!" },
   });
   expect(auth.ok()).toBeTruthy();
-  const { csrf_token } = (await auth.json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(auth);
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   const response = await request.post("/api/v1/roles", {
     headers,
@@ -246,7 +242,7 @@ test("file access hides unauthorized writing and deletion while preserving readi
     },
   });
   expect(response.ok()).toBeTruthy();
-  const role = (await response.json()) as { id: number };
+  const role = (await response.json()) as Role;
   expect(
     (
       await request.post("/api/v1/servers/survival/members", {

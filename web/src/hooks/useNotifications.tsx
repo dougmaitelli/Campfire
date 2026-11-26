@@ -34,7 +34,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         );
         if (!controller.signal.aborted) setUnread(value);
       } catch {
-        if (!controller.signal.aborted) setUnread(null);
+        // A failed refresh does not invalidate the last successful count.
       }
       if (!controller.signal.aborted)
         timer = setTimeout(() => {

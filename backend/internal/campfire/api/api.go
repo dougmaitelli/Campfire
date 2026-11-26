@@ -13,6 +13,7 @@ import (
 	"campfire/internal/campfire/service"
 	integrationservice "campfire/internal/campfire/service/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	"campfire/internal/campfire/statuspage"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
@@ -33,6 +34,7 @@ type API struct {
 	notifications  *service.NotificationService
 	integrations   *integrationservice.DiscordIntegrationService
 	backupImports  *service.BackupImports
+	statusPages    *service.StatusPageService
 	now            func() time.Time
 }
 
@@ -126,6 +128,12 @@ func writeError(w http.ResponseWriter, err error) {
 	var commandError *protocol.CommandError
 
 	switch {
+	case errors.Is(err, statuspage.ErrInput):
+		status, message = http.StatusBadRequest, err.Error()
+	case errors.Is(err, statuspage.ErrNotFound):
+		status, message = http.StatusNotFound, err.Error()
+	case errors.Is(err, statuspage.ErrConflict), errors.Is(err, statuspage.ErrLimit):
+		status, message = http.StatusConflict, err.Error()
 	case errors.Is(err, integrationservice.ErrIntegrationInput), discord.IsError(err):
 		status, message = http.StatusBadRequest, err.Error()
 	case errors.Is(err, repository.ErrIntegrationConflict):

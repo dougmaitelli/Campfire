@@ -222,6 +222,9 @@ func (s *ServerService) save(ctx context.Context, server model.Server, create, r
 	}
 
 	server.Description = description
+	if !utf8.ValidString(server.GameAddress) || utf8.RuneCountInString(server.GameAddress) > limits.GameAddressLength || strings.ContainsFunc(server.GameAddress, unicode.IsControl) {
+		return model.Server{}, fmt.Errorf("%w: public game address must be at most %d characters without control characters", ErrInvalidServer, limits.GameAddressLength)
+	}
 
 	ember, err := s.embers.Get(ctx, server.EmberID)
 	if err != nil {

@@ -27,6 +27,7 @@ for an example.
 - [Documentation website](https://dougmaitelli.github.io/Campfire/)
 - [Getting started and core concepts](https://dougmaitelli.github.io/Campfire/concepts/)
 - [Configuration reference](https://dougmaitelli.github.io/Campfire/configuration/)
+- [Panel API reference and integration guide](https://dougmaitelli.github.io/Campfire/api/)
 - [Embers](https://dougmaitelli.github.io/Campfire/embers/)
 - [Development](https://dougmaitelli.github.io/Campfire/development/)
 
@@ -81,7 +82,7 @@ for an example.
 ## Quick start with Docker Compose
 
 You need Docker Engine with Compose for the panel, and a Linux game host with
-rootful Docker Engine and the Docker CLI for Spark. The guided Spark installer
+local Docker Engine (rootful or rootless) and the Docker CLI for Spark. The guided Spark installer
 also uses systemd, curl, base64, and sudo. See
 [game host requirements](https://dougmaitelli.github.io/Campfire/spark-agent/)
 for details.
@@ -138,7 +139,7 @@ make dependencies
 make dev-mock
 ```
 
-Open `http://localhost:8081` and sign in with `admin` / `campfire-dev-password`.
+Open `http://localhost:8081` and sign in with `admin` / `Campfire-Dev-Password1!`.
 Mock mode uses the real authentication, API, and database with sample games and
 simulated Sparks. See the
 [development guide](https://dougmaitelli.github.io/Campfire/development/) for tests

@@ -1,5 +1,5 @@
 // Package fileops implements server-file management, archive extraction and
-// short-lived conflict waits. The runtime supplies only game-file ownership.
+// short-lived conflict waits.
 package fileops
 
 import (
@@ -12,8 +12,11 @@ import (
 	"campfire/internal/shared/model"
 )
 
-// Host supplies runtime ownership without coupling file operations to containers.
-type Host struct{ FileOwner func(*os.File, string) error }
+// Host supplies game-file ownership and the disk allocation enforced in software.
+type Host struct {
+	FileOwner          func(*os.File, string) error
+	LogicalDiskLimitMB func(int64) int64
+}
 
 // Manager owns file operations and their temporary conflict state.
 type Manager struct {
@@ -35,7 +38,12 @@ type State struct {
 
 // New starts file-operation lifecycle management.
 func New(host Host) *Manager {
+	if host.LogicalDiskLimitMB == nil {
+		host.LogicalDiskLimitMB = func(configured int64) int64 { return configured }
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Manager{Host: host, ctx: ctx, cancel: cancel, operations: make(map[string]*extractionSession), compressions: make(map[string]*compressionSession)}
 }
 

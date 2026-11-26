@@ -68,7 +68,7 @@ func TestIncompleteBaselineIsNotRepaired(t *testing.T) {
 func TestBaselineReopenPreservesData(t *testing.T) {
 	// Marker 2 identifies the same physical schema, not an older schema to migrate.
 	// Both paths must reopen without changing account or session data.
-	for _, marker := range []int{1, 2, 3, 4} {
+	for _, marker := range []int{1, 2, 3, 4, 5, 6} {
 		t.Run(strconv.Itoa(marker), func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "panel.db")
 
@@ -92,8 +92,14 @@ func TestBaselineReopenPreservesData(t *testing.T) {
 			}
 
 			var initial []int
-			if err := db.ORM().Table("schema_migrations").Pluck("version", &initial).Error; err != nil || len(initial) != 1 || initial[0] != 4 {
-				t.Fatal("expected schema 4", initial, err)
+			if err := db.ORM().Table("schema_migrations").Pluck("version", &initial).Error; err != nil || len(initial) != 1 || initial[0] != 13 {
+				t.Fatal("expected schema 13", initial, err)
+			}
+
+			if marker < 5 {
+				if err := db.ORM().Migrator().DropTable(&database.ServerCrash{}); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			if err := db.ORM().Exec("UPDATE schema_migrations SET version = ?", marker).Error; err != nil {
@@ -110,8 +116,12 @@ func TestBaselineReopenPreservesData(t *testing.T) {
 					t.Fatal(err)
 				}
 
+				if !reopened.ORM().Migrator().HasTable(&database.ServerCrash{}) {
+					t.Fatal("crash history migration missing")
+				}
+
 				var versions []int
-				if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 4 {
+				if err := reopened.ORM().Table("schema_migrations").Pluck("version", &versions).Error; err != nil || len(versions) != 1 || versions[0] != 13 {
 					t.Fatal("incorrect baseline marker", versions, err)
 				}
 

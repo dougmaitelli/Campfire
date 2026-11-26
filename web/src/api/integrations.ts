@@ -213,6 +213,18 @@ function category(value: unknown): value is NotificationCategory {
   return isEnumValue(NotificationCategory, value);
 }
 
+export function isIntegrationCardStatus(
+  value: unknown,
+): value is IntegrationCardStatus {
+  return (
+    isRecord(value) &&
+    isEnumValue(IntegrationCardState, value.state) &&
+    typeof value.error === "string" &&
+    typeof value.can_retry === "boolean" &&
+    Number.isSafeInteger(value.next_attempt_at)
+  );
+}
+
 function serverSettings(value: unknown): value is ServerIntegrationSettings {
   return (
     isRecord(value) &&
@@ -223,11 +235,7 @@ function serverSettings(value: unknown): value is ServerIntegrationSettings {
     typeof value.configured === "boolean" &&
     typeof value.available === "boolean" &&
     typeof value.guild_name === "string" &&
-    isRecord(value.card_status) &&
-    isEnumValue(IntegrationCardState, value.card_status.state) &&
-    typeof value.card_status.error === "string" &&
-    typeof value.card_status.can_retry === "boolean" &&
-    Number.isSafeInteger(value.card_status.next_attempt_at) &&
+    isIntegrationCardStatus(value.card_status) &&
     Array.isArray(value.subscriptions) &&
     value.subscriptions.every(
       (item: unknown) =>
@@ -358,7 +366,7 @@ export interface RenderedIntegrationCard {
   }[];
 }
 
-function renderedIntegrationCard(
+export function renderedIntegrationCard(
   value: unknown,
 ): value is RenderedIntegrationCard {
   return (

@@ -20,6 +20,7 @@ func VisibleServer(server Server, ember Ember) Server {
 	// Public views retain the Ember content identifier without exposing that hash.
 	server.EmberHash = EmberHash(ember)
 	server.SavedataAvailable = len(ember.SavedataPaths) > 0
+	server.ConsoleCommands = ember.SupportsConsoleCommands()
 
 	return server
 }

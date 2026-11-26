@@ -5,9 +5,9 @@ import (
 	"math"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 // MonitoredServer combines authorized metadata and the latest persisted usage.
@@ -44,7 +44,7 @@ func unknownUsage(id string) model.ResourceUsage {
 }
 
 func validUsage(usage model.ResourceUsage) bool {
-	if usage.StartedAt < 0 || usage.StoppedAt < 0 {
+	if usage.StartedAt < 0 || usage.StoppedAt < 0 || !usage.DiskAccounting.Valid() {
 		return false
 	}
 

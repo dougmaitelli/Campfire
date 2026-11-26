@@ -23,13 +23,14 @@ type authState struct {
 	Authenticated bool   `json:"authenticated"`
 	SetupRequired bool   `json:"setup_required"`
 	*service.Principal
-	CSRFToken   string       `json:"csrf_token,omitempty"`
-	ExpiresAt   int64        `json:"expires_at,omitempty"`
-	LocalLogin  bool         `json:"local_login"`
-	OIDCEnabled bool         `json:"oidc_enabled"`
-	OIDCLinked  bool         `json:"oidc_linked"`
-	ViewAs      *viewAsState `json:"view_as,omitempty"`
-	ViewAsEnded bool         `json:"view_as_ended,omitempty"`
+	CSRFToken    string       `json:"csrf_token,omitempty"`
+	ExpiresAt    int64        `json:"expires_at,omitempty"`
+	LocalLogin   bool         `json:"local_login"`
+	OIDCAutoLink bool         `json:"oidc_auto_link_email,omitempty"`
+	OIDCEnabled  bool         `json:"oidc_enabled"`
+	OIDCLinked   bool         `json:"oidc_linked"`
+	ViewAs       *viewAsState `json:"view_as,omitempty"`
+	ViewAsEnded  bool         `json:"view_as_ended,omitempty"`
 }
 
 type principalKey struct{}
@@ -186,11 +187,15 @@ func (a *API) authenticate(next http.Handler) http.Handler {
 
 func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, repository.ErrMFARequired):
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": err.Error(), "two_factor_required": true})
+	case errors.Is(err, service.ErrMFACode):
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
 	case errors.Is(err, service.ErrAuthentication):
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "sign in with valid account credentials"})
 	case errors.Is(err, service.ErrAdminExists):
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
-	case errors.Is(err, service.ErrAuthInput):
+	case errors.Is(err, service.ErrAuthInput), errors.Is(err, repository.ErrEmailRequired):
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 	case errors.Is(err, service.ErrAuthRate):
 		w.Header().Set("Retry-After", "60")
@@ -246,6 +251,8 @@ func (a *API) writeLoginState(w http.ResponseWriter, r *http.Request, session da
 	state.Principal = &principal
 	state.ViewAs = preview
 
+	state.OIDCAutoLink = a.auth.OIDCAutoLinkEnabled()
+
 	state.LocalLogin, err = a.auth.LocalLoginEnabled(r.Context())
 	if err != nil {
 		writeAuthError(w, err)
@@ -290,6 +297,8 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 		Username   string `json:"username"`
 		Password   string `json:"password"`
 		SetupToken string `json:"setup_token,omitempty"`
+		Email      string `json:"email,omitempty"`
+		Code       string `json:"code,omitempty"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return
@@ -298,10 +307,12 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 	var session database.UserSession
 
 	var token string
+
+	ctx := service.WithSessionUserAgent(r.Context(), r.UserAgent())
 	if setup {
-		session, token, err = a.auth.Setup(r.Context(), input.SetupToken, input.Username, input.Password)
+		session, token, err = a.auth.Setup(ctx, input.SetupToken, input.Username, input.Password, input.Email)
 	} else {
-		session, token, err = a.auth.Login(r.Context(), input.Username, input.Password, browserToken(r))
+		session, token, err = a.auth.Login(ctx, input.Username, input.Password, browserToken(r), input.Code)
 	}
 
 	if err != nil {

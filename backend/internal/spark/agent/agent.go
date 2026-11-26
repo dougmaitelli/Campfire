@@ -158,11 +158,21 @@ func Run(ctx context.Context, config Config) error {
 	}
 	defer manager.Close()
 
+	if config.runtimeFactory == nil {
+		if err := manager.ConfigureDocker(ctx); err != nil {
+			return err
+		}
+
+		if err := manager.AllowDockerTraversal(ctx, config.DataDir); err != nil {
+			return err
+		}
+	}
+
 	slog.Info("Game-data disk quota support", "enabled", manager.DiskQuotaSupported())
 
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
-	if err := configurations.RestoreLogMonitors(identity.ID); err != nil {
-		return fmt.Errorf("restore log monitoring: %w", err)
+	if err := configurations.RestoreRuntimeMonitors(identity.ID); err != nil {
+		return fmt.Errorf("restore runtime monitoring: %w", err)
 	}
 	{
 		sparkID := identity.ID
@@ -172,6 +182,10 @@ func Run(ctx context.Context, config Config) error {
 			return err
 		}
 		defer games.close()
+
+		if err := manager.AllowDockerTraversal(ctx, games.directory); err != nil {
+			return err
+		}
 
 		configurations.games = games
 		manager.GameIntegrationMount = games.mount

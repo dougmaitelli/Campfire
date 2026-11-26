@@ -1,7 +1,6 @@
 package fileops
 
 import (
-	"archive/tar"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -13,9 +12,9 @@ import (
 	"strings"
 	"syscall"
 
-	"campfire/internal/shared/archiveio"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/workprogress"
+	"campfire/internal/spark/runtime/fileops/archive"
 )
 
 func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os.Root, volume string, q model.FileRequest) (model.FileResult, error) {
@@ -87,17 +86,13 @@ func (m *Manager) archiveFiles(ctx context.Context, d model.Deployment, root *os
 	temporary := ArchiveStagingPrefix + rand.Text()
 	defer func() { _ = root.RemoveAll(temporary) }()
 
-	if !strings.HasSuffix(q.Destination, ".tar.gz") {
-		return result, Failure(model.FileInvalid, "Compressed archives must end in .tar.gz.")
-	}
-
-	if err := m.compressFiles(ctx, d, root, sources, temporary); err != nil {
+	if err := m.compressFiles(ctx, d, root, sources, temporary, q.Destination); err != nil {
 		return result, ArchiveFailure(err)
 	}
 
 	workprogress.New(ctx, workprogress.Committing, 0).Flush()
 
-	if err := CheckWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, 0); err != nil {
+	if err := CheckWriteCapacity(ctx, volume, m.LogicalDiskLimitMB(d.Configuration.DiskMB), 0, 0); err != nil {
 		return result, err
 	}
 
@@ -123,10 +118,14 @@ func ArchiveFailure(err error) error {
 		return err
 	}
 
+	if errors.Is(err, syscall.EDQUOT) {
+		return Failure(model.FileLimitExceeded, "Archive contents exceed the server disk allocation.")
+	}
+
 	return Failure(model.FileIO, "Archive operation failed. Check the archive, disk allocation and Spark logs.")
 }
 
-func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *os.Root, sources []string, temporary string) error {
+func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *os.Root, sources []string, temporary, destination string) error {
 	file, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
@@ -134,7 +133,11 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 	defer func() { _ = file.Close() }()
 
 	output := &limitedArchiveWriter{Writer: file}
-	archive := archiveio.NewTarGzipWriter(ctx, output)
+
+	encoder, err := archive.NewWriter(ctx, output, destination)
+	if err != nil {
+		return err
+	}
 
 	var total int64
 
@@ -192,25 +195,21 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 				return Failure(model.FileLimitExceeded, "Archive contents exceed 100 GiB.")
 			}
 
-			header, err := tar.FileInfoHeader(info, "")
-			if err != nil {
-				return err
-			}
-
-			header.Name = name
+			member := archive.Entry{Name: name, Size: info.Size(), Mode: info.Mode(), Modified: info.ModTime()}
 			if source != "." {
-				header.Name = strings.TrimPrefix(name, path.Dir(source)+"/")
+				member.Name = strings.TrimPrefix(name, path.Dir(source)+"/")
 			}
 
-			header.Mode = header.Mode & 0777
+			if info.IsDir() {
+				member.Size = 0
+			}
 
-			header.Uid, header.Gid, header.Uname, header.Gname = 0, 0, "", ""
-			if err := archive.WriteHeader(header); err != nil {
+			if err := encoder.WriteHeader(member); err != nil {
 				return err
 			}
 
 			if info.Mode().IsRegular() {
-				_, err = io.CopyN(archive, contextReader{ctx, input}, info.Size())
+				_, err = io.CopyN(encoder, contextReader{ctx, input}, info.Size())
 			}
 
 			return err
@@ -220,7 +219,7 @@ func (m *Manager) compressFiles(ctx context.Context, d model.Deployment, root *o
 		}
 	}
 
-	closeArchive := archive.Close()
+	closeArchive := encoder.Close()
 
 	if err != nil {
 		return err
@@ -253,7 +252,7 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 		return Failure(model.FileLimitExceeded, "Archive exceeds 100 GiB.")
 	}
 
-	allocation, err := newArchiveAllocation(ctx, root.Name(), d.Configuration.DiskMB)
+	allocation, err := newArchiveAllocation(ctx, root.Name(), m.LogicalDiskLimitMB(d.Configuration.DiskMB))
 	if err != nil {
 		return err
 	}
@@ -279,7 +278,9 @@ func (m *Manager) extractFiles(ctx context.Context, d model.Deployment, root *os
 
 		return nil
 	}
-	unpack := func(name string, size int64, mode fs.FileMode, reader io.Reader) error {
+	unpack := func(entry archive.Entry, reader io.Reader) error {
+		name, size, mode := entry.Name, entry.Size, entry.Mode
+
 		if err := ctx.Err(); err != nil {
 			return err
 		}

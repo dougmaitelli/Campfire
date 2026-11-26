@@ -8,9 +8,9 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/events"
 	"campfire/internal/campfire/pagination"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )

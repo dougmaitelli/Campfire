@@ -16,17 +16,17 @@ func cardNonce(claim repository.CardClaim) string {
 	return discord.MessageNonce(claim.BindingID, claim.Work.CreationID)
 }
 
-func (*discordProvider) Fingerprint(card core.ServerCard) string {
-	return cardHash(discord.RenderServerCard(card))
+func (*discordProvider) Fingerprint(card core.LiveCard) string {
+	return cardHash(discord.RenderCard(card))
 }
 
-func (p *discordProvider) CreateCard(ctx context.Context, claim repository.CardClaim, card core.ServerCard) (string, error) {
+func (p *discordProvider) CreateCard(ctx context.Context, claim repository.CardClaim, card core.LiveCard) (string, error) {
 	token, _, err := p.credentials(claim.IntegrationClaim)
 	if err != nil {
 		return "", err
 	}
 
-	id, err := p.client.CreateServerCard(ctx, token, claim.DestinationID, cardNonce(claim), card)
+	id, err := p.client.CreateCard(ctx, token, claim.DestinationID, cardNonce(claim), card)
 
 	return id, discordDeliveryFailure(err)
 }
@@ -37,7 +37,7 @@ func (p *discordProvider) FindCard(ctx context.Context, claim repository.CardCla
 		return "", err
 	}
 
-	id, err := p.client.FindServerCard(ctx, token, claim.DestinationID, config.BotID, cardNonce(claim), claim.Work.CreatedAt)
+	id, err := p.client.FindCard(ctx, token, claim.DestinationID, config.BotID, cardNonce(claim), claim.Work.CreatedAt, claim.Binding.StatusPageID != "")
 
 	return id, discordDeliveryFailure(err)
 }
@@ -48,18 +48,18 @@ func (p *discordProvider) CardExists(ctx context.Context, claim repository.CardC
 		return false, err
 	}
 
-	found, err := p.client.ServerCardExists(ctx, token, claim.DestinationID, claim.Binding.StatusMessage.ID, config.BotID, cardNonce(claim))
+	found, err := p.client.CardExists(ctx, token, claim.DestinationID, claim.Binding.StatusMessage.ID, config.BotID, cardNonce(claim), claim.Binding.StatusPageID != "")
 
 	return found, discordDeliveryFailure(err)
 }
 
-func (p *discordProvider) EditCard(ctx context.Context, claim repository.CardClaim, card core.ServerCard) (bool, error) {
+func (p *discordProvider) EditCard(ctx context.Context, claim repository.CardClaim, card core.LiveCard) (bool, error) {
 	token, _, err := p.credentials(claim.IntegrationClaim)
 	if err != nil {
 		return false, err
 	}
 
-	found, err := p.client.EditServerCard(ctx, token, claim.DestinationID, claim.Binding.StatusMessage.ID, cardNonce(claim), card)
+	found, err := p.client.EditCard(ctx, token, claim.DestinationID, claim.Binding.StatusMessage.ID, cardNonce(claim), card)
 
 	return found, discordDeliveryFailure(err)
 }
@@ -70,5 +70,5 @@ func (p *discordProvider) DeleteCard(ctx context.Context, claim repository.CardC
 		return err
 	}
 
-	return discordDeliveryFailure(p.client.DeleteServerCard(ctx, token, claim.DestinationID, claim.Binding.StatusMessage.ID))
+	return discordDeliveryFailure(p.client.DeleteCard(ctx, token, claim.DestinationID, claim.Binding.StatusMessage.ID))
 }

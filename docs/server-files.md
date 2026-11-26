@@ -98,10 +98,32 @@ overwrite.
 
 ## Archives
 
-Use **Archive** to create a `.tar.gz` archive. **Extract** accepts `.zip`,
-`.tar.gz`, `.tgz`, and `.rar`. RAR support includes single-volume, unencrypted
-RAR 4 and RAR 5 archives, with decoder dictionaries up to 128 MiB. Split and
-password-protected RAR archives are unsupported.
+Use **Archive** to create one archive from the selected items. Choose the format
+with the archive name: `.tar.gz` (or `.tgz`) for gzip-compressed tar, or `.zip` for
+ZIP. The default remains `archive.tar.gz`.
+
+| Format                                        | Extract                                    | Create |
+| --------------------------------------------- | ------------------------------------------ | ------ |
+| ZIP (`.zip`)                                  | Yes                                        | Yes    |
+| Tar + gzip (`.tar.gz`, `.tgz`)                | Yes                                        | Yes    |
+| Uncompressed tar (`.tar`)                     | Yes                                        | No     |
+| Tar + xz (`.tar.xz`, `.txz`)                  | Yes                                        | No     |
+| Tar + lzip (`.tar.lz`, `.tlz`)                | Yes, lzip version 1                        | No     |
+| Tar + bzip2 (`.tar.bz2`, `.tbz2`, `.tbz`)     | Yes                                        | No     |
+| Tar + lz4 (`.tar.lz4`)                        | Yes                                        | No     |
+| Tar + zstd (`.tar.zst`, `.tar.zstd`, `.tzst`) | Yes                                        | No     |
+| RAR (`.rar`)                                  | Single-volume, unencrypted RAR 4 and RAR 5 | No     |
+| 7z (`.7z`)                                    | No                                         | No     |
+
+Extensions are case-insensitive. Standalone compressed files, split archives,
+password-protected archives, and external compression dictionaries are not
+supported. XZ, lzip, zstd, and RAR decoder dictionaries/windows are limited to
+128 MiB. Files with unsupported compression options or damaged checksums fail
+rather than being reported as successfully extracted. Concatenating separate tar
+archives is unsupported; later members are not silently ignored.
+
+These formats apply to **Files**, not portable Campfire backup imports. Update
+older Sparks before using ZIP creation or the additional tar extraction formats.
 
 Compression and extraction show progress **inside their dialogs**, including
 extraction into a new folder. Progress includes labelled byte counts and a
@@ -159,7 +181,8 @@ starting extraction or answering conflicts remains fenced until the transfer is
 resolved.
 Allocation checks account for extracted/replaced files and periodically reconcile
 with game-data usage instead of rescanning the entire tree for every member. Where
-available, the runtime's project quota remains the hard filesystem limit.
+available, the Spark filesystem enforces the game-data allocation. See
+[disk quotas and host storage](/Campfire/spark-agent/#disk-quotas-and-host-storage).
 
 Extraction is not transactional. Errors, cancellation, bad checksums, duplicate
 normalized paths, unsafe later entries, or exhausted limits can leave completed

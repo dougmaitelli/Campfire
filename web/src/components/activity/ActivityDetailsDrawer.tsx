@@ -25,6 +25,7 @@ import { ResourceLink } from "../navigation/ResourceLink";
 import { JobRow } from "../jobs/JobRow";
 import { ActivityStatus, activityTitle } from "./ActivityStatus";
 import { ActivityNotifications } from "./ActivityNotifications";
+import { CrashDetails } from "./CrashDetails";
 import {
   GameEventDetails,
   GameFields,
@@ -161,9 +162,15 @@ export function ActivityDetailsDrawer({
                   <DetailItem label={t("serverActivity.type")}>
                     {t(`serverActivity.kinds.${details.kind}`)}
                   </DetailItem>
-                  <DetailItem label={t("serverActivity.recorded")}>
-                    {date(details.created_at)}
-                  </DetailItem>
+                  {details.crash ? (
+                    <DetailItem label={t("crashes.container")}>
+                      <code>{details.crash.container_id}</code>
+                    </DetailItem>
+                  ) : (
+                    <DetailItem label={t("serverActivity.recorded")}>
+                      {date(details.created_at)}
+                    </DetailItem>
+                  )}
                   {!!details.state && (
                     <DetailItem label={t("common.status")}>
                       <ActivityStatus state={details.state} />
@@ -183,6 +190,12 @@ export function ActivityDetailsDrawer({
                 ))}
               {details.game_event && (
                 <GameEventDetails event={details.game_event} />
+              )}
+              {details.crash && (
+                <CrashDetails
+                  record={details.crash}
+                  canReadConsole={canPerformServer(server, "readConsole")}
+                />
               )}
               {details.monitoring_alert && (
                 <p>{details.monitoring_alert.body}</p>

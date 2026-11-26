@@ -2,26 +2,24 @@ package integrations
 
 import (
 	"errors"
-	"net"
-	"net/netip"
-	"slices"
-	"strconv"
 	"strings"
 
-	"campfire/internal/shared/gamefields"
+	"campfire/internal/campfire/gameaddress"
+	"campfire/internal/campfire/gamefields"
 	"campfire/internal/shared/model"
 )
 
 // CardField contains only an explicitly selected, current game value.
 type CardField = gamefields.Field
 
-// ServerCard is a provider-independent view, without deployment or secret data.
-type ServerCard struct {
-	Name      string             `json:"name"`
-	State     model.RuntimeState `json:"state"`
-	Addresses []string           `json:"addresses"`
-	Fields    []CardField        `json:"fields"`
-	ExpiresAt int64              `json:"expires_at"`
+// LiveCard is a provider-independent view, without deployment or secret data.
+type LiveCard struct {
+	StatusPage bool               `json:"-"`
+	Name       string             `json:"name"`
+	State      model.RuntimeState `json:"state"`
+	Addresses  []string           `json:"addresses"`
+	Fields     []CardField        `json:"fields"`
+	ExpiresAt  int64              `json:"expires_at"`
 }
 
 // Validate keeps card selection independent of notification subscriptions.
@@ -41,8 +39,8 @@ func (c CardSettings) Validate() error {
 
 // BuildServerCard accepts only a fresh game snapshot from the runtime source.
 // Missing values remain unavailable; unselected fields never enter the card.
-func BuildServerCard(server model.Server, state model.RuntimeState, game *model.GameState, settings CardSettings, labels model.GameFieldLabels) ServerCard {
-	card := ServerCard{Name: server.Name, State: state, Addresses: cardAddresses(server)}
+func BuildServerCard(server model.Server, state model.RuntimeState, game *model.GameState, settings CardSettings, labels model.GameFieldLabels) LiveCard {
+	card := LiveCard{Name: server.Name, State: state, Addresses: cardAddresses(server)}
 	if state == "" {
 		card.State = model.RuntimeStateUnknown
 	}
@@ -59,31 +57,10 @@ func BuildServerCard(server model.Server, state model.RuntimeState, game *model.
 }
 
 func cardAddresses(server model.Server) []string {
-	addresses := []string{}
-
-	for _, port := range server.Ports {
-		host := strings.TrimSpace(server.GameAddress)
-		if host == "" {
-			host = port.BindIP
-		}
-
-		if host == "" || port.HostPort < 1 || port.HostPort > 65535 {
-			continue
-		}
-
-		if ip, err := netip.ParseAddr(host); err == nil && (ip.IsUnspecified() || ip.IsMulticast()) {
-			continue
-		}
-
-		address := net.JoinHostPort(host, strconv.Itoa(port.HostPort)) + " / " + strings.ToUpper(string(port.Protocol))
-		if !slices.Contains(addresses, address) {
-			addresses = append(addresses, address)
-		}
+	address := gameaddress.Resolve(server.GameAddress, server.GameAddressDefault, server.GameAddressPort)
+	if address == "" {
+		return []string{}
 	}
 
-	if len(server.Ports) == 0 && strings.TrimSpace(server.GameAddress) != "" {
-		addresses = append(addresses, strings.TrimSpace(server.GameAddress))
-	}
-
-	return addresses
+	return []string{address}
 }

@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import type { FileRequest } from "../web/src/api/files";
 import { login, openServerTab } from "./screens";
 
 test("cancelling a dispatched fresh-folder extraction reports completion as unconfirmed", async ({
@@ -25,7 +26,7 @@ test("cancelling a dispatched fresh-folder extraction reports completion as unco
     release = resolve;
   });
   await page.route("**/api/v1/servers/survival/files", async (route) => {
-    const input = route.request().postDataJSON() as { operation: string };
+    const input = route.request().postDataJSON() as FileRequest;
     if (input.operation === "extract.start") {
       dispatched = true;
       await held;
@@ -96,12 +97,7 @@ test("RAR extraction shows progress and allows retry after a failure", async ({
   let attempts = 0;
   let refreshed = false;
   await page.route("**/api/v1/servers/survival/files", async (route) => {
-    const request = route.request().postDataJSON() as {
-      operation: string;
-      path: string;
-      destination?: string;
-      extraction?: { id: string; fresh?: boolean };
-    };
+    const request = route.request().postDataJSON() as FileRequest;
     if (request.operation === "extract.start") {
       expect(request.extraction?.fresh).toBe(true);
       expect(request.path).toBe("/test-archive.RAR");

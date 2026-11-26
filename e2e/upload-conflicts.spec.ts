@@ -1,4 +1,5 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
+import type { FileRequest } from "../web/src/api/files";
 import { login, openServerTab } from "./screens";
 
 const payload = (name: string, text: string) => ({
@@ -126,13 +127,9 @@ test("a destination change after conflict selection is not overwritten", async (
 }) => {
   await login(page);
   await openServerTab(page, "files", "Files");
-  const begins: { revision: string }[] = [];
+  const begins: FileRequest[] = [];
   await page.route("**/api/v1/servers/survival/files", async (route) => {
-    const input = route.request().postDataJSON() as {
-      operation: string;
-      path: string;
-      revision: string;
-    };
+    const input = route.request().postDataJSON() as FileRequest;
     if (input.operation === "upload.begin") {
       begins.push(input);
       await route.fulfill({
@@ -156,6 +153,7 @@ test("a destination change after conflict selection is not overwritten", async (
     ),
   ).toBeVisible();
   expect(begins).toHaveLength(1);
+  expect(begins[0]?.revision).toBeTruthy();
   expect(begins[0]!.revision).not.toBe("absent");
   const browser = page.getByRole("region", {
     name: "File browser",
@@ -175,7 +173,7 @@ test("a lost commit response is reported as unconfirmed even if publication succ
   await login(page);
   await openServerTab(page, "files", "Files");
   await page.route("**/api/v1/servers/survival/files", async (route) => {
-    const input = route.request().postDataJSON() as { operation: string };
+    const input = route.request().postDataJSON() as FileRequest;
     if (input.operation === "upload.commit") {
       const response = await route.fetch();
       expect(response.ok()).toBe(true);

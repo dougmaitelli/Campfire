@@ -1,4 +1,9 @@
 import { test, expect, screenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type {
+  ServerIntegrationList,
+  ServerIntegrationSettings,
+} from "../web/src/api/integrations";
 import { login } from "./screens";
 import {
   openServerIntegrations,
@@ -11,9 +16,9 @@ test("integration drafts swap channels and recover a committed save with a lost 
 }) => {
   test.setTimeout(90_000);
   await login(page);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const headers = { "X-CSRF-Token": session.csrf_token, Origin: baseURL! };
   expect(
     (
@@ -43,7 +48,7 @@ test("integration drafts swap channels and recover a committed save with a lost 
       },
     });
     expect(response.status()).toBe(201);
-    created.push(((await response.json()) as { id: string }).id);
+    created.push(((await response.json()) as ServerIntegrationSettings).id);
   }
   await page.goto("/#servers/survival/console");
   const drawer = await openServerIntegrations(page);
@@ -67,9 +72,9 @@ test("integration drafts swap channels and recover a committed save with a lost 
     await back.click();
   }
   await saveServerIntegration(drawer);
-  const swapped = (await (await page.request.get(base)).json()) as {
-    items: { id: string; channel_id: string }[];
-  };
+  const swapped = (await (
+    await page.request.get(base)
+  ).json()) as ServerIntegrationList;
   expect(swapped.items.find((item) => item.id === created[0])?.channel_id).toBe(
     "402",
   );
@@ -119,9 +124,9 @@ test("integration drafts swap channels and recover a committed save with a lost 
   await expect(drawer).toHaveCount(0);
   expect(batches).toHaveLength(2);
   expect(batches[1]).toEqual(batches[0]);
-  const final = (await (await page.request.get(base)).json()) as {
-    items: { id: string; channel_id: string }[];
-  };
+  const final = (await (
+    await page.request.get(base)
+  ).json()) as ServerIntegrationList;
   expect(final.items).toHaveLength(2);
   expect(final.items.some((item) => item.id === created[0])).toBe(false);
   expect(final.items.find((item) => item.id === created[1])?.channel_id).toBe(
@@ -138,9 +143,9 @@ test("independent destinations separate backups, public cards, and scoped game r
 }) => {
   test.setTimeout(90_000);
   await login(page);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const headers = { "X-CSRF-Token": session.csrf_token, Origin: baseURL! };
   expect(
     (
@@ -173,7 +178,8 @@ test("independent destinations separate backups, public cards, and scoped game r
     },
   });
   expect(publicResponse.status()).toBe(201);
-  const publicBinding = (await publicResponse.json()) as { id: string };
+  const publicBinding =
+    (await publicResponse.json()) as ServerIntegrationSettings;
   const adminResponse = await page.request.post(base, {
     headers,
     data: {
@@ -184,7 +190,8 @@ test("independent destinations separate backups, public cards, and scoped game r
     },
   });
   expect(adminResponse.status()).toBe(201);
-  const adminBinding = (await adminResponse.json()) as { id: string };
+  const adminBinding =
+    (await adminResponse.json()) as ServerIntegrationSettings;
   for (const [id, category, type, title, data] of [
     ["announcement", "game", "game.announcement", "Public announcement", {}],
     ["doug", "game", "player.joined", "Doug joined", { player: "doug" }],
@@ -322,7 +329,7 @@ test("independent destinations separate backups, public cards, and scoped game r
     (
       (await (
         await page.request.get(`${base}/${publicBinding.id}`)
-      ).json()) as { enabled: boolean }
+      ).json()) as ServerIntegrationSettings
     ).enabled,
   ).toBe(true);
   await openServerIntegrations(page);
@@ -382,12 +389,7 @@ test("independent destinations separate backups, public cards, and scoped game r
     .click();
   const saved = (await (
     await page.request.get(`${base}/${publicBinding.id}`)
-  ).json()) as {
-    subscriptions: {
-      category: string;
-      rules?: { type: string; fields?: Record<string, string> }[];
-    }[];
-  };
+  ).json()) as ServerIntegrationSettings;
   expect(
     saved.subscriptions.find((item) => item.category === "game")?.rules?.[2],
   ).toEqual({
@@ -449,9 +451,9 @@ test("independent destinations separate backups, public cards, and scoped game r
   expect((await page.request.get(`${base}/${adminBinding.id}`)).status()).toBe(
     404,
   );
-  const remaining = (await (await page.request.get(base)).json()) as {
-    items: { id: string }[];
-  };
+  const remaining = (await (
+    await page.request.get(base)
+  ).json()) as ServerIntegrationList;
   expect(remaining.items.map((item) => item.id)).toEqual([publicBinding.id]);
   await openServerIntegrations(page);
   await destinations

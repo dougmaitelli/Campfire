@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func TestBackupMetadataUsesCreationPermissionAndStableArchiveIdentity(t *testing.T) {

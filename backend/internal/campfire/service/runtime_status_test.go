@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func TestRuntimeStatusCacheRejectsStalePlacementAndConsoleContent(t *testing.T) {

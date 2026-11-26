@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"sync"
 	"time"
 
@@ -262,12 +263,23 @@ func aggregateResources(node model.Spark, rows []database.ServerResourceSample, 
 
 	usage = model.ResourceUsage{State: "connected", CPUPercent: new(float64), MemoryBytes: new(int64), DiskBytes: new(int64), SampledAt: collected, DiskSampledAt: collected}
 
+	var accounting model.DiskAccounting
+
 	for _, row := range rows {
 		if row.SparkID != node.ID {
 			continue
 		}
 
 		current := row.Usage
+		if current.DiskBytes != nil {
+			kind := current.DiskAccounting.Effective()
+			if accounting == "" {
+				accounting = kind
+			} else if accounting != kind {
+				accounting = model.DiskAccountingMixed
+			}
+		}
+
 		if usage.CPUPercent != nil && current.CPUPercent != nil {
 			*usage.CPUPercent += *current.CPUPercent
 		} else {
@@ -280,7 +292,7 @@ func aggregateResources(node model.Spark, rows []database.ServerResourceSample, 
 			usage.MemoryBytes = nil
 		}
 
-		if usage.DiskBytes != nil && current.DiskBytes != nil {
+		if usage.DiskBytes != nil && current.DiskBytes != nil && *current.DiskBytes >= 0 && *usage.DiskBytes <= math.MaxInt64-*current.DiskBytes {
 			*usage.DiskBytes += *current.DiskBytes
 		} else {
 			usage.DiskBytes = nil
@@ -299,6 +311,8 @@ func aggregateResources(node model.Spark, rows []database.ServerResourceSample, 
 			usage.DiskError = "Some game-data measurements are unavailable."
 		}
 	}
+
+	usage.DiskAccounting = accounting
 
 	return usage
 }

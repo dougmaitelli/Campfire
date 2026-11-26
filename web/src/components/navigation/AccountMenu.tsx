@@ -5,10 +5,15 @@ import { createPortal } from "react-dom";
 import { useAuthentication } from "../../hooks/useAuthentication";
 import { canPerformPlatform } from "../../permissions";
 import { linkOIDC, stopViewAs } from "../../api/auth";
-import { APITokensDrawer } from "../../drawers/APITokensDrawer";
 import { NavigationIcon } from "./NavigationIcon";
 import { Button } from "../forms/Button";
 import "./account-menu.css";
+
+const MyProfileDrawer = lazy(() =>
+  import("../../drawers/MyProfileDrawer").then((module) => ({
+    default: module.MyProfileDrawer,
+  })),
+);
 
 const ViewAsDrawer = lazy(() =>
   import("../../drawers/ViewAsDrawer").then((module) => ({
@@ -27,7 +32,7 @@ export function AccountMenu() {
   const auth = useAuthentication();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [tokensOpen, setTokensOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const [viewAsOpen, setViewAsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,14 +154,11 @@ export function AccountMenu() {
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  setTokensOpen(true);
+                  setProfileOpen(true);
                 }}
               >
-                <Trans
-                  i18nKey="accountMenu.apiTokens"
-                  t={t}
-                  components={{ navigationIcon: <NavigationIcon name="key" /> }}
-                />
+                <NavigationIcon name="profile" />
+                {t("profile.title")}
               </button>
               {auth.session?.oidc_enabled && !auth.session.oidc_linked && (
                 <button
@@ -234,9 +236,11 @@ export function AccountMenu() {
           )}
         </p>
       )}
-      {tokensOpen &&
+      {profileOpen &&
         createPortal(
-          <APITokensDrawer onClose={() => setTokensOpen(false)} />,
+          <Suspense fallback={null}>
+            <MyProfileDrawer onClose={() => setProfileOpen(false)} />
+          </Suspense>,
           document.body,
         )}
       {integrationsOpen &&

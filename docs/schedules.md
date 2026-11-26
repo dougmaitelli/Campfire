@@ -21,6 +21,12 @@ The schedule runs with its owner's current access. Keep the account enabled and
 the required server permissions in place. The panel must be running to dispatch
 scheduled work, and the Spark must be available to execute it.
 
+Console-command schedules also require the Ember to support
+[console commands](/Campfire/ember-schema/#interactive-console-commands). Unsupported
+command schedules cannot be saved or enabled. If support is disabled after a
+schedule is created, its next attempted execution fails with **This game does not
+support console commands.** No command is sent to Spark.
+
 ### Cron syntax
 
 Recurring schedules use five fields, with no seconds field:

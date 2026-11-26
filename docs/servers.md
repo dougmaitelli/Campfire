@@ -55,6 +55,35 @@ same rule again; issues from earlier executions are archived.
 See [Ember alert rules](/Campfire/ember-schema/#actionable-console-errors) to customize
 detection.
 
+## Inspect crash records
+
+Open **Activity → Alerts** and select a crash to inspect its container ID, exit
+time, exit code, and reason. The reason is **Out of memory** only when supported
+by a recent OOM event followed by a fatal exit; otherwise it is **Unknown**.
+An OOM incident affecting a child process does not by itself mean the server
+crashed. Successful exits and intentional stops are excluded even after an OOM
+incident. Exit code **137 alone does not confirm an out-of-memory kill**. Activity ordering and retention use the
+exit time; separate start and recording timestamps are not retained.
+
+Crash records cover abnormal game-container exits, including exits followed by
+Docker's automatic restart. Successful exits, installer containers, and observed
+intentional stops are excluded. Managed stop intent has a short expiry so a failed
+stop cannot suppress later crashes indefinitely. These are diagnostic records,
+not a new automatic-recovery policy: Docker's existing restart behavior is unchanged.
+
+Viewing a server allows reading crash metadata. The captured console tail requires
+`server.console.read`; console text is neither included in Activity summaries nor
+searched. Evidence is limited to the last 200 lines and 16 KiB and may contain
+sensitive game output. Logs may already be unavailable when a crash is observed.
+
+The panel retains at most **100 records per server for 30 days**. Spark keeps at
+most **8 records per server** for reconnect replay, outside game data and backups.
+Expired evidence is removed by background cleanup, and deleted-server runtime
+evidence is removed during deletion. Docker's own event history is bounded, so
+outages or rapid repeated crashes can leave gaps; this is not a complete crash
+archive. Crash records currently appear in Activity, without additional inbox or
+external notifications.
+
 ## Edit a server
 
 Open **More server actions** on the server page and choose **Edit server**.
@@ -69,12 +98,44 @@ as needed. To customize the imported startup command for this server, edit
 reset it. Ember variable placeholders are supported; changes to the startup
 command apply on the next server restart.
 
+### Public game address
+
+Set **Public game address** in the server editor to override the connection text
+players should use: an IP, hostname, URL, or custom connection string, with or
+without a port. An override is used exactly as entered; include any needed port.
+For a domain with an SRV record, you can enter the domain alone.
+
+Leave the override empty to inherit the Spark's **Default public host**, combined
+with the Ember's explicitly designated primary game's mapped host port. Its
+container port supplies `SERVER_PORT`; its matching container port and protocol
+select the published host port. Neither mapping order nor required-port order
+chooses the primary. Without a designation or matching mapping, no address is
+derived. Multiple matching mappings must agree on the host port. Campfire never
+guesses a public host from a bind interface. If no address can be derived, enter
+a complete override.
+
+Connection previews reflect the saved configuration, not proof that the running
+game has adopted it.
+
+The editor shows the resulting connection address and whether it is inherited.
+Public status pages and shared cards use that same result. It is also visible in
+the server details drawer, but not in internal server lists.
+
+For games on different public IPs, or networks with external port translation,
+set each server's complete override. Two games can use the same port on different
+interfaces without sharing a public address.
+
+This is display information, not a network setting. Configure port mappings,
+firewalls, forwarding, and DNS separately. You can change or clear it with normal
+server-edit access, without restarting the server.
+
 ## Restart requirements
 
 Configuration edits can be saved while the server runs. Spark receives the saved
 settings without recreating the running container. **Restart required** appears
 when the saved container settings differ from those currently running. Names,
-descriptions, save-data paths, and log-monitoring rules do not require a restart.
+descriptions, public game addresses, save-data paths, and log-monitoring rules do
+not require a restart.
 
 ## Apply an Ember update
 

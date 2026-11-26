@@ -1,4 +1,7 @@
 import { test, expect, screenshot, pageFixture } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Role } from "../web/src/api/access";
+import type { Schedule } from "../web/src/api/activity";
 import { login, openScreen } from "./screens";
 
 test("upcoming schedule rows open details while related links and toggles stay independent", async ({
@@ -136,7 +139,7 @@ for (const value of [true, false]) {
   }) => {
     await login(page);
     const session = await page.request.get("/api/v1/auth/session");
-    const { csrf_token } = (await session.json()) as { csrf_token: string };
+    const { csrf_token } = await readAuthenticatedSession(session);
     const response = await page.request.post("/api/v1/schedules", {
       headers: { "X-CSRF-Token": csrf_token, Origin: baseURL! },
       data: {
@@ -154,7 +157,7 @@ for (const value of [true, false]) {
       },
     });
     expect(response.ok()).toBeTruthy();
-    const schedule = (await response.json()) as { id: string };
+    const schedule = (await response.json()) as Schedule;
     await page.goto(`/#schedules/${schedule.id}`);
     const overview = page.getByRole("dialog", {
       name: "Scheduled backup",
@@ -196,10 +199,10 @@ for (const permissions of [
   }) => {
     await login(page, "viewer");
     const admin = await request.post("/api/v1/auth/login", {
-      data: { username: "admin", password: "campfire-e2e-password" },
+      data: { username: "admin", password: "Campfire-E2E-Password1!" },
     });
     expect(admin.ok()).toBeTruthy();
-    const { csrf_token } = (await admin.json()) as { csrf_token: string };
+    const { csrf_token } = await readAuthenticatedSession(admin);
     const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
     const roleResponse = await request.post("/api/v1/roles", {
       headers,
@@ -210,7 +213,7 @@ for (const permissions of [
       },
     });
     expect(roleResponse.ok()).toBeTruthy();
-    const role = (await roleResponse.json()) as { id: number };
+    const role = (await roleResponse.json()) as Role;
     expect(
       (
         await request.post("/api/v1/servers/survival/members", {
@@ -276,7 +279,7 @@ for (const permissions of [
       overview.getByRole("button", { name: "Edit schedule", exact: true }),
     ).toHaveCount(0);
     const session = await page.request.get("/api/v1/auth/session");
-    const viewer = (await session.json()) as { csrf_token: string };
+    const viewer = await readAuthenticatedSession(session);
     expect(
       (
         await page.request.patch("/api/v1/schedules/nightly-restart", {
@@ -347,7 +350,7 @@ test("the seeded observer can view schedules but cannot toggle them", async ({
     overview.getByRole("button", { name: "Edit schedule", exact: true }),
   ).toHaveCount(0);
   const session = await page.request.get("/api/v1/auth/session");
-  const { csrf_token } = (await session.json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(session);
   expect(
     (
       await page.request.patch("/api/v1/schedules/nightly-restart", {

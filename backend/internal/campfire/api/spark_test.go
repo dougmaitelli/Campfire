@@ -386,6 +386,9 @@ func TestSparkCapacityAndNetworking(t *testing.T) {
 	for _, body := range []string{
 		`{"game_address":"https://games.example.com"}`,
 		`{"game_address":"games.example.com:25565"}`,
+		`{"game_address":"0.0.0.0"}`, `{"game_address":"::"}`,
+		`{"game_address":"224.0.0.1"}`, `{"game_address":"ff02::1"}`,
+		`{"game_address":"::ffff:224.0.0.1"}`,
 		`{"cpu_limit":-1}`, `{"memory_mb":-1}`, `{"disk_mb":1.5}`,
 		`{"port_allocations":[{"bind_ip":"domain.example","start":1,"end":10,"protocol":"tcp"}]}`,
 		`{"port_allocations":[{"bind_ip":"0.0.0.0","start":0,"end":10,"protocol":"tcp"}]}`,

@@ -9,9 +9,9 @@ import (
 	"slices"
 	"time"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func (a *API) fileLimits(w http.ResponseWriter, _ *http.Request) {
@@ -36,6 +36,10 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost && !decodeRequest(w, r, &input, 2<<20) {
+		return
+	}
+
+	if r.Method == http.MethodPost && !auditFileRequest(w, r, input.Operation) {
 		return
 	}
 
@@ -72,12 +76,6 @@ func (a *API) serverFiles(w http.ResponseWriter, r *http.Request) {
 		if !slices.Contains([]model.FileOperation{model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationStat, model.FileOperationReadChunk, model.FileOperationUploadBegin, model.FileOperationUploadChunk, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract}, input.Operation) && !input.Operation.IsExtraction() && !input.Operation.IsCompression() {
 			writeFileError(w, &model.FileError{Code: model.FileInvalid, Message: "Invalid game file operation."})
 			return
-		}
-
-		for _, operation := range []model.FileOperation{model.FileOperationCompressStart, model.FileOperationCompressCancel, model.FileOperationList, model.FileOperationRead, model.FileOperationWrite, model.FileOperationMkdir, model.FileOperationRename, model.FileOperationDelete, model.FileOperationChmod, model.FileOperationUploadBegin, model.FileOperationUploadCommit, model.FileOperationUploadCancel, model.FileOperationCompress, model.FileOperationExtract, model.FileOperationExtractStart, model.FileOperationExtractResolve, model.FileOperationExtractCancel} {
-			if input.Operation == operation {
-				auditDetail(r, model.ResourceAuditAction("server.files", string(operation)), "server:"+r.PathValue("id"))
-			}
 		}
 	}
 
@@ -149,7 +147,7 @@ func (a *API) downloadFile(w http.ResponseWriter, r *http.Request) {
 			panic(http.ErrAbortHandler)
 		}
 
-		if _, err := w.Write(result.Data); err != nil {
+		if n, err := w.Write(result.Data); err != nil || n != len(result.Data) {
 			return
 		}
 
@@ -161,6 +159,8 @@ func (a *API) downloadFile(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	auditDownloadComplete(r)
 }
 
 func writeFileError(w http.ResponseWriter, err error) {

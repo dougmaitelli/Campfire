@@ -1,4 +1,6 @@
 import { test, expect } from "./fixtures";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { GameEvent } from "../web/src/api/gameEvents";
 import { login } from "./screens";
 
 test("game activity loads protected screenshots and playable clips", async ({
@@ -40,9 +42,7 @@ test("game media cannot be downloaded without server access", async ({
 }) => {
   await login(page);
   const response = await page.request.get("/api/v1/servers/survival/events");
-  const events = (await response.json()) as {
-    items: { id: number; attachments?: { id: string }[] }[];
-  };
+  const events = (await response.json()) as Paginated<GameEvent>;
   const event = events.items.find((item) => item.attachments?.length);
   if (!event) throw new Error("Missing media fixture");
   const url = `/api/v1/servers/survival/events/${event.id}/media/screenshot`;

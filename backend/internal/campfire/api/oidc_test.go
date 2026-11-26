@@ -29,7 +29,7 @@ func TestOIDCDisabledLocalLoginAllowsInitialSetup(t *testing.T) {
 	t.Cleanup(providerServer.Close)
 	issuer = providerServer.URL
 
-	provider, err := service.NewOIDCService(ctx, auth, service.OIDCConfig{Issuer: issuer, ClientID: "campfire", PublicURL: "https://panel.example.com", DisableLocal: true})
+	provider, err := service.NewOIDCService(ctx, auth, service.OIDCConfig{Issuer: issuer, ClientID: "campfire", PublicURL: "https://panel.example.com", DisableLocal: true, AutoLinkEmail: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,6 +44,19 @@ func TestOIDCDisabledLocalLoginAllowsInitialSetup(t *testing.T) {
 	response = request(handler, "POST", "/api/v1/auth/setup", setupBody(t, token))
 	if response.Code != http.StatusOK {
 		t.Fatal("initial setup rejected", response.Code, response.Body)
+	}
+
+	var state struct {
+		AutoLink bool   `json:"oidc_auto_link_email"`
+		CSRF     string `json:"csrf_token"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &state); err != nil || !state.AutoLink {
+		t.Fatal("missing provisioning capability", err)
+	}
+
+	created := authRequest(handler, "POST", "/api/v1/users", `{"username":"future-user","email":"future@example.test","role_id":3}`, response.Result().Cookies()[0], state.CSRF, "")
+	if created.Code != http.StatusCreated {
+		t.Fatal("could not pre-provision through the admin API", created.Code, created.Body)
 	}
 
 	response = request(handler, "POST", "/api/v1/auth/login", `{"username":"admin","password":"`+testAdminPassword+`"}`)
@@ -64,7 +77,7 @@ func TestOIDCRoutesAndDisabledLocalLogin(t *testing.T) {
 
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
 
-	user, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "admin", Password: testAdminPassword, RoleID: database.AdminRole, Disabled: false, Name: "", Email: ""})
+	user, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "admin", Password: testAdminPassword, RoleID: database.AdminRole, Disabled: false, Name: "", Email: "admin@example.test"})
 	if err != nil {
 		t.Fatal(err)
 	}

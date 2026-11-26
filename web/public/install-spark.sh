@@ -26,7 +26,7 @@ done
 [[ -z $ca_file || -z $ca_base64 ]] || fail "Use either --ca-file or --ca-base64."
 [[ ${#ca_base64} -le 65536 ]] || fail "The panel CA certificate is too large."
 missing=()
-for tool in curl tar sha256sum install systemctl docker uname mktemp chmod rm grep base64; do
+for tool in curl tar sha256sum install systemctl systemd-run docker uname mktemp chmod rm grep sed base64; do
   if ! command -v "$tool" >/dev/null; then missing+=("$tool"); fi
 done
 if ((${#missing[@]})); then
@@ -42,7 +42,6 @@ case "$(uname -m)" in
   *) fail "Supported CPU architectures: amd64 and arm64." ;;
 esac
 [[ -d /run/systemd/system ]] || fail "This installer requires a running systemd host."
-docker info >/dev/null 2>&1 || fail "Docker must be running before installing Spark."
 [[ -z $ca_file || -f $ca_file ]] || fail "The panel CA certificate file does not exist."
 
 stage=$(mktemp -d)
@@ -75,7 +74,21 @@ chmod 0755 "$stage/spark"
 # Check compatibility before changing an existing installation.
 "$stage/spark" --help 2>&1 | grep -q -- '-enroll-only' || fail "The bundled Spark does not support automatic installation."
 "$stage/spark" --update-info | grep -Fq -- "\"version\":\"$version\"" || fail "The bundled Spark version does not match the panel."
-install -d -m 0700 /var/lib/spark
+[[ -d /var/lib/spark ]] || install -d -m 0700 /var/lib/spark
+# Use the service environment and staged runtime checks before rotating an
+# identity or stopping an existing Spark. Keep validation errors on stderr.
+endpoint=$(systemd-run --quiet --wait --pipe -p EnvironmentFile=-/etc/campfire/spark.env "$stage/spark" --check-docker --data /var/lib/spark) || fail "Spark Docker preflight failed. Check the error above."
+unit="$stage/deploy/systemd/spark.service"
+case "$endpoint" in
+  'rootful unix:///var/run/docker.sock'|'rootful unix:///run/docker.sock')
+    if systemctl cat docker.service >/dev/null 2>&1; then system_docker=true; else system_docker=false; fi ;;
+  'rootless unix:///'*|'rootful unix:///'*) system_docker=false ;;
+  *) fail "Unexpected Docker preflight result." ;;
+esac
+if ! $system_docker; then
+  sed '/^Requires=docker\.service$/d' "$unit" > "$stage/spark.service"
+  unit="$stage/spark.service"
+fi
 if systemctl is-active --quiet spark.service; then
   restart_previous=true
   systemctl stop spark.service
@@ -87,9 +100,9 @@ if [[ -n $ca_file ]]; then enroll_args+=(--ca-file "$ca_file"); fi
 unset token
 install -m 0755 "$stage/spark" /usr/local/bin/spark
 # A dedicated drop-in uses the saved identity rather than retaining the token.
-install -m 0644 "$stage/deploy/systemd/spark.service" /etc/systemd/system/spark.service
+install -m 0644 "$unit" /etc/systemd/system/spark.service
 install -d -m 0755 /etc/systemd/system/spark.service.d
-printf '[Service]\nEnvironmentFile=\nUnsetEnvironment=SPARK_PANEL SPARK_TOKEN_FILE SPARK_CA_FILE SPARK_ENROLLMENT_TOKEN\nEnvironment=SPARK_DATA=/var/lib/spark\n' > /etc/systemd/system/spark.service.d/installer.conf
+printf '[Service]\nUnsetEnvironment=SPARK_PANEL SPARK_TOKEN_FILE SPARK_CA_FILE SPARK_ENROLLMENT_TOKEN\nExecStart=\nExecStart=/usr/local/bin/spark --data /var/lib/spark\n' > /etc/systemd/system/spark.service.d/installer.conf
 systemctl daemon-reload
 systemctl enable --now spark.service
 restart_previous=false

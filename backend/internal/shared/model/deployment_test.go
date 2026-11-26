@@ -9,7 +9,7 @@ import (
 
 func deploymentSource() (ServerConfiguration, Ember) {
 	c := ServerConfiguration{
-		Name: "Panel server name", Description: "Panel server description", SparkID: "node", EmberID: "game",
+		Name: "Panel server name", Description: "Panel server description", GameAddress: "https://Play.Example.test:32100/Join", SparkID: "node", EmberID: "game",
 		Image: "alpine:3.22", Variables: map[string]string{"PASSWORD": "literal $(value)"},
 		CPULimit: 1, MemoryMB: 128, DiskMB: 1024, GameIntegration: true,
 	}
@@ -50,7 +50,7 @@ func TestDeploymentContainsOnlyExecutionData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, key := range []string{"name", "description", "startup_command", "startup_override"} {
+	for _, key := range []string{"name", "description", "game_address", "startup_command", "startup_override"} {
 		if _, ok := wire.Configuration[key]; ok {
 			t.Fatal("panel setting leaked into execution configuration", key)
 		}

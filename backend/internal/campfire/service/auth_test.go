@@ -47,22 +47,27 @@ func TestAdministratorSecretsBootstrapAndThrottling(t *testing.T) {
 		t.Fatal("restart did not replace setup token")
 	}
 
-	password := "a private long passphrase with spaces"
+	password := "a private long passphrase with spaces A1!"
+	for _, address := range []string{"", "invalid"} {
+		if _, _, err := restarted.Setup(ctx, token, "admin", password, address); !errors.Is(err, repository.ErrEmailRequired) {
+			t.Fatal("setup accepted an invalid or missing address", err)
+		}
+	}
 
-	if _, _, err := restarted.Setup(ctx, previous, "admin", password); !errors.Is(err, ErrAuthentication) {
+	if _, _, err := restarted.Setup(ctx, previous, "admin", password, "admin@example.test"); !errors.Is(err, ErrAuthentication) {
 		t.Fatal("old process token accepted", err)
 	}
 
-	if _, _, err := restarted.Setup(ctx, token, "admin", "short"); !errors.Is(err, ErrAuthInput) {
+	if _, _, err := restarted.Setup(ctx, token, "admin", "short", "admin@example.test"); !errors.Is(err, ErrAuthInput) {
 		t.Fatal("short setup password accepted", err)
 	}
 
-	session, raw, err := restarted.Setup(ctx, token, " AdMin ", password)
+	session, raw, err := restarted.Setup(ctx, token, " AdMin ", password, "admin@example.test")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, _, err := restarted.Setup(ctx, token, "other", password); !errors.Is(err, ErrAuthentication) {
+	if _, _, err := restarted.Setup(ctx, token, "other", password, "admin@example.test"); !errors.Is(err, ErrAuthentication) {
 		t.Fatal("consumed token was reusable", err)
 	}
 
@@ -119,7 +124,7 @@ func TestSetupRequiresAnExplicitlyPreparedSecret(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	auth := NewAuthService(repository.NewAuthRepository(db.ORM()))
-	if _, _, err := auth.Setup(ctx, authToken(), "admin", "a private long passphrase"); !errors.Is(err, ErrAuthentication) {
+	if _, _, err := auth.Setup(ctx, authToken(), "admin", "a private long passphrase A1!", "admin@example.test"); !errors.Is(err, ErrAuthentication) {
 		t.Fatal("setup accepted before preparation", err)
 	}
 

@@ -10,8 +10,8 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 // APITokenScopes is the existing permission vocabulary plus all current access.

@@ -1,4 +1,6 @@
 import { test, expect } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { CatalogBackup, BackupListing } from "../web/src/api/backups";
 import { login } from "./screens";
 import { BuiltinRole } from "../web/src/config/policies";
 
@@ -6,9 +8,9 @@ test("overview and backup catalog show only backups from assigned servers", asyn
   page,
 }) => {
   await login(page);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const grant = await page.request.post("/api/v1/servers/modded/members", {
     headers: { "X-CSRF-Token": session.csrf_token },
     data: { username: "jordan", role_id: BuiltinRole.Operator },
@@ -19,7 +21,7 @@ test("overview and backup catalog show only backups from assigned servers", asyn
   await page.getByLabel("Username", { exact: true }).fill("jordan");
   await page
     .getByLabel("Password", { exact: true })
-    .fill("campfire-e2e-password");
+    .fill("Campfire-E2E-Password1!");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   const recent = page.getByRole("table", {
     name: "Recent backups",
@@ -31,7 +33,7 @@ test("overview and backup catalog show only backups from assigned servers", asyn
   ).toHaveCount(2);
   const response = await page.request.get("/api/v1/backups");
   expect(response.ok()).toBeTruthy();
-  const catalog = (await response.json()) as { server_id: string }[];
+  const catalog = (await response.json()) as CatalogBackup[];
   expect(catalog).toHaveLength(2);
   expect(catalog.every((entry) => entry.server_id === "modded")).toBe(true);
   await page
@@ -49,16 +51,14 @@ test("independent archives can be found by current storage Spark or archive ID",
   page,
 }) => {
   await login(page);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const listingResponse = await page.request.get(
     "/api/v1/servers/survival/backups",
   );
   expect(listingResponse.ok()).toBeTruthy();
-  const listing = (await listingResponse.json()) as {
-    entries: { id: string }[];
-  };
+  const listing = (await listingResponse.json()) as BackupListing;
   expect(listing.entries.length).toBeGreaterThan(0);
   const deleted = await page.request.delete("/api/v1/servers/survival", {
     headers: { "X-CSRF-Token": session.csrf_token },
@@ -66,12 +66,7 @@ test("independent archives can be found by current storage Spark or archive ID",
   expect(deleted.ok()).toBeTruthy();
   const catalog = (await (
     await page.request.get("/api/v1/backups")
-  ).json()) as {
-    id: string;
-    server_id?: string;
-    local_spark_id?: string;
-    local_spark_name?: string;
-  }[];
+  ).json()) as CatalogBackup[];
   const archived = catalog.find((item) => item.id === listing.entries[0]?.id);
   expect(archived?.server_id).toBeFalsy();
   expect(archived?.local_spark_id).toBeTruthy();

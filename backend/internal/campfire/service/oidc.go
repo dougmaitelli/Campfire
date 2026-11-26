@@ -39,16 +39,15 @@ type oidcAttempt struct {
 
 // OIDCService owns provider validation and short-lived, single-use browser flows.
 type OIDCService struct {
-	auth          *AuthService
-	issuer        string
-	oauth         oauth2.Config
-	verifier      *oidc.IDTokenVerifier
-	provider      *oidc.Provider
-	userInfo      bool
-	autoLinkEmail bool
-	client        *http.Client
-	mu            sync.Mutex
-	attempts      map[string]oidcAttempt
+	auth     *AuthService
+	issuer   string
+	oauth    oauth2.Config
+	verifier *oidc.IDTokenVerifier
+	provider *oidc.Provider
+	userInfo bool
+	client   *http.Client
+	mu       sync.Mutex
+	attempts map[string]oidcAttempt
 }
 
 // NewOIDCService discovers the configured provider and checks that login remains possible.
@@ -65,6 +64,7 @@ func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (
 		}
 
 		auth.loginProvider = ""
+		auth.autoLinkEmail = false
 		auth.disableLocal = false
 
 		return nil, nil
@@ -128,9 +128,10 @@ func NewOIDCService(ctx context.Context, auth *AuthService, config OIDCConfig) (
 	}
 
 	auth.loginProvider = config.Issuer
+	auth.autoLinkEmail = config.AutoLinkEmail
 	auth.disableLocal = config.DisableLocal
 
-	return &OIDCService{auth: auth, issuer: config.Issuer, client: client, provider: provider, userInfo: metadata.UserInfoURL != "", autoLinkEmail: config.AutoLinkEmail, attempts: make(map[string]oidcAttempt), verifier: provider.Verifier(&oidc.Config{ClientID: config.ClientID}), oauth: oauth2.Config{
+	return &OIDCService{auth: auth, issuer: config.Issuer, client: client, provider: provider, userInfo: metadata.UserInfoURL != "", attempts: make(map[string]oidcAttempt), verifier: provider.Verifier(&oidc.Config{ClientID: config.ClientID}), oauth: oauth2.Config{
 		ClientID: config.ClientID, ClientSecret: config.ClientSecret, Endpoint: endpoint,
 		RedirectURL: strings.TrimRight(config.PublicURL, "/") + "/api/v1/auth/oidc/callback",
 		Scopes:      []string{oidc.ScopeOpenID, "profile", "email"},
@@ -174,6 +175,9 @@ func (s *OIDCService) Start(ctx context.Context, linkToken string) (string, stri
 
 	return s.oauth.AuthCodeURL(attempt.state, oidc.Nonce(attempt.nonce), oauth2.S256ChallengeOption(attempt.verifier)), cookie, nil
 }
+
+// OIDCAutoLinkEnabled allows administrators to provision users without a local password.
+func (s *AuthService) OIDCAutoLinkEnabled() bool { return s.autoLinkEmail }
 
 // Linked reports whether an account is linked to this provider.
 func (s *OIDCService) Linked(ctx context.Context, userID int64) (bool, error) {
@@ -248,7 +252,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 
 		if profile.Email != "" {
 			// Verification applies only to the email asserted alongside it.
-			if !strings.EqualFold(strings.TrimSpace(profile.Email), strings.TrimSpace(claims.Email)) {
+			if utils.NormalizeEmail(profile.Email) != utils.NormalizeEmail(claims.Email) {
 				claims.EmailVerified = false
 			}
 
@@ -287,7 +291,7 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		displayName = ""
 	}
 
-	email := strings.TrimSpace(claims.Email)
+	email := utils.NormalizeEmail(claims.Email)
 	if !validEmail(email) {
 		email = ""
 	}
@@ -297,12 +301,13 @@ func (s *OIDCService) Complete(ctx context.Context, cookie, state, code string) 
 		picture = claims.Picture
 	}
 
-	user, err := s.auth.store.OIDCAccount(ctx, repository.OIDCAccountInput{Issuer: s.issuer, Subject: id.Subject, Username: name, LinkUserID: attempt.userID, CredentialVersion: attempt.version, LinkSessionHash: attempt.sessionHash, Name: displayName, Email: email, Picture: picture, Options: repository.OIDCAccountOptions{AutoLinkEmail: s.autoLinkEmail, EmailVerified: claims.EmailVerified}})
+	user, err := s.auth.store.OIDCAccount(ctx, repository.OIDCAccountInput{Issuer: s.issuer, Subject: id.Subject, Username: name, LinkUserID: attempt.userID, CredentialVersion: attempt.version, LinkSessionHash: attempt.sessionHash, Name: displayName, Email: email, Picture: picture, Options: repository.OIDCAccountOptions{AutoLinkEmail: s.auth.autoLinkEmail, EmailVerified: claims.EmailVerified}})
 	if err != nil {
 		return database.UserSession{}, "", err
 	}
 
 	session, rawSession := newUserSession(user.ID, user.CredentialVersion, s.auth.now())
+	session.UserAgent = sessionUserAgent(ctx)
 	session.Provider = s.issuer
 
 	if err := s.auth.store.CreateSession(ctx, session, "", s.auth.now()); err != nil {

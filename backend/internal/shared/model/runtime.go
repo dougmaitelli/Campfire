@@ -118,4 +118,6 @@ type RuntimeStatus struct {
 	Metrics            *ResourceUsage         `json:"metrics,omitempty"`
 	LogObservation     *LogObservation        `json:"log_observation,omitempty"`
 	LogMonitorError    string                 `json:"log_monitor_error,omitempty"`
+	Crashes            []CrashRecord          `json:"crashes,omitempty"`
+	CrashMonitorError  string                 `json:"crash_monitor_error,omitempty"`
 }

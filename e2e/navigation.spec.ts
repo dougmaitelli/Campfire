@@ -1,4 +1,7 @@
 import { test, expect, screenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Role } from "../web/src/api/access";
+import type { Server } from "../web/src/api/servers";
 import { login, openServerTab, openScreen, inspectServer } from "./screens";
 
 test("overview and server lists poll one aggregate runtime endpoint", async ({
@@ -245,7 +248,7 @@ for (const allowed of [false, true]) {
     await login(page);
     await page.route("**/api/v1/servers/survival", async (route) => {
       const response = await route.fetch();
-      const server = (await response.json()) as Record<string, unknown>;
+      const server = (await response.json()) as Server;
       await route.fulfill({
         response,
         json: {
@@ -289,10 +292,10 @@ test("view-only server rows hide power actions and fall back to an allowed tab",
 }) => {
   await login(page, "viewer");
   const auth = await request.post("/api/v1/auth/login", {
-    data: { username: "admin", password: "campfire-e2e-password" },
+    data: { username: "admin", password: "Campfire-E2E-Password1!" },
   });
   expect(auth.ok()).toBeTruthy();
-  const { csrf_token } = (await auth.json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(auth);
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   const roleResponse = await request.post("/api/v1/roles", {
     headers,
@@ -303,7 +306,7 @@ test("view-only server rows hide power actions and fall back to an allowed tab",
     },
   });
   expect(roleResponse.ok()).toBeTruthy();
-  const role = (await roleResponse.json()) as { id: number };
+  const role = (await roleResponse.json()) as Role;
   expect(
     (
       await request.post("/api/v1/servers/survival/members", {

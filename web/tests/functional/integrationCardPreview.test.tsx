@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import {
   previewIntegrationCard,
   type IntegrationCard,
@@ -11,6 +11,11 @@ import i18n from "../../src/i18n";
 vi.mock("../../src/api/integrations", () => ({
   previewIntegrationCard: vi.fn(),
 }));
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const card: IntegrationCard = {
   name: "Game server",
@@ -52,6 +57,52 @@ const card: IntegrationCard = {
     ],
   },
 };
+
+test("preview fetches only on input changes while local expiry still advances", async () => {
+  vi.useFakeTimers();
+  const request = vi
+    .mocked(previewIntegrationCard)
+    .mockReset()
+    .mockResolvedValue({
+      ...card,
+      expires_at: Math.floor(Date.now() / 1000) + 10,
+    });
+  const view = render(
+    <IntegrationCardPreview serverID="server" fields={["players"]} />,
+  );
+  await act(async () => {});
+  expect(screen.getByText("Running")).toBeTruthy();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(15000);
+  });
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("Unknown")).toBeTruthy();
+  view.rerender(
+    <IntegrationCardPreview serverID="server" fields={["players"]} />,
+  );
+  expect(request).toHaveBeenCalledTimes(1);
+  request.mockRejectedValueOnce(new Error("New preview failed"));
+  await act(async () => {
+    view.rerender(
+      <IntegrationCardPreview serverID="server" fields={["address"]} />,
+    );
+  });
+  expect(request).toHaveBeenCalledTimes(2);
+  expect(screen.getByText("New preview failed")).toBeTruthy();
+  expect(screen.queryByText("Game server")).toBeNull();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(15000);
+  });
+  expect(request).toHaveBeenCalledTimes(2);
+  request.mockResolvedValueOnce(card);
+  await act(async () => {
+    view.rerender(
+      <IntegrationCardPreview serverID="other" fields={["address"]} />,
+    );
+  });
+  expect(request).toHaveBeenCalledTimes(3);
+  expect(screen.getByText("Game server")).toBeTruthy();
+});
 
 test("preview consumes the actual Discord presentation without adding formatting", async () => {
   const response = structuredClone(card);

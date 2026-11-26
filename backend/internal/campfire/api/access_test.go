@@ -22,6 +22,7 @@ type accessRuntime struct {
 	calls     atomic.Int64
 	files     func(model.FileRequest) (model.FileResult, error)
 	metrics   func(model.RuntimeRequest) (model.RuntimeStatus, error)
+	status    func(model.RuntimeRequest) (model.RuntimeStatus, error)
 	console   func(context.Context, string, func(model.ConsoleEvent) error) error
 }
 
@@ -48,6 +49,10 @@ func (d *accessRuntime) Deploy(_ context.Context, _ string, definition model.Dep
 }
 func (d *accessRuntime) Action(_ context.Context, _ string, action model.RuntimeRequest) (model.RuntimeStatus, error) {
 	d.calls.Add(1)
+
+	if action.Action == model.ServerActionStatus && d.status != nil {
+		return d.status(action)
+	}
 
 	if action.Action == "metrics" && d.metrics != nil {
 		return d.metrics(action)
@@ -83,6 +88,11 @@ type accessFixture struct {
 
 func newAccessFixture(t *testing.T) *accessFixture {
 	t.Helper()
+	return newAccessFixtureWithAudit(t, false)
+}
+
+func newAccessFixtureWithAudit(t *testing.T, audit bool) *accessFixture {
+	t.Helper()
 
 	db, err := database.Open(context.Background(), filepath.Join(t.TempDir(), "panel.db"))
 	if err != nil {
@@ -104,7 +114,12 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	history := service.NewResourceHistoryService(repository.NewResourceHistoryRepository(db.ORM()), deployment)
 	deployment.History = history
 	deployment.Backups = service.NewBackupService(repository.NewBackupRepository(db.ORM()), deployment, nil)
-	panel := api.New(sparks, embers, servers).WithBackupImports(service.NewBackupImports(t.TempDir(), service.BackupStagingCopies*model.DefaultUploadLimit)).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithDeployment(deployment)
+
+	panel := api.New(sparks, embers, servers).WithStatusPages(&service.StatusPageService{Store: repository.NewStatusPageRepository(db.ORM()), Deployment: deployment}).WithBackupImports(service.NewBackupImports(t.TempDir(), service.BackupStagingCopies*model.DefaultUploadLimit)).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithDeployment(deployment)
+	if audit {
+		panel.WithActivity(service.NewActivityService(repository.NewActivityRepository(db.ORM()), deployment, service.NewAuthService(repository.NewAuthRepository(db.ORM()))))
+	}
+
 	admin := authenticatedTestAPI(t, db, panel)
 
 	return &accessFixture{t, db, service.NewAuthService(repository.NewAuthRepository(db.ORM())), admin, panel.Handler(), dispatch, history, games, service.NewRuntimeStatusService(deployment)}
@@ -113,7 +128,7 @@ func newAccessFixture(t *testing.T) *accessFixture {
 func (f *accessFixture) user(name string, role int64) (database.User, http.Handler) {
 	f.t.Helper()
 
-	response := request(f.admin, "POST", "/api/v1/users", fmt.Sprintf(`{"username":%q,"password":%q,"role_id":%d}`, name, testAdminPassword, role))
+	response := request(f.admin, "POST", "/api/v1/users", fmt.Sprintf(`{"username":%q,"email":%q,"password":%q,"role_id":%d}`, name, name+"@example.test", testAdminPassword, role))
 	if response.Code != http.StatusCreated {
 		f.t.Fatal(response.Code, response.Body)
 	}
@@ -153,7 +168,7 @@ func TestUserEmailProfile(t *testing.T) {
 	user, regular := f.user("email-user", database.UserRole)
 	path := fmt.Sprintf("/api/v1/users/%d", user.ID)
 
-	for _, email := range []string{"  Jane@example.com  ", ""} {
+	for _, email := range []string{"  Jane@example.com  ", "other@example.com"} {
 		body := fmt.Sprintf(`{"email":%q,"role_id":%d}`, email, database.UserRole)
 
 		response := request(f.admin, "PUT", path, body)
@@ -175,12 +190,13 @@ func TestUserEmailProfile(t *testing.T) {
 		}
 	}
 
-	for _, email := range []string{"invalid", "Jane <jane@example.com>", "jane\n@example.com", strings.Repeat("a", 250) + "@example.com"} {
+	for _, email := range []string{"", "invalid", "Jane <jane@example.com>", "jane\n@example.com", strings.Repeat("a", 250) + "@example.com"} {
 		body := fmt.Sprintf(`{"email":%q,"role_id":%d}`, email, database.UserRole)
 		expectAccess(t, f.admin, "PUT", path, body, http.StatusBadRequest)
 	}
 
 	body := fmt.Sprintf(`{"username":"email-created","email":"new@example.com","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
+	expectAccess(t, f.admin, "POST", "/api/v1/users", fmt.Sprintf(`{"username":"missing-email","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole), http.StatusBadRequest)
 
 	response := request(f.admin, "POST", "/api/v1/users", body)
 	if response.Code != http.StatusCreated {
@@ -244,7 +260,7 @@ func TestUserDisplayNames(t *testing.T) {
 		expectAccess(t, f.admin, "PUT", path, body, http.StatusBadRequest)
 	}
 
-	body := fmt.Sprintf(`{"username":"with-name","name":"John Smith","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
+	body := fmt.Sprintf(`{"username":"with-name","name":"John Smith","email":"john@example.test","password":%q,"role_id":%d}`, testAdminPassword, database.UserRole)
 
 	response := request(f.admin, "POST", "/api/v1/users", body)
 	if response.Code != http.StatusCreated {
@@ -255,6 +271,33 @@ func TestUserDisplayNames(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil || created.Name != "John Smith" {
 		t.Fatal("name not persisted on creation", created, err)
 	}
+}
+
+func TestAdminUserPatchPreservesOmittedFields(t *testing.T) {
+	f := newAccessFixture(t)
+	user, regular := f.user("patched", database.UserRole)
+	path := fmt.Sprintf("/api/v1/users/%d", user.ID)
+	expectAccess(t, regular, "PATCH", path, `{"name":"unauthorized"}`, http.StatusForbidden)
+	expectAccess(t, f.admin, "PATCH", path, `{"disabled":true,"email":"new@example.test"}`, http.StatusOK)
+	response := request(f.admin, "PATCH", path, `{"name":"Renamed"}`)
+
+	var updated database.User
+	if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil || response.Code != http.StatusOK || updated.Name != "Renamed" || !updated.Disabled || updated.RoleID != user.RoleID || updated.Email != "new@example.test" {
+		t.Fatal(response.Code, updated, err)
+	}
+
+	if err := f.db.ORM().Take(&updated, user.ID).Error; err != nil || updated.OIDCLinkEmail == nil || *updated.OIDCLinkEmail != updated.Email {
+		t.Fatal("unrelated edit changed OIDC link eligibility", err)
+	}
+
+	expectAccess(t, f.admin, "PATCH", path, `{"email":""}`, http.StatusBadRequest)
+	expectAccess(t, f.admin, "PATCH", path, `{"disabled":false,"name":""}`, http.StatusOK)
+
+	if err := f.db.ORM().Take(&updated, user.ID).Error; err != nil || updated.Disabled || updated.Name != "" || updated.Email != "new@example.test" {
+		t.Fatal("explicit false or empty value lost", updated, err)
+	}
+
+	expectAccess(t, f.admin, "PATCH", "/api/v1/users/1", `{"disabled":true}`, http.StatusConflict)
 }
 
 func TestSparkTransferRequiresPlatformPermissions(t *testing.T) {
@@ -464,7 +507,7 @@ func TestPlatformRoleBoundariesAndLiveServerRoleChanges(t *testing.T) {
 }
 
 func TestBackupDownloadStopsAfterServerAccessRevocation(t *testing.T) {
-	f := newAccessFixture(t)
+	f := newAccessFixtureWithAudit(t, true)
 	user, handler := f.user("downloader", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
 	response := request(f.admin, "POST", "/api/v1/servers", configJSON(t, input))
@@ -490,4 +533,6 @@ func TestBackupDownloadStopsAfterServerAccessRevocation(t *testing.T) {
 	if response.Header().Get("Content-Length") != "2" || response.Body.Len() != 1 {
 		t.Fatal("download continued after access was revoked", response.Body.Len())
 	}
+
+	assertAuditOutcome(t, f, "server.backup.download", model.AuditInterrupted, "server:"+server.ID)
 }
