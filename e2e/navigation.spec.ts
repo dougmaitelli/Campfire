@@ -178,7 +178,7 @@ for (const [screen, heading] of [
         else await expect(control).toBeVisible();
       }
       if (screen === "servers") {
-        const address = row.getByText("127.0.0.1", { exact: true });
+        const address = row.getByText("0.0.0.0", { exact: true });
         if (width === 390) await expect(address).toBeHidden();
         else await expect(address).toBeVisible();
       }
