@@ -8,6 +8,7 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/shared/limits"
+
 	"gorm.io/gorm"
 )
 
@@ -24,13 +25,16 @@ type MFAProof struct {
 
 func readMFA(tx *gorm.DB, userID int64) (database.UserMFA, error) {
 	factor := database.UserMFA{UserID: userID}
+
 	err := tx.Where("user_id = ?", userID).Take(&factor).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err = nil
 	}
+
 	if factor.SecretRef != "" && len(factor.Devices) == 0 {
 		factor.Devices = []database.MFADevice{{ID: "legacy", Name: "Authenticator", SecretRef: factor.SecretRef, LastCounter: factor.LastCounter}}
 	}
+
 	return factor, err
 }
 
@@ -43,28 +47,34 @@ func consumeMFA(tx *gorm.DB, factor *database.UserMFA, proof MFAProof) error {
 	if factor.SecretRef == "" {
 		return nil
 	}
+
 	if proof.SecretRef == "" {
 		return ErrMFARequired
 	}
+
 	if proof.RecoveryHash != "" {
 		if proof.SecretRef != factor.SecretRef {
 			return ErrAuthentication
 		}
+
 		index := slices.Index(factor.RecoveryHashes, proof.RecoveryHash)
 		if index < 0 {
 			return ErrAuthentication
 		}
+
 		factor.RecoveryHashes = slices.Delete(factor.RecoveryHashes, index, index+1)
 	} else {
 		index := slices.IndexFunc(factor.Devices, func(device database.MFADevice) bool { return device.SecretRef == proof.SecretRef })
 		if index < 0 || proof.Counter <= factor.Devices[index].LastCounter {
 			return ErrAuthentication
 		}
+
 		factor.Devices[index].LastCounter = proof.Counter
 		if index == 0 {
 			factor.LastCounter = proof.Counter
 		}
 	}
+
 	return tx.Omit("User").Save(factor).Error
 }
 
@@ -76,34 +86,41 @@ func (r *AuthRepository) ChangeMFA(ctx context.Context, session database.UserSes
 		if err := tx.Where("hash = ? AND user_id = ? AND expires_at > ? AND last_seen_at > ?", session.Hash, session.UserID, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Take(&current).Error; err != nil {
 			return ErrAuthentication
 		}
+
 		var user database.User
 		if err := tx.Take(&user, session.UserID).Error; err != nil {
 			return err
 		}
+
 		if user.Disabled || user.CredentialVersion != session.CredentialVersion || current.CredentialVersion != session.CredentialVersion {
 			return ErrAuthentication
 		}
+
 		factor, err := readMFA(tx, session.UserID)
 		if err != nil {
 			return err
 		}
+
 		if proof != nil {
 			if err := consumeMFA(tx, &factor, *proof); err != nil {
 				return err
 			}
 		}
+
 		if err := change(&factor); err != nil {
 			return err
 		}
+
 		if err := tx.Omit("User").Save(&factor).Error; err != nil {
 			return err
 		}
+
 		if revokeOthers {
 			if err := tx.Where("user_id = ? AND hash <> ?", session.UserID, session.Hash).Delete(&database.UserSession{}).Error; err != nil {
 				return err
 			}
-
 		}
+
 		return nil
 	})
 }
@@ -115,6 +132,7 @@ func (r *AuthRepository) ResetMFA(ctx context.Context, username string) error {
 		if err := tx.Where("lower(username) = lower(?)", username).Take(&user).Error; err != nil {
 			return accessError(err)
 		}
+
 		return resetMFA(tx, user)
 	})
 }
@@ -123,13 +141,16 @@ func resetMFA(tx *gorm.DB, user database.User) error {
 	if user.PasswordHash == "" {
 		return ErrAccessInput
 	}
+
 	factor := database.UserMFA{UserID: user.ID, RecoveryHashes: []string{}}
 	if err := tx.Omit("User").Save(&factor).Error; err != nil {
 		return err
 	}
+
 	if err := tx.Where("user_id = ?", user.ID).Delete(&database.UserSession{}).Error; err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -141,24 +162,30 @@ func (r *AuthRepository) AdminResetMFA(ctx context.Context, admin database.UserS
 		if err := tx.Where("hash = ? AND expires_at > ? AND last_seen_at > ?", admin.Hash, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Take(&session).Error; err != nil {
 			return ErrAuthentication
 		}
+
 		var actor database.User
 		if err := tx.Take(&actor, session.UserID).Error; err != nil {
 			return ErrAuthentication
 		}
+
 		if actor.Disabled || actor.RoleID != database.AdminRole || actor.CredentialVersion != admin.CredentialVersion || session.CredentialVersion != actor.CredentialVersion || userID == actor.ID {
 			return ErrAccessDenied
 		}
+
 		var user database.User
 		if err := tx.Take(&user, userID).Error; err != nil {
 			return accessError(err)
 		}
+
 		target, err := readMFA(tx, userID)
 		if err != nil {
 			return err
 		}
+
 		if target.SecretRef == "" {
 			return ErrAccessInput
 		}
+
 		return resetMFA(tx, user)
 	})
 }

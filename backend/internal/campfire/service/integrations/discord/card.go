@@ -17,11 +17,11 @@ type CardMessage struct {
 	} `json:"allowed_mentions"`
 }
 
-// PreviewServerCard projects the actual Discord payload into plain text for the
+// PreviewCard projects the actual Discord payload into plain text for the
 // browser. Limits, budgeting, embed splitting, and status rendering all come from
-// RenderServerCard, not a second approximation in the frontend.
-func PreviewServerCard(card core.ServerCard) CardMessage {
-	message := RenderServerCard(card)
+// RenderCard, not a second approximation in the frontend.
+func PreviewCard(card core.LiveCard) CardMessage {
+	message := RenderCard(card)
 	unescape := strings.NewReplacer(
 		`\\`, `\`, "\\`", "`", `\*`, `*`, `\_`, `_`, `\~`, `~`,
 		`\[`, `[`, `\]`, `]`, `\<`, `<`, `\>`, `>`, `\|`, `|`,
@@ -41,9 +41,13 @@ func PreviewServerCard(card core.ServerCard) CardMessage {
 	return message
 }
 
-// RenderServerCard preserves every selected field within Discord's field and
+// RenderCard preserves every selected field within Discord's field and
 // total-text limits. Large selections use a second embed in the same message.
-func RenderServerCard(card core.ServerCard) CardMessage {
+func RenderCard(card core.LiveCard) CardMessage {
+	if card.StatusPage {
+		return renderStatusPageCard(card)
+	}
+
 	state := strings.ReplaceAll(string(card.State), "_", " ")
 	if state == "" {
 		state = "unknown"
@@ -113,6 +117,51 @@ func RenderServerCard(card core.ServerCard) CardMessage {
 	}
 
 	return result
+}
+
+// Every selected server fits in one message, including a full 50-entry page.
+func renderStatusPageCard(card core.LiveCard) CardMessage {
+	result := CardMessage{}
+	result.AllowedMentions.Parse = []string{}
+
+	for first := 0; first < max(1, len(card.Fields)); first += 25 {
+		title := card.Name
+		if first != 0 {
+			title = "More servers"
+		}
+
+		embed := messageEmbed{Title: discordText(title, 256), Color: 0x5865f2}
+
+		embed.Footer.Text = cardLabel(true)
+		if len(card.Fields) == 0 {
+			embed.Fields = []embedField{{Name: "Servers", Value: "No servers are listed on this page."}}
+		}
+
+		for _, entry := range card.Fields[first:min(first+25, len(card.Fields))] {
+			state := "Unknown"
+
+			switch entry.Value {
+			case "online":
+				state = "Online"
+			case "offline":
+				state = "Offline"
+			}
+
+			embed.Fields = append(embed.Fields, embedField{Name: discordText(entry.Name, min(256, 5500/len(card.Fields)-len(state))), Value: state, Inline: true})
+		}
+
+		result.Embeds = append(result.Embeds, embed)
+	}
+
+	return result
+}
+
+func cardLabel(statusPage bool) string {
+	if statusPage {
+		return "Campfire status page"
+	}
+
+	return "Campfire server"
 }
 
 func cardAddressText(addresses []string) string {

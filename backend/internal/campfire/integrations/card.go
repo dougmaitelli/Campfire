@@ -12,13 +12,14 @@ import (
 // CardField contains only an explicitly selected, current game value.
 type CardField = gamefields.Field
 
-// ServerCard is a provider-independent view, without deployment or secret data.
-type ServerCard struct {
-	Name      string             `json:"name"`
-	State     model.RuntimeState `json:"state"`
-	Addresses []string           `json:"addresses"`
-	Fields    []CardField        `json:"fields"`
-	ExpiresAt int64              `json:"expires_at"`
+// LiveCard is a provider-independent view, without deployment or secret data.
+type LiveCard struct {
+	StatusPage bool               `json:"-"`
+	Name       string             `json:"name"`
+	State      model.RuntimeState `json:"state"`
+	Addresses  []string           `json:"addresses"`
+	Fields     []CardField        `json:"fields"`
+	ExpiresAt  int64              `json:"expires_at"`
 }
 
 // Validate keeps card selection independent of notification subscriptions.
@@ -38,8 +39,8 @@ func (c CardSettings) Validate() error {
 
 // BuildServerCard accepts only a fresh game snapshot from the runtime source.
 // Missing values remain unavailable; unselected fields never enter the card.
-func BuildServerCard(server model.Server, state model.RuntimeState, game *model.GameState, settings CardSettings, labels model.GameFieldLabels) ServerCard {
-	card := ServerCard{Name: server.Name, State: state, Addresses: cardAddresses(server)}
+func BuildServerCard(server model.Server, state model.RuntimeState, game *model.GameState, settings CardSettings, labels model.GameFieldLabels) LiveCard {
+	card := LiveCard{Name: server.Name, State: state, Addresses: cardAddresses(server)}
 	if state == "" {
 		card.State = model.RuntimeStateUnknown
 	}

@@ -10,6 +10,13 @@ import { cpuUsageDivisor, formatCPUUsage } from "../../utils/cpuUsage";
 import type { ResourceReading } from "./ResourceReading";
 import { DiskAccounting } from "../../contracts/domains";
 
+const diskDescriptions = {
+  [DiskAccounting.Project]: "resourceReadings.projectDiskSample",
+  [DiskAccounting.Qgroup]: "resourceReadings.qgroupDiskSample",
+  [DiskAccounting.Logical]: "resourceReadings.logicalDiskSample",
+  [DiskAccounting.Mixed]: "resourceReadings.mixedDiskSample",
+} as const;
+
 export interface ResourceReadingOptions {
   usage: ResourceUsage | undefined;
   cpuLimit: number;
@@ -33,18 +40,11 @@ export function useResourceReadingProps({
     ? usage.container_error
     : undefined;
   const diskDescription = usage?.disk_sampled_at
-    ? t(
-        usage.disk_accounting === DiskAccounting.Project
-          ? "resourceReadings.projectDiskSample"
-          : usage.disk_accounting === DiskAccounting.Mixed
-            ? "resourceReadings.mixedDiskSample"
-            : "resourceReadings.logicalDiskSample",
-        {
-          newDateToLocaleString: new Date(
-            usage.disk_sampled_at * 1000,
-          ).toLocaleString(),
-        },
-      )
+    ? t(diskDescriptions[usage.disk_accounting ?? DiskAccounting.Logical], {
+        newDateToLocaleString: new Date(
+          usage.disk_sampled_at * 1000,
+        ).toLocaleString(),
+      })
     : t("resourceReadings.waitingForAGameDataSizeSample");
   return [
     {

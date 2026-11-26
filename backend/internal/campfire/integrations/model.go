@@ -65,6 +65,7 @@ type Binding struct {
 	ID            string           `json:"id"`
 	IntegrationID string           `json:"integration_id"`
 	ServerID      string           `json:"server_id"`
+	StatusPageID  string           `json:"status_page_id,omitempty"`
 	DestinationID string           `json:"destination_id"`
 	Enabled       bool             `json:"enabled"`
 	Subscriptions []Subscription   `json:"subscriptions"`
@@ -103,7 +104,8 @@ func (c Connection) Validate() error {
 
 // Validate checks persisted subscription and field selection structure.
 func (b Binding) Validate() error {
-	if !validID(b.ID) || !validID(b.IntegrationID) || !validID(b.ServerID) || !validID(b.DestinationID) || len(b.Subscriptions) > 16 || !validNames(b.Card.Fields, 32) {
+	validSource := validID(b.ServerID) && b.StatusPageID == "" || validID(b.StatusPageID) && b.ServerID == "" && len(b.Subscriptions) == 0 && len(b.Card.Fields) == 0
+	if !validID(b.ID) || !validID(b.IntegrationID) || !validSource || !validID(b.DestinationID) || len(b.Subscriptions) > 16 || !validNames(b.Card.Fields, 32) {
 		return errors.New("invalid integration binding")
 	}
 

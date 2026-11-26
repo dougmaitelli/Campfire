@@ -99,7 +99,7 @@ func (r *IntegrationRepository) CreateBinding(ctx context.Context, value integra
 	}
 
 	now := time.Now().Unix()
-	row := database.ServerIntegration{ID: value.ID, IntegrationID: value.IntegrationID, ServerID: value.ServerID, DestinationID: value.DestinationID, Enabled: value.Enabled, Subscriptions: value.Subscriptions, Card: value.Card, CreatedAt: now, UpdatedAt: now}
+	row := database.ServerIntegration{ID: value.ID, IntegrationID: value.IntegrationID, ServerID: value.ServerID, StatusPageID: value.StatusPageID, DestinationID: value.DestinationID, Enabled: value.Enabled, Subscriptions: value.Subscriptions, Card: value.Card, CreatedAt: now, UpdatedAt: now}
 
 	return integrationError(r.db.WithContext(ctx).Omit(clause.Associations).Create(&row).Error)
 }
@@ -126,7 +126,7 @@ func (r *IntegrationRepository) UpdateBinding(ctx context.Context, value integra
 	}
 
 	result := r.db.WithContext(ctx).Model(&database.ServerIntegration{}).
-		Where("id = ? AND integration_id = ? AND server_id = ?", value.ID, value.IntegrationID, value.ServerID).
+		Where(&database.ServerIntegration{ID: value.ID, IntegrationID: value.IntegrationID, ServerID: value.ServerID, StatusPageID: value.StatusPageID}).
 		Updates(map[string]any{"destination_id": value.DestinationID, "enabled": value.Enabled, "subscriptions": string(subscriptions), "card": string(card), "updated_at": time.Now().Unix()})
 
 	if err := integrationResult(result); err != nil {
@@ -213,7 +213,7 @@ func integrationConnection(row database.Integration) integrations.Connection {
 }
 
 func integrationBinding(row database.ServerIntegration) integrations.Binding {
-	return integrations.Binding{ID: row.ID, IntegrationID: row.IntegrationID, ServerID: row.ServerID, DestinationID: row.DestinationID, Enabled: row.Enabled, Subscriptions: row.Subscriptions, Card: row.Card, StatusMessage: integrations.MessageReference{DestinationID: row.MessageDestinationID, ID: row.ExternalMessageID}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return integrations.Binding{ID: row.ID, IntegrationID: row.IntegrationID, ServerID: row.ServerID, StatusPageID: row.StatusPageID, DestinationID: row.DestinationID, Enabled: row.Enabled, Subscriptions: row.Subscriptions, Card: row.Card, StatusMessage: integrations.MessageReference{DestinationID: row.MessageDestinationID, ID: row.ExternalMessageID}, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func integrationMessage(row database.IntegrationMessage) integrations.Message {

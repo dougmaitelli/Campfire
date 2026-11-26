@@ -14,14 +14,14 @@ const integrationCardGameFreshFor = 60 * time.Second
 
 // IntegrationCard reads saved public metadata and already-collected runtime
 // data. Building or previewing a card never contacts Spark or Discord.
-func (s *DeploymentService) IntegrationCard(ctx context.Context, id string, settings core.CardSettings) (core.ServerCard, error) {
+func (s *DeploymentService) IntegrationCard(ctx context.Context, id string, settings core.CardSettings) (core.LiveCard, error) {
 	if err := settings.Validate(); err != nil {
-		return core.ServerCard{}, err
+		return core.LiveCard{}, err
 	}
 
 	server, err := s.Servers.Get(ctx, id)
 	if err != nil {
-		return core.ServerCard{}, err
+		return core.LiveCard{}, err
 	}
 
 	state := model.RuntimeStateUnknown
@@ -39,7 +39,7 @@ func (s *DeploymentService) IntegrationCard(ctx context.Context, id string, sett
 	if s.History != nil && server.GameIntegration && state == model.RuntimeStateRunning {
 		observations, err := s.cachedGameStates(ctx, []model.ResourceTarget{{ID: id, SparkID: server.SparkID}})
 		if err != nil {
-			return core.ServerCard{}, err
+			return core.LiveCard{}, err
 		}
 
 		observation := observations[0]
@@ -56,7 +56,7 @@ func (s *DeploymentService) IntegrationCard(ctx context.Context, id string, sett
 	if s.Games != nil {
 		labels, err = s.Games.StateLabels(ctx, id)
 		if err != nil {
-			return core.ServerCard{}, err
+			return core.LiveCard{}, err
 		}
 	}
 

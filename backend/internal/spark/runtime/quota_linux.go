@@ -3,12 +3,78 @@
 package runtime
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
+	"time"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
+
+func openQuotaDir(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW, 0)
+}
+
+func quotaCommand(ctx context.Context, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	out := &boundedOutput{}
+
+	cmd.Stdout = out
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+
+		return "", fmt.Errorf("%s %s: %w", name, args[0], err)
+	}
+
+	return strings.TrimSpace(out.String()), nil
+}
+
+const zfsMagic = 0x2fc12fc1 // ZFS_SUPER_MAGIC
+
+func detectDiskQuota(ctx context.Context, directory string) (DiskQuota, error) {
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		return nil, err
+	}
+
+	var fs unix.Statfs_t
+	if err := unix.Statfs(directory, &fs); err != nil {
+		return nil, err
+	}
+
+	var quota DiskQuota
+
+	registry := filepath.Join(directory, ".quota-projects")
+
+	switch fs.Type {
+	case unix.BTRFS_SUPER_MAGIC:
+		quota = &btrfsQuotas{}
+	case zfsMagic:
+		kernel, err := newZFSProjectKernel(directory)
+		if err != nil {
+			return nil, quotaError(err)
+		}
+
+		quota = &projectQuotas{registry: registry, kernel: kernel}
+	case unix.XFS_SUPER_MAGIC, unix.EXT4_SUPER_MAGIC:
+		quota = &projectQuotas{registry: registry, kernel: linuxProjectKernel{}}
+	default:
+		return nil, quotaError(errors.New("game-data filesystem must support ext4, XFS or ZFS project quotas, or Btrfs quota groups"))
+	}
+
+	return quota, probeDiskQuota(ctx, directory, quota, 1)
+}
 
 // Linux UAPI: fs.h, quota.h and dqblk_xfs.h. Generic quota commands and
 // Q_XGETQSTATV work through the filesystem's quotactl operations on ext4 and XFS.
@@ -80,7 +146,7 @@ func (linuxProjectKernel) Assign(file *os.File, attrs projectAttributes) error {
 	return nil
 }
 
-func (linuxProjectKernel) Get(file *os.File, id uint32) (projectLimit, error) {
+func (linuxProjectKernel) Get(_ context.Context, file *os.File, id uint32) (projectLimit, error) {
 	var limit projectLimit
 
 	err := quotaCall(file, 0x800007, id, unsafe.Pointer(&limit))
@@ -88,6 +154,6 @@ func (linuxProjectKernel) Get(file *os.File, id uint32) (projectLimit, error) {
 	return limit, err
 }
 
-func (linuxProjectKernel) Set(file *os.File, id uint32, limit projectLimit) error {
+func (linuxProjectKernel) Set(_ context.Context, file *os.File, id uint32, limit projectLimit) error {
 	return quotaCall(file, 0x800008, id, unsafe.Pointer(&limit))
 }

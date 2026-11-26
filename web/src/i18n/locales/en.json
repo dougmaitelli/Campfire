@@ -159,6 +159,7 @@
     }
   },
   "integrations": {
+    "pageCardCleanups": "Discord cards awaiting removal",
     "discord": "Discord",
     "title": "Integrations",
     "description": "Connect external services for your game servers.",
@@ -454,6 +455,8 @@
     "moveDown": "Move {{name}} down"
   },
   "statusPages": {
+    "discordCard": "Publish a live Discord card",
+    "discordPreview": "Status page card preview",
     "historyKey": "24-hour history · left to right · 15-minute bars",
     "historySummary": "24-hour availability history ending {{time}}: {{online}} online, {{offline}} offline, {{unknown}} unknown. Based on panel observations, not an external connectivity test.",
     "description": "Choose which server names and availability to expose publicly. Only administrators can manage these pages.",
@@ -963,7 +966,8 @@
     "noLimit": "No limit",
     "projectDiskSample": "Filesystem project-quota usage, including allocated metadata and deleted files still open. Sampled {{newDateToLocaleString}}. Backups, images and container writable layers excluded.",
     "logicalDiskSample": "Logical game-data file sizes from a bounded scan; may differ from filesystem quota usage. Sampled {{newDateToLocaleString}}. Backups, images and container writable layers excluded.",
-    "mixedDiskSample": "Combined game-data usage from project-quota counters and logical file-size scans. Sampled {{newDateToLocaleString}}. Not total host usage; backups, images and container writable layers excluded.",
+    "qgroupDiskSample": "Btrfs referenced bytes for the game-data subvolume. Sampled {{newDateToLocaleString}}. Backups, images and container writable layers excluded.",
+    "mixedDiskSample": "Game-data totals combine different disk accounting methods. Sampled {{newDateToLocaleString}}. Not total host usage; backups, images and container writable layers excluded.",
     "stale": " · stale",
     "waitingForACPUSample": "Waiting for a CPU sample.",
     "waitingForAGameDataSizeSample": "Waiting for a game-data size sample."

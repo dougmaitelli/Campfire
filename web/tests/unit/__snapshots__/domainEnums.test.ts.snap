@@ -92,6 +92,7 @@ exports[`domain members preserve serialized contract values 1`] = `
     "Logical": "logical",
     "Mixed": "mixed",
     "Project": "project",
+    "Qgroup": "qgroup",
   },
   "ExecutionState": {
     "Accepted": "accepted",

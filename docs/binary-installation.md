@@ -13,7 +13,7 @@ tar -xzf campfire_VERSION_linux_ARCH.tar.gz
 sudo install -m 0755 campfire /usr/local/bin/campfire
 ```
 
-The panel host needs operating-system CA certificates. Game hosts also need rootful Docker Engine and the Docker CLI; use the panel's enrollment helper to install Spark.
+The panel host needs operating-system CA certificates. Game hosts need a local Docker Engine and the Docker CLI. For a rootless daemon, configure its socket before running the panel's enrollment helper. See [Spark setup](/Campfire/spark-agent/#use-rootless-docker).
 
 For a systemd panel installation, run these commands from the extracted archive:
 

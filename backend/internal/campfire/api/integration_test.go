@@ -165,7 +165,7 @@ func TestServerDiscordIntegrationAPIEnforcesResourceAndSourceGrants(t *testing.T
 	preview := request(allowed, "GET", base+"/card?field=players&field=field.world", "")
 
 	var card struct {
-		core.ServerCard
+		core.LiveCard
 		Preview        discord.CardMessage `json:"preview"`
 		ExpiredPreview discord.CardMessage `json:"expired_preview"`
 	}

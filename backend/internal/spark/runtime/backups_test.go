@@ -420,6 +420,11 @@ func TestInterruptedRestoreBlocksStartAfterRestart(t *testing.T) {
 	awaitOperation(t, m, d, "install", "install")
 
 	// Simulate a process exit between preserving the original and publishing the stage.
+	stage := filepath.Join(m.root(d.ServerID), ".restore-pending")
+	if err := os.Mkdir(stage, 0700); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := os.Rename(filepath.Join(m.root(d.ServerID), "data"), filepath.Join(m.root(d.ServerID), "restore-previous")); err != nil {
 		t.Fatal(err)
 	}
@@ -440,6 +445,10 @@ func TestInterruptedRestoreBlocksStartAfterRestart(t *testing.T) {
 		t.Fatal("original data was lost", err)
 	}
 
+	if _, err := os.Stat(stage); err != nil {
+		t.Fatal("pending replacement was lost", err)
+	}
+
 	if _, err := os.Stat(filepath.Join(m.root(d.ServerID), "data")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("start created replacement game data before recovery")
 	}
@@ -450,6 +459,10 @@ func TestInterruptedRestoreBlocksStartAfterRestart(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(m.root(d.ServerID), "restore-previous")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("explicit server deletion retained previous game data")
+	}
+
+	if _, err := os.Stat(stage); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("explicit server deletion retained staged game data")
 	}
 }
 

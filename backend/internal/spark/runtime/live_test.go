@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -18,7 +19,7 @@ func TestLiveDockerLifecycle(t *testing.T) {
 		t.Skip("set CAMPFIRE_DOCKER_TEST=1 to run against Docker")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
 	docker := Docker{}
@@ -28,6 +29,7 @@ func TestLiveDockerLifecycle(t *testing.T) {
 
 	d := runtimeFixture()
 	d.ServerID = "live-" + rand.Text()
+	d.Configuration.DiskMB = 16
 	d.Configuration.Ports = []model.ServerPort{{BindIP: "127.0.0.1", HostPort: 0, ContainerPort: 25565, Protocol: "tcp"}}
 	d.Ember.Installer = &model.Installer{Image: "alpine:3.22", Entrypoint: "sh", Script: "echo installed > installed.txt"}
 	d.Ember.Startup = "echo Ready; while read line; do echo \"$line\"; done"
@@ -35,7 +37,7 @@ func TestLiveDockerLifecycle(t *testing.T) {
 
 	quotaRoot := os.Getenv("CAMPFIRE_QUOTA_TEST_DIR")
 	if quotaRoot == "" {
-		t.Fatal("set CAMPFIRE_QUOTA_TEST_DIR to a project-quota-enabled filesystem directory")
+		t.Fatal("set CAMPFIRE_QUOTA_TEST_DIR to a disposable quota-enabled filesystem directory")
 	}
 
 	directory, err := os.MkdirTemp(quotaRoot, "campfire-live-")
@@ -48,6 +50,10 @@ func TestLiveDockerLifecycle(t *testing.T) {
 	m := New(ctx, directory)
 	defer m.Close()
 
+	if err := m.ConfigureDocker(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	t.Cleanup(func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 15*time.Second)
 		defer stop()
@@ -57,6 +63,9 @@ func TestLiveDockerLifecycle(t *testing.T) {
 	})
 
 	backupID := "backup-" + rand.Text()
+
+	var project uint32
+
 	for index, action := range []string{"install", "start", "stop", "backup", "restore", "start", "restart", "kill", "delete"} {
 		operationID := action + rand.Text()
 		if action == "backup" {
@@ -85,7 +94,61 @@ func TestLiveDockerLifecycle(t *testing.T) {
 			t.Fatalf("%s failed: %s", action, status.Error)
 		}
 
+		if q, ok := m.Quota.(*projectQuotas); ok {
+			switch action {
+			case "start":
+				dir, err := openQuotaDir(filepath.Join(directory, d.ServerID, "data"))
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				attrs, err := q.kernel.Attributes(dir)
+				_ = dir.Close()
+
+				if err != nil || attrs.Project == 0 {
+					t.Fatal("missing game project", err)
+				}
+
+				project = attrs.Project
+			case "restore", "delete":
+				parent, err := openQuotaDir(directory)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				limit, err := q.kernel.Get(ctx, parent, project)
+				_ = parent.Close()
+
+				if err != nil && !os.IsNotExist(err) || limit.Hard != 0 {
+					t.Fatal("retired game retained quota", limit, err)
+				}
+
+				if _, err := os.Stat(q.owner(project)); err != nil {
+					t.Fatal("lost project reservation", err)
+				}
+			}
+		}
+
+		sparse := filepath.Join(directory, d.ServerID, "data", "sparse")
 		if index == 1 {
+			if err := os.WriteFile(sparse, []byte("save"), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := os.Truncate(sparse, (d.Configuration.DiskMB+1)<<20); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := m.Files(ctx, d, model.FileRequest{ServerID: d.ServerID, Operation: "write", Path: "panel.txt", Data: []byte("panel"), Revision: "absent"})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			output, err := docker.Run(ctx, nil, "exec", container(d.ServerID), "sh", "-ec", "test -r installed.txt && echo game >> panel.txt && touch game.txt")
+			if err != nil {
+				t.Fatalf("game user could not modify Spark-managed files: %s, %v", output, err)
+			}
+
 			if _, err := m.Execute(ctx, d, model.RuntimeRequest{ServerID: d.ServerID, Action: "command", Content: "hello"}); err != nil {
 				t.Fatal(err)
 			}
@@ -107,6 +170,11 @@ func TestLiveDockerLifecycle(t *testing.T) {
 			if err != nil || string(file.Data) != "installed\n" {
 				t.Fatal("restoration did not recover original installed data", err)
 			}
+
+			var stat syscall.Stat_t
+			if err := syscall.Stat(sparse, &stat); err != nil || stat.Size != (d.Configuration.DiskMB+1)<<20 || stat.Blocks*512 >= d.Configuration.DiskMB<<20 {
+				t.Fatal("restore failed to preserve the sparse save under its allocation", stat.Size, stat.Blocks, err)
+			}
 		}
 
 		t.Logf("%s: %s", action, status.State)
@@ -122,7 +190,7 @@ func TestLiveDockerDiskQuota(t *testing.T) {
 
 	quotaRoot := os.Getenv("CAMPFIRE_QUOTA_TEST_DIR")
 	if quotaRoot == "" {
-		t.Fatal("CAMPFIRE_QUOTA_TEST_DIR must be on a project-quota-enabled filesystem")
+		t.Fatal("CAMPFIRE_QUOTA_TEST_DIR must be on a quota-enabled filesystem")
 	}
 
 	directory, err := os.MkdirTemp(quotaRoot, "campfire-quota-")
@@ -138,6 +206,10 @@ func TestLiveDockerDiskQuota(t *testing.T) {
 	m := New(ctx, directory)
 	t.Cleanup(m.Close)
 
+	if err := m.ConfigureDocker(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	d := runtimeFixture()
 	d.ServerID = "quota-" + rand.Text()
 	d.Configuration.DiskMB = 8
@@ -145,7 +217,13 @@ func TestLiveDockerDiskQuota(t *testing.T) {
 	d.Ember.Ready = ""
 	d.Ember.Stop = "^SIGTERM"
 	d.Ember.Installer.Script = "echo installed > installed.txt"
-	d.Ember.Startup = "mkdir -p nested; dd if=/dev/zero of=nested/full bs=1048576 count=32; echo QuotaAttemptComplete; while read line; do echo \"$line\"; done"
+	d.Ember.Startup = `mkdir -p nested
+for block in $(seq 1 32); do
+    dd if=/dev/urandom bs=1048576 count=1 >> nested/full || break
+    sync
+done
+echo QuotaAttemptComplete
+while read -r line; do echo "$line"; done`
 
 	t.Cleanup(func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 15*time.Second)
@@ -186,7 +264,7 @@ func TestLiveDockerDiskQuota(t *testing.T) {
 		}
 
 		if strings.Contains(logs, "QuotaAttemptComplete") {
-			if !strings.Contains(logs, "Disk quota exceeded") {
+			if !strings.Contains(strings.ToLower(logs), "quota exceeded") {
 				t.Fatalf("game write did not hit EDQUOT: %s", logs)
 			}
 
@@ -201,8 +279,12 @@ func TestLiveDockerDiskQuota(t *testing.T) {
 	}
 
 	info, err := os.Stat(filepath.Join(directory, d.ServerID, "data", "nested", "full"))
-	if err != nil || info.Size() > 8<<20 {
-		t.Fatalf("game exceeded allocation: %v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Project quotas on ZFS can briefly overshoot before a transaction commits.
+	if info.Size() >= 32<<20 {
+		t.Fatal("game wrote the entire payload under an 8 MiB allocation")
 	}
 
 	m.Close()
@@ -215,7 +297,7 @@ func TestLiveDockerDiskQuota(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := restarted.Quota.Verify(volume, d.Configuration.DiskMB); err != nil {
+	if err := restarted.Quota.Verify(t.Context(), volume, d.Configuration.DiskMB); err != nil {
 		t.Fatal(err)
 	}
 }

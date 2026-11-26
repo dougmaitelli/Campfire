@@ -21,11 +21,14 @@ type Integration struct {
 
 // ServerIntegration stores subscriptions and the identity of its persistent card.
 type ServerIntegration struct {
-	ID                   string                      `gorm:"type:text;primaryKey"`
-	IntegrationID        string                      `gorm:"type:text;not null;uniqueIndex:server_integration_binding,priority:1"`
-	Integration          Integration                 `gorm:"foreignKey:IntegrationID;constraint:OnDelete:CASCADE"`
-	ServerID             string                      `gorm:"type:text;not null;index;uniqueIndex:server_integration_binding,priority:2"`
-	Server               Server                      `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE"`
+	ID            string      `gorm:"type:text;primaryKey"`
+	IntegrationID string      `gorm:"type:text;not null;uniqueIndex:server_integration_binding,priority:1"`
+	Integration   Integration `gorm:"foreignKey:IntegrationID;constraint:OnDelete:CASCADE"`
+	ServerID      string      `gorm:"type:text;default:null;index;uniqueIndex:server_integration_binding,priority:2"`
+	Server        Server      `gorm:"foreignKey:ServerID;constraint:OnDelete:CASCADE"`
+	// A page binding survives page deletion until its Discord message has been removed.
+	StatusPageID         string                      `gorm:"type:text;default:null;uniqueIndex"`
+	DeletedPageTitle     string                      `gorm:"type:text;not null;default:''"`
 	DestinationID        string                      `gorm:"type:text;not null;uniqueIndex:server_integration_binding,priority:3"`
 	Enabled              bool                        `gorm:"not null;default:false"`
 	Subscriptions        []integrations.Subscription `gorm:"serializer:json;type:text;not null"`

@@ -22,8 +22,8 @@ import (
 
 type transferQuota struct{}
 
-func (transferQuota) Prepare(string, int64) error { return nil }
-func (transferQuota) Verify(string, int64) error  { return nil }
+func (transferQuota) Prepare(context.Context, string, int64) error { return nil }
+func (transferQuota) Verify(context.Context, string, int64) error  { return nil }
 
 type transferDocker struct {
 	mu    sync.Mutex

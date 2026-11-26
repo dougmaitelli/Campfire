@@ -36,15 +36,17 @@ These settings configure the panel's listener for Spark agents, not browser acce
 
 ## Authentication
 
-| Setting                         | CLI flag                 | Purpose                                                                                       |
-| ------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------- |
-| `CAMPFIRE_OIDC_ISSUER`          | `--oidc-issuer`          | Optional OpenID Connect provider issuer URL                                                   |
-| `CAMPFIRE_OIDC_CLIENT_ID`       | `--oidc-client-id`       | OpenID Connect client ID                                                                      |
-| `CAMPFIRE_OIDC_CLIENT_SECRET`   | `--oidc-client-secret`   | OpenID Connect client secret                                                                  |
+| Setting                         | CLI flag                 | Purpose                                                                                                                                                 |
+| ------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CAMPFIRE_OIDC_ISSUER`          | `--oidc-issuer`          | Optional OpenID Connect provider issuer URL                                                                                                             |
+| `CAMPFIRE_OIDC_CLIENT_ID`       | `--oidc-client-id`       | OpenID Connect client ID                                                                                                                                |
+| `CAMPFIRE_OIDC_CLIENT_SECRET`   | `--oidc-client-secret`   | OpenID Connect client secret                                                                                                                            |
 | `CAMPFIRE_OIDC_AUTO_LINK_EMAIL` | `--oidc-auto-link-email` | Link first-time OIDC logins by verified provider email to an admin-assigned address. Enables provisioning users without a password. Defaults to `false` |
-| `CAMPFIRE_DISABLE_LOCAL_LOGIN`  | `--disable-local-login`  | Require OIDC after an administrator has been linked; defaults to `false`                      |
+| `CAMPFIRE_DISABLE_LOCAL_LOGIN`  | `--disable-local-login`  | Require OIDC after an administrator has been linked; defaults to `false`                                                                                |
 
 See [accounts and access](/Campfire/authentication/) for provider setup and login safeguards.
+For scripts that connect to this listener with a personal API token, see the
+[panel API reference](/Campfire/api/).
 
 ## File access and uploads
 
@@ -112,13 +114,14 @@ These settings apply to the Spark process, not the panel. See
 [adding a Spark](/Campfire/spark-agent/) for enrollment instructions and the
 [Spark environment example](https://github.com/dougmaitelli/Campfire/blob/master/config/spark.env.example).
 
-| Setting                  | CLI flag       | Purpose                                                                                                              |
-| ------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `SPARK_PANEL`            | `--panel`      | Panel's HTTPS agent URL for first enrollment                                                                         |
-| `SPARK_DATA`             | `--data`       | Persistent private agent-state directory; binary default is `spark-data`                                             |
-| `SPARK_CA_FILE`          | `--ca-file`    | Private CA certificate used to trust the panel's agent HTTPS listener                                                |
-| `SPARK_TOKEN_FILE`       | `--token-file` | Private file containing a one-time enrollment token                                                                  |
-| `SPARK_ENROLLMENT_TOKEN` | —              | One-time enrollment token supplied through the environment; do not combine with `SPARK_TOKEN_FILE` or `--token-file` |
+| Setting                  | CLI flag       | Purpose                                                                                                                               |
+| ------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `SPARK_PANEL`            | `--panel`      | Panel's HTTPS agent URL for first enrollment                                                                                          |
+| `SPARK_DATA`             | `--data`       | Persistent private agent-state directory; binary default is `spark-data`                                                              |
+| `DOCKER_HOST`            | —              | Local Docker socket URL. Defaults to `unix:///var/run/docker.sock`. See [rootless setup](/Campfire/spark-agent/#use-rootless-docker). |
+| `SPARK_CA_FILE`          | `--ca-file`    | Private CA certificate used to trust the panel's agent HTTPS listener                                                                 |
+| `SPARK_TOKEN_FILE`       | `--token-file` | Private file containing a one-time enrollment token                                                                                   |
+| `SPARK_ENROLLMENT_TOKEN` | —              | One-time enrollment token supplied through the environment; do not combine with `SPARK_TOKEN_FILE` or `--token-file`                  |
 
 ## Optional Compose settings
 

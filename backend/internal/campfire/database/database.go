@@ -27,7 +27,7 @@ type Database struct {
 // Marker 2 is reserved for an equivalent schema accepted by the adoption path.
 // Future schema changes must use a marker above 2 to avoid treating a different
 // schema as a metadata-only adoption.
-const schemaVersion = 12
+const schemaVersion = 13
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It initializes the same transactional baseline schema on either backend.
@@ -236,10 +236,12 @@ func migrate(db *gorm.DB) error {
 					}
 				}
 			}
+
 			var factors []UserMFA
 			if err := tx.Find(&factors).Error; err != nil {
 				return err
 			}
+
 			for _, factor := range factors {
 				if factor.SecretRef != "" && len(factor.Devices) == 0 {
 					factor.Devices = []MFADevice{{ID: "legacy", Name: "Authenticator", SecretRef: factor.SecretRef, LastCounter: factor.LastCounter}}
@@ -267,6 +269,26 @@ func migrate(db *gorm.DB) error {
 
 		if !tx.Migrator().HasIndex(&User{}, "users_oidc_link_email") {
 			if err := tx.Migrator().CreateIndex(&User{}, "users_oidc_link_email"); err != nil {
+				return err
+			}
+		}
+
+		if versions[0] < 13 && !tx.Migrator().HasColumn(&ServerIntegration{}, "StatusPageID") {
+			if err := tx.Exec("ALTER TABLE server_integrations ALTER COLUMN server_id DROP NOT NULL").Error; err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().AddColumn(&ServerIntegration{}, "StatusPageID"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().CreateIndex(&ServerIntegration{}, "StatusPageID"); err != nil {
+				return err
+			}
+		}
+
+		if !tx.Migrator().HasColumn(&ServerIntegration{}, "DeletedPageTitle") {
+			if err := tx.Migrator().AddColumn(&ServerIntegration{}, "DeletedPageTitle"); err != nil {
 				return err
 			}
 		}

@@ -12,6 +12,7 @@ import (
 func (r *AuthRepository) Sessions(ctx context.Context, current database.UserSession, now time.Time) ([]database.UserSession, error) {
 	sessions := make([]database.UserSession, 0)
 	err := r.db.WithContext(ctx).Where("user_id = ? AND credential_version = ? AND expires_at > ? AND last_seen_at > ?", current.UserID, current.CredentialVersion, now.Unix(), now.Add(-limits.SessionIdleTimeout).Unix()).Order("last_seen_at DESC, hash").Find(&sessions).Error
+
 	return sessions, err
 }
 

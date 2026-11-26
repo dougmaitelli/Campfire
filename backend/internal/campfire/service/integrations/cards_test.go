@@ -3,6 +3,7 @@ package integrations
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,13 +14,14 @@ import (
 	"campfire/internal/campfire/database/repository"
 	core "campfire/internal/campfire/integrations"
 	accessperm "campfire/internal/campfire/permissions"
+	"campfire/internal/campfire/statuspage"
 	fixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
 )
 
-type staticCardSource struct{ card core.ServerCard }
+type staticCardSource struct{ card core.LiveCard }
 
-func (s *staticCardSource) IntegrationCard(context.Context, string, core.CardSettings) (core.ServerCard, error) {
+func (s *staticCardSource) IntegrationCard(context.Context, string, core.CardSettings) (core.LiveCard, error) {
 	return s.card, nil
 }
 
@@ -39,7 +41,7 @@ func cardService(t *testing.T, remote http.Handler) (*database.Database, *Discor
 		t.Fatal(err)
 	}
 
-	source := &staticCardSource{card: core.ServerCard{Name: "First", State: model.RuntimeStateRunning, Addresses: []string{"games.example.test:25565 / TCP"}, Fields: []core.CardField{{ID: "players", Name: "Players", Value: "3", Available: true}}}}
+	source := &staticCardSource{card: core.LiveCard{Name: "First", State: model.RuntimeStateRunning, Addresses: []string{"games.example.test:25565 / TCP"}, Fields: []core.CardField{{ID: "players", Name: "Players", Value: "3", Available: true}}}}
 	setup.WithCards(source)
 
 	return db, setup, store, id, source
@@ -93,6 +95,141 @@ func cardBinding(t *testing.T, store *repository.IntegrationRepository, id strin
 	}
 
 	return binding
+}
+
+func TestStatusPageCardMovesAndCleansUpAfterDeletion(t *testing.T) {
+	db, setup, store, _ := deliveryService(t, fixture.DiscordHandler())
+	ctx := t.Context()
+	pages := repository.NewStatusPageRepository(db.ORM())
+	channel := "400"
+
+	connection, err := setup.PageCardConnection(ctx, testPrincipal(true), channel)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	draft := statuspage.Input{Title: "Community", Slug: "community", DiscordChannelID: &channel}
+
+	page, err := pages.SaveWithDiscord(ctx, "", draft, connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	setup.WithStatusPageCards(func(ctx context.Context, id string) (core.LiveCard, error) {
+		title, _, err := pages.PublishedByID(ctx, id)
+		return core.LiveCard{StatusPage: true, Name: title}, err
+	})
+
+	binding, err := store.PageBinding(ctx, page.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runCard(t, setup)
+
+	first := cardBinding(t, store, binding.ID).StatusMessage
+	if first.DestinationID != channel || first.ID == "" {
+		t.Fatal("no card posted to first channel", first)
+	}
+
+	draft.DiscordChannelID = nil
+	draft.Title = "Renamed"
+
+	page, err = pages.Save(ctx, page.ID, draft)
+	if err != nil || page.DiscordChannelID == nil || *page.DiscordChannelID != channel {
+		t.Fatal("editing a page cleared its channel", page, err)
+	}
+
+	makeCardDue(t, db, binding.ID, false)
+	runCard(t, setup)
+
+	if cardBinding(t, store, binding.ID).StatusMessage != first {
+		t.Fatal("editing the title replaced the message")
+	}
+
+	draft.DiscordChannelID = new("402")
+	if _, err := pages.SaveWithDiscord(ctx, page.ID, draft, connection); err != nil {
+		t.Fatal(err)
+	}
+
+	runCard(t, setup)
+
+	if ref := cardBinding(t, store, binding.ID).StatusMessage; ref.ID != "" {
+		t.Fatal("old card was not removed before moving", ref)
+	}
+
+	makeCardDue(t, db, binding.ID, false)
+	runCard(t, setup)
+
+	if ref := cardBinding(t, store, binding.ID).StatusMessage; ref.DestinationID != "402" || ref.ID == "" || ref.ID == first.ID {
+		t.Fatal("card was not published to new channel", ref)
+	}
+
+	if err := pages.Delete(ctx, page.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	runCard(t, setup)
+
+	if _, err := store.PageBinding(ctx, page.ID); !errors.Is(err, repository.ErrIntegrationNotFound) {
+		t.Fatal("page binding survived a successful cleanup", err)
+	}
+}
+
+func TestStatusPageDeletedDuringCardCreationRecoversReceipt(t *testing.T) {
+	ctx := t.Context()
+
+	var (
+		pages   *repository.StatusPageRepository
+		pageID  string
+		deletes atomic.Int64
+	)
+
+	remote := fixture.DiscordHandler()
+	db, setup, store, _ := deliveryService(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/messages") && r.Method == http.MethodPost {
+			if err := pages.Delete(ctx, pageID); err != nil {
+				t.Errorf("delete page during post: %v", err)
+			}
+		}
+
+		if r.Method == http.MethodDelete && strings.Contains(r.URL.Path, "/messages/") {
+			deletes.Add(1)
+		}
+
+		remote.ServeHTTP(w, r)
+	}))
+	pages = repository.NewStatusPageRepository(db.ORM())
+	channel := "400"
+
+	connection, err := setup.PageCardConnection(ctx, testPrincipal(true), channel)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	page, err := pages.SaveWithDiscord(ctx, "", statuspage.Input{Title: "Community", Slug: "community", DiscordChannelID: &channel}, connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pageID = page.ID
+
+	setup.WithStatusPageCards(func(context.Context, string) (core.LiveCard, error) {
+		return core.LiveCard{StatusPage: true, Name: page.Title}, nil
+	})
+	runCard(t, setup)
+
+	binding, err := store.PageBinding(ctx, page.ID)
+	if err != nil || binding.StatusMessage.ID == "" || binding.Enabled {
+		t.Fatal("in-flight post lost its receipt", binding, err)
+	}
+
+	makeCardDue(t, db, binding.ID, false)
+	runCard(t, setup)
+
+	if _, err := store.PageBinding(ctx, page.ID); !errors.Is(err, repository.ErrIntegrationNotFound) || deletes.Load() != 1 {
+		t.Fatal("orphaned Discord message after concurrent delete", deletes.Load(), err)
+	}
 }
 
 func TestCardsCreateCoalesceEditAndRecoverConfirmedDeletion(t *testing.T) {

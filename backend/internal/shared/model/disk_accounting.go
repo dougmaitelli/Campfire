@@ -9,12 +9,13 @@ type DiskAccounting string
 const (
 	DiskAccountingLogical DiskAccounting = "logical"
 	DiskAccountingProject DiskAccounting = "project"
+	DiskAccountingQgroup  DiskAccounting = "qgroup"
 	DiskAccountingMixed   DiskAccounting = "mixed"
 )
 
 // Valid accepts known methods and the omitted legacy field.
 func (a DiskAccounting) Valid() bool {
-	return a == "" || a == DiskAccountingLogical || a == DiskAccountingProject || a == DiskAccountingMixed
+	return a == "" || a == DiskAccountingLogical || a == DiskAccountingProject || a == DiskAccountingQgroup || a == DiskAccountingMixed
 }
 
 // Effective interprets older Sparks' omitted method as logical file sizes.

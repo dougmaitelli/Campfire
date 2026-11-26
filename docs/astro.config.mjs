@@ -67,6 +67,21 @@ export default defineConfig({
           ],
         },
         {
+          label: "Panel API",
+          items: [
+            { label: "Make your first request", slug: "api" },
+            { label: "Integration guide", slug: "api/guide" },
+            { label: "Servers and monitoring", slug: "api/servers" },
+            { label: "Files and backups", slug: "api/storage" },
+            { label: "Schedules, jobs, and audit", slug: "api/automation" },
+            { label: "Notifications and publishing", slug: "api/publishing" },
+            {
+              label: "Administration and accounts",
+              slug: "api/administration",
+            },
+          ],
+        },
+        {
           label: "Development",
           items: [
             { label: "Architecture", slug: "architecture" },

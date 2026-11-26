@@ -8,8 +8,8 @@ import (
 )
 
 // Docker's default seccomp profile, Apache-2.0, from moby/profiles (2026-10-14).
-// Retain its capability and architecture rules, narrowing only filesystem
-// attribute writes that could remove project IDs or their inheritance flags.
+// Retain its capability and architecture rules while protecting filesystem
+// quota assignments on the bind-mounted game data.
 //
 //go:embed seccomp/default.json
 var defaultSeccomp []byte
@@ -41,7 +41,9 @@ func quotaSeccomp() ([]byte, error) {
 	// sign-extended requests from native and compatibility ABIs alike.
 	// Forbid FSSETXATTR and SETFLAGS (32/64 bit). The newer file_setattr
 	// syscall is already excluded by the default allowlist.
-	blocked := []uint64{0x401c5820, 0x40086602, 0x40046602}
+	// Nested Btrfs subvolumes and snapshots have independent quota groups.
+	// Only the host provisions them (BTRFS_IOC_{SNAP,SUBVOL}_CREATE{,_V2}).
+	blocked := []uint64{0x401c5820, 0x40086602, 0x40046602, 0x50009401, 0x5000940e, 0x50009417, 0x50009418}
 	// A broad ALLOW rule subsumes narrower rules in libseccomp. Express the
 	// complement as disjoint allowed bit prefixes, leaving the forbidden
 	// requests to the default EPERM action. Each rule tests one argument once.

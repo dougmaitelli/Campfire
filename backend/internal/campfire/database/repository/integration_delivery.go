@@ -29,7 +29,17 @@ type IntegrationClaim struct {
 // checks and transactional claims gate the destination actually being mutated.
 func integrationDeliveryGate(destination any, now time.Time) clause.Expr {
 	busy := []model.DeliveryState{integrations.MessageClaimed, integrations.MessageSending, integrations.MessageReconciling, integrations.MessageRateLimited, integrations.CardClaimed, integrations.CardSending}
-	return clause.Expr{SQL: "NOT EXISTS (SELECT 1 FROM integration_messages busy JOIN server_integrations bb ON bb.id = busy.binding_id WHERE bb.integration_id = b.integration_id AND (busy.state = ? OR (busy.next_attempt_at > ? AND busy.state IN ?) OR (busy.destination_id = ? AND (busy.state = ? OR (busy.next_attempt_at > ? AND busy.state IN ?)))))", Vars: []any{integrations.MessageCredentialsBlocked, now.Unix(), []model.DeliveryState{integrations.MessageGlobalLimited, integrations.MessageGlobalUncertain}, destination, integrations.MessageDestinationBlocked, now.Unix(), busy}}
+	// A disabled page can retain a failed cleanup for the administrator. That
+	// message's permission failure must not pause unrelated channel traffic.
+	return clause.Expr{SQL: `NOT EXISTS (
+		SELECT 1 FROM integration_messages busy JOIN server_integrations bb ON bb.id = busy.binding_id
+		WHERE bb.integration_id = b.integration_id AND (
+			busy.state = ? OR (busy.next_attempt_at > ? AND busy.state IN ?)
+			OR (busy.destination_id = ? AND (
+				(busy.state = ? AND (bb.status_page_id IS NULL OR bb.enabled))
+				OR (busy.next_attempt_at > ? AND busy.state IN ?)
+			))
+		))`, Vars: []any{integrations.MessageCredentialsBlocked, now.Unix(), []model.DeliveryState{integrations.MessageGlobalLimited, integrations.MessageGlobalUncertain}, destination, integrations.MessageDestinationBlocked, now.Unix(), busy}}
 }
 
 // ClaimMessage serializes selection across panel processes without holding a

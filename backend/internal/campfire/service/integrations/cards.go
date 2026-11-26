@@ -17,19 +17,19 @@ import (
 
 // CardSource supplies current public data independently of any provider.
 type CardSource interface {
-	IntegrationCard(context.Context, string, core.CardSettings) (core.ServerCard, error)
+	IntegrationCard(context.Context, string, core.CardSettings) (core.LiveCard, error)
 }
 
 // CardProvider owns provider access and external singleton-message operations.
 // Check enforces publishing permissions; reads and deletion use their native
 // permissions so losing Send Messages does not prevent receipt recovery/cleanup.
 type CardProvider interface {
-	Fingerprint(core.ServerCard) string
+	Fingerprint(core.LiveCard) string
 	Check(context.Context, repository.IntegrationClaim) error
-	CreateCard(context.Context, repository.CardClaim, core.ServerCard) (string, error)
+	CreateCard(context.Context, repository.CardClaim, core.LiveCard) (string, error)
 	FindCard(context.Context, repository.CardClaim) (string, error)
 	CardExists(context.Context, repository.CardClaim) (bool, error)
-	EditCard(context.Context, repository.CardClaim, core.ServerCard) (bool, error)
+	EditCard(context.Context, repository.CardClaim, core.LiveCard) (bool, error)
 	DeleteCard(context.Context, repository.CardClaim) error
 }
 
@@ -37,6 +37,7 @@ type CardProvider interface {
 type CardWorker struct {
 	Store     *repository.IntegrationRepository
 	Source    CardSource
+	Page      func(context.Context, string) (core.LiveCard, error)
 	Providers map[string]CardProvider
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
@@ -117,7 +118,7 @@ func cardFailure(err error) *core.DeliveryFailure {
 		return failure
 	}
 
-	return &core.DeliveryFailure{Message: "The server card could not be updated. Check the integration connection."}
+	return &core.DeliveryFailure{Message: "The live card could not be updated. Check the integration connection."}
 }
 
 // reconcile coalesces updates to five seconds and checks quiet messages every
@@ -145,7 +146,7 @@ func (w *CardWorker) reconcile(ctx context.Context, claim repository.CardClaim) 
 			}
 
 			if id == "" {
-				return &core.DeliveryFailure{Message: "The provider may have accepted this server card, but its receipt could not be confirmed. Automatic creation is paused to avoid duplicates. Check the card to search again.", Permanent: true, Uncertain: true}
+				return &core.DeliveryFailure{Message: "The provider may have accepted this card, but its receipt could not be confirmed. Automatic creation is paused to avoid duplicates. Check the card to search again.", Permanent: true, Uncertain: true}
 			}
 
 			ref = core.MessageReference{DestinationID: claim.DestinationID, ID: id}
@@ -177,7 +178,7 @@ func (w *CardWorker) reconcile(ctx context.Context, claim repository.CardClaim) 
 			return nil
 		}
 
-		card, err := w.Source.IntegrationCard(ctx, claim.Binding.ServerID, claim.Binding.Card)
+		card, err := w.content(ctx, claim.Binding)
 		if err != nil {
 			return err
 		}
@@ -193,7 +194,7 @@ func (w *CardWorker) reconcile(ctx context.Context, claim repository.CardClaim) 
 
 		// Permission checks can take time. Rebuild from current observations before
 		// a mutation rather than publishing a snapshot that expired during HTTP.
-		card, err = w.Source.IntegrationCard(ctx, claim.Binding.ServerID, claim.Binding.Card)
+		card, err = w.content(ctx, claim.Binding)
 		if err != nil {
 			return err
 		}
@@ -213,7 +214,7 @@ func (w *CardWorker) reconcile(ctx context.Context, claim repository.CardClaim) 
 			}
 
 			if id == "" {
-				return &core.DeliveryFailure{Message: "The provider returned no server-card receipt. Delivery will be checked before creating another card.", Uncertain: true}
+				return &core.DeliveryFailure{Message: "The provider returned no card receipt. Delivery will be checked before creating another card.", Uncertain: true}
 			}
 
 			ref = core.MessageReference{DestinationID: claim.DestinationID, ID: id}
@@ -287,4 +288,20 @@ func (w *CardWorker) reconcile(ctx context.Context, claim repository.CardClaim) 
 	defer stop()
 
 	return w.Store.FinishCard(finish, claim, work, ref, state, message, next)
+}
+
+func (w *CardWorker) content(ctx context.Context, binding core.Binding) (core.LiveCard, error) {
+	if binding.StatusPageID != "" {
+		if w.Page == nil {
+			return core.LiveCard{}, errors.New("status page source unavailable")
+		}
+
+		return w.Page(ctx, binding.StatusPageID)
+	}
+
+	if w.Source == nil {
+		return core.LiveCard{}, errors.New("server card source unavailable")
+	}
+
+	return w.Source.IntegrationCard(ctx, binding.ServerID, binding.Card)
 }

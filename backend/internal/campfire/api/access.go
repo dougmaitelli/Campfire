@@ -84,6 +84,7 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 			input.Disabled = new(false)
 		}
 	}
+
 	user, err := a.access.UpdateUser(r.Context(), id, input.RoleID, input.Disabled, input.Password, input.Name, input.Email)
 	if err != nil {
 		writeAuthError(w, err)

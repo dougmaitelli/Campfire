@@ -25,6 +25,10 @@ func auditPolicy(pattern string) requestAuditPolicy {
 	switch pattern {
 	case "POST /api/v1/status-pages":
 		return requestAuditPolicy{action: "status-page.create"}
+	case "POST /api/v1/status-pages/discord/preview":
+		return requestAuditPolicy{action: "status-page.discord.preview", quiet: true}
+	case "POST /api/v1/status-pages/{pageID}/discord/card/retry":
+		return requestAuditPolicy{action: "status-page.discord.retry"}
 	case "PUT /api/v1/status-pages/{pageID}":
 		return requestAuditPolicy{action: "status-page.update"}
 	case "DELETE /api/v1/status-pages/{pageID}":

@@ -27,6 +27,36 @@ const backupBytes int64 = 100 << 30
 const backupEntries = 100000
 const restoreCommitMarker = "restore-committed"
 
+// If publication was interrupted between renames, preserve both directories
+// until an operator recovers or explicitly deletes the server.
+func (m *Manager) cleanInterruptedRestoreStages(ctx context.Context, id string) error {
+	root := m.root(id)
+	if _, err := os.Lstat(filepath.Join(root, "restore-previous")); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	entries, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), ".restore-") {
+			if err := m.removeGameData(ctx, filepath.Join(root, entry.Name())); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // The marker outlives filesystem replacement until installed state is durable.
 // Recovery is safe whether the previous directory was removed or still exists.
 func (m *Manager) recoverCommittedRestore(id string, e *entry) error {
@@ -50,8 +80,8 @@ func (m *Manager) recoverCommittedRestore(id string, e *entry) error {
 		return err
 	}
 
-	if err := os.RemoveAll(filepath.Join(m.root(id), "restore-previous")); err != nil {
-		return errors.New("game data restored; previous data cleanup requires operator attention")
+	if err := m.removeGameData(m.ctx, filepath.Join(m.root(id), "restore-previous")); err != nil {
+		return fmt.Errorf("game data restored; previous data cleanup requires operator attention: %w", err)
 	}
 
 	if err := os.Remove(marker); err != nil {
@@ -452,7 +482,10 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 		mode fs.FileMode
 	}
 
-	var directories []directoryMode
+	var (
+		directories []directoryMode
+		copier      sparseFileCopier
+	)
 
 	var total int64
 
@@ -536,7 +569,7 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 			return err
 		}
 
-		_, copyErr := io.CopyN(file, backupReader{ctx, archive}, header.Size)
+		copyErr := copier.copy(file, backupReader{ctx, archive}, header.Size)
 		modeErr := file.Chmod(importedMode(fs.FileMode(header.Mode)))
 		syncErr := file.Sync()
 
@@ -571,7 +604,7 @@ func extractBackup(ctx context.Context, input io.Reader, directory string, limit
 	return nil
 }
 
-func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name string, e *entry) error {
+func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name string, e *entry) (result error) {
 	m.progress(d.ServerID, e, "Validating and preparing backup")
 	ctx = runtimeProgress(ctx, e)
 	workprogress.New(ctx, workprogress.Preparing, 0)
@@ -605,16 +638,16 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 	if err != nil {
 		return errors.New("could not prepare restoration")
 	}
-	defer func() { _ = os.RemoveAll(stage) }()
+	defer func() { result = errors.Join(result, m.removeGameData(context.WithoutCancel(ctx), stage)) }()
 	// A separate project gives the staged replacement its own full allocation;
 	// the project follows the directory when it is renamed into place.
-	if err := m.prepareQuota(stage, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, stage, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
 	limit := backupBytes
-	if d.Configuration.DiskMB > 0 {
-		limit = min(limit, d.Configuration.DiskMB<<20)
+	if logicalMB := m.logicalDiskLimitMB(d.Configuration.DiskMB); logicalMB > 0 {
+		limit = min(limit, logicalMB<<20)
 	}
 
 	if err := extractBackup(ctx, file, stage, limit, info.Size()); err != nil {
@@ -673,7 +706,7 @@ func (m *Manager) restoreBackup(ctx context.Context, d model.Deployment, name st
 		return errors.New("could not assign restored game ownership; original game data was preserved")
 	}
 
-	if err := m.prepareQuota(stage, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, stage, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 

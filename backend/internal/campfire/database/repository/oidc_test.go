@@ -16,12 +16,15 @@ import (
 func TestOIDCProvisioningAfterFirstSignIn(t *testing.T) {
 	db, store, _ := authStore(t)
 	ctx := t.Context()
+
 	admin := database.User{Username: "admin", RoleID: database.AdminRole}
 	if err := db.ORM().Omit("Role").Create(&admin).Error; err != nil {
 		t.Fatal(err)
 	}
+
 	access := store.Access().WithLoginPolicy("issuer", false, true)
 	input := repository.OIDCAccountInput{Issuer: "issuer", Subject: "player-subject", Username: "returning-player", Email: "Élodie@bücher.test", Options: repository.OIDCAccountOptions{AutoLinkEmail: true, EmailVerified: true}}
+
 	player, err := store.OIDCAccount(ctx, input)
 	if err != nil {
 		t.Fatal(err)
@@ -30,24 +33,30 @@ func TestOIDCProvisioningAfterFirstSignIn(t *testing.T) {
 	if err := db.ORM().Model(&player).Update("email", "Élodie@BÜCHER.test").Error; err != nil {
 		t.Fatal(err)
 	}
+
 	address := utils.NormalizeEmail(input.Email)
+
 	pending := database.User{Username: "future-player", RoleID: database.CreatorRole, Email: address, OIDCLinkEmail: &address}
 	if err := access.CreateUser(ctx, &pending); !errors.Is(err, repository.ErrAccessConflict) || !strings.Contains(err.Error(), player.Username) {
 		t.Fatal("expected a conflict identifying the existing account", err)
 	}
 
 	other := utils.NormalizeEmail("élodie@bücher.test")
+
 	pending.Email, pending.OIDCLinkEmail = other, &other
 	if err := access.CreateUser(ctx, &pending); err != nil {
 		t.Fatal("distinct mailbox should be available", err)
 	}
+
 	if err := access.UpdateUser(ctx, pending.ID, nil, nil, "", nil, &address); !errors.Is(err, repository.ErrAccessConflict) {
 		t.Fatal("could reassign the existing player's email to a pending account", err)
 	}
+
 	saved, err := access.User(ctx, pending.ID)
 	if err != nil || saved.Email != other || saved.OIDCLinkEmail == nil || *saved.OIDCLinkEmail != other {
 		t.Fatal("failed assignment changed the reservation", err)
 	}
+
 	returning, err := store.OIDCAccount(ctx, input)
 	if err != nil || returning.ID != player.ID || returning.RoleID != database.UserRole {
 		t.Fatal("provisioning changed the returning player's access", err)

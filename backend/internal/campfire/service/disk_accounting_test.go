@@ -11,7 +11,7 @@ import (
 )
 
 func TestDiskAccountingValidationAndLegacyResponses(t *testing.T) {
-	for _, method := range []model.DiskAccounting{"", model.DiskAccountingLogical, model.DiskAccountingProject, model.DiskAccountingMixed} {
+	for _, method := range []model.DiskAccounting{"", model.DiskAccountingLogical, model.DiskAccountingProject, model.DiskAccountingQgroup, model.DiskAccountingMixed} {
 		usage := model.ResourceUsage{DiskBytes: new(int64(42)), DiskAccounting: method}
 		if !validUsage(usage) {
 			t.Fatal("rejected supported accounting", method)
@@ -39,6 +39,7 @@ func TestSparkTotalsIdentifyDiskAccountingWithoutChangingHistory(t *testing.T) {
 		{"", model.DiskAccountingLogical, model.DiskAccountingLogical},
 		{model.DiskAccountingProject, model.DiskAccountingProject, model.DiskAccountingProject},
 		{model.DiskAccountingProject, "", model.DiskAccountingMixed},
+		{model.DiskAccountingQgroup, model.DiskAccountingProject, model.DiskAccountingMixed},
 		{model.DiskAccountingMixed, model.DiskAccountingLogical, model.DiskAccountingMixed},
 	} {
 		rows := []database.ServerResourceSample{

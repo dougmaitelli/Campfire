@@ -31,12 +31,12 @@ func TestLiveProjectDiskAccounting(t *testing.T) {
 	}
 
 	quota := &projectQuotas{registry: filepath.Join(base, "projects"), kernel: linuxProjectKernel{}}
-	if err := quota.Prepare(directory, 64); err != nil {
+	if err := quota.Prepare(t.Context(), directory, 64); err != nil {
 		t.Fatal(err)
 	}
 
 	t.Cleanup(func() {
-		if err := quota.Prepare(directory, 0); err != nil {
+		if err := quota.Prepare(t.Context(), directory, 0); err != nil {
 			t.Error(err)
 		}
 	})
@@ -44,7 +44,7 @@ func TestLiveProjectDiskAccounting(t *testing.T) {
 	read := func() int64 {
 		t.Helper()
 
-		usage, err := quota.DiskUsage(directory)
+		usage, err := quota.DiskUsage(t.Context(), directory)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -107,11 +107,11 @@ func TestLiveProjectDiskAccounting(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	if err := quota.Prepare(directory, 0); err != nil {
+	if err := quota.Prepare(t.Context(), directory, 0); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := quota.DiskUsage(directory); err != nil {
+	if _, err := quota.DiskUsage(t.Context(), directory); err != nil {
 		t.Fatal("unlimited project lost accounting", err)
 	}
 }

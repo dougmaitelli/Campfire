@@ -40,9 +40,10 @@ type Selection struct {
 
 // Input contains editable publication metadata; entry order is significant.
 type Input struct {
-	Title   string      `json:"title"`
-	Slug    string      `json:"slug"`
-	Entries []Selection `json:"entries"`
+	DiscordChannelID *string     `json:"discord_channel_id,omitempty"`
+	Title            string      `json:"title"`
+	Slug             string      `json:"slug"`
+	Entries          []Selection `json:"entries"`
 }
 
 // Page is the authenticated management response.

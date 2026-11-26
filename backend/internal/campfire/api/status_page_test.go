@@ -79,6 +79,30 @@ func TestPublicStatusPagesAreExplicitAnonymousAndAdminManaged(t *testing.T) {
 	}
 
 	endpoint := "/api/v1/status-pages/" + page.ID
+	previewURL := "/api/v1/status-pages/discord/preview"
+
+	draft := fmt.Sprintf(`{"title":"Draft title","entries":[{"server_id":%q,"name":"Draft public name"}]}`, server.ID)
+	for _, route := range []struct{ method, path, body string }{
+		{"POST", previewURL, draft},
+		{"GET", "/api/v1/status-pages/discord/cleanups", ""},
+		{"GET", endpoint + "/discord/card", ""},
+		{"POST", endpoint + "/discord/card/retry", "{}"},
+	} {
+		expectAccess(t, ordinary, route.method, route.path, route.body, http.StatusForbidden)
+		expectAccess(t, bearerAPI(f.panel, limited), route.method, route.path, route.body, http.StatusForbidden)
+	}
+
+	card := request(f.admin, "POST", previewURL, draft)
+	if card.Code != http.StatusOK || !strings.Contains(card.Body.String(), "Draft title") || !strings.Contains(card.Body.String(), "Draft public name") || !strings.Contains(card.Body.String(), "Online") {
+		t.Fatal("preview did not render draft names and cached availability", card.Code, card.Body)
+	}
+
+	for _, private := range []string{configuration.GameAddress, server.ID, server.Name, "private diagnostics", "private console", "player_names"} {
+		if strings.Contains(card.Body.String(), private) {
+			t.Fatal("Discord preview exposed private server data", private)
+		}
+	}
+
 	expectAccess(t, ordinary, "PUT", endpoint, body, http.StatusForbidden)
 	expectAccess(t, ordinary, "DELETE", endpoint, "", http.StatusForbidden)
 	expectAccess(t, f.admin, "POST", "/api/v1/status-pages", body, http.StatusConflict)

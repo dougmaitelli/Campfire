@@ -158,6 +158,16 @@ func Run(ctx context.Context, config Config) error {
 	}
 	defer manager.Close()
 
+	if config.runtimeFactory == nil {
+		if err := manager.ConfigureDocker(ctx); err != nil {
+			return err
+		}
+
+		if err := manager.AllowDockerTraversal(ctx, config.DataDir); err != nil {
+			return err
+		}
+	}
+
 	slog.Info("Game-data disk quota support", "enabled", manager.DiskQuotaSupported())
 
 	configurations := &ConfigurationStore{Directory: filepath.Join(config.DataDir, "servers"), Runtime: manager}
@@ -172,6 +182,10 @@ func Run(ctx context.Context, config Config) error {
 			return err
 		}
 		defer games.close()
+
+		if err := manager.AllowDockerTraversal(ctx, games.directory); err != nil {
+			return err
+		}
 
 		configurations.games = games
 		manager.GameIntegrationMount = games.mount
