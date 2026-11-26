@@ -64,8 +64,8 @@ func TestGameStateListsAreIsolatedReplacedAndExpired(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if view := service.Snapshot("game", "owner", true, now.Add(60*time.Second).Unix()); view.State != nil {
-		t.Fatal("expired list exposed", view)
+	if view := service.Snapshot("game", "owner", true, now.Add(60*time.Second).Unix()); view.State == nil || view.UpdatedAt != now.Unix() {
+		t.Fatal("snapshot lost its original receive time or list", view)
 	}
 
 	service.Invalidate("game")

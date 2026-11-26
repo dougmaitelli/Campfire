@@ -7,6 +7,7 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	core "campfire/internal/campfire/integrations"
+	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )
@@ -40,7 +41,7 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 	publication := protocol.GameFrame{ServerID: "game", Publication: model.GamePublication{Version: 1, State: &model.GameState{Players: new(3), Fields: map[string]any{"invite_code": "ABCD", "player_names": []any{"Alex", "Sam"}, "private": []any{"unselected"}}}}}
 	settings := core.CardSettings{Fields: []string{"players", "field.invite_code", "field.player_names"}}
 
-	for _, scenario := range []string{"fresh", "expired publication", "stale sample", "sample error", "disconnected", "old placement", "stopped", "stale status", "invalidated", "disabled"} {
+	for _, scenario := range []string{"fresh", "nearly expired publication", "nearly stale sample", "expired publication", "stale sample", "sample error", "disconnected", "old placement", "stopped", "stale status", "invalidated", "disabled"} {
 		t.Run(scenario, func(t *testing.T) {
 			online.online.Store(scenario != "disconnected")
 
@@ -58,9 +59,16 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 			sample := database.ServerResourceSample{ServerID: "game", SparkID: "node", CollectedAt: now.Unix(), ReceivedAt: now.Unix(), Usage: model.ResourceUsage{ServerID: "game", State: model.RuntimeStateRunning, SampledAt: now.Unix()}}
 
 			switch scenario {
+			case "nearly expired publication":
+				record := games.states["game"]
+				record.received = now.Add(-integrationCardGameFreshFor + 5*time.Second)
+				games.states["game"] = record
+			case "nearly stale sample":
+				freshSeconds := limits.SampleFreshSeconds(int64(deployment.History.Interval.Seconds()))
+				sample.ReceivedAt = now.Unix() - freshSeconds + 5
 			case "expired publication":
 				record := games.states["game"]
-				record.received = now.Add(-gameStateFreshFor)
+				record.received = now.Add(-integrationCardGameFreshFor)
 				games.states["game"] = record
 			case "stale sample":
 				sample.ReceivedAt = now.Add(-time.Hour).Unix()
@@ -82,8 +90,10 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 				t.Fatal(err)
 			}
 
+			available := scenario == "fresh" || scenario == "nearly expired publication" || scenario == "nearly stale sample"
+
 			card, err := deployment.IntegrationCard(t.Context(), "game", settings)
-			if err != nil || len(card.Fields) != 3 || card.Fields[0].Available != (scenario == "fresh") || card.Fields[1].Available != (scenario == "fresh") || card.Fields[2].Available != (scenario == "fresh") {
+			if err != nil || len(card.Fields) != 3 || card.Fields[0].Available != available || card.Fields[1].Available != available || card.Fields[2].Available != available {
 				t.Fatal("incorrect current game values", card, err)
 			}
 
@@ -91,12 +101,16 @@ func TestIntegrationCardUsesCurrentPlacementAndMonitoringFreshnessWithoutNetwork
 				t.Fatal("durable labels disappeared with unavailable values", scenario, card)
 			}
 
-			if scenario == "fresh" && (card.Fields[0].Value != "3" || card.Fields[1].Value != "ABCD" || card.Fields[2].Value != "Alex, Sam") {
+			if available && (card.Fields[0].Value != "3" || card.Fields[1].Value != "ABCD" || card.Fields[2].Value != "Alex, Sam") {
 				t.Fatal(card)
 			}
 
-			if scenario == "fresh" && (card.ExpiresAt <= now.Unix() || card.ExpiresAt > now.Add(runtimeStatusLifetime).Unix()) {
+			if available && (card.ExpiresAt <= now.Unix() || card.ExpiresAt > now.Add(runtimeStatusLifetime).Unix()) {
 				t.Fatal("card can outlive its source observations", card)
+			}
+
+			if (scenario == "nearly expired publication" || scenario == "nearly stale sample") && card.ExpiresAt != now.Add(5*time.Second).Unix() {
+				t.Fatal("card did not preserve the earliest source deadline", card.ExpiresAt)
 			}
 
 			if (scenario == "old placement" || scenario == "stale status") && card.State != model.RuntimeStateUnknown {

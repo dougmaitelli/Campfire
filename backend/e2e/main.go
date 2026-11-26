@@ -21,11 +21,12 @@ import (
 	"campfire/internal/campfire/api"
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	"campfire/internal/campfire/devfixture"
-	integrationfixture "campfire/internal/campfire/devfixture/integrations"
 	"campfire/internal/campfire/service"
 	integrationservice "campfire/internal/campfire/service/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	"campfire/internal/campfire/webui"
+	"campfire/internal/devfixture"
+	integrationfixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
 )
 
@@ -141,7 +142,7 @@ func (r *runtime) Action(_ context.Context, _ string, input model.RuntimeRequest
 func seed(ctx context.Context, db *database.Database, auth *service.AuthService) *runtime {
 	token, err := auth.PrepareSetup(ctx)
 	must(err)
-	_, _, err = auth.Setup(ctx, token, "admin", "campfire-e2e-password")
+	_, _, err = auth.Setup(ctx, token, "admin", "Campfire-E2E-Password1!", "admin@example.test")
 	must(err)
 	fixtures, err := devfixture.Seed(ctx, db.ORM(), fixed)
 	must(err)
@@ -233,7 +234,7 @@ func main() {
 		servers := service.NewServerService(repository.NewServerRepository(db.ORM()), embers)
 		sparks := service.NewSparkService(repository.NewSparkRepository(db.ORM()), remote)
 		sparks.Updates = service.NewSparkUpdateService(sparks, nil)
-		deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: remote}
+		deployment := &service.DeploymentService{Servers: servers, Sparks: sparks, Embers: embers, Remote: remote, Crashes: repository.NewCrashRepository(db.ORM())}
 		publisher := repository.NewEventPublisher(db.ORM(), false)
 		deployment.Games = &service.GameIntegrationService{Servers: servers, Events: service.NewGameEventService(repository.NewGameEventRepository(db.ORM(), publisher))}
 		deployment.Games.Media = service.NewGameMediaService(repository.NewGameMediaRepository(db.ORM(), publisher))
@@ -251,13 +252,15 @@ func main() {
 		must(statuses.Collect(ctx))
 		statuses.Start(ctx)
 		integration = integrationservice.NewDiscordIntegrationService(db.ORM(), integrationservice.Secrets{Directory: filepath.Join(root, fmt.Sprintf("secrets-%d", generation))}, discord.NewClient(discordAPI.URL, discordAPI.Client())).WithCards(deployment)
+		pages := &service.StatusPageService{Store: repository.NewStatusPageRepository(db.ORM()), Deployment: deployment, Discord: integration}
+		integration.WithStatusPageCards(pages.StatusPageCard)
 		integration.Start(ctx)
 		deliveryFixture = integrationfixture.DeliveryHandler(db.ORM(), fixed)
-		handler = api.New(sparks, embers, servers).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
+		handler = api.New(sparks, embers, servers).WithStatusPages(pages).WithServerActivity(repository.NewServerActivityRepository(db.ORM())).WithIntegrations(integration).WithDeployment(deployment).WithAuthentication(auth, origin).WithActivity(activity).WithNotifications(notifications).WithClock(func() time.Time { return fixed }).Handler()
 	}
 	reset()
 	defer func() { integration.Close(); copies.Close(); statuses.Close(); must(db.Close()) }()
-	files := http.FileServer(http.Dir("web/dist"))
+	files := webui.HandlerFromFS(http.NotFoundHandler(), os.DirFS("web/dist"))
 	mux := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/__test/reset" {
 			if req.Method != http.MethodPost || req.Header.Get("X-Campfire-E2E") != "reset" {
@@ -283,6 +286,10 @@ func main() {
 		defer mu.RUnlock()
 		if req.URL.Path == "/mock/discord" || strings.HasPrefix(req.URL.Path, "/mock/discord/") {
 			discordViewer.ServeHTTP(w, req)
+			return
+		}
+		if req.URL.Path == "/__test/crash" {
+			crashFixture(db, w, req)
 			return
 		}
 		if strings.HasPrefix(req.URL.Path, "/__test/integrations/") {

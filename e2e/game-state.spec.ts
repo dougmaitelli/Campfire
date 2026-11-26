@@ -1,12 +1,7 @@
-import { GameStateStatus } from "../web/src/contracts/domains";
+import { RuntimeState } from "../web/src/contracts/domains";
 import { test, expect, prepareScreenshot } from "./fixtures";
 import { login, openScreen } from "./screens";
-import type { GameStateView } from "../web/src/api/gameState";
-
-interface GameMonitoringResponse {
-  collected_at: number;
-  servers: { id: string; game?: GameStateView; usage: { state: string } }[];
-}
+import type { MonitoringSnapshot } from "../web/src/api/monitoring";
 
 test("game state shows optional fields and hides stale values", async ({
   page,
@@ -17,15 +12,13 @@ test("game state shows optional fields and hides stale values", async ({
     "full";
   await page.route("**/api/v1/monitoring", async (route) => {
     const response = await route.fetch();
-    const snapshot = (await response.json()) as GameMonitoringResponse;
+    const snapshot = (await response.json()) as MonitoringSnapshot;
     snapshot.collected_at = collectedAt;
     const server = snapshot.servers.find((item) => item.id === "survival");
     if (!server) throw new Error("Missing survival fixture");
-    if (mode === "stopped") server.usage.state = "stopped";
+    if (mode === "stopped") server.usage.state = RuntimeState.Stopped;
     server.game = {
       updated_at: snapshot.collected_at - (mode === "expired" ? 60 : 0),
-      fresh_for_seconds: 60,
-      status: mode === "stale" ? GameStateStatus.Stale : GameStateStatus.Fresh,
       ...(mode === "stale"
         ? {}
         : {
@@ -149,12 +142,10 @@ test("field labels and raw keys retain their supplied casing", async ({
   const labels = ["World name", "Server.status", "Server URL", "Invite code"];
   await page.route("**/api/v1/monitoring", async (route) => {
     const response = await route.fetch();
-    const snapshot = (await response.json()) as GameMonitoringResponse;
+    const snapshot = (await response.json()) as MonitoringSnapshot;
     const server = snapshot.servers.find((item) => item.id === "survival")!;
     server.game = {
       updated_at: snapshot.collected_at,
-      fresh_for_seconds: 60,
-      status: GameStateStatus.Fresh,
       state: {
         fields: {
           ...Object.fromEntries(labels.map((_, i) => [`label${i}`, "value"])),

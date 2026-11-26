@@ -1,11 +1,12 @@
 import i18n from "../i18n";
-import { useTranslation, Trans } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { FormField } from "../components/forms/FormField";
 import { Button } from "../components/forms/Button";
 import "./api-tokens-drawer.css";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { Table } from "../components/table/Table";
 import {
   createToken,
   listTokens,
@@ -14,10 +15,13 @@ import {
 } from "../api/tokens";
 import { Drawer } from "../components/layout/Drawer";
 import { useConfirmation } from "../hooks/useConfirmation";
+import { CopyableText } from "../components/forms/CopyableText";
 import { CheckboxField } from "../components/forms/CheckboxField";
+import { Fieldset } from "../components/forms/Fieldset";
+import { ServerPermissionTree } from "../components/permissions/ServerPermissionTree";
+import { PlatformPermissionFields } from "../components/permissions/PlatformPermissionFields";
 import {
   Permission,
-  togglePermission,
   type PermissionDefinition,
   type PermissionID,
 } from "../api/permissions";
@@ -28,11 +32,22 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
   const [tokens, setTokens] = useState<APIToken[]>([]);
   const [choices, setChoices] = useState<PermissionID[]>([]);
   const [catalog, setCatalog] = useState<PermissionDefinition[]>([]);
-  const [scopes, setScopes] = useState<PermissionID[]>([Permission.AllAccess]);
+  const [allAccess, setAllAccess] = useState(true);
+  const [scopes, setScopes] = useState<PermissionID[]>([]);
   const [name, setName] = useState("");
   const [days, setDays] = useState(90);
-  const [secret, setSecret] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState<{
+    token: APIToken;
+    secret: string;
+  } | null>(null);
+  const formID = useId();
+  const secretBanner = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // Focusing the newly mounted banner also brings its one-time secret into view,
+    // even when the previous form and the returned token list are both scrollable.
+    if (!creating) secretBanner.current?.focus();
+  }, [creating, created]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,23 +111,18 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
     await perform(async () => {
       await revokeToken(token.id);
       setTokens((current) => current.filter((item) => item.id !== token.id));
+      setCreated((current) =>
+        current?.token.id === token.id ? null : current,
+      );
     });
   }
 
-  function toggle(scope: PermissionID, checked: boolean) {
-    setScopes((current) => {
-      let next = togglePermission(current, scope, checked, catalog);
-      if (
-        checked &&
-        scope.startsWith("server.") &&
-        !next.includes(Permission.ServerView)
-      )
-        next.push(Permission.ServerView);
-      if (!checked && scope === Permission.ServerView)
-        next = next.filter((item) => !item.startsWith("server."));
-      return next;
-    });
-  }
+  const platformChoices = choices.filter(
+    (scope) => scope !== Permission.AllAccess && !scope.startsWith("server."),
+  );
+  const serverCatalog = catalog.filter(
+    (item) => item.id.startsWith("server.") && choices.includes(item.id),
+  );
   return (
     <Drawer
       title={t("apiTokensDrawer.apiTokens")}
@@ -122,197 +132,250 @@ export function APITokensDrawer({ onClose }: { onClose: () => void }) {
       busy={busy}
       onClose={onClose}
       footerLeft={
-        <Button disabled={busy} onClick={onClose}>
-          {t("common.close")}
+        <Button
+          disabled={busy}
+          onClick={
+            creating
+              ? () => {
+                  setCreating(false);
+                  setError(null);
+                }
+              : onClose
+          }
+        >
+          {t(creating ? "common.back" : "common.close")}
         </Button>
       }
-      footerRight={null}
-    >
-      {confirmation.dialog}
-      <div className="panel-content">
-        {error && <InlineMessage role="alert">{error}</InlineMessage>}
-        {secret && (
-          <section aria-label={t("apiTokensDrawer.newTokenSecret")}>
-            <h3>{t("apiTokensDrawer.saveYourToken")}</h3>
-            <p>
-              {t(
-                "apiTokensDrawer.thisSecretIsShownOnlyOnceStoreItSomewhereSafe",
-              )}
-            </p>
-            <TextInput
-              className="api-token-secret"
-              aria-label={t("apiTokensDrawer.tokenSecret")}
-              value={secret}
-              readOnly
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <Button
-              disabled={busy}
-              onClick={() => {
-                void perform(async () => {
-                  await navigator.clipboard.writeText(secret);
-                  setCopied(true);
-                });
-              }}
-            >
-              {copied
-                ? t("apiTokensDrawer.copied")
-                : t("apiTokensDrawer.copyToken")}
-            </Button>
-          </section>
-        )}
-        <h3>{t("apiTokensDrawer.createAToken")}</h3>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void perform(async () => {
-              const result = await createToken(name, days, scopes);
-              setTokens((current) => [result.token, ...current]);
-              setSecret(result.secret);
-              setCopied(false);
-              setName("");
-            });
-          }}
-        >
-          <FormField label={t("common.name")}>
-            <TextInput
-              id="token-name"
-              required
-              maxLength={100}
-              value={name}
-              disabled={busy}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </FormField>
-          <FormField label={t("apiTokensDrawer.expiresInDays")}>
-            <TextInput
-              id="token-expiry"
-              type="number"
-              min={1}
-              max={365}
-              required
-              value={days}
-              disabled={busy}
-              onChange={(event) => setDays(Number(event.target.value))}
-            />
-          </FormField>
-          <CheckboxField
-            checked={scopes.includes(Permission.AllAccess)}
-            disabled={busy}
-            onChange={(event) =>
-              setScopes(
-                event.target.checked
-                  ? [Permission.AllAccess]
-                  : [Permission.ServerView],
-              )
-            }
-          >
-            {t("apiTokensDrawer.allMyCurrentPermissions")}
-          </CheckboxField>
-          {!scopes.includes(Permission.AllAccess) &&
-            choices
-              .filter((scope) => scope !== Permission.AllAccess)
-              .map((scope) => (
-                <CheckboxField
-                  key={scope}
-                  checked={scopes.includes(scope)}
-                  disabled={busy}
-                  onChange={(event) => toggle(scope, event.target.checked)}
-                >
-                  {scope}
-                </CheckboxField>
-              ))}
-          <p className="field-help">
-            {t(
-              "apiTokensDrawer.serverAccessFollowsYourOwnershipAndAssignmentsAccountPasswordRole",
-            )}
-          </p>
+      footerRight={
+        creating ? (
           <Button
             variant="primary"
+            type="submit"
+            form={formID}
+            loading={busy}
             disabled={
               busy ||
               loading ||
               !choices.length ||
               !name.trim() ||
-              !scopes.length ||
-              !!secret
+              (!allAccess && !scopes.length)
             }
           >
             {t("apiTokensDrawer.createToken")}
           </Button>
-          {secret && (
-            <p>
-              {t(
-                "apiTokensDrawer.closeAndReopenThisWindowToCreateAnotherToken",
-              )}
-            </p>
-          )}
-        </form>
-        <h3>{t("apiTokensDrawer.activeTokens")}</h3>
-        {loading ? (
-          <p>{t("common.loading")}</p>
         ) : (
-          !tokens.length && <p>{t("apiTokensDrawer.noActiveAPITokens")}</p>
+          <Button
+            variant="primary"
+            disabled={busy || loading || !choices.length}
+            onClick={() => {
+              setName("");
+              setDays(90);
+              setAllAccess(true);
+              setScopes([]);
+              setError(null);
+              setCreating(true);
+            }}
+          >
+            {t("apiTokensDrawer.createToken")}
+          </Button>
+        )
+      }
+    >
+      {confirmation.dialog}
+      <div className="panel-content form-stack">
+        {error && <InlineMessage role="alert">{error}</InlineMessage>}
+        {!creating && created && (
+          <section
+            ref={secretBanner}
+            tabIndex={-1}
+            aria-label={t("apiTokensDrawer.newTokenSecret")}
+          >
+            <InlineMessage tone="warning" className="api-token-banner">
+              <strong>{t("apiTokensDrawer.saveYourToken")}</strong>
+              <span>
+                {t(
+                  "apiTokensDrawer.thisSecretIsShownOnlyOnceStoreItSomewhereSafe",
+                )}
+              </span>
+              <CopyableText
+                value={created.secret}
+                copyLabel={t("apiTokensDrawer.copyToken")}
+                copiedLabel={t("apiTokensDrawer.copied")}
+                failedLabel={t("apiTokensDrawer.copyFailed")}
+              >
+                <code>{created.secret}</code>
+              </CopyableText>
+            </InlineMessage>
+          </section>
         )}
-        {tokens.map((token) => (
-          <section key={token.id} aria-label={token.name}>
-            <h4 className="api-token-heading">{token.name}</h4>
-            <p>
-              <Trans
-                i18nKey="apiTokensDrawer.expires"
-                t={i18n.t}
-                components={{
-                  code: <code>{token.prefix}…</code>,
-                  newDateToken: (
-                    <>
-                      {new Date(token.expires_at * 1000).toLocaleDateString()}
-                    </>
-                  ),
-                }}
-              />
-            </p>
-            <p>
-              <Trans
-                i18nKey="apiTokensDrawer.lastUsed"
-                t={i18n.t}
-                components={{
-                  tokenLastUsed: (
-                    <>
-                      {token.last_used_at
-                        ? new Date(token.last_used_at * 1000).toLocaleString()
-                        : i18n.t("apiTokensDrawer.never")}
-                    </>
-                  ),
-                }}
-              />
-            </p>
-            <p>
-              <Trans
-                i18nKey="apiTokensDrawer.scopes"
-                t={i18n.t}
-                components={{
-                  tokenScopesIncludes: (
-                    <>
-                      {token.scopes.includes(Permission.AllAccess)
-                        ? i18n.t("apiTokensDrawer.allMyCurrentPermissions")
-                        : token.scopes.join(", ")}
-                    </>
-                  ),
-                }}
-              />
-            </p>
-            <Button
-              variant="danger"
-              disabled={busy}
-              onClick={() => {
-                void revoke(token);
+        {creating ? (
+          <>
+            <h3>{t("apiTokensDrawer.createAToken")}</h3>
+            <form
+              id={formID}
+              className="form-stack"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void perform(async () => {
+                  const result = await createToken(
+                    name,
+                    days,
+                    allAccess ? [Permission.AllAccess] : scopes,
+                  );
+                  setTokens((current) => [result.token, ...current]);
+                  setCreated(result);
+                  setCreating(false);
+                });
               }}
             >
-              {i18n.t("apiTokensDrawer.revoke")}
-            </Button>
-          </section>
-        ))}
+              <FormField label={t("common.name")}>
+                <TextInput
+                  id="token-name"
+                  autoFocus
+                  required
+                  maxLength={100}
+                  value={name}
+                  disabled={busy}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </FormField>
+              <FormField label={t("apiTokensDrawer.expiresInDays")}>
+                <TextInput
+                  id="token-expiry"
+                  type="number"
+                  min={1}
+                  max={365}
+                  required
+                  value={days}
+                  disabled={busy}
+                  onChange={(event) => setDays(Number(event.target.value))}
+                />
+              </FormField>
+              <Fieldset
+                className="permission-fields form-stack form-stack-compact"
+                disabled={busy || loading}
+              >
+                <legend>{t("roleDrawer.permissions")}</legend>
+                <CheckboxField
+                  checked={allAccess}
+                  onChange={(event) => setAllAccess(event.target.checked)}
+                >
+                  {t("apiTokensDrawer.allMyCurrentPermissions")}
+                </CheckboxField>
+              </Fieldset>
+              {!allAccess && (
+                <>
+                  <Fieldset
+                    className="permission-fields form-stack form-stack-compact"
+                    disabled={busy || loading}
+                  >
+                    <legend>{t("apiTokensDrawer.platformPermissions")}</legend>
+                    <PlatformPermissionFields
+                      choices={platformChoices}
+                      selected={scopes}
+                      onChange={setScopes}
+                    />
+                  </Fieldset>
+                  <Fieldset
+                    className="permission-fields form-stack form-stack-compact"
+                    disabled={busy || loading}
+                  >
+                    <legend>{t("apiTokensDrawer.serverPermissions")}</legend>
+                    <p className="field-help permission-tree-guidance">
+                      {t("roleDrawer.treeGuidance")}
+                    </p>
+                    <ServerPermissionTree
+                      catalog={serverCatalog}
+                      selected={scopes}
+                      onChange={setScopes}
+                    />
+                  </Fieldset>
+                </>
+              )}
+              <p className="field-help">
+                {t(
+                  "apiTokensDrawer.serverAccessFollowsYourOwnershipAndAssignmentsAccountPasswordRole",
+                )}
+              </p>
+            </form>
+          </>
+        ) : (
+          <Table
+            aria-label={t("apiTokensDrawer.activeTokens")}
+            empty={!tokens.length}
+            loading={loading}
+            resource={t("apiTokensDrawer.apiTokens")}
+            emptyMessage={t("apiTokensDrawer.noActiveAPITokens")}
+          >
+            <thead>
+              <tr>
+                <th scope="col">{t("common.name")}</th>
+                <th scope="col" className="table-date">
+                  {t("apiTokensDrawer.expiresOn")}
+                </th>
+                <th scope="col" className="table-date">
+                  {t("apiTokensDrawer.lastUsedAt")}
+                </th>
+                <th scope="col" className="table-fit">
+                  <span className="visually-hidden">{t("common.actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {tokens.map((token) => (
+                <tr key={token.id}>
+                  <td>
+                    {token.name}
+                    <span className="row-description">
+                      <code>{token.prefix}…</code>
+                    </span>
+                    <span className="row-description">
+                      {token.scopes.includes(Permission.AllAccess)
+                        ? t("apiTokensDrawer.allMyCurrentPermissions")
+                        : token.scopes
+                            .map((scope) =>
+                              t(
+                                `permissionNames.${scope.replaceAll(".", "_")}`,
+                                { defaultValue: scope },
+                              ),
+                            )
+                            .join(", ")}
+                    </span>
+                  </td>
+                  <td className="table-date">
+                    <time
+                      dateTime={new Date(token.expires_at * 1000).toISOString()}
+                    >
+                      {new Date(token.expires_at * 1000).toLocaleDateString()}
+                    </time>
+                  </td>
+                  <td className="table-date">
+                    {token.last_used_at ? (
+                      <time
+                        dateTime={new Date(
+                          token.last_used_at * 1000,
+                        ).toISOString()}
+                      >
+                        {new Date(token.last_used_at * 1000).toLocaleString()}
+                      </time>
+                    ) : (
+                      t("apiTokensDrawer.never")
+                    )}
+                  </td>
+                  <td className="table-fit">
+                    <Button
+                      variant="danger"
+                      disabled={busy}
+                      onClick={() => void revoke(token)}
+                    >
+                      {t("apiTokensDrawer.revoke")}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
       </div>
     </Drawer>
   );

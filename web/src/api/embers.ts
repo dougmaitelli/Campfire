@@ -15,6 +15,7 @@ import { isLogAlert, isLogMatch } from "../contracts/logAlerts";
 import { API_REQUEST_TIMEOUT_MS, apiFetch, readJSON, apiJSON } from "./client";
 
 import type { Ember, EmberVariable } from "../contracts/ember";
+import { CURRENT_EMBER_SCHEMA } from "../contracts/ember";
 export type {
   Ember,
   EmberVariable,
@@ -30,7 +31,10 @@ export function isEmber(value: unknown): value is Ember {
     typeof value.id === "string" &&
     (!("revision" in value) || typeof value.revision === "string") &&
     "schema" in value &&
-    value.schema === 1 &&
+    typeof value.schema === "number" &&
+    Number.isInteger(value.schema) &&
+    value.schema >= 1 &&
+    value.schema <= CURRENT_EMBER_SCHEMA &&
     "name" in value &&
     typeof value.name === "string" &&
     "description" in value &&
@@ -64,6 +68,8 @@ export function isEmber(value: unknown): value is Ember {
         typeof value.installer.image === "string" &&
         typeof value.installer.entrypoint === "string" &&
         typeof value.installer.script === "string")) &&
+    (!("console_commands" in value) ||
+      typeof value.console_commands === "boolean") &&
     (!("stop" in value) || typeof value.stop === "string") &&
     (!("ready" in value) || typeof value.ready === "string") &&
     (!("readiness" in value) ||
@@ -166,7 +172,8 @@ function isRequiredPort(value: unknown): boolean {
     Number.isInteger(value.container) &&
     "protocol" in value &&
     isEnumValue(NetworkProtocol, value.protocol) &&
-    (!("description" in value) || typeof value.description === "string")
+    (!("description" in value) || typeof value.description === "string") &&
+    (!("primary" in value) || typeof value.primary === "boolean")
   );
 }
 

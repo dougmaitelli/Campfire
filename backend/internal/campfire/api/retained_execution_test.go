@@ -11,8 +11,8 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/pagination"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func TestExecutionPagesRetainDeletedServerHistoryWithoutBypassingAuthorization(t *testing.T) {

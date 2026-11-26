@@ -15,8 +15,8 @@ func TestServerCardListRendering(t *testing.T) {
 	labels := model.GameFieldLabels{"player_names": "Online players", "empty": "Queue"}
 	settings := core.CardSettings{Fields: []string{"field.player_names", "field.empty"}}
 	card := core.BuildServerCard(model.Server{ServerConfiguration: model.ServerConfiguration{Name: "Game"}}, model.RuntimeStateRunning, state, settings, labels)
-	sent := RenderServerCard(card)
-	preview := PreviewServerCard(card)
+	sent := RenderCard(card)
+	preview := PreviewCard(card)
 
 	if len(sent.Embeds[0].Fields) != 3 || len(sent.AllowedMentions.Parse) != 0 || sent.AllowedMentions.Parse == nil {
 		t.Fatal("selection or mention protection lost", sent)
@@ -32,13 +32,13 @@ func TestServerCardListRendering(t *testing.T) {
 
 	for _, runtime := range []model.RuntimeState{model.RuntimeStateStopped, model.RuntimeStateRunning} {
 		unavailable := core.BuildServerCard(model.Server{}, runtime, nil, settings, labels)
-		if RenderServerCard(unavailable).Embeds[0].Fields[1].Value != "Unavailable" {
+		if RenderCard(unavailable).Embeds[0].Fields[1].Value != "Unavailable" {
 			t.Fatal("missing list exposed as empty")
 		}
 	}
 
 	stopped := core.BuildServerCard(model.Server{}, model.RuntimeStateStopped, state, settings, labels)
-	if RenderServerCard(stopped).Embeds[0].Fields[1].Value != "Unavailable" {
+	if RenderCard(stopped).Embeds[0].Fields[1].Value != "Unavailable" {
 		t.Fatal("stopped server leaked player names")
 	}
 
@@ -49,8 +49,8 @@ func TestServerCardListRendering(t *testing.T) {
 
 	state.Fields["player_names"] = longNames
 	card = core.BuildServerCard(model.Server{}, model.RuntimeStateRunning, state, settings, labels)
-	sent = RenderServerCard(card)
-	preview = PreviewServerCard(card)
+	sent = RenderCard(card)
+	preview = PreviewCard(card)
 
 	field := sent.Embeds[0].Fields[1]
 	if len(utf16.Encode([]rune(field.Value))) > 1024 || !strings.HasSuffix(field.Value, "…") {

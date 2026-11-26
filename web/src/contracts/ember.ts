@@ -7,6 +7,28 @@ import type {
 } from "./domains";
 import type { LogAlert, LogMatch } from "./logAlerts";
 
+export const CURRENT_EMBER_SCHEMA = 2;
+
+// Normalize older inputs without mutating them or changing current no-primary choices.
+export function normalizeEmber(value: Ember): Ember {
+  if (value.schema >= CURRENT_EMBER_SCHEMA) return value;
+  const ports = value.required_ports;
+  return {
+    ...value,
+    schema: CURRENT_EMBER_SCHEMA,
+    ...(value.schema === 1 &&
+    ports?.length &&
+    !ports.some((port) => port.primary)
+      ? {
+          required_ports: ports.map((port, index) => ({
+            ...port,
+            primary: index === 0,
+          })),
+        }
+      : {}),
+  };
+}
+
 export interface EmberVariableValidation {
   type: VariableType;
   format?: VariableFormat;
@@ -51,6 +73,7 @@ export interface Ember {
   work_dir: string;
   user: string;
   installer?: { image: string; entrypoint: string; script: string };
+  console_commands?: boolean;
   stop?: string;
   ready?: string;
   readiness?: {
@@ -64,6 +87,7 @@ export interface Ember {
         container: number;
         protocol: NetworkProtocol;
         description?: string;
+        primary?: boolean;
       }[]
     | null;
   origin?: {

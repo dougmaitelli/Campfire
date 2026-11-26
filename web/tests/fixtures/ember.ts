@@ -11,7 +11,7 @@ export function completeEmber(): Ember {
   return {
     id: "editor-fixture",
     revision: "existing-revision",
-    schema: 1,
+    schema: 2,
     name: "Authoring fixture",
     description: "Every supported authoring option.",
     artUrl: "https://example.com/art.png",

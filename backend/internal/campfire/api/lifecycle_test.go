@@ -31,8 +31,8 @@ type lifecycleDocker struct {
 
 type lifecycleQuota struct{}
 
-func (lifecycleQuota) Prepare(string, int64) error { return nil }
-func (lifecycleQuota) Verify(string, int64) error  { return nil }
+func (lifecycleQuota) Prepare(context.Context, string, int64) error { return nil }
+func (lifecycleQuota) Verify(context.Context, string, int64) error  { return nil }
 
 func (d *lifecycleDocker) Run(_ context.Context, _ io.Reader, args ...string) (string, error) {
 	d.mu.Lock()

@@ -33,6 +33,8 @@ test("installer lists every missing dependency before changing the host", () => 
     "sha256sum",
     "install",
     "systemctl",
+    "systemd-run",
+    "sed",
     "docker",
     "uname",
     "mktemp",

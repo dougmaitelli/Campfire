@@ -49,10 +49,12 @@ permissions; ordinary server operation access is not enough.
    It needs capacity and support for the server's required features.
 3. Review destination interfaces and host ports against the allowed ranges.
    Container ports and protocols stay unchanged. Ensure the destination firewall
-   allows the selected ports, and note its game address.
+   allows the selected ports.
 4. Choose **Transfer server**. The server stays stopped throughout the transfer.
-5. After completion, check its placement and start it when ready. Players may
-   need the new game address and host ports.
+5. After completion, check its placement and start it when ready. The server's
+   explicit **Public game address** override is preserved; an inherited address
+   follows the destination Spark's default public host and mapped primary port.
+   Review the connection address in the server editor before sharing it.
 
 ## Progress and recovery
 

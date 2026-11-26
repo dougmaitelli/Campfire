@@ -16,6 +16,7 @@ export interface ServerPort {
 }
 
 export interface ServerConfiguration {
+  game_address?: string;
   game_integration?: boolean;
   name: string;
   description: string;
@@ -42,9 +43,12 @@ export interface Server extends ServerConfiguration {
   permissions: PermissionID[];
   can_manage_access?: boolean;
   spark_name: string;
+  console_commands?: boolean;
   ember_name: string;
   ember_art_url?: string;
   game_address: string;
+  game_address_default?: string;
+  game_address_port?: number;
   port_descriptions?: Record<string, string>;
   variable_types?: Record<string, VariableType>;
   status: RuntimeState;
@@ -74,6 +78,13 @@ export function isServer(value: unknown): value is Server {
     "permissions" in value &&
     Array.isArray(value.permissions) &&
     value.permissions.every(isPermissionID) &&
+    (!("game_address_default" in value) ||
+      typeof value.game_address_default === "string") &&
+    (!("game_address_port" in value) ||
+      (Number.isSafeInteger(value.game_address_port) &&
+        typeof value.game_address_port === "number" &&
+        value.game_address_port >= 0 &&
+        value.game_address_port <= 65535)) &&
     "game_address" in value &&
     typeof value.game_address === "string" &&
     (!("variable_types" in value) ||
@@ -92,6 +103,8 @@ export function isServer(value: unknown): value is Server {
         ))) &&
     "spark_name" in value &&
     typeof value.spark_name === "string" &&
+    (!("console_commands" in value) ||
+      typeof value.console_commands === "boolean") &&
     "ember_name" in value &&
     typeof value.ember_name === "string" &&
     (!("ember_art_url" in value) || typeof value.ember_art_url === "string") &&
@@ -119,6 +132,8 @@ export function isServerConfiguration(
     ["name", "description", "spark_id", "ember_id", "image"].every(
       (key) => typeof value[key] === "string",
     ) &&
+    (value.game_address === undefined ||
+      typeof value.game_address === "string") &&
     (value.startup_command === undefined ||
       typeof value.startup_command === "string") &&
     (value.startup_override === undefined ||

@@ -1,4 +1,5 @@
 import i18n from "../../i18n";
+import { GameAddressReading } from "./GameAddressReading";
 import { useTranslation, Trans } from "react-i18next";
 import { DetailsList, DetailItem } from "../layout/DetailsList";
 import type { ServerConfiguration } from "../../api/servers";
@@ -11,6 +12,9 @@ import type { ServerConfigurationChanges } from "../../utils/serverConfiguration
 
 export function ServerReview({
   value,
+  gameAddressDefault,
+  gameAddressPort,
+  gameAddressSpark,
   name,
   sparkName,
   emberName,
@@ -22,6 +26,9 @@ export function ServerReview({
   ),
 }: {
   value: ServerConfiguration;
+  gameAddressDefault?: string | undefined;
+  gameAddressPort?: number | undefined;
+  gameAddressSpark?: string | undefined;
   name?: ReactNode;
   sparkName: ReactNode;
   emberName: ReactNode;
@@ -42,6 +49,17 @@ export function ServerReview({
           change={changes?.fields.description}
         >
           {formatDisplayValue(value.description)}
+        </DetailItem>
+        <DetailItem
+          label={t("serverDrawer.publicGameAddress")}
+          change={changes?.fields.game_address}
+        >
+          <GameAddressReading
+            override={value.game_address}
+            host={gameAddressDefault}
+            port={gameAddressPort}
+            spark={gameAddressSpark}
+          />
         </DetailItem>
         <DetailItem label={t("common.spark")} change={changes?.fields.spark_id}>
           {sparkName}

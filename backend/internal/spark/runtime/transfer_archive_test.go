@@ -73,7 +73,7 @@ func TestTransferArchiveRejectsUnsafeEntries(t *testing.T) {
 			deployment.Configuration.EmberID = "ember"
 
 			deployment.Configuration.DiskMB = 1
-			if _, err := extractTransfer(context.Background(), &buffer, t.TempDir(), deployment, "transfer"); err == nil {
+			if _, err := extractTransfer(context.Background(), &buffer, t.TempDir(), deployment, "transfer", deployment.Configuration.DiskMB); err == nil {
 				t.Fatal("unsafe transfer accepted")
 			}
 		})

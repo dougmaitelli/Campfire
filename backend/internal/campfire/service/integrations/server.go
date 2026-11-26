@@ -11,9 +11,9 @@ import (
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
 	integrationmodel "campfire/internal/campfire/integrations"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service/integrations/discord"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 
 	"gorm.io/gorm"
 )

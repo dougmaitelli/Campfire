@@ -134,10 +134,11 @@ func (r *ServerActivityRepository) sourceExists(serverID, reference string, acce
 type activityRoots struct {
 	game, alerts, operations, jobs *gorm.DB
 	monitoringAlerts               *gorm.DB
+	crashes                        *gorm.DB
 }
 
 func (q activityRoots) all() []*gorm.DB {
-	return []*gorm.DB{q.game, q.alerts, q.operations, q.jobs, q.monitoringAlerts}
+	return []*gorm.DB{q.game, q.alerts, q.operations, q.jobs, q.monitoringAlerts, q.crashes}
 }
 
 func (r *ServerActivityRepository) roots(ctx context.Context, serverID string, access ServerActivityAccess) activityRoots {
@@ -149,7 +150,9 @@ func (r *ServerActivityRepository) roots(ctx context.Context, serverID string, a
 	jobs := db.Model(&database.ServerJob{}).Select("'job:' || id AS key, 'job' AS kind, '' AS source_key, created_at, type AS title, status AS state, '' AS provider, '' AS destination, type || ' ' || id AS search_text, FALSE AS delivery_check_pending, '' AS attachment_name, '' AS attachment_content_type").Where("(source_server_id = ? OR target_server_id = ?) AND type IN ?", serverID, serverID, access.JobTypes)
 	monitoringAlerts := db.Model(&database.MonitoringAlert{}).Select("'monitoring_alert:' || id AS key, 'alert' AS kind, '' AS source_key, created_at, title, CASE WHEN kind = 'recovery' THEN 'recovered' ELSE 'raised' END AS state, '' AS provider, '' AS destination, title || ' ' || body AS search_text, FALSE AS delivery_check_pending, '' AS attachment_name, '' AS attachment_content_type").Where("target_type = ? AND target_id = ?", model.NotificationServer, serverID)
 
-	return activityRoots{game: game, alerts: alerts, operations: operations, jobs: jobs, monitoringAlerts: monitoringAlerts}
+	crashes := db.Model(&database.ServerCrash{}).Select("'crash:' || id AS key, 'alert' AS kind, '' AS source_key, exited_at AS created_at, title, 'raised' AS state, '' AS provider, '' AS destination, title AS search_text, FALSE AS delivery_check_pending, '' AS attachment_name, '' AS attachment_content_type").Where("server_id = ? AND exited_at >= ?", serverID, time.Now().Add(-model.CrashRetention).Unix())
+
+	return activityRoots{game: game, alerts: alerts, operations: operations, jobs: jobs, monitoringAlerts: monitoringAlerts, crashes: crashes}
 }
 
 type activityNotifications struct {

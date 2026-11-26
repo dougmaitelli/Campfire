@@ -142,12 +142,12 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	owner, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "owner", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: ""})
+	owner, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "owner", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: "owner@example.test"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	operator, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "operator", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: ""})
+	operator, err := auth.Access().CreateUser(ctx, service.CreateUserInput{Username: "operator", Password: testAdminPassword, RoleID: database.UserRole, Disabled: false, Name: "", Email: "operator@example.test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,8 +269,8 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		}
 	}
 
-	const password = "private-password-for-new-account"
-	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","password":"`+password+`","role_id":3}`, http.StatusCreated)
+	const password = "private-password-for-new-account A1!"
+	expectAccess(t, admin, "POST", "/api/v1/users", `{"username":"created","email":"created@example.test","password":"`+password+`","role_id":3}`, http.StatusCreated)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/console", `{"command":"private-console-input"}`, http.StatusOK)
 	expectAccess(t, ownerHandler, "POST", "/api/v1/servers/"+server.ID+"/files", `{"operation":"write","path":"secret.txt","data":"cHJpdmF0ZS1maWxl","revision":"absent"}`, http.StatusOK)
 	token, tokenSecret := createTestAPIToken(t, ownerHandler, `["server.view","server.console.write"]`)
@@ -289,7 +289,8 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 		t.Fatal("invalid login unexpectedly succeeded", response.Code)
 	}
 
-	response = request(admin, "GET", "/api/v1/audit", "")
+	// Inspect the complete fixture, not a random subset of same-second rows.
+	response = request(admin, "GET", "/api/v1/audit?page_size=100", "")
 	if response.Code != http.StatusOK {
 		t.Fatal(response.Code, response.Body)
 	}
@@ -331,7 +332,7 @@ func TestSchedulesExecutionAndAuditAPI(t *testing.T) {
 
 	expectAccess(t, ownerHandler, "PUT", "/api/v1/servers/"+server.ID, configJSON(t, input), http.StatusOK)
 
-	response = request(admin, "GET", "/api/v1/audit?target=server:"+server.ID, "")
+	response = request(admin, "GET", "/api/v1/audit?page_size=100&target=server:"+server.ID, "")
 	if response.Code != http.StatusOK {
 		t.Fatal(response.Code, response.Body)
 	}

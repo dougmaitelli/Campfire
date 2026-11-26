@@ -8,6 +8,7 @@ Requires=docker.service
 Type=simple
 User=root
 Group=root
+CapabilityBoundingSet=~CAP_SYS_RESOURCE
 StateDirectory=spark
 StateDirectoryMode=0700
 WorkingDirectory=/var/lib/spark

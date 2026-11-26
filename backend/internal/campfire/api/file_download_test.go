@@ -11,7 +11,7 @@ import (
 )
 
 func TestLargeFileDownloadUsesBoundedChunksAndServerPermissions(t *testing.T) {
-	f := newAccessFixture(t)
+	f := newAccessFixtureWithAudit(t, true)
 	_, other := f.user("other", database.UserRole)
 	_, _, input := serverFixture(t, f.admin)
 
@@ -67,6 +67,9 @@ func TestLargeFileDownloadUsesBoundedChunksAndServerPermissions(t *testing.T) {
 	if response.Header().Get("Content-Length") != "2097155" || response.Header().Get("Content-Disposition") == "" {
 		t.Fatal("download headers missing", response.Header())
 	}
+
+	assertAuditOutcome(t, f, "server.files.download", model.AuditSucceeded, "server:"+server.ID)
+	assertAuditOutcome(t, f, "server.files.download", model.AuditFailed, "server:"+server.ID)
 
 	chunks = 0
 

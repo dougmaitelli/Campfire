@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func editorEmberConfiguration(server model.Server, ember model.Ember) (model.ServerConfiguration, int) {

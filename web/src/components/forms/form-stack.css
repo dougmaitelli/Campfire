@@ -1,0 +1,22 @@
+/* The container owns spacing; direct children do not contribute outer margins.
+   Apply the same layout to nested groups so each gap has a single owner. */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.form-stack-compact {
+  gap: 12px;
+}
+.form-stack > :not(.visually-hidden, dialog) {
+  margin-block: 0;
+}
+.form-stack > .button {
+  align-self: flex-start;
+}
+/* Put the semantic legend in normal flow so it participates in the gap too. */
+.form-stack > legend {
+  float: left;
+  padding: 0;
+}

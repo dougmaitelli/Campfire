@@ -1,4 +1,6 @@
 import { test, expect } from "./fixtures";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { AuditEvent } from "../web/src/api/activity";
 import { login, openScreen, openServerTab } from "./screens";
 
 test("backup names and pins persist across server and catalog views", async ({
@@ -97,7 +99,7 @@ test("backup names and pins persist across server and catalog views", async ({
   ).toBeEnabled();
   const audit = await page.request.get("/api/v1/audit");
   expect(audit.ok()).toBeTruthy();
-  expect(((await audit.json()) as { items: unknown[] }).items).toEqual(
+  expect(((await audit.json()) as Paginated<AuditEvent>).items).toEqual(
     expect.arrayContaining(
       ["rename", "pin", "unpin"].map((change) =>
         expect.objectContaining({

@@ -390,7 +390,7 @@ export function ServersPage() {
                   <td className="table-mobile-hidden">
                     <PortGroups
                       ports={server.ports.map((port) => ({
-                        address: server.game_address || port.bind_ip,
+                        address: port.bind_ip,
                         port: port.host_port,
                         protocol: port.protocol,
                         description:

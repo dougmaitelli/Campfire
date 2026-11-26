@@ -1,0 +1,243 @@
+import { apiFetch, apiJSON, readJSON } from "./client";
+import { isRecord, isEnumValue } from "../utils/validation";
+import { PublicServerState } from "../contracts/domains";
+import { StatusPagePolling } from "../config/policies";
+import i18n from "../i18n";
+import {
+  isIntegrationCardStatus,
+  renderedIntegrationCard,
+  type IntegrationCardStatus,
+} from "./integrations";
+import { isGameStateView, type GameStateView } from "./gameState";
+
+export interface StatusPageSelection {
+  server_id: string;
+  name: string;
+}
+export interface StatusPageInput {
+  discord_channel_id?: string;
+  title: string;
+  slug: string;
+  entries: StatusPageSelection[];
+}
+export interface StatusPage extends StatusPageInput {
+  id: string;
+}
+export interface AvailabilityHistory {
+  from: number;
+  to: number;
+  interval: number;
+  points: { online_seconds: number; offline_seconds: number }[];
+}
+export interface PublicStatusEntry {
+  history?: AvailabilityHistory;
+  id: string;
+  name: string;
+  state: PublicServerState;
+  observed_at: number;
+  art_url?: string;
+  game_address?: string;
+  game_state?: GameStateView;
+}
+export interface PublicStatusPage {
+  collected_at: number;
+  title: string;
+  entries: PublicStatusEntry[];
+  poll_seconds: number;
+}
+
+function isSelection(v: unknown): v is StatusPageSelection {
+  return (
+    isRecord(v) && typeof v.server_id === "string" && typeof v.name === "string"
+  );
+}
+function isStatusPage(v: unknown): v is StatusPage {
+  return (
+    isRecord(v) &&
+    typeof v.id === "string" &&
+    typeof v.title === "string" &&
+    typeof v.slug === "string" &&
+    (v.discord_channel_id === undefined ||
+      typeof v.discord_channel_id === "string") &&
+    Array.isArray(v.entries) &&
+    v.entries.every(isSelection)
+  );
+}
+function invalid(): never {
+  throw new Error(i18n.t("statusPages.invalidResponse"));
+}
+export async function listStatusPages(
+  signal: AbortSignal,
+): Promise<StatusPage[]> {
+  const body = await readJSON(
+    await apiFetch("/api/v1/status-pages", { signal }),
+  );
+  if (!Array.isArray(body) || !body.every(isStatusPage)) return invalid();
+  return body;
+}
+export async function saveStatusPage(
+  id: string | undefined,
+  input: StatusPageInput,
+): Promise<StatusPage> {
+  const body = await readJSON(
+    await apiJSON(
+      id
+        ? `/api/v1/status-pages/${encodeURIComponent(id)}`
+        : "/api/v1/status-pages",
+      input,
+      { method: id ? "PUT" : "POST" },
+    ),
+  );
+  if (!isStatusPage(body)) return invalid();
+  return body;
+}
+export async function deleteStatusPage(id: string): Promise<void> {
+  const response = await apiFetch(
+    `/api/v1/status-pages/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) await readJSON(response);
+}
+
+export async function previewStatusPageCard(
+  title: string,
+  entries: StatusPageSelection[],
+  signal: AbortSignal,
+) {
+  const body = await readJSON(
+    await apiJSON(
+      "/api/v1/status-pages/discord/preview",
+      { title, entries },
+      { signal },
+    ),
+  );
+  if (!renderedIntegrationCard(body)) return invalid();
+  return body;
+}
+
+export async function statusPageCardStatus(id: string, signal: AbortSignal) {
+  const body = await readJSON(
+    await apiFetch(
+      `/api/v1/status-pages/${encodeURIComponent(id)}/discord/card`,
+      { signal },
+    ),
+  );
+  if (!isIntegrationCardStatus(body)) return invalid();
+  return body;
+}
+
+export async function retryStatusPageCard(id: string) {
+  await apiJSON(
+    `/api/v1/status-pages/${encodeURIComponent(id)}/discord/card/retry`,
+    {},
+  );
+}
+
+interface PageCardCleanup {
+  id: string;
+  title: string;
+  channel_id: string;
+  status: IntegrationCardStatus;
+}
+
+export async function listPageCardCleanups(
+  signal: AbortSignal,
+): Promise<PageCardCleanup[]> {
+  const body = await readJSON(
+    await apiFetch("/api/v1/status-pages/discord/cleanups", { signal }),
+  );
+  if (
+    !Array.isArray(body) ||
+    !body.every(
+      (row: unknown): row is PageCardCleanup =>
+        isRecord(row) &&
+        typeof row.id === "string" &&
+        typeof row.title === "string" &&
+        typeof row.channel_id === "string" &&
+        isIntegrationCardStatus(row.status),
+    )
+  )
+    return invalid();
+  return body;
+}
+function isAvailabilityHistory(v: unknown): v is AvailabilityHistory {
+  return (
+    isRecord(v) &&
+    typeof v.from === "number" &&
+    Number.isSafeInteger(v.from) &&
+    v.from >= 0 &&
+    typeof v.to === "number" &&
+    Number.isSafeInteger(v.to) &&
+    v.interval === 300 &&
+    v.from % v.interval === 0 &&
+    v.to - v.from === 86400 &&
+    Array.isArray(v.points) &&
+    v.points.length === 288 &&
+    v.points.every(
+      (point: unknown) =>
+        isRecord(point) &&
+        typeof point.online_seconds === "number" &&
+        Number.isSafeInteger(point.online_seconds) &&
+        point.online_seconds >= 0 &&
+        typeof point.offline_seconds === "number" &&
+        Number.isSafeInteger(point.offline_seconds) &&
+        point.offline_seconds >= 0 &&
+        point.online_seconds + point.offline_seconds <= 300,
+    )
+  );
+}
+function isPublicEntry(v: unknown): v is PublicStatusEntry {
+  return (
+    isRecord(v) &&
+    typeof v.id === "string" &&
+    typeof v.name === "string" &&
+    isEnumValue(PublicServerState, v.state) &&
+    typeof v.observed_at === "number" &&
+    Number.isSafeInteger(v.observed_at) &&
+    v.observed_at >= 0 &&
+    (v.art_url === undefined ||
+      (typeof v.art_url === "string" && v.art_url.length <= 2048)) &&
+    (v.game_address === undefined || typeof v.game_address === "string") &&
+    (v.game_state === undefined || isGameStateView(v.game_state)) &&
+    (v.history === undefined || isAvailabilityHistory(v.history))
+  );
+}
+export async function readPublicStatusPage(
+  slug: string,
+  signal: AbortSignal,
+): Promise<PublicStatusPage> {
+  // The public page neither sends credentials nor invokes session-expiry handling.
+  const body = await readJSON(
+    await fetch(`/api/v1/public/status-pages/${encodeURIComponent(slug)}`, {
+      signal,
+      credentials: "omit",
+      redirect: "error",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    }),
+  );
+  if (
+    !isRecord(body) ||
+    typeof body.title !== "string" ||
+    typeof body.collected_at !== "number" ||
+    !Number.isSafeInteger(body.collected_at) ||
+    body.collected_at < 0 ||
+    !Array.isArray(body.entries) ||
+    body.entries.length > 50 ||
+    !body.entries.every(isPublicEntry) ||
+    typeof body.poll_seconds !== "number" ||
+    !Number.isSafeInteger(body.poll_seconds) ||
+    body.poll_seconds <= 0 ||
+    body.poll_seconds > StatusPagePolling.MaxSeconds
+  )
+    return invalid();
+  return {
+    title: body.title,
+    collected_at: body.collected_at,
+    entries: body.entries,
+    poll_seconds: body.poll_seconds,
+  };
+}
+export function statusPageURL(slug: string): string {
+  return `/status/${encodeURIComponent(slug)}`;
+}

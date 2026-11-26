@@ -1,5 +1,9 @@
 .backup-retention-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  column-gap: 16px;
+  gap: 20px 16px;
+
+  & > .form-field {
+    margin-bottom: 0;
+  }
 }

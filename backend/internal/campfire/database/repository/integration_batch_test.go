@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/integrations"
+	"campfire/internal/campfire/permissions"
 	setup "campfire/internal/campfire/service/integrations"
-	"campfire/internal/shared/permissions"
 )
 
 // The repository suite runs against SQLite and PostgreSQL in CI. Exercise the

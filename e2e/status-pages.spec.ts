@@ -1,0 +1,770 @@
+import { test, expect, screenshot } from "./fixtures";
+import { inspectServer, login } from "./screens";
+import { readAuthenticatedSession } from "./auth";
+import type { Server } from "../web/src/api/servers";
+import type { Ember } from "../web/src/api/embers";
+import type { StatusPage, PublicStatusPage } from "../web/src/api/statusPages";
+
+test("publish and remove a Discord card from the status-page drawer", async ({
+  page,
+  baseURL,
+}) => {
+  await login(page);
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
+  const connected = await page.request.put("/api/v1/integrations/discord", {
+    headers: { "X-CSRF-Token": session.csrf_token, Origin: baseURL! },
+    data: {
+      enabled: true,
+      guild_id: "200",
+      token: "campfire-test-discord-token",
+    },
+  });
+  expect(connected.ok(), await connected.text()).toBe(true);
+  await page.goto("/#statusPages");
+  await page
+    .getByRole("button", { name: "Create status page", exact: true })
+    .click();
+  const drawer = page.getByRole("dialog");
+  await drawer
+    .getByLabel("Page title", { exact: true })
+    .fill("Community games");
+  await drawer.getByLabel("URL slug", { exact: true }).fill("community-games");
+  await drawer.getByRole("button", { name: "Add server", exact: true }).click();
+  await drawer.getByRole("combobox", { name: "Server 1", exact: true }).click();
+  await page.getByRole("option", { name: "Survival", exact: true }).click();
+  await drawer
+    .getByLabel("Public name for Survival", { exact: true })
+    .fill("Public realm");
+  const toggle = drawer.getByRole("switch", {
+    name: "Publish a live Discord card",
+    exact: true,
+  });
+  await toggle.check();
+  const save = drawer.getByRole("button", {
+    name: "Create public page",
+    exact: true,
+  });
+  await expect(save).toBeDisabled();
+  await drawer
+    .getByRole("combobox", { name: "Discord channel", exact: true })
+    .click();
+  await page
+    .getByRole("option", { name: "#server-updates", exact: true })
+    .click();
+  const preview = drawer.getByRole("region", {
+    name: "Status page card preview",
+    exact: true,
+  });
+  await expect(
+    preview.getByText("Public realm", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    preview.getByText("Community games", { exact: true }),
+  ).toBeVisible();
+  await save.click();
+  await expect(drawer).not.toBeVisible();
+  const edit = page.getByRole("button", {
+    name: "Edit Community games",
+    exact: true,
+  });
+  await edit.click();
+  await expect(drawer.getByText("Published", { exact: true })).toBeVisible({
+    timeout: 20000,
+  });
+  const discord = await page.context().newPage();
+  await discord.goto("/mock/discord");
+  const message = discord
+    .getByRole("article")
+    .filter({ hasText: "Community games" });
+  await expect(message).toHaveCount(1);
+  await expect(
+    message.getByText("Public realm", { exact: true }),
+  ).toBeVisible();
+  await toggle.uncheck();
+  await drawer
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await expect(drawer).not.toBeVisible();
+  await edit.click();
+  await expect(toggle).not.toBeChecked();
+  await expect(message).toHaveCount(0);
+  await discord.close();
+});
+
+test("retry a deleted page's Discord message removal from Integrations", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(45000);
+  await login(page);
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
+  const headers = { "X-CSRF-Token": session.csrf_token, Origin: baseURL! };
+  const connected = await page.request.put("/api/v1/integrations/discord", {
+    headers,
+    data: {
+      enabled: true,
+      guild_id: "200",
+      token: "campfire-test-discord-token",
+    },
+  });
+  expect(connected.ok(), await connected.text()).toBe(true);
+  const created = await page.request.post("/api/v1/status-pages", {
+    headers,
+    data: {
+      title: "Retired games",
+      slug: "retired-games",
+      discord_channel_id: "400",
+      entries: [],
+    },
+  });
+  expect(created.status()).toBe(201);
+  const { id } = (await created.json()) as StatusPage;
+  const url = `/api/v1/status-pages/${id}`;
+  await expect
+    .poll(
+      async () =>
+        (
+          (await (await page.request.get(url + "/discord/card")).json()) as {
+            state: string;
+          }
+        ).state,
+    )
+    .toBe("published");
+  async function setFailure(failure: string) {
+    expect(
+      (
+        await page.request.put("/mock/discord/channels/400", {
+          headers: { "X-Campfire-Mock": "discord" },
+          data: { failure },
+        })
+      ).status(),
+    ).toBe(204);
+  }
+  await setFailure("forbidden");
+  expect((await page.request.delete(url, { headers })).status()).toBe(204);
+  expect(
+    (
+      await page.request.get("/api/v1/public/status-pages/retired-games")
+    ).status(),
+  ).toBe(404);
+  await page
+    .getByRole("button", { name: "Account options for Developer", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Integrations", exact: true }).click();
+  const row = page
+    .getByRole("dialog", { name: "Integrations" })
+    .getByRole("row")
+    .filter({ hasText: "Retired games" });
+  await expect(row.getByText("#server-updates")).toBeVisible();
+  const retry = row.getByRole("button", { name: "Retry card", exact: true });
+  await expect(retry).toBeVisible();
+  await setFailure("");
+  await retry.click();
+  await expect(row).toHaveCount(0);
+  expect((await page.request.get(url + "/discord/card")).status()).toBe(404);
+  const mock = (await (
+    await page.request.get("/mock/discord/state")
+  ).json()) as { messages: unknown[] };
+  expect(mock.messages).toHaveLength(0);
+});
+
+test("server connection overrides and inherited Spark hosts agree with public pages", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("Browser tests require a base URL");
+  await login(page);
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
+  const headers = { "X-CSRF-Token": session.csrf_token };
+  async function setHost(host: string) {
+    const response = await page.request.patch("/api/v1/sparks/mock-europe", {
+      headers,
+      data: { game_address: host },
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+  }
+  await setHost("games.example.test");
+  const created = await page.request.post("/api/v1/status-pages", {
+    headers,
+    data: {
+      title: "Connections",
+      slug: "inherited-address",
+      entries: [{ server_id: "survival", name: "Survival" }],
+    },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+  const anonymous = await browser.newContext({ baseURL });
+  const publicPage = await anonymous.newPage();
+  const override = "https://Play.Example.test:32100/Join?World=Case";
+  async function editAddress(value: string, expected: string) {
+    await page.goto("/#servers/survival/console");
+    await page
+      .getByRole("button", { name: "More server actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Edit server", exact: true })
+      .click();
+    const editor = page.getByRole("dialog", {
+      name: "Edit server",
+      exact: true,
+    });
+    await editor.getByLabel("Public game address", { exact: true }).fill(value);
+    await expect(editor.getByText(expected, { exact: true })).toBeVisible();
+    await editor.getByRole("button", { name: "Review", exact: true }).click();
+    await editor
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect(editor).not.toBeVisible();
+  }
+  try {
+    await publicPage.goto("/status/inherited-address");
+    await expect(
+      publicPage.getByText("games.example.test:25565", { exact: true }),
+    ).toBeVisible();
+    await editAddress(override, override);
+    await setHost("2001:db8::1");
+    await publicPage.reload();
+    await expect(publicPage.getByText(override, { exact: true })).toBeVisible();
+    await editAddress("", "[2001:db8::1]:25565");
+    await publicPage.reload();
+    await expect(
+      publicPage.getByText("[2001:db8::1]:25565", { exact: true }),
+    ).toBeVisible();
+    await anonymous.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await publicPage
+      .getByRole("button", {
+        name: "Copy game address for Survival",
+        exact: true,
+      })
+      .click();
+    expect(
+      await publicPage.evaluate(() => navigator.clipboard.readText()),
+    ).toBe("[2001:db8::1]:25565");
+    await page.goto("/#servers");
+    await expect(
+      page.getByRole("button", { name: "Open Survival", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("2001:db8::1")).toHaveCount(0);
+  } finally {
+    await anonymous.close();
+  }
+});
+
+test("admins publish selected servers on a standalone anonymous status page", async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("Browser tests require a base URL");
+  await login(page);
+  await page.goto("/#servers/survival/console");
+  await page
+    .getByRole("button", { name: "More server actions", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Edit server", exact: true })
+    .click();
+  const serverEditor = page.getByRole("dialog", {
+    name: "Edit server",
+    exact: true,
+  });
+  await serverEditor
+    .getByLabel("Public game address", { exact: true })
+    .fill("play.example.test");
+  await serverEditor
+    .getByRole("button", { name: "Review", exact: true })
+    .click();
+  await serverEditor
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await expect(serverEditor).not.toBeVisible();
+  await page.goto("/#servers");
+  await expect(
+    page.getByRole("button", { name: "Open Survival", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("play.example.test")).toHaveCount(0);
+  await inspectServer(page);
+  await expect(
+    page.getByRole("dialog").getByText("play.example.test", { exact: true }),
+  ).toBeVisible();
+  await page.goto("/#statusPages");
+  await page
+    .getByRole("button", { name: "Create status page", exact: true })
+    .click();
+  const drawer = page.getByRole("dialog", {
+    name: "Create status page",
+    exact: true,
+  });
+  await drawer
+    .getByLabel("Page title", { exact: true })
+    .fill("Community availability");
+  await drawer.getByLabel("URL slug", { exact: true }).fill("community-status");
+  await drawer.getByRole("button", { name: "Add server", exact: true }).click();
+  await drawer.getByRole("combobox", { name: "Server 1", exact: true }).click();
+  await page.getByRole("option", { name: "Survival", exact: true }).click();
+  await drawer
+    .getByLabel("Public name for Survival", { exact: true })
+    .fill("Community Minecraft");
+  await drawer
+    .getByRole("heading", { name: "Create status page", exact: true })
+    .click();
+  expect(
+    await drawer
+      .locator("form.panel-content")
+      .evaluate((element) => getComputedStyle(element).paddingLeft),
+  ).toBe("24px");
+  async function expectActionsAtRowEnd() {
+    expect(
+      await drawer.locator(".editable-list-row-actions").evaluate((actions) => {
+        const fields = actions.parentElement?.querySelector(
+          ".editable-list-row-fields",
+        );
+        if (!fields) return false;
+        return (
+          actions.getBoundingClientRect().left >=
+            fields.getBoundingClientRect().right &&
+          new Set(
+            [...actions.querySelectorAll("button")].map(
+              (button) => button.getBoundingClientRect().top,
+            ),
+          ).size === 1
+        );
+      }),
+    ).toBe(true);
+  }
+  await expectActionsAtRowEnd();
+  await screenshot(page, "status-page-editor.png", drawer);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectActionsAtRowEnd();
+  await screenshot(page, "status-page-editor-mobile.png", drawer);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  const created = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/status-pages") &&
+      response.request().method() === "POST",
+  );
+  await drawer
+    .getByRole("button", { name: "Create public page", exact: true })
+    .click();
+  const response = await created;
+  expect(response.status()).toBe(201);
+  const publication = (await response.json()) as StatusPage;
+  await expect(drawer).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "/status/community-status", exact: true }),
+  ).toBeVisible();
+  const publicationRow = page
+    .getByRole("row")
+    .filter({ hasText: "Community availability" });
+  await expect(
+    publicationRow.getByRole("button", { name: "Delete", exact: true }),
+  ).toHaveCount(0);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await publicationRow
+    .getByRole("button", {
+      name: "Copy URL for Community availability",
+      exact: true,
+    })
+    .click();
+  await expect(
+    publicationRow.getByRole("button", {
+      name: "Copied URL for Community availability",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    `${baseURL}/status/community-status`,
+  );
+  expect(
+    await publicationRow
+      .locator(".copyable-text-button svg")
+      .evaluate((icon) => icon.getBoundingClientRect().height),
+  ).toBe(
+    await publicationRow
+      .locator(".copyable-text a")
+      .evaluate((link) => parseFloat(getComputedStyle(link).fontSize)),
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const popupOpened = page.waitForEvent("popup");
+  await publicationRow.getByRole("link").click();
+  const linkedPage = await popupOpened;
+  await linkedPage.waitForLoadState();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await linkedPage.close();
+  await screenshot(page, "status-pages-populated.png");
+  const anonymous = await browser.newContext({
+    baseURL,
+    viewport: { width: 1400, height: 900 },
+    locale: "en-US",
+    timezoneId: "UTC",
+    reducedMotion: "reduce",
+    serviceWorkers: "block",
+  });
+  try {
+    const publicPage = await anonymous.newPage();
+    // Deliberately skew the visitor clock; the feed's Campfire timestamp anchors freshness.
+    await publicPage.clock.setFixedTime(new Date("2026-10-22T12:02:00Z"));
+    const errors: string[] = [];
+    publicPage.on("pageerror", (error) => errors.push(error.message));
+    const apiRequests: string[] = [];
+    publicPage.on("request", (request) => {
+      if (new URL(request.url()).pathname.startsWith("/api/"))
+        apiRequests.push(new URL(request.url()).pathname);
+    });
+    await publicPage.route(
+      "**/api/v1/public/status-pages/community-status",
+      async (route) => {
+        const response = await route.fetch();
+        if (!response.ok()) {
+          await route.fulfill({ response });
+          return;
+        }
+        const value = (await response.json()) as PublicStatusPage;
+        await route.fulfill({
+          response,
+          json: {
+            ...value,
+            collected_at: 1792670400,
+            entries: value.entries.map((entry) => ({
+              ...entry,
+              observed_at: 1792670400,
+              game_state: {
+                updated_at: 1792670400,
+                state: {
+                  players: 3,
+                  capacity: 20,
+                  fields: {
+                    map: "Community world",
+                    player_names: ["Alex", "Sam"],
+                  },
+                  field_labels: {
+                    map: "World name",
+                    player_names: "Online players",
+                  },
+                },
+              },
+            })),
+          },
+        });
+      },
+    );
+    const navigation = await publicPage.goto("/status/community-status");
+    expect(navigation?.headers()["x-robots-tag"]).toBe("noindex, nofollow");
+    await expect(
+      publicPage.getByRole("heading", {
+        name: "Community availability",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      publicPage.getByRole("heading", {
+        name: "Community Minecraft",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(publicPage.getByRole("navigation")).toHaveCount(0);
+    await expect(publicPage.getByRole("link")).toHaveCount(0);
+    await expect(
+      publicPage.getByRole("button", { name: /sign in|log in/i }),
+    ).toHaveCount(0);
+    await expect(publicPage.locator(".sidebar")).toHaveCount(0);
+    await expect(publicPage.getByText("Modded", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      publicPage.getByRole("listitem").getByText("Online", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      publicPage.locator(".public-status-entry .status-pill"),
+    ).toHaveCSS("border-top-width", "0px");
+    await expect(
+      publicPage.locator(".public-status-entry .status-pill"),
+    ).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(
+      publicPage.getByText("play.example.test", { exact: true }),
+    ).toBeVisible();
+    await expect(publicPage.getByText("3 / 20", { exact: true })).toBeVisible();
+    await expect(publicPage.locator(".public-status-server-icon")).toHaveCSS(
+      "border-top-width",
+      "0px",
+    );
+    await expect(publicPage.locator(".public-status-server-icon")).toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
+    expect(
+      await publicPage
+        .locator(".public-status-server-details")
+        .evaluate((element) => {
+          const name = element.querySelector("h3")!.getBoundingClientRect();
+          const address = element
+            .querySelector(".public-status-address")!
+            .getBoundingClientRect();
+          return address.top >= name.bottom;
+        }),
+    ).toBe(true);
+    async function expectCheckedInCorner() {
+      expect(
+        await publicPage.locator(".public-status-entry").evaluate((element) => {
+          const card = element.getBoundingClientRect();
+          const checked = element
+            .querySelector(".public-status-checked")!
+            .getBoundingClientRect();
+          return (
+            card.right - checked.right <= 25 &&
+            card.bottom - checked.bottom <= 25
+          );
+        }),
+      ).toBe(true);
+    }
+    await expectCheckedInCorner();
+    await expect(
+      publicPage.getByText("World name", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      publicPage.getByText("Alex, Sam", { exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        publicPage
+          .locator(".public-status-server-icon img")
+          .evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBeGreaterThan(0);
+    expect(
+      await publicPage
+        .locator(".public-status-masthead")
+        .evaluate((el) => el.getBoundingClientRect().height),
+    ).toBeLessThanOrEqual(48);
+    await expect(publicPage).toHaveScreenshot(["pages", "public-status.png"]);
+    await publicPage.setViewportSize({ width: 390, height: 844 });
+    await expect(publicPage).toHaveScreenshot([
+      "pages",
+      "public-status-mobile.png",
+    ]);
+    await expectCheckedInCorner();
+    expect(
+      await publicPage.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await anonymous.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await publicPage
+      .getByRole("button", {
+        name: "Copy game address for Community Minecraft",
+        exact: true,
+      })
+      .click();
+    await expect(
+      publicPage.getByRole("button", {
+        name: "Copied game address for Community Minecraft",
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(
+      await publicPage.evaluate(() => navigator.clipboard.readText()),
+    ).toBe("play.example.test");
+    expect(errors).toEqual([]);
+    expect(apiRequests.length).toBeGreaterThan(0);
+    expect(
+      apiRequests.every(
+        (path) => path === "/api/v1/public/status-pages/community-status",
+      ),
+    ).toBe(true);
+    const feed = await publicPage.request.get(
+      "/api/v1/public/status-pages/community-status",
+    );
+    expect(feed.headers()["cache-control"]).toBe("no-store");
+    const snapshot = (await feed.json()) as PublicStatusPage;
+    expect(Object.keys(snapshot).sort()).toEqual([
+      "collected_at",
+      "entries",
+      "poll_seconds",
+      "title",
+    ]);
+    expect(snapshot.entries).toHaveLength(1);
+    expect(Object.keys(snapshot.entries[0]!).sort()).toEqual([
+      "art_url",
+      "game_address",
+      "history",
+      "id",
+      "name",
+      "observed_at",
+      "state",
+    ]);
+    expect(JSON.stringify(snapshot)).not.toContain("survival");
+    expect(
+      (await publicPage.request.get("/api/v1/servers/survival")).status(),
+    ).toBe(401);
+    await publicPage.reload();
+    await expect(
+      publicPage.getByRole("heading", {
+        name: "Community Minecraft",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await publicationRow.getByRole("cell").last().click();
+    const editor = page.getByRole("dialog", {
+      name: "Edit status page",
+      exact: true,
+    });
+    await editor.getByLabel("URL slug", { exact: true }).fill("renamed-status");
+    await editor
+      .getByRole("button", { name: "Add server", exact: true })
+      .click();
+    await editor
+      .getByRole("combobox", { name: "Server 2", exact: true })
+      .click();
+    await page.getByRole("option", { name: "Modded", exact: true }).click();
+    await editor
+      .getByRole("button", { name: "Move Modded up", exact: true })
+      .click();
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/status-pages/${publication.id}`) &&
+        response.request().method() === "PUT",
+    );
+    await editor
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    expect((await saved).status()).toBe(200);
+    await expect(editor).toHaveCount(0);
+    await publicPage.reload();
+    await expect(
+      publicPage.getByRole("heading", {
+        name: "Status page not found",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await publicPage.goto("/status/renamed-status");
+    await expect(publicPage.locator(".public-status-list h3")).toHaveText([
+      "Modded",
+      "Community Minecraft",
+    ]);
+    const signedIn = await page.context().newPage();
+    try {
+      const signedInRequests: string[] = [];
+      signedIn.on("request", (request) => {
+        const path = new URL(request.url()).pathname;
+        if (path.startsWith("/api/")) signedInRequests.push(path);
+      });
+      await signedIn.goto("/status/renamed-status");
+      await expect(signedIn.locator(".public-status-list h3")).toHaveText([
+        "Modded",
+        "Community Minecraft",
+      ]);
+      await expect(signedIn.getByRole("navigation")).toHaveCount(0);
+      expect(signedInRequests).toEqual([
+        "/api/v1/public/status-pages/renamed-status",
+      ]);
+    } finally {
+      await signedIn.close();
+    }
+    await page
+      .getByRole("button", { name: "Edit Community availability", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    await page
+      .getByRole("dialog", { name: "Edit status page", exact: true })
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    const deleted = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/status-pages/${publication.id}`) &&
+        response.request().method() === "DELETE",
+    );
+    await page
+      .getByRole("dialog", { name: "Delete status page", exact: true })
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    expect((await deleted).status()).toBe(204);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "/status/renamed-status", exact: true }),
+    ).toHaveCount(0);
+    await publicPage.reload();
+    await expect(
+      publicPage.getByRole("heading", {
+        name: "Status page not found",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(publicPage.getByRole("link")).toHaveCount(0);
+  } finally {
+    await anonymous.close();
+  }
+});
+
+test("public artwork cannot normalize into a private API request for a signed-in visitor", async ({
+  page,
+  baseURL,
+}) => {
+  if (!baseURL) throw new Error("Browser tests require a base URL");
+  await login(page);
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
+  const headers = { "X-CSRF-Token": session.csrf_token };
+  // Keep the setup tab from rendering the deliberately unsafe artwork in
+  // private server cards; this regression exercises the public projection.
+  await page.goto("about:blank");
+  const serverResponse = await page.request.get("/api/v1/servers/survival");
+  expect(serverResponse.ok()).toBe(true);
+  const server = (await serverResponse.json()) as Server;
+  const emberResponse = await page.request.get(
+    `/api/v1/embers/${server.ember_id}`,
+  );
+  expect(emberResponse.ok()).toBe(true);
+  const ember = (await emberResponse.json()) as Ember;
+  const unsafeArt =
+    baseURL.replace(/^http:/, "https:") +
+    String.raw`/game-art\..\api/v1/private-art`;
+  expect(new URL(unsafeArt).pathname).toBe("/api/v1/private-art");
+  const updated = await page.request.put(`/api/v1/embers/${ember.id}`, {
+    headers,
+    data: { ...ember, artUrl: unsafeArt },
+  });
+  expect(updated.ok(), await updated.text()).toBe(true);
+  const created = await page.request.post("/api/v1/status-pages", {
+    headers,
+    data: {
+      title: "Artwork safety",
+      slug: "artwork-safety",
+      entries: [{ server_id: server.id, name: "Public game" }],
+    },
+  });
+  expect(created.status()).toBe(201);
+  const feed = await page.request.get(
+    "/api/v1/public/status-pages/artwork-safety",
+  );
+  const snapshot = (await feed.json()) as PublicStatusPage;
+  expect(snapshot.entries[0]?.art_url).toBeUndefined();
+  const visitor = await page.context().newPage();
+  try {
+    const requests: string[] = [];
+    visitor.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (path.startsWith("/api/")) requests.push(path);
+    });
+    await visitor.goto("/status/artwork-safety");
+    await expect(
+      visitor.getByRole("heading", { name: "Public game", exact: true }),
+    ).toBeVisible();
+    await expect(visitor.locator(".public-status-server-icon img")).toHaveCount(
+      0,
+    );
+    await expect(
+      visitor.locator(".public-status-server-icon svg"),
+    ).toBeVisible();
+    expect(requests).toEqual(["/api/v1/public/status-pages/artwork-safety"]);
+  } finally {
+    await visitor.close();
+  }
+});

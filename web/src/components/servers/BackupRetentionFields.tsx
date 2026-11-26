@@ -18,7 +18,7 @@ export function BackupRetentionFields({
 }) {
   const { t } = useTranslation();
   return (
-    <Fieldset>
+    <Fieldset className="form-stack form-stack-compact">
       <legend>
         {t(
           mode === BackupMode.Full

@@ -66,41 +66,65 @@ beforeEach(() => {
   vi.mocked(markAllNotificationsRead).mockResolvedValue();
 });
 
-test("read and unread actions have tooltips and notification-specific accessible names", async () => {
+test("only unread rows expose an accessible acknowledgement action", async () => {
   render(<NotificationsPage />);
   const read = await screen.findByRole("button", {
     name: "Mark read: Survival restarted",
   });
-  const unread = screen.getByRole("button", {
-    name: "Mark unread: Backup completed",
-  });
+  expect(screen.queryByRole("button", { name: /Mark unread:/ })).toBeNull();
+  expect(
+    within(
+      screen.getByRole("article", { name: "Backup completed" }),
+    ).queryByRole("button"),
+  ).toBeNull();
   expect(read.title).toBe("Mark read");
-  expect(unread.title).toBe("Mark unread");
   expect(
     screen.getByRole("button", { name: "Mark all read" }).textContent,
   ).toBe("Mark all read");
 });
 
-test("keyboard and pointer activation update the notification and its available action", async () => {
+test.each(["{Enter}", " "])(
+  "keyboard acknowledgement works with %s and cannot mark unread",
+  async (key) => {
+    const user = userEvent.setup();
+    render(<NotificationsPage />);
+    const read = await screen.findByRole("button", {
+      name: "Mark read: Survival restarted",
+    });
+    read.focus();
+    await user.keyboard(key);
+    expect(markNotificationRead).toHaveBeenLastCalledWith(2, true);
+    const message = screen.getByRole("article", { name: "Survival restarted" });
+    await waitFor(() =>
+      expect(within(message).queryByText("Unread")).toBeNull(),
+    );
+    expect(within(message).queryByRole("button")).toBeNull();
+    await user.click(message);
+    expect(markNotificationRead).toHaveBeenCalledTimes(1);
+  },
+);
+
+test("row clicks acknowledge unread messages but links and text selection do not", async () => {
   const user = userEvent.setup();
   render(<NotificationsPage />);
-  const read = await screen.findByRole("button", {
-    name: "Mark read: Survival restarted",
+  const row = await screen.findByRole("article", {
+    name: "Survival restarted",
   });
-  read.focus();
-  await user.keyboard("{Enter}");
-  expect(markNotificationRead).toHaveBeenLastCalledWith(2, true);
-  const unread = await screen.findByRole("button", {
-    name: "Mark unread: Survival restarted",
-  });
-  const message = screen.getByRole("article", { name: "Survival restarted" });
-  expect(within(message).queryByText("Unread")).toBeNull();
-  await user.click(unread);
-  expect(markNotificationRead).toHaveBeenLastCalledWith(2, false);
-  await screen.findByRole("button", {
-    name: "Mark read: Survival restarted",
-  });
-  expect(within(message).getByText("Unread")).toBeDefined();
+  await user.click(within(row).getByRole("link"));
+  expect(markNotificationRead).not.toHaveBeenCalled();
+  const selection = window.getSelection()!;
+  const range = document.createRange();
+  range.selectNodeContents(
+    within(row).getByText("The server is available again."),
+  );
+  selection.removeAllRanges();
+  selection.addRange(range);
+  // Dispatch directly so the test preserves the selected text.
+  row.click();
+  expect(markNotificationRead).not.toHaveBeenCalled();
+  selection.removeAllRanges();
+  await user.click(within(row).getByText("The server is available again."));
+  expect(markNotificationRead).toHaveBeenCalledExactlyOnceWith(2, true);
 });
 
 test("icon actions remain disabled while a notification update is pending", async () => {
@@ -118,6 +142,10 @@ test("icon actions remain disabled while a notification update is pending", asyn
   await userEvent.setup().click(read);
   for (const button of screen.getAllByRole<HTMLButtonElement>("button"))
     expect(button.disabled).toBe(true);
+  await userEvent
+    .setup()
+    .click(screen.getByRole("article", { name: "Survival restarted" }));
+  expect(markNotificationRead).toHaveBeenCalledTimes(1);
   await act(async () => {
     complete();
   });

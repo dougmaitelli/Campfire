@@ -13,13 +13,22 @@ make dependencies
 make dev-mock
 ```
 
-Open `http://127.0.0.1:8081` and sign in with `admin` / `campfire-dev-password`.
+Open `http://127.0.0.1:8081` and sign in with `admin` / `Campfire-Dev-Password1!`.
 Mock mode runs the real panel against simulated Sparks, with sample servers,
 users, files, backups, and notifications. No Docker or production credentials
 are needed. Each new session resets its isolated data; backend rebuilds within
 a session preserve panel changes.
 
 Use `make dev` instead to work with real Spark connections.
+
+The `campfire-mock` entry point composes the panel with
+`backend/internal/devmock`. Reusable development and test fixtures live in
+`backend/internal/devfixture`; both packages are excluded by the `production`
+build tag. The simulator can call panel and Spark implementations directly without
+making them shared production packages. Neither regular executable imports the
+simulator, even in an untagged development build. The browser harness uses the
+same fixtures but keeps its deterministic runtime separate from interactive mock
+scenarios.
 
 ## Mock scenarios
 
@@ -43,6 +52,22 @@ For configuration-delivery recovery, send `mock-config resume` in the
 **Deployment sync · Mock** console, then wait for the retry or choose **Sync
 deployment**. Use `mock-config pause` to block delivery again. This affects both
 servers on the **Configuration recovery** Spark without blocking other operations.
+
+### Public availability history
+
+Open **http://127.0.0.1:8081/status/mock-status** without signing in to inspect
+seeded 24-hour availability graphs:
+
+- **Survival:** mostly online, with a short outage and an unknown period.
+- **Creative:** recurring offline periods and mixed transition intervals.
+- **Modded:** online earlier, then offline for the latter half of the day.
+- **Unavailable:** online earlier, then unknown for the last six hours.
+
+The page and history are seeded once, including when upgrading an existing mock
+database. Backend rebuilds do not move the timestamps forward, overwrite known
+coverage, or recreate deleted examples. Live collection continues from startup;
+a new mock session creates fresh examples. These historical scenarios do not
+change the servers' current simulated states.
 
 ### History pagination
 
@@ -135,6 +160,20 @@ Add coverage to the suite that matches the behavior being changed. See the
 [browser testing guide](https://github.com/dougmaitelli/Campfire/blob/master/e2e/README.md)
 for running targeted browser tests and maintaining screenshot baselines.
 
+### Live Docker crash diagnostics
+
+The opt-in runtime test verifies nonzero exits, Docker automatic restarts, console
+capture, a real OOM kill, and a survived child OOM followed by a clean stop. It requires a local Docker daemon and an already
+available Node image; it does not pull images. It creates temporary containers
+with no host mounts or network, a 64–128 MiB memory limit, and a process limit, and
+removes them afterward.
+
+```sh
+cd backend
+CAMPFIRE_TEST_CRASH_IMAGE=node:26-bookworm-slim go test -race ./internal/spark/runtime \
+  -run TestLiveDockerCrashEvidenceAcrossAutomaticRestarts -count=1
+```
+
 ## Build
 
 Run `make build` to produce `bin/campfire` and `bin/spark`, including the embedded
@@ -163,3 +202,24 @@ from the root `screenshots/` directory.
 Pull requests validate the site. Pushes to `master` deploy it through GitHub
 Actions; the repository's Pages source must be **GitHub Actions**. Version tags
 validate the docs without replacing the live site.
+
+Mock mode seeds three example login sessions for `admin` (Chrome on Windows,
+Firefox on macOS, and Safari on iPhone). Open **Active sessions** in the account
+menu to try individual and bulk sign-out. These examples are seeded once, including
+when upgrading an existing mock database; revocations persist across restarts.
+They expire normally and are recreated when starting with a fresh mock database.
+
+### Testing two-factor authentication
+
+Mock mode also seeds `mfa-demo` with the standard mock password
+`Campfire-Dev-Password1!`. Add the deliberately public development-only setup key
+`GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ` to an authenticator using six digits and a
+30-second period. A second device, **Backup tablet**, uses
+`JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP` with the same settings. You can also use its single recovery code
+`11111111-22222222-33333333-44444444` once. Never use these fixture credentials
+outside mock mode.
+
+Use `admin` to test **Users → mfa-demo → Reset user’s 2FA**. The reset persists
+across mock restarts, and `mfa-demo` can then sign in with its password alone.
+Open **My profile → Two-factor authentication** to test fresh enrollment. A fresh
+mock database restores the original fixture.

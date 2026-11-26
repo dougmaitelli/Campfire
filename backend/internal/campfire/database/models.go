@@ -48,6 +48,7 @@ type User struct {
 	Username          string         `gorm:"type:text;not null;uniqueIndex:users_username,expression:lower(username)" json:"username"`
 	Name              string         `gorm:"type:text;not null;default:''" json:"name"`
 	Email             string         `gorm:"type:text;not null;default:''" json:"email"`
+	OIDCLinkEmail     *string        `gorm:"column:oidc_link_email;uniqueIndex:users_oidc_link_email" json:"-"`
 	Picture           string         `gorm:"type:text;not null;default:''" json:"picture"`
 	OIDCNameManaged   bool           `gorm:"column:oidc_name_managed;not null;default:false" json:"oidc_name_managed"`
 	OIDCEmailManaged  bool           `gorm:"column:oidc_email_managed;not null;default:false" json:"oidc_email_managed"`
@@ -62,6 +63,8 @@ type User struct {
 
 // UserSession binds a hashed session to an account and credential generation.
 type UserSession struct {
+	CreatedAt         int64  `gorm:"not null;default:0"`
+	UserAgent         string `gorm:"type:text;not null;default:''"`
 	Hash              string `gorm:"type:text;primaryKey"`
 	Provider          string `gorm:"type:text;not null;default:''"`
 	UserID            int64  `gorm:"not null;index"`
@@ -74,9 +77,9 @@ type UserSession struct {
 
 // OIDCIdentity binds a provider subject to an account without matching mutable claims.
 type OIDCIdentity struct {
-	Issuer  string `gorm:"type:text;primaryKey"`
+	Issuer  string `gorm:"type:text;primaryKey;uniqueIndex:oidc_user_issuer"`
 	Subject string `gorm:"type:text;primaryKey"`
-	UserID  int64  `gorm:"not null;index"`
+	UserID  int64  `gorm:"not null;index;uniqueIndex:oidc_user_issuer"`
 	User    User   `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
 
@@ -85,6 +88,7 @@ func (OIDCIdentity) TableName() string { return "oidc_identities" }
 
 // Server persists server configuration with pinned Spark and Ember identities.
 type Server struct {
+	GameAddress string `gorm:"type:text;not null;default:''"`
 	// Durable lifecycle intent, retained only until server deletion completes.
 	DeletionPending bool               `gorm:"not null;default:false"`
 	ID              string             `gorm:"type:text;primaryKey"`
@@ -118,6 +122,13 @@ type Ember struct {
 	UpdateCheckedAt int64       `gorm:"not null;default:0"`
 	UpdateAvailable bool        `gorm:"not null;default:false"`
 	UpdateError     string      `gorm:"type:text;not null;default:''"`
+}
+
+// AfterFind normalizes definitions at the persistence read boundary, including
+// preloaded server associations. This changes only the in-memory projection.
+func (e *Ember) AfterFind(_ *gorm.DB) error {
+	e.Definition = e.Definition.Normalized()
+	return nil
 }
 
 // SparkIdentity records the currently authorized client certificate.

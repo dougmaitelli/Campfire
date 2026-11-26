@@ -4,10 +4,9 @@ import {
   previewIntegrationCard,
   type IntegrationCard,
 } from "../../api/integrations";
-import { InlineMessage } from "../status/InlineMessage";
-import { GameFieldReading } from "./GameField";
 import { RuntimeState } from "../../contracts/domains";
-import "./integration-card-preview.css";
+import { IntegrationCardEmbeds } from "../integrations/IntegrationCardEmbeds";
+import { InlineMessage } from "../status/InlineMessage";
 
 export function IntegrationCardPreview({
   serverID,
@@ -34,7 +33,6 @@ export function IntegrationCardPreview({
   } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
     async function load() {
       try {
         const card = await previewIntegrationCard(
@@ -51,13 +49,10 @@ export function IntegrationCardPreview({
               cause instanceof Error ? cause.message : t("integrations.failed"),
           });
       }
-      if (!controller.signal.aborted)
-        timer = setTimeout(() => void load(), 5000);
     }
     void load();
     return () => {
       controller.abort();
-      clearTimeout(timer);
     };
   }, [serverID, selection, key, t]);
   const current = result?.key === key ? result : null;
@@ -79,25 +74,7 @@ export function IntegrationCardPreview({
       ) : !card ? (
         <p className="field-help">{t("common.loading")}</p>
       ) : (
-        preview?.embeds.map((embed, index) => (
-          <div
-            className="integration-server-card"
-            data-state={state}
-            key={index}
-          >
-            <strong>{embed.title}</strong>
-            <dl>
-              {embed.fields.map((field, fieldIndex) => (
-                <GameFieldReading
-                  key={fieldIndex}
-                  field={field}
-                  unavailable=""
-                />
-              ))}
-            </dl>
-            <span className="field-help">{embed.footer.text}</span>
-          </div>
-        ))
+        preview && <IntegrationCardEmbeds preview={preview} state={state} />
       )}
     </section>
   );

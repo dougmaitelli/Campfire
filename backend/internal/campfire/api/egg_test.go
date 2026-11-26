@@ -75,7 +75,7 @@ func TestEggPreviewImportPersistenceAndServerValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if imported.ID == "" || imported.Schema != 1 || imported.Origin == nil || imported.Origin.Author != "fixtures@example.invalid" || count() != 2 {
+	if imported.ID == "" || imported.Schema != model.CurrentEmberSchema || imported.Origin == nil || imported.Origin.Author != "fixtures@example.invalid" || count() != 2 {
 		t.Fatal("converted Ember not persisted", response.Body)
 	}
 

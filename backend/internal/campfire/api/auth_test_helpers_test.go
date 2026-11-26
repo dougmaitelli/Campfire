@@ -11,7 +11,7 @@ import (
 	"campfire/internal/campfire/service"
 )
 
-const testAdminPassword = "a long test administrator password"
+const testAdminPassword = "a long test administrator password A1!"
 
 // Existing feature tests use real authentication while focusing on their domain behavior.
 func authenticatedTestAPI(t *testing.T, db *database.Database, panel *api.API) http.Handler {
@@ -35,7 +35,7 @@ func authenticatedTestAPI(t *testing.T, db *database.Database, panel *api.API) h
 	var token string
 
 	if setup {
-		session, token, err = auth.Setup(ctx, setupToken, "admin", testAdminPassword)
+		session, token, err = auth.Setup(ctx, setupToken, "admin", testAdminPassword, "admin@example.test")
 		if err != nil {
 			t.Fatal(err)
 		}

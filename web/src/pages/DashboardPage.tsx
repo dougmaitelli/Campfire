@@ -259,18 +259,19 @@ export function DashboardPage() {
               label={t("common.backups")}
               icon={<NavigationIcon name="backups" />}
               value={
-                backups.error
+                !backups.hasLoaded && backups.error
                   ? EMPTY_VALUE
-                  : backups.loading
+                  : !backups.hasLoaded && backups.loading
                     ? "…"
                     : backups.items.length === 0
                       ? 0
                       : `${backups.items.filter((backup) => backup.state === BackupStatus.Available).length} / ${backups.items.length}`
               }
               detail={
-                backups.error ? (
+                !backups.hasLoaded && backups.error ? (
                   t("dashboardPage.summaryUnavailable")
-                ) : backups.loading ? null : backups.items.length === 0 ? (
+                ) : !backups.hasLoaded && backups.loading ? null : backups.items
+                    .length === 0 ? (
                   t("backupsPage.noBackupsYet")
                 ) : (
                   <span
@@ -292,20 +293,20 @@ export function DashboardPage() {
               label={t("common.schedules")}
               icon={<NavigationIcon name="schedules" />}
               value={
-                schedules.error
+                !schedules.hasLoaded && schedules.error
                   ? EMPTY_VALUE
-                  : schedules.loading
+                  : !schedules.hasLoaded && schedules.loading
                     ? "…"
                     : t("dashboardPage.enabledCount", {
                         count: enabledSchedules.length,
                       })
               }
               detail={
-                schedules.error ? (
+                !schedules.hasLoaded && schedules.error ? (
                   t("dashboardPage.summaryUnavailable")
                 ) : (
                   <>
-                    {!schedules.loading &&
+                    {schedules.hasLoaded &&
                       enabledSchedules.length === 0 &&
                       t("schedulesPage.noSchedulesYet")}
                     {nextSchedule && (

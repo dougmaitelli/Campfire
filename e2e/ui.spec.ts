@@ -1,4 +1,6 @@
 import { test, expect, screenshot, prepareScreenshot } from "./fixtures";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { Execution } from "../web/src/api/activity";
 import {
   login,
   mockServerStatus,
@@ -561,13 +563,12 @@ test("user editing hides passwords when local login is disabled and still saves 
     .fill("Updated profile");
   const submitted = page.waitForRequest(
     (request) =>
-      request.method() === "PUT" &&
+      request.method() === "PATCH" &&
       /\/api\/v1\/users\/\d+$/.test(new URL(request.url()).pathname),
   );
   await drawer.getByRole("button", { name: "Save user", exact: true }).click();
-  expect((await submitted).postDataJSON()).toMatchObject({
+  expect((await submitted).postDataJSON()).toEqual({
     name: "Updated profile",
-    password: "",
   });
   await expect(drawer).toHaveCount(0);
   await page.reload();
@@ -797,7 +798,7 @@ test("schedule history excludes direct server operations", async ({ page }) => {
   );
   const response = await page.request.get("/api/v1/schedules/executions");
   expect(response.ok()).toBeTruthy();
-  expect(((await response.json()) as { items: unknown[] }).items).toEqual([
+  expect(((await response.json()) as Paginated<Execution>).items).toEqual([
     expect.objectContaining({
       id: "scheduled-run",
       schedule_id: "nightly-restart",
@@ -811,14 +812,19 @@ test("schedule history excludes direct server operations", async ({ page }) => {
 
 test("non-admin users cannot open administrator pages", async ({ page }) => {
   await login(page, "viewer");
-  await expect(
-    page
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("link", { name: "Users", exact: true }),
-  ).toHaveCount(0);
-  await page.goto("/#users");
-  await expect(
-    page.getByText("You do not have access to this page", { exact: true }),
-  ).toBeVisible();
-  expect((await page.request.get("/api/v1/users")).status()).toBe(403);
+  for (const [route, label, endpoint] of [
+    ["users", "Users", "users"],
+    ["statusPages", "Status pages", "status-pages"],
+  ] as const) {
+    await expect(
+      page
+        .getByRole("navigation", { name: "Main navigation" })
+        .getByRole("link", { name: label, exact: true }),
+    ).toHaveCount(0);
+    await page.goto(`/#${route}`);
+    await expect(
+      page.getByText("You do not have access to this page", { exact: true }),
+    ).toBeVisible();
+    expect((await page.request.get(`/api/v1/${endpoint}`)).status()).toBe(403);
+  }
 });

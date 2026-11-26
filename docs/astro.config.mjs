@@ -43,6 +43,7 @@ export default defineConfig({
             { label: "Settings reference", slug: "configuration" },
             { label: "Accounts and access", slug: "authentication" },
             { label: "Notifications", slug: "notifications" },
+            { label: "Public status pages", slug: "status-pages" },
             { label: "Discord integration", slug: "discord" },
           ],
         },
@@ -66,6 +67,21 @@ export default defineConfig({
           ],
         },
         {
+          label: "Panel API",
+          items: [
+            { label: "Make your first request", slug: "api" },
+            { label: "Integration guide", slug: "api/guide" },
+            { label: "Servers and monitoring", slug: "api/servers" },
+            { label: "Files and backups", slug: "api/storage" },
+            { label: "Schedules, jobs, and audit", slug: "api/automation" },
+            { label: "Notifications and publishing", slug: "api/publishing" },
+            {
+              label: "Administration and accounts",
+              slug: "api/administration",
+            },
+          ],
+        },
+        {
           label: "Development",
           items: [
             { label: "Architecture", slug: "architecture" },
@@ -74,6 +90,7 @@ export default defineConfig({
             { label: "Game integrations", slug: "game-integrations" },
           ],
         },
+        { label: "Roadmap", slug: "roadmap" },
       ],
     }),
   ],

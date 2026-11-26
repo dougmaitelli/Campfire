@@ -16,10 +16,11 @@ var fingerprinted = regexp.MustCompile(`-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9.]+$`)
 
 // Handler mounts the frontend, health endpoint and panel API on the same listener.
 func Handler(api http.Handler) http.Handler {
-	return newHandler(api, assets())
+	return HandlerFromFS(api, assets())
 }
 
-func newHandler(api http.Handler, files fs.FS) http.Handler {
+// HandlerFromFS applies production routing and cache policies to a frontend filesystem.
+func HandlerFromFS(api http.Handler, files fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/api", api)
 	mux.Handle("/api/", api)
@@ -69,8 +70,18 @@ func newHandler(api http.Handler, files fs.FS) http.Handler {
 		w.Header().Set("Referrer-Policy", "same-origin")
 		w.Header().Set("Cache-Control", "no-cache")
 
+		if r.URL.Path == "/status" || strings.HasPrefix(r.URL.Path, "/status/") {
+			w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			w.Header().Set("Cache-Control", "no-store")
+		}
+
 		if strings.HasPrefix(name, "assets/") && fingerprinted.MatchString(name) {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+
+		if name == "manifest.webmanifest" {
+			w.Header().Set("Content-Type", "application/manifest+json")
 		}
 
 		// ServeFileFS canonicalizes index.html to its directory; serve the SPA entry directly.

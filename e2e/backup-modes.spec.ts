@@ -1,4 +1,5 @@
 import { test, expect, screenshot } from "./fixtures";
+import type { RuntimeStatus } from "../web/src/api/runtime";
 import { login, openServerTab, openScreen, openServerEditor } from "./screens";
 
 test("manual backups send the selected type and save-data restore describes its scope", async ({
@@ -90,7 +91,7 @@ test("manual backups send the selected type and save-data restore describes its 
   ).toBeEnabled();
   const status = (await (
     await page.request.get("/api/v1/servers/survival/status")
-  ).json()) as { state: string };
+  ).json()) as RuntimeStatus;
   expect(status.state).toBe("running");
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(

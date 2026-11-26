@@ -130,11 +130,6 @@
   font-weight: 400;
 }
 
-.authentication-recovery {
-  border-top: 1px solid var(--border);
-  padding-top: 1.5rem;
-}
-
 .authentication-password {
   position: relative;
 
@@ -222,4 +217,18 @@
   .authentication-content {
     padding: 2rem 1.5rem 1.5rem;
   }
+}
+.authentication-recovery-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.authentication-recovery-link:disabled {
+  opacity: 0.55;
+  cursor: default;
 }

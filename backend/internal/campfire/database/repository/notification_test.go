@@ -76,7 +76,7 @@ func TestNotificationReadWatermarksAndDeliveryExhaustion(t *testing.T) {
 		t.Fatal("manual retry did not reset exhausted delivery", err)
 	}
 
-	if err := db.ORM().Create(&database.User{ID: 2, Username: "other-admin", RoleID: database.AdminRole, CredentialVersion: 1}).Error; err != nil {
+	if err := db.ORM().Create(&database.User{ID: 2, Username: "other-admin", PasswordHash: "encoded", RoleID: database.AdminRole, CredentialVersion: 1}).Error; err != nil {
 		t.Fatal(err)
 	}
 

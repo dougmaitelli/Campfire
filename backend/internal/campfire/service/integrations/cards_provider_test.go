@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 type secondCardProvider struct{ entered, created chan struct{} }
 
-func (*secondCardProvider) Fingerprint(card core.ServerCard) string {
+func (*secondCardProvider) Fingerprint(card core.LiveCard) string {
 	card.ExpiresAt = 0
 	return cardHash(card)
 }
@@ -29,7 +29,7 @@ func (p *secondCardProvider) Check(ctx context.Context, claim repository.Integra
 
 	return nil
 }
-func (p *secondCardProvider) CreateCard(context.Context, repository.CardClaim, core.ServerCard) (string, error) {
+func (p *secondCardProvider) CreateCard(context.Context, repository.CardClaim, core.LiveCard) (string, error) {
 	p.created <- struct{}{}
 	return "provider-native-id", nil
 }
@@ -39,7 +39,7 @@ func (*secondCardProvider) FindCard(context.Context, repository.CardClaim) (stri
 func (*secondCardProvider) CardExists(context.Context, repository.CardClaim) (bool, error) {
 	return true, nil
 }
-func (*secondCardProvider) EditCard(context.Context, repository.CardClaim, core.ServerCard) (bool, error) {
+func (*secondCardProvider) EditCard(context.Context, repository.CardClaim, core.LiveCard) (bool, error) {
 	return true, nil
 }
 func (*secondCardProvider) DeleteCard(context.Context, repository.CardClaim) error { return nil }

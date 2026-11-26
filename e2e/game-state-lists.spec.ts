@@ -1,7 +1,6 @@
-import { GameStateStatus } from "../web/src/contracts/domains";
 import { test, expect } from "./fixtures";
 import { login, openScreen } from "./screens";
-import type { GameStateView } from "../web/src/api/gameState";
+import type { MonitoringSnapshot } from "../web/src/api/monitoring";
 
 test("current player lists render on server lists and clear when empty or stale", async ({
   page,
@@ -11,16 +10,11 @@ test("current player lists render on server lists and clear when empty or stale"
   let fresh = true;
   await page.route("**/api/v1/monitoring", async (route) => {
     const response = await route.fetch();
-    const snapshot = (await response.json()) as {
-      collected_at: number;
-      servers: { id: string; game?: GameStateView }[];
-    };
+    const snapshot = (await response.json()) as MonitoringSnapshot;
     const server = snapshot.servers.find((item) => item.id === "survival");
     if (!server) throw new Error("Missing Survival fixture");
     server.game = {
       updated_at: snapshot.collected_at,
-      fresh_for_seconds: 60,
-      status: fresh ? GameStateStatus.Fresh : GameStateStatus.Stale,
       ...(fresh
         ? {
             state: {

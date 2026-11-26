@@ -34,14 +34,14 @@ func TestServerCardStatusLabelsAndColors(t *testing.T) {
 		{model.RuntimeStateDeleting, "Deleting", 0xe0ac62},
 	} {
 		t.Run(string(test.state), func(t *testing.T) {
-			message := RenderServerCard(core.ServerCard{Name: "Server", State: test.state})
+			message := RenderCard(core.LiveCard{Name: "Server", State: test.state})
 
 			status := message.Embeds[0].Fields[0]
 			if status.Name != "Status" || status.Value != test.value || message.Embeds[0].Color != test.color {
 				t.Fatal("status label or embed color is incorrect", message)
 			}
 
-			preview := PreviewServerCard(core.ServerCard{Name: "Server", State: test.state})
+			preview := PreviewCard(core.LiveCard{Name: "Server", State: test.state})
 			if preview.Embeds[0].Fields[0] != status || preview.Embeds[0].Color != test.color {
 				t.Fatal("preview status differs from the published card", preview, message)
 			}
@@ -58,7 +58,7 @@ func TestServerCardUsesSharedGameFieldPresentation(t *testing.T) {
 	card := core.BuildServerCard(model.Server{}, model.RuntimeStateRunning, game, core.CardSettings{
 		Fields: []string{"players", "capacity", "field.world", "field.raw_key", "field.players"},
 	}, game.FieldLabels)
-	message := RenderServerCard(card)
+	message := RenderCard(card)
 
 	want := []embedField{
 		{Name: "Status", Value: "Running", Inline: true},
@@ -72,15 +72,55 @@ func TestServerCardUsesSharedGameFieldPresentation(t *testing.T) {
 	}
 }
 
+func TestStatusPageCardPreservesAllPublicNamesWithinOneMessage(t *testing.T) {
+	card := core.LiveCard{Name: "Community **status**", StatusPage: true}
+	if empty := PreviewCard(card); len(empty.Embeds) != 1 || empty.Embeds[0].Fields[0].Value != "No servers are listed on this page." {
+		t.Fatal(empty)
+	}
+
+	for i := range 50 {
+		card.Fields = append(card.Fields, core.CardField{
+			Name: fmt.Sprintf("%02d %s", i, strings.Repeat("🌎*", 45)), Value: []string{"online", "offline", "unknown"}[i%3],
+		})
+	}
+
+	message := referencedCard(card, "unique-receipt")
+	if len(message.Embeds) != 2 || message.AllowedMentions.Parse == nil || len(message.AllowedMentions.Parse) != 0 {
+		t.Fatal("invalid message shape", message)
+	}
+
+	size := 0
+
+	for i, embed := range message.Embeds {
+		if len(embed.Fields) != 25 || embed.Footer.Text != "Campfire status page · unique-receipt" {
+			t.Fatal("missing page entries or receipt", embed)
+		}
+
+		size += len(utf16.Encode([]rune(embed.Title + embed.Footer.Text)))
+		for j, field := range embed.Fields {
+			pos := i*25 + j
+			if !strings.HasPrefix(field.Name, fmt.Sprintf("%02d ", pos)) || field.Value != []string{"Online", "Offline", "Unknown"}[pos%3] {
+				t.Fatal("incorrect order or availability", pos, field)
+			}
+
+			size += len(utf16.Encode([]rune(field.Name + field.Value)))
+		}
+	}
+
+	if size > 6000 {
+		t.Fatal("message exceeds Discord's total embed text limit", size)
+	}
+}
+
 func TestPreviewUsesActualDiscordLimitsAndEmbedSplitting(t *testing.T) {
-	card := core.ServerCard{Name: strings.Repeat("Server ", 60), State: model.RuntimeStateRunning}
+	card := core.LiveCard{Name: strings.Repeat("Server ", 60), State: model.RuntimeStateRunning}
 	for index := range 32 {
 		card.Fields = append(card.Fields, core.CardField{ID: fmt.Sprintf("field.value%d", index), Name: strings.Repeat("*", 100), Value: strings.Repeat("value_", 300), Available: true})
 	}
 
-	sent := RenderServerCard(card)
+	sent := RenderCard(card)
 
-	preview := PreviewServerCard(card)
+	preview := PreviewCard(card)
 	if len(preview.Embeds) != 2 || len(preview.Embeds) != len(sent.Embeds) {
 		t.Fatal("preview lost Discord's continuation embeds", preview)
 	}
@@ -104,12 +144,12 @@ func TestPreviewUsesActualDiscordLimitsAndEmbedSplitting(t *testing.T) {
 }
 
 func TestServerCardRenderingIsBoundedAndContainsEverySelectedField(t *testing.T) {
-	card := core.ServerCard{Name: strings.Repeat("😀 **@everyone**", 100), State: model.RuntimeStateRunning, Addresses: []string{strings.Repeat("games.example.test:25565 / TCP\n", 100)}}
+	card := core.LiveCard{Name: strings.Repeat("😀 **@everyone**", 100), State: model.RuntimeStateRunning, Addresses: []string{strings.Repeat("games.example.test:25565 / TCP\n", 100)}}
 	for index := range 32 {
 		card.Fields = append(card.Fields, core.CardField{ID: fmt.Sprintf("field.value%d", index), Name: fmt.Sprintf("field_%d", index), Value: strings.Repeat("😀 **@here** ", 500), Available: index != 31})
 	}
 
-	message := RenderServerCard(card)
+	message := RenderCard(card)
 	if len(message.Embeds) != 2 || message.AllowedMentions.Parse == nil || len(message.AllowedMentions.Parse) != 0 {
 		t.Fatal("missing field continuation or mention protection", message)
 	}

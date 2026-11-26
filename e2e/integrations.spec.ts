@@ -1,4 +1,4 @@
-import { GameStateStatus } from "../web/src/contracts/domains";
+import { RuntimeState } from "../web/src/contracts/domains";
 import { test, expect, screenshot } from "./fixtures";
 import { login } from "./screens";
 import {
@@ -6,16 +6,15 @@ import {
   editServerIntegration,
   saveServerIntegration,
 } from "./integration-screens";
-import type { GameStateView } from "../web/src/api/gameState";
-
-type ConnectionChoices = {
-  connections: {
-    id: string;
-    provider: string;
-    name: string;
-    enabled: boolean;
-  }[];
-};
+import type { MonitoringSnapshot } from "../web/src/api/monitoring";
+import type {
+  ServerIntegrationList,
+  ServerIntegrationSettings,
+  IntegrationCard,
+  DiscordStatus,
+} from "../web/src/api/integrations";
+import type { Role } from "../web/src/api/access";
+import { readAuthenticatedSession } from "./auth";
 
 test("alert settings discovers game-card fields and limits selection before saving", async ({
   page,
@@ -23,9 +22,9 @@ test("alert settings discovers game-card fields and limits selection before savi
 }) => {
   test.setTimeout(60_000);
   await login(page);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   expect(
     (
       await page.request.put("/api/v1/integrations/discord", {
@@ -57,16 +56,11 @@ test("alert settings discovers game-card fields and limits selection before savi
   );
   await page.route("**/api/v1/monitoring", async (route) => {
     const response = await route.fetch();
-    const snapshot = (await response.json()) as {
-      collected_at: number;
-      servers: { id: string; game?: GameStateView }[];
-    };
+    const snapshot = (await response.json()) as MonitoringSnapshot;
     const server = snapshot.servers.find((item) => item.id === "survival");
     if (!server) throw new Error("Missing server fixture");
     server.game = {
       updated_at: snapshot.collected_at,
-      fresh_for_seconds: 60,
-      status: GameStateStatus.Fresh,
       state: {
         players: 0,
         capacity: 20,
@@ -123,9 +117,7 @@ test("alert settings discovers game-card fields and limits selection before savi
       response.url().endsWith("/servers/survival/integrations/discord"),
   );
   await saveServerIntegration(drawer);
-  const values = (await (await saved).json()) as {
-    card: { fields: string[] };
-  }[];
+  const values = (await (await saved).json()) as ServerIntegrationSettings[];
   expect(values[0]!.card.fields).toHaveLength(32);
   expect(values[0]!.card.fields).toContain("field.key30");
   expect(values[0]!.card.fields).not.toContain("players");
@@ -136,9 +128,9 @@ test("server integrations require a saved connection when several are available"
   baseURL,
 }) => {
   await login(page);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   expect(
     (
       await page.request.put("/api/v1/integrations/discord", {
@@ -154,13 +146,13 @@ test("server integrations require a saved connection when several are available"
   const base = "/api/v1/servers/survival/integrations/discord";
   const initial = (await (
     await page.request.get(base)
-  ).json()) as ConnectionChoices;
+  ).json()) as ServerIntegrationList;
   const savedConnection = initial.connections[0]!;
   // Exercise the future multiple-connection UI without expanding global bot setup.
   await page.route(`**${base}`, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const response = await route.fetch();
-    const value = (await response.json()) as ConnectionChoices;
+    const value = (await response.json()) as ServerIntegrationList;
     await route.fulfill({
       response,
       json: {
@@ -252,9 +244,9 @@ test("per-server Discord settings persist, enforce channel access, and keep card
 }) => {
   test.setTimeout(90_000);
   await login(page);
-  const { csrf_token } = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   expect(
     (
       await page.request.put("/api/v1/integrations/discord", {
@@ -269,6 +261,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   ).toBeTruthy();
   let hasGameState = true;
   let hasFilterChoices = true;
+  let previewRequests = 0;
   await page.route(
     "**/api/v1/servers/survival/events/filters",
     async (route) => {
@@ -278,17 +271,12 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   );
   await page.route("**/api/v1/monitoring", async (route) => {
     const response = await route.fetch();
-    const snapshot = (await response.json()) as {
-      collected_at: number;
-      servers: { id: string; game?: GameStateView }[];
-    };
+    const snapshot = (await response.json()) as MonitoringSnapshot;
     const server = snapshot.servers.find((item) => item.id === "survival");
     if (!server) throw new Error("Missing server fixture");
     if (hasGameState) {
       server.game = {
         updated_at: snapshot.collected_at,
-        fresh_for_seconds: 60,
-        status: GameStateStatus.Fresh,
         state: {
           players: 3,
           capacity: 20,
@@ -302,24 +290,11 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   await page.route(
     "**/api/v1/servers/survival/integrations/discord/card?*",
     async (route) => {
+      previewRequests++;
       const response = await route.fetch();
-      const card = (await response.json()) as {
-        state: string;
-        expires_at: number;
-        addresses: string[];
-        fields: {
-          id: string;
-          name: string;
-          value: string;
-          available: boolean;
-        }[];
-        preview: { embeds: { fields: { name: string; value: string }[] }[] };
-        expired_preview: {
-          embeds: { fields: { name: string; value: string }[] }[];
-        };
-      };
+      const card = (await response.json()) as IntegrationCard;
       if (hasGameState) {
-        card.state = "running";
+        card.state = RuntimeState.Running;
         card.expires_at = Math.floor(
           new Date("2026-10-22T12:01:00Z").getTime() / 1000,
         );
@@ -453,9 +428,9 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   );
   await saveServerIntegration(drawer);
   await open();
-  expect(((await (await creation).json()) as { id: string }[])[0]!.id).not.toBe(
-    "",
-  );
+  expect(
+    ((await (await creation).json()) as ServerIntegrationSettings[])[0]!.id,
+  ).not.toBe("");
   const cardPreview = drawer.getByRole("region", {
     name: "Server card preview",
     exact: true,
@@ -472,13 +447,23 @@ test("per-server Discord settings persist, enforce channel access, and keep card
     publishing.getByText("Published", { exact: true }),
   ).toBeVisible();
   await screenshot(page, "integrations-server.png", drawer);
+  const previewsBeforeRefresh = previewRequests;
   hasGameState = false;
   await expect(page.locator(".game-state-readings")).toHaveCount(0);
-  await expect(
-    drawer.getByRole("checkbox", { name: "World name", exact: true }),
-  ).toBeVisible();
+  const worldField = drawer.getByRole("checkbox", {
+    name: "World name",
+    exact: true,
+  });
+  await expect(worldField).toBeVisible();
+  // Monitoring changes do not refetch the unchanged preview.
+  expect(previewRequests).toBe(previewsBeforeRefresh);
+  await expect(cardPreview).toContainText("test-invite");
+  const worldSelected = await worldField.isChecked();
+  await worldField.setChecked(!worldSelected);
   await expect(cardPreview).toContainText("Unavailable");
   hasGameState = true;
+  await worldField.setChecked(worldSelected);
+  await expect(cardPreview).toContainText("test-invite");
   await page.clock.setFixedTime(new Date("2026-10-22T12:01:01Z"));
   await expect(cardPreview).not.toContainText("test-invite");
   await page.clock.setFixedTime(new Date("2026-10-22T12:00:00Z"));
@@ -562,7 +547,7 @@ test("per-server Discord settings persist, enforce channel access, and keep card
   const other = await page.request.get(
     "/api/v1/servers/creative/integrations/discord",
   );
-  expect(((await other.json()) as { items: unknown[] }).items).toHaveLength(0);
+  expect(((await other.json()) as ServerIntegrationList).items).toHaveLength(0);
 });
 
 for (const scenario of [
@@ -585,9 +570,9 @@ for (const scenario of [
   }) => {
     test.setTimeout(60_000);
     await login(page);
-    const { csrf_token } = (await (
-      await page.request.get("/api/v1/auth/session")
-    ).json()) as { csrf_token: string };
+    const { csrf_token } = await readAuthenticatedSession(
+      await page.request.get("/api/v1/auth/session"),
+    );
     const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
     expect(
       (
@@ -662,9 +647,9 @@ for (const access of ["viewer", "editor"] as const) {
     baseURL,
   }) => {
     await login(page);
-    const { csrf_token } = (await (
-      await page.request.get("/api/v1/auth/session")
-    ).json()) as { csrf_token: string };
+    const { csrf_token } = await readAuthenticatedSession(
+      await page.request.get("/api/v1/auth/session"),
+    );
     const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
     if (access === "editor") {
       expect(
@@ -706,7 +691,7 @@ for (const access of ["viewer", "editor"] as const) {
       },
     });
     expect(roleResponse.ok()).toBeTruthy();
-    const role = (await roleResponse.json()) as { id: number };
+    const role = (await roleResponse.json()) as Role;
     expect(
       (
         await page.request.post("/api/v1/servers/survival/access/grants", {
@@ -719,7 +704,7 @@ for (const access of ["viewer", "editor"] as const) {
     await page.getByLabel("Username", { exact: true }).fill("viewer");
     await page
       .getByLabel("Password", { exact: true })
-      .fill("campfire-e2e-password");
+      .fill("Campfire-E2E-Password1!");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.goto("/#servers/survival/console");
     await expect(
@@ -742,7 +727,7 @@ for (const access of ["viewer", "editor"] as const) {
       await saveServerIntegration(drawer);
       const result = (await (
         await page.request.get("/api/v1/servers/survival/integrations/discord")
-      ).json()) as { items: { enabled: boolean }[] };
+      ).json()) as ServerIntegrationList;
       expect(result.items[0]!.enabled).toBe(false);
       expect(
         (
@@ -940,7 +925,7 @@ test("administrators add, edit, test, disable, and remove Discord connections", 
   ).toBeEnabled();
   const status = (await (
     await page.request.get("/api/v1/integrations/discord")
-  ).json()) as { configured: boolean };
+  ).json()) as DiscordStatus;
   expect(status.configured).toBe(false);
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);

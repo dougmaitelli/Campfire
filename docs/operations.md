@@ -2,6 +2,19 @@
 title: Upgrades and recovery
 ---
 
+## Duplicate OIDC subjects during upgrade
+
+Schema 12 allows one subject per issuer for each Campfire user. If an older
+database has duplicate links, startup reports the user ID and issuer and rolls
+back the migration. Stop Campfire and back up the database. Inspect that user's
+rows in `oidc_identities` and use the provider's records to identify the subject
+to keep. In one database transaction, delete each obsolete row by its exact
+`user_id`, `issuer`, and `subject`, and increment `users.credential_version`
+by one for that user ID. Commit the transaction, then restart Campfire.
+This invalidates all existing browser sessions and personal API tokens for
+the affected account. The user can sign in again with the retained identity
+and issue replacement tokens.
+
 ## What to preserve
 
 Game snapshots and installation recovery protect different data. Preserve:
@@ -15,6 +28,26 @@ Before upgrading, stop the panel and take a consistent database and state backup
 Discord delivery identities are stored in the database, while the token files
 and encryption key live in `integration-secrets` under the panel state directory.
 Restore them together; see [Discord backup and recovery](../discord/#back-up-and-restore).
+
+### Btrfs host snapshots
+
+Suppose `/var/lib/spark/runtime/survival/data/world` holds a Minecraft world.
+Spark creates `survival/data` as a Btrfs subvolume to give that server its own
+disk quota. In a snapshot of the parent subvolume, `survival/data` appears as
+an empty directory. The world stays on the live host and is missing from that
+snapshot. [Btrfs nested subvolumes and snapshots](https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html#nested-subvolumes)
+
+- **Using host snapshots.** Stop the games and let installs, transfers and restores
+  finish. Use `sudo btrfs subvolume list -a /var/lib/spark/runtime` to list
+  the filesystem's subvolumes and identify each `runtime/<server-id>/data`
+  path (adjust for a custom state directory). Snapshot the
+  parent and each server's data subvolume, and include them all in off-host
+  replication. During recovery, restore the parent and each writable data subvolume
+  at its original path before starting Spark. Verify a known world or save file.
+- **Using Campfire backups.** Create a **Full server** portable backup for each
+  game and keep a copy off-host. Campfire archives the files inside the game
+  directory. Restore each archive through the panel and keep the panel database
+  and Spark identity backups described above. [Portable backups and recovery](/Campfire/server-backups/#portable-backups-and-recovery)
 
 ## Docker Compose upgrades
 
@@ -38,8 +71,11 @@ operations to finish before restarting an agent.
 
 ## Recovery and rollback
 
-Database schema checks run at startup. Schema 4 accepts release markers 1/2 and
-the independent-backup schema 3, upgrading transactionally on SQLite and PostgreSQL.
+Database schema checks run at startup. Schema 7 accepts release markers 1–6,
+upgrading transactionally on SQLite and PostgreSQL. Schema 5 added retained crash
+records; schema 6 added public status pages and their explicit server memberships.
+Schema 7 adds optional per-server public game address overrides. Existing Spark
+defaults remain inherited rather than being copied into fixed server overrides.
 The archive migration assigns IDs, preserves storage keys and pins, and makes
 `server_id` nullable. Schema 3 archive IDs remain unchanged. Schema 4 also adds
 `servers.deletion_pending` (not null, default false) to fence retention and other
@@ -54,6 +90,29 @@ Sparks under the existing lifecycle capability, not a separately negotiated
 feature. Older binaries may still delete backup directories; the capability
 handshake does not distinguish that older behavior.
 
+## Audit coverage
+
+The Audit page records administrative actions, permission changes, console-command
+submission (not command text), and browser backup/file downloads. SFTP records
+file mutations, denied file actions, and one transfer record per opened download.
+Downloads remain pending until they finish; partial, disconnected, or uncertain
+transfers are marked interrupted. A successful transfer means the server finished
+sending the data, not that the client saved it to disk.
+
+Successful upload chunks, archive-progress polls, file metadata probes,
+notification read acknowledgements, and local configuration previews are omitted.
+Failures and permission denials on those routes are still recorded. Standalone
+API file reads (including raw chunk reads outside a tracked download) remain
+audited so selecting a different read endpoint cannot bypass the audit trail. Remote Ember
+URL previews remain audited because they initiate an outbound request. Repeated
+SFTP authentication failures are aggregated into rate-limited security logs, without
+supplied credentials or usernames.
+
+Audited mutations and download starts fail closed if their audit intent cannot be
+stored. Routine successful polling and inbox acknowledgements do not depend on
+audit storage. Accepted requests and later operation/job results remain separate
+records where the operation has a tracked lifecycle.
+
 ## History retention when upgrading
 
 Audit and completed operation history are retained for **90 days** by default.
@@ -66,7 +125,23 @@ the history you want to preserve. See the
 
 ## Administrator password recovery
 
-Save a new password of at least 15 characters in a private, mode-`0600` regular file. On a binary installation, run:
+Run the reset command in a terminal. It prompts for a new password and confirmation
+without displaying either entry, and prints the configured password requirements.
+On a binary installation:
+
+```sh
+sudo campfire reset-password --database /var/lib/campfire/panel.db
+```
+
+For Docker:
+
+```sh
+docker compose exec campfire campfire reset-password
+```
+
+For automation, save a new password meeting the configured policy (by default,
+at least 15 characters, including uppercase, lowercase, a number, and a symbol)
+in a private, mode-`0600` regular file and pass `--password-file`:
 
 ```sh
 sudo campfire reset-password \
@@ -82,3 +157,31 @@ docker compose exec campfire campfire reset-password \
 ```
 
 Use your configured database path or PostgreSQL URL for binary installations. Add `--username NAME` to select an administrator; otherwise the first administrator is recovered. Recovery revokes that account's sessions. Remove temporary password files afterward. If local login is disabled, re-enable it in your deployment configuration before signing in with the recovered password.
+
+## Two-factor authentication recovery
+
+An administrator can remove another user’s local 2FA from **Users → Reset user’s
+2FA**, using their authenticated administrator session. If the administrator is also locked out,
+someone with access to the Campfire server can run:
+
+```sh
+sudo campfire reset-2fa --database /var/lib/campfire/panel.db --username NAME
+```
+
+For the Docker deployment, which inherits the configured database environment:
+
+```sh
+docker compose exec campfire campfire reset-2fa --username NAME
+```
+
+The command requires an explicit username. It removes that user’s authenticator
+and recovery codes and signs out their browser sessions. It preserves the password
+and API tokens. The user can sign in with their password; enrolling again is
+optional. If necessary, reset the password separately. OIDC MFA is managed at the
+identity provider and is unaffected by this command.
+
+Back up the panel’s `auth-secrets` directory, including its encryption key,
+alongside the database. It lives under the configured panel state directory
+(`--data-dir`). The database stores secret references and hashed recovery codes,
+not plaintext authenticator keys. Restore matching database and private-state
+backups together.

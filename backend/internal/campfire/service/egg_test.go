@@ -111,12 +111,16 @@ func TestEggCompatibilityFixtures(t *testing.T) {
 			}
 
 			ember := *report.Ember
-			if report.Format != test.format || ember.Schema != 1 || ember.ID != "" {
+			if report.Format != test.format || ember.Schema != model.CurrentEmberSchema || ember.ID != "" {
 				t.Fatal("incorrect format/revision", report)
 			}
 
 			if err := ember.Validate(); err != nil {
 				t.Fatal(err)
+			}
+
+			if !ember.SupportsConsoleCommands() {
+				t.Fatal("native legacy definitions and imported Eggs must default to supporting console commands")
 			}
 
 			if test.format != "ember" && (len(report.Warnings) < 2 || ember.Origin == nil || ember.Origin.Format != test.format || len(ember.Origin.Warnings) != len(report.Warnings)) {

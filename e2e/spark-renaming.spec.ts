@@ -1,4 +1,5 @@
 import { test, expect, screenshot } from "./fixtures";
+import type { Spark } from "../web/src/api/sparks";
 import { login, openScreen } from "./screens";
 
 test("Spark names can be edited without changing identity or server placement", async ({
@@ -7,11 +8,7 @@ test("Spark names can be edited without changing identity or server placement", 
   await login(page);
   const originalResponse = await page.request.get("/api/v1/sparks/mock-europe");
   expect(originalResponse.ok()).toBeTruthy();
-  const original = (await originalResponse.json()) as {
-    id: string;
-    created_at: string;
-    connected: boolean;
-  };
+  const original = (await originalResponse.json()) as Spark;
   await openScreen(page, "sparks", "Sparks");
   await page
     .getByRole("button", { name: "View details for Europe", exact: true })

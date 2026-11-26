@@ -33,6 +33,8 @@ import type { Spark } from "../api/sparks";
 import type { Ember } from "../api/embers";
 import { Drawer } from "../components/layout/Drawer";
 import { Wizard } from "../components/wizard/Wizard";
+import { primaryGamePort } from "../utils/gameAddress";
+import { GameAddressReading } from "../components/servers/GameAddressReading";
 import { ServerReview } from "../components/servers/ServerReview";
 import {
   copyPorts,
@@ -210,6 +212,7 @@ export function ServerDrawer({
     return {
       name: ember?.name.slice(0, ResourceLimits.NameLength) ?? "",
       description: "",
+      game_address: "",
       spark_id: spark?.id ?? "",
       ember_id: ember?.id ?? "",
       image: Object.values(ember?.images ?? {})[0] ?? "",
@@ -277,6 +280,13 @@ export function ServerDrawer({
   );
   const spark = sparkChoices.find((item) => item.id === value.spark_id);
   const ember = embers.find((item) => item.id === value.ember_id);
+  const gameAddressDefault =
+    spark?.game_address ??
+    (value.spark_id === server?.spark_id ? server.game_address_default : "");
+  const gameAddressPort = ember
+    ? primaryGamePort(value.ports, ember.required_ports)
+    : (server?.game_address_port ?? 0);
+  const gameAddressSpark = spark?.name ?? server?.spark_name;
   const visibleVariables = (ember?.variables ?? []).filter(
     (variable) => !variable.hidden,
   );
@@ -334,6 +344,7 @@ export function ServerDrawer({
       const input: ServerConfiguration = {
         name: value.name,
         description: value.description,
+        game_address: value.game_address ?? "",
         spark_id: value.spark_id,
         ember_id: createdServer?.ember_id ?? value.ember_id,
         image: value.image,
@@ -490,6 +501,7 @@ export function ServerDrawer({
             [
               "name",
               "description",
+              "game_address",
               "image",
               "startup_command",
               "startup_override",
@@ -625,6 +637,28 @@ export function ServerDrawer({
                   }
                 />
               </FormField>
+              <FormField
+                label={t("serverDrawer.publicGameAddress")}
+                change={changes?.fields.game_address}
+                description={t("serverDrawer.publicGameAddressHelp")}
+              >
+                <TextInput
+                  value={value.game_address ?? ""}
+                  maxLength={ResourceLimits.GameAddressLength}
+                  onChange={(event) =>
+                    setValue({ ...value, game_address: event.target.value })
+                  }
+                />
+              </FormField>
+              <div className="field-help">
+                <strong>{t("serverDrawer.resolvedGameAddress")}</strong>
+                <GameAddressReading
+                  override={value.game_address}
+                  host={gameAddressDefault}
+                  port={gameAddressPort}
+                  spark={gameAddressSpark}
+                />
+              </div>
               <FormField label={t("common.spark")}>
                 <Select
                   id="server-spark"
@@ -1085,7 +1119,7 @@ export function ServerDrawer({
                 content: policyError ? (
                   <InlineMessage role="alert">{policyError}</InlineMessage>
                 ) : backupPolicy ? (
-                  <>
+                  <div className="form-stack">
                     <FormField label={t("serverDrawer.backgroundS3Sync")}>
                       <ToggleSwitch
                         id="backup-storage"
@@ -1141,7 +1175,7 @@ export function ServerDrawer({
                         "serverDrawer.zeroDisablesALimitLocalAndS3CopiesExpireIndependently",
                       )}
                     </p>
-                  </>
+                  </div>
                 ) : (
                   <p role="status">{t("serverDrawer.loadingBackupPolicy")}</p>
                 ),
@@ -1294,6 +1328,9 @@ export function ServerDrawer({
               )}
               {!accessOnly && (
                 <ServerReview
+                  gameAddressDefault={gameAddressDefault}
+                  gameAddressPort={gameAddressPort}
+                  gameAddressSpark={gameAddressSpark}
                   value={value}
                   changes={changes}
                   variableTypes={Object.fromEntries(

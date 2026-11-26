@@ -1,4 +1,9 @@
 import { test, expect, screenshot } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { AuthState } from "../web/src/api/auth";
+import type { Server } from "../web/src/api/servers";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { AuditEvent } from "../web/src/api/activity";
 import { login } from "./screens";
 
 test("only Admin can start a persistent read-only user preview and return to their account", async ({
@@ -43,18 +48,14 @@ test("only Admin can start a persistent read-only user preview and return to the
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("link", { name: "Sparks", exact: true }),
   ).toHaveCount(0);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as {
-    csrf_token: string;
-    user_id: number;
-    admin: boolean;
-    view_as: { admin_user_id: number };
-  };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
+  if (!session.view_as) throw new Error("Expected an active view-as session");
   expect(session.admin).toBe(false);
   expect(session.view_as.admin_user_id).not.toBe(session.user_id);
   const serversResponse = await page.request.get("/api/v1/servers");
-  const servers = (await serversResponse.json()) as { id: string }[];
+  const servers = (await serversResponse.json()) as Server[];
   expect(servers.map((server) => server.id)).toEqual(["survival"]);
   expect((await page.request.get("/api/v1/servers/creative")).status()).toBe(
     404,
@@ -95,7 +96,7 @@ test("only Admin can start a persistent read-only user preview and return to the
   ).toBeVisible();
   const restored = (await (
     await page.request.get("/api/v1/auth/session")
-  ).json()) as { admin: boolean; view_as?: unknown };
+  ).json()) as AuthState;
   expect(restored.admin).toBe(true);
   expect(restored.view_as).toBeUndefined();
   await page
@@ -110,13 +111,7 @@ test("only Admin can start a persistent read-only user preview and return to the
   ).toBeVisible();
   const { items: events } = (await (
     await page.request.get("/api/v1/audit")
-  ).json()) as {
-    items: {
-      action: string;
-      user_id: number;
-      username: string;
-    }[];
-  };
+  ).json()) as Paginated<AuditEvent>;
   const previewEvents = events.filter((event) =>
     event.action.startsWith("auth.view_as."),
   );
@@ -138,9 +133,9 @@ test("ordinary users cannot see or invoke View as", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "View as...", exact: true }),
   ).toHaveCount(0);
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const response = await page.request.post("/api/v1/auth/view-as", {
     headers: { "X-CSRF-Token": session.csrf_token },
     data: { user_id: 1 },

@@ -45,7 +45,7 @@ test("filter labels respect event type and fall back when all-types labels disag
 });
 
 test("monitoring validates custom labels without requiring them from older publishers", () => {
-  const base = { updated_at: 1, fresh_for_seconds: 60, status: "fresh" };
+  const base = { updated_at: 1 };
   const state = { fields: { game_mode: "survival" } };
   expect(isGameStateView({ ...base, state })).toBe(true);
   expect(

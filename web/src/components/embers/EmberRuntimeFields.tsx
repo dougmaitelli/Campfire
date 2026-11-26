@@ -73,6 +73,11 @@ export function EmberRuntimeFields({
         required
         onChange={(work_dir) => patch({ work_dir })}
       />
+      <EditorCheck
+        label={t("emberEditor.consoleCommands")}
+        value={value.console_commands ?? true}
+        onChange={(console_commands) => patch({ console_commands })}
+      />
       <EditorGroup
         title={t("emberEditor.images")}
         description={t("emberEditor.imagesHelp")}

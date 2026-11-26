@@ -1,4 +1,3 @@
-import { GameStateStatus } from "../../src/contracts/domains";
 import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
 import i18n from "../../src/i18n";
@@ -29,8 +28,6 @@ test("server readings render list fields as text and clear stale player names", 
     usage,
     game: {
       updated_at: 100,
-      fresh_for_seconds: 60,
-      status: GameStateStatus.Fresh,
       state: {
         fields: { player_names: ["Alex", "<script>Sam</script>"] },
         field_labels: { player_names: "Online players" },
@@ -76,8 +73,6 @@ test("server readings preserve translated labels, display labels, and raw-key fa
       usage={usage}
       game={{
         updated_at: 100,
-        fresh_for_seconds: 60,
-        status: GameStateStatus.Fresh,
         state: {
           players: 0,
           capacity: 20,

@@ -400,6 +400,11 @@ export function ServerOperationsPage({
         </InlineMessage>
       )}
       {management.dialogs}
+      {server && status?.crash_monitor_error && (
+        <InlineMessage tone="warning">
+          {status.crash_monitor_error}
+        </InlineMessage>
+      )}
       {server && (
         <ServerLogAlerts
           key={server.id}

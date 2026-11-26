@@ -129,7 +129,7 @@ function scheduleRebuild(_event, filename) {
     mock &&
     path
       .replaceAll("\\", "/")
-      .startsWith("internal/campfire/devfixture/integrations/discord-viewer/");
+      .startsWith("internal/devfixture/integrations/discord-viewer/");
   if (
     !path.endsWith(".go") &&
     path !== "go.mod" &&

@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 import "./fieldset.css";
+import "./form-stack.css";
 
 export function Fieldset({ className, ...props }: ComponentProps<"fieldset">) {
   return (

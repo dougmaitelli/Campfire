@@ -1,6 +1,8 @@
 package model
 
-// ResourceHistoryUsage contains only the metrics retained for graphing.
+// ResourceHistoryUsage intentionally retains only CPU and memory for graphing.
+// Disk usage is a current sampled value, not a historical series; raw collector
+// snapshots may contain it, but history rollups and this API deliberately omit it.
 type ResourceHistoryUsage struct {
 	CPUPercent  *float64 `json:"cpu_percent"`
 	MemoryBytes *int64   `json:"memory_bytes"`

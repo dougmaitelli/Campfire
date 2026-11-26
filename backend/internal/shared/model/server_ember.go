@@ -108,4 +108,5 @@ func (s *Server) SetEmberStatus(ember Ember) {
 
 	s.EmberUpdateAvailable = s.EmberReviewRequired || s.DeploymentSyncRequired
 	s.SavedataAvailable = len(ember.SavedataPaths) > 0
+	s.ConsoleCommands = ember.SupportsConsoleCommands()
 }

@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { test, expect, screenshot } from "./fixtures";
+import type { Ember } from "../web/src/contracts/ember";
+import type { Server } from "../web/src/api/servers";
 import { login, openScreen, openServerEditor } from "./screens";
 
 test("Pelican Valheim BepInEx YAML previews and imports without losing URL constraints or game backup variables", async ({
@@ -50,21 +52,13 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
   await importButton.click();
   await expect(drawer).toHaveCount(0);
   const response = await page.request.get("/api/v1/embers");
-  const embers = (await response.json()) as {
-    id: string;
-    name: string;
-    startup_commands: Record<string, string>;
-    variables: {
-      name: string;
-      default: string;
-      hidden?: boolean;
-      validation?: { format?: string };
-    }[];
-  }[];
+  const embers = (await response.json()) as Ember[];
   const imported = embers.find(
     (ember) => ember.name === "Valheim BepInEx fixture",
   );
-  expect(imported).toBeDefined();
+  if (!imported?.variables || !imported.startup_commands) {
+    throw new Error("Imported Ember is missing variables or startup commands");
+  }
   expect(
     imported?.variables.find((variable) => variable.name === "BEPINEX_URL"),
   ).toMatchObject({ hidden: true, validation: { format: "url" } });
@@ -169,12 +163,7 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
     .click();
   await expect(create).toHaveCount(0);
   const serversResponse = await page.request.get("/api/v1/servers");
-  const servers = (await serversResponse.json()) as {
-    id: string;
-    ember_id: string;
-    name: string;
-    variables: Record<string, string>;
-  }[];
+  const servers = (await serversResponse.json()) as Server[];
   const server = servers.find((entry) => entry.ember_id === imported!.id);
   expect(server?.variables.ENABLE_CROSSPLAY).toBe("1");
   expect(server?.variables.PUBLIC_SERVER).toBe("0");
@@ -204,8 +193,5 @@ test("Pelican Valheim BepInEx YAML previews and imports without losing URL const
   await edit.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(edit).toHaveCount(0);
   const saved = await page.request.get(`/api/v1/servers/${server!.id}`);
-  expect(
-    ((await saved.json()) as { variables: Record<string, string> }).variables
-      .ENABLE_CROSSPLAY,
-  ).toBe("0");
+  expect(((await saved.json()) as Server).variables.ENABLE_CROSSPLAY).toBe("0");
 });

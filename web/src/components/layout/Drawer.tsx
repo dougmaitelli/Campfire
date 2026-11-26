@@ -2,15 +2,14 @@ import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Button } from "../forms/Button";
 import { ActionMenu, type ActionMenuItem } from "../forms/ActionMenu";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { BaseDialog, type BaseDialogProps } from "./BaseDialog";
 import { Panel } from "./Panel";
 import "./drawer.css";
 
-interface DrawerProps {
+interface DrawerProps extends Pick<BaseDialogProps, "busy" | "onClose"> {
   title: ReactNode;
   description?: string;
-  busy: boolean;
-  onClose: () => void;
   children: ReactNode;
   footerLeft: ReactNode;
   footerRight: ReactNode;
@@ -32,24 +31,14 @@ export function Drawer({
   leading,
 }: DrawerProps) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
-  useEffect(() => {
-    const dialog = ref.current;
-    dialog?.showModal();
-    dialog?.querySelector<HTMLInputElement>("input, textarea")?.focus();
-    return () => dialog?.close();
-  }, []);
   return (
-    <dialog
-      ref={ref}
+    <BaseDialog
+      busy={busy}
+      onClose={onClose}
       className="drawer"
       aria-labelledby={id}
       aria-describedby={description ? id + "-description" : undefined}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
     >
       <Panel
         title={title}
@@ -78,6 +67,6 @@ export function Drawer({
       >
         {children}
       </Panel>
-    </dialog>
+    </BaseDialog>
   );
 }
