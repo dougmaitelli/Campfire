@@ -70,7 +70,10 @@ test("transfer history shows copy progress and cancellation on desktop and mobil
     String(transfer.transferred_bytes),
   );
   await expect(progress).toHaveAttribute("max", String(transfer.total_bytes));
-  await expect(progress).toHaveAttribute("aria-valuetext", "384 MiB / 1 GiB");
+  await expect(progress).toHaveAttribute(
+    "aria-valuetext",
+    "Archive bytes copied: 384 MiB / 1 GiB",
+  );
   await screenshot(page, "server-transfer-history.png", drawer);
   await page.setViewportSize({ width: 390, height: 844 });
   await screenshot(page, "server-transfer-history-mobile.png", drawer);
