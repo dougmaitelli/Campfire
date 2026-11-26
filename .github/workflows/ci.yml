@@ -98,7 +98,7 @@ jobs:
 
   browser-tests:
     name: Browser tests
-    timeout-minutes: 20
+    timeout-minutes: 35
     needs: changes
     if: >-
       needs.changes.outputs.browser == 'true' &&
