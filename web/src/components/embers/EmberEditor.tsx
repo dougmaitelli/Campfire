@@ -36,6 +36,7 @@ export function EmberEditor({
 }) {
   const { t } = useTranslation();
   const fields = { draft, onChange };
+  const primary = draft.definition.required_ports?.find((port) => port.primary);
   return (
     <Wizard
       allowAllSteps={editing}
@@ -111,6 +112,14 @@ export function EmberEditor({
                 <div>
                   <dt>{t("emberEditor.ports")}</dt>
                   <dd>{draft.definition.required_ports?.length ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>{t("emberEditor.primaryPort")}</dt>
+                  <dd>
+                    {primary
+                      ? `${primary.container}/${primary.protocol}`
+                      : t("emberEditor.noPrimaryPort")}
+                  </dd>
                 </div>
                 <div>
                   <dt>{t("emberEditor.savedata")}</dt>

@@ -1,5 +1,5 @@
 import { MonitoringPolicy, sampleFreshSeconds } from "../config/policies";
-import { ResourceState } from "../contracts/domains";
+import { DiskAccounting, ResourceState } from "../contracts/domains";
 import {
   isRecord as object,
   isEnumValue,
@@ -22,6 +22,8 @@ export interface ResourceUsage {
   cpu_percent: number | null;
   memory_bytes: number | null;
   disk_bytes: number | null;
+  // Older Sparks omit this field and report logical file sizes.
+  disk_accounting?: DiskAccounting;
   sampled_at: number;
   disk_sampled_at: number;
   sample_age_seconds: number;
@@ -67,6 +69,8 @@ export function isResourceUsage(value: unknown): value is ResourceUsage {
     nullable(value.cpu_percent) &&
     (value.memory_bytes === null || integer(value.memory_bytes)) &&
     (value.disk_bytes === null || integer(value.disk_bytes)) &&
+    (value.disk_accounting === undefined ||
+      isEnumValue(DiskAccounting, value.disk_accounting)) &&
     [
       "sampled_at",
       "disk_sampled_at",

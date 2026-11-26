@@ -11,6 +11,12 @@ import (
 )
 
 func TestCompressionProgressPublicationAndOwnerBinding(t *testing.T) {
+	for _, name := range []string{"archive.tar.gz", "archive.zip"} {
+		t.Run(name, func(t *testing.T) { testCompressionProgressPublicationAndOwnerBinding(t, name) })
+	}
+}
+
+func testCompressionProgressPublicationAndOwnerBinding(t *testing.T, archiveName string) {
 	volume := t.TempDir()
 	if err := os.WriteFile(filepath.Join(volume, "source.txt"), []byte("payload"), 0600); err != nil {
 		t.Fatal(err)
@@ -23,7 +29,7 @@ func TestCompressionProgressPublicationAndOwnerBinding(t *testing.T) {
 	defer close(release)
 
 	d := model.Deployment{ServerID: "server"}
-	q := model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperationCompressStart, Path: "source.txt", Destination: "archive.tar.gz", CompressionOwner: "owner", Compression: &model.CompressionRequest{ID: "12345678901234567890123456789012"}}
+	q := model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperationCompressStart, Path: "source.txt", Destination: archiveName, CompressionOwner: "owner", Compression: &model.CompressionRequest{ID: "12345678901234567890123456789012"}}
 
 	result, err := m.Files(t.Context(), d, volume, &State{}, q)
 	if err != nil || result.Compression.State != "running" {
@@ -84,6 +90,12 @@ func TestCompressionProgressPublicationAndOwnerBinding(t *testing.T) {
 }
 
 func TestCompressionCompletionIsIdempotentAndCollisionSafe(t *testing.T) {
+	for _, name := range []string{"archive.tar.gz", "archive.zip"} {
+		t.Run(name, func(t *testing.T) { testCompressionCompletionIsIdempotentAndCollisionSafe(t, name) })
+	}
+}
+
+func testCompressionCompletionIsIdempotentAndCollisionSafe(t *testing.T, archiveName string) {
 	for _, collision := range []bool{false, true} {
 		t.Run(map[bool]string{false: "publish", true: "collision"}[collision], func(t *testing.T) {
 			volume := t.TempDir()
@@ -91,7 +103,7 @@ func TestCompressionCompletionIsIdempotentAndCollisionSafe(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			target := filepath.Join(volume, "archive.tar.gz")
+			target := filepath.Join(volume, archiveName)
 			if collision {
 				if err := os.WriteFile(target, []byte("keep"), 0600); err != nil {
 					t.Fatal(err)
@@ -103,7 +115,7 @@ func TestCompressionCompletionIsIdempotentAndCollisionSafe(t *testing.T) {
 
 			d := model.Deployment{ServerID: "server"}
 
-			q := model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperationCompressStart, Path: "source", Destination: "archive.tar.gz", CompressionOwner: "owner", Compression: &model.CompressionRequest{ID: "12345678901234567890123456789012"}}
+			q := model.FileRequest{ServerID: d.ServerID, Operation: model.FileOperationCompressStart, Path: "source", Destination: archiveName, CompressionOwner: "owner", Compression: &model.CompressionRequest{ID: "12345678901234567890123456789012"}}
 			if _, err := m.Files(t.Context(), d, volume, &State{}, q); err != nil {
 				t.Fatal(err)
 			}

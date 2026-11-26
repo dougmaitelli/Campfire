@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"campfire/internal/campfire/database"
@@ -26,8 +27,8 @@ import (
 var (
 	ErrAuthentication = repository.ErrAuthentication
 	ErrAdminExists    = repository.ErrAdminExists
-	ErrAuthInput      = errors.New("use a username of 3–64 letters, numbers, dots, dashes or underscores and a password of at least 15 characters (maximum 1024 bytes)")
-	ErrAuthRate       = errors.New("too many sign-in attempts; try again in one minute")
+	ErrAuthInput      = fmt.Errorf("use a username of %d–%d letters, numbers, dots, dashes or underscores; password requirements: %s", limits.UsernameMin, limits.UsernameMax, PasswordRequirements())
+	ErrAuthRate       = errors.New("too many attempts. Try again in one minute")
 )
 
 // SessionLifetime bounds a login even while its browser continues polling.
@@ -41,6 +42,8 @@ type authAttempts struct {
 // AuthService owns initial administrator setup, account authentication and sessions.
 type AuthService struct {
 	store         *repository.AuthRepository
+	mfaSecrets    MFASecrets
+	autoLinkEmail bool
 	mu            sync.Mutex
 	setupHash     [32]byte
 	setupReady    bool
@@ -54,7 +57,10 @@ type AuthService struct {
 
 // NewAuthService constructs authentication without enabling unprotected setup.
 func NewAuthService(store *repository.AuthRepository) *AuthService {
-	return &AuthService{store: store, attempts: make(map[string]authAttempts), now: time.Now, hashSlots: make(chan struct{}, 4)}
+	return &AuthService{
+		store: store, attempts: make(map[string]authAttempts), now: time.Now,
+		hashSlots: make(chan struct{}, 4),
+	}
 }
 
 func (s *AuthService) passwordWork(ctx context.Context) (func(), error) {
@@ -151,8 +157,45 @@ func (s *AuthService) AllowAttempt(key string) bool {
 	return true
 }
 
+// PasswordRequirements describes the configured rules for setting a password.
+func PasswordRequirements() string {
+	rules := []string{fmt.Sprintf("at least %d characters", limits.PasswordMin)}
+	if limits.PasswordRequireUppercase {
+		rules = append(rules, "an uppercase letter")
+	}
+
+	if limits.PasswordRequireLowercase {
+		rules = append(rules, "a lowercase letter")
+	}
+
+	if limits.PasswordRequireNumber {
+		rules = append(rules, "a number")
+	}
+
+	if limits.PasswordRequireSymbol {
+		rules = append(rules, "a symbol")
+	}
+
+	return strings.Join(rules, ", ")
+}
+
 func validAccountInput(username, password string) bool {
-	return utils.IsValidUsername(username) && utf8.ValidString(password) && utf8.RuneCountInString(password) >= limits.PasswordMin && len(password) <= limits.PasswordMax
+	if !utils.IsValidUsername(username) || !utf8.ValidString(password) || utf8.RuneCountInString(password) < limits.PasswordMin || len(password) > limits.PasswordMax {
+		return false
+	}
+
+	var upper, lower, number, symbol bool
+	for _, char := range password {
+		upper = upper || unicode.IsUpper(char)
+		lower = lower || unicode.IsLower(char)
+		number = number || unicode.IsDigit(char)
+		symbol = symbol || unicode.IsPunct(char) || unicode.IsSymbol(char)
+	}
+
+	return (!limits.PasswordRequireUppercase || upper) &&
+		(!limits.PasswordRequireLowercase || lower) &&
+		(!limits.PasswordRequireNumber || number) &&
+		(!limits.PasswordRequireSymbol || symbol)
 }
 
 func passwordHash(password string) (string, error) {
@@ -185,12 +228,18 @@ func verifyPassword(encoded, password string) bool {
 
 func newUserSession(userID, version int64, now time.Time) (database.UserSession, string) {
 	token := authToken()
-	return database.UserSession{Hash: tokenHash(token), UserID: userID, CSRF: authToken(), CredentialVersion: version, ExpiresAt: now.Add(SessionLifetime).Unix(), LastSeenAt: now.Unix()}, token
+	return database.UserSession{Hash: tokenHash(token), UserID: userID, CSRF: authToken(), CredentialVersion: version, CreatedAt: now.Unix(), ExpiresAt: now.Add(SessionLifetime).Unix(), LastSeenAt: now.Unix()}, token
 }
 
 // Setup consumes proof of local host access and atomically creates the administrator.
-func (s *AuthService) Setup(ctx context.Context, token, username, password string) (database.UserSession, string, error) {
+func (s *AuthService) Setup(ctx context.Context, token, username, password, email string) (database.UserSession, string, error) {
 	username = strings.ToLower(strings.TrimSpace(username))
+
+	email = utils.NormalizeEmail(email)
+	if !validEmail(email) {
+		return database.UserSession{}, "", repository.ErrEmailRequired
+	}
+
 	if !validAccountInput(username, password) {
 		return database.UserSession{}, "", ErrAuthInput
 	}
@@ -217,7 +266,9 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 	}
 
 	session, raw := newUserSession(1, 1, s.now())
-	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, PasswordHash: encoded, CredentialVersion: 1}, session); err != nil {
+
+	session.UserAgent = sessionUserAgent(ctx)
+	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, Email: email, OIDCLinkEmail: &email, PasswordHash: encoded, CredentialVersion: 1}, session); err != nil {
 		return database.UserSession{}, "", err
 	}
 
@@ -230,7 +281,12 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password strin
 }
 
 // Login verifies credentials and rotates any current browser session.
-func (s *AuthService) Login(ctx context.Context, username, password, previous string) (database.UserSession, string, error) {
+func (s *AuthService) Login(ctx context.Context, username, password, previous string, codes ...string) (database.UserSession, string, error) {
+	code := ""
+	if len(codes) > 0 {
+		code = codes[0]
+	}
+
 	enabled, err := s.LocalLoginEnabled(ctx)
 	if err != nil {
 		return database.UserSession{}, "", err
@@ -265,8 +321,24 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 		return database.UserSession{}, "", ErrAuthentication
 	}
 
+	factor, err := s.store.MFA(ctx, admin.ID)
+	if err != nil {
+		return database.UserSession{}, "", err
+	}
+
+	if factor.SecretRef != "" && !s.AllowAttempt(fmt.Sprintf("mfa:%d", admin.ID)) {
+		return database.UserSession{}, "", ErrAuthRate
+	}
+
+	proof, err := s.factorProof(factor, code)
+	if err != nil {
+		return database.UserSession{}, "", err
+	}
+
 	session, raw := newUserSession(admin.ID, admin.CredentialVersion, s.now())
-	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now()); err != nil {
+
+	session.UserAgent = sessionUserAgent(ctx)
+	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now(), proof); err != nil {
 		return database.UserSession{}, "", err
 	}
 

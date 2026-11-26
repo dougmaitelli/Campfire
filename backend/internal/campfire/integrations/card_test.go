@@ -44,14 +44,16 @@ func TestServerCardAddressResolution(t *testing.T) {
 		ports []model.ServerPort
 		want  []string
 	}{
-		{"public address", "games.example.test", []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565, Protocol: model.NetworkTCP}}, []string{"games.example.test:25565 / TCP"}},
-		{"IPv6", "2001:db8::1", []model.ServerPort{{BindIP: "::", HostPort: 7777, Protocol: model.NetworkUDP}}, []string{"[2001:db8::1]:7777 / UDP"}},
-		{"specific bind", "", []model.ServerPort{{BindIP: "192.0.2.10", HostPort: 25565, Protocol: model.NetworkTCP}}, []string{"192.0.2.10:25565 / TCP"}},
+		{"public address", "games.example.test", []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565, Protocol: model.NetworkTCP}}, []string{"games.example.test"}},
+		{"IPv6", "2001:db8::1", []model.ServerPort{{BindIP: "::", HostPort: 7777, Protocol: model.NetworkUDP}}, []string{"2001:db8::1"}},
+		{"specific bind", "", []model.ServerPort{{BindIP: "192.0.2.10", HostPort: 25565, Protocol: model.NetworkTCP}}, []string{}},
 		{"unavailable wildcard", "", []model.ServerPort{{BindIP: "0.0.0.0", HostPort: 25565, Protocol: model.NetworkTCP}, {BindIP: "::", HostPort: 7777, Protocol: model.NetworkUDP}}, []string{}},
 		{"address without ports", "games.example.test", nil, []string{"games.example.test"}},
+		{"URL with port", "https://Games.Example.test:32100/Join?Token=Case", nil, []string{"https://Games.Example.test:32100/Join?Token=Case"}},
+		{"custom", "connect Games.Example.test:32100", nil, []string{"connect Games.Example.test:32100"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			server := model.Server{GameAddress: test.host, ServerConfiguration: model.ServerConfiguration{Ports: test.ports}}
+			server := model.Server{ServerConfiguration: model.ServerConfiguration{GameAddress: test.host, Ports: test.ports}}
 			if got := BuildServerCard(server, model.RuntimeStateStopped, nil, CardSettings{}, nil).Addresses; !reflect.DeepEqual(got, test.want) {
 				t.Fatal(got, test.want)
 			}

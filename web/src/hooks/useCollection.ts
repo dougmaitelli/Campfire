@@ -9,6 +9,7 @@ export function useCollection<T extends { id: string | number }>(
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [cause, setError] = useState<Error | string | null>(null);
   const { error, connectionError } = useRequestError(cause);
   const active = useRef<AbortController | null>(null);
@@ -18,6 +19,7 @@ export function useCollection<T extends { id: string | number }>(
         .then((result) => {
           if (!controller.signal.aborted) {
             setItems(result);
+            setHasLoaded(true);
             setError(null);
           }
         })
@@ -84,11 +86,27 @@ export function useCollection<T extends { id: string | number }>(
     setLoading(false);
     setError(null);
   }, []);
+  const remove = useCallback((id: T["id"]) => {
+    active.current?.abort();
+    setItems((current) => current.filter((item) => item.id !== id));
+    setLoading(false);
+    setError(null);
+  }, []);
   const replace = useCallback((next: T[]) => {
     active.current?.abort();
     setItems(next);
     setLoading(false);
     setError(null);
   }, []);
-  return { items, loading, error, connectionError, refresh, upsert, replace };
+  return {
+    items,
+    loading,
+    hasLoaded,
+    error,
+    connectionError,
+    refresh,
+    upsert,
+    remove,
+    replace,
+  };
 }

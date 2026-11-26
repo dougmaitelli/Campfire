@@ -1,4 +1,8 @@
 import { test, expect } from "./fixtures";
+import { readAuthenticatedSession } from "./auth";
+import type { Page as Paginated } from "../web/src/api/pagination";
+import type { GameEvent } from "../web/src/api/gameEvents";
+import type { ServerIntegrationSettings } from "../web/src/api/integrations";
 import { login } from "./screens";
 
 test("mock Discord renders delivered game images and playable videos", async ({
@@ -6,9 +10,9 @@ test("mock Discord renders delivered game images and playable videos", async ({
   baseURL,
 }) => {
   await login(page);
-  const { csrf_token } = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   expect(
     (
@@ -37,19 +41,7 @@ test("mock Discord renders delivered game images and playable videos", async ({
   ).toBeTruthy();
   const events = (await (
     await page.request.get("/api/v1/servers/survival/events")
-  ).json()) as {
-    items: {
-      id: number;
-      type: string;
-      title: string;
-      attachments?: {
-        id: string;
-        name: string;
-        content_type: string;
-        size: number;
-      }[];
-    }[];
-  };
+  ).json()) as Paginated<GameEvent>;
   const event = events.items.find((item) => item.attachments?.length);
   if (!event) throw new Error("Missing retained media fixture");
   for (const media of [undefined, ...event.attachments!]) {
@@ -133,9 +125,9 @@ test("mock Discord shows real deliveries, edits one card, and recreates a delete
 }) => {
   test.setTimeout(60_000);
   await login(page);
-  const { csrf_token } = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const { csrf_token } = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const headers = { "X-CSRF-Token": csrf_token, Origin: baseURL! };
   expect(
     (
@@ -173,7 +165,7 @@ test("mock Discord shows real deliveries, edits one card, and recreates a delete
       },
     );
     expect(response.ok()).toBeTruthy();
-    bindingID = ((await response.json()) as { id: string }).id;
+    bindingID = ((await response.json()) as ServerIntegrationSettings).id;
   };
   await saveCard([]);
   await expect
@@ -182,7 +174,7 @@ test("mock Discord shows real deliveries, edits one card, and recreates a delete
         await page.request.get(
           `/api/v1/servers/survival/integrations/discord/${bindingID}`,
         )
-      ).json()) as { card_status: { state: string } };
+      ).json()) as ServerIntegrationSettings;
       return settings.card_status.state;
     })
     .toBe("published");

@@ -30,8 +30,8 @@ type fakeDocker struct {
 
 type fakeQuota struct{ err error }
 
-func (q fakeQuota) Prepare(string, int64) error { return q.err }
-func (q fakeQuota) Verify(string, int64) error  { return q.err }
+func (q fakeQuota) Prepare(context.Context, string, int64) error { return q.err }
+func (q fakeQuota) Verify(context.Context, string, int64) error  { return q.err }
 
 func newTestManager(ctx context.Context, directory string) *Manager {
 	m := New(ctx, directory)

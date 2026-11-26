@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database"
-	"campfire/internal/campfire/devfixture"
+	"campfire/internal/devfixture"
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 )

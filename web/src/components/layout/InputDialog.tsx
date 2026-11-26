@@ -5,11 +5,22 @@ import { TextInput } from "../forms/TextInput";
 import { InlineMessage } from "../status/InlineMessage";
 import { Button } from "../forms/Button";
 import { NavigationIcon } from "../navigation/NavigationIcon";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { formatErrorMessage } from "../../utils/errors";
-import { createPortal } from "react-dom";
+import { BaseDialog, type BaseDialogProps } from "./BaseDialog";
 import "./confirm-dialog.css";
 import "./input-dialog.css";
+
+interface InputDialogProps extends Pick<BaseDialogProps, "onClose"> {
+  title: string;
+  label: string;
+  description: string;
+  submitLabel: string;
+  initialValue?: string;
+  busyContent?: ReactNode;
+  onCancelBusy?: (() => void) | undefined;
+  onSubmit: (value: string) => Promise<void>;
+}
 
 export function InputDialog({
   title,
@@ -21,32 +32,13 @@ export function InputDialog({
   onCancelBusy,
   onClose,
   onSubmit,
-}: {
-  title: string;
-  label: string;
-  description: string;
-  submitLabel: string;
-  initialValue?: string;
-  busyContent?: ReactNode;
-  onCancelBusy?: (() => void) | undefined;
-  onClose: () => void;
-  onSubmit: (value: string) => Promise<void>;
-}) {
+}: InputDialogProps) {
   const { t } = useTranslation();
-  const dialog = useRef<HTMLDialogElement>(null);
-  const input = useRef<HTMLInputElement>(null);
   const pending = useRef(false);
   const id = useId();
   const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    input.current?.focus();
-    input.current?.select();
-    return () => element?.close();
-  }, []);
 
   async function submit() {
     if (pending.current) return;
@@ -70,17 +62,15 @@ export function InputDialog({
     }
   }
 
-  return createPortal(
-    <dialog
-      ref={dialog}
+  return (
+    <BaseDialog
+      portal
+      selectInitialText
+      busy={busy}
+      onClose={onClose}
       className="confirm-dialog input-dialog"
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}
-      onClick={(event) => event.stopPropagation()}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending.current) onClose();
-      }}
     >
       <form
         onSubmit={(event) => {
@@ -104,7 +94,6 @@ export function InputDialog({
         <p id={`${id}-description`}>{description}</p>
         <FormField label={<>{label}</>}>
           <TextInput
-            ref={input}
             id={`${id}-input`}
             value={value}
             required
@@ -134,7 +123,6 @@ export function InputDialog({
           </Button>
         </div>
       </form>
-    </dialog>,
-    document.body,
+    </BaseDialog>
   );
 }

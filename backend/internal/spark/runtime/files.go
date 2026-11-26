@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"syscall"
 )
@@ -48,22 +47,10 @@ func writeAtomic(path string, data []byte, mode fs.FileMode) error {
 	return os.Rename(file.Name(), path)
 }
 
-// importedMode ignores foreign access permissions while retaining executability.
-// Game files are private to the runtime user and must remain writable.
-func ownership(directory, user string) error {
-	parts := strings.Split(user, ":")
-
-	uid, err := strconv.Atoi(parts[0])
-	if err != nil || uid < 1 {
-		return errors.New("invalid non-root user")
-	}
-
-	gid := uid
-	if len(parts) == 2 {
-		gid, err = strconv.Atoi(parts[1])
-		if err != nil {
-			return err
-		}
+func (m *Manager) ownership(directory, user string) error {
+	uid, gid, err := m.namespace.gameOwner(user)
+	if err != nil {
+		return err
 	}
 
 	root, err := os.OpenRoot(directory)

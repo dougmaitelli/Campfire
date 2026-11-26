@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
 	"campfire/internal/campfire/database"
+	"campfire/internal/campfire/database/repository"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
 )
@@ -87,7 +89,7 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
+	ctx := service.WithSessionUserAgent(r.Context(), r.UserAgent())
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -98,7 +100,12 @@ func (a *API) oidcCallback(w http.ResponseWriter, r *http.Request) {
 			event.Outcome = model.AuditFailed
 		}
 
-		http.Redirect(w, r, "/?oidc_error=1", http.StatusSeeOther)
+		target := "/?oidc_error=1"
+		if errors.Is(err, repository.ErrEmailRequired) {
+			target = "/?oidc_error=email_required"
+		}
+
+		http.Redirect(w, r, target, http.StatusSeeOther)
 
 		return
 	}

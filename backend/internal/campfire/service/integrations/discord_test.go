@@ -14,8 +14,8 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 type testPrincipal bool

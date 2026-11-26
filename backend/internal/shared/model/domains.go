@@ -98,16 +98,6 @@ const (
 	VariableFormatURL VariableFormat = "url"
 )
 
-// GameStateStatus describes the availability of a game-state snapshot.
-type GameStateStatus string
-
-// Game-state status describes snapshot freshness.
-const (
-	GameStateFresh       GameStateStatus = "fresh"
-	GameStateStale       GameStateStatus = "stale"
-	GameStateUnavailable GameStateStatus = "unavailable"
-)
-
 // JobRole identifies a Spark's side of a saved transfer.
 type JobRole string
 

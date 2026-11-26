@@ -1,11 +1,35 @@
 package cliutil
 
 import (
+	"bytes"
 	"flag"
 	"os"
 	"strings"
 	"testing"
 )
+
+func TestStringSettingKeepsEnvironmentValueOutOfUsage(t *testing.T) {
+	setting := Setting{FlagName: "oidc-client-secret", EnvironmentName: "CAMPFIRE_OIDC_CLIENT_SECRET"}
+
+	const sentinel = "private-test-value"
+	t.Setenv(setting.EnvironmentName, sentinel)
+
+	for _, arg := range []string{"--help", "--unknown-option"} {
+		flags := flag.NewFlagSet("campfire", flag.ContinueOnError)
+
+		var output bytes.Buffer
+		flags.SetOutput(&output)
+
+		password := setting.String(flags, "", "OIDC client secret")
+		if err := flags.Parse([]string{arg}); err == nil || *password != sentinel {
+			t.Fatal("expected usage and the configured password", err)
+		}
+
+		if !strings.Contains(output.String(), setting.EnvironmentName) || strings.Contains(output.String(), sentinel) {
+			t.Fatal("flag usage must identify the setting and keep its value private")
+		}
+	}
+}
 
 func TestStringSettingPrecedence(t *testing.T) {
 	setting := Setting{FlagName: "example", EnvironmentName: "CAMPFIRE_TEST_SETTING"}

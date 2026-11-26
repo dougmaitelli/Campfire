@@ -15,6 +15,10 @@ import { FormField } from "../forms/FormField";
 import { Button } from "../forms/Button";
 import { InlineMessage } from "../status/InlineMessage";
 import { compressArchive } from "../files/compressArchive";
+import {
+  archiveFolderName,
+  isExtractableArchive,
+} from "../files/archiveFormats";
 import { IndeterminateProgress } from "../status/IndeterminateProgress";
 import { Textarea } from "../forms/Textarea";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -810,7 +814,7 @@ export function ServerFileBrowser({
             initialValue={
               fileAction.kind === "rename"
                 ? fileAction.entry.name
-                : fileAction.entry.name.replace(/\.(tar\.gz|tgz|zip|rar)$/i, "")
+                : archiveFolderName(fileAction.entry.name)
             }
             busyContent={
               fileAction.kind !== "rename" &&
@@ -1148,7 +1152,7 @@ export function ServerFileBrowser({
                         <ActionGroup>
                           {hasWritePermission &&
                             entry.kind === FileKind.File &&
-                            /\.(zip|tar\.gz|tgz|rar)$/i.test(entry.name) && (
+                            isExtractableArchive(entry.name) && (
                               <Button
                                 iconOnly
                                 size="small"

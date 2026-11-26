@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"campfire/internal/campfire/gameaddress"
 	"campfire/internal/shared/limits"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/utils"
@@ -21,6 +22,10 @@ func validateSettings(settings *model.SparkSettings) error {
 		} else {
 			address = strings.ToLower(address)
 		}
+	}
+
+	if address != "" && !gameaddress.UsableDefaultHost(address) {
+		return fmt.Errorf("%w: default public host cannot be an unspecified or multicast address", ErrInvalidSettings)
 	}
 
 	settings.GameAddress = address

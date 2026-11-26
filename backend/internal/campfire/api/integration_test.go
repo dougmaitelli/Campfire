@@ -13,11 +13,11 @@ import (
 	"campfire/internal/campfire/api"
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
 	"campfire/internal/campfire/service"
 	"campfire/internal/campfire/service/integrations"
 	"campfire/internal/campfire/service/integrations/discord"
+	fixture "campfire/internal/devfixture/integrations"
 	"campfire/internal/shared/model"
 )
 
@@ -40,7 +40,7 @@ func TestDiscordIntegrationAPIUsesAdminBoundaryAndRedactsCredentials(t *testing.
 	_, raw := createTestAPIToken(t, admin, `["notifications.manage"]`)
 	limited := bearerAPI(panel.Handler(), raw)
 
-	memberBody, err := json.Marshal(map[string]any{"username": "discord-member", "password": testAdminPassword, "role_id": database.UserRole})
+	memberBody, err := json.Marshal(map[string]any{"username": "discord-member", "email": "member@example.test", "password": testAdminPassword, "role_id": database.UserRole})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestServerDiscordIntegrationAPIEnforcesResourceAndSourceGrants(t *testing.T
 	preview := request(allowed, "GET", base+"/card?field=players&field=field.world", "")
 
 	var card struct {
-		core.ServerCard
+		core.LiveCard
 		Preview        discord.CardMessage `json:"preview"`
 		ExpiredPreview discord.CardMessage `json:"expired_preview"`
 	}

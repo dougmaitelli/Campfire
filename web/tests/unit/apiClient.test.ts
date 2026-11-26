@@ -9,7 +9,49 @@ import {
   setCSRFToken,
 } from "../../src/api/client";
 import { readResourceHistory } from "../../src/api/resourceHistory";
+import { saveUser, type User } from "../../src/api/access";
+import { RoleScope } from "../../src/contracts/domains";
 import type { ResourceHistory } from "../../src/api/resourceHistory";
+
+test("admin edits send only changed fields, including explicit clears", async () => {
+  const original: User = {
+    id: 2,
+    username: "sam",
+    name: "Sam",
+    email: "sam@example.test",
+    role_id: 3,
+    disabled: true,
+    role: { id: 3, name: "User", scope: RoleScope.Platform },
+    created_at: 1,
+  };
+  const fetch = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async () => Response.json(original));
+  const form = { ...original, password: "" };
+  expect(await saveUser(form, original)).toBeNull();
+  expect(fetch).not.toHaveBeenCalled();
+  await saveUser({ ...form, name: "Samuel" }, original);
+  expect(fetch.mock.calls[0]?.[1]).toMatchObject({
+    method: "PATCH",
+    body: '{"name":"Samuel"}',
+  });
+  await saveUser(
+    {
+      ...form,
+      email: "updated@example.test",
+      role_id: 2,
+      disabled: false,
+      password: "Replacement password1!",
+    },
+    original,
+  );
+  expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
+    email: "updated@example.test",
+    role_id: 2,
+    disabled: false,
+    password: "Replacement password1!",
+  });
+});
 
 test("JSON requests preserve methods, caller headers, cancellation and CSRF", async () => {
   const fetch = vi

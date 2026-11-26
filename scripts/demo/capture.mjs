@@ -63,7 +63,7 @@ try {
   await page.getByLabel("Username", { exact: true }).fill("admin");
   await page
     .getByLabel("Password", { exact: true })
-    .fill("campfire-e2e-password");
+    .fill("Campfire-E2E-Password1!");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("navigation", { name: "Main navigation" }),

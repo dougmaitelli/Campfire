@@ -18,6 +18,26 @@ import (
 	"campfire/internal/shared/utils"
 )
 
+type logMonitorRuntime interface{ WatchLogs(model.Deployment) error }
+type crashMonitorRuntime interface {
+	WatchCrashes(model.Deployment) error
+	SupportsCrashMonitoring() bool
+}
+
+func (s *ConfigurationStore) watchRuntime(deployment model.Deployment) error {
+	if monitor, ok := s.Runtime.(logMonitorRuntime); ok {
+		if err := monitor.WatchLogs(deployment); err != nil {
+			return err
+		}
+	}
+
+	if monitor, ok := s.Runtime.(crashMonitorRuntime); ok {
+		return monitor.WatchCrashes(deployment)
+	}
+
+	return nil
+}
+
 // ConfigurationStore stores desired state on standalone Spark agents.
 type ConfigurationStore struct {
 	Update             func(context.Context, string, bool) (string, error)
@@ -34,6 +54,10 @@ type ConfigurationStore struct {
 
 func (s *ConfigurationStore) capabilities() []string {
 	offered := protocol.SupportedCapabilities()
+	if monitor, ok := s.Runtime.(crashMonitorRuntime); !ok || !monitor.SupportsCrashMonitoring() {
+		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityCrashRecords })
+	}
+
 	if runtime, ok := s.Runtime.(interface{ SupportsLogMonitoring() bool }); !ok || !runtime.SupportsLogMonitoring() {
 		offered = slices.DeleteFunc(offered, func(capability string) bool { return capability == protocol.CapabilityLogAlerts })
 	}
@@ -185,22 +209,15 @@ func (s *ConfigurationStore) Deploy(ctx context.Context, id string, deployment m
 		s.games.unmount(deployment.ServerID)
 	}
 
-	if monitor, ok := s.Runtime.(interface{ WatchLogs(model.Deployment) error }); ok {
-		if err := monitor.WatchLogs(deployment); err != nil {
-			return model.ConfigurationReceipt{}, err
-		}
+	if err := s.watchRuntime(deployment); err != nil {
+		return model.ConfigurationReceipt{}, err
 	}
 
 	return model.ConfigurationReceipt{ServerID: deployment.ServerID, Revision: agentidentity.Fingerprint(data)}, nil
 }
 
-// RestoreLogMonitors reattaches monitors to containers surviving a Spark restart.
-func (s *ConfigurationStore) RestoreLogMonitors(id string) error {
-	monitor, ok := s.Runtime.(interface{ WatchLogs(model.Deployment) error })
-	if !ok {
-		return nil
-	}
-
+// RestoreRuntimeMonitors reattaches observers to containers surviving a Spark restart.
+func (s *ConfigurationStore) RestoreRuntimeMonitors(id string) error {
 	entries, err := os.ReadDir(filepath.Join(s.Directory, id))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -225,7 +242,7 @@ func (s *ConfigurationStore) RestoreLogMonitors(id string) error {
 			return errors.New("invalid saved monitoring placement")
 		}
 
-		if err := monitor.WatchLogs(deployment); err != nil {
+		if err := s.watchRuntime(deployment); err != nil {
 			return err
 		}
 	}

@@ -1,5 +1,7 @@
 import { test, expect, prepareScreenshot } from "./fixtures";
-import { login, openScreen, openServerTab } from "./screens";
+import type { Page } from "../web/src/api/pagination";
+import type { Execution } from "../web/src/api/activity";
+import { login, openScreen, openServerTab, openProfileAction } from "./screens";
 import { ExecutionState } from "../web/src/contracts/domains";
 
 test("revoking an API token requires confirmation without closing its drawer", async ({
@@ -9,17 +11,18 @@ test("revoking an API token requires confirmation without closing its drawer", a
   await page
     .getByRole("button", { name: "Account options for Developer", exact: true })
     .click();
-  await page.getByRole("button", { name: "API tokens", exact: true }).click();
+  await openProfileAction(page, "API tokens");
   const drawer = page.getByRole("dialog", { name: "API tokens", exact: true });
+  await drawer
+    .getByRole("button", { name: "Create token", exact: true })
+    .click();
   await drawer
     .getByRole("textbox", { name: "Name", exact: true })
     .fill("Dialog test token");
   await drawer
     .getByRole("button", { name: "Create token", exact: true })
     .click();
-  const row = drawer
-    .getByRole("heading", { name: "Dialog test token", exact: true })
-    .locator("..");
+  const row = drawer.getByRole("row").filter({ hasText: "Dialog test token" });
   const revoke = row.getByRole("button", { name: "Revoke", exact: true });
   const dialog = page.getByRole("dialog", {
     name: "Revoke API token?",
@@ -33,6 +36,9 @@ test("revoking an API token requires confirmation without closing its drawer", a
   await revoke.click();
   await dialog.getByRole("button", { name: "Revoke", exact: true }).click();
   await expect(row).toHaveCount(0);
+  await expect(
+    drawer.getByRole("region", { name: "New token secret" }),
+  ).toHaveCount(0);
   await expect(drawer).toBeVisible();
 });
 
@@ -42,9 +48,7 @@ test("retrying schedule history requires confirmation before submitting", async 
   await login(page);
   await page.route("**/api/v1/schedules/executions?*", async (route) => {
     const response = await route.fetch();
-    const body = (await response.json()) as {
-      items: { state: ExecutionState }[];
-    };
+    const body = (await response.json()) as Page<Execution>;
     await route.fulfill({
       response,
       json: {

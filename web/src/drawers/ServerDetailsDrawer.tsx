@@ -76,6 +76,9 @@ export function ServerDetailsDrawer({ id, ...props }: Props) {
         <>
           <ServerReview
             value={server}
+            gameAddressDefault={server.game_address_default}
+            gameAddressPort={server.game_address_port}
+            gameAddressSpark={server.spark_name}
             portDescriptions={server.port_descriptions}
             variableTypes={server.variable_types}
             name={server.name}

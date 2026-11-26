@@ -126,6 +126,8 @@ func (a *API) grantSparkAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auditGrantTarget(r, "spark", input)
+
 	if err := a.access.GrantSpark(r.Context(), r.PathValue("id"), input); err != nil {
 		writeError(w, err)
 		return
@@ -139,6 +141,8 @@ func (a *API) grantServerAccess(w http.ResponseWriter, r *http.Request) {
 	if !decodeRequest(w, r, &input, 8192) {
 		return
 	}
+
+	auditGrantTarget(r, "server", input)
 
 	if err := a.access.GrantServer(r.Context(), currentUser(r), r.PathValue("id"), input); err != nil {
 		writeError(w, err)

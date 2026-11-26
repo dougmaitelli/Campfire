@@ -11,6 +11,7 @@ var (
 	SparkEnrollmentToken  = cliutil.Setting{EnvironmentName: "SPARK_ENROLLMENT_TOKEN"}
 	SparkUpdateInfo       = cliutil.Setting{FlagName: "update-info"}
 	SparkEnrollOnly       = cliutil.Setting{FlagName: "enroll-only"}
+	SparkCheckDocker      = cliutil.Setting{FlagName: "check-docker"}
 	SparkGameIntegrations = cliutil.Setting{FlagName: "game-integrations"}
 	DockerContext         = cliutil.Setting{EnvironmentName: "DOCKER_CONTEXT"}
 	DockerHost            = cliutil.Setting{EnvironmentName: "DOCKER_HOST"}

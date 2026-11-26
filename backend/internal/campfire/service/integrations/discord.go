@@ -69,11 +69,36 @@ func (s *DiscordIntegrationService) WithCards(source CardSource) *DiscordIntegra
 	return s
 }
 
+// WithStatusPageCards shares server cards' durable Discord delivery and cleanup.
+func (s *DiscordIntegrationService) WithStatusPageCards(source func(context.Context, string) (integrationmodel.LiveCard, error)) *DiscordIntegrationService {
+	s.cards.Page = source
+	return s
+}
+
+// PageCardConnection checks an administrator-selected channel with the current bot.
+func (s *DiscordIntegrationService) PageCardConnection(ctx context.Context, p Principal, channelID string) (integrationmodel.Connection, error) {
+	conn, err := s.connection(ctx, p)
+	if err != nil {
+		return conn, err
+	}
+
+	channels, err := s.bindingChannels(ctx, conn)
+	if err != nil {
+		return conn, err
+	}
+
+	if !slices.ContainsFunc(channels, func(c discord.Channel) bool { return c.ID == channelID && c.Available }) {
+		return conn, ErrIntegrationInput
+	}
+
+	return conn, nil
+}
+
 // Start enables notification delivery and optional server-card reconciliation.
 func (s *DiscordIntegrationService) Start(ctx context.Context) {
 	s.delivery.Start(ctx)
 
-	if s.cards.Source != nil {
+	if s.cards.Source != nil || s.cards.Page != nil {
 		s.cards.Start(ctx)
 	}
 }

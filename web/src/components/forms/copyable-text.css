@@ -1,0 +1,36 @@
+.copyable-text {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.copyable-text-value {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.copyable-text-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 0;
+  padding: 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.copyable-text-button:hover:not(:disabled) {
+  color: var(--accent);
+}
+.copyable-text-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.copyable-text-error {
+  flex-basis: 100%;
+  font-size: 12px;
+}

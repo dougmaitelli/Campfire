@@ -6,6 +6,8 @@ import "campfire/internal/shared/model"
 type ResourceAggregate struct {
 	BucketStart     int64   `gorm:"primaryKey;autoIncrement:false;index"`
 	SampleCount     int64   `gorm:"not null"`
+	OnlineSeconds   int64   `gorm:"not null;default:0"`
+	OfflineSeconds  int64   `gorm:"not null;default:0"`
 	CPUCount        int64   `gorm:"not null"`
 	CPUSum          float64 `gorm:"not null"`
 	CPUPeak         float64 `gorm:"not null"`

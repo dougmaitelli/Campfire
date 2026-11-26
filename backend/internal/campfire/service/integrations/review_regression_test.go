@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	fixture "campfire/internal/campfire/devfixture/integrations"
-	"campfire/internal/shared/permissions"
+	"campfire/internal/campfire/permissions"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 func TestDeliveryReusesCheckedDiscordPermissions(t *testing.T) {

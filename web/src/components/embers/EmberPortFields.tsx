@@ -23,6 +23,30 @@ export function EmberPortFields({
   return (
     <>
       <p className="field-help">{t("emberEditor.portsHelp")}</p>
+      <FormField
+        label={t("emberEditor.primaryPort")}
+        description={t("emberEditor.primaryPortHelp")}
+      >
+        <Select
+          value={String(ports.findIndex((port) => port.primary))}
+          onValueChange={(selected) => {
+            patch({
+              required_ports: ports.map((port, index) => ({
+                ...port,
+                primary: index === Number(selected),
+              })),
+            });
+          }}
+        >
+          <option value="-1">{t("emberEditor.noPrimaryPort")}</option>
+          {ports.map((port, index) => (
+            <option key={index} value={String(index)}>
+              {port.container || "—"}/{port.protocol}
+              {port.description ? ` · ${port.description}` : ""}
+            </option>
+          ))}
+        </Select>
+      </FormField>
       <EditableList
         items={ports}
         maxItems={32}

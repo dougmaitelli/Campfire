@@ -6,9 +6,9 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func pathNumber(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
@@ -65,12 +65,24 @@ func (a *API) updateUser(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Name     *string `json:"name"`
 		Email    *string `json:"email"`
-		RoleID   int64   `json:"role_id"`
-		Disabled bool    `json:"disabled"`
+		RoleID   *int64  `json:"role_id"`
+		Disabled *bool   `json:"disabled"`
 		Password string  `json:"password"`
 	}
 	if !decodeRequest(w, r, &input, 8192) {
 		return
+	}
+
+	if r.Method == http.MethodPut {
+		// Existing PUT clients supply a role and default the enabled state.
+		if input.RoleID == nil {
+			writeError(w, repository.ErrAccessInput)
+			return
+		}
+
+		if input.Disabled == nil {
+			input.Disabled = new(false)
+		}
 	}
 
 	user, err := a.access.UpdateUser(r.Context(), id, input.RoleID, input.Disabled, input.Password, input.Name, input.Email)
@@ -264,6 +276,8 @@ func (a *API) shareServer(w http.ResponseWriter, r *http.Request) {
 		input.RoleID = database.OperatorRole
 	}
 
+	auditGrantTarget(r, "server", service.AccessGrantInput{Username: input.Username, AccessRoleID: input.RoleID})
+
 	if err := a.access.Share(r.Context(), currentUser(r), r.PathValue("id"), input.Username, input.RoleID); err != nil {
 		writeError(w, err)
 		return
@@ -298,6 +312,8 @@ func (a *API) transferServer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, repository.ErrAccessInput)
 		return
 	}
+
+	auditDetail(r, "", "server:"+r.PathValue("id")+" user:"+strconv.FormatInt(input.UserID, 10))
 
 	if err := a.access.TransferOwner(r.Context(), r.PathValue("id"), input.UserID); err != nil {
 		writeError(w, err)

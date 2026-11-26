@@ -7,19 +7,17 @@ import {
   ServerAction,
 } from "../web/src/contracts/domains";
 
-type OperationStatus = {
-  operation_id: string;
-  operation_state: OperationState;
-};
+import type { RuntimeStatus } from "../web/src/api/runtime";
+import { readAuthenticatedSession } from "./auth";
 
 async function completeAction(
   page: Page,
   action: ServerAction,
   backup?: string,
 ) {
-  const session = (await (
-    await page.request.get("/api/v1/auth/session")
-  ).json()) as { csrf_token: string };
+  const session = await readAuthenticatedSession(
+    await page.request.get("/api/v1/auth/session"),
+  );
   const response = await page.request.post("/api/v1/servers/survival/actions", {
     data: {
       action,
@@ -32,14 +30,15 @@ async function completeAction(
     },
   });
   expect(response.ok(), await response.text()).toBeTruthy();
-  const result = (await response.json()) as OperationStatus;
-  expect(result.operation_id).toBeTruthy();
+  const result = (await response.json()) as RuntimeStatus;
+  if (!result.operation_id)
+    throw new Error("Action did not return an operation ID");
   await expect
     .poll(async () => {
       const response = await page.request.get(
         "/api/v1/servers/survival/status",
       );
-      const status = (await response.json()) as OperationStatus;
+      const status = (await response.json()) as RuntimeStatus;
       return { id: status.operation_id, state: status.operation_state };
     })
     .toEqual({ id: result.operation_id, state: OperationState.Succeeded });

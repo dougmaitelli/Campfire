@@ -37,7 +37,7 @@ docker compose up -d
 docker compose logs campfire
 ```
 
-Open your configured HTTPS URL. On first startup, the logs contain a one-time administrator setup token. Enter it in the setup form, choose a username, and create a password of at least 15 characters. Restarting before setup completes generates a new token; use the latest startup output.
+Open your configured HTTPS URL. On first startup, the logs contain a one-time administrator setup token. Enter it in the setup form with your username, email address, and a password of at least 15 characters. Restarting before setup completes generates a new token. Use the latest startup output.
 
 The default setup uses SQLite and the container image's built-in settings. For
 OIDC, S3 backups, SFTP, or other customizations, add

@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
 	"syscall"
 	"unicode"
@@ -231,7 +230,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, volume string, 
 			return result, Failure(model.FileConflict, "File changed or already exists. Reload before saving.")
 		}
 
-		if err := CheckWriteCapacity(ctx, volume, d.Configuration.DiskMB, oldSize, int64(len(q.Data))); err != nil {
+		if err := CheckWriteCapacity(ctx, volume, m.LogicalDiskLimitMB(d.Configuration.DiskMB), oldSize, int64(len(q.Data))); err != nil {
 			return result, err
 		}
 
@@ -248,6 +247,10 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, volume string, 
 		syncErr := file.Sync()
 
 		closeErr := file.Close()
+		if errors.Is(errors.Join(writeErr, syncErr, closeErr), syscall.EDQUOT) {
+			return result, Failure(model.FileLimitExceeded, "File would exceed the server disk allocation.")
+		}
+
 		if writeErr != nil || ownerErr != nil || syncErr != nil || closeErr != nil {
 			return result, Failure(model.FileIO, "Could not save file or assign game ownership.")
 		}
@@ -330,26 +333,6 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, volume string, 
 	}
 
 	return result, nil
-}
-
-// AssignFileOwner assigns ownership to the non-root game user.
-func AssignFileOwner(file *os.File, user string) error {
-	parts := strings.Split(user, ":")
-
-	uid, err := strconv.Atoi(parts[0])
-	if err != nil || uid < 1 {
-		return errors.New("invalid game user")
-	}
-
-	gid := uid
-	if len(parts) == 2 {
-		gid, err = strconv.Atoi(parts[1])
-		if err != nil {
-			return err
-		}
-	}
-
-	return file.Chown(uid, gid)
 }
 
 // CheckWriteCapacity checks the configured disk allocation before writing.

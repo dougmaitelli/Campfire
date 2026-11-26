@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/service"
 	integrationservice "campfire/internal/campfire/service/integrations"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 func (a *API) serverActivityAccess(r *http.Request) (repository.ServerActivityAccess, error) {

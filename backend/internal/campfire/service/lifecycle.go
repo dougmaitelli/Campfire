@@ -12,6 +12,8 @@ import (
 	"campfire/internal/shared/model"
 )
 
+var errConsoleCommandsUnsupported = fmt.Errorf("%w: this game does not support console commands", ErrInvalidServer)
+
 // RuntimeDispatcher invokes the runtime over a Spark session.
 type RuntimeDispatcher interface {
 	Action(context.Context, string, model.RuntimeRequest) (model.RuntimeStatus, error)
@@ -246,6 +248,10 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 		return model.RuntimeStatus{}, err
 	}
 
+	if action == model.ServerActionCommand && !server.ConsoleCommands {
+		return model.RuntimeStatus{}, errConsoleCommandsUnsupported
+	}
+
 	node, err := s.Sparks.Get(ctx, server.SparkID)
 	if err != nil {
 		return model.RuntimeStatus{}, err
@@ -345,6 +351,14 @@ func (s *DeploymentService) dispatchRequest(ctx context.Context, request model.R
 			}
 		}
 	}
+
+	if s.Crashes != nil {
+		if err := s.Crashes.Observe(ctx, node.ID, id, status.Crashes); err != nil {
+			return model.RuntimeStatus{}, err
+		}
+	}
+
+	status.Crashes = nil
 
 	if s.LogAlerts != nil {
 		if err := s.LogAlerts.Observe(ctx, node.ID, id, status.LogObservation); err != nil {

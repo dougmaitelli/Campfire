@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 // Handler builds the versioned application routes.
@@ -18,15 +18,33 @@ func (a *API) Handler() http.Handler {
 	}
 
 	mux.HandleFunc("GET /api/v1/auth/session", a.authSession)
+	mux.HandleFunc("GET /api/v1/auth/profile", a.readProfile)
+	mux.HandleFunc("PUT /api/v1/auth/profile", a.updateProfile)
+	mux.HandleFunc("GET /api/v1/auth/mfa", a.mfaStatus)
+	mux.HandleFunc("POST /api/v1/auth/mfa/enroll", a.beginMFA)
+	mux.HandleFunc("POST /api/v1/auth/mfa/confirm", a.confirmMFA)
+	mux.HandleFunc("DELETE /api/v1/auth/mfa", a.disableMFA)
+	mux.HandleFunc("DELETE /api/v1/auth/mfa/devices/{deviceID}", a.removeMFADevice)
 	mux.HandleFunc("POST /api/v1/auth/setup", a.authSetup)
 	mux.HandleFunc("POST /api/v1/auth/login", a.authLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.authLogout)
+	mux.HandleFunc("GET /api/v1/auth/sessions", a.authSessions)
+	mux.HandleFunc("DELETE /api/v1/auth/sessions/{id}", a.authRevokeSession)
+	mux.HandleFunc("DELETE /api/v1/auth/sessions", a.authRevokeOtherSessions)
 	mux.HandleFunc("POST /api/v1/auth/view-as", a.startViewAs)
 	mux.HandleFunc("DELETE /api/v1/auth/view-as", a.stopViewAs)
 	mux.HandleFunc("GET /api/v1/auth/oidc/start", a.oidcStart)
 	mux.HandleFunc("GET /api/v1/auth/oidc/callback", a.oidcCallback)
 	mux.HandleFunc("POST /api/v1/auth/oidc/link", a.oidcLink)
 	mux.HandleFunc("GET /api/v1/permissions", a.permissionCatalog)
+	mux.HandleFunc("GET /api/v1/status-pages", a.statusPageAdmin(a.listStatusPages))
+	mux.HandleFunc("POST /api/v1/status-pages/discord/preview", a.statusPageAdmin(a.previewStatusPageCard))
+	mux.HandleFunc("GET /api/v1/status-pages/discord/cleanups", a.statusPageAdmin(a.statusPageCardCleanups))
+	mux.HandleFunc("GET /api/v1/status-pages/{pageID}/discord/card", a.statusPageAdmin(a.statusPageCardStatus))
+	mux.HandleFunc("POST /api/v1/status-pages/{pageID}/discord/card/retry", a.statusPageAdmin(a.retryStatusPageCard))
+	mux.HandleFunc("POST /api/v1/status-pages", a.statusPageAdmin(a.saveStatusPage))
+	mux.HandleFunc("PUT /api/v1/status-pages/{pageID}", a.statusPageAdmin(a.saveStatusPage))
+	mux.HandleFunc("DELETE /api/v1/status-pages/{pageID}", a.statusPageAdmin(a.deleteStatusPage))
 	mux.HandleFunc("GET /api/v1/tokens", a.listAPITokens)
 	mux.HandleFunc("GET /api/v1/integrations/discord", a.integrationAdmin(a.discordIntegration))
 	mux.HandleFunc("POST /api/v1/integrations/discord/preview", a.integrationAdmin(a.previewDiscordIntegration))
@@ -93,7 +111,9 @@ func (a *API) Handler() http.Handler {
 	platform("GET /api/v1/users", accessperm.UsersManage, a.listUsers)
 	platform("POST /api/v1/users", accessperm.UsersManage, a.createUser)
 	platform("PUT /api/v1/users/{userID}", accessperm.UsersManage, a.updateUser)
+	platform("PATCH /api/v1/users/{userID}", accessperm.UsersManage, a.updateUser)
 	platform("DELETE /api/v1/users/{userID}", accessperm.UsersManage, a.deleteUser)
+	platform("POST /api/v1/users/{userID}/reset-2fa", accessperm.UsersManage, a.adminResetMFA)
 	platform("GET /api/v1/roles", accessperm.RolesManage, a.listRoles)
 	platform("POST /api/v1/roles", accessperm.RolesManage, a.createRole)
 	platform("PUT /api/v1/roles/{roleID}", accessperm.RolesManage, a.updateRole)
@@ -162,5 +182,9 @@ func (a *API) Handler() http.Handler {
 	server("PATCH /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsCreate, a.updateBackup)
 	server("GET /api/v1/servers/{id}/backups/{name}", accessperm.ServerBackupsDownload, a.downloadBackup)
 
-	return a.auditRequests(a.authenticate(mux))
+	root := http.NewServeMux()
+	root.HandleFunc("GET /api/v1/public/status-pages/{slug}", a.publicStatusHandler())
+	root.Handle("/", a.auditRequests(mux, a.authenticate(mux)))
+
+	return root
 }

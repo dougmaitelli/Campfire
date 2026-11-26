@@ -1,5 +1,6 @@
 import { StartupShell } from "../../contracts/domains";
 import type { Ember, EmberConfigFile } from "../../api/embers";
+import { CURRENT_EMBER_SCHEMA, normalizeEmber } from "../../contracts/ember";
 import i18n from "../../i18n";
 
 export interface NamedValue {
@@ -28,7 +29,7 @@ function entries(values: Record<string, string>): NamedValue[] {
 export function emptyEmber(): Ember {
   return {
     id: "",
-    schema: 1,
+    schema: CURRENT_EMBER_SCHEMA,
     name: "",
     description: "",
     images: {},
@@ -41,7 +42,7 @@ export function emptyEmber(): Ember {
 }
 
 export function createEmberDraft(value: Ember): EmberDraft {
-  const definition = structuredClone(value);
+  const definition = normalizeEmber(structuredClone(value));
   return {
     definition,
     images: entries(definition.images),
@@ -91,7 +92,7 @@ export function emberDraftIssue(
 export function serializeEmberDraft(draft: EmberDraft): Ember {
   const issue = emberDraftIssue(draft);
   if (issue) throw new Error(issue);
-  const definition = structuredClone(draft.definition);
+  const definition = normalizeEmber(structuredClone(draft.definition));
   definition.images = Object.fromEntries(
     draft.images.map(({ name, value }) => [name, value]),
   );

@@ -1,0 +1,29 @@
+.mfa-setup-material {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  width: 100%;
+}
+
+.mfa-qr {
+  max-width: 100%;
+  height: auto;
+  background: white;
+}
+.mfa-setup-key {
+  text-align: center;
+}
+.mfa-recovery-codes {
+  margin: 0;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+
+.mfa-recovery-copy {
+  align-self: center;
+  width: fit-content;
+}

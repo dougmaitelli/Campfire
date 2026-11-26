@@ -4,6 +4,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import type { AuthState } from "../web/src/api/auth";
 
 export const test = base.extend<{ guard: void }>({
   guard: [
@@ -42,7 +43,7 @@ export const test = base.extend<{ guard: void }>({
             await route.fulfill({ response });
             return;
           }
-          const state = (await response.json()) as Record<string, unknown>;
+          const state = (await response.json()) as AuthState;
           await route.fulfill({
             response,
             json: { ...state, version: "v1.0.0" },

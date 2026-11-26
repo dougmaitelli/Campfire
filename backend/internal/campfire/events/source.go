@@ -25,7 +25,7 @@ func ValidSourceKey(key string) bool {
 	case "game_event":
 		number, err := strconv.ParseInt(id, 10, 64)
 		return err == nil && number > 0 && strconv.FormatInt(number, 10) == id
-	case "console_alert", "monitoring_alert", "operation", "job":
+	case "console_alert", "monitoring_alert", "crash", "operation", "job":
 		return true
 	default:
 		return false

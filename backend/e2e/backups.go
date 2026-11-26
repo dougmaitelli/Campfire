@@ -14,7 +14,7 @@ import (
 	"maps"
 	"strings"
 
-	"campfire/internal/campfire/devfixture"
+	"campfire/internal/devfixture"
 	"campfire/internal/shared/backuparchive"
 	"campfire/internal/shared/model"
 )

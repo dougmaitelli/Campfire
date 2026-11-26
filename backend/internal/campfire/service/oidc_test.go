@@ -313,7 +313,7 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := auth.Access().UpdateUser(ctx, 1, database.UserRole, false, "", nil, nil); !errors.Is(err, repository.ErrLastAdmin) {
+	if _, err := auth.Access().UpdateUser(ctx, 1, new(database.UserRole), new(false), "", nil, nil); !errors.Is(err, repository.ErrLastAdmin) {
 		t.Fatal("last OIDC admin could be demoted", err)
 	}
 
@@ -321,7 +321,7 @@ func TestOIDCProvisioningLinkingAndLocalPolicy(t *testing.T) {
 		t.Fatal("last OIDC admin could be deleted", err)
 	}
 
-	if _, err := auth.Access().UpdateUser(ctx, session.UserID, database.UserRole, true, "", nil, nil); err != nil {
+	if _, err := auth.Access().UpdateUser(ctx, session.UserID, new(database.UserRole), new(true), "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 

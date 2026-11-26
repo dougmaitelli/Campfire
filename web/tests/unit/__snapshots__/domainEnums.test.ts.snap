@@ -44,9 +44,11 @@ exports[`domain members preserve serialized contract values 1`] = `
     "Uploaded": "uploaded",
   },
   "Capability": {
+    "ArchiveFormats": "server.files.archive-formats.v1",
     "Backups": "server.backups.v4",
     "Configure": "server.configure.v2",
     "Console": "server.console.stream.v1",
+    "CrashRecords": "server.crash-records.v1",
     "DiskQuota": "server.disk-quota.v1",
     "FileArchive": "server.files.archive.v1",
     "FilePermissions": "server.files.permissions.v1",
@@ -81,6 +83,16 @@ exports[`domain members preserve serialized contract values 1`] = `
   },
   "ConnectionState": {
     "Connected": "connected",
+  },
+  "CrashReason": {
+    "OutOfMemory": "out_of_memory",
+    "Unknown": "unknown",
+  },
+  "DiskAccounting": {
+    "Logical": "logical",
+    "Mixed": "mixed",
+    "Project": "project",
+    "Qgroup": "qgroup",
   },
   "ExecutionState": {
     "Accepted": "accepted",
@@ -152,11 +164,6 @@ exports[`domain members preserve serialized contract values 1`] = `
     "Cancelling": "cancelling",
     "Saving": "saving",
     "Uploading": "uploading",
-  },
-  "GameStateStatus": {
-    "Fresh": "fresh",
-    "Stale": "stale",
-    "Unavailable": "unavailable",
   },
   "IntegrationCardState": {
     "Disabled": "disabled",
@@ -267,6 +274,11 @@ exports[`domain members preserve serialized contract values 1`] = `
     "ServersManageAll": "servers.manage_all",
     "SparksManage": "sparks.manage",
     "UsersManage": "users.manage",
+  },
+  "PublicServerState": {
+    "Offline": "offline",
+    "Online": "online",
+    "Unknown": "unknown",
   },
   "ReinstallMode": {
     "Clean": "clean",

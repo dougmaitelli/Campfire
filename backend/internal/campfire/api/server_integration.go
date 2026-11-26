@@ -42,10 +42,10 @@ func (a *API) serverDiscordCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, struct {
-		core.ServerCard
+		core.LiveCard
 		Preview        discord.CardMessage `json:"preview"`
 		ExpiredPreview discord.CardMessage `json:"expired_preview"`
-	}{card, discord.PreviewServerCard(card), discord.PreviewServerCard(expired)})
+	}{card, discord.PreviewCard(card), discord.PreviewCard(expired)})
 }
 
 func (a *API) retryServerDiscordCard(w http.ResponseWriter, r *http.Request) {

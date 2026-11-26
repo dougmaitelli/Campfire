@@ -8,11 +8,15 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
 	"campfire/internal/shared/limits"
 )
+
+// CurrentEmberSchema is used for all newly written definitions.
+const CurrentEmberSchema = 2
 
 var envName = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 var userID = regexp.MustCompile(`^[1-9][0-9]*(?::[0-9]+)?$`)
@@ -54,6 +58,7 @@ type Readiness struct {
 
 // RequiredPort identifies a container port required by a game.
 type RequiredPort struct {
+	Primary     bool            `json:"primary,omitempty"`
 	Container   int             `json:"container"`
 	Protocol    NetworkProtocol `json:"protocol"`
 	Description string          `json:"description,omitempty"`
@@ -89,6 +94,7 @@ type Ember struct {
 	User            string            `json:"user"`
 	Variables       []Variable        `json:"variables"`
 	Installer       *Installer        `json:"installer,omitempty"`
+	ConsoleCommands *bool             `json:"console_commands,omitempty"`
 	Stop            string            `json:"stop,omitempty"`
 	Ready           string            `json:"ready,omitempty"`
 	Readiness       *Readiness        `json:"readiness,omitempty"`
@@ -97,6 +103,30 @@ type Ember struct {
 	RequiredPorts   []RequiredPort    `json:"required_ports,omitempty"`
 	SavedataPaths   []SavedataPath    `json:"savedata_paths,omitempty"`
 	Origin          *EmberOrigin      `json:"origin,omitempty"`
+}
+
+// Normalized projects a supported older definition into the current model without
+// mutating its source. Current definitions retain an intentional no-primary choice.
+func (e Ember) Normalized() Ember {
+	if e.Schema >= CurrentEmberSchema {
+		return e
+	}
+
+	if e.Schema == 1 {
+		if _, primary := e.PrimaryPort(); !primary && len(e.RequiredPorts) > 0 {
+			e.RequiredPorts = slices.Clone(e.RequiredPorts)
+			e.RequiredPorts[0].Primary = true
+		}
+	}
+
+	e.Schema = CurrentEmberSchema
+
+	return e
+}
+
+// SupportsConsoleCommands defaults to enabled for definitions that omit the capability.
+func (e Ember) SupportsConsoleCommands() bool {
+	return e.ConsoleCommands == nil || *e.ConsoleCommands
 }
 
 // EmberHash identifies definition content without storing historical copies.
@@ -118,12 +148,16 @@ type EmberOrigin struct {
 
 // Validate checks a native Ember definition.
 func (e Ember) Validate() error {
+	if e.Schema == 1 && e.ConsoleCommands != nil {
+		return errors.New("console_commands requires Ember schema 2")
+	}
+
 	if err := ValidateSavedataPaths(e.SavedataPaths); err != nil {
 		return err
 	}
 
-	if e.Schema != 1 || strings.TrimSpace(e.Name) == "" || len(e.Name) > 120 {
-		return errors.New("Ember requires schema 1 and a name of 1–120 characters")
+	if e.Schema < 1 || e.Schema > CurrentEmberSchema || strings.TrimSpace(e.Name) == "" || len(e.Name) > 120 {
+		return fmt.Errorf("Ember requires a schema from 1 to %d and a name of 1–120 characters", CurrentEmberSchema)
 	}
 
 	if err := ValidateArtURL(e.ArtURL); err != nil {
@@ -167,7 +201,17 @@ func (e Ember) Validate() error {
 		}
 	}
 
+	primaryCount := 0
+
 	for _, p := range e.RequiredPorts {
+		if p.Primary {
+			primaryCount++
+		}
+
+		if primaryCount > 1 || (e.Schema == 1 && p.Primary) {
+			return errors.New("a primary port requires Ember schema 2 and at most one designation")
+		}
+
 		if p.Container < limits.MinPort || p.Container > limits.MaxPort || (p.Protocol != NetworkTCP && p.Protocol != NetworkUDP) {
 			return errors.New("invalid Ember required port")
 		}

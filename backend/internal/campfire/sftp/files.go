@@ -2,7 +2,6 @@ package sftp
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"io"
 	"io/fs"
@@ -13,9 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"campfire/internal/campfire/database"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 
 	"github.com/pkg/sftp"
 )
@@ -27,29 +25,57 @@ type fileHandler struct {
 }
 
 func (h *fileHandler) call(q model.FileRequest) (model.FileResult, error) {
+	result, _, err := h.callAudited(q, "", false)
+	return result, err
+}
+
+func (h *fileHandler) callAudited(q model.FileRequest, action model.AuditAction, hold bool) (result model.FileResult, audit *fileAudit, err error) {
 	ctx, cancel := context.WithTimeout(h.ctx, 15*time.Second)
 	defer cancel()
 
+	quiet := action == "" && (q.Operation == model.FileOperationList || q.Operation == model.FileOperationStat || q.Operation == model.FileOperationReadChunk || q.Operation == model.FileOperationUploadChunk)
+	if action == "" {
+		action = model.ResourceAuditAction("server.files.sftp", string(q.Operation))
+	}
+
+	audit = h.newAudit(action)
+
+	defer func() {
+		if err != nil || !hold {
+			if auditErr := audit.finish(err, true); err == nil && auditErr != nil {
+				err = sftp.ErrSSHFxFailure
+			}
+		}
+	}()
+
 	principal, err := h.server.Auth.AuthenticateAPIToken(ctx, h.token)
 	if err != nil {
-		return model.FileResult{}, os.ErrPermission
+		return model.FileResult{}, audit, os.ErrPermission
+	}
+
+	audit.actor(principal)
+
+	if !quiet {
+		if err := audit.begin(); err != nil {
+			return model.FileResult{}, audit, sftp.ErrSSHFxFailure
+		}
 	}
 
 	permissions, err := h.server.Auth.Access().ServerPermissions(ctx, principal, h.id)
 
-	action := accessperm.File(q.Operation)
-	if err != nil || action == "" || !slices.Contains(permissions, accessperm.ServerView) || !slices.Contains(permissions, action) {
-		return model.FileResult{}, os.ErrPermission
+	required := accessperm.File(q.Operation)
+	if err != nil || required == "" || !slices.Contains(permissions, accessperm.ServerView) || !slices.Contains(permissions, required) {
+		return model.FileResult{}, audit, os.ErrPermission
 	}
 
 	for _, name := range []string{q.Path, q.Destination} {
 		if strings.Contains(name, "\\") || strings.ContainsRune(name, 0) {
-			return model.FileResult{}, os.ErrPermission
+			return model.FileResult{}, audit, os.ErrPermission
 		}
 
 		for _, part := range strings.Split(name, "/") {
 			if part == ".." {
-				return model.FileResult{}, os.ErrPermission
+				return model.FileResult{}, audit, os.ErrPermission
 			}
 		}
 	}
@@ -63,48 +89,23 @@ func (h *fileHandler) call(q model.FileRequest) (model.FileResult, error) {
 		q.Destination = strings.TrimPrefix(path.Clean("/"+q.Destination), "/")
 	}
 
-	var event database.AuditEvent
+	result, err = h.server.Deployment.Files(ctx, h.id, q)
 
-	audit := h.server.Audit != nil && q.Operation != model.FileOperationList && q.Operation != model.FileOperationStat && q.Operation != model.FileOperationReadChunk && q.Operation != model.FileOperationUploadChunk
-	if audit {
-		event = database.AuditEvent{ID: rand.Text(), UserID: &principal.UserID, Username: principal.Username, APITokenID: principal.APITokenID, Action: model.ResourceAuditAction("server.files.sftp", string(q.Operation)), Target: "server:" + h.id, Outcome: model.AuditPending, CreatedAt: time.Now().Unix()}
-		if err := h.server.Audit.BeginAudit(ctx, &event); err != nil {
-			return model.FileResult{}, sftp.ErrSSHFxFailure
-		}
-	}
-
-	result, err := h.server.Deployment.Files(ctx, h.id, q)
-
-	if audit {
-		event.Outcome, event.Status = "success", 200
-		if err != nil {
-			event.Outcome, event.Status = "failure", 502
-		}
-
-		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		auditErr := h.server.Audit.FinishAudit(auditCtx, event)
-
-		cancel()
-
-		if err == nil && auditErr != nil {
-			err = sftp.ErrSSHFxFailure
-		}
-	}
-
-	return result, safeError(err)
+	return result, audit, safeError(err)
 }
 
 func (h *fileHandler) Fileread(r *sftp.Request) (io.ReaderAt, error) {
-	info, err := h.call(model.FileRequest{Operation: model.FileOperationStat, Path: r.Filepath})
+	info, audit, err := h.callAudited(model.FileRequest{Operation: model.FileOperationStat, Path: r.Filepath}, "server.files.sftp.download", true)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(info.Entries) != 1 || info.Entries[0].Kind != model.FileKindFile || info.Size > model.FileTransferLimit {
+	if len(info.Entries) != 1 || info.Entries[0].Kind != model.FileKindFile || info.Size < 0 || info.Size > model.FileTransferLimit {
+		_ = audit.finish(sftp.ErrSSHFxFailure, false)
 		return nil, sftp.ErrSSHFxFailure
 	}
 
-	return &remoteFile{handler: h, path: r.Filepath, revision: info.Revision, size: info.Size}, nil
+	return &remoteFile{handler: h, path: r.Filepath, revision: info.Revision, size: info.Size, audit: audit}, nil
 }
 
 func (h *fileHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
@@ -219,6 +220,8 @@ type remoteFile struct {
 	handler                *fileHandler
 	path, revision, upload string
 	size                   int64
+	audit                  *fileAudit
+	coverage               readCoverage
 	failed, closed         bool
 }
 
@@ -239,14 +242,20 @@ func (f *remoteFile) ReadAt(data []byte, offset int64) (int, error) {
 		// Speculative SFTP reads beyond EOF still authenticate against the live file.
 		result, err := f.handler.call(model.FileRequest{Operation: model.FileOperationReadChunk, Path: f.path, Revision: f.revision, Offset: min(offset, f.size), Size: int64(min(len(data)-read, model.FileLimit))})
 		if err != nil {
+			f.failed = true
 			return read, err
 		}
 
 		if len(result.Data) == 0 {
+			if offset < f.size {
+				f.failed = true
+			}
+
 			return read, io.EOF
 		}
 
 		n := copy(data[read:], result.Data)
+		f.coverage.add(offset, offset+int64(n))
 		read += n
 		offset += int64(n)
 	}
@@ -293,7 +302,7 @@ func (f *remoteFile) Close() error {
 
 	f.closed = true
 	if f.upload == "" {
-		return nil
+		return f.audit.finish(nil, !f.failed && f.coverage.complete(f.size))
 	}
 
 	operation := model.FileOperationUploadCommit

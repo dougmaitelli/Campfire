@@ -187,7 +187,7 @@ export function ServerTransferDrawer({
         </Button>
       }
     >
-      <div className="panel-content">
+      <div className="panel-content form-stack">
         {(error ?? loadError) && (
           <InlineMessage role="alert">{error ?? loadError}</InlineMessage>
         )}
@@ -233,18 +233,11 @@ export function ServerTransferDrawer({
         {target && (
           <>
             <p className="field-help">
-              <Trans
-                i18nKey="serverTransferDrawer.gameAddressAfterTransferExistingGameClientsMayNeedThe"
-                t={t}
-                components={{
-                  targetGameAddress: (
-                    <>{target.game_address || t("common.notConfigured")}</>
-                  ),
-                }}
-              />
+              {t("serverTransferDrawer.publicAddressUnchanged")}
             </p>
             {ports.map((port, index) => (
               <Fieldset
+                className="form-stack"
                 key={`${port.container_port}-${port.protocol}-${index}`}
                 disabled={busy || active}
               >

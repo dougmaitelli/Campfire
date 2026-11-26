@@ -176,7 +176,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 			return result, Failure(model.FileConflict, "Destination changed or already exists.")
 		}
 
-		if err := CheckWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, max(0, q.Size)); err != nil {
+		if err := CheckWriteCapacity(ctx, volume, m.LogicalDiskLimitMB(d.Configuration.DiskMB), 0, max(0, q.Size)); err != nil {
 			return result, err
 		}
 
@@ -232,14 +232,17 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		}
 
 		newSize := max(info.Size(), q.Offset+int64(len(q.Data)))
-		// The prepared project quota enforces total usage on every write. Avoid
-		// walking the full game tree for each SFTP packet; verify logical usage
-		// at admission and publication, and bound sparse-file growth here.
-		if d.Configuration.DiskMB > 0 && newSize > d.Configuration.DiskMB*1048576 {
+		// Without a native quota, check the tree at admission and publication
+		// and bound this file's growth between those checks.
+		if limitMB := m.LogicalDiskLimitMB(d.Configuration.DiskMB); limitMB > 0 && newSize > limitMB<<20 {
 			return result, Failure(model.FileLimitExceeded, "Upload exceeds the server disk allocation.")
 		}
 
 		if err := upload.buffer.Write(q.Offset, q.Data); err != nil {
+			if errors.Is(err, syscall.EDQUOT) {
+				return result, Failure(model.FileLimitExceeded, "Upload exceeds the server disk allocation.")
+			}
+
 			if errors.Is(err, uploadstore.ErrTooManyRanges) {
 				return result, Failure(model.FileLimitExceeded, "Upload has too many disjoint ranges.")
 			}
@@ -260,12 +263,20 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 		return result, Failure(model.FileLimitExceeded, "Upload exceeds the configured maximum file size.")
 	}
 
-	if err := CheckWriteCapacity(ctx, volume, d.Configuration.DiskMB, 0, 0); err != nil {
+	if err := CheckWriteCapacity(ctx, volume, m.LogicalDiskLimitMB(d.Configuration.DiskMB), 0, 0); err != nil {
 		return result, err
 	}
 
-	if m.FileOwner(file, d.Ember.User) != nil || file.Chmod(upload.mode) != nil || file.Sync() != nil {
-		return result, Failure(model.FileIO, "Could not finalize upload ownership or contents.")
+	if m.FileOwner(file, d.Ember.User) != nil || file.Chmod(upload.mode) != nil {
+		return result, Failure(model.FileIO, "Could not finalize upload ownership or permissions.")
+	}
+
+	if err := file.Sync(); err != nil {
+		if errors.Is(err, syscall.EDQUOT) {
+			return result, Failure(model.FileLimitExceeded, "Upload exceeds the server disk allocation.")
+		}
+
+		return result, Failure(model.FileIO, "Could not flush the uploaded file.")
 	}
 
 	if err := ctx.Err(); err != nil {

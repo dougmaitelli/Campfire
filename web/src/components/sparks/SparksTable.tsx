@@ -7,7 +7,6 @@ import { Table, TableRow } from "../table/Table";
 import { SparkConnectionState } from "./SparkConnectionState";
 import { ToggleSwitch } from "../forms/ToggleSwitch";
 import { PortGroups } from "../network/PortGroups";
-import { formatDisplayValue } from "../../utils/formatDisplayValue";
 import { ResourceReadings } from "../metrics/ResourceReadings";
 import type { MonitoredSpark } from "../../api/monitoring";
 import "./sparks-table.css";
@@ -64,9 +63,6 @@ export function SparksTable({
           <th scope="col" className="spark-resource-column">
             {t("sparksTable.resources")}
           </th>
-          <th scope="col" className="spark-network-column">
-            {t("sparkReview.gameAddress")}
-          </th>
           <th scope="col" className="table-fit spark-network-column">
             {t("sparksTable.allocations")}
           </th>
@@ -120,9 +116,6 @@ export function SparksTable({
                   "sparkResourceReadings.combinedGameServerUsageAgainstThisSparkSConfiguredLimit",
                 )}
               />
-            </td>
-            <td className="spark-network-column">
-              {formatDisplayValue(spark.game_address)}
             </td>
             <td className="table-fit spark-network-column">
               <PortGroups

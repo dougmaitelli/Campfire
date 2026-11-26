@@ -6,16 +6,16 @@ import { Button } from "../components/forms/Button";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { TextInput } from "../components/forms/TextInput";
 import { Select } from "../components/forms/Select";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { saveRole, type Role } from "../api/access";
 import { Drawer } from "../components/layout/Drawer";
 import { DrawerDeleteButton } from "../components/layout/DrawerDeleteButton";
-import { CheckboxField } from "../components/forms/CheckboxField";
+import { ServerPermissionTree } from "../components/permissions/ServerPermissionTree";
+import { PlatformPermissionFields } from "../components/permissions/PlatformPermissionFields";
 import {
   Permission,
   permissionCatalog,
   expandPermissions,
-  togglePermission,
   type PermissionDefinition,
   type PermissionID,
 } from "../api/permissions";
@@ -23,13 +23,15 @@ import { Fieldset } from "../components/forms/Fieldset";
 import { RoleLimits } from "../config/policies";
 import { serverPermissionPresets } from "../config/permissionPresets";
 import { formatRoleName } from "../utils/formatRoleName";
-import "./role-drawer.css";
 
-const deletePermissions = new Set<PermissionID>([
-  Permission.ServerFilesDelete,
-  Permission.ServerBackupsDelete,
-  Permission.ServerDelete,
-]);
+const platformRolePermissions: PermissionID[] = [
+  Permission.ServersCreate,
+  Permission.ServersManageAll,
+  Permission.UsersManage,
+  Permission.RolesManage,
+  Permission.SparksManage,
+  Permission.EmbersManage,
+];
 
 export function RoleDrawer({
   role,
@@ -49,7 +51,6 @@ export function RoleDrawer({
   deleteError: string | null;
 }) {
   const { t } = useTranslation();
-  const permissionPrefix = useId();
   const [customName, setCustomName] = useState<string | null>(
     role?.name ?? null,
   );
@@ -105,80 +106,12 @@ export function RoleDrawer({
       setBusy(false);
     }
   }
-  const platformChoices: PermissionDefinition[] = (
-    [
-      [
-        Permission.ServersCreate,
-        t("roleDrawer.createServersOnSparksApprovedByAnAdministrator"),
-      ],
-      [Permission.ServersManageAll, t("rolesPage.manageAllServers")],
-      [Permission.UsersManage, t("rolesPage.manageUsers")],
-      [Permission.RolesManage, t("rolesPage.manageRoles")],
-      [Permission.SparksManage, t("rolesPage.manageSparks")],
-      [Permission.EmbersManage, t("rolesPage.manageEmbers")],
-    ] as const
-  ).map(([id, label]) => ({ id, group: "Platform", label, requires: [] }));
-  const choices =
-    scope === RoleScope.Server
-      ? catalog
-      : platformChoices.filter((item) =>
-          role?.builtin
-            ? role.permissions.includes(item.id)
-            : item.id === Permission.ServersCreate,
-        );
-  const groups = [...new Set(choices.map((item) => item.group))];
+  const platformChoices = platformRolePermissions.filter((id) =>
+    role?.builtin
+      ? role.permissions.includes(id)
+      : id === Permission.ServersCreate,
+  );
   const presets = serverPermissionPresets(catalog);
-  function toggle(id: PermissionID, checked: boolean) {
-    setPermissions(togglePermission(permissions, id, checked, catalog));
-  }
-  function permissionName(id: PermissionID) {
-    return t(`permissionNames.${id.replaceAll(".", "_")}`, {
-      defaultValue: catalog.find((item) => item.id === id)?.label ?? id,
-    });
-  }
-  function permissionTree(parent?: string): ReactNode {
-    const children = catalog.filter((item) => item.requires[0] === parent);
-    if (!children.length) return null;
-    return (
-      <ul className="permission-tree">
-        {children.map((item) => {
-          const descriptionID = `${permissionPrefix}-${item.id}`;
-          const name = permissionName(item.id);
-          const description = t(
-            `permissionLabels.${item.id.replaceAll(".", "_")}`,
-            {
-              defaultValue: item.label,
-            },
-          );
-          const hasDescription = description !== name;
-          return (
-            <li key={item.id} data-permission={item.id}>
-              <div className="permission-tree-node">
-                <CheckboxField
-                  tone={deletePermissions.has(item.id) ? "danger" : "default"}
-                  checked={permissions.includes(item.id)}
-                  disabled={item.id === Permission.ServerView}
-                  aria-describedby={hasDescription ? descriptionID : undefined}
-                  onChange={(event) => toggle(item.id, event.target.checked)}
-                >
-                  {name}
-                </CheckboxField>
-                {hasDescription && (
-                  <div
-                    id={descriptionID}
-                    className="permission-tree-description"
-                  >
-                    <span className="field-help">{description}</span>
-                  </div>
-                )}
-              </div>
-              {permissionTree(item.id)}
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }
   return (
     <Drawer
       title={
@@ -226,7 +159,7 @@ export function RoleDrawer({
         </>
       }
     >
-      <div className="panel-content">
+      <div className="panel-content form-stack">
         {deleteError && (
           <InlineMessage role="alert">{deleteError}</InlineMessage>
         )}
@@ -287,41 +220,35 @@ export function RoleDrawer({
           </FormField>
         )}
         {scope === RoleScope.Server ? (
-          <Fieldset disabled={busy || deleting || role?.builtin === true}>
+          <Fieldset
+            className="form-stack form-stack-compact"
+            disabled={busy || deleting || role?.builtin === true}
+          >
             <legend className="visually-hidden">
               {t("roleDrawer.permissions")}
             </legend>
             <p className="field-help permission-tree-guidance">
               {t("roleDrawer.treeGuidance")}
             </p>
-            {permissionTree()}
+            <ServerPermissionTree
+              catalog={catalog}
+              selected={permissions}
+              onChange={setPermissions}
+              requireView
+            />
           </Fieldset>
         ) : (
-          groups.map((group) => (
-            <Fieldset
-              className="role-permissions"
-              key={group}
-              disabled={busy || deleting || role?.builtin === true}
-            >
-              <legend>
-                {t(`permissionGroups.${group}`, { defaultValue: group })}
-              </legend>
-              {choices
-                .filter((item) => item.group === group)
-                .map((item) => (
-                  <CheckboxField
-                    key={item.id}
-                    checked={permissions.includes(item.id)}
-                    disabled={item.id === Permission.ServerView}
-                    onChange={(event) => toggle(item.id, event.target.checked)}
-                  >
-                    {t(`permissionLabels.${item.id.replaceAll(".", "_")}`, {
-                      defaultValue: item.label,
-                    })}
-                  </CheckboxField>
-                ))}
-            </Fieldset>
-          ))
+          <Fieldset
+            className="permission-fields form-stack form-stack-compact"
+            disabled={busy || deleting || role?.builtin === true}
+          >
+            <legend>{t("permissionGroups.Platform")}</legend>
+            <PlatformPermissionFields
+              choices={platformChoices}
+              selected={permissions}
+              onChange={setPermissions}
+            />
+          </Fieldset>
         )}
         {scope === RoleScope.Server && (
           <p className="field-help">{t("roleDrawer.permissionGuidance")}</p>

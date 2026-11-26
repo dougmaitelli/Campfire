@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"campfire/internal/shared/limits"
@@ -25,10 +26,13 @@ type Manager struct {
 	// GameIntegrationMount creates an isolated directory mounted into game containers.
 	GameIntegrationMount func(string) (string, error)
 	Docker               Executor
+	namespace            *dockerNamespace
 	Ownership            func(string, string) error
 	FileOwner            func(*os.File, string) error
 	Quota                DiskQuota
 	quotaUnavailable     string
+	pendingQuotaProbe    atomic.Bool
+	retireProjects       *projectQuotas
 	ctx                  context.Context
 	cancel               context.CancelFunc
 	mu                   sync.Mutex
@@ -41,13 +45,17 @@ type Manager struct {
 	transferTasks        map[string]context.CancelFunc
 	logMu                sync.Mutex
 	logMonitors          map[string]*logMonitor
+	crashMu              sync.Mutex
+	crashes              *crashMonitor
 }
 
 type entry struct {
 	mu            sync.Mutex
+	recovered     atomic.Bool
 	cancel        context.CancelFunc
 	interrupted   bool
 	files         *fileops.State
+	uploadQuotaMB *int64
 	backupUploads map[string]*backupUpload
 	Installed     bool                `json:"installed"`
 	Images        []string            `json:"images,omitempty"`
@@ -61,15 +69,12 @@ func New(ctx context.Context, directory string) *Manager {
 
 	removeAbandonedBackupUploads(directory)
 
-	var quota DiskQuota = &projectQuotas{registry: filepath.Join(directory, ".quota-projects"), kernel: linuxProjectKernel{}}
+	quota, err := detectDiskQuota(ctx, directory)
 
-	quotaUnavailable := ""
-	if err := probeDiskQuota(directory, quota); err != nil {
-		quotaUnavailable = err.Error()
-		quota = nil
-	}
-
-	m := &Manager{Directory: directory, Docker: Docker{}, Ownership: ownership, FileOwner: assignFileOwner, Quota: quota, quotaUnavailable: quotaUnavailable, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
+	m := &Manager{Directory: directory, Docker: Docker{}, ctx: ctx, cancel: cancel, entries: make(map[string]*entry)}
+	m.setInitialQuota(quota, err)
+	m.Ownership = m.ownership
+	m.FileOwner = m.assignFileOwner
 	m.fileOperations = m.newFileOperations()
 
 	return m
@@ -81,6 +86,11 @@ func (m *Manager) Close() {
 	m.closed = true
 	m.mu.Unlock()
 	m.cancel()
+
+	if observer := m.crashObserver(); observer != nil {
+		<-observer.done
+	}
+
 	m.fileOperations.Close()
 	m.logMu.Lock()
 	for _, monitor := range m.logMonitors {
@@ -111,7 +121,9 @@ func (m *Manager) Close() {
 func (m *Manager) root(id string) string { return filepath.Join(m.Directory, id) }
 func container(id string) string         { return "campfire-" + id }
 
-func (m *Manager) load(id string) (*entry, error) {
+// Observers can attach to saved state before storage recovery. Recovery is
+// retried on requests for that server and holds only its own locks.
+func (m *Manager) loadState(id string) (*entry, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -142,13 +154,41 @@ func (m *Manager) load(id string) (*entry, error) {
 		return nil, err
 	}
 
-	if err := m.recoverCommittedRestore(id, e); err != nil {
-		return nil, err
-	}
-
 	m.entries[id] = e
 	e.Status.FileSystemBusy = false
 	e.Status.DiskQuotaEnforced = false
+
+	return e, nil
+}
+
+var errRestoreRecovery = errors.New("server restore cleanup pending")
+
+func (m *Manager) load(id string) (*entry, error) {
+	e, err := m.loadState(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if e.recovered.Load() {
+		return e, nil
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.recovered.Load() {
+		return e, nil
+	}
+
+	if err := m.recoverCommittedRestore(id, e); err != nil {
+		return nil, fmt.Errorf("%w: %w", errRestoreRecovery, err)
+	}
+
+	if err := m.cleanInterruptedRestoreStages(m.ctx, id); err != nil {
+		return nil, fmt.Errorf("%w: %w", errRestoreRecovery, err)
+	}
+
+	e.recovered.Store(true)
 
 	return e, nil
 }
@@ -163,7 +203,7 @@ func (m *Manager) persist(id string, e *entry) error {
 }
 
 // Execute starts a bounded asynchronous operation, or returns current Docker state.
-func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.RuntimeRequest) (model.RuntimeStatus, error) {
+func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.RuntimeRequest) (result model.RuntimeStatus, resultErr error) {
 	if !m.maintenance.TryRLock() {
 		return model.RuntimeStatus{}, errors.New("node cleanup is in progress; retry after it finishes")
 	}
@@ -183,6 +223,12 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		return model.RuntimeStatus{}, errors.New("invalid server identity")
 	}
 
+	defer func() {
+		if resultErr == nil && q.Action == model.ServerActionStatus {
+			result.Crashes, result.CrashMonitorError = m.crashSnapshot(q.ServerID)
+		}
+	}()
+
 	if q.Action == model.ServerActionReinstall && q.Content != "" && q.Content != "keep" && q.Content != "clean" {
 		return model.RuntimeStatus{}, errors.New("invalid reinstall mode")
 	}
@@ -191,7 +237,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		usage, err := m.Measure(ctx, d)
 
 		busy, fileSystemBusy := true, true
-		if state, loadErr := m.load(d.ServerID); loadErr == nil && state.mu.TryLock() {
+		if state, loadErr := m.loadState(d.ServerID); err == nil && loadErr == nil && state.mu.TryLock() {
 			busy, fileSystemBusy = state.Status.Busy, state.Status.FileSystemBusy
 			state.mu.Unlock()
 		}
@@ -201,6 +247,10 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 
 	e, err := m.load(q.ServerID)
 	if err != nil {
+		if q.Action == model.ServerActionStatus && errors.Is(err, errRestoreRecovery) {
+			return model.RuntimeStatus{ServerID: q.ServerID, State: model.RuntimeStateUnknown, Error: err.Error(), ErrorCode: runtimeErrorCode(err)}, nil
+		}
+
 		return model.RuntimeStatus{}, err
 	}
 
@@ -378,6 +428,8 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	case model.ServerActionRestore:
 		phase = model.RuntimeStateStopped
 	}
+
+	e.uploadQuotaMB = nil
 
 	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, OperationState: model.OperationQueued, Progress: "Queued", Busy: true, FileSystemBusy: q.Action.LocksFileSystem()}
 	if err := m.persist(q.ServerID, e); err != nil {
@@ -566,7 +618,7 @@ func (m *Manager) observe(ctx context.Context, d model.Deployment, e *entry) (mo
 	}
 
 	if volume, err := m.volume(d.ServerID); err == nil && m.Quota != nil && d.Configuration.DiskMB > 0 {
-		if err := m.Quota.Verify(volume, d.Configuration.DiskMB); err != nil {
+		if err := m.Quota.Verify(ctx, volume, d.Configuration.DiskMB); err != nil {
 			status.DiskQuotaError, status.DiskQuotaErrorCode = err.Error(), model.RuntimeQuotaUnavailable
 		} else {
 			status.DiskQuotaEnforced = true
@@ -635,6 +687,9 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 			return err
 		}
 
+		finish := m.expectCrashStop(ctx, d.ServerID)
+		defer finish()
+
 		_, err = m.Docker.Run(ctx, nil, "stop", "--signal", "SIGKILL", "--time", "0", container(d.ServerID))
 
 		return err
@@ -652,9 +707,13 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 		// Backups have an independent lifetime. Keep their directory and the
 		// saved runtime identity so retained archives remain readable on retries.
 		for _, name := range []string{"data", "restore-previous"} {
-			if err := os.RemoveAll(filepath.Join(m.root(d.ServerID), name)); err != nil {
+			if err := m.removeGameData(ctx, filepath.Join(m.root(d.ServerID), name)); err != nil {
 				return err
 			}
+		}
+
+		if err := m.cleanInterruptedRestoreStages(ctx, d.ServerID); err != nil {
+			return err
 		}
 
 		e.mu.Lock()
@@ -669,7 +728,7 @@ func (m *Manager) perform(ctx context.Context, d model.Deployment, action model.
 		e.Revision = ""
 		e.mu.Unlock()
 
-		return nil
+		return m.forgetCrashes(d.ServerID)
 	}
 
 	return errors.New("unsupported runtime operation")
@@ -681,7 +740,13 @@ func environment(d model.Deployment) map[string]string {
 		env[key] = value
 	}
 
-	if len(d.Configuration.Ports) > 0 {
+	if d.Configuration.ServerPort != nil {
+		env["SERVER_PORT"] = ""
+		if *d.Configuration.ServerPort != 0 {
+			env["SERVER_PORT"] = strconv.Itoa(*d.Configuration.ServerPort)
+		}
+	} else if len(d.Configuration.Ports) > 0 {
+		// Compatibility for deployed snapshots and explicitly unreviewed schema-1 Embers.
 		env["SERVER_PORT"] = strconv.Itoa(d.Configuration.Ports[0].ContainerPort)
 	}
 
@@ -722,7 +787,7 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		return err
 	}
 
-	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -732,6 +797,16 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 	}
 	// A failed installer keeps its files. Explicit retry reruns its script in that directory.
 	if installer := d.Ember.Installer; installer != nil {
+		if m.namespace != nil {
+			if err := m.AllowDockerTraversal(ctx, m.root(d.ServerID)); err != nil {
+				return err
+			}
+			// The installer runs as namespace root, including on an explicit retry.
+			if err := os.Lchown(volume, m.namespace.uid, m.namespace.gid); err != nil {
+				return err
+			}
+		}
+
 		output, cleanupErr := m.Docker.Run(ctx, nil, "rm", "--force", container(d.ServerID)+"-install")
 		if cleanupErr != nil && !strings.Contains(strings.ToLower(output), "no such container") && !strings.Contains(strings.ToLower(output), "no such object") {
 			return cleanupErr
@@ -796,11 +871,11 @@ func (m *Manager) install(ctx context.Context, d model.Deployment, e *entry) err
 		return err
 	}
 
-	if err := diskCheck(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.checkDiskAllocation(ctx, volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
-	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -837,7 +912,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 			return err
 		}
 
-		return m.prepareQuota(volume, d.Configuration.DiskMB)
+		return m.resizeMountedQuota(ctx, volume, d.Configuration.DiskMB)
 	}
 
 	if state != "missing" {
@@ -851,11 +926,11 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 		return err
 	}
 
-	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
-	if err := diskCheck(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.checkDiskAllocation(ctx, volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -868,7 +943,7 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	}
 
 	env := environment(d)
-	if err := m.prepareQuota(volume, d.Configuration.DiskMB); err != nil {
+	if err := m.prepareQuota(ctx, volume, d.Configuration.DiskMB); err != nil {
 		return err
 	}
 
@@ -878,6 +953,11 @@ func (m *Manager) start(ctx context.Context, d model.Deployment, e *entry) error
 	}
 
 	startup := command
+
+	if err := m.AllowDockerTraversal(ctx, m.root(d.ServerID)); err != nil {
+		return err
+	}
+
 	env["STARTUP"] = startup
 	// Images may launch their own Tini beneath Docker's PID 1 init process.
 	env["TINI_SUBREAPER"] = "1"
@@ -961,6 +1041,9 @@ func (m *Manager) stop(ctx context.Context, d model.Deployment) error {
 	if _, err := m.Docker.Run(ctx, nil, "update", "--restart", "no", container(d.ServerID)); err != nil {
 		return err
 	}
+
+	finish := m.expectCrashStop(ctx, d.ServerID)
+	defer finish()
 
 	args := []string{"stop", "--time", "30"}
 

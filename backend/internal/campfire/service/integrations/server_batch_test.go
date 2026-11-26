@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"campfire/internal/campfire/database/repository"
-	fixture "campfire/internal/campfire/devfixture/integrations"
 	core "campfire/internal/campfire/integrations"
-	"campfire/internal/shared/permissions"
+	"campfire/internal/campfire/permissions"
+	fixture "campfire/internal/devfixture/integrations"
 )
 
 func bindingInput(value core.Binding) ServerIntegrationInput {

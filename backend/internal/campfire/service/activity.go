@@ -14,9 +14,9 @@ import (
 
 	"campfire/internal/campfire/database"
 	"campfire/internal/campfire/database/repository"
+	accessperm "campfire/internal/campfire/permissions"
 	"campfire/internal/campfire/recurrence"
 	"campfire/internal/shared/model"
-	accessperm "campfire/internal/shared/permissions"
 )
 
 type actorKey struct{}
@@ -224,7 +224,8 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 		return database.Schedule{}, err
 	}
 
-	if _, err := s.deployment.Servers.Get(ctx, item.ServerID); err != nil {
+	server, err := s.deployment.Servers.Get(ctx, item.ServerID)
+	if err != nil {
 		return database.Schedule{}, err
 	}
 
@@ -276,6 +277,10 @@ func (s *ActivityService) Save(ctx context.Context, principal Principal, item da
 	}
 
 	if item.Action == model.ServerActionCommand {
+		if !server.ConsoleCommands {
+			return database.Schedule{}, errConsoleCommandsUnsupported
+		}
+
 		if strings.TrimSpace(item.Command) == "" || len(item.Command) > 4096 || strings.ContainsAny(item.Command, "\r\n\x00") {
 			return database.Schedule{}, repository.ErrAccessInput
 		}
@@ -319,6 +324,17 @@ func (s *ActivityService) SetEnabled(ctx context.Context, principal Principal, i
 
 	if err := s.authorize(ctx, principal, item.ServerID, accessperm.Action(item.Action)); err != nil {
 		return database.Schedule{}, err
+	}
+
+	if enabled && item.Action == model.ServerActionCommand {
+		server, err := s.deployment.Servers.Get(ctx, item.ServerID)
+		if err != nil {
+			return database.Schedule{}, err
+		}
+
+		if !server.ConsoleCommands {
+			return database.Schedule{}, errConsoleCommandsUnsupported
+		}
 	}
 
 	return s.Store.SetScheduleEnabled(ctx, id, item.ServerID, enabled, principal.UserID, principal.TokenScopes)
@@ -460,6 +476,10 @@ func (s *ActivityService) checkExecution(ctx context.Context, run database.Sched
 		return principal, err
 	}
 
+	if run.Action == model.ServerActionCommand && !server.ConsoleCommands {
+		return principal, errConsoleCommandsUnsupported
+	}
+
 	node, err := s.deployment.Sparks.Get(ctx, server.SparkID)
 	if err != nil {
 		return principal, err
@@ -476,24 +496,32 @@ func (s *ActivityService) checkExecution(ctx context.Context, run database.Sched
 	return principal, err
 }
 
-func (s *ActivityService) rejectAttempt(ctx context.Context, run database.ScheduleRun, err error) error {
-	if errors.Is(err, errServerNotRunning) {
-		return s.finish(ctx, run, model.ExecutionSkipped, "Server is not running; this schedule only runs while the server is running.")
+// rejectAttempt records definite rejections. Unknown errors remain unhandled so
+// callers can preserve the distinction between preflight and uncertain dispatch.
+func (s *ActivityService) rejectAttempt(ctx context.Context, run database.ScheduleRun, err error) (bool, error) {
+	state := model.ExecutionFailed
+
+	var message string
+
+	switch {
+	case errors.Is(err, errConsoleCommandsUnsupported):
+		message = "This game does not support console commands."
+	case errors.Is(err, errServerNotRunning):
+		state = model.ExecutionSkipped
+		message = "Server is not running; this schedule only runs while the server is running."
+	case errors.Is(err, errSparkOffline):
+		message = "Spark became unavailable before dispatch."
+	case errors.Is(err, errSparkDisabled):
+		message = "Hosting Spark is disabled; execution was skipped."
+	case errors.Is(err, ErrServerActive):
+		message = "Server already has an active operation; this execution was skipped."
+	case errors.Is(err, repository.ErrAccessDenied), errors.Is(err, repository.ErrAccessNotFound), errors.Is(err, ErrServerNotFound):
+		message = "Execution permission was revoked or the server was removed."
+	default:
+		return false, nil
 	}
 
-	if errors.Is(err, errSparkOffline) {
-		return s.finish(ctx, run, model.ExecutionFailed, "Spark became unavailable before dispatch.")
-	}
-
-	if errors.Is(err, errSparkDisabled) {
-		return s.finish(ctx, run, model.ExecutionFailed, "Hosting Spark is disabled; execution was skipped.")
-	}
-
-	if !errors.Is(err, repository.ErrAccessDenied) && !errors.Is(err, repository.ErrAccessNotFound) && !errors.Is(err, ErrServerNotFound) {
-		return err
-	}
-
-	return s.finish(ctx, run, model.ExecutionFailed, "Execution permission was revoked or the server was removed.")
+	return true, s.finish(ctx, run, state, message)
 }
 
 func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun) (err error) {
@@ -519,17 +547,17 @@ func (s *ActivityService) process(ctx context.Context, run database.ScheduleRun)
 	if run.State == model.ExecutionDispatching {
 		principal, err := s.checkExecution(ctx, run)
 		if err != nil {
-			return s.rejectAttempt(ctx, run, err)
+			if handled, rejectionErr := s.rejectAttempt(ctx, run, err); handled {
+				return rejectionErr
+			}
+
+			return err
 		}
 
 		status, err := s.deployment.executeTracked(WithActor(ctx, principal), run)
-		if errors.Is(err, ErrServerActive) {
-			return s.finish(ctx, run, model.ExecutionFailed, "Server already has an active operation; this execution was skipped.")
-		}
-
 		if err != nil {
-			if errors.Is(err, errServerNotRunning) || errors.Is(err, errSparkOffline) || errors.Is(err, errSparkDisabled) || errors.Is(err, repository.ErrAccessDenied) || errors.Is(err, repository.ErrAccessNotFound) || errors.Is(err, ErrServerNotFound) {
-				return s.rejectAttempt(ctx, run, err)
+			if handled, rejectionErr := s.rejectAttempt(ctx, run, err); handled {
+				return rejectionErr
 			}
 
 			return s.finish(ctx, run, model.ExecutionInterrupted, "Dispatch failed; verify server state before retrying.")

@@ -9,6 +9,7 @@ export function Table({
   className,
   children,
   empty = false,
+  hideEmptyState = false,
   loading = false,
   error,
   resource = i18n.t("table.records"),
@@ -29,8 +30,9 @@ export function Table({
     | "emptyAction"
     | "emptyIcon"
     | "onRetry"
-  > & { empty?: boolean }) {
+  > & { empty?: boolean; hideEmptyState?: boolean }) {
   useTranslation();
+  if (empty && hideEmptyState && !loading && !error) return null;
   if (empty)
     return (
       <ContentState

@@ -7,6 +7,7 @@ import "time"
 const (
 	ResourceNameLength        = 100
 	DescriptionLength         = 1000
+	GameAddressLength         = 2048
 	ServerMinCPU              = 0.1
 	MaxCPU                    = 1024
 	MinMemoryMiB              = 64
@@ -19,6 +20,11 @@ const (
 	UsernameMax               = 64
 	PasswordMin               = 15
 	PasswordMax               = 1024
+	MFADevicesMax             = 10
+	PasswordRequireUppercase  = true
+	PasswordRequireLowercase  = true
+	PasswordRequireNumber     = true
+	PasswordRequireSymbol     = true
 	DisplayNameMax            = 100
 	EmailMax                  = 254
 	PasswordIterations        = 600000

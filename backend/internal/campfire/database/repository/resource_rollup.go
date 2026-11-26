@@ -14,7 +14,7 @@ import (
 )
 
 // ResourceBucketSeconds is the retained resolution after raw history is compacted.
-const ResourceBucketSeconds int64 = 300
+const ResourceBucketSeconds int64 = model.AvailabilityIntervalSeconds
 
 // ErrResourceHistoryPending prevents requests from scanning a rollup backlog.
 var ErrResourceHistoryPending = errors.New("resource history compaction is catching up; retry shortly")

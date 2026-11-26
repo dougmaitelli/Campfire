@@ -8,11 +8,11 @@ import (
 	"log/slog"
 	"os"
 
-	"campfire/internal/campfire/cli"
+	"campfire/internal/devmock"
 )
 
 func main() {
-	if err := cli.RunMock(context.Background(), os.Args[1:]); err != nil {
+	if err := devmock.Run(context.Background(), os.Args[1:]); err != nil {
 		slog.Error("Mock Campfire stopped", "error", err)
 		os.Exit(1)
 	}

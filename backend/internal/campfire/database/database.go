@@ -27,7 +27,7 @@ type Database struct {
 // Marker 2 is reserved for an equivalent schema accepted by the adoption path.
 // Future schema changes must use a marker above 2 to avoid treating a different
 // schema as a metadata-only adoption.
-const schemaVersion = 4
+const schemaVersion = 13
 
 // Open accepts a SQLite file path or a postgres:// / postgresql:// URL.
 // It initializes the same transactional baseline schema on either backend.
@@ -130,14 +130,15 @@ func (d *Database) Close() error {
 // baselineModels is the complete schema, not a sequence of development upgrades.
 func baselineModels() []any {
 	return []any{
-		&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{},
+		&Spark{}, &Ember{}, &Role{}, &RolePermission{}, &User{}, &UserSession{}, &UserMFA{},
 		&OIDCIdentity{}, &Server{}, &ServerAccessGrant{}, &SparkAccessGrant{},
 		&SparkIdentity{}, &Schedule{}, &ScheduleRun{}, &AuditEvent{}, &MonitoringAlert{},
 		&ServerJob{}, &BackupPolicy{}, &Backup{}, &APIToken{},
 		&Notification{}, &NotificationRecipient{}, &NotificationDelivery{}, &AlertState{},
 		&ServerResourceSample{}, &SparkResourceSample{}, &ServerResourceBucket{}, &SparkResourceBucket{},
 		&GameEvent{}, &GameEventFieldLabel{}, &GameIntegrationRegistration{}, &GameMedia{},
-		&LogAlertIssue{}, &Integration{}, &ServerIntegration{}, &IntegrationMessage{},
+		&LogAlertIssue{}, &Integration{}, &ServerIntegration{}, &IntegrationMessage{}, &ServerCrash{},
+		&StatusPage{}, &StatusPageEntry{},
 	}
 }
 
@@ -173,8 +174,123 @@ func migrate(db *gorm.DB) error {
 			return fmt.Errorf("read schema version: %w", err)
 		}
 
-		if len(versions) != 1 || (versions[0] != schemaVersion && versions[0] != 1 && versions[0] != 2 && versions[0] != 3) {
+		if len(versions) != 1 || versions[0] < 1 || versions[0] > schemaVersion {
 			return fmt.Errorf("unsupported database schema history %v; expected baseline version %d", versions, schemaVersion)
+		}
+
+		if versions[0] < 5 && !tx.Migrator().HasTable(&ServerCrash{}) {
+			if err := tx.Migrator().CreateTable(&ServerCrash{}); err != nil {
+				return err
+			}
+		}
+
+		if versions[0] < 6 {
+			for _, row := range []any{&StatusPage{}, &StatusPageEntry{}} {
+				if !tx.Migrator().HasTable(row) {
+					if err := tx.Migrator().CreateTable(row); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		if versions[0] < 7 {
+			if err := migrateGameAddresses(tx); err != nil {
+				return err
+			}
+		}
+
+		if versions[0] < 8 {
+			for _, row := range []any{&ServerResourceBucket{}, &SparkResourceBucket{}} {
+				for _, field := range []string{"OnlineSeconds", "OfflineSeconds"} {
+					if !tx.Migrator().HasColumn(row, field) {
+						if err := tx.Migrator().AddColumn(row, field); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+
+		if versions[0] < 9 {
+			for _, field := range []string{"CreatedAt", "UserAgent"} {
+				if !tx.Migrator().HasColumn(&UserSession{}, field) {
+					if err := tx.Migrator().AddColumn(&UserSession{}, field); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		if versions[0] < 10 && !tx.Migrator().HasTable(&UserMFA{}) {
+			if err := tx.Migrator().CreateTable(&UserMFA{}); err != nil {
+				return err
+			}
+		}
+
+		if versions[0] < 11 {
+			for _, field := range []string{"Devices", "PendingName"} {
+				if !tx.Migrator().HasColumn(&UserMFA{}, field) {
+					if err := tx.Migrator().AddColumn(&UserMFA{}, field); err != nil {
+						return err
+					}
+				}
+			}
+
+			var factors []UserMFA
+			if err := tx.Find(&factors).Error; err != nil {
+				return err
+			}
+
+			for _, factor := range factors {
+				if factor.SecretRef != "" && len(factor.Devices) == 0 {
+					factor.Devices = []MFADevice{{ID: "legacy", Name: "Authenticator", SecretRef: factor.SecretRef, LastCounter: factor.LastCounter}}
+					if err := tx.Omit("User").Save(&factor).Error; err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		// Schema 11 did not record who set a profile email. Only a fresh admin
+		// assignment can authorize automatic linking, including on development databases.
+		if !tx.Migrator().HasColumn(&User{}, "OIDCLinkEmail") {
+			if versions[0] == 12 {
+				// These two tables only existed in the unreleased email-recovery build.
+				if err := tx.Migrator().DropTable("email_tokens", "verified_emails"); err != nil {
+					return err
+				}
+			}
+
+			if err := tx.Migrator().AddColumn(&User{}, "OIDCLinkEmail"); err != nil {
+				return err
+			}
+		}
+
+		if !tx.Migrator().HasIndex(&User{}, "users_oidc_link_email") {
+			if err := tx.Migrator().CreateIndex(&User{}, "users_oidc_link_email"); err != nil {
+				return err
+			}
+		}
+
+		if versions[0] < 13 && !tx.Migrator().HasColumn(&ServerIntegration{}, "StatusPageID") {
+			if err := tx.Exec("ALTER TABLE server_integrations ALTER COLUMN server_id DROP NOT NULL").Error; err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().AddColumn(&ServerIntegration{}, "StatusPageID"); err != nil {
+				return err
+			}
+
+			if err := tx.Migrator().CreateIndex(&ServerIntegration{}, "StatusPageID"); err != nil {
+				return err
+			}
+		}
+
+		if !tx.Migrator().HasColumn(&ServerIntegration{}, "DeletedPageTitle") {
+			if err := tx.Migrator().AddColumn(&ServerIntegration{}, "DeletedPageTitle"); err != nil {
+				return err
+			}
 		}
 
 		legacy := versions[0] <= 2 && !tx.Migrator().HasColumn(&Backup{}, "id")
@@ -196,6 +312,32 @@ func migrate(db *gorm.DB) error {
 
 		if err := validateBackupIdentity(tx); err != nil {
 			return err
+		}
+
+		// Older linked profiles tracked which claims appeared on the last login.
+		// Reconcile existing links, including installations already on schema 12.
+		if versions[0] <= 12 {
+			linkedUsers := tx.Model(&OIDCIdentity{}).Select("user_id")
+			if err := tx.Model(&User{}).Where("id IN (?) AND (oidc_name_managed = ? OR oidc_email_managed = ?)", linkedUsers, false, false).
+				Updates(map[string]any{"oidc_name_managed": true, "oidc_email_managed": true}).Error; err != nil {
+				return err
+			}
+		}
+
+		if !tx.Migrator().HasIndex(&OIDCIdentity{}, "oidc_user_issuer") {
+			var duplicates []OIDCIdentity
+			if err := tx.Model(&OIDCIdentity{}).Select("issuer, user_id").Group("issuer, user_id").
+				Having("COUNT(*) > 1").Limit(1).Scan(&duplicates).Error; err != nil {
+				return err
+			}
+
+			if len(duplicates) != 0 {
+				return fmt.Errorf("user %d has multiple OIDC subjects for issuer %q; resolve the duplicate links as described in docs/operations.md before restarting", duplicates[0].UserID, duplicates[0].Issuer)
+			}
+
+			if err := tx.Migrator().CreateIndex(&OIDCIdentity{}, "oidc_user_issuer"); err != nil {
+				return err
+			}
 		}
 
 		if versions[0] != schemaVersion {

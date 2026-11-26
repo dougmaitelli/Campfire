@@ -268,20 +268,21 @@ export async function listUsers(signal: AbortSignal): Promise<User[]> {
 }
 export async function saveUser(
   input: UserInput,
-  userID?: number,
-): Promise<User> {
+  original?: User | null,
+): Promise<User | null> {
+  const changes: Partial<Omit<UserInput, "username">> = {};
+  if (original) {
+    if (input.name !== original.name) changes.name = input.name;
+    if (input.email !== original.email) changes.email = input.email;
+    if (input.role_id !== original.role_id) changes.role_id = input.role_id;
+    if (input.disabled !== original.disabled) changes.disabled = input.disabled;
+    if (input.password) changes.password = input.password;
+    if (Object.keys(changes).length === 0) return null;
+  }
   const body = await send(
-    userID ? `/api/v1/users/${userID}` : "/api/v1/users",
-    userID ? "PUT" : "POST",
-    userID
-      ? {
-          name: input.name,
-          email: input.email,
-          password: input.password,
-          role_id: input.role_id,
-          disabled: input.disabled,
-        }
-      : input,
+    original ? `/api/v1/users/${original.id}` : "/api/v1/users",
+    original ? "PATCH" : "POST",
+    original ? changes : input,
   );
   if (!isUser(body)) throw new Error(i18n.t("access.unexpectedUserResponse"));
   return body;
@@ -376,91 +377,11 @@ export async function serverAccessOptions(
   return body;
 }
 
-export interface ServerAccessDraft {
-  ownerID: number;
-  members: { username: string; role_id: number }[];
-  removedUserIDs: number[];
-}
-
-export async function saveServerAccessDraft(
-  serverID: string,
-  draft: ServerAccessDraft,
-): Promise<void> {
-  const current = await readServerAccess(
-    serverID,
-    AbortSignal.timeout(API_READ_TIMEOUT_MS),
-  );
-  for (const member of draft.members) {
-    if (member.username.toLowerCase() === current.owner?.username.toLowerCase())
-      continue;
-    if (
-      !current.members.some(
-        (existing) =>
-          existing.username.toLowerCase() === member.username.toLowerCase() &&
-          existing.role_id === member.role_id,
-      )
-    ) {
-      await shareServer(serverID, member.username, member.role_id);
-    }
-  }
-  for (const userID of draft.removedUserIDs) {
-    if (current.members.some((member) => member.user_id === userID))
-      await removeMember(serverID, userID);
-  }
-  if (draft.ownerID && draft.ownerID !== current.owner?.id)
-    await transferOwner(serverID, draft.ownerID);
-}
-export async function shareServer(
-  serverID: string,
-  username: string,
-  roleID: number,
-): Promise<void> {
-  await send(
-    `/api/v1/servers/${encodeURIComponent(serverID)}/members`,
-    "POST",
-    { username, role_id: roleID },
-  );
-}
-export async function removeMember(
-  serverID: string,
-  userID: number,
-): Promise<void> {
-  await send(
-    `/api/v1/servers/${encodeURIComponent(serverID)}/members/${userID}`,
-    "DELETE",
-  );
-}
 export async function transferOwner(
   serverID: string,
   userID: number,
 ): Promise<void> {
   await send(`/api/v1/servers/${encodeURIComponent(serverID)}/owner`, "PUT", {
     user_id: userID,
-  });
-}
-
-export async function readSparkRoles(
-  sparkID: string,
-  signal: AbortSignal,
-): Promise<number[]> {
-  const body = await readJSON(
-    await apiFetch(`/api/v1/sparks/${encodeURIComponent(sparkID)}/roles`, {
-      signal,
-    }),
-  );
-  if (
-    !object(body) ||
-    !Array.isArray(body.role_ids) ||
-    !body.role_ids.every(id)
-  )
-    throw new Error(i18n.t("access.unexpectedSparkRoleResponse"));
-  return body.role_ids;
-}
-export async function setSparkRoles(
-  sparkID: string,
-  roleIDs: number[],
-): Promise<void> {
-  await send(`/api/v1/sparks/${encodeURIComponent(sparkID)}/roles`, "PUT", {
-    role_ids: roleIDs,
   });
 }

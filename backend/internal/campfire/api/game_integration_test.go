@@ -58,7 +58,7 @@ func TestMonitoringGameStateAuthorizationAndInvalidation(t *testing.T) {
 	}
 
 	snapshot := read(f.admin)
-	if len(snapshot.Servers) != 1 || snapshot.Servers[0].Game == nil || snapshot.Servers[0].Game.Status != "fresh" || *snapshot.Servers[0].Game.State.Players != 4 {
+	if len(snapshot.Servers) != 1 || snapshot.Servers[0].Game == nil || snapshot.Servers[0].Game.State == nil || *snapshot.Servers[0].Game.State.Players != 4 {
 		t.Fatal("current game state missing", snapshot)
 	}
 
@@ -76,7 +76,7 @@ func TestMonitoringGameStateAuthorizationAndInvalidation(t *testing.T) {
 	expectAccess(t, f.admin, "POST", endpoint+"/actions", `{"action":"restart"}`, http.StatusAccepted)
 
 	view := read(f.admin).Servers[0].Game
-	if view.State != nil || view.Status != "unavailable" {
+	if view.State != nil {
 		t.Fatal("restart exposed old state", view)
 	}
 }

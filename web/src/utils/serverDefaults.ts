@@ -1,4 +1,3 @@
-import { NetworkProtocol } from "../contracts/domains";
 import type { Ember } from "../api/embers";
 import type { Server, ServerPort } from "../api/servers";
 import type { Spark } from "../api/sparks";
@@ -21,15 +20,7 @@ export function defaultPorts(
         container: port.container_port,
         protocol: port.protocol,
       }))
-    : ember?.required_ports?.length
-      ? ember.required_ports
-      : [
-          {
-            container: 25565,
-            protocol:
-              spark.port_allocations[0]?.protocol ?? NetworkProtocol.TCP,
-          },
-        ];
+    : (ember?.required_ports ?? []);
   const result: ServerPort[] = [];
   for (const port of required) {
     for (const allocation of spark.port_allocations) {

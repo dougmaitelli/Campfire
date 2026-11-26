@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"campfire/internal/campfire/agents"
-	"campfire/internal/campfire/devfixture"
+	"campfire/internal/devfixture"
 	"campfire/internal/shared/model"
 	"campfire/internal/shared/protocol"
 )

@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import type { FileRequest } from "../web/src/api/files";
 import { login, openServerTab } from "./screens";
 
 for (const { kind, failure } of [
@@ -26,12 +27,7 @@ for (const { kind, failure } of [
       let starts = 0;
       const updatedAt = await page.evaluate(() => new Date().toISOString());
       await page.route("**/api/v1/servers/survival/files", async (route) => {
-        const q = route.request().postDataJSON() as {
-          operation: string;
-          destination: string;
-          compression?: { id: string };
-          extraction?: { id: string; fresh?: boolean };
-        };
+        const q = route.request().postDataJSON() as FileRequest;
         if (!q.operation.startsWith(`${kind}.`)) return route.continue();
         if (q.operation.endsWith(".start")) starts++;
         if (kind === "extract") expect(q.extraction?.fresh).toBe(true);

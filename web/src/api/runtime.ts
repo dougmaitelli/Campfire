@@ -30,6 +30,7 @@ export interface RuntimeStatus {
   error_code?: RuntimeErrorCode;
   logs?: string;
   log_monitor_error?: string;
+  crash_monitor_error?: string;
   disk_quota_enforced: boolean;
   disk_quota_error?: string;
   disk_quota_error_code?: RuntimeErrorCode;
@@ -60,6 +61,7 @@ function isRuntimeStatus(value: unknown): value is RuntimeStatus {
       "logs",
       "disk_quota_error",
       "log_monitor_error",
+      "crash_monitor_error",
     ].every(
       (key) => !(key in value) || typeof Reflect.get(value, key) === "string",
     ) &&

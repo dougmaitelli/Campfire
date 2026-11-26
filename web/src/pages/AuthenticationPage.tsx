@@ -1,3 +1,4 @@
+import { MFAChallengeError } from "../api/auth";
 import { AccountLimits } from "../config/policies";
 import i18n from "../i18n";
 import { useTranslation } from "react-i18next";
@@ -5,6 +6,11 @@ import { FormField } from "../components/forms/FormField";
 import { InlineMessage } from "../components/status/InlineMessage";
 import { Button, ButtonLink } from "../components/forms/Button";
 import { TextInput } from "../components/forms/TextInput";
+import { EmailInput } from "../components/forms/EmailInput";
+import {
+  PasswordInput,
+  passwordPolicy,
+} from "../components/forms/PasswordInput";
 import { useRef, useState, type ComponentProps } from "react";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { CampfireMark } from "../components/navigation/CampfireMark";
@@ -40,19 +46,28 @@ export function AuthenticationPage() {
   const { t } = useTranslation();
   const auth = useAuthentication();
   const [username, setUsername] = useState("admin");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [secondFactor, setSecondFactor] = useState(false);
+  const [recoverMFA, setRecoverMFA] = useState(false);
+  const [code, setCode] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
   const setup = auth.session?.setup_required === true;
+  const PasswordControl = setup ? PasswordInput : AuthenticationPasswordInput;
   const localLogin = auth.session?.local_login !== false;
-  const oidcError = new URLSearchParams(window.location.search).has(
+  const oidcError = new URLSearchParams(window.location.search).get(
     "oidc_error",
   );
   async function submit() {
     if (pending.current) return;
+    if (setup && !Object.values(passwordPolicy(password)).every(Boolean)) {
+      setError(t("passwordInput.invalid"));
+      return;
+    }
     if (setup && password !== confirmation) {
       setError(i18n.t("authenticationPage.thePasswordsDoNotMatch"));
       return;
@@ -62,13 +77,22 @@ export function AuthenticationPage() {
     setError(null);
     try {
       await auth.signIn(
-        { username, password, ...(setup ? { setup_token: token.trim() } : {}) },
+        {
+          username,
+          password,
+          ...(secondFactor || recoverMFA ? { code } : {}),
+          ...(setup ? { setup_token: token.trim(), email: email.trim() } : {}),
+        },
         setup,
       );
       setPassword("");
       setConfirmation("");
       setToken("");
     } catch (cause) {
+      if (cause instanceof MFAChallengeError) {
+        setSecondFactor(true);
+        return;
+      }
       setError(
         cause instanceof Error
           ? cause.message
@@ -105,7 +129,9 @@ export function AuthenticationPage() {
               ? t("authenticationPage.welcomeToCampfire")
               : setup
                 ? t("authenticationPage.setUpYourAdministrator")
-                : t("authenticationPage.signIn")}
+                : recoverMFA
+                  ? t("authenticationPage.recoverySignIn")
+                  : t("authenticationPage.signIn")}
           </h1>
           {auth.error ? (
             <>
@@ -133,25 +159,30 @@ export function AuthenticationPage() {
                   ? t(
                       "authenticationPage.createTheAdministratorAccountToManageYourGameServers",
                     )
-                  : !localLogin && auth.session.oidc_enabled
-                    ? t("authenticationPage.useYourOrganizationAccount")
-                    : t("authenticationPage.signInToAccessYourGameServers")}
+                  : recoverMFA
+                    ? t("authenticationPage.recoverMFADescription")
+                    : !localLogin && auth.session.oidc_enabled
+                      ? t("authenticationPage.useYourOrganizationAccount")
+                      : t("authenticationPage.signInToAccessYourGameServers")}
               </p>
               {(error !== null || oidcError) && (
                 <InlineMessage role="alert">
                   {error ??
                     t(
-                      "authenticationPage.openidConnectSignInFailedPleaseTryAgainOrContact",
+                      oidcError === "email_required"
+                        ? "email.providerAddressRequired"
+                        : "authenticationPage.openidConnectSignInFailedPleaseTryAgainOrContact",
                     )}
                 </InlineMessage>
               )}
-              {!setup && auth.session.oidc_enabled && (
+              {!setup && !recoverMFA && auth.session.oidc_enabled && (
                 <ButtonLink variant="primary" href="/api/v1/auth/oidc/start">
                   {t("authenticationPage.signInWithOpenIDConnect")}
                   <ArrowRight size={18} aria-hidden="true" />
                 </ButtonLink>
               )}
               {!setup &&
+                !recoverMFA &&
                 auth.session.oidc_enabled &&
                 (localLogin ? (
                   <div className="authentication-divider">
@@ -206,8 +237,19 @@ export function AuthenticationPage() {
                       onChange={(event) => setUsername(event.target.value)}
                     />
                   </FormField>
+                  {setup && (
+                    <FormField label={t("email.address")}>
+                      <EmailInput
+                        name="email"
+                        value={email}
+                        required
+                        disabled={busy}
+                        onChange={(event) => setEmail(event.target.value)}
+                      />
+                    </FormField>
+                  )}
                   <FormField label={t("authenticationPage.password")}>
-                    <AuthenticationPasswordInput
+                    <PasswordControl
                       autoComplete={setup ? "new-password" : "current-password"}
                       name="password"
                       value={password}
@@ -219,18 +261,7 @@ export function AuthenticationPage() {
                     />
                   </FormField>
                   {setup && (
-                    <FormField
-                      label={t("authenticationPage.confirmPassword")}
-                      description={
-                        <>
-                          <span className="authentication-hint">
-                            {t(
-                              "authenticationPage.useAtLeast15CharactersSpacesAndPassphrasesAreWelcome",
-                            )}
-                          </span>
-                        </>
-                      }
-                    >
+                    <FormField label={t("authenticationPage.confirmPassword")}>
                       <TextInput
                         type="password"
                         autoComplete="new-password"
@@ -246,6 +277,32 @@ export function AuthenticationPage() {
                       />
                     </FormField>
                   )}
+                  {(secondFactor || recoverMFA) && (
+                    <FormField
+                      label={t(
+                        recoverMFA
+                          ? "authenticationPage.recoveryCode"
+                          : "mfa.authenticatorCode",
+                      )}
+                      description={t(
+                        recoverMFA
+                          ? "authenticationPage.recoveryCodeHelp"
+                          : "authenticationPage.authenticatorCodeHelp",
+                      )}
+                    >
+                      <TextInput
+                        autoFocus
+                        autoComplete="one-time-code"
+                        value={code}
+                        maxLength={recoverMFA ? 64 : 6}
+                        inputMode={recoverMFA ? "text" : "numeric"}
+                        pattern={recoverMFA ? undefined : "[0-9]{6}"}
+                        required
+                        disabled={busy}
+                        onChange={(event) => setCode(event.target.value)}
+                      />
+                    </FormField>
+                  )}
                   <Button
                     variant="primary"
                     disabled={busy}
@@ -257,12 +314,24 @@ export function AuthenticationPage() {
                       : t("authenticationPage.signIn")}
                     <ArrowRight size={18} aria-hidden="true" />
                   </Button>
-                  {!setup && (
-                    <p className="authentication-hint authentication-recovery">
+                  {!setup && (secondFactor || recoverMFA) && (
+                    <button
+                      type="button"
+                      className="authentication-recovery-link"
+                      disabled={busy}
+                      onClick={() => {
+                        setRecoverMFA(!recoverMFA);
+                        setSecondFactor(recoverMFA);
+                        setCode("");
+                        setError(null);
+                      }}
+                    >
                       {t(
-                        "authenticationPage.forgotYourPasswordUseTheResetPasswordCommandOnYour",
+                        recoverMFA
+                          ? "authenticationPage.useAuthenticator"
+                          : "authenticationPage.lostAuthenticator",
                       )}
-                    </p>
+                    </button>
                   )}
                 </>
               )}

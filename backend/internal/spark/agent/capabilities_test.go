@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
@@ -16,6 +18,40 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+type wireQgroup struct{ wireQuota }
+
+func (wireQgroup) Accounting() model.DiskAccounting                 { return model.DiskAccountingQgroup }
+func (wireQgroup) DiskUsage(context.Context, string) (int64, error) { return 8192, nil }
+
+func TestBtrfsUsageInStandardMetricsResponse(t *testing.T) {
+	manager := runtime.New(t.Context(), t.TempDir())
+	t.Cleanup(manager.Close)
+	manager.Quota, manager.Docker = wireQgroup{}, &wireDocker{}
+	store := &ConfigurationStore{Runtime: manager, Directory: t.TempDir()}
+
+	d := deploymentFixture("node", "game")
+	if _, err := store.Deploy(t.Context(), "node", d); err != nil {
+		t.Fatal(err)
+	}
+
+	volume := filepath.Join(manager.Directory, "game", "data")
+	if err := os.MkdirAll(volume, 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	command := protocol.Command{ID: "metrics", Name: protocol.ServerAction, Deadline: time.Now().Add(time.Second), Runtime: &model.RuntimeRequest{ServerID: "game", Action: model.ServerActionMetrics}}
+
+	res := store.executeNegotiated(t.Context(), "node", command, []string{protocol.CapabilityMetrics})
+	if res.Error != nil || res.Status == nil || res.Status.Metrics == nil {
+		t.Fatal("missing metrics response", res.Error)
+	}
+
+	usage := res.Status.Metrics
+	if usage.DiskAccounting != model.DiskAccountingQgroup || usage.DiskBytes == nil || *usage.DiskBytes != 8192 {
+		t.Fatalf("expected Btrfs quota-group usage, got %+v", usage)
+	}
+}
 
 func TestQuotaCapabilityReflectsRuntimeSupport(t *testing.T) {
 	manager := &runtime.Manager{}
