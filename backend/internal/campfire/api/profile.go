@@ -12,6 +12,7 @@ func (a *API) readProfile(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
+
 	writeJSON(w, http.StatusOK, struct {
 		User          database.User `json:"user"`
 		LocalPassword bool          `json:"local_password"`
@@ -29,11 +30,13 @@ func (a *API) updateProfile(w http.ResponseWriter, r *http.Request) {
 	if !decodeRequest(w, r, &input, 8192) {
 		return
 	}
+
 	user, err := a.auth.UpdateProfile(r.Context(), browserToken(r), input.Name, input.Email, input.Password, input.CurrentPassword, input.Code)
 	if err != nil {
 		writeMFAError(w, err)
 		return
 	}
+
 	auditDetail(r, "user.profile.update", "")
 	writeJSON(w, http.StatusOK, user)
 }

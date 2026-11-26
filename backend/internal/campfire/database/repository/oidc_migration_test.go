@@ -126,17 +126,21 @@ func TestDuplicateLegacyOIDCSubjectsRequireExplicitSelection(t *testing.T) {
 	now := time.Now()
 	store := repository.NewAuthRepository(db.ORM())
 	session := database.UserSession{UserID: user.ID, Provider: "provider", CredentialVersion: user.CredentialVersion, Hash: "old-session", LastSeenAt: now.Unix(), ExpiresAt: now.Add(time.Hour).Unix()}
+
 	token := database.APIToken{UserID: user.ID, CredentialVersion: user.CredentialVersion, Hash: "old-token", ExpiresAt: session.ExpiresAt}
 	if err := store.CreateSession(t.Context(), session, "", now); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := store.CreateAPIToken(t.Context(), &token, now); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := database.Transaction(db.ORM(), func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ? AND issuer = ? AND subject = ?", user.ID, links[1].Issuer, links[1].Subject).Delete(&database.OIDCIdentity{}).Error; err != nil {
 			return err
 		}
+
 		return tx.Model(&user).Update("credential_version", gorm.Expr("credential_version + 1")).Error
 	}); err != nil {
 		t.Fatal(err)
@@ -153,9 +157,11 @@ func TestDuplicateLegacyOIDCSubjectsRequireExplicitSelection(t *testing.T) {
 	if _, _, err := store.Session(t.Context(), session.Hash, now); !errors.Is(err, repository.ErrAuthentication) {
 		t.Fatal("session survived duplicate identity repair", err)
 	}
+
 	if _, err := store.APIToken(t.Context(), token.Hash, now); !errors.Is(err, repository.ErrAuthentication) {
 		t.Fatal("API token survived duplicate identity repair", err)
 	}
+
 	if err := upgraded.ORM().Omit("User").Create(&links[1]).Error; err == nil {
 		t.Fatal("upgrade allowed a second subject for the same user and issuer")
 	}

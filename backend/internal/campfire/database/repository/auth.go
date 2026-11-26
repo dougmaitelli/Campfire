@@ -98,10 +98,12 @@ func (r *AuthRepository) CreateSession(ctx context.Context, session database.Use
 			if err != nil {
 				return err
 			}
+
 			var supplied MFAProof
 			if len(proof) > 0 {
 				supplied = proof[0]
 			}
+
 			if err := consumeMFA(tx, &factor, supplied); err != nil {
 				return err
 			}

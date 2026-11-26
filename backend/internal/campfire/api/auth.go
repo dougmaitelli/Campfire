@@ -252,6 +252,7 @@ func (a *API) writeLoginState(w http.ResponseWriter, r *http.Request, session da
 	state.ViewAs = preview
 
 	state.OIDCAutoLink = a.auth.OIDCAutoLinkEnabled()
+
 	state.LocalLogin, err = a.auth.LocalLoginEnabled(r.Context())
 	if err != nil {
 		writeAuthError(w, err)
@@ -306,6 +307,7 @@ func (a *API) authAttempt(w http.ResponseWriter, r *http.Request, setup bool) {
 	var session database.UserSession
 
 	var token string
+
 	ctx := service.WithSessionUserAgent(r.Context(), r.UserAgent())
 	if setup {
 		session, token, err = a.auth.Setup(ctx, input.SetupToken, input.Username, input.Password, input.Email)

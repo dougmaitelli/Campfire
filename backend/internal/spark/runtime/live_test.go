@@ -65,6 +65,7 @@ func TestLiveDockerLifecycle(t *testing.T) {
 	backupID := "backup-" + rand.Text()
 
 	var project uint32
+
 	for index, action := range []string{"install", "start", "stop", "backup", "restore", "start", "restart", "kill", "delete"} {
 		operationID := action + rand.Text()
 		if action == "backup" {

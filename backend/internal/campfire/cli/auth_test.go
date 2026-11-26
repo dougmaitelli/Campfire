@@ -32,23 +32,30 @@ func TestRecoveryPasswordPrompt(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var output bytes.Buffer
+
 			calls := 0
+
 			password, err := promptRecoveryPassword(&output, func() ([]byte, error) {
 				calls++
+
 				if tc.readError {
 					return nil, errors.New("terminal disconnected")
 				}
+
 				if calls == 1 {
 					return []byte(tc.first), nil
 				}
+
 				return []byte(tc.second), nil
 			})
 			if (err != nil) != tc.wantError {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if !tc.wantError && password != tc.first {
 				t.Fatal("password changed by prompt")
 			}
+
 			if tc.first != "" && strings.Contains(output.String(), tc.first) {
 				t.Fatal("password leaked to terminal output")
 			}
@@ -215,12 +222,16 @@ func TestResetPasswordCommandRevokesSessions(t *testing.T) {
 
 func TestResetTwoFactorCommandPreservesPassword(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "panel.db")
+
 	db, err := database.Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer func() { _ = db.Close() }()
+
 	auth := service.NewAuthService(repository.NewAuthRepository(db.ORM()))
+
 	setup, err := auth.PrepareSetup(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -230,22 +241,28 @@ func TestResetTwoFactorCommandPreservesPassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	factor := database.UserMFA{UserID: session.UserID, SecretRef: "old-reference", RecoveryHashes: []string{"hashed-code"}}
 	if err := db.ORM().Omit("User").Create(&factor).Error; err != nil {
 		t.Fatal(err)
 	}
+
 	if err := Run(t.Context(), []string{"reset-2fa", "--" + settings.CampfireDatabase.FlagName, path, "--username", "admin"}); err != nil {
 		t.Fatal(err)
 	}
+
 	if _, _, err := auth.Session(t.Context(), token); err == nil {
 		t.Fatal("browser session not revoked")
 	}
+
 	if _, _, err := auth.Login(t.Context(), "admin", "test administrator password for recovery A1!", ""); err != nil {
 		t.Fatal("password login not restored", err)
 	}
+
 	if err := db.ORM().Take(&factor, "user_id = ?", session.UserID).Error; err != nil || factor.SecretRef != "" || len(factor.RecoveryHashes) != 0 {
 		t.Fatal("factor not removed", err)
 	}
+
 	if err := Run(t.Context(), []string{"reset-2fa", "--" + settings.CampfireDatabase.FlagName, path}); err == nil {
 		t.Fatal("reset without explicit user accepted")
 	}

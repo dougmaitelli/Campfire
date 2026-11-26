@@ -8,6 +8,7 @@ func (a *API) authSessions(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
+
 	writeJSON(w, http.StatusOK, sessions)
 }
 
@@ -17,10 +18,13 @@ func (a *API) authRevokeSession(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
+
 	auditDetail(r, "auth.session.revoke", "session:"+r.PathValue("id"))
+
 	if current {
 		a.setSessionCookie(w, r, "", 0)
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -29,6 +33,7 @@ func (a *API) authRevokeOtherSessions(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
+
 	auditDetail(r, "auth.sessions.revoke_others", "")
 	w.WriteHeader(http.StatusNoContent)
 }

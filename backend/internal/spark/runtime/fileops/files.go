@@ -250,6 +250,7 @@ func (m *Manager) Files(ctx context.Context, d model.Deployment, volume string, 
 		if errors.Is(errors.Join(writeErr, syncErr, closeErr), syscall.EDQUOT) {
 			return result, Failure(model.FileLimitExceeded, "File would exceed the server disk allocation.")
 		}
+
 		if writeErr != nil || ownerErr != nil || syncErr != nil || closeErr != nil {
 			return result, Failure(model.FileIO, "Could not save file or assign game ownership.")
 		}

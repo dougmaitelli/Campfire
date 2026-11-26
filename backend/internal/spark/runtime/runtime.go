@@ -250,6 +250,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 		if q.Action == model.ServerActionStatus && errors.Is(err, errRestoreRecovery) {
 			return model.RuntimeStatus{ServerID: q.ServerID, State: model.RuntimeStateUnknown, Error: err.Error(), ErrorCode: runtimeErrorCode(err)}, nil
 		}
+
 		return model.RuntimeStatus{}, err
 	}
 
@@ -429,6 +430,7 @@ func (m *Manager) Execute(ctx context.Context, d model.Deployment, q model.Runti
 	}
 
 	e.uploadQuotaMB = nil
+
 	e.Status = model.RuntimeStatus{ServerID: q.ServerID, State: phase, OperationID: q.OperationID, Operation: q.Action, OperationState: model.OperationQueued, Progress: "Queued", Busy: true, FileSystemBusy: q.Action.LocksFileSystem()}
 	if err := m.persist(q.ServerID, e); err != nil {
 		e.Status.Busy, e.Status.FileSystemBusy = false, false

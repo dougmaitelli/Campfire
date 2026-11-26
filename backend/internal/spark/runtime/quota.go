@@ -196,6 +196,7 @@ func (q *projectQuotas) readOwner(id uint32, owner projectOwner) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	var recorded projectOwner
 	if err := json.Unmarshal(data, &recorded); err != nil {
 		return false, err

@@ -74,6 +74,7 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 				if input.Email == "" {
 					return ErrEmailRequired
 				}
+
 				var count int64
 				if err := tx.Model(&database.User{}).Count(&count).Error; err != nil {
 					return err
@@ -120,6 +121,7 @@ func (r *AuthRepository) OIDCAccount(ctx context.Context, input OIDCAccountInput
 				user.OIDCLinkEmail = nil
 				updates["oidc_link_email"] = nil
 			}
+
 			user.Email = input.Email
 			updates["email"] = input.Email
 		}
@@ -209,6 +211,7 @@ func (r *AccessRepository) checkOIDCLinkEmail(tx *gorm.DB, email string) error {
 	// case-sensitive local-part before comparing domains using the sign-in rules.
 	mailboxPrefix := email[:strings.LastIndexByte(email, '@')+1]
 	linked := tx.Model(&database.OIDCIdentity{}).Select("user_id").Where("issuer = ?", r.issuer)
+
 	var candidates []struct{ Username, Email string }
 	if err := tx.Model(&database.User{}).Select("username, email").
 		Where("id IN (?) AND substr(trim(email), 1, length(?)) = ?", linked, mailboxPrefix, mailboxPrefix).
@@ -217,17 +220,21 @@ func (r *AccessRepository) checkOIDCLinkEmail(tx *gorm.DB, email string) error {
 	}
 
 	var username string
+
 	for _, candidate := range candidates {
 		if utils.NormalizeEmail(candidate.Email) == email {
 			if username != "" {
 				return fmt.Errorf("%w: multiple OIDC accounts list this email. Confirm the intended username with your provider before assigning access in Users", ErrAccessConflict)
 			}
+
 			username = candidate.Username
 		}
 	}
+
 	if username != "" {
 		return fmt.Errorf("%w: OIDC account %q already lists this email. Confirm the account with your provider before assigning access in Users", ErrAccessConflict, username)
 	}
+
 	return nil
 }
 

@@ -160,6 +160,7 @@ func (r *AccessRepository) CreateUser(ctx context.Context, user *database.User) 
 				return err
 			}
 		}
+
 		return tx.Omit("Role").Create(user).Error
 	}))
 }
@@ -228,6 +229,7 @@ func (r *AccessRepository) UpdateUser(ctx context.Context, id int64, roleID *int
 		if err != nil {
 			return err
 		}
+
 		if address, assigned := updates["oidc_link_email"].(string); assigned {
 			if err := r.checkOIDCLinkEmail(tx, address); err != nil {
 				return err

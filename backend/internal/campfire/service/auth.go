@@ -163,15 +163,19 @@ func PasswordRequirements() string {
 	if limits.PasswordRequireUppercase {
 		rules = append(rules, "an uppercase letter")
 	}
+
 	if limits.PasswordRequireLowercase {
 		rules = append(rules, "a lowercase letter")
 	}
+
 	if limits.PasswordRequireNumber {
 		rules = append(rules, "a number")
 	}
+
 	if limits.PasswordRequireSymbol {
 		rules = append(rules, "a symbol")
 	}
+
 	return strings.Join(rules, ", ")
 }
 
@@ -179,6 +183,7 @@ func validAccountInput(username, password string) bool {
 	if !utils.IsValidUsername(username) || !utf8.ValidString(password) || utf8.RuneCountInString(password) < limits.PasswordMin || len(password) > limits.PasswordMax {
 		return false
 	}
+
 	var upper, lower, number, symbol bool
 	for _, char := range password {
 		upper = upper || unicode.IsUpper(char)
@@ -186,6 +191,7 @@ func validAccountInput(username, password string) bool {
 		number = number || unicode.IsDigit(char)
 		symbol = symbol || unicode.IsPunct(char) || unicode.IsSymbol(char)
 	}
+
 	return (!limits.PasswordRequireUppercase || upper) &&
 		(!limits.PasswordRequireLowercase || lower) &&
 		(!limits.PasswordRequireNumber || number) &&
@@ -233,6 +239,7 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password, emai
 	if !validEmail(email) {
 		return database.UserSession{}, "", repository.ErrEmailRequired
 	}
+
 	if !validAccountInput(username, password) {
 		return database.UserSession{}, "", ErrAuthInput
 	}
@@ -259,6 +266,7 @@ func (s *AuthService) Setup(ctx context.Context, token, username, password, emai
 	}
 
 	session, raw := newUserSession(1, 1, s.now())
+
 	session.UserAgent = sessionUserAgent(ctx)
 	if err := s.store.Setup(ctx, database.User{ID: 1, Username: username, Email: email, OIDCLinkEmail: &email, PasswordHash: encoded, CredentialVersion: 1}, session); err != nil {
 		return database.UserSession{}, "", err
@@ -278,6 +286,7 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 	if len(codes) > 0 {
 		code = codes[0]
 	}
+
 	enabled, err := s.LocalLoginEnabled(ctx)
 	if err != nil {
 		return database.UserSession{}, "", err
@@ -316,15 +325,18 @@ func (s *AuthService) Login(ctx context.Context, username, password, previous st
 	if err != nil {
 		return database.UserSession{}, "", err
 	}
+
 	if factor.SecretRef != "" && !s.AllowAttempt(fmt.Sprintf("mfa:%d", admin.ID)) {
 		return database.UserSession{}, "", ErrAuthRate
 	}
+
 	proof, err := s.factorProof(factor, code)
 	if err != nil {
 		return database.UserSession{}, "", err
 	}
 
 	session, raw := newUserSession(admin.ID, admin.CredentialVersion, s.now())
+
 	session.UserAgent = sessionUserAgent(ctx)
 	if err := s.store.CreateSession(ctx, session, tokenHash(previous), s.now(), proof); err != nil {
 		return database.UserSession{}, "", err

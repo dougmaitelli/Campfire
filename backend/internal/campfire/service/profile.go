@@ -20,6 +20,7 @@ func (s *AuthService) UpdateProfile(ctx context.Context, token string, name, ema
 
 		name = &trimmed
 	}
+
 	session, _, err := s.Session(ctx, token)
 	if err != nil {
 		return database.User{}, err
@@ -41,12 +42,16 @@ func (s *AuthService) UpdateProfile(ctx context.Context, token string, name, ema
 			changedEmail = &address
 		}
 	}
+
 	var proof repository.MFAProof
+
 	encoded := ""
+
 	if password != "" {
 		if session.Provider != "" {
 			return database.User{}, repository.ErrAccessDenied
 		}
+
 		if !validAccountInput("admin", password) {
 			return database.User{}, ErrAuthInput
 		}
@@ -55,15 +60,18 @@ func (s *AuthService) UpdateProfile(ctx context.Context, token string, name, ema
 		if err != nil {
 			return database.User{}, err
 		}
+
 		proof, err = s.factorProof(factor, code)
 		if err != nil {
 			return database.User{}, err
 		}
+
 		release, err := s.passwordWork(ctx)
 		if err != nil {
 			return database.User{}, err
 		}
 		defer release()
+
 		encoded, err = passwordHash(password)
 		if err != nil {
 			return database.User{}, err

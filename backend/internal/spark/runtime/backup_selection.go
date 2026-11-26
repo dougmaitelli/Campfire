@@ -130,6 +130,7 @@ func preserveInstallation(ctx context.Context, volume, stage string, options mod
 	defer progress.Flush()
 
 	var copier sparseFileCopier
+
 	return fs.WalkDir(source.FS(), ".", func(name string, item fs.DirEntry, err error) error {
 		if err != nil {
 			return err

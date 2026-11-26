@@ -93,6 +93,7 @@ func testDeletedPageLease(t *testing.T, sending bool) {
 		if recovered == nil || !recovered.Work.Creating || recovered.Work.CreationID != claim.Work.CreationID {
 			t.Fatal("lost an unconfirmed send after its lease expired", recovered)
 		}
+
 		return
 	}
 

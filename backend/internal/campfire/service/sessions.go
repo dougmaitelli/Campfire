@@ -10,10 +10,12 @@ type sessionUserAgentKey struct{}
 // WithSessionUserAgent attaches bounded browser metadata to a new login.
 func WithSessionUserAgent(ctx context.Context, agent string) context.Context {
 	agent = strings.ToValidUTF8(agent, "")
+
 	runes := []rune(agent)
 	if len(runes) > 512 {
 		agent = string(runes[:512])
 	}
+
 	return context.WithValue(ctx, sessionUserAgentKey{}, agent)
 }
 
@@ -38,21 +40,26 @@ func (s *AuthService) Sessions(ctx context.Context, token string) ([]LoginSessio
 	if err != nil {
 		return nil, err
 	}
+
 	sessions, err := s.store.Sessions(ctx, current, s.now())
 	if err != nil {
 		return nil, err
 	}
+
 	local, err := s.LocalLoginEnabled(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	result := make([]LoginSession, 0, len(sessions))
 	for _, session := range sessions {
 		if session.Provider == "" && !local || session.Provider != "" && session.Provider != s.loginProvider {
 			continue
 		}
+
 		result = append(result, LoginSession{ID: tokenHash(session.Hash), UserAgent: session.UserAgent, CreatedAt: session.CreatedAt, LastSeenAt: session.LastSeenAt, ExpiresAt: session.ExpiresAt, Current: session.Hash == current.Hash})
 	}
+
 	return result, nil
 }
 
@@ -63,15 +70,18 @@ func (s *AuthService) RevokeSession(ctx context.Context, token, id string) (bool
 	if err != nil {
 		return false, err
 	}
+
 	sessions, err := s.store.Sessions(ctx, current, s.now())
 	if err != nil {
 		return false, err
 	}
+
 	for _, session := range sessions {
 		if tokenHash(session.Hash) == id {
 			return session.Hash == current.Hash, s.store.RevokeOwnedSession(ctx, current.UserID, session.Hash)
 		}
 	}
+
 	return false, nil
 }
 
@@ -81,5 +91,6 @@ func (s *AuthService) RevokeOtherSessions(ctx context.Context, token string) err
 	if err != nil {
 		return err
 	}
+
 	return s.store.RevokeOtherSessions(ctx, current)
 }

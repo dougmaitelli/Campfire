@@ -242,6 +242,7 @@ func (m *Manager) uploadFile(ctx context.Context, d model.Deployment, root *os.R
 			if errors.Is(err, syscall.EDQUOT) {
 				return result, Failure(model.FileLimitExceeded, "Upload exceeds the server disk allocation.")
 			}
+
 			if errors.Is(err, uploadstore.ErrTooManyRanges) {
 				return result, Failure(model.FileLimitExceeded, "Upload has too many disjoint ranges.")
 			}

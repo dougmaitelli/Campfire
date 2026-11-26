@@ -41,7 +41,9 @@ func New(host Host) *Manager {
 	if host.LogicalDiskLimitMB == nil {
 		host.LogicalDiskLimitMB = func(configured int64) int64 { return configured }
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
+
 	return &Manager{Host: host, ctx: ctx, cancel: cancel, operations: make(map[string]*extractionSession), compressions: make(map[string]*compressionSession)}
 }
 
