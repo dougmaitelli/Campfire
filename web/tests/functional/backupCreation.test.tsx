@@ -149,7 +149,7 @@ test("metadata refreshes preserve an open editor's backup policy draft", async (
   await user.type(copies, "37");
   view.rerender(<ServerDrawer {...props} server={{ ...original }} />);
   expect(getBackupPolicy).toHaveBeenCalledOnce();
-  expect((copies as HTMLInputElement).value).toBe("37");
+  expect((copies as HTMLInputElement).valueAsNumber).toBe(37);
 });
 
 test("development effect cleanup keeps the backup token alive until explicit cancellation", async () => {

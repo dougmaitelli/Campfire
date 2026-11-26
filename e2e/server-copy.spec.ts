@@ -590,8 +590,12 @@ test("the shared Jobs list polls only the displayed page without appending", asy
   ).toBeDisabled();
   const previousHead = headRequests;
   const initialOlder = olderRequests;
-  await page.clock.runFor(60000);
-  await expect.poll(() => olderRequests).toBeGreaterThan(initialOlder);
+  await expect
+    .poll(async () => {
+      await page.clock.fastForward(30000);
+      return olderRequests;
+    })
+    .toBeGreaterThan(initialOlder);
   expect(headRequests).toBe(previousHead);
   await expect(rows).toHaveCount(3);
 });
